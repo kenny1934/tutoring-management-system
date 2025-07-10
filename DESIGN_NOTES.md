@@ -27,3 +27,8 @@ This is a core feature of the regular course system.
     -   A scheduled AppSheet Bot (Report) will run daily or weekly.
     -   It will check how many "Attended" or "Scheduled" sessions are left for each student's most recent enrollment block.
     * When the number of remaining sessions is low (e.g., 2 or less), it will trigger a notification email to the administrative staff.
+
+### 4. Student Assignment & Filtering Logic
+-   The assignment process will be managed in a dedicated "Processing" Google Sheet, separate from the raw Google Form response data file, connected via `IMPORTRANGE`.
+-   A `Student_Master_List` tab within this processing sheet will serve as the source of truth for student-specific data (`Grade`, `Lang Stream`, etc.).
+-   The "First Choice" sheets (e.g., `MSA (First Choice)`) must be filtered not only by the student's course selection but also by their `Grade` and `Lang Stream` as sourced from the master list. This requires a formulaic join between the form responses and the student master list.
