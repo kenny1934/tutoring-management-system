@@ -30,5 +30,28 @@ This is a core feature of the regular course system.
 
 ### 4. Student Assignment & Filtering Logic
 -   The assignment process will be managed in a dedicated "Processing" Google Sheet, separate from the raw Google Form response data file, connected via `IMPORTRANGE`.
+
+### 5. Data Management Workflow (Pre- and Post-Launch)
+
+This section clarifies the role of Google Sheets and the AppSheet app before and after the initial database setup and app launch.
+
+#### Pre-Launch Phase (Initial Data Setup)
+
+The Google Sheets we are currently building (`Consolidated_Student_List`, `Registration_Processing`, etc.) serve a temporary but critical purpose. Their role is to:
+1.  **Consolidate:** Combine the separate, existing student lists into one master source.
+2.  **Clean & Enrich:** Match incoming form registrations with the master list to create a clean, reliable dataset.
+3.  **Stage for Import:** Prepare this final, clean dataset for a one-time import into the Cloud SQL database.
+
+#### Post-Launch Phase (Ongoing Operations)
+
+Once the Cloud SQL database is live, the workflow changes significantly and the processing sheets become obsolete for daily tasks.
+
+* **Single Source of Truth:** The **Cloud SQL database** becomes the definitive master record for all data.
+* **Primary Tool:** The **AppSheet app** becomes the primary interface for all data management.
+* **New Student Workflow:**
+    1.  A new student registers via the Google Form.
+    2.  The submission appears in a "Pending Registrations" view *inside the AppSheet app*.
+    3.  An admin reviews the entry in the app and clicks an "Approve Student" action.
+    4.  This action writes the new student's data **directly** to the SQL database. All manual spreadsheet work for new entries is eliminated.
 -   A `Student_Master_List` tab within this processing sheet will serve as the source of truth for student-specific data (`Grade`, `Lang Stream`, etc.).
 -   The "First Choice" sheets (e.g., `MSA (First Choice)`) must be filtered not only by the student's course selection but also by their `Grade` and `Lang Stream` as sourced from the master list. This requires a formulaic join between the form responses and the student master list.
