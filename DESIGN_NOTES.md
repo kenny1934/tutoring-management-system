@@ -42,6 +42,18 @@ The Google Sheets we are currently building (`Consolidated_Student_List`, `Regis
 2.  **Clean & Enrich:** Match incoming form registrations with the master list to create a clean, reliable dataset.
 3.  **Stage for Import:** Prepare this final, clean dataset for a one-time import into the Cloud SQL database.
 
+#### `Consolidated_Student_List` Sheet
+* **Purpose:** To create a single, unified master list of all students from the separate source files (e.g., MSA list, MSB list).
+* **Implementation:** The sheet uses an `IMPORTRANGE` formula to pull data from each source file. As it imports the data, a new `Location` column is programmatically added to each record (e.g., "MSA", "MSB") so that every student has an associated location. This sheet also uses the `TO_TEXT` function to ensure all Student IDs are treated as text to prevent data type mismatches.
+
+#### `Registration_Processing` Sheet
+* **Purpose:** To serve as a workspace for an administrator to match new, unverified form registrations with the official student records from the `Consolidated_Student_List`. This is the key human-in-the-loop quality control step.
+* **Workflow:**
+    1.  **Data Ingestion:** A formula automatically pulls in new registrations from the raw `Form Responses (Live)` sheet, merging the Chinese and English columns into a clean list.
+    2.  **Data Standardization:** Helper formulas automatically translate form inputs into standardized data (e.g., the long "Branch Choice" text is converted to "MSA" or "MSB" in a dedicated `Location` column).
+    3.  **Manual Verification (The Admin Task):** An administrator looks at the `Student Name (from Form)` for each new registration and enters the corresponding **Official Student ID** into the `Student ID (Manual Input)` column.
+    4.  **Automatic Enrichment:** Once the correct ID is entered, a final set of `XLOOKUP` formulas automatically populates the remaining columns (`Official Student Name`, `Official Grade`, `Official Lang Stream`, etc.) by pulling the correct data from the `Consolidated_Student_List`. This lookup is precise as it uses both the `Location` and the verified `Student ID`.
+
 #### Post-Launch Phase (Ongoing Operations)
 
 Once the Cloud SQL database is live, the workflow changes significantly and the processing sheets become obsolete for daily tasks.
