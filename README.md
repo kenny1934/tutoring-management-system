@@ -22,17 +22,17 @@ Key objectives include:
 ## Project Roadmap
 
 ### Phase 1: Data Foundation
--   [x] Design and create the core database schema in Cloud SQL (`tutors`, `students`, `session_log`, etc.).
--   [ ] Establish the data processing workflow from Google Forms to the assignment sheets.
--   [ ] Finalize and populate the `LangStream_Overrides` and other helper sheets.
+-   [x] Design the core database schema for Cloud SQL.
+-   [x] Establish the data processing workflow in Google Sheets.
+-   [x] Create the `Consolidated_Student_List` to unify student data from separate files.
+-   [x] Build the `Registration_Processing` sheet to clean and verify new sign-ups.
 
 ### Phase 2: AppSheet Application
 -   [ ] Connect the AppSheet app to the Cloud SQL data sources.
--   [ ] Implement Role-Based Access Control (RBAC) based on the `tutors` table.
--   [ ] Build core views (Schedules, Student Lists, etc.).
--   [ ] Create key actions (Mark Attendance, Log Materials, Reschedule).
--   [ ] Implement the `Enrollments` system and the associated automations for session generation and payment reminders.
+-   [ ] Implement Role-Based Access Control (RBAC).
+-   [ ] Build core views and key user actions.
+-   [ ] Implement automations for session generation and reminders.
 
 ### Phase 3: Reporting & Dashboards
--   [ ] Set up the individual tutor schedule sheets using the `IMPORTRANGE` + `QUERY` method.
--   [ ] Build any required administrative or performance dashboards.
+-   [ ] Set up individual tutor schedule sheets using the formula-driven method.
+-   [ ] Build administrative and performance dashboards.
