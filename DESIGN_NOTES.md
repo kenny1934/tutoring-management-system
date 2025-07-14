@@ -63,7 +63,50 @@ Once the Cloud SQL database is live, the workflow changes significantly and the 
 * **New Student Workflow:**
     1.  A new student registers via the Google Form.
     2.  The submission appears in a "Pending Registrations" view *inside the AppSheet app*.
-    3.  An admin reviews the entry in the app and clicks an "Approve Student" action.
-    4.  This action writes the new student's data **directly** to the SQL database. All manual spreadsheet work for new entries is eliminated.
+ 
+### 6. Data Entry & Assignment Workflow Models
+
+This section outlines the two potential architectural models for handling the regular course enrollment and assignment process. A final decision will be made before building the corresponding AppSheet views and actions.
+
+---
+#### **Model A: The "App-First" Model**
+
+This model centralizes all work within the AppSheet application after the initial data setup.
+
+* **Concept:** All data entry and assignment tasks are performed directly within the AppSheet application. The Google Sheets are used primarily for initial data collection (Google Form) and final reporting (dashboards).
+* **Workflow:**
+    1.  An admin views new registrations from the Google Form inside a dedicated "Pending Registrations" view **in the app**.
+    2.  The admin uses an "Assign Schedule" action **in the app**, which opens an app form.
+    3.  On this form, they select the recurring `Assigned Day`, `Time`, `Tutor`, etc.
+    4.  Saving the form writes the new record directly to the `enrollments` table in the Cloud SQL database.
+* **Role of Spreadsheets:** The `MSA/B Assignments` sheets are **eliminated** from the daily workflow. The `Final Schedule` grid becomes a **read-only report** connected directly to the live SQL database.
+* **Pros:**
+    * Creates a single, secure point of data entry.
+    * No complex data migration from sheets to the database is needed for ongoing work.
+    * The workflow learned by the team is the final, permanent one.
+* **Cons:**
+    * All app views and actions for enrollment must be fully built before the team can begin processing students.
+    * Initial bulk assignment of many students may be slower through individual app forms than in a spreadsheet grid.
+
+---
+#### **Model B: The "Hybrid" Model**
+
+This model retains the Google Sheets as a key workspace for planning and preparation.
+
+* **Concept:** The `MSA/B Assignments` sheets are used as a flexible, collaborative workspace for planning, and the AppSheet app is used for final data submission and management.
+* **Workflow:**
+    1.  New student registrations are automatically populated into the `MSA/B Assignments` sheet from the `Registration_Processing` sheet.
+    2.  The admin team works **directly in the spreadsheet** to assign the `Day`, `Time`, `Tutor`, etc., for each student.
+    3.  Once a student's assignment is finalized in the sheet, the admin goes into the AppSheet app.
+    4.  An action in the app will allow the admin to select the finalized row from the spreadsheet and "submit" or "promote" it, which then creates the official record in the `enrollments` table in Cloud SQL.
+* **Role of Spreadsheets:** The `Assignments` sheets remain a **critical, interactive part** of the workflow for planning and data preparation before final submission.
+* **Pros:**
+    * Uses a familiar spreadsheet interface that is very efficient for bulk planning and visualization.
+    * The team can begin planning and assigning students before the app's data entry forms are perfected.
+* **Cons:**
+    * Data temporarily exists in two places (the "planned" data in the sheet and the "official" data in the database), which requires a clear process to keep them in sync.
+    * Requires a robust mechanism in the app to "pull" the data from the sheet row into the database.
+    4.  An admin reviews the entry in the app and clicks an "Approve Student" action.
+    5.  This action writes the new student's data **directly** to the SQL database. All manual spreadsheet work for new entries is eliminated.
 -   A `Student_Master_List` tab within this processing sheet will serve as the source of truth for student-specific data (`Grade`, `Lang Stream`, etc.).
 -   The "First Choice" sheets (e.g., `MSA (First Choice)`) must be filtered not only by the student's course selection but also by their `Grade` and `Lang Stream` as sourced from the master list. This requires a formulaic join between the form responses and the student master list.
