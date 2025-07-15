@@ -110,4 +110,18 @@ This model retains the Google Sheets as a key workspace for planning and prepara
 * **Cons:**
     * Data temporarily exists in two places (the "planned" data in the sheet and the "official" data in the database), which requires a clear process to keep them in sync.
     * Requires a robust mechanism in the app to "pull" the data from the sheet row into the database.
+ 
+### 7. Development Strategy & Data Handling
+
+This section outlines key strategies for the app's development phase and how specific data points will be managed.
+
+#### Student Data Management (During Development)
+To handle the fact that the master student list is still being actively updated, the development of the app will follow a **"Live Sheet"** strategy:
+-   The **`students`** data source within the AppSheet app will **temporarily point to the `Consolidated_Student_List` Google Sheet**. This ensures the app always uses live, up-to-the-minute student data during the entire building and testing phase.
+-   All other primary tables (`tutors`, `enrollments`, `session_log`) will be connected to the Cloud SQL database from the start.
+-   On the official "go-live" date, a final data import will be performed, and the `students` data source in AppSheet will be switched from the Google Sheet to the Cloud SQL table.
+
+#### Data Column Notes
+-   **`phone` Column:** This column will exist in the `students` SQL table. To ensure data privacy, its visibility within the AppSheet app will be restricted using a `Show_If` condition: `LOOKUP(USEREMAIL(), "tutors", "user_email", "role") = "Admin"`. This ensures only users with the "Admin" role can view student phone numbers.
+-   **`grade` Column:** The `students` table will hold the official grade on record. However, the grade submitted in the new registration Google Form will be considered the most current. A workflow will be built into the AppSheet app for admins to easily update a student's official grade in the database based on new registration data.
 
