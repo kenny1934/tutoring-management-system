@@ -1,3 +1,11 @@
+CREATE TABLE tutors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL UNIQUE,
+    tutor_name VARCHAR(255) NOT NULL,
+    default_location VARCHAR(255),
+    role VARCHAR(50) NOT NULL
+);
+
 CREATE TABLE students (
     id INT AUTO_INCREMENT PRIMARY KEY,
     school_student_id VARCHAR(100),
