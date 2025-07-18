@@ -125,3 +125,24 @@ To handle the fact that the master student list is still being actively updated,
 -   **`phone` Column:** This column will exist in the `students` SQL table. To ensure data privacy, its visibility within the AppSheet app will be restricted using a `Show_If` condition: `LOOKUP(USEREMAIL(), "tutors", "user_email", "role") = "Admin"`. This ensures only users with the "Admin" role can view student phone numbers.
 -   **`grade` Column:** The `students` table will hold the official grade on record. However, the grade submitted in the new registration Google Form will be considered the most current. A workflow will be built into the AppSheet app for admins to easily update a student's official grade in the database based on new registration data.
 
+### 8. Core AppSheet Automations
+
+This section details the primary automations for the "Hybrid Workflow".
+
+#### a. "Submit Enrollment" Action (from Sheet to SQL)
+
+* **Purpose:** To take a finalized row from the `MSA/B Assignments` spreadsheet and create an official record in the `enrollments` SQL table.
+* **Type:** Grouped Action, triggered manually by a user.
+* **Workflow:**
+    1.  **Action 1: `_Create Enrollment Record`**: This action reads the data from the selected spreadsheet row (`_THISROW`) and uses `Data: add a new row to another table` to create a record in the `enrollments` table. It uses `LOOKUP` expressions to find the correct `student_id` and `tutor_id` from the `students` and `tutors` tables based on the names in the sheet.
+    2.  **Action 2: `_Mark as Processed`**: This action sets the `Status` column in the spreadsheet row to "Processed" to provide visual feedback and prevent accidental re-submission.
+
+#### b. "Generate Recurring Sessions" Bot
+
+* **Purpose:** To automatically generate the correct number of weekly session records in the `session_log` whenever a new enrollment is created.
+* **Trigger (Event):** Fires when a new row is added to the `enrollments` table (`ADDS_ONLY`).
+* **Workflow:** The bot runs a single task of type `Run an action on a set of rows`.
+    * **Referenced Rows Formula:** The core logic resides here. An `IF` statement checks the `payment_status` of the new enrollment.
+        * If "Pending Payment", it selects only row `1` from the `Numbers` helper table.
+        * If "Paid", it selects all rows from the `Numbers` table up to the value in the `lessons_paid` column (e.g., rows 1 through 6).
+    * **Referenced Action:** It repeatedly runs a helper action (`_Generate Single Session`) for each row selected above. This action adds a new row to the `session_log` and calculates the `session_date` using the formula: `[first_lesson_date] + (7 * ([Number] - 1))`, ensuring each new session is exactly one week apart.
