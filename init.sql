@@ -50,6 +50,7 @@ CREATE TABLE session_log (
     attendance_marked_by VARCHAR(255),
     attendance_mark_time DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    previous_session_status VARCHAR(100),
     FOREIGN KEY (enrollment_id) REFERENCES enrollments(id),
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id)
