@@ -17,7 +17,7 @@ Key objectives include:
 * **Frontend & Business Logic:** AppSheet
 * **Database:** Google Cloud SQL
 * **Data Staging & Reporting:** Google Sheets
-* **Advanced Automation:** Google Apps Script (if required)
+* **Advanced Automation:** Google Apps Script
 
 ## Project Roadmap
 
