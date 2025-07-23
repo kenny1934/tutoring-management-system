@@ -137,12 +137,30 @@ This section details the primary automations for the "Hybrid Workflow".
     1.  **Action 1: `_Create Enrollment Record`**: This action reads the data from the selected spreadsheet row (`_THISROW`) and uses `Data: add a new row to another table` to create a record in the `enrollments` table. It uses `LOOKUP` expressions to find the correct `student_id` and `tutor_id` from the `students` and `tutors` tables based on the names in the sheet.
     2.  **Action 2: `_Mark as Processed`**: This action sets the `Status` column in the spreadsheet row to "Processed" to provide visual feedback and prevent accidental re-submission.
 
-#### b. "Generate Recurring Sessions" Bot
+#### b. Automation: Recurring Session Generation
 
-* **Purpose:** To automatically generate the correct number of weekly session records in the `session_log` whenever a new enrollment is created.
+The system for automatically generating recurring sessions is handled by a combination of an AppSheet Bot and a Google Apps Script. This design was chosen to overcome context and timing limitations within the native AppSheet automation platform.
+
+##### i. AppSheet Bot: "Generate Recurring Sessions"
+
+* **Purpose:** To trigger the session generation process whenever a new enrollment is created.
 * **Trigger (Event):** Fires when a new row is added to the `enrollments` table (`ADDS_ONLY`).
-* **Workflow:** The bot runs a single task of type `Run an action on a set of rows`.
-    * **Referenced Rows Formula:** The core logic resides here. An `IF` statement checks the `payment_status` of the new enrollment.
-        * If "Pending Payment", it selects only row `1` from the `Numbers` helper table.
-        * If "Paid", it selects all rows from the `Numbers` table up to the value in the `lessons_paid` column (e.g., rows 1 through 6).
-    * **Referenced Action:** It repeatedly runs a helper action (`_Generate Single Session`) for each row selected above. This action adds a new row to the `session_log` and calculates the `session_date` using the formula: `[first_lesson_date] + (7 * ([Number] - 1))`, ensuring each new session is exactly one week apart.
+* **Task: `Call a webhook`**
+    * This bot's only task is to call the deployed Google Apps Script.
+    * **Body Template:** It sends a simple JSON payload containing only the ID of the newly created enrollment record.
+        ```json
+        {
+          "enrollmentId": "<<INDEX(SORT(enrollments[id], TRUE), 1)>>"
+        }
+        ```
+
+##### ii. Google Apps Script: "Session Generator"
+
+* **Location:** The script is housed in a dedicated, permanent Google Sheet named **`CSM Pro - App Logic & Scripts`** to ensure it is not retired with temporary processing sheets.
+* **Deployment:** The script is deployed as a Web App that can be called by the AppSheet webhook.
+* **Workflow:**
+    1.  **Receives `enrollmentId`:** The script is triggered by the bot and receives the ID of the new enrollment.
+    2.  **Connects to Cloud SQL:** It uses the built-in JDBC Service to connect directly to the `csm_db` database.
+    3.  **Fetches Enrollment Data:** It queries the `enrollments` table to retrieve all the details for the specified `enrollmentId`.
+    4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
+    5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides a "dummy ID" of `0` for each new session to satisfy the API, which the SQL database then ignores, substituting the correct `AUTO_INCREMENT` ID.
