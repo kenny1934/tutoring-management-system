@@ -31,6 +31,8 @@ CREATE TABLE enrollments (
     fee_message_sent BOOLEAN DEFAULT FALSE,
     remark TEXT,
     discount_id INT,
+    last_modified_by VARCHAR(255),
+    last_modified_time DATETIME,
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
     FOREIGN KEY (discount_id) REFERENCES discounts(id)
