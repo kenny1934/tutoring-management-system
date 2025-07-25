@@ -38,7 +38,7 @@ CREATE TABLE enrollments (
 
 CREATE TABLE session_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    enrollment_id INT,
+    enrollment_id INT NULL,
     student_id INT,
     tutor_id INT,
     session_date DATE,
