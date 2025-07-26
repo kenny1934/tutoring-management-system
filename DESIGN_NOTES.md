@@ -187,3 +187,68 @@ The system for automatically generating recurring sessions is handled by a combi
     3.  **Fetches Enrollment Data:** It queries the `enrollments` table to retrieve all the details for the specified `enrollmentId`.
     4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
     5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides a "dummy ID" of `0` for each new session to satisfy the API, which the SQL database then ignores, substituting the correct `AUTO_INCREMENT` ID.
+
+### 9. Student Enrollment Lifecycle
+
+Here is a breakdown of the student enrollment lifecycle, explaining how the "Pending Renewal" view fits in and what is manual vs. automated.
+
+#### The Lifecycle of an Enrollment Renewal
+
+  Think of the "Pending Renewal" view as an automated to-do list for the administrative team.
+
+  - **Step 1**: An Enrollment Nears Its End (Automated)
+
+   * What Happens: A student uses up their lessons.
+   * The Trigger: Our database view, active_enrollments_needing_renewal, is constantly and automatically checking for any student who has 2
+     or fewer "Scheduled" sessions left.
+   * The Result: As soon as this condition is met, the student's current enrollment record automatically appears in the "Pending Renewal"
+     view in your AppSheet app. Nothing is sent yet; the system is simply flagging this student as needing attention.
+
+  - **Step 2**: The Admin Takes Action (Manual)
+
+   * What Happens: The admin sees the student's name in the "Pending Renewal" view.
+   * The Task: This is the trigger for the admin to contact the parent and ask, "Your child's lesson package is about to end. Would you
+     like to renew for another block?"
+   * The Tool: Once the parent agrees, the admin clicks the "Renew Enrollment" action next to the student's name in the app.
+
+  - **Step 3**: A New Enrollment is Created (Manual & Automated)
+
+   * Manual Part: The "Renew Enrollment" action opens a new enrollment form, but it's intelligently pre-filled with all the student's
+     previous details (tutor, day, time, etc.). The system also automatically suggests the correct first_lesson_date for the new block. The
+     admin's job is simply to verify the details and set the payment_status to "Pending Payment".
+   * Automated Part: When the admin saves this new enrollment:
+       * A new record is created in the enrollments table.
+       * Our handleGenerateSessions script automatically runs, creating the next block of sessions in the session_log. Because the payment
+         is pending, it sets the financial_status of these new sessions to "Unpaid".
+
+  - **Step 4**: Payment is Confirmed (Manual)
+
+   * What Happens: The parent pays the invoice.
+   * The Task: The admin finds the "Pending Payment" enrollment in the app and uses a "Confirm Payment" action.
+   * The Result: This action (which we will build) flips the payment_status to "Paid" and automatically updates all the associated "Unpaid"
+     sessions to "Paid".
+
+  - **Step 5**: The Cycle Completes (Automated)
+
+   * What Happens: The student now has a new, fully paid block of lessons and their old enrollment is finished.
+   * The Result: The old, completed enrollment no longer has any "Scheduled" sessions, so it automatically disappears from the "Pending
+     Renewal" view. The cycle is complete and will begin again when the new block of lessons runs low.
+
+#### Summary: Manual vs. Automated
+
+  | Automated (The System's Job)                                                              | Manual (The Admin's Job)
+                                                  |
+  | ----------------------------------------------------------------------------------------- |
+  ------------------------------------------------------------------------------------------- |
+  | ✅ Identifies students who need renewal and adds them to the "Pending Renewal" view.      | 🟡 Contacts the parent to confirm they want
+  to renew.                                       |
+  | ✅ Pre-fills the new enrollment form with the student's previous data.                    | 🟡 Clicks the "Renew Enrollment" action to
+  start the process.                               |
+  | ✅ Calculates the correct start date for the new enrollment block.                        | 🟡 Verifies the pre-filled data and saves
+  the new "Pending Payment" enrollment.            |
+  | ✅ Generates all the new session records in the database with an "Unpaid" status.         | 🟡 Uses a "Confirm Payment" action once the
+  parent has paid.                                 |
+  | ✅ Removes the old, completed enrollment from the "Pending Renewal" view.                 |
+                                                  |
+
+  - This workflow ensures that no student is forgotten, the renewal process is consistent, and the admin team can focus on communication and confirmation, not on tedious data entry.
