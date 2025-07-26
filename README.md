@@ -47,9 +47,16 @@ This initial phase focused on establishing a solid data backend and a functional
 
 This phase focuses on building the essential user interface and features within the AppSheet app for daily operations. See `TODO.md` for a detailed task list.
 
-### Phase 3: Financial Management & Renewals (Next)
+### Phase 3: Financial Management & Renewals (In Progress)
 
 This phase will build the critical workflows for managing the entire student lifecycle, from trial classes to renewals and overdue payments.
+
+* **Holiday-Aware Scheduling:**
+    * [x] Added a `holidays` table to the database to store non-working days.
+    * [x] The Google Apps Script for session generation now automatically skips holidays, extending enrollment periods accurately.
+* **Renewal Workflow Foundation:**
+    * [x] Created a `calculate_end_date` SQL function to determine the correct, holiday-adjusted end date for an enrollment, ignoring rescheduled make-up classes.
+    * [x] Built the `active_enrollments_needing_renewal` database view to provide a real-time list of students whose enrollments are ending soon.
 
 ### Phase 4: Go-Live & System Transition (Future)
 

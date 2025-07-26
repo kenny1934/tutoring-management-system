@@ -15,17 +15,21 @@ This document outlines the implementation plan for the CSM Pro application, brok
 -   [ ] **Implement Core Actions:**
     -   [ ] **Mark Attendance:** Create the action for tutors to mark sessions as "Attended", "No Show", etc.
     -   [ ] **Edit Session Notes:** Allow tutors to add notes to session records.
--   [ ] **Implement Audit Trails:**
-    -   [ ] Add `last_modified_by` and `last_modified_time` columns to the `session_log` and `enrollments` tables.
-    -   [ ] Integrate the update of these columns into all relevant actions (`Mark Attendance`, `Edit Notes`, `Submit Enrollment`).
+-   [x] **Implement Audit Trails:**
+    -   [x] Add `last_modified_by` and `last_modified_time` columns to the `session_log` and `enrollments` tables.
+    -   [x] Integrate the update of these columns into all relevant actions (`Mark Attendance`, `Edit Notes`, `Submit Enrollment`).
 
 ---
 ### ## Phase 3: Financial Management & Renewals
 
 *The goal is to automate and streamline the entire student payment lifecycle.*
 
--   [ ] **Renewal Workflow:**
-    -   [ ] **View:** Create a dedicated "Active Enrollments" view, sorted to show students with few lessons remaining.
+-   [x] **Renewal Workflow Foundation:**
+    -   [x] **View:** Create a dedicated database view (`active_enrollments_needing_renewal`) to identify enrollments with 2 or fewer sessions left.
+    -   [x] **Holiday Logic:** Implement a `holidays` table and update the session generation script to skip non-working days.
+    -   [x] **End Date Calculation:** Create a robust SQL function (`calculate_end_date`) to determine the accurate, holiday-adjusted end date for renewals.
+-   [ ] **Renewal AppSheet UI:**
+    -   [ ] **View:** Create a dedicated "Renewals" view in the app that displays the `active_enrollments_needing_renewal` data.
     -   [ ] **Action:** Build a "Renew Enrollment" action. This should intelligently pre-fill the new enrollment form with data from the student's previous one, automatically suggesting the next `first_lesson_date`.
 -   [ ] **Payment Reminder System:**
     -   [ ] **Bot:** Design a scheduled AppSheet Bot that runs weekly.

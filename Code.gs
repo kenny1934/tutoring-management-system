@@ -39,6 +39,14 @@ function handleUpdateGrade(data) {
   return ContentService.createTextOutput(JSON.stringify({ "Status": "Success" })).setMimeType(ContentService.MimeType.JSON);
 }
 
+function isHoliday(date, holidays) {
+    for (let i = 0; i < holidays.length; i++) {
+        if (date.getTime() === holidays[i].getTime()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 function handleGenerateSessions(data) {
     const enrollmentId = parseInt(data.enrollmentId, 10);
@@ -51,6 +59,18 @@ function handleGenerateSessions(data) {
     const password = "PASSWORD";
 
     const conn = Jdbc.getCloudSqlConnection(connectionString, username, password);
+
+    // Get holidays
+    const holidayStmt = conn.prepareStatement("SELECT holiday_date FROM holidays");
+    const holidayResults = holidayStmt.executeQuery();
+    const holidays = [];
+    while (holidayResults.next()) {
+        holidays.push(new Date(holidayResults.getDate("holiday_date").getTime()));
+    }
+    holidayResults.close();
+    holidayStmt.close();
+
+
     const stmt = conn.prepareStatement("SELECT * FROM enrollments WHERE id = ?");
     stmt.setInt(1, enrollmentId);
     const results = stmt.executeQuery();
@@ -60,7 +80,6 @@ function handleGenerateSessions(data) {
     if (results.next()) {
         const studentId = results.getInt("student_id");
         const tutorId = results.getInt("tutor_id");
-        // ... (rest of the variables are the same)
         const lessonsPaid = results.getInt("lessons_paid");
         const firstLessonDate = new Date(results.getDate("first_lesson_date").getTime());
         const paymentStatus = results.getString("payment_status");
@@ -70,12 +89,15 @@ function handleGenerateSessions(data) {
         const sessionsToCreate = (paymentStatus === "Pending Payment") ? 1 : lessonsPaid;
         const financialStatus = (paymentStatus === "Paid") ? "Paid" : "Unpaid";
         
-        // Log the data we found
         Logger.log(`Found enrollment data. Creating ${sessionsToCreate} sessions.`);
 
+        let sessionDate = new Date(firstLessonDate);
+
         for (let i = 0; i < sessionsToCreate; i++) {
-            const sessionDate = new Date(firstLessonDate);
-            sessionDate.setDate(firstLessonDate.getDate() + (7 * i));
+            // Find the next valid session date, skipping holidays
+            while (isHoliday(sessionDate, holidays)) {
+                sessionDate.setDate(sessionDate.getDate() + 7);
+            }
             
             const newRow = {
             "id": 0,
@@ -88,6 +110,9 @@ function handleGenerateSessions(data) {
             "session_date": sessionDate.toISOString().slice(0, 10)
             };
             newSessionRows.push(newRow);
+
+            // Move to the next week for the next session
+            sessionDate.setDate(sessionDate.getDate() + 7);
         }
     } else {
         Logger.log("Error: Could not find Enrollment with ID: " + enrollmentId);
@@ -97,7 +122,6 @@ function handleGenerateSessions(data) {
     stmt.close();
     conn.close();
 
-    // Only call the API if we have rows to add
     if (newSessionRows.length > 0) {
         Logger.log("Sending " + newSessionRows.length + " rows to AppSheet API.");
         addRowsToAppSheet(newSessionRows);
@@ -137,6 +161,5 @@ function addRowsToAppSheet(rowsToAdd) {
   };
 
   const response = UrlFetchApp.fetch(url, options);
-  // Log the response from the AppSheet API
   Logger.log("API Response: " + response.getContentText());
 }
