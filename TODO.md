@@ -28,9 +28,9 @@ This document outlines the implementation plan for the CSM Pro application, brok
     -   [x] **View:** Create a dedicated database view (`active_enrollments_needing_renewal`) to identify enrollments with 2 or fewer sessions left.
     -   [x] **Holiday Logic:** Implement a `holidays` table and update the session generation script to skip non-working days.
     -   [x] **End Date Calculation:** Create a robust SQL function (`calculate_end_date`) to determine the accurate, holiday-adjusted end date for renewals.
--   [ ] **Renewal AppSheet UI:**
-    -   [ ] **View:** Create a dedicated "Renewals" view in the app that displays the `active_enrollments_needing_renewal` data.
-    -   [ ] **Action:** Build a "Renew Enrollment" action. This should intelligently pre-fill the new enrollment form with data from the student's previous one, automatically suggesting the next `first_lesson_date`.
+-   [X] **Renewal AppSheet UI:**
+    -   [X] **View:** Create a dedicated "Renewals" view in the app that displays the `active_enrollments_needing_renewal` data.
+    -   [X] **Action:** Build a "Renew Enrollment" action. This should intelligently pre-fill the new enrollment form with data from the student's previous one, automatically suggesting the next `first_lesson_date`.
 -   [ ] **Payment Reminder System:**
     -   [ ] **Bot:** Design a scheduled AppSheet Bot that runs weekly.
     -   [ ] **Logic:** The bot will scan the `session_log` to find active enrollments with 1 or 2 `Scheduled` sessions left.
