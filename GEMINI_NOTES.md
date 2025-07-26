@@ -20,7 +20,6 @@ This file tracks the progress and objectives of our development sessions.
     4.  Created the `active_enrollments_needing_renewal` view using the new function.
   - **Integration:** Updated all documentation (`README.md`, `DESIGN_NOTES.md`, `TODO.md`) to reflect the new architecture.
 
-**Next Immediate Step:**
 - Build the user-facing renewal features in the AppSheet app:
   1.  Create a new view to display the data from the `active_enrollments_needing_renewal` view.
   2.  Create the "Renew Enrollment" action, which should pre-fill a new enrollment form with the student's data.
