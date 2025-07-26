@@ -69,3 +69,128 @@ CREATE TABLE discounts (
     discount_value DECIMAL(10, 2),
     is_active BOOLEAN DEFAULT TRUE
 );
+
+CREATE TABLE holidays (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    holiday_date DATE NOT NULL UNIQUE,
+    holiday_name VARCHAR(255)
+);
+
+INSERT INTO holidays (holiday_date, holiday_name) VALUES
+('2024-09-18', 'Mid-Autumn Festival'),
+('2024-10-01', 'National Day'),
+('2024-10-11', 'Chung Yeung Festival'),
+('2024-10-28', 'Company Trip'),
+('2024-10-29', 'Company Trip'),
+('2024-10-30', 'Company Trip'),
+('2024-10-31', 'Company Trip'),
+('2024-11-01', 'Company Trip'),
+('2024-11-02', 'Company Trip'),
+('2024-12-20', 'Macau SAR Day'),
+('2024-12-25', 'Christmas Day'),
+('2024-12-26', 'The first weekday after Christmas Day'),
+('2024-12-27', 'Christmas Holiday'),
+('2024-12-28', 'Christmas Holiday'),
+('2025-01-01', 'New Year''s Day'),
+('2025-01-28', 'Chinese New Year''s Eve'),
+('2025-01-29', 'Chinese New Year''s Day'),
+('2025-01-30', 'The second day of Chinese New Year'),
+('2025-01-31', 'The third day of Chinese New Year'),
+('2025-03-16', 'School Holiday'),
+('2025-03-17', 'School Holiday'),
+('2025-04-04', 'Ching Ming Festival'),
+('2025-04-19', 'Good Friday'),
+('2025-04-20', 'Easter Monday'),
+('2025-05-01', 'Labour Day'),
+('2025-05-27', 'Buddha''s Birthday'),
+('2025-07-01', 'HKSAR Establishment Day'),
+('2025-09-22', 'School Holiday'),
+('2025-10-01', 'Mid-Autumn Festival'),
+('2025-10-07', 'Chung Yeung Festival'),
+('2025-10-29', 'Chung Yeung Festival'),
+('2025-12-20', 'Macau SAR Day'),
+('2025-12-21', 'Christmas Holiday'),
+('2025-12-22', 'Christmas Holiday'),
+('2025-12-23', 'Christmas Holiday'),
+('2025-12-24', 'Christmas Eve'),
+('25-12-25', 'Christmas Day'),
+('25-12-26', 'The first weekday after Christmas Day');
+
+
+/*
+  IMPORTANT: The following `CREATE FUNCTION` statement needs to be executed separately from the rest of the script.
+  Most SQL clients execute statements one by one, separated by a semicolon (;).
+  Because the function body itself contains semicolons, you must handle it specially.
+
+  If you are using a command-line client (like MySQL Shell or mysql), you must first
+  change the delimiter before running the `CREATE FUNCTION` block. For example:
+
+  DELIMITER $
+  CREATE FUNCTION calculate_end_date( ... )
+  ...
+  END$
+  DELIMITER ;
+
+  If you are using a graphical tool (like DBeaver, MySQL Workbench, or AppSheet's database editor),
+  you can typically select the entire `CREATE FUNCTION...END` block and execute it as a single statement.
+*/
+
+DROP FUNCTION IF EXISTS calculate_end_date;
+
+CREATE FUNCTION calculate_end_date(
+    p_first_lesson_date DATE,
+    p_lessons_paid INT
+)
+RETURNS DATE
+READS SQL DATA
+BEGIN
+    DECLARE v_end_date DATE;
+    DECLARE v_lessons_counted INT DEFAULT 0;
+    DECLARE v_current_date DATE;
+    DECLARE v_holiday_count INT;
+
+    SET v_current_date = p_first_lesson_date;
+
+    WHILE v_lessons_counted < p_lessons_paid DO
+        -- Check if the current date is a holiday
+        SELECT COUNT(*) INTO v_holiday_count FROM holidays WHERE holiday_date = v_current_date;
+
+        IF v_holiday_count = 0 THEN
+            SET v_lessons_counted = v_lessons_counted + 1;
+            SET v_end_date = v_current_date;
+        END IF;
+        -- Move to the next week
+        SET v_current_date = DATE_ADD(v_current_date, INTERVAL 1 WEEK);
+    END WHILE;
+
+    RETURN v_end_date;
+END;
+
+-- The view creation should be run after the function is successfully created.
+DROP VIEW IF EXISTS active_enrollments_needing_renewal;
+
+CREATE OR REPLACE VIEW active_enrollments_needing_renewal AS
+SELECT
+    e.*, -- Selects all columns from the enrollments table
+    s.student_name,
+    t.tutor_name,
+    (
+        SELECT COUNT(*)
+        FROM session_log sl
+        WHERE sl.enrollment_id = e.id AND sl.session_status = 'Scheduled'
+    ) AS remaining_sessions,
+    calculate_end_date(e.first_lesson_date, e.lessons_paid) AS end_date
+FROM
+    enrollments e
+JOIN
+    students s ON e.student_id = s.id
+JOIN
+    tutors t ON e.tutor_id = t.id
+WHERE e.payment_status = 'Paid' AND e.id IN (
+    -- This subquery finds enrollments with 1 or 2 sessions left
+    SELECT enrollment_id
+    FROM session_log
+    WHERE enrollment_id IS NOT NULL AND session_status = 'Scheduled'
+    GROUP BY enrollment_id
+    HAVING COUNT(*) <= 2 AND COUNT(*) > 0
+);

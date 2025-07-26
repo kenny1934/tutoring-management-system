@@ -125,6 +125,29 @@ To handle the fact that the master student list is still being actively updated,
 -   **`phone` Column:** This column will exist in the `students` SQL table. To ensure data privacy, its visibility within the AppSheet app will be restricted using a `Show_If` condition: `LOOKUP(USEREMAIL(), "tutors", "user_email", "role") = "Admin"`. This ensures only users with the "Admin" role can view student phone numbers.
 -   **`grade` Column:** The `students` table will hold the official grade on record. However, the grade submitted in the new registration Google Form will be considered the most current. A workflow will be built into the AppSheet app for admins to easily update a student's official grade in the database based on new registration data.
 
+### 9. Holiday & End Date Calculation
+
+To handle complexities from statutory holidays and rescheduled make-up classes, the system uses a robust, database-driven approach to calculate enrollment end dates.
+
+#### a. `holidays` Table
+
+*   **Purpose:** To store a definitive list of all non-working days (e.g., public holidays, school breaks) on which tutoring sessions will not be scheduled.
+*   **Structure:** Contains `holiday_name`, `start_date`, and `end_date` to define single days or holiday periods.
+*   **Maintenance:** This table is managed by administrators and updated annually with the new school year's calendar.
+
+#### b. Session Generation Logic (`Code.gs`)
+
+*   The Google Apps Script responsible for generating sessions was updated.
+*   Before creating a weekly session, the script queries the `holidays` table.
+*   If a calculated `session_date` falls on a holiday, the script skips that date and pushes the session to the following week, ensuring the student receives their full block of paid lessons.
+
+#### c. `calculate_end_date` SQL Function
+
+*   **Problem:** Calculating the renewal date based on the `session_log` is unreliable. A make-up class rescheduled to a later date could incorrectly delay the renewal reminder.
+*   **Solution:** A stored SQL function, `calculate_end_date(start_date, lessons_paid)`, was created to provide the "natural" end date of an enrollment.
+*   **Logic:** The function iterates from the `first_lesson_date`, adding one week for each of the `lessons_paid`, while programmatically skipping any dates that fall within the `holidays` table.
+*   **Benefit:** This calculation is independent of the `session_log` and provides a stable, accurate end date for renewal purposes, ensuring reminders are sent at the correct time. This function is used by the `active_enrollments_needing_renewal` view.
+
 ### 8. Core AppSheet Automations
 
 This section details the primary automations for the "Hybrid Workflow".
