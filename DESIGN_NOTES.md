@@ -179,7 +179,7 @@ The system for automatically generating recurring sessions is handled by a combi
 
 ##### ii. Google Apps Script: "Session Generator"
 
-* **Location:** The script is housed in a dedicated, permanent Google Sheet named **`CSM Pro - App Logic & Scripts`** to ensure it is not retired with temporary processing sheets.
+* **Location:** The script `Code.gs` is housed in a dedicated, permanent Google Sheet named **`CSM Pro - App Logic & Scripts`** to ensure it is not retired with temporary processing sheets.
 * **Deployment:** The script is deployed as a Web App that can be called by the AppSheet webhook.
 * **Workflow:**
     1.  **Receives `enrollmentId`:** The script is triggered by the bot and receives the ID of the new enrollment.
