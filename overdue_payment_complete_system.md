@@ -477,23 +477,23 @@ function handleConfirmPayment(data) {
 ### Testing Checklist
 
 #### 1. Virtual Columns Test
-- [ ] Create enrollment with "Pending Payment" status
-- [ ] Set `first_lesson_date` to yesterday
-- [ ] Verify `Dynamic_Payment_Status` shows "Overdue"
-- [ ] Check `Days_Overdue` calculation is correct
-- [ ] Confirm `Urgency_Level` displays appropriate emoji
+- [X] Create enrollment with "Pending Payment" status
+- [X] Set `first_lesson_date` to yesterday
+- [X] Verify `Dynamic_Payment_Status` shows "Overdue"
+- [X] Check `Days_Overdue` calculation is correct
+- [X] Confirm `Urgency_Level` displays appropriate emoji
 
 #### 2. Overdue Accounts View Test
-- [ ] Navigate to Overdue Accounts view
-- [ ] Verify overdue enrollments appear
-- [ ] Check sorting (overdue first, then by days overdue)
-- [ ] Confirm all virtual columns display correctly
+- [X] Navigate to Overdue Accounts view
+- [X] Verify overdue enrollments appear
+- [X] Check sorting (overdue first, then by days overdue)
+- [X] Confirm all virtual columns display correctly
 
 #### 3. Confirm Payment Action Test
-- [ ] Click "Confirm Payment" on overdue enrollment
-- [ ] Verify confirmation dialog appears
-- [ ] Check enrollment updates to "Paid" status
-- [ ] Confirm `payment_date` is set to today
+- [X] Click "Confirm Payment" on overdue enrollment
+- [X] Verify confirmation dialog appears
+- [X] Check enrollment updates to "Paid" status
+- [X] Confirm `payment_date` is set to today
 
 #### 4. Payment Confirmation Bot Test
 - [ ] Verify bot triggers when payment_status changes to "Paid"
