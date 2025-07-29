@@ -8,6 +8,8 @@ function doPost(e) {
       return handleGenerateSessions(requestData);
     } else if (action === "update_grade") {
       return handleUpdateGrade(requestData);
+    } else if (action === "confirm_payment") {
+      return handleConfirmPayment(requestData);
     }
     // ---------------------
 
@@ -162,4 +164,82 @@ function addRowsToAppSheet(rowsToAdd) {
 
   const response = UrlFetchApp.fetch(url, options);
   Logger.log("API Response: " + response.getContentText());
+}
+
+function handleConfirmPayment(data) {
+    const enrollmentId = parseInt(data.enrollmentId, 10);
+    
+    Logger.log("Processing payment confirmation for Enrollment ID: " + enrollmentId);
+    
+    const connectionString = "jdbc:google:mysql://YOUR_INSTANCE_CONNECTION_NAME/csm_db";
+    const username = "AppSheet";
+    const password = "PASSWORD";
+    
+    const conn = Jdbc.getCloudSqlConnection(connectionString, username, password);
+    
+    try {
+        // Step 1: Update all related sessions to "Paid"
+        const updateStmt = conn.prepareStatement(
+            "UPDATE session_log SET financial_status = 'Paid', last_modified_by = 'System', last_modified_time = NOW() WHERE enrollment_id = ?"
+        );
+        updateStmt.setInt(1, enrollmentId);
+        const updatedRows = updateStmt.executeUpdate();
+        Logger.log(`Updated ${updatedRows} sessions to 'Paid' status`);
+        updateStmt.close();
+        
+        // Step 2: Check if we need to generate additional sessions
+        const countStmt = conn.prepareStatement(
+            "SELECT COUNT(*) as session_count FROM session_log WHERE enrollment_id = ?"
+        );
+        countStmt.setInt(1, enrollmentId);
+        const countResults = countStmt.executeQuery();
+        
+        let sessionCount = 0;
+        if (countResults.next()) {
+            sessionCount = countResults.getInt("session_count");
+        }
+        countResults.close();
+        countStmt.close();
+        
+        // Step 3: Get enrollment details to check if more sessions needed
+        const enrollStmt = conn.prepareStatement("SELECT lessons_paid FROM enrollments WHERE id = ?");
+        enrollStmt.setInt(1, enrollmentId);
+        const enrollResults = enrollStmt.executeQuery();
+        
+        if (enrollResults.next()) {
+            const lessonsPaid = enrollResults.getInt("lessons_paid");
+            Logger.log(`Enrollment has ${lessonsPaid} lessons paid, ${sessionCount} sessions exist`);
+            
+            if (sessionCount < lessonsPaid) {
+                // Generate remaining sessions
+                Logger.log(`Generating ${lessonsPaid - sessionCount} additional sessions`);
+                enrollResults.close();
+                enrollStmt.close();
+                conn.close();
+                
+                // Call the existing session generation function
+                return handleGenerateSessions({enrollmentId: enrollmentId});
+            } else {
+                Logger.log("All sessions already exist, no additional generation needed");
+            }
+        }
+        enrollResults.close();
+        enrollStmt.close();
+        
+    } catch (error) {
+        Logger.log("Error in handleConfirmPayment: " + error.toString());
+        conn.close();
+        return ContentService.createTextOutput(JSON.stringify({ 
+            "Status": "Error", 
+            "Message": error.toString() 
+        })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    conn.close();
+    Logger.log("Payment confirmation completed successfully");
+    
+    return ContentService.createTextOutput(JSON.stringify({ 
+        "Status": "Success",
+        "Message": "Payment confirmed and sessions updated"
+    })).setMimeType(ContentService.MimeType.JSON);
 }
