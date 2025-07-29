@@ -47,9 +47,9 @@ This initial phase focused on establishing a solid data backend and a functional
 
 This phase focuses on building the essential user interface and features within the AppSheet app for daily operations. See `TODO.md` for a detailed task list.
 
-### Phase 3: Financial Management & Renewals (In Progress)
+### Phase 3: Financial Management & Renewals (Mostly Complete)
 
-This phase will build the critical workflows for managing the entire student lifecycle, from trial classes to renewals and overdue payments.
+This phase has built the critical workflows for managing the entire student lifecycle, from trial classes to renewals and overdue payments.
 
 * **Holiday-Aware Scheduling:**
     * [x] Added a `holidays` table to the database to store non-working days.
@@ -57,6 +57,17 @@ This phase will build the critical workflows for managing the entire student lif
 * **Renewal Workflow Foundation:**
     * [x] Created a `calculate_end_date` SQL function to determine the correct, holiday-adjusted end date for an enrollment, ignoring rescheduled make-up classes.
     * [x] Built the `active_enrollments_needing_renewal` database view to provide a real-time list of students whose enrollments are ending soon.
+    * [x] Created a comprehensive renewal UI with "Renew Enrollment" action that pre-fills enrollment forms.
+* **Payment Reminder Automation:**
+    * [x] Implemented weekly automated email reminders for students needing renewal contact.
+    * [x] Built email template system using virtual columns for easy configuration management.
+    * [x] Created comprehensive testing and deployment procedures for email automation.
+* **Overdue Payment Management:**
+    * [x] Built real-time overdue detection using virtual columns that immediately flag overdue payments.
+    * [x] Created "Overdue Accounts" view with urgency levels, priority sorting, and comprehensive filtering.
+    * [x] Implemented "Confirm Payment" action with bot-triggered session updates via Google Apps Script.
+    * [x] Enhanced session generation logic to handle partial payments and prevent duplicate sessions.
+    * [x] Added complete audit trail tracking for all payment-related activities.
 
 ### Phase 4: Go-Live & System Transition (Future)
 

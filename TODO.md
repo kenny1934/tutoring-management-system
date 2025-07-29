@@ -31,14 +31,14 @@ This document outlines the implementation plan for the CSM Pro application, brok
 -   [X] **Renewal AppSheet UI:**
     -   [X] **View:** Create a dedicated "Renewals" view in the app that displays the `active_enrollments_needing_renewal` data.
     -   [X] **Action:** Build a "Renew Enrollment" action. This should intelligently pre-fill the new enrollment form with data from the student's previous one, automatically suggesting the next `first_lesson_date`.
--   [ ] **Payment Reminder System:**
-    -   [ ] **Bot:** Design a scheduled AppSheet Bot that runs weekly.
-    -   [ ] **Logic:** The bot will scan the `session_log` to find active enrollments with 1 or 2 `Scheduled` sessions left.
-    -   [ ] **Notification:** The bot will send a summary email or push notification to the admin team, listing the students who need to be contacted for renewal.
--   [ ] **Overdue Payment Workflow:**
-    -   [ ] **View:** Create a dedicated "Overdue Accounts" view, filtered for enrollments with `Payment_Status` = "Overdue" or "Pending Payment".
-    -   [ ] **Action:** Build the "Confirm Payment" action. This action will change the `Payment_Status` to "Paid" and update the `Financial_Status` of all related sessions from "Unpaid" to "Paid".
-    -   [ ] **Bot:** Enhance the "Generate Recurring Sessions" bot to handle the scenario where an overdue enrollment is marked as "Paid," ensuring it generates the remaining sessions for the block.
+-   [x] **Payment Reminder System:**
+    -   [x] **Bot:** Design a scheduled AppSheet Bot that runs weekly.
+    -   [x] **Logic:** The bot will scan the `session_log` to find active enrollments with 1 or 2 `Scheduled` sessions left.
+    -   [x] **Notification:** The bot will send a summary email or push notification to the admin team, listing the students who need to be contacted for renewal.
+-   [x] **Overdue Payment Workflow:**
+    -   [x] **View:** Create a dedicated "Overdue Accounts" view, filtered for enrollments with `Payment_Status` = "Overdue" or "Pending Payment".
+    -   [x] **Action:** Build the "Confirm Payment" action. This action will change the `Payment_Status` to "Paid" and update the `Financial_Status` of all related sessions from "Unpaid" to "Paid".
+    -   [x] **Bot:** Enhance the "Generate Recurring Sessions" bot to handle the scenario where an overdue enrollment is marked as "Paid," ensuring it generates the remaining sessions for the block.
 -   [ ] **Trial Class System:**
     -   [ ] **Action:** Build the "Book Trial Class" action for new students.
     -   [ ] **Action:** Build the "Convert Trial to Enrollment" action. This should open a new enrollment form and potentially link to the trial session ID to track the conversion source.
