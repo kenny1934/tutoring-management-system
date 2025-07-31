@@ -152,7 +152,7 @@ To handle complexities from statutory holidays and rescheduled make-up classes, 
 
 This section details the primary automations for the "Hybrid Workflow".
 
-#### a. "Submit Enrollment" Action (from Sheet to SQL)
+#### a. "Generate Sessions" Action (from Sheet to SQL)
 
 * **Purpose:** To take a finalized row from the `MSA/B Assignments` spreadsheet and create an official record in the `enrollments` SQL table.
 * **Type:** Grouped Action, triggered manually by a user.

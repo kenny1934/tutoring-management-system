@@ -6,7 +6,7 @@ Since fee messages must be sent BEFORE enrollment submission (to allow parent fe
 
 ## Current Workflow Understanding
 
-**MSA/B Assignments → Generate Fee Message → Send to Parent → Parent Confirms → Submit Enrollment (3 subactions) → Auto-generate sessions**
+**MSA/B Assignments → Generate Fee Message → Send to Parent → Parent Confirms → Generate Sessions (3 subactions) → Auto-generate sessions**
 
 ---
 
@@ -213,7 +213,7 @@ AND(
 - If changes needed, admin updates assignment and regenerates message
 
 #### 4. Enrollment Submission
-- After parent confirmation, admin uses existing "Submit Enrollment" action
+- After parent confirmation, admin uses existing "Generate Sessions" action
 - Three subactions execute: update grade, mark processed, create enrollment
 - Session generation bot triggers automatically
 
@@ -269,7 +269,7 @@ AND(
 ### Complete Workflow:
 - [ ] Test assignment → fee message → parent communication
 - [ ] Verify parent can see exact lesson dates
-- [ ] Test Submit Enrollment after parent confirmation
+- [ ] Test Generate Sessions after parent confirmation
 - [ ] Confirm session generation works with pre-calculated dates
 
-This system provides parents with complete information upfront while maintaining your existing efficient Submit Enrollment automation!
+This system provides parents with complete information upfront while maintaining your existing efficient Generate Sessions automation!

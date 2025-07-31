@@ -17,7 +17,7 @@ This document outlines the implementation plan for the CSM Pro application, brok
     -   [ ] **Edit Session Notes:** Allow tutors to add notes to session records.
 -   [x] **Implement Audit Trails:**
     -   [x] Add `last_modified_by` and `last_modified_time` columns to the `session_log` and `enrollments` tables.
-    -   [x] Integrate the update of these columns into all relevant actions (`Mark Attendance`, `Edit Notes`, `Submit Enrollment`).
+    -   [x] Integrate the update of these columns into all relevant actions (`Mark Attendance`, `Edit Notes`, `Generate Sessions`).
 
 ---
 ### ## Phase 3: Financial Management & Renewals
