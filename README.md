@@ -40,7 +40,7 @@ This initial phase focused on establishing a solid data backend and a functional
 * **CSM Pro App (Core Automation):**
     * [x] Created the "CSM Pro" AppSheet application.
     * [x] Connected the app to both the Cloud SQL database (for permanent records) and the `Assignments` Google Sheet (for the hybrid workflow).
-    * [x] **`Submit Enrollment` Action:** Built the core action that allows an admin to promote a finalized assignment from the spreadsheet into an official `enrollments` record in the database.
+    * [x] **`Generate Sessions` Action:** Built the core action that allows an admin to promote a finalized assignment from the spreadsheet into an official `enrollments` record in the database.
     * [x] **`Generate Recurring Sessions` Bot:** Developed and debugged a robust automation. It uses a webhook to call a dedicated Google Apps Script, which reads the new enrollment from the database and uses the AppSheet API to reliably generate the correct number of session records.
 
 ### Phase 2: Core Application Build-out (In Progress)

@@ -6,9 +6,9 @@ This system streamlines fee message generation and discount management for the b
 
 ## Current Workflow Enhancement
 
-**Before:** MSA/B Assignments → Submit Enrollment → Generate Sessions → *[Manual spreadsheet fee message creation]*
+**Before:** MSA/B Assignments → Generate Sessions → *[Manual spreadsheet fee message creation]*
 
-**After:** MSA/B Assignments → Submit Enrollment → Generate Sessions → **Automatic Fee Message Generation** → Copy & Send to Parents
+**After:** MSA/B Assignments → Generate Sessions → **Automatic Fee Message Generation** → Copy & Send to Parents
 
 ---
 
@@ -181,13 +181,13 @@ IF(LOOKUP([student_id], "students", "id", "is_new_student") = TRUE, 100.00, 0.00
 
 ---
 
-## Part 5: Integration with Submit Enrollment Workflow
+## Part 5: Integration with Generate Sessions Workflow
 
-### Step 6: Enhanced Submit Enrollment Action
+### Step 6: Enhanced Generate Sessions Action
 
-**Navigate to:** Behavior > Actions > Find your existing "Submit Enrollment" action
+**Navigate to:** Behavior > Actions > Find your existing "Generate Sessions" action
 
-#### Add These Fields to Your Submit Enrollment Form:
+#### Add These Fields to Your Generate Sessions Form:
 
 **New Student Checkbox:**
 - **Field:** `is_new_student`
@@ -256,11 +256,11 @@ When you implement the trial class booking system:
 
 ## Part 6: Complete Workflow Integration
 
-### Step 7: Add Discount Selection to Submit Enrollment Form
+### Step 7: Add Discount Selection to Generate Sessions Form
 
-When admins use "Submit Enrollment" from the MSA/B Assignments sheet:
+When admins use "Generate Sessions" from the Ready to Enroll view:
 
-#### Modify the Submit Enrollment Action Form:
+#### Modify the Generate Sessions Action Form:
 
 **Add Discount Selection Field:**
 - **Field:** `discount_id`
@@ -284,7 +284,7 @@ When admins use "Submit Enrollment" from the MSA/B Assignments sheet:
 #### 1. Admin Reviews MSA/B Assignment
 - Student assigned to tutor, day/time, location
 
-#### 2. Admin Clicks "Submit Enrollment"
+#### 2. Admin Clicks "Generate Sessions"
 - Form opens with pre-filled data from spreadsheet
 - **NEW:** Admin selects discount from dropdown (No Discount/$200/$300/$500)
 - Admin submits enrollment
@@ -312,7 +312,7 @@ When admins use "Submit Enrollment" from the MSA/B Assignments sheet:
 
 ### Discount System Test:
 - [ ] Add standard discounts to discounts table
-- [ ] Verify discount dropdown appears in Submit Enrollment form
+- [ ] Verify discount dropdown appears in Generate Sessions form
 - [ ] Test each discount amount ($0, $200, $300, $500)
 - [ ] Confirm Final_Fee calculates correctly
 
@@ -344,7 +344,7 @@ When admins use "Submit Enrollment" from the MSA/B Assignments sheet:
 ### ✅ **Maintains Flexibility:**
 - Easy to add new discount amounts
 - Message template can be updated via virtual column
-- Integrates seamlessly with existing Submit Enrollment process
+- Integrates seamlessly with existing Generate Sessions process
 
 ### ✅ **Professional Parent Communication:**
 - Consistent, branded fee messages
