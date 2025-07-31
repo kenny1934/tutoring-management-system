@@ -6,8 +6,8 @@ function doPost(e) {
     // --- Action Router ---
     if (action === "generate_sessions") {
       return handleGenerateSessions(requestData);
-    } else if (action === "update_grade") {
-      return handleUpdateGrade(requestData);
+    } else if (action === "update_student_info") {
+      return handleUpdateStudentInfo(requestData);
     } else if (action === "confirm_payment") {
       return handleConfirmPayment(requestData);
     }
@@ -20,25 +20,85 @@ function doPost(e) {
   }
 }
 
-function handleUpdateGrade(data) {
+
+function handleUpdateStudentInfo(data) {
   const studentName = data.studentName;
   const newGrade = data.newGrade;
+  const newPhone = data.newPhone;
+
+  Logger.log(`Processing student info update for: ${studentName}`);
+  Logger.log(`New Grade: ${newGrade}, New Phone: ${newPhone}`);
 
   const connectionString = "jdbc:google:mysql://YOUR_INSTANCE_CONNECTION_NAME/csm_db";
   const username = "AppSheet";
   const password = "PASSWORD";
 
   const conn = Jdbc.getCloudSqlConnection(connectionString, username, password);
-  const stmt = conn.prepareStatement("UPDATE students SET grade = ? WHERE student_name = ?");
-  stmt.setString(1, newGrade);
-  stmt.setString(2, studentName);
-  stmt.execute();
   
-  stmt.close();
-  conn.close();
-  
-  Logger.log(`Updated grade for ${studentName} to ${newGrade}`);
-  return ContentService.createTextOutput(JSON.stringify({ "Status": "Success" })).setMimeType(ContentService.MimeType.JSON);
+  try {
+    // Build dynamic SQL based on what fields are provided
+    let updateFields = [];
+    let params = [];
+    let paramIndex = 1;
+
+    if (newGrade !== undefined && newGrade !== null && newGrade !== "") {
+      updateFields.push("grade = ?");
+      params.push({ value: newGrade, type: "string" });
+    }
+
+    if (newPhone !== undefined && newPhone !== null && newPhone !== "") {
+      updateFields.push("phone = ?");
+      params.push({ value: newPhone, type: "string" });
+    }
+
+    if (updateFields.length === 0) {
+      Logger.log("No fields to update");
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "Status": "Warning", 
+        "Message": "No fields provided for update" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const sql = `UPDATE students SET ${updateFields.join(", ")} WHERE student_name = ?`;
+    Logger.log(`Executing SQL: ${sql}`);
+
+    const stmt = conn.prepareStatement(sql);
+    
+    // Set parameters
+    for (let i = 0; i < params.length; i++) {
+      stmt.setString(i + 1, params[i].value);
+    }
+    stmt.setString(params.length + 1, studentName); // WHERE clause parameter
+
+    const rowsUpdated = stmt.executeUpdate();
+    Logger.log(`Updated ${rowsUpdated} rows`);
+    
+    stmt.close();
+    conn.close();
+    
+    if (rowsUpdated > 0) {
+      const updateSummary = params.map((p, i) => `${updateFields[i].split(' = ')[0]}: ${p.value}`).join(', ');
+      Logger.log(`Successfully updated ${studentName}: ${updateSummary}`);
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "Status": "Success", 
+        "Message": `Updated ${updateSummary} for ${studentName}` 
+      })).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      Logger.log(`No student found with name: ${studentName}`);
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "Status": "Warning", 
+        "Message": `No student found with name: ${studentName}` 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+  } catch (error) {
+    Logger.log(`Error updating student info: ${error.toString()}`);
+    conn.close();
+    return ContentService.createTextOutput(JSON.stringify({ 
+      "Status": "Error", 
+      "Message": error.toString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function isHoliday(date, holidays) {
