@@ -32,7 +32,7 @@ This initial phase focused on establishing a solid data backend and a functional
 
 * **Google Sheets (Hybrid Workflow Staging):**
     * [x] Created the `"CSM Regular Course - Assignments"` workbook as the central staging area.
-    * [x] **`Consolidated_Student_List`:** Built a unified student master list by importing and combining data from separate source files. Implemented an Apps Script with a UI button (`CSM Admin Tools > Refresh Student List`) to keep this sheet synchronized with the SQL `students` table.
+    * [x] **`Consolidated_Student_List`:** Built a unified student master list by importing and combining data from separate source files. Implemented an Apps Script with a UI button (`CSM Admin Tools > Refresh Student List`) to keep this sheet synchronized with the SQL `students` table. The sync script pulls all student records from the MySQL database and updates the Google Sheet with current data.
     * [x] **`MSA/B Final Schedule`:** Created the master visual grid for high-level tutor allocation and class planning.
     * [x] **`Schedule_Lookup_Data`:** Developed a robust formula-driven helper sheet to "unpivot" the visual schedule grid into a searchable list, enabling complex lookups.
     * [x] **`MSA/B Assignments` Sheets:** Established as the primary workspace for the admin team. It automatically pulls student data and uses the `Schedule_Lookup_Data` to look up the correct `Assigned Tutor` based on Day, Time, Grade, and Stream.

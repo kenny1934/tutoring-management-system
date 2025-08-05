@@ -24,7 +24,8 @@ tutoring-management-system/
 │
 ├── 📂 scripts/                  # Automation and utility scripts
 │   ├── Code.gs                 # Google Apps Script for session generation
-│   └── import_students_script.sh               # Student data import utility
+│   ├── import_students_script.sh               # Student data import utility
+│   └── student_sync_script.gs                  # Apps Script to sync students from MySQL to Sheets
 │
 └── 📂 templates/               # Message templates and examples
     └── Fee_Message_Template.txt                # Chinese fee message examples
@@ -48,6 +49,7 @@ tutoring-management-system/
 ### Automation (`/scripts/`)
 - **Code.gs** - Google Apps Script for automated session generation (deployed to Google environment)
 - **import_students_script.sh** - Utility for student data synchronization
+- **student_sync_script.gs** - Apps Script to sync student data from MySQL to Google Sheets
 
 ### Resources (`/templates/`)
 - **Fee_Message_Template.txt** - Reference templates for fee communication
