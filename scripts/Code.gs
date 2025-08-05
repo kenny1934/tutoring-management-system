@@ -22,11 +22,13 @@ function doPost(e) {
 
 
 function handleUpdateStudentInfo(data) {
-  const studentName = data.studentName;
+  const schoolStudentId = data.schoolStudentId;
+  const homeLocation = data.homeLocation;
+  const studentName = data.studentName; // For logging purposes
   const newGrade = data.newGrade;
   const newPhone = data.newPhone;
 
-  Logger.log(`Processing student info update for: ${studentName}`);
+  Logger.log(`Processing student info update for: ${studentName} (ID: ${schoolStudentId}, Location: ${homeLocation})`);
   Logger.log(`New Grade: ${newGrade}, New Phone: ${newPhone}`);
 
   const connectionString = "jdbc:google:mysql://YOUR_INSTANCE_CONNECTION_NAME/csm_db";
@@ -36,10 +38,18 @@ function handleUpdateStudentInfo(data) {
   const conn = Jdbc.getCloudSqlConnection(connectionString, username, password);
   
   try {
+    // Validate required identifiers
+    if (!schoolStudentId || !homeLocation) {
+      Logger.log("Missing required identifiers: schoolStudentId or homeLocation");
+      return ContentService.createTextOutput(JSON.stringify({ 
+        "Status": "Error", 
+        "Message": "Missing required identifiers: Student ID or Location" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // Build dynamic SQL based on what fields are provided
     let updateFields = [];
     let params = [];
-    let paramIndex = 1;
 
     if (newGrade !== undefined && newGrade !== null && newGrade !== "") {
       updateFields.push("grade = ?");
@@ -59,16 +69,20 @@ function handleUpdateStudentInfo(data) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    const sql = `UPDATE students SET ${updateFields.join(", ")} WHERE student_name = ?`;
+    const sql = `UPDATE students SET ${updateFields.join(", ")} WHERE school_student_id = ? AND home_location = ?`;
     Logger.log(`Executing SQL: ${sql}`);
+    Logger.log(`Parameters: schoolStudentId=${schoolStudentId}, homeLocation=${homeLocation}`);
 
     const stmt = conn.prepareStatement(sql);
     
-    // Set parameters
+    // Set update field parameters
     for (let i = 0; i < params.length; i++) {
       stmt.setString(i + 1, params[i].value);
     }
-    stmt.setString(params.length + 1, studentName); // WHERE clause parameter
+    
+    // Set WHERE clause parameters
+    stmt.setString(params.length + 1, schoolStudentId);
+    stmt.setString(params.length + 2, homeLocation);
 
     const rowsUpdated = stmt.executeUpdate();
     Logger.log(`Updated ${rowsUpdated} rows`);
@@ -78,16 +92,16 @@ function handleUpdateStudentInfo(data) {
     
     if (rowsUpdated > 0) {
       const updateSummary = params.map((p, i) => `${updateFields[i].split(' = ')[0]}: ${p.value}`).join(', ');
-      Logger.log(`Successfully updated ${studentName}: ${updateSummary}`);
+      Logger.log(`Successfully updated student ${schoolStudentId} (${homeLocation}): ${updateSummary}`);
       return ContentService.createTextOutput(JSON.stringify({ 
         "Status": "Success", 
-        "Message": `Updated ${updateSummary} for ${studentName}` 
+        "Message": `Updated ${updateSummary} for student ${schoolStudentId} at ${homeLocation}` 
       })).setMimeType(ContentService.MimeType.JSON);
     } else {
-      Logger.log(`No student found with name: ${studentName}`);
+      Logger.log(`No student found with ID: ${schoolStudentId} at location: ${homeLocation}`);
       return ContentService.createTextOutput(JSON.stringify({ 
         "Status": "Warning", 
-        "Message": `No student found with name: ${studentName}` 
+        "Message": `No student found with ID ${schoolStudentId} at ${homeLocation}` 
       })).setMimeType(ContentService.MimeType.JSON);
     }
 

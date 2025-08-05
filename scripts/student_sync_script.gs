@@ -10,7 +10,7 @@ function refreshStudentList() {
   const instanceConnectionName = "csm-database-project:asia-east2:csm-regular-course-db";
   const dbName = "csm_db";
   const username = "AppSheet";
-  const password = "d1wOMlDf9BKj6J";
+  const password = "PASSWORD";
   // -----------------------------------------
 
   const connectionString = `jdbc:google:mysql://${instanceConnectionName}/${dbName}`;
@@ -91,7 +91,7 @@ function testDatabaseConnection() {
   const instanceConnectionName = "csm-database-project:asia-east2:csm-regular-course-db";
   const dbName = "csm_db";
   const username = "AppSheet";
-  const password = "d1wOMlDf9BKj6J";
+  const password = "PASSWORD";
   
   const connectionString = `jdbc:google:mysql://${instanceConnectionName}/${dbName}`;
   
