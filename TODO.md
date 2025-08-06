@@ -42,16 +42,25 @@ This document outlines the implementation plan for the CSM Pro application, brok
 -   [ ] **Trial Class System:**
     -   [ ] **Action:** Build the "Book Trial Class" action for new students.
     -   [ ] **Action:** Build the "Convert Trial to Enrollment" action. This should open a new enrollment form and potentially link to the trial session ID to track the conversion source.
--   [ ] **Fee Message Generator:**
-    -   [ ] **Discount Management:** Build a view for Admins to manage the `discounts` SQL table directly within the app.
-    -   [ ] **Virtual Columns:** Implement the `Final_Fee` and `Fee_Message` virtual columns in the `enrollments` table.
-    -   [ ] **Action:** Create a "Copy Fee Message" action for easy pasting into communications.
+-   [x] **Fee Message System:**
+    -   [x] **Discount Management:** Built discount system with common amounts (0, 150, 200, 300, 500) integrated into enrollment workflow.
+    -   [x] **Virtual Columns:** Implemented comprehensive fee calculation system with `Final_Fee` and enhanced Chinese `Fee_Message` virtual columns with location awareness.
+    -   [x] **Assignment Sheet Integration:** Created Google Sheets formulas for pre-enrollment fee messages with holiday-aware lesson date calculation.
+    -   [x] **Copy Actions:** Implemented clipboard service integration for easy fee message copying.
 
 ---
 ### ## Phase 4: Administration & Reporting
 
 *The goal is to provide high-level oversight and data management tools for administrators.*
 
+-   [x] **Enhanced Apps Script Functions:**
+    -   [x] **Student Data Sync:** Implemented working student list sync from MySQL to Google Sheets with "CSM Admin Tools" menu.
+    -   [x] **Robust Student Updates:** Enhanced student info updates using `school_student_id` + `home_location` for reliable identification.
+    -   [x] **Combined Update Function:** Single function handles both grade and phone updates with comprehensive error handling.
+-   [x] **UI/UX Improvements:**
+    -   [x] **Clean Navigation:** Created "Admin Tools" menu to organize utility views and maintain clean main navigation.
+    -   [x] **Clear Terminology:** Updated view names ("Ready to Enroll") and status values ("Unpaid/Paid/Enrolled") for better admin team understanding.
+    -   [x] **Cross-Location Visibility:** Implemented dual views for MSA/MSB teams to see relevant assignments across locations.
 -   [ ] **Admin Dashboard:**
     -   [ ] Create a primary dashboard view in the app showing key metrics: New Registrations, Active Enrollments, Overdue Accounts, Tutor Workload.
 -   [ ] **Data Management Views:**
@@ -60,10 +69,14 @@ This document outlines the implementation plan for the CSM Pro application, brok
     -   [ ] Design a Google Sheet report connected to the Cloud SQL database to track key financial data (e.g., revenue per month, discount usage, tutor payroll calculations).
 
 ---
-### ## Phase 5: Go-Live & System Transition
+### ## Phase 5: System Enhancements & Future Improvements
 
-*The goal is to successfully migrate from the hybrid system to the final "app-first" model.*
+*The goal is to implement additional features and optimizations for production use.*
 
+-   [ ] **Data Integrity & Quality:**
+    -   [ ] Implement duplicate session prevention system (documented in `FUTURE_IMPROVEMENTS.md`)
+    -   [ ] Add comprehensive data validation rules
+    -   [ ] Create automated data consistency checks
 -   [ ] **Final Data Migration:**
     -   [ ] Perform the final, one-time import of the `Consolidated_Student_List` into the Cloud SQL `students` table.
     -   [ ] In AppSheet, switch the `students` table data source from the Google Sheet to the Cloud SQL table.
