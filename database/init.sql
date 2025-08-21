@@ -14,7 +14,8 @@ CREATE TABLE students (
     phone VARCHAR(100),
     school VARCHAR(255),
     lang_stream VARCHAR(50),
-    home_location VARCHAR(50)
+    home_location VARCHAR(50),
+    UNIQUE KEY unique_student_location (school_student_id, home_location)
 );
 
 CREATE TABLE enrollments (
@@ -74,6 +75,19 @@ CREATE TABLE holidays (
     id INT AUTO_INCREMENT PRIMARY KEY,
     holiday_date DATE NOT NULL UNIQUE,
     holiday_name VARCHAR(255)
+);
+
+CREATE TABLE planned_reschedules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    planned_date DATE NOT NULL,
+    reason VARCHAR(500),
+    status VARCHAR(20) DEFAULT 'Pending', -- 'Pending', 'Applied', 'Cancelled'
+    requested_date DATE NOT NULL,
+    requested_by VARCHAR(255),
+    notes TEXT,
+    FOREIGN KEY (enrollment_id) REFERENCES enrollments(id),
+    INDEX idx_enrollment_date (enrollment_id, planned_date)
 );
 
 INSERT INTO holidays (holiday_date, holiday_name) VALUES

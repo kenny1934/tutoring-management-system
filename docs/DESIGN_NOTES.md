@@ -157,7 +157,7 @@ This section details the primary automations for the "Hybrid Workflow".
 * **Purpose:** To take a finalized row from the `MSA/B Assignments` spreadsheet and create an official record in the `enrollments` SQL table.
 * **Type:** Grouped Action, triggered manually by a user.
 * **Workflow:**
-    1.  **Action 1: `_Create Enrollment Record`**: This action reads the data from the selected spreadsheet row (`_THISROW`) and uses `Data: add a new row to another table` to create a record in the `enrollments` table. It uses `LOOKUP` expressions to find the correct `student_id` and `tutor_id` from the `students` and `tutors` tables based on the names in the sheet.
+    1.  **Action 1: `_Create Enrollment Record`**: This action reads the data from the selected spreadsheet row (`_THISROW`) and uses `Data: add a new row to another table` to create a record in the `enrollments` table. It uses `LOOKUP` expressions to find the correct `student_id` and `tutor_id` from the `students` and `tutors` tables based on the names in the sheet. The action generates a random ID using `RANDBETWEEN(1000000, 9999999)` to prevent conflicts when multiple enrollments are created rapidly.
     2.  **Action 2: `_Mark as Processed`**: This action sets the `Status` column in the spreadsheet row to "Processed" to provide visual feedback and prevent accidental re-submission.
 
 #### b. Automation: Recurring Session Generation
@@ -173,7 +173,8 @@ The system for automatically generating recurring sessions is handled by a combi
     * **Body Template:** It sends a simple JSON payload containing only the ID of the newly created enrollment record.
         ```json
         {
-          "enrollmentId": "<<INDEX(SORT(enrollments[id], TRUE), 1)>>"
+          "action": "generate_sessions",
+          "enrollmentId": "<<[id]>>"
         }
         ```
 
@@ -186,7 +187,7 @@ The system for automatically generating recurring sessions is handled by a combi
     2.  **Connects to Cloud SQL:** It uses the built-in JDBC Service to connect directly to the `csm_db` database.
     3.  **Fetches Enrollment Data:** It queries the `enrollments` table to retrieve all the details for the specified `enrollmentId`.
     4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
-    5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides a "dummy ID" of `0` for each new session to satisfy the API, which the SQL database then ignores, substituting the correct `AUTO_INCREMENT` ID.
+    5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides an `id` value of `0` for each new session (allowing MySQL auto-increment for session IDs), while using the actual enrollment ID received from AppSheet as the `enrollment_id` reference.
 
 ### 9. Student Enrollment Lifecycle
 
