@@ -365,7 +365,7 @@ function handleConfirmPayment(data) {
     try {
         // Step 1: Update all related sessions to "Paid"
         const updateStmt = conn.prepareStatement(
-            "UPDATE session_log SET financial_status = 'Paid', last_modified_by = 'System', last_modified_time = NOW() WHERE enrollment_id = ?"
+            "UPDATE session_log SET financial_status = 'Paid', last_modified_by = 'System', last_modified_time = CONVERT_TZ(NOW(), '+00:00', '+08:00') WHERE enrollment_id = ?"
         );
         updateStmt.setInt(1, enrollmentId);
         const updatedRows = updateStmt.executeUpdate();
