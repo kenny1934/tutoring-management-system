@@ -189,6 +189,34 @@ function handleGenerateSessions(data) {
         const timeSlot = results.getString("assigned_time");
         const location = results.getString("location");
 
+        // Check if sessions already exist for this enrollment to prevent duplicates
+        const existingSessionsStmt = conn.prepareStatement(
+            "SELECT COUNT(*) as session_count FROM session_log WHERE enrollment_id = ?"
+        );
+        existingSessionsStmt.setInt(1, enrollmentId);
+        const existingResults = existingSessionsStmt.executeQuery();
+
+        let existingSessionCount = 0;
+        if (existingResults.next()) {
+            existingSessionCount = existingResults.getInt("session_count");
+        }
+        existingResults.close();
+        existingSessionsStmt.close();
+
+        // If sessions already exist, don't create more
+        if (existingSessionCount > 0) {
+            Logger.log(`Sessions already exist for enrollment ${enrollmentId} (${existingSessionCount} sessions found). Skipping generation.`);
+            results.close();
+            stmt.close();
+            conn.close();
+            return ContentService.createTextOutput(JSON.stringify({ 
+                "Status": "Warning", 
+                "Message": `Sessions already exist for this enrollment (${existingSessionCount} sessions found)` 
+            })).setMimeType(ContentService.MimeType.JSON);
+        }
+
+        Logger.log(`No existing sessions found for enrollment ${enrollmentId}. Proceeding with session generation.`);
+
         const sessionsToCreate = (paymentStatus === "Pending Payment") ? 1 : lessonsPaid;
         const financialStatus = (paymentStatus === "Paid") ? "Paid" : "Unpaid";
         
