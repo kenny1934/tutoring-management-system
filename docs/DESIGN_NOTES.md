@@ -148,7 +148,54 @@ To handle complexities from statutory holidays and rescheduled make-up classes, 
 *   **Logic:** The function iterates from the `first_lesson_date`, adding one week for each of the `lessons_paid`, while programmatically skipping any dates that fall within the `holidays` table.
 *   **Benefit:** This calculation is independent of the `session_log` and provides a stable, accurate end date for renewal purposes, ensuring reminders are sent at the correct time. This function is used by the `active_enrollments_needing_renewal` view.
 
-### 8. Core AppSheet Automations
+### 8. Tutor Communication Board System
+
+The system includes a comprehensive communication board/forum feature that allows tutors to send messages to each other and receive broadcast announcements.
+
+#### Database Structure
+* **`tutor_messages` Table:** Stores all messages with support for:
+  - Direct messages between tutors (`to_tutor_id` specified)
+  - Broadcast messages to all tutors (`to_tutor_id` is NULL) 
+  - Message threading via `reply_to_id` for conversation chains
+  - Priority levels (Normal, High, Urgent) and categories (Reminder, Question, Announcement, Schedule, Handover)
+  - Image attachments via AppSheet file paths
+  - Profile pictures for tutors stored in `tutors.profile_picture`
+
+* **`message_read_receipts` Table:** Tracks read status for each tutor on each message:
+  - Supports both broadcast and direct message read tracking
+  - Prevents duplicate read records with unique constraints
+  - Enables unread count calculations
+
+#### AppSheet Implementation
+* **Message Views:**
+  - Main inbox view showing all messages (broadcast + direct) with unread indicators
+  - Thread view for displaying conversation chains grouped by `reply_to_id`
+  - Compose message form with priority, category, and image upload support
+
+* **Read Status System:**
+  - Virtual columns calculate unread counts using `message_read_receipts` table
+  - Mark as read actions create records in receipts table when messages are viewed
+  - Special handling for broadcast messages where each tutor gets individual read tracking
+
+* **Notification System:**
+  - AppSheet bot triggers notifications on new messages
+  - Notification templates use conditional logic for priority-based titles
+  - DeepLinks direct users to specific message threads
+  - Works with both AppSheet notification system and external notification bots
+
+#### Key Features
+* **Threading:** Messages can be replied to, creating conversation threads
+* **Priority System:** High/Urgent priority messages get special notification treatment  
+* **Broadcast Support:** Messages sent to all tutors with individual read tracking
+* **Image Sharing:** Tutors can attach images to messages via AppSheet file system
+* **Professional Interface:** Clean, modern forum-style interface distinguishing CSM Pro from previous systems
+
+#### Technical Notes
+* **ID Generation:** Uses `RANDBETWEEN(1000000, 9999999)` for all message IDs to prevent AppSheet bot timing issues with id=0
+* **Emoji Support:** Database uses utf8mb4 charset for emoji storage, though AppSheet has display limitations for newer 4-byte emojis
+* **Timezone:** All timestamps use GMT+8 via `CONVERT_TZ(NOW(), '+00:00', '+08:00')`
+
+### 9. Core AppSheet Automations
 
 This section details the primary automations for the "Hybrid Workflow".
 
@@ -189,7 +236,7 @@ The system for automatically generating recurring sessions is handled by a combi
     4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
     5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides an `id` value of `0` for each new session (allowing MySQL auto-increment for session IDs), while using the actual enrollment ID received from AppSheet as the `enrollment_id` reference.
 
-### 9. Student Enrollment Lifecycle
+### 10. Student Enrollment Lifecycle
 
 Here is a breakdown of the student enrollment lifecycle, explaining how the "Pending Renewal" view fits in and what is manual vs. automated.
 

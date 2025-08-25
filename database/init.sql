@@ -3,7 +3,8 @@ CREATE TABLE tutors (
     user_email VARCHAR(255) NOT NULL UNIQUE,
     tutor_name VARCHAR(255) NOT NULL,
     default_location VARCHAR(255),
-    role VARCHAR(50) NOT NULL
+    role VARCHAR(50) NOT NULL,
+    profile_picture VARCHAR(500) NULL COMMENT 'AppSheet file path for tutor profile picture'
 );
 
 CREATE TABLE students (
@@ -89,6 +90,38 @@ CREATE TABLE planned_reschedules (
     FOREIGN KEY (enrollment_id) REFERENCES enrollments(id),
     INDEX idx_enrollment_date (enrollment_id, planned_date)
 );
+
+CREATE TABLE tutor_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    from_tutor_id INT NOT NULL,
+    to_tutor_id INT NULL COMMENT 'NULL = broadcast to all tutors',
+    subject VARCHAR(200),
+    message TEXT NOT NULL,
+    priority VARCHAR(20) DEFAULT 'Normal' COMMENT 'Normal, High, Urgent',
+    category VARCHAR(50) COMMENT 'Reminder, Question, Announcement, Schedule, Handover',
+    created_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    image_attachment VARCHAR(500) NULL COMMENT 'AppSheet file path for uploaded image',
+    reply_to_id INT NULL COMMENT 'Reference to parent message for threading',
+    FOREIGN KEY (from_tutor_id) REFERENCES tutors(id),
+    FOREIGN KEY (to_tutor_id) REFERENCES tutors(id),
+    FOREIGN KEY (reply_to_id) REFERENCES tutor_messages(id),
+    INDEX idx_to_tutor (to_tutor_id),
+    INDEX idx_from_tutor (from_tutor_id),
+    INDEX idx_created (created_at DESC),
+    INDEX idx_thread (reply_to_id)
+) COMMENT 'Tutor communication board for inter-tutor messaging';
+
+CREATE TABLE message_read_receipts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT NOT NULL,
+    tutor_id INT NOT NULL,
+    read_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    FOREIGN KEY (message_id) REFERENCES tutor_messages(id) ON DELETE CASCADE,
+    FOREIGN KEY (tutor_id) REFERENCES tutors(id),
+    UNIQUE KEY unique_message_reader (message_id, tutor_id),
+    INDEX idx_tutor_unread (tutor_id, read_at),
+    INDEX idx_message_readers (message_id)
+) COMMENT 'Tracks which tutors have read which messages - supports broadcast message read status';
 
 INSERT INTO holidays (holiday_date, holiday_name) VALUES
 ('2024-09-18', 'Mid-Autumn Festival'),
