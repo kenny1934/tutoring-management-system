@@ -138,6 +138,16 @@ CREATE TABLE session_exercises (
     INDEX idx_session_type (session_id, exercise_type)
 ) COMMENT 'Tracks exercises assigned for each session as classwork or homework';
 
+CREATE TABLE message_likes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT NOT NULL,
+    tutor_id INT NOT NULL,
+    action_type VARCHAR(10) NOT NULL DEFAULT 'LIKE' COMMENT 'LIKE or UNLIKE',
+    liked_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    FOREIGN KEY (message_id) REFERENCES tutor_messages(id) ON DELETE CASCADE,
+    FOREIGN KEY (tutor_id) REFERENCES tutors(id)
+) COMMENT 'Tracks like/unlike actions on tutor messages with full history';
+
 INSERT INTO holidays (holiday_date, holiday_name) VALUES
 ('2024-09-18', 'Mid-Autumn Festival'),
 ('2024-10-01', 'National Day'),

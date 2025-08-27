@@ -195,7 +195,62 @@ The system includes a comprehensive communication board/forum feature that allow
 * **Emoji Support:** Database uses utf8mb4 charset for emoji storage, though AppSheet has display limitations for newer 4-byte emojis
 * **Timezone:** All timestamps use GMT+8 via `CONVERT_TZ(NOW(), '+00:00', '+08:00')`
 
-### 9. Core AppSheet Automations
+#### Like System
+* **Message Likes:** Simple like/unlike functionality with engagement tracking
+* **Database Structure:** 
+  - `message_likes` table tracks all like/unlike actions with timestamps
+  - No unique constraints to allow unlimited like/unlike toggling
+  - `action_type` field stores "LIKE" or "UNLIKE" for each action
+* **AppSheet Implementation:**
+  - Virtual columns calculate current like status based on most recent action per user
+  - `Current_Like_Count`: Net likes (LIKE count minus UNLIKE count)
+  - `Current_User_Liked`: Whether current user's latest action was LIKE
+  - `Is_Latest_Like` in message_likes table identifies current likes vs. historical actions
+  - Related view shows current likers using filtered REF_ROWS
+* **Notifications:** Automated bot notifies message sender when someone likes their message
+* **User Experience:** Single-click toggle action for like/unlike with real-time count updates
+
+### 9. Session Exercises and Performance Tracking
+
+The system includes comprehensive tracking of exercises assigned during each session and performance ratings.
+
+#### Database Structure
+* **`session_exercises` Table:** Related table approach for tracking multiple exercises per session:
+  - Links to `session_log` via `session_id` with CASCADE delete
+  - `exercise_type`: "Classwork" or "Homework" 
+  - `pdf_name`: File reference (manual entry since files are on company server)
+  - `page_start`/`page_end`: Page ranges (NULL = whole PDF)
+  - `created_by`: Audit trail of who assigned the exercise
+  - `remarks`: Additional notes about the assignment
+  - `created_at`: GMT+8 timestamp
+
+* **`performance_rating` Column:** Added to `session_log` table:
+  - VARCHAR(10) field for direct emoji entry (⭐⭐⭐⭐)
+  - Matches existing summer CSM system approach
+  - Simple star rating system using emoji characters
+
+#### AppSheet Implementation
+* **Related Views:** Session forms show related exercise lists filtered by type:
+  - "Classwork Exercises" view (exercise_type = "Classwork")
+  - "Homework Exercises" view (exercise_type = "Homework")
+* **Dynamic Addition:** Tutors use "Add Exercise" actions to create multiple exercise records per session
+* **Flexible Input:** No predefined PDF lists - tutors manually enter file names and page ranges
+* **Performance Rating:** Simple text field in session forms for direct emoji entry
+
+#### User Workflow
+1. **During/After Session:** Tutor opens session in app
+2. **Add Exercises:** Click "Add Exercise" in Classwork or Homework sections
+3. **Enter Details:** PDF name, page range, optional remarks
+4. **Performance Rating:** Add star emojis directly in session form
+5. **Audit Trail:** System tracks who added each exercise and when
+
+#### Benefits
+* **Flexible:** Works with any PDF files without requiring server integration
+* **Scalable:** Unlimited exercises per session via related table approach
+* **Familiar:** Matches existing summer course workflow patterns
+* **Trackable:** Complete audit trail of all assignments and ratings
+
+### 10. Core AppSheet Automations
 
 This section details the primary automations for the "Hybrid Workflow".
 
@@ -236,7 +291,7 @@ The system for automatically generating recurring sessions is handled by a combi
     4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
     5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides an `id` value of `0` for each new session (allowing MySQL auto-increment for session IDs), while using the actual enrollment ID received from AppSheet as the `enrollment_id` reference.
 
-### 10. Student Enrollment Lifecycle
+### 11. Student Enrollment Lifecycle
 
 Here is a breakdown of the student enrollment lifecycle, explaining how the "Pending Renewal" view fits in and what is manual vs. automated.
 
