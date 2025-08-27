@@ -51,6 +51,7 @@ CREATE TABLE session_log (
     session_status VARCHAR(100) DEFAULT 'Scheduled',
     financial_status VARCHAR(100) DEFAULT 'Unpaid',
     notes TEXT,
+    performance_rating VARCHAR(10) NULL COMMENT 'Star rating as emojis (⭐⭐⭐), NULL = not rated',
     attendance_marked_by VARCHAR(255),
     attendance_mark_time DATETIME,
     created_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
@@ -122,6 +123,20 @@ CREATE TABLE message_read_receipts (
     INDEX idx_tutor_unread (tutor_id, read_at),
     INDEX idx_message_readers (message_id)
 ) COMMENT 'Tracks which tutors have read which messages - supports broadcast message read status';
+
+CREATE TABLE session_exercises (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id INT NOT NULL,
+    exercise_type VARCHAR(20) NOT NULL COMMENT 'Classwork or Homework',
+    pdf_name VARCHAR(255) NOT NULL,
+    page_start INT NULL COMMENT 'NULL = whole PDF',
+    page_end INT NULL COMMENT 'NULL if single page or whole PDF',
+    created_by VARCHAR(255) NOT NULL COMMENT 'User email who added this exercise',
+    remarks TEXT COMMENT 'Additional notes about this exercise assignment',
+    created_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    FOREIGN KEY (session_id) REFERENCES session_log(id) ON DELETE CASCADE,
+    INDEX idx_session_type (session_id, exercise_type)
+) COMMENT 'Tracks exercises assigned for each session as classwork or homework';
 
 INSERT INTO holidays (holiday_date, holiday_name) VALUES
 ('2024-09-18', 'Mid-Autumn Festival'),
