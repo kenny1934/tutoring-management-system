@@ -396,14 +396,82 @@ function handleConfirmPayment(data) {
             Logger.log(`Enrollment has ${lessonsPaid} lessons paid, ${sessionCount} sessions exist`);
             
             if (sessionCount < lessonsPaid) {
-                // Generate remaining sessions
-                Logger.log(`Generating ${lessonsPaid - sessionCount} additional sessions`);
-                enrollResults.close();
-                enrollStmt.close();
-                conn.close();
+                // Generate remaining sessions directly (no duplicate check needed)
+                const remainingSessions = lessonsPaid - sessionCount;
+                Logger.log(`Generating ${remainingSessions} additional sessions`);
                 
-                // Call the existing session generation function
-                return handleGenerateSessions({enrollmentId: enrollmentId});
+                // Get enrollment details for session generation (same as handleGenerateSessions)
+                const detailsStmt = conn.prepareStatement("SELECT * FROM enrollments WHERE id = ?");
+                detailsStmt.setInt(1, enrollmentId);
+                const detailsResults = detailsStmt.executeQuery();
+                
+                if (detailsResults.next()) {
+                    const studentId = detailsResults.getInt("student_id");
+                    const tutorId = detailsResults.getInt("tutor_id");
+                    const firstLessonDate = new Date(detailsResults.getDate("first_lesson_date").getTime());
+                    const timeSlot = detailsResults.getString("assigned_time");
+                    const location = detailsResults.getString("location");
+                    
+                    detailsResults.close();
+                    detailsStmt.close();
+                    
+                    // Generate remaining sessions starting from the next week after existing sessions
+                    let sessionDate = new Date(firstLessonDate);
+                    // Skip ahead to account for existing sessions
+                    sessionDate.setDate(sessionDate.getDate() + (sessionCount * 7));
+                    
+                    const newSessionRows = [];
+                    
+                    // Get holidays once before the loop
+                    const holidayStmt = conn.prepareStatement("SELECT holiday_date FROM holidays");
+                    const holidayResults = holidayStmt.executeQuery();
+                    const holidays = [];
+                    while (holidayResults.next()) {
+                        holidays.push(new Date(holidayResults.getDate("holiday_date").getTime()));
+                    }
+                    holidayResults.close();
+                    holidayStmt.close();
+                    
+                    for (let i = 0; i < remainingSessions; i++) {
+                        // Skip holidays
+                        while (isHoliday(sessionDate, holidays)) {
+                            sessionDate.setDate(sessionDate.getDate() + 7);
+                        }
+                        
+                        const sessionRow = {
+                            "id": 0,
+                            "enrollment_id": enrollmentId,
+                            "student_id": studentId,
+                            "tutor_id": tutorId,
+                            "location": location,
+                            "time_slot": timeSlot,
+                            "financial_status": "Paid",
+                            "session_date": sessionDate.toISOString().slice(0, 10),
+                            "session_status": "Scheduled"
+                        };
+                        
+                        newSessionRows.push(sessionRow);
+                        sessionDate.setDate(sessionDate.getDate() + 7);
+                    }
+                    
+                    enrollResults.close();
+                    enrollStmt.close();
+                    conn.close();
+                    
+                    // Add the new sessions via AppSheet API
+                    if (newSessionRows.length > 0) {
+                        addRowsToAppSheet(newSessionRows);
+                        Logger.log(`Successfully generated ${newSessionRows.length} additional sessions`);
+                    }
+                    
+                    return ContentService.createTextOutput(JSON.stringify({ 
+                        "Status": "Success", 
+                        "Message": `Payment confirmed. Generated ${remainingSessions} additional sessions.` 
+                    })).setMimeType(ContentService.MimeType.JSON);
+                }
+                
+                detailsResults.close();
+                detailsStmt.close();
             } else {
                 Logger.log("All sessions already exist, no additional generation needed");
             }
