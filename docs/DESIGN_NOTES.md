@@ -250,7 +250,61 @@ The system includes comprehensive tracking of exercises assigned during each ses
 * **Familiar:** Matches existing summer course workflow patterns
 * **Trackable:** Complete audit trail of all assignments and ratings
 
-### 10. Core AppSheet Automations
+### 10. Class Request System
+
+The system provides an admin-only workflow for requesting special sessions that require approval before being added to schedules.
+
+#### Database Structure
+* **`class_requests` Table:** Stores all admin requests with full approval workflow:
+  - Request details: student, tutor, date, time, location, session type, reason
+  - Workflow tracking: Pending → Approved/Rejected status progression  
+  - Audit trail: requesting admin, reviewing admin, timestamps, notes
+  - Session linking: Links to created session_log record when approved
+
+#### Implementation Architecture
+* **Admin-Only Requests:** Only users with Admin role can submit requests
+* **Super Admin Approval:** Only designated super admin can approve/reject requests
+* **Dummy Enrollment Approach:** Uses enrollment_id = 999999 to maintain AppSheet Ref functionality while creating "headless" sessions
+* **Virtual Column Linking:** Automatically links approved requests to created sessions using MAXROW lookup
+
+#### AppSheet Implementation  
+* **Request Submission:** Admin form for submitting new class requests
+* **Approval Dashboard:** Super admin view showing pending, approved, and rejected requests
+* **Grouped Actions:** Single approval action creates session AND updates request status
+* **Notification System:** Alerts for new requests and approval decisions
+* **Menu Organization:** Organized under "Schedule & Enrollment" admin submenu
+
+#### Session Types Supported
+* **Make-up Classes:** Replacement sessions for missed regular classes
+* **Extra Sessions:** Additional tutoring beyond regular enrollment
+* **Previous Year Sessions:** Catch-up sessions from previous academic year
+
+#### Workflow Benefits
+* **Controlled Access:** Prevents unauthorized session creation
+* **Full Audit Trail:** Complete record of all requests and decisions
+* **Automatic Integration:** Approved sessions appear in tutor schedules immediately
+* **Clean Data Model:** Special sessions clearly identified and separated from regular enrollments
+
+### 11. Admin Tools Organization
+
+The admin interface is organized into logical groupings for improved navigation and workflow efficiency:
+
+#### 💰 Financial Management
+*"Monitor payment status, renewals, and financial policies for all enrollments."*
+
+* **Overdue Accounts:** Students with unpaid sessions or payments past due date requiring immediate action
+* **Pending Renewal:** Enrollments approaching end date needing parent contact for renewal confirmation  
+* **Discount Management:** Configure discount codes, referral bonuses, and special pricing policies
+
+#### 📅 Schedule & Enrollment  
+*"Manage active student schedules and special session requests."*
+
+* **Active Enrollments:** Current students with paid enrollments showing session schedules and progress
+* **Class Requests Management:** Review and approve special session requests from admin team
+
+This organization groups related functions by business process rather than technical implementation, making the interface more intuitive for daily administrative workflows.
+
+### 12. Core AppSheet Automations
 
 This section details the primary automations for the "Hybrid Workflow".
 
@@ -291,7 +345,7 @@ The system for automatically generating recurring sessions is handled by a combi
     4.  **Generates Session Data:** It loops based on the `lessons_paid` and calculates the correct weekly `session_date` for each new session, starting from the `first_lesson_date`. It also handles the logic for "Paid" vs. "Pending Payment" statuses.
     5.  **Calls AppSheet API:** After generating the list of new session rows, the script calls the AppSheet API's "Add Row" endpoint to insert these new records directly into the `session_log` table. The script provides an `id` value of `0` for each new session (allowing MySQL auto-increment for session IDs), while using the actual enrollment ID received from AppSheet as the `enrollment_id` reference.
 
-### 11. Student Enrollment Lifecycle
+### 13. Student Enrollment Lifecycle
 
 Here is a breakdown of the student enrollment lifecycle, explaining how the "Pending Renewal" view fits in and what is manual vs. automated.
 
