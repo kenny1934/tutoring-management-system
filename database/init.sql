@@ -148,6 +148,30 @@ CREATE TABLE message_likes (
     FOREIGN KEY (tutor_id) REFERENCES tutors(id)
 ) COMMENT 'Tracks like/unlike actions on tutor messages with full history';
 
+CREATE TABLE class_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    tutor_id INT NOT NULL,
+    requested_date DATE NOT NULL,
+    requested_time VARCHAR(100) NOT NULL,
+    location VARCHAR(100) NOT NULL,
+    session_type VARCHAR(50) DEFAULT 'Make-up Class' COMMENT 'Make-up Class, Extra Session, etc.',
+    reason TEXT COMMENT 'Why this session is needed',
+    request_status VARCHAR(20) DEFAULT 'Pending' COMMENT 'Pending, Approved, Rejected',
+    requested_by VARCHAR(255) NOT NULL COMMENT 'User email who made request',
+    requested_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    reviewed_by VARCHAR(255) NULL COMMENT 'Admin who approved/rejected',
+    reviewed_at TIMESTAMP NULL,
+    review_notes TEXT COMMENT 'Admin notes on approval/rejection',
+    session_id INT NULL COMMENT 'Links to session_log if approved and session created',
+    FOREIGN KEY (student_id) REFERENCES students(id),
+    FOREIGN KEY (tutor_id) REFERENCES tutors(id),
+    FOREIGN KEY (session_id) REFERENCES session_log(id),
+    INDEX idx_status (request_status),
+    INDEX idx_tutor (tutor_id),
+    INDEX idx_requested_date (requested_date)
+) COMMENT 'Stores class requests for admin approval before creating sessions';
+
 INSERT INTO holidays (holiday_date, holiday_name) VALUES
 ('2024-09-18', 'Mid-Autumn Festival'),
 ('2024-10-01', 'National Day'),
