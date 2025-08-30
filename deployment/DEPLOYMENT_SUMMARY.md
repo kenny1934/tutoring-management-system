@@ -13,9 +13,11 @@
 ### **Step 2: Update Code.gs (10 minutes)**
 ```bash  
 1. Open your Google Apps Script project
-2. Open the CORRECTED_Code_gs_sections.js file
-3. Copy and replace the 3 sections marked in the file
-4. Save and deploy new version
+2. OPTION A: Replace entire Code.gs with Code_with_planned_reschedules.gs (recommended)
+   OR
+   OPTION B: Open CORRECTED_Code_gs_sections.js and copy/replace the 3 sections
+3. Save and deploy new version
+4. ✅ IMPORTANT: Fixed RANDBETWEEN IDs to prevent bot sync issues
 ```
 
 ### **Step 3: Configure AppSheet (15 minutes)**
