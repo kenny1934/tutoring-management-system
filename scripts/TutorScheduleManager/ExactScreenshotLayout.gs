@@ -13,21 +13,23 @@
  * Create the exact layout that matches the screenshot
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  * @param {Object} scheduleData - Processed schedule data
+ * @param {string} tutorName - Tutor's name for header
  */
-function createExactScreenshotLayout(sheet, scheduleData) {
+function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Name') {
   Logger.log('Creating exact screenshot layout...');
   
-  // Clear existing content (preserve headers)
-  const lastRow = sheet.getLastRow();
-  if (lastRow > 2) {
-    sheet.getRange(3, 1, lastRow - 2, sheet.getMaxColumns()).clear();
-  }
+  // FIRST: Remove any existing frozen rows/columns to prevent merge conflicts
+  sheet.setFrozenRows(0);
+  sheet.setFrozenColumns(0);
+  
+  // Clear ALL existing content and formatting to avoid merge conflicts
+  sheet.clear();
   
   // Setup the column structure first
   setupScreenshotColumnStructure(sheet);
   
-  // Create the headers with proper structure
-  createScreenshotHeaders(sheet, scheduleData.weekStart);
+  // Create the headers with proper structure (4 rows now)
+  createScreenshotHeaders(sheet, scheduleData.weekStart, tutorName);
   
   // Get sorted time slots
   const sortedTimeSlots = sortTimeSlots(Object.keys(scheduleData.timeSlots || {}));
@@ -35,14 +37,20 @@ function createExactScreenshotLayout(sheet, scheduleData) {
   
   if (sortedTimeSlots.length === 0) {
     Logger.log('No time slots found - creating empty schedule message');
-    sheet.getRange(3, 1, 1, 1).setValue('No sessions scheduled for this week');
+    sheet.getRange(5, 1, 1, 1).setValue('No sessions scheduled for this week');
     return;
   }
   
-  let currentRow = 3;
+  let currentRow = 5; // Start after 4 header rows
   
   for (const timeSlot of sortedTimeSlots) {
     const slotData = scheduleData.timeSlots[timeSlot];
+    
+    // Add medium grey spacer row between time slots
+    if (currentRow > 5) {
+      addTimeSlotSpacerRow(sheet, currentRow);
+      currentRow++;
+    }
     
     // Create the time slot section
     currentRow = createScreenshotTimeSlotSection(sheet, currentRow, timeSlot, slotData);
@@ -63,7 +71,7 @@ function setupScreenshotColumnStructure(sheet) {
   // Total columns: 1 + (7 days × 3 sub-columns) = 22 columns
   
   // Set column widths
-  sheet.setColumnWidth(1, 80);  // Time column (wider for vertical text)
+  sheet.setColumnWidth(1, 45);  // Time column (45px as requested)
   
   // For each day: Name column (wide), Status1 (narrow), Status2 (narrow)
   for (let day = 0; day < 7; day++) {
@@ -78,52 +86,53 @@ function setupScreenshotColumnStructure(sheet) {
  * Create headers that match the screenshot structure
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  * @param {Date} weekStart - Sunday of the week
+ * @param {string} tutorName - Tutor's name for header
  */
-function createScreenshotHeaders(sheet, weekStart) {
+function createScreenshotHeaders(sheet, weekStart, tutorName = 'Tutor Name') {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   
-  // Row 1: Day names (merged across 3 sub-columns each)
-  const dayHeaderRow = [''];
-  const dateHeaderRow = [''];
+  // Row 1: "Class Schedule" title starting from column B, with year in last 2 columns
+  const titleRow = ['', 'Class Schedule', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', weekStart.getFullYear().toString(), ''];
+  sheet.getRange(1, 1, 1, 22).setValues([titleRow]);
   
+  // Row 2: Tutor name starting from column B (no extra "Mr" prefix)
+  const tutorRow = ['', tutorName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+  sheet.getRange(2, 1, 1, 22).setValues([tutorRow]);
+  
+  // Row 3: Dates (Sep 03 format) - skip status columns for cleaner borders
+  const dateHeaderRow = [''];
   for (let day = 0; day < 7; day++) {
     const date = new Date(weekStart);
     date.setDate(date.getDate() + day);
     
-    // Add day name to span 3 columns
-    dayHeaderRow.push(days[day], '', '');
-    
-    // Add date to span 3 columns  
-    const dateStr = formatDateForHeader(date);
+    // Add date spanning only the name column, skip status columns
+    const dateStr = formatDateForScreenshot(date);
+    const baseCol = 2 + (day * 3);
     dateHeaderRow.push(dateStr, '', '');
   }
+  sheet.getRange(3, 1, 1, 22).setValues([dateHeaderRow]);
   
-  // Set the header data
-  sheet.getRange(1, 1, 1, 22).setValues([dayHeaderRow]);
-  sheet.getRange(2, 1, 1, 22).setValues([dateHeaderRow]);
+  // Row 4: Day names - skip status columns for cleaner borders
+  const dayHeaderRow = [''];
+  for (let day = 0; day < 7; day++) {
+    // Add day name spanning only the name column, skip status columns
+    dayHeaderRow.push(days[day], '', '');
+  }
+  sheet.getRange(4, 1, 1, 22).setValues([dayHeaderRow]);
   
-  // Merge cells for day names and dates
+  // Merge cells for dates and day names (only name columns, not status columns)
   for (let day = 0; day < 7; day++) {
     const baseCol = 2 + (day * 3);
     
-    // Merge day name across 3 columns
-    if (dayHeaderRow[baseCol]) {
-      sheet.getRange(1, baseCol, 1, 3).merge();
-    }
+    // Merge date across only the name column (not status columns)
+    sheet.getRange(3, baseCol, 1, 1); // Single column, no merge needed
     
-    // Merge date across 3 columns
-    if (dateHeaderRow[baseCol]) {
-      sheet.getRange(2, baseCol, 1, 3).merge();
-    }
+    // Merge day name across only the name column (not status columns)
+    sheet.getRange(4, baseCol, 1, 1); // Single column, no merge needed
   }
   
-  // Format headers
-  const headerRange = sheet.getRange(1, 1, 2, 22);
-  headerRange.setBackground('#E8F0FE');
-  headerRange.setFontWeight('bold');
-  headerRange.setHorizontalAlignment('center');
-  headerRange.setVerticalAlignment('middle');
-  headerRange.setBorder(true, true, true, true, true, true);
+  // Apply screenshot-specific formatting (this includes merging)
+  formatScreenshotHeaders(sheet, tutorName, weekStart);
 }
 
 /**
@@ -159,7 +168,7 @@ function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData) {
   // Add borders around the time slot section
   addTimeSlotBorders(sheet, startRow, sectionHeight);
   
-  return startRow + sectionHeight + 1; // +1 for spacing
+  return startRow + sectionHeight; // No extra spacing - grey spacer handles spacing
 }
 
 /**
@@ -201,6 +210,7 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days) {
       gradeCell.setBackground(getClassGradeColor(dayData.classGrade));
       gradeCell.setFontWeight('bold');
       gradeCell.setHorizontalAlignment('center');
+      gradeCell.setVerticalAlignment('middle');
     }
   }
   
@@ -302,19 +312,26 @@ function formatStudentWithSchool(student) {
 function getClassGradeColor(classGrade) {
   if (!classGrade) return '#FFFFFF';
   
-  const grade = classGrade.split(' ')[0]; // Get F1, F2, F3, etc.
+  // Parse grade and stream (e.g., "F1 E" -> grade="F1", stream="E")
+  const parts = classGrade.split(' ');
+  const grade = parts[0]; // F1, F2, F3, F4
+  const stream = parts[1]; // C, E
   
-  // Customize these colors as needed
-  const gradeColors = {
-    'F1': '#D4E6F1', // Light green  
-    'F2': '#D6EAF8', // Light blue
-    'F3': '#FCF3CF', // Light yellow
-    'F4': '#FADBD8', // Light pink
-    'F5': '#E8DAEF', // Light purple
-    'F6': '#D5F4E6'  // Light mint
+  if (!grade || !stream) return '#F8F9FA'; // Default light gray
+  
+  // Specific colors for each grade-stream combination
+  const gradeStreamColors = {
+    'F1 C': '#b7e1cd',
+    'F1 E': '#CEDAF5',
+    'F2 C': '#FBF2D0',
+    'F2 E': '#EBCECD',
+    'F3 C': '#E4D2DC',
+    'F3 E': '#E7B477',
+    'F4 C': '#9FC185',
+    'F4 E': '#D8D3E7'
   };
   
-  return gradeColors[grade] || '#F8F9FA'; // Default light gray
+  return gradeStreamColors[classGrade] || '#F8F9FA'; // Default light gray
 }
 
 /**
@@ -396,15 +413,159 @@ function addTimeSlotBorders(sheet, startRow, height) {
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  */
 function applyScreenshotFormatting(sheet) {
-  // Set overall sheet properties
-  sheet.setFrozenRows(2); // Freeze header rows
-  sheet.setFrozenColumns(1); // Freeze time column
-  
-  // Set default font
+  // Set default font to Roboto for everything
   const dataRange = sheet.getDataRange();
   if (dataRange.getNumRows() > 0) {
-    dataRange.setFontFamily('Arial');
+    dataRange.setFontFamily('Roboto');
   }
+  
+  // Set all main content rows to 23px height
+  for (let row = 5; row <= sheet.getLastRow(); row++) {
+    sheet.setRowHeight(row, 23);
+  }
+  
+  // Now we can safely freeze column A and row 4 (headers start from column B)
+  sheet.setFrozenRows(4); // Freeze all 4 header rows
+  sheet.setFrozenColumns(1); // Freeze column A (time column)
+}
+
+/**
+ * Add medium grey spacer row between time slots
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ * @param {number} row - Row number for spacer
+ */
+function addTimeSlotSpacerRow(sheet, row) {
+  // Create empty row
+  const spacerRow = new Array(22).fill('');
+  sheet.getRange(row, 1, 1, 22).setValues([spacerRow]);
+  
+  // Apply medium grey background with custom spacer borders
+  formatSpacerRowBorders(sheet, row, '#B0B0B0', '#000000');
+  
+  // Set spacer row height to 23px like other main content rows
+  sheet.setRowHeight(row, 23);
+}
+
+/**
+ * Format header/spacer row without borders on status columns
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ * @param {number} row - Row number
+ * @param {string} backgroundColor - Background color
+ * @param {string} fontColor - Font color
+ */
+function formatHeaderRowWithoutStatusBorders(sheet, row, backgroundColor, fontColor) {
+  // Format entire row with background and font
+  const fullRange = sheet.getRange(row, 1, 1, 22);
+  fullRange.setBackground(backgroundColor);
+  fullRange.setFontColor(fontColor);
+  fullRange.setFontWeight('bold');
+  fullRange.setFontFamily('Roboto');
+  fullRange.setHorizontalAlignment('center');
+  fullRange.setVerticalAlignment('middle');
+  
+  // Apply borders to each day's columns with specific rules
+  for (let day = 0; day < 7; day++) {
+    const nameCol = 2 + (day * 3);
+    const status1Col = nameCol + 1;
+    const status2Col = nameCol + 2;
+    
+    // Name column - no right border (don't separate from 1st status column)
+    const nameCell = sheet.getRange(row, nameCol);
+    nameCell.setBorder(true, true, true, false, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    
+    // First status column - no left border (connected to name), no right border (no separation from 2nd status)
+    const status1Cell = sheet.getRange(row, status1Col);
+    status1Cell.setBorder(true, false, true, false, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    
+    // Second status column - no left border (connected to 1st status), has right border
+    const status2Cell = sheet.getRange(row, status2Col);
+    status2Cell.setBorder(true, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  }
+  
+  // Border for time column (column A)
+  const timeCell = sheet.getRange(row, 1);
+  timeCell.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Right border for column V (column 22)
+  const rightCell = sheet.getRange(row, 22);
+  rightCell.setBorder(true, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * Format title row borders (no bottom border from A1 to T1)
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ */
+function formatTitleRowBorders(sheet) {
+  // Column A - all borders except bottom
+  const colA = sheet.getRange(1, 1);
+  colA.setBorder(true, true, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Columns B to T - all borders except bottom
+  for (let col = 2; col <= 20; col++) {
+    const cell = sheet.getRange(1, col);
+    cell.setBorder(true, true, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  }
+  
+  // Columns U and V (year) - all borders
+  const yearRange = sheet.getRange(1, 21, 1, 2);
+  yearRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * Format tutor row borders (year cell is merged with row 1, so different handling)
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ */
+function formatTutorRowBorders(sheet) {
+  // Columns A to T - all borders (year columns U,V are merged with row 1)
+  const mainRange = sheet.getRange(2, 1, 1, 20);
+  mainRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Note: Columns U and V are part of the merged year cell (U1:V2), no separate border needed
+}
+
+/**
+ * Format spacer row borders with special requirements
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ * @param {number} row - Row number
+ * @param {string} backgroundColor - Background color
+ * @param {string} fontColor - Font color
+ */
+function formatSpacerRowBorders(sheet, row, backgroundColor, fontColor) {
+  // Format entire row with background and font
+  const fullRange = sheet.getRange(row, 1, 1, 22);
+  fullRange.setBackground(backgroundColor);
+  fullRange.setFontColor(fontColor);
+  fullRange.setFontWeight('bold');
+  fullRange.setFontFamily('Roboto');
+  fullRange.setHorizontalAlignment('center');
+  fullRange.setVerticalAlignment('middle');
+  
+  // Time column (A) - all borders
+  const timeCell = sheet.getRange(row, 1);
+  timeCell.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // For each day: name column + status columns with no internal borders
+  for (let day = 0; day < 7; day++) {
+    const nameCol = 2 + (day * 3);
+    const status1Col = nameCol + 1;
+    const status2Col = nameCol + 2;
+    
+    // Name column - no right border (connected to status columns)
+    const nameCell = sheet.getRange(row, nameCol);
+    nameCell.setBorder(true, true, true, false, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    
+    // First status column - no left border, no right border (no internal borders)
+    const status1Cell = sheet.getRange(row, status1Col);
+    status1Cell.setBorder(true, false, true, false, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    
+    // Second status column - no left border, has right border
+    const status2Cell = sheet.getRange(row, status2Col);
+    status2Cell.setBorder(true, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  }
+  
+  // Right border for column V (column 22)
+  const rightCell = sheet.getRange(row, 22);
+  rightCell.setBorder(true, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
 }
 
 // ============================================================================
@@ -495,4 +656,75 @@ function sortTimeSlots(timeSlots) {
     
     return parseTime(a) - parseTime(b);
   });
+}
+
+/**
+ * Format date for screenshot header (Sep 03 format with padding)
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date string
+ */
+function formatDateForScreenshot(date) {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[date.getMonth()];
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${month} ${day}`;
+}
+
+/**
+ * Apply screenshot-specific formatting to headers
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ * @param {string} tutorName - Tutor's name
+ * @param {Date} weekStart - Week start date
+ */
+function formatScreenshotHeaders(sheet, tutorName, weekStart) {
+  // Merge title cell (columns B-T, avoiding year columns)
+  sheet.getRange(1, 2, 1, 19).merge(); // B2:T1
+  
+  // Merge tutor name cell (columns B-T)
+  sheet.getRange(2, 2, 1, 19).merge(); // B2:T2
+  
+  // Merge year cell across 4 cells (U1:V2) for more space
+  sheet.getRange(1, 21, 2, 2).merge(); // U1:V2
+  
+  // Row 1: Class Schedule title - white background, bold, 12px font
+  const titleRange = sheet.getRange(1, 1, 1, 22);
+  titleRange.setBackground('#FFFFFF');
+  titleRange.setFontWeight('bold');
+  titleRange.setFontSize(12);  // 12px as requested
+  titleRange.setFontFamily('Roboto');  // Roboto font as requested
+  titleRange.setHorizontalAlignment('center');
+  titleRange.setVerticalAlignment('middle');
+  
+  // Custom borders for title row (no bottom border from A1 to T1)
+  formatTitleRowBorders(sheet);
+  
+  // Year cell - center aligned in merged cell (now spans U1:V2)
+  const yearCell = sheet.getRange(1, 21, 2, 2);
+  yearCell.setHorizontalAlignment('center');
+  yearCell.setVerticalAlignment('middle');
+  
+  // Row 2: Tutor name - white background, bold, 12px font
+  const tutorRange = sheet.getRange(2, 1, 1, 22);
+  tutorRange.setBackground('#FFFFFF');
+  tutorRange.setFontWeight('bold');
+  tutorRange.setFontSize(12);  // 12px as requested
+  tutorRange.setFontFamily('Roboto');  // Roboto font as requested
+  tutorRange.setHorizontalAlignment('center');
+  tutorRange.setVerticalAlignment('middle');
+  
+  // Custom borders for tutor row (no left/right for U2, V2)
+  formatTutorRowBorders(sheet);
+  
+  // Row 3: Dates - light grey background, no borders on status columns
+  formatHeaderRowWithoutStatusBorders(sheet, 3, '#E0E0E0', '#000000');
+  
+  // Row 4: Day names - dark grey background, no borders on status columns
+  formatHeaderRowWithoutStatusBorders(sheet, 4, '#666666', '#FFFFFF');
+  
+  // Set row heights as requested
+  sheet.setRowHeight(1, 20);  // Title row (20px as requested)
+  sheet.setRowHeight(2, 20);  // Tutor name row (20px as requested)  
+  sheet.setRowHeight(3, 20);  // Date row (20px as requested)
+  sheet.setRowHeight(4, 20);  // Day of week row (20px as requested)
 }
