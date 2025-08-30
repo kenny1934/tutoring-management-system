@@ -46,13 +46,17 @@ function formatScheduleData(sessions, weekStart) {
     scheduleData.timeSlots[timeSlot].days[dayName].students.push(session);
   }
   
-  // Determine class grades for each day/time slot combination
+  // Determine class grades and sort students for each day/time slot combination
   for (const timeSlot of Object.keys(scheduleData.timeSlots)) {
     for (const dayName of Object.keys(scheduleData.timeSlots[timeSlot].days)) {
       const dayData = scheduleData.timeSlots[timeSlot].days[dayName];
       
       if (dayData.students.length > 0) {
+        // Determine the class grade first
         dayData.classGrade = determineClassGrade(dayData.students);
+        
+        // Sort students by majority grade/stream first, then by student ID
+        dayData.students = sortStudentsByGradeAndId(dayData.students, dayData.classGrade);
       }
     }
   }
@@ -105,6 +109,33 @@ function determineClassGrade(sessions) {
   
   // Format as "F1 E" (with space for readability)
   return `${majorityGrade} ${majorityStream}`.trim();
+}
+
+/**
+ * Sort students by majority grade/stream first, then by student ID
+ * @param {Array} students - Array of student session objects
+ * @param {string} majorityGradeStream - The majority grade/stream (e.g., "F1 E")
+ * @returns {Array} Sorted array of students
+ */
+function sortStudentsByGradeAndId(students, majorityGradeStream) {
+  return students.sort((a, b) => {
+    // Get each student's grade/stream combination
+    const aGradeStream = `${a.grade || ''} ${a.lang_stream || ''}`.trim();
+    const bGradeStream = `${b.grade || ''} ${b.lang_stream || ''}`.trim();
+    
+    // Priority 1: Majority grade/stream comes first
+    const aIsMajority = aGradeStream === majorityGradeStream;
+    const bIsMajority = bGradeStream === majorityGradeStream;
+    
+    if (aIsMajority && !bIsMajority) return -1; // a comes first
+    if (!aIsMajority && bIsMajority) return 1;  // b comes first
+    
+    // Priority 2: If both are majority or both are minority, sort by student ID
+    const aId = parseInt(a.school_student_id) || 0;
+    const bId = parseInt(b.school_student_id) || 0;
+    
+    return aId - bId; // Ascending order by student ID
+  });
 }
 
 /**

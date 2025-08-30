@@ -100,7 +100,7 @@ function refreshSingleTutorSchedule(tutorId, weekStart = null) {
     
     for (const week of weeksToRefresh) {
       Logger.log(`Refreshing week starting: ${formatDate(week)}`);
-      generateWeeklySchedule(tutorId, week, spreadsheetId);
+      generateWeeklySchedule(tutorId, week, spreadsheetId, tutor.tutor_name);
     }
     
     Logger.log(`Completed refresh for ${tutor.tutor_name}`);
@@ -116,8 +116,9 @@ function refreshSingleTutorSchedule(tutorId, weekStart = null) {
  * @param {number} tutorId - Tutor database ID
  * @param {Date} weekStart - Monday of the week to generate
  * @param {string} spreadsheetId - Target spreadsheet ID
+ * @param {string} tutorName - Tutor's name for header display
  */
-function generateWeeklySchedule(tutorId, weekStart, spreadsheetId) {
+function generateWeeklySchedule(tutorId, weekStart, spreadsheetId, tutorName = 'Tutor Name') {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
   
@@ -144,7 +145,7 @@ function generateWeeklySchedule(tutorId, weekStart, spreadsheetId) {
     }
     
     // Update the spreadsheet tab
-    updateScheduleTab(spreadsheetId, weekStart, scheduleData);
+    updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName);
     
     Logger.log(`Successfully updated schedule tab for week ${formatDate(weekStart)}`);
     

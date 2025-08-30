@@ -166,8 +166,9 @@ function setupWeeklyTabTemplate(sheet, weekStart) {
  * @param {string} spreadsheetId - Spreadsheet ID
  * @param {Date} weekStart - Monday of the week
  * @param {Object} scheduleData - Processed schedule data
+ * @param {string} tutorName - Tutor's name for header display
  */
-function updateScheduleTab(spreadsheetId, weekStart, scheduleData) {
+function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = 'Tutor Name') {
   try {
     const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
     const tabName = formatWeekLabel(weekStart);
@@ -187,7 +188,7 @@ function updateScheduleTab(spreadsheetId, weekStart, scheduleData) {
     }
     
     // Use the exact screenshot layout system
-    createExactScreenshotLayout(sheet, scheduleData);
+    createExactScreenshotLayout(sheet, scheduleData, tutorName);
     
     Logger.log(`Updated schedule tab: ${tabName}`);
     
