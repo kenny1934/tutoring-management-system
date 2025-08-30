@@ -121,7 +121,7 @@
                 // If there's a specific make-up date, create the make-up session too
                 if (plannedReschedule.rescheduleToDate) {
                     const makeUpSession = {
-                        "id": 0,
+                        "id": Math.floor(Math.random() * (9999999 - 1000000 + 1)) + 1000000,
                         "enrollment_id": enrollmentId,
                         "student_id": studentId,
                         "tutor_id": tutorId,
@@ -137,7 +137,7 @@
             }
             
             const newRow = {
-                "id": 0,
+                "id": Math.floor(Math.random() * (9999999 - 1000000 + 1)) + 1000000,
                 "enrollment_id": enrollmentId,
                 "student_id": studentId,
                 "tutor_id": tutorId,
