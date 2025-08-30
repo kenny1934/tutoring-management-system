@@ -53,7 +53,7 @@ function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Nam
     }
     
     // Create the time slot section
-    currentRow = createScreenshotTimeSlotSection(sheet, currentRow, timeSlot, slotData);
+    currentRow = createScreenshotTimeSlotSection(sheet, currentRow, timeSlot, slotData, scheduleData);
   }
   
   // Apply final formatting
@@ -70,15 +70,19 @@ function setupScreenshotColumnStructure(sheet) {
   // Column structure: Time | Sun(Name|L|A) | Mon(Name|L|A) | ... | Sat(Name|L|A)
   // Total columns: 1 + (7 days × 3 sub-columns) = 22 columns
   
-  // Set column widths
-  sheet.setColumnWidth(1, 45);  // Time column (45px as requested)
+  // Batch set column widths for better performance
+  const columnWidths = [45]; // Time column
   
-  // For each day: Name column (wide), Status1 (narrow), Status2 (narrow)
+  // Build array of column widths for batch operation
   for (let day = 0; day < 7; day++) {
-    const baseCol = 2 + (day * 3);
-    sheet.setColumnWidth(baseCol, 200);     // Student name column (even wider for 9px text)
-    sheet.setColumnWidth(baseCol + 1, 16);  // Lesson status column (16px as requested)
-    sheet.setColumnWidth(baseCol + 2, 16);  // Attendance status column (16px as requested)
+    columnWidths.push(200); // Student name column
+    columnWidths.push(16);  // Lesson status column  
+    columnWidths.push(16);  // Attendance status column
+  }
+  
+  // Set all column widths in batch operations (Google Apps Script optimization)
+  for (let i = 0; i < columnWidths.length; i++) {
+    sheet.setColumnWidth(i + 1, columnWidths[i]);
   }
 }
 
@@ -141,17 +145,18 @@ function createScreenshotHeaders(sheet, weekStart, tutorName = 'Tutor Name') {
  * @param {number} startRow - Starting row
  * @param {string} timeSlot - Time slot string (e.g., "10:00 - 11:30")
  * @param {Object} slotData - Time slot data
+ * @param {Object} scheduleData - Complete schedule data for overlap detection
  * @returns {number} Next available row
  */
-function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData) {
+function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData, scheduleData) {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
   // Find max students for this time slot
   const maxStudents = Math.max(...days.map(day => slotData.days[day].students.length), 0);
   const studentRows = Math.max(maxStudents, 3); // Minimum 3 rows per time slot
   
-  // Create class grade header row
-  createClassGradeHeaderRow(sheet, startRow, timeSlot, slotData, days);
+  // Create class grade header row with color coding and overlap detection
+  createClassGradeHeaderRow(sheet, startRow, timeSlot, slotData, days, scheduleData);
   
   // Create student rows
   for (let studentIndex = 0; studentIndex < studentRows; studentIndex++) {
@@ -168,20 +173,39 @@ function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData) {
   // Add borders around the time slot section
   addTimeSlotBorders(sheet, startRow, sectionHeight);
   
+  // Remove borders between L and A columns to create "L A" format
+  removeStatusColumnBorders(sheet, startRow, sectionHeight);
+  
   return startRow + sectionHeight; // No extra spacing - grey spacer handles spacing
 }
 
 /**
- * Create class grade header row
+ * Create class grade header row with time slot color coding
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  * @param {number} row - Row number
  * @param {string} timeSlot - Time slot string
  * @param {Object} slotData - Time slot data
  * @param {Array} days - Day names array
+ * @param {Object} scheduleData - Complete schedule data for overlap detection
  */
-function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days) {
-  // Format time slot for vertical display with line breaks
-  const formattedTimeSlot = formatTimeSlotVertical(timeSlot);
+function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, scheduleData) {
+  // Check for same-day overlaps and format time slot accordingly
+  let formattedTimeSlot = formatTimeSlotVertical(timeSlot);
+  
+  // Check if any day has overlaps and add warning indicators
+  const daysWithOverlaps = [];
+  for (const dayName of days) {
+    if (slotData.days[dayName].students.length > 0) {
+      if (detectSameDayOverlap(scheduleData, timeSlot, dayName)) {
+        daysWithOverlaps.push(dayName);
+      }
+    }
+  }
+  
+  // Add warning indicator if overlaps detected
+  if (daysWithOverlaps.length > 0) {
+    formattedTimeSlot = '⚠️ ' + formattedTimeSlot;
+  }
   
   // Create the header row data
   const headerRowData = [formattedTimeSlot]; // Formatted time slot in first column
@@ -214,15 +238,19 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days) {
     }
   }
   
-  // Format time column (remove rotation, use horizontal text with line breaks)
+  // Format time column with category-based color coding
   const timeCell = sheet.getRange(row, 1);
-  timeCell.setBackground('#F8F9FA');
+  const timeSlotCategory = categorizeTimeSlot(timeSlot);
+  const timeSlotBgColor = getTimeSlotBackgroundColor(timeSlotCategory);
+  const timeSlotTextColor = getTimeSlotTextColor(timeSlotCategory);
+  
+  timeCell.setBackground(timeSlotBgColor);
+  timeCell.setFontColor(timeSlotTextColor);
   timeCell.setFontWeight('bold');
   timeCell.setFontSize(9); // 9pt font for time slot text
   timeCell.setHorizontalAlignment('center');
   timeCell.setVerticalAlignment('middle');
   timeCell.setWrap(true); // Allow line breaks
-  // Remove text rotation for horizontal multi-line display
 }
 
 /**
@@ -447,39 +475,58 @@ function formatStudentCellRichText(cell, student) {
  */
 function applyStatusCellFormatting(lessonCell, attendanceCell, student) {
   const lessonStatus = getLessonStatusIndicator(student.session_status) || '';
-  
-  // Format both cells with no borders between them
-  [lessonCell, attendanceCell].forEach(cell => {
-    cell.setFontSize(9);  // 9pt font as requested
-    cell.setFontWeight('bold');
-    cell.setHorizontalAlignment('center');
-    cell.setVerticalAlignment('middle');
-  });
-  
-  // Apply borders - no border between the two status columns, but keep left border on lesson cell
-  lessonCell.setBorder(true, true, true, false, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID); // Keep left border, no right border
-  attendanceCell.setBorder(true, false, true, true, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID); // No left border, keep right border
-  
-  // Color code lesson status cell
-  if (lessonStatus === 'R') {
-    lessonCell.setBackground('#FFE6CC'); // Light orange for rescheduled
-  } else if (lessonStatus === 'M') {
-    lessonCell.setBackground('#FFF2CC'); // Light yellow for make-up
-  } else if (lessonStatus === 'S') {
-    lessonCell.setBackground('#F4CCCC'); // Light red for sick
-  } else if (lessonStatus === 'T') {
-    lessonCell.setBackground('#D0E0E3'); // Light blue for trial
-  } else if (lessonStatus === '?') {
-    lessonCell.setBackground('#D9D9D9'); // Light gray for TBC
-  }
-  
-  // Attendance cell gets standard background
   const attendanceStatus = getAttendanceStatusIndicator(student.session_status, student.attendance_marked_by) || '';
-  if (attendanceStatus === '✓') {
-    attendanceCell.setBackground('#D4F6D4'); // Light green for attended
-  } else if (attendanceStatus === 'X') {
-    attendanceCell.setBackground('#FFD4D4'); // Light red for no show
-  }
+  
+  // Batch format both cells with common properties using range
+  const statusRange = lessonCell.getSheet().getRange(
+    lessonCell.getRow(), lessonCell.getColumn(), 1, 2
+  );
+  statusRange.setFontSize(9);
+  statusRange.setFontWeight('bold'); 
+  statusRange.setHorizontalAlignment('center');
+  statusRange.setVerticalAlignment('middle');
+  
+  // Apply borders - no border between lesson and attendance columns (L A format, not L|A)
+  // Lesson cell: top, left, bottom borders but no right border
+  lessonCell.setBorder(true, true, true, false, false, false, '#666666', SpreadsheetApp.BorderStyle.SOLID);
+  // Attendance cell: top, bottom, right borders but no left border
+  attendanceCell.setBorder(true, false, true, true, false, false, '#666666', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Batch background color operations using helper functions
+  const lessonBgColor = getLessonStatusBackgroundColor(lessonStatus);
+  const attendanceBgColor = getAttendanceStatusBackgroundColor(attendanceStatus);
+  
+  if (lessonBgColor) lessonCell.setBackground(lessonBgColor);
+  if (attendanceBgColor) attendanceCell.setBackground(attendanceBgColor);
+}
+
+/**
+ * Get background color for lesson status (centralized for performance)
+ * @param {string} lessonStatus - Status indicator
+ * @returns {string|null} Background color or null
+ */
+function getLessonStatusBackgroundColor(lessonStatus) {
+  const colorMap = {
+    'R': '#FFE6CC', // Light orange for rescheduled
+    'M': '#FFF2CC', // Light yellow for make-up
+    'S': '#F4CCCC', // Light red for sick
+    'T': '#D0E0E3', // Light blue for trial
+    '?': '#D9D9D9'  // Light gray for TBC
+  };
+  return colorMap[lessonStatus] || null;
+}
+
+/**
+ * Get background color for attendance status (centralized for performance)
+ * @param {string} attendanceStatus - Attendance indicator
+ * @returns {string|null} Background color or null
+ */
+function getAttendanceStatusBackgroundColor(attendanceStatus) {
+  const colorMap = {
+    '✓': '#D4F6D4', // Light green for attended
+    'X': '#FFD4D4'  // Light red for no show
+  };
+  return colorMap[attendanceStatus] || null;
 }
 
 /**
@@ -489,8 +536,32 @@ function applyStatusCellFormatting(lessonCell, attendanceCell, student) {
  * @param {number} height - Section height
  */
 function addTimeSlotBorders(sheet, startRow, height) {
+  // Add all borders initially - we'll remove specific ones later
   const sectionRange = sheet.getRange(startRow, 1, height, 22);
   sectionRange.setBorder(true, true, true, true, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * Remove borders between lesson and attendance status columns to create "L A" format
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
+ * @param {number} startRow - Starting row
+ * @param {number} height - Section height
+ */
+function removeStatusColumnBorders(sheet, startRow, height) {
+  for (let row = startRow; row < startRow + height; row++) {
+    for (let day = 0; day < 7; day++) {
+      const lessonCol = 2 + (day * 3) + 1;      // Lesson status column (L)
+      const attendanceCol = 2 + (day * 3) + 2;  // Attendance status column (A)
+      
+      // Remove right border from lesson column (removes border between L and A)
+      const lessonCell = sheet.getRange(row, lessonCol);
+      lessonCell.setBorder(null, null, null, false, null, null, null, null);
+      
+      // Remove left border from attendance column (removes border between L and A)  
+      const attendanceCell = sheet.getRange(row, attendanceCol);
+      attendanceCell.setBorder(null, false, null, null, null, null, null, null);
+    }
+  }
 }
 
 /**
@@ -504,9 +575,9 @@ function applyScreenshotFormatting(sheet) {
     dataRange.setFontFamily('Roboto');
   }
   
-  // Set all main content rows to 23px height
+  // Set all main content rows to 25px height
   for (let row = 5; row <= sheet.getLastRow(); row++) {
-    sheet.setRowHeight(row, 23);
+    sheet.setRowHeight(row, 25);
   }
   
   // Now we can safely freeze column A and row 4 (headers start from column B)
@@ -527,8 +598,8 @@ function addTimeSlotSpacerRow(sheet, row) {
   // Apply medium grey background with custom spacer borders
   formatSpacerRowBorders(sheet, row, '#B0B0B0', '#000000');
   
-  // Set spacer row height to 23px like other main content rows
-  sheet.setRowHeight(row, 23);
+  // Set spacer row height to 25px like other main content rows
+  sheet.setRowHeight(row, 25);
 }
 
 /**
@@ -570,6 +641,13 @@ function formatHeaderRowWithoutStatusBorders(sheet, row, backgroundColor, fontCo
   // Border for time column (column A)
   const timeCell = sheet.getRange(row, 1);
   timeCell.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Clear formatting for A3 and A4 (time column in date/day rows should be white and borderless)
+  if (row === 3 || row === 4) {
+    const timeCellInHeader = sheet.getRange(row, 1);
+    timeCellInHeader.setBackground('#FFFFFF');
+    timeCellInHeader.setBorder(false, false, false, false, false, false);
+  }
   
   // Right border for column V (column 22)
   const rightCell = sheet.getRange(row, 22);
@@ -667,6 +745,125 @@ function formatSpacerRowBorders(sheet, row, backgroundColor, fontColor) {
   // Right border for column V (column 22)
   const rightCell = sheet.getRange(row, 22);
   rightCell.setBorder(true, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+// ============================================================================
+// TIME SLOT CATEGORIZATION AND CONFLICT DETECTION
+// ============================================================================
+
+/**
+ * Categorize time slot as weekday, weekend, or non-standard
+ * @param {string} timeSlot - Time slot string (e.g., "16:45 - 18:15")
+ * @returns {string} 'weekday', 'weekend', or 'nonstandard'
+ */
+function categorizeTimeSlot(timeSlot) {
+  if (!timeSlot) return 'nonstandard';
+  
+  // Weekday slots (2 slots)
+  const weekdaySlots = [
+    '16:45 - 18:15',
+    '18:25 - 19:55'
+  ];
+  
+  // Weekend slots (5 slots)
+  const weekendSlots = [
+    '10:00 - 11:30',
+    '11:45 - 13:15',
+    '14:30 - 16:00',
+    '16:15 - 17:45',
+    '18:00 - 19:30'
+  ];
+  
+  if (weekdaySlots.includes(timeSlot)) return 'weekday';
+  if (weekendSlots.includes(timeSlot)) return 'weekend';
+  
+  return 'nonstandard';
+}
+
+/**
+ * Get time slot background color based on category
+ * @param {string} category - Time slot category
+ * @returns {string} Background color hex code
+ */
+function getTimeSlotBackgroundColor(category) {
+  const colorMap = {
+    'weekday': '#666666',    // Dark grey for weekday slots
+    'weekend': '#EFEFEF',    // Light grey for weekend slots  
+    'nonstandard': '#FFF9C4' // Light yellow for non-standard slots
+  };
+  return colorMap[category] || '#F8F9FA'; // Default light gray
+}
+
+/**
+ * Get time slot text color based on category
+ * @param {string} category - Time slot category
+ * @returns {string} Text color hex code
+ */
+function getTimeSlotTextColor(category) {
+  const colorMap = {
+    'weekday': '#FFFFFF',    // White text for dark grey weekday slots
+    'weekend': '#000000',    // Black text for light grey weekend slots  
+    'nonstandard': '#000000' // Black text for light yellow non-standard slots
+  };
+  return colorMap[category] || '#000000'; // Default black
+}
+
+/**
+ * Parse time slot string to get start and end times in minutes
+ * @param {string} timeSlot - Time slot string (e.g., "16:45 - 18:15")
+ * @returns {Object} {start: minutes, end: minutes} or null if invalid
+ */
+function parseTimeSlot(timeSlot) {
+  const match = timeSlot.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  
+  const [, startHour, startMin, endHour, endMin] = match;
+  return {
+    start: parseInt(startHour) * 60 + parseInt(startMin),
+    end: parseInt(endHour) * 60 + parseInt(endMin)
+  };
+}
+
+/**
+ * Check if two time slots overlap
+ * @param {string} slot1 - First time slot
+ * @param {string} slot2 - Second time slot  
+ * @returns {boolean} True if slots overlap
+ */
+function timeSlotsOverlap(slot1, slot2) {
+  const time1 = parseTimeSlot(slot1);
+  const time2 = parseTimeSlot(slot2);
+  
+  if (!time1 || !time2) return false;
+  
+  // Check for overlap: slot1.start < slot2.end AND slot2.start < slot1.end
+  return time1.start < time2.end && time2.start < time1.end;
+}
+
+/**
+ * Detect same-day time slot overlaps
+ * @param {Object} scheduleData - Complete schedule data
+ * @param {string} currentTimeSlot - Current time slot being processed
+ * @param {string} dayName - Day name (e.g., 'monday')
+ * @returns {boolean} True if overlap detected for this day
+ */
+function detectSameDayOverlap(scheduleData, currentTimeSlot, dayName) {
+  const timeSlots = Object.keys(scheduleData.timeSlots);
+  
+  for (const otherTimeSlot of timeSlots) {
+    if (otherTimeSlot === currentTimeSlot) continue;
+    
+    // Check if other slot has students on the same day
+    const otherSlotData = scheduleData.timeSlots[otherTimeSlot];
+    if (otherSlotData.days[dayName].students.length > 0) {
+      // Check for time overlap
+      if (timeSlotsOverlap(currentTimeSlot, otherTimeSlot)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 // ============================================================================
@@ -819,7 +1016,7 @@ function formatScreenshotHeaders(sheet, tutorName, weekStart) {
   formatTutorRowBorders(sheet);
   
   // Row 3: Dates - light grey background, no borders on status columns
-  formatHeaderRowWithoutStatusBorders(sheet, 3, '#E0E0E0', '#000000');
+  formatHeaderRowWithoutStatusBorders(sheet, 3, '#EFEFEF', '#000000');
   
   // Row 4: Day names - dark grey background, no borders on status columns
   formatHeaderRowWithoutStatusBorders(sheet, 4, '#666666', '#FFFFFF');
@@ -829,4 +1026,113 @@ function formatScreenshotHeaders(sheet, tutorName, weekStart) {
   sheet.setRowHeight(2, 20);  // Tutor name row (20px as requested)  
   sheet.setRowHeight(3, 20);  // Date row (20px as requested)
   sheet.setRowHeight(4, 20);  // Day of week row (20px as requested)
+}
+
+// ============================================================================
+// OVERLAP DETECTION FUNCTIONS
+// ============================================================================
+
+/**
+ * Detect if the given time slot overlaps with other time slots on the same day
+ * @param {string} timeSlot - The time slot to check (e.g., "10:00 - 11:30")
+ * @param {Object} scheduleData - Complete schedule data
+ * @returns {boolean} True if there are same-day overlaps
+ */
+function detectSameDayOverlaps(timeSlot, scheduleData) {
+  if (!timeSlot || !scheduleData || !scheduleData.timeSlots) {
+    return false;
+  }
+  
+  // Parse the target time slot
+  const targetSlot = parseTimeSlotForOverlap(timeSlot);
+  if (!targetSlot) {
+    return false;
+  }
+  
+  // Check each day for overlaps with other time slots
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  
+  for (const day of days) {
+    // Get all time slots that have students on this day
+    const activeSlotsOnDay = [];
+    
+    for (const [otherTimeSlot, slotData] of Object.entries(scheduleData.timeSlots)) {
+      if (otherTimeSlot !== timeSlot && slotData.days[day].students.length > 0) {
+        const otherSlot = parseTimeSlotForOverlap(otherTimeSlot);
+        if (otherSlot) {
+          activeSlotsOnDay.push(otherSlot);
+        }
+      }
+    }
+    
+    // Check if target slot overlaps with any other slot on this day
+    for (const otherSlot of activeSlotsOnDay) {
+      if (timeSlotsOverlap(targetSlot, otherSlot)) {
+        return true; // Found an overlap
+      }
+    }
+  }
+  
+  return false; // No overlaps found
+}
+
+/**
+ * Parse time slot string into start/end minutes for overlap calculation
+ * @param {string} timeSlot - Time slot string (e.g., "10:00 - 11:30")
+ * @returns {Object|null} Object with startMinutes and endMinutes, or null if invalid
+ */
+function parseTimeSlotForOverlap(timeSlot) {
+  if (!timeSlot) return null;
+  
+  const match = timeSlot.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  
+  const [, startHour, startMin, endHour, endMin] = match;
+  
+  return {
+    startMinutes: parseInt(startHour) * 60 + parseInt(startMin),
+    endMinutes: parseInt(endHour) * 60 + parseInt(endMin)
+  };
+}
+
+/**
+ * Check if two time slots overlap
+ * @param {Object} slot1 - First time slot with startMinutes and endMinutes
+ * @param {Object} slot2 - Second time slot with startMinutes and endMinutes  
+ * @returns {boolean} True if slots overlap
+ */
+function timeSlotsOverlap(slot1, slot2) {
+  // Slots overlap if: start1 < end2 AND start2 < end1
+  return slot1.startMinutes < slot2.endMinutes && slot2.startMinutes < slot1.endMinutes;
+}
+
+/**
+ * Detect if the given time slot overlaps with other time slots on a specific day
+ * @param {Object} scheduleData - Complete schedule data
+ * @param {string} timeSlot - The time slot to check (e.g., "10:00 - 11:30")
+ * @param {string} dayName - The specific day to check (e.g., "monday")
+ * @returns {boolean} True if there are overlaps on that day
+ */
+function detectSameDayOverlap(scheduleData, timeSlot, dayName) {
+  if (!scheduleData || !scheduleData.timeSlots || !timeSlot || !dayName) {
+    return false;
+  }
+  
+  // Parse the target time slot
+  const targetSlot = parseTimeSlotForOverlap(timeSlot);
+  if (!targetSlot) {
+    return false;
+  }
+  
+  // Check this specific day for overlaps with other time slots
+  for (const [otherTimeSlot, slotData] of Object.entries(scheduleData.timeSlots)) {
+    if (otherTimeSlot !== timeSlot && slotData.days[dayName].students.length > 0) {
+      const otherSlot = parseTimeSlotForOverlap(otherTimeSlot);
+      if (otherSlot && timeSlotsOverlap(targetSlot, otherSlot)) {
+        return true; // Found an overlap on this day
+      }
+    }
+  }
+  
+  return false; // No overlaps found on this day
 }
