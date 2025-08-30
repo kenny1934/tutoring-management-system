@@ -77,8 +77,8 @@ function setupScreenshotColumnStructure(sheet) {
   for (let day = 0; day < 7; day++) {
     const baseCol = 2 + (day * 3);
     sheet.setColumnWidth(baseCol, 200);     // Student name column (even wider for 9px text)
-    sheet.setColumnWidth(baseCol + 1, 25);  // Lesson status column
-    sheet.setColumnWidth(baseCol + 2, 25);  // Attendance status column
+    sheet.setColumnWidth(baseCol + 1, 16);  // Lesson status column (16px as requested)
+    sheet.setColumnWidth(baseCol + 2, 16);  // Attendance status column (16px as requested)
   }
 }
 
@@ -218,6 +218,7 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days) {
   const timeCell = sheet.getRange(row, 1);
   timeCell.setBackground('#F8F9FA');
   timeCell.setFontWeight('bold');
+  timeCell.setFontSize(9); // 9pt font for time slot text
   timeCell.setHorizontalAlignment('center');
   timeCell.setVerticalAlignment('middle');
   timeCell.setWrap(true); // Allow line breaks
@@ -271,9 +272,10 @@ function createStudentDataRow(sheet, row, slotData, studentIndex, days, isFirstS
       const student = dayData.students[studentIndex];
       const baseCol = 2 + (day * 3);
       
-      // Format student name cell
+      // Format student name cell with rich text
       const studentCell = sheet.getRange(row, baseCol);
       applyStudentCellFormatting(studentCell, student);
+      formatStudentCellRichText(studentCell, student);
       
       // Format status cells
       const lessonStatusCell = sheet.getRange(row, baseCol + 1);
@@ -321,7 +323,7 @@ function getClassGradeColor(classGrade) {
   
   // Specific colors for each grade-stream combination
   const gradeStreamColors = {
-    'F1 C': '#b7e1cd',
+    'F1 C': '#B7E1CD',
     'F1 E': '#CEDAF5',
     'F2 C': '#FBF2D0',
     'F2 E': '#EBCECD',
@@ -353,9 +355,88 @@ function applyStudentCellFormatting(cell, student) {
     cell.setBackground('#FFF3E0'); // Very light orange
   }
   
-  cell.setFontSize(9);  // Back to 9px as requested
+  cell.setFontSize(9);
   cell.setVerticalAlignment('middle');
-  cell.setWrap(true);  // Allow text wrapping for long names
+  cell.setWrap(true);
+  cell.setFontFamily('Roboto');
+  
+  // Apply borders - keep right border (separates student from status columns)
+  cell.setBorder(true, true, true, true, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * Apply rich text formatting to student cell with right-aligned details
+ * @param {GoogleAppsScript.Spreadsheet.Range} cell - Student name cell
+ * @param {Object} student - Student session object
+ */
+function formatStudentCellRichText(cell, student) {
+  // Build left part (ID and name) - no longer bold
+  let leftPart = '';
+  if (student.school_student_id) {
+    leftPart += student.school_student_id;
+  }
+  if (student.student_name) {
+    if (leftPart.length > 0) leftPart += ' ';
+    leftPart += student.student_name;
+  }
+  
+  // Build right part (grade/stream and school) - italic grey
+  let rightPart = '';
+  if (student.grade && student.lang_stream) {
+    rightPart += `${student.grade}${student.lang_stream}`;
+  }
+  if (student.school) {
+    if (rightPart.length > 0) rightPart += ' ';
+    rightPart += student.school;
+  }
+  
+  // Calculate spacing to push right part to the right
+  // Approximate cell width in characters (name column is 200px wide, ~35-40 chars with 9px font)
+  const approximateCellWidth = 34;  // Increased to push text more to the right
+  const leftLength = leftPart.length;
+  const rightLength = rightPart.length;
+  const totalUsed = leftLength + rightLength;
+  
+  // Add spaces to push right content to the right (leave 1 space minimum)
+  let spacer = '';
+  if (totalUsed < approximateCellWidth) {
+    const spacesNeeded = Math.max(1, approximateCellWidth - totalUsed);
+    spacer = ' '.repeat(spacesNeeded);
+  } else {
+    spacer = ' '; // At least one space
+  }
+  
+  // Combine all parts
+  const fullText = leftPart + spacer + rightPart;
+  
+  // Build rich text with formatting
+  let builder = SpreadsheetApp.newRichTextValue()
+    .setText(fullText);
+  
+  // Apply formatting
+  if (leftPart.length > 0) {
+    // Left part - normal black text (no bold)
+    const leftStyle = SpreadsheetApp.newTextStyle()
+      .setForegroundColor('#000000')
+      .setFontFamily('Roboto')
+      .setFontSize(9)
+      .build();
+    builder = builder.setTextStyle(0, leftPart.length, leftStyle);
+  }
+  
+  if (rightPart.length > 0) {
+    // Right part - italic grey text
+    const rightStartIndex = leftPart.length + spacer.length;
+    const rightStyle = SpreadsheetApp.newTextStyle()
+      .setForegroundColor('#666666')
+      .setFontFamily('Roboto')
+      .setFontSize(9)
+      .setItalic(true)
+      .build();
+    builder = builder.setTextStyle(rightStartIndex, fullText.length, rightStyle);
+  }
+  
+  cell.setRichTextValue(builder.build());
 }
 
 /**
@@ -367,13 +448,17 @@ function applyStudentCellFormatting(cell, student) {
 function applyStatusCellFormatting(lessonCell, attendanceCell, student) {
   const lessonStatus = getLessonStatusIndicator(student.session_status) || '';
   
-  // Format both cells
+  // Format both cells with no borders between them
   [lessonCell, attendanceCell].forEach(cell => {
-    cell.setFontSize(8);
+    cell.setFontSize(9);  // 9pt font as requested
     cell.setFontWeight('bold');
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
   });
+  
+  // Apply borders - no border between the two status columns, but keep left border on lesson cell
+  lessonCell.setBorder(true, true, true, false, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID); // Keep left border, no right border
+  attendanceCell.setBorder(true, false, true, true, true, true, '#666666', SpreadsheetApp.BorderStyle.SOLID); // No left border, keep right border
   
   // Color code lesson status cell
   if (lessonStatus === 'R') {
@@ -492,18 +577,24 @@ function formatHeaderRowWithoutStatusBorders(sheet, row, backgroundColor, fontCo
 }
 
 /**
- * Format title row borders (no bottom border from A1 to T1)
+ * Format title row borders (no bottom border from A1 to T1, no vertical between A1-A2 and B1-B2)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  */
 function formatTitleRowBorders(sheet) {
-  // Column A - all borders except bottom
+  // Column A - top, left, right borders, but no bottom border
   const colA = sheet.getRange(1, 1);
-  colA.setBorder(true, true, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  colA.setBorder(true, true, false, true, false, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
   
-  // Columns B to T - all borders except bottom
+  // Columns B to T - top, right borders, no bottom, no left (for B only to remove A1-B1 border)
   for (let col = 2; col <= 20; col++) {
     const cell = sheet.getRange(1, col);
-    cell.setBorder(true, true, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    if (col === 2) {
+      // Column B - no left border (removes A1-B1 vertical border)
+      cell.setBorder(true, false, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    } else {
+      // Other columns - normal borders but no bottom
+      cell.setBorder(true, true, false, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    }
   }
   
   // Columns U and V (year) - all borders
@@ -512,13 +603,23 @@ function formatTitleRowBorders(sheet) {
 }
 
 /**
- * Format tutor row borders (year cell is merged with row 1, so different handling)
+ * Format tutor row borders (no top border for row 2, no vertical between A2-B2)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  */
 function formatTutorRowBorders(sheet) {
-  // Columns A to T - all borders (year columns U,V are merged with row 1)
-  const mainRange = sheet.getRange(2, 1, 1, 20);
-  mainRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  // Column A - left, bottom, right borders, no top (removes row 1-2 border)
+  const colA = sheet.getRange(2, 1);
+  colA.setBorder(false, true, true, true, false, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Column B - bottom, right borders, no top, no left (removes A2-B2 border)
+  const colB = sheet.getRange(2, 2);
+  colB.setBorder(false, false, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Columns C to T - bottom, left, right borders, no top
+  for (let col = 3; col <= 20; col++) {
+    const cell = sheet.getRange(2, col);
+    cell.setBorder(false, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+  }
   
   // Note: Columns U and V are part of the merged year cell (U1:V2), no separate border needed
 }
@@ -632,7 +733,7 @@ function formatTimeSlotVertical(timeSlot) {
   
   if (match) {
     const [, startTime, endTime] = match;
-    return `${startTime}\n-\n${endTime}`;
+    return `${startTime}\n\n|\n\n${endTime}`;
   }
   
   // If no match, return original
@@ -701,6 +802,7 @@ function formatScreenshotHeaders(sheet, tutorName, weekStart) {
   
   // Year cell - center aligned in merged cell (now spans U1:V2)
   const yearCell = sheet.getRange(1, 21, 2, 2);
+  yearCell.setFontSize(10);
   yearCell.setHorizontalAlignment('center');
   yearCell.setVerticalAlignment('middle');
   
