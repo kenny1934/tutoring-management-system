@@ -251,6 +251,13 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, schedul
   timeCell.setHorizontalAlignment('center');
   timeCell.setVerticalAlignment('middle');
   timeCell.setWrap(true); // Allow line breaks
+  
+  // Add AppSheet link for time slot navigation
+  addAppSheetLink(timeCell, 'timeslot', {
+    timeSlot: timeSlot,
+    date: scheduleData.weekStart,
+    tutorId: getTutorIdFromActiveSpreadsheet()
+  });
 }
 
 /**
@@ -300,10 +307,14 @@ function createStudentDataRow(sheet, row, slotData, studentIndex, days, isFirstS
       const student = dayData.students[studentIndex];
       const baseCol = 2 + (day * 3);
       
-      // Format student name cell with rich text
+      // Format student name cell with rich text and AppSheet link
       const studentCell = sheet.getRange(row, baseCol);
       applyStudentCellFormatting(studentCell, student);
       formatStudentCellRichText(studentCell, student);
+      addAppSheetLink(studentCell, 'student', {
+        studentId: student.school_student_id,
+        studentName: student.student_name
+      });
       
       // Format status cells
       const lessonStatusCell = sheet.getRange(row, baseCol + 1);
@@ -1135,4 +1146,153 @@ function detectSameDayOverlap(scheduleData, timeSlot, dayName) {
   }
   
   return false; // No overlaps found on this day
+}
+
+// ============================================================================
+// APPSHEET DEEPLINK FUNCTIONS
+// ============================================================================
+
+/**
+ * Add AppSheet deeplink to a cell
+ * @param {GoogleAppsScript.Spreadsheet.Range} cell - Target cell
+ * @param {string} type - Link type ('student' or 'timeslot')
+ * @param {Object} params - Parameters for the link
+ */
+function addAppSheetLink(cell, type, params) {
+  try {
+    const appId = getAppSheetAppId(); // Get configured app ID
+    if (!appId) {
+      Logger.log('AppSheet App ID not configured, skipping link creation');
+      return;
+    }
+    
+    const url = generateAppSheetURL(type, params, appId);
+    if (!url) {
+      return;
+    }
+    
+    // Get current cell content
+    const currentValue = cell.getValue();
+    if (!currentValue) {
+      return;
+    }
+    
+    // Create rich text with link
+    const richText = SpreadsheetApp.newRichTextValue()
+      .setText(currentValue.toString())
+      .setLinkUrl(url)
+      .build();
+    
+    cell.setRichTextValue(richText);
+    
+    Logger.log(`Added AppSheet link to cell: ${url}`);
+    
+  } catch (error) {
+    Logger.log(`Error adding AppSheet link: ${error.toString()}`);
+  }
+}
+
+/**
+ * Generate AppSheet URL based on type and parameters
+ * @param {string} type - Link type ('student' or 'timeslot')
+ * @param {Object} params - Parameters for the link
+ * @param {string} appId - AppSheet app ID
+ * @returns {string|null} Generated URL or null if invalid
+ */
+function generateAppSheetURL(type, params, appId) {
+  const baseUrl = `https://www.appsheet.com/start/${appId}`;
+  
+  try {
+    if (type === 'student' && params.studentId) {
+      // Link to student profile view
+      return `${baseUrl}#view=Student_Details&filter=school_student_id="${params.studentId}"`;
+      
+    } else if (type === 'timeslot' && params.timeSlot && params.date && params.tutorId) {
+      // Link to schedule view filtered by tutor, date, and time
+      const dateStr = formatDateForAppSheet(params.date);
+      const timeSlotEncoded = encodeURIComponent(params.timeSlot);
+      
+      return `${baseUrl}#view=Schedule&filter=tutor_id=${params.tutorId} AND session_date="${dateStr}" AND time_slot="${timeSlotEncoded}"`;
+      
+    } else {
+      Logger.log(`Invalid parameters for AppSheet link type: ${type}`);
+      return null;
+    }
+    
+  } catch (error) {
+    Logger.log(`Error generating AppSheet URL: ${error.toString()}`);
+    return null;
+  }
+}
+
+/**
+ * Get AppSheet App ID from script properties
+ * @returns {string|null} App ID or null if not configured
+ */
+function getAppSheetAppId() {
+  try {
+    // Check script properties first
+    const properties = PropertiesService.getScriptProperties();
+    let appId = properties.getProperty('APPSHEET_APP_ID');
+    
+    if (!appId) {
+      // Check document properties as fallback
+      const docProperties = PropertiesService.getDocumentProperties();
+      appId = docProperties.getProperty('APPSHEET_APP_ID');
+    }
+    
+    return appId;
+    
+  } catch (error) {
+    Logger.log(`Error getting AppSheet App ID: ${error.toString()}`);
+    return null;
+  }
+}
+
+/**
+ * Get tutor ID from active spreadsheet
+ * @returns {number|null} Tutor ID or null if not found
+ */
+function getTutorIdFromActiveSpreadsheet() {
+  try {
+    const properties = PropertiesService.getDocumentProperties();
+    const tutorId = properties.getProperty('TUTOR_ID');
+    
+    return tutorId ? parseInt(tutorId) : null;
+    
+  } catch (error) {
+    Logger.log(`Error getting tutor ID: ${error.toString()}`);
+    return null;
+  }
+}
+
+/**
+ * Format date for AppSheet filter (YYYY-MM-DD format)
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date string
+ */
+function formatDateForAppSheet(date) {
+  if (!date) return '';
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Set AppSheet App ID in script properties (setup function)
+ * @param {string} appId - AppSheet app ID
+ */
+function setAppSheetAppId(appId) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    properties.setProperty('APPSHEET_APP_ID', appId);
+    
+    Logger.log(`AppSheet App ID set to: ${appId}`);
+    
+  } catch (error) {
+    Logger.log(`Error setting AppSheet App ID: ${error.toString()}`);
+  }
 }
