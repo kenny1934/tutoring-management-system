@@ -4,19 +4,6 @@
  * Handles creation and updating of tutor spreadsheets and tabs
  */
 
-/**
- * onOpen trigger function - automatically called when spreadsheet is opened
- * Sets up custom menu for manual refresh functionality
- */
-function onOpen() {
-  try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    setupManualRefreshMenu(spreadsheet);
-  } catch (error) {
-    Logger.log(`Error in onOpen trigger: ${error.toString()}`);
-  }
-}
-
 // ============================================================================
 // SPREADSHEET CREATION & MANAGEMENT
 // ============================================================================
@@ -64,6 +51,14 @@ function createTutorSpreadsheet(tutor) {
     DriveApp.getFileById(spreadsheetId).addViewer(tutor.user_email);
     Logger.log(`Shared spreadsheet with tutor: ${tutor.user_email}`);
     
+    // Store tutor ID in spreadsheet properties for menu functionality
+    const docProperties = PropertiesService.getDocumentProperties();
+    docProperties.setProperty('TUTOR_ID', tutor.id.toString());
+    Logger.log(`Stored tutor ID ${tutor.id} in spreadsheet properties`);
+    
+    // Add comprehensive instructions sheet for users
+    addManualRefreshInstructions(spreadsheet);
+    
     // Create initial week tabs FIRST
     const weeks = getWeeksToRefresh();
     for (const week of weeks) {
@@ -110,14 +105,7 @@ function createWeeklyTab(spreadsheetId, weekStart) {
     // Set up the basic template structure
     setupWeeklyTabTemplate(sheet, weekStart);
     
-    // Highlight current week tab in green
-    if (isCurrentWeek(weekStart)) {
-      sheet.setTabColor('#34A853'); // Google green
-      
-      // Move current week tab to first position
-      spreadsheet.setActiveSheet(sheet);
-      spreadsheet.moveActiveSheet(1);
-    }
+    // Note: Tab coloring now happens in updateScheduleTab() during refresh
     
     return sheet;
     
@@ -202,6 +190,17 @@ function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = '
     
     // Use the exact screenshot layout system
     createExactScreenshotLayout(sheet, scheduleData, tutorName);
+    
+    // Update tab color and position based on current week (happens every refresh)
+    if (isCurrentWeek(weekStart)) {
+      sheet.setTabColor('#34A853'); // Google green
+      spreadsheet.setActiveSheet(sheet);
+      spreadsheet.moveActiveSheet(1); // Move to first position
+      Logger.log(`✅ Colored current week tab green: ${tabName}`);
+    } else {
+      sheet.setTabColor(null); // Remove color for non-current weeks
+      Logger.log(`⬜ Removed color from tab: ${tabName}`);
+    }
     
     Logger.log(`Updated schedule tab: ${tabName}`);
     
@@ -392,6 +391,14 @@ function isCurrentWeek(weekStart) {
   
   const currentWeekStart = getSundayOfWeek(gmt8Time);
   
+  // Debug logging
+  Logger.log(`🕐 Current Week Check:`);
+  Logger.log(`  Server time: ${now.toISOString()}`);
+  Logger.log(`  GMT+8 time: ${gmt8Time.toISOString()}`);
+  Logger.log(`  Given week start: ${weekStart.toISOString()}`);
+  Logger.log(`  Current week start: ${currentWeekStart.toISOString()}`);
+  Logger.log(`  Is current week: ${weekStart.getTime() === currentWeekStart.getTime()}`);
+  
   return weekStart.getTime() === currentWeekStart.getTime();
 }
 
@@ -406,7 +413,7 @@ function formatDateForHeader(date) {
 }
 
 /**
- * Add manual refresh instruction to sheet and set up menu
+ * Add manual refresh instruction to sheet
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  * @param {Date} weekStart - Monday of the week
  */
@@ -415,143 +422,59 @@ function addManualRefreshButton(sheet, weekStart) {
   sheet.getRange(1, 10).setValue('Refresh: Menu > Tutor Schedule > Refresh This Week');
   sheet.getRange(1, 10).setFontSize(10);
   sheet.getRange(1, 10).setFontColor('#666666');
-  
-  // Set up the custom menu (this will be called when spreadsheet is opened)
-  const spreadsheet = sheet.getParent();
-  setupManualRefreshMenu(spreadsheet);
 }
 
+
 /**
- * Set up manual refresh menu for tutor spreadsheets
+ * Add manual refresh instructions to spreadsheet (fallback when bound script fails)
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
  */
-function setupManualRefreshMenu(spreadsheet) {
+function addManualRefreshInstructions(spreadsheet) {
   try {
-    // Get tutor ID from spreadsheet properties or title
-    const tutorId = getTutorIdFromSpreadsheet(spreadsheet);
+    // Add an instructions sheet
+    const instructionsSheet = spreadsheet.insertSheet('📋 Instructions');
     
-    // Store tutor ID in spreadsheet properties for menu functions to access
-    PropertiesService.getDocumentProperties().setProperty('TUTOR_ID', tutorId.toString());
+    // Add instructions content
+    const instructions = [
+      ['TutorScheduleManager - Usage Instructions'],
+      [''],
+      ['📅 Schedule Updates:'],
+      ['• Automatic updates: Twice daily (12:00 AM and 2:00 PM)'],
+      ['• Manual refresh: Contact your administrator'],
+      [''],
+      ['🎨 Visual Guide:'],
+      ['• Green tab = Current week'],
+      ['• L column = Lesson Status (R=Rescheduled, M=Makeup, S=Standard, ?=Pending, T=Trial)'],
+      ['• A column = Attendance (✓=Attended, X=No Show, blank=Not yet marked)'],
+      [''],
+      ['📊 Time Slot Colors:'],
+      ['• Dark grey = Weekday slots (16:45-18:15, 18:25-19:55)'],
+      ['• Light grey = Weekend slots (10:00-11:30, 11:45-13:15, 14:30-16:00, 16:15-17:45, 18:00-19:30)'],
+      ['• Light yellow = Non-standard time slots'],
+      ['• ⚠️ icon = Overlapping time slots detected'],
+      [''],
+      ['❓ Support:'],
+      ['Contact your system administrator for any issues or refresh requests.']
+    ];
     
-    // Create the custom menu
-    const ui = SpreadsheetApp.getUi();
-    ui.createMenu('Tutor Schedule')
-      .addItem('Refresh This Week', 'refreshCurrentWeek')
-      .addItem('Refresh All Weeks', 'refreshAllWeeks')
-      .addToUi();
-      
-    Logger.log(`Manual refresh menu set up for tutor ID: ${tutorId}`);
-    
-  } catch (error) {
-    Logger.log(`Error setting up manual refresh menu: ${error.toString()}`);
-  }
-}
-
-/**
- * Extract tutor ID from spreadsheet (from title or properties)
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
- * @returns {number} Tutor ID
- */
-function getTutorIdFromSpreadsheet(spreadsheet) {
-  // First try to get from properties
-  const properties = PropertiesService.getDocumentProperties();
-  const storedTutorId = properties.getProperty('TUTOR_ID');
-  
-  if (storedTutorId) {
-    return parseInt(storedTutorId);
-  }
-  
-  // If not in properties, try to extract from spreadsheet title
-  // Title format: "[Tutor Name] - Schedule 2025"
-  // We'll need to look up tutor by name (this is a fallback method)
-  const title = spreadsheet.getName();
-  const tutorName = title.replace(' - Schedule 2025', '');
-  
-  // This would require a database lookup - for now return 1 as default
-  // In production, implement proper tutor ID lookup
-  Logger.log(`Could not determine tutor ID for spreadsheet: ${title}, using default ID 1`);
-  return 1;
-}
-
-/**
- * Manual refresh function for current week (called from custom menu)
- */
-function refreshCurrentWeek() {
-  try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = SpreadsheetApp.getActiveSheet();
-    const tutorId = parseInt(PropertiesService.getDocumentProperties().getProperty('TUTOR_ID')) || 1;
-    
-    // Extract week start from tab name (format: "MMDD-MMDD")
-    const tabName = sheet.getName();
-    const weekStart = getWeekStartFromTabName(tabName);
-    
-    if (!weekStart) {
-      SpreadsheetApp.getUi().alert('Could not determine week from tab name. Please make sure you are on a weekly schedule tab.');
-      return;
+    // Add content to sheet
+    for (let i = 0; i < instructions.length; i++) {
+      instructionsSheet.getRange(i + 1, 1).setValue(instructions[i][0]);
     }
     
-    // Show progress message
-    SpreadsheetApp.getUi().alert('Refreshing schedule... This may take a moment.');
+    // Format the instructions sheet
+    instructionsSheet.getRange('A1').setFontWeight('bold').setFontSize(14);
+    instructionsSheet.getRange('A3,A7,A12,A18').setFontWeight('bold');
+    instructionsSheet.setColumnWidth(1, 600);
+    instructionsSheet.getRange('A:A').setWrap(true);
     
-    // Call the refresh function
-    refreshSingleTutorSchedule(tutorId, formatDate(weekStart));
+    // Move instructions to the end
+    spreadsheet.moveActiveSheet(spreadsheet.getSheets().length);
     
-    // Success message
-    SpreadsheetApp.getUi().alert('Schedule refreshed successfully!');
-    
-  } catch (error) {
-    Logger.log(`Error in manual refresh: ${error.toString()}`);
-    SpreadsheetApp.getUi().alert(`Error refreshing schedule: ${error.toString()}`);
-  }
-}
-
-/**
- * Manual refresh function for all weeks (called from custom menu)
- */
-function refreshAllWeeks() {
-  try {
-    const tutorId = parseInt(PropertiesService.getDocumentProperties().getProperty('TUTOR_ID')) || 1;
-    
-    // Show progress message
-    SpreadsheetApp.getUi().alert('Refreshing all weeks... This may take a few minutes.');
-    
-    // Call the refresh function without specific week (refreshes all weeks)
-    refreshSingleTutorSchedule(tutorId);
-    
-    // Success message
-    SpreadsheetApp.getUi().alert('All weeks refreshed successfully!');
+    Logger.log('Added manual instructions sheet as fallback');
     
   } catch (error) {
-    Logger.log(`Error in manual refresh all: ${error.toString()}`);
-    SpreadsheetApp.getUi().alert(`Error refreshing all weeks: ${error.toString()}`);
-  }
-}
-
-/**
- * Extract week start date from tab name
- * @param {string} tabName - Tab name in format "MMDD-MMDD"
- * @returns {Date|null} Week start date or null if parsing fails
- */
-function getWeekStartFromTabName(tabName) {
-  try {
-    // Tab name format: "0901-0907" (September 1 to September 7)
-    const match = tabName.match(/(\d{2})(\d{2})-(\d{2})(\d{2})/);
-    if (!match) {
-      return null;
-    }
-    
-    const [, startMonth, startDay] = match;
-    const currentYear = new Date().getFullYear();
-    
-    // Create date for the week start (Sunday)
-    const weekStart = new Date(currentYear, parseInt(startMonth) - 1, parseInt(startDay));
-    
-    return weekStart;
-    
-  } catch (error) {
-    Logger.log(`Error parsing tab name ${tabName}: ${error.toString()}`);
-    return null;
+    Logger.log(`Error adding instructions: ${error.toString()}`);
   }
 }
 

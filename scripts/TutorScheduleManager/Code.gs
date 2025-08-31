@@ -9,6 +9,141 @@
  * Created: August 2025
  */
 
+/**
+ * onOpen trigger - automatically called when spreadsheet is opened
+ * Creates custom menu for manual refresh functionality
+ */
+function onOpen() {
+  try {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const ui = SpreadsheetApp.getUi();
+    
+    // Create custom menu
+    ui.createMenu('Tutor Schedule')
+      .addItem('Refresh This Week', 'refreshCurrentWeek')
+      .addItem('Refresh All Weeks', 'refreshAllWeeks')
+      .addToUi();
+    
+    // Try to get and store tutor ID
+    const tutorId = getTutorIdFromSpreadsheet(spreadsheet);
+    if (tutorId) {
+      PropertiesService.getDocumentProperties().setProperty('TUTOR_ID', tutorId.toString());
+    }
+    
+    Logger.log('Manual refresh menu created');
+    
+  } catch (error) {
+    Logger.log(`Error in onOpen: ${error.toString()}`);
+  }
+}
+
+/**
+ * Extract tutor ID from spreadsheet (from title or properties)
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
+ * @returns {number} Tutor ID
+ */
+function getTutorIdFromSpreadsheet(spreadsheet) {
+  // First try to get from properties
+  const properties = PropertiesService.getDocumentProperties();
+  const storedTutorId = properties.getProperty('TUTOR_ID');
+  
+  if (storedTutorId) {
+    return parseInt(storedTutorId);
+  }
+  
+  // If not in properties, try to extract from spreadsheet title
+  // Title format: "[Tutor Name] - Schedule 2025"
+  const title = spreadsheet.getName();
+  const tutorName = title.replace(' - Schedule 2025', '');
+  
+  // This would require a database lookup - for now return 1 as default
+  // In production, implement proper tutor ID lookup
+  Logger.log(`Could not determine tutor ID for spreadsheet: ${title}, using default ID 1`);
+  return 1;
+}
+
+/**
+ * Manual refresh function for current week (called from custom menu)
+ */
+function refreshCurrentWeek() {
+  try {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = SpreadsheetApp.getActiveSheet();
+    const tutorId = parseInt(PropertiesService.getDocumentProperties().getProperty('TUTOR_ID')) || 1;
+    
+    // Extract week start from tab name (format: "MMDD-MMDD")
+    const tabName = sheet.getName();
+    const weekStart = getWeekStartFromTabName(tabName);
+    
+    if (!weekStart) {
+      SpreadsheetApp.getUi().alert('Could not determine week from tab name. Please make sure you are on a weekly schedule tab.');
+      return;
+    }
+    
+    // Show progress message
+    SpreadsheetApp.getUi().alert('Refreshing schedule... This may take a moment.');
+    
+    // Call the refresh function
+    refreshSingleTutorSchedule(tutorId, formatDate(weekStart));
+    
+    // Success message
+    SpreadsheetApp.getUi().alert('Schedule refreshed successfully!');
+    
+  } catch (error) {
+    Logger.log(`Error in manual refresh: ${error.toString()}`);
+    SpreadsheetApp.getUi().alert(`Error refreshing schedule: ${error.toString()}`);
+  }
+}
+
+/**
+ * Manual refresh function for all weeks (called from custom menu)
+ */
+function refreshAllWeeks() {
+  try {
+    const tutorId = parseInt(PropertiesService.getDocumentProperties().getProperty('TUTOR_ID')) || 1;
+    
+    // Show progress message
+    SpreadsheetApp.getUi().alert('Refreshing all weeks... This may take a few minutes.');
+    
+    // Call the refresh function without specific week (refreshes all weeks)
+    refreshSingleTutorSchedule(tutorId);
+    
+    // Success message
+    SpreadsheetApp.getUi().alert('All weeks refreshed successfully!');
+    
+  } catch (error) {
+    Logger.log(`Error in manual refresh all: ${error.toString()}`);
+    SpreadsheetApp.getUi().alert(`Error refreshing all weeks: ${error.toString()}`);
+  }
+}
+
+/**
+ * Extract week start date from tab name
+ * @param {string} tabName - Tab name in format "MMDD-MMDD"
+ * @returns {Date|null} Week start date or null if parsing fails
+ */
+function getWeekStartFromTabName(tabName) {
+  try {
+    // Tab name format: "0901-0907" (September 1 to September 7)
+    const match = tabName.match(/(\d{2})(\d{2})-(\d{2})(\d{2})/);
+    if (!match) {
+      return null;
+    }
+    
+    const [, startMonth, startDay] = match;
+    const currentYear = new Date().getFullYear();
+    
+    // Create date for the week start (Sunday)
+    const weekStart = new Date(currentYear, parseInt(startMonth) - 1, parseInt(startDay));
+    
+    return weekStart;
+    
+  } catch (error) {
+    Logger.log(`Error parsing tab name ${tabName}: ${error.toString()}`);
+    return null;
+  }
+}
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
