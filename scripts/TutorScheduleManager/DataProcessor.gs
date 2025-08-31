@@ -73,9 +73,8 @@ function formatScheduleData(sessions, weekStart) {
 function determineClassGrade(sessions) {
   if (!sessions || sessions.length === 0) return '';
   
-  // Count grades and streams from non-makeup students
-  const gradeCount = {};
-  const streamCount = {};
+  // Count grade-stream combinations from non-makeup students
+  const gradeStreamCount = {};
   let totalNonMakeup = 0;
   
   for (const session of sessions) {
@@ -84,31 +83,29 @@ function determineClassGrade(sessions) {
       continue;
     }
     
-    if (session.grade) {
-      gradeCount[session.grade] = (gradeCount[session.grade] || 0) + 1;
+    // Only count if both grade and stream are present
+    if (session.grade && session.lang_stream) {
+      const combination = `${session.grade} ${session.lang_stream}`;
+      gradeStreamCount[combination] = (gradeStreamCount[combination] || 0) + 1;
       totalNonMakeup++;
-    }
-    
-    if (session.lang_stream) {
-      streamCount[session.lang_stream] = (streamCount[session.lang_stream] || 0) + 1;
     }
   }
   
-  // If no non-makeup students, return empty
+  // If no non-makeup students with complete grade/stream info, return empty
   if (totalNonMakeup === 0) return '';
   
-  // Find majority grade
-  const majorityGrade = Object.keys(gradeCount).reduce((a, b) => {
-    return gradeCount[a] >= gradeCount[b] ? a : b;
-  }, '');
+  // Find the grade-stream combination with the highest count
+  let majorityCombination = '';
+  let maxCount = 0;
   
-  // Find majority stream
-  const majorityStream = Object.keys(streamCount).reduce((a, b) => {
-    return streamCount[a] >= streamCount[b] ? a : b;
-  }, '');
+  for (const [combination, count] of Object.entries(gradeStreamCount)) {
+    if (count > maxCount) {
+      maxCount = count;
+      majorityCombination = combination;
+    }
+  }
   
-  // Format as "F1 E" (with space for readability)
-  return `${majorityGrade} ${majorityStream}`.trim();
+  return majorityCombination;
 }
 
 /**
@@ -273,8 +270,9 @@ function getSessionStatusPriority(sessionStatus) {
   
   const status = sessionStatus.toLowerCase();
   
-  // Treat rescheduled as scheduled (they get strikethrough styling separately)
-  if (status.includes('scheduled') || status.includes('rescheduled')) return 1;
+  // Treat scheduled, rescheduled, and attended as priority 1 (regular sessions)
+  // Note: "Attended" means the lesson happened, should be sorted same as scheduled
+  if (status.includes('scheduled') || status.includes('rescheduled') || status.includes('attended')) return 1;
   if (status.includes('make-up') || status.includes('makeup')) return 2;
   if (status.includes('trial')) return 3;
   if (status.includes('confirm')) return 4; // "To be Confirmed"

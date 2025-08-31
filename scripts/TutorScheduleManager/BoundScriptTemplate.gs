@@ -19,7 +19,7 @@
  */
 
 /**
- * Creates custom menu when spreadsheet opens
+ * Creates custom menu when spreadsheet opens and navigates to current week
  */
 function onOpen() {
   try {
@@ -30,6 +30,9 @@ function onOpen() {
       .addSeparator()
       .addItem('ℹ️ About', 'showAbout')
       .addToUi();
+      
+    // Automatically navigate to current week tab
+    navigateToCurrentWeek();
       
     Logger.log('Tutor Schedule menu created successfully');
   } catch (error) {
@@ -48,7 +51,7 @@ function refreshAllWeeks() {
   // Confirm action
   const response = ui.alert(
     'Refresh All Weeks', 
-    'This will refresh all schedule weeks. It may take a few minutes.\n\nProceed?', 
+    'This will refresh current and future weeks only.\nPast weeks will not be updated to save time.\n\nProceed?', 
     ui.ButtonSet.YES_NO
   );
   
@@ -136,6 +139,75 @@ function refreshCurrentWeek() {
       ui.ButtonSet.OK
     );
   }
+}
+
+/**
+ * Automatically navigate to the current week tab when spreadsheet opens
+ */
+function navigateToCurrentWeek() {
+  try {
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Calculate current week in GMT+8 timezone (same logic as main system)
+    const now = new Date();
+    const gmt8Offset = 8 * 60; // GMT+8 in minutes
+    const localOffset = now.getTimezoneOffset(); // Local timezone offset from UTC
+    const gmt8Time = new Date(now.getTime() + (gmt8Offset + localOffset) * 60000);
+    
+    // Get Sunday of current week
+    const currentWeekStart = getSundayOfWeek(gmt8Time);
+    const currentWeekTabName = formatWeekLabel(currentWeekStart);
+    
+    // Try to find and activate current week tab
+    const currentWeekSheet = spreadsheet.getSheetByName(currentWeekTabName);
+    if (currentWeekSheet) {
+      spreadsheet.setActiveSheet(currentWeekSheet);
+      Logger.log(`✅ Navigated to current week: ${currentWeekTabName}`);
+    } else {
+      Logger.log(`⚠️ Current week tab not found: ${currentWeekTabName}`);
+      // Fall back to first non-instructions sheet
+      const sheets = spreadsheet.getSheets();
+      for (const sheet of sheets) {
+        if (!sheet.getName().toLowerCase().includes('instructions')) {
+          spreadsheet.setActiveSheet(sheet);
+          Logger.log(`📍 Navigated to: ${sheet.getName()}`);
+          break;
+        }
+      }
+    }
+  } catch (error) {
+    Logger.log(`Warning: Could not navigate to current week: ${error.toString()}`);
+  }
+}
+
+/**
+ * Get Sunday date of the week containing the given date
+ * @param {Date} date - Input date
+ * @returns {Date} Sunday of that week
+ */
+function getSundayOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const diff = d.getDate() - day;
+  return new Date(d.setDate(diff));
+}
+
+/**
+ * Format week start date as tab label (MMDD-MMDD format)
+ * @param {Date} weekStart - Sunday date
+ * @returns {string} Tab label like "0831-0906"
+ */
+function formatWeekLabel(weekStart) {
+  const startMonth = String(weekStart.getMonth() + 1).padStart(2, '0');
+  const startDay = String(weekStart.getDate()).padStart(2, '0');
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Saturday
+  
+  const endMonth = String(weekEnd.getMonth() + 1).padStart(2, '0');
+  const endDay = String(weekEnd.getDate()).padStart(2, '0');
+  
+  return `${startMonth}${startDay}-${endMonth}${endDay}`;
 }
 
 /**
