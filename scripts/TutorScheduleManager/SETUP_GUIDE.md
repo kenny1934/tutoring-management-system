@@ -39,11 +39,30 @@
 4. Check execution log for results
 5. Should see: "🎉 Quick test passed! System is ready."
 
-### **Step 4: Full Deployment**
+### **Step 4: Deploy as Library**
+1. In Apps Script editor, go to **Project Settings**
+2. Copy the **Script ID** (save this for later)
+3. Click **Deploy > New Deployment**
+4. Choose type: **Library**
+5. Add description: "TutorScheduleManager Library"
+6. Click **Deploy** and copy the deployment ID
+
+### **Step 5: Full Deployment**
 1. Run function `initialSetup` 
 2. Wait 10-15 minutes for complete setup
 3. Check execution logs for progress
 4. Verify tutor spreadsheets were created in Google Drive
+
+### **Step 6: Enable Individual Spreadsheet Menus**
+For each tutor spreadsheet to have its own refresh menu:
+1. Open the tutor spreadsheet
+2. Go to **Extensions > Apps Script**
+3. Replace default code with `BoundScriptTemplate.gs` content
+4. Add library: Click **Libraries (+)** in sidebar
+5. Enter your **Script ID** from Step 4
+6. Set identifier to: `TutorScheduleManager`
+7. Select latest version and **Save**
+8. Refresh the spreadsheet - "📅 Tutor Schedule" menu should appear
 
 ---
 

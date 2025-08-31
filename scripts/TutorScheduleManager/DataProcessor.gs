@@ -112,25 +112,32 @@ function determineClassGrade(sessions) {
 }
 
 /**
- * Sort students by majority grade/stream first, then by student ID
+ * Sort students by session status first, then majority grade/stream, then by student ID
+ * This ensures regular students always appear before make-up students
  * @param {Array} students - Array of student session objects
  * @param {string} majorityGradeStream - The majority grade/stream (e.g., "F1 E")
  * @returns {Array} Sorted array of students
  */
 function sortStudentsByGradeAndId(students, majorityGradeStream) {
   return students.sort((a, b) => {
-    // Get each student's grade/stream combination
+    // Priority 1: Regular students (scheduled/rescheduled) always come before make-up/trial
+    const aPriority = getSessionStatusPriority(a.session_status);
+    const bPriority = getSessionStatusPriority(b.session_status);
+    
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+    
+    // Priority 2: Within same session type, majority grade/stream comes first
     const aGradeStream = `${a.grade || ''} ${a.lang_stream || ''}`.trim();
     const bGradeStream = `${b.grade || ''} ${b.lang_stream || ''}`.trim();
-    
-    // Priority 1: Majority grade/stream comes first
     const aIsMajority = aGradeStream === majorityGradeStream;
     const bIsMajority = bGradeStream === majorityGradeStream;
     
     if (aIsMajority && !bIsMajority) return -1; // a comes first
     if (!aIsMajority && bIsMajority) return 1;  // b comes first
     
-    // Priority 2: If both are majority or both are minority, sort by student ID
+    // Priority 3: If both have same session type and grade/stream status, sort by student ID
     const aId = parseInt(a.school_student_id) || 0;
     const bId = parseInt(b.school_student_id) || 0;
     
@@ -257,19 +264,20 @@ function getStatusColor(sessionStatus) {
 }
 
 /**
- * Get priority order for session types (for sorting within time slots)
+ * Get priority order for session status (for sorting within time slots)
  * @param {string} sessionStatus - Session status from database
  * @returns {number} Priority order (lower = higher priority)
  */
-function getSessionPriority(sessionStatus) {
+function getSessionStatusPriority(sessionStatus) {
   if (!sessionStatus) return 5;
   
   const status = sessionStatus.toLowerCase();
   
-  if (status.includes('scheduled')) return 1;      // Regular classes first
-  if (status.includes('trial')) return 2;         // Trial classes second
-  if (status.includes('make-up')) return 3;       // Make-up classes third
-  if (status.includes('rescheduled')) return 4;   // Rescheduled classes fourth
+  // Treat rescheduled as scheduled (they get strikethrough styling separately)
+  if (status.includes('scheduled') || status.includes('rescheduled')) return 1;
+  if (status.includes('make-up') || status.includes('makeup')) return 2;
+  if (status.includes('trial')) return 3;
+  if (status.includes('confirm')) return 4; // "To be Confirmed"
   
   return 5; // Others last
 }
@@ -278,12 +286,13 @@ function getSessionPriority(sessionStatus) {
  * Sort students within a time slot by priority and name
  * @param {Array} students - Array of student session objects
  * @returns {Array} Sorted array of students
+ * @deprecated Use sortStudentsByGradeAndId instead for comprehensive sorting
  */
 function sortStudentsInTimeSlot(students) {
   return students.sort((a, b) => {
     // First sort by session priority
-    const priorityA = getSessionPriority(a.session_status);
-    const priorityB = getSessionPriority(b.session_status);
+    const priorityA = getSessionStatusPriority(a.session_status);
+    const priorityB = getSessionStatusPriority(b.session_status);
     
     if (priorityA !== priorityB) {
       return priorityA - priorityB;

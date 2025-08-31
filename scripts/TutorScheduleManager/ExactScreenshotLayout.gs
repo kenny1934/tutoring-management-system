@@ -15,7 +15,7 @@
  * @param {Object} scheduleData - Processed schedule data
  * @param {string} tutorName - Tutor's name for header
  */
-function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Name') {
+function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Name', weekStart = null, rdoDays = [], holidays = []) {
   Logger.log('Creating exact screenshot layout...');
   
   // FIRST: Remove any existing frozen rows/columns to prevent merge conflicts
@@ -25,11 +25,16 @@ function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Nam
   // Clear ALL existing content and formatting to avoid merge conflicts
   sheet.clear();
   
-  // Setup the column structure first
-  setupScreenshotColumnStructure(sheet);
+  // Detect special days for dynamic column width
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const specialDays = weekStart ? detectSpecialDays(scheduleData, rdoDays, holidays, weekStart, days) : { rdo: [], holidays: [], empty: [] };
+  Logger.log(`Special days detected:`, specialDays);
   
-  // Create the headers with proper structure (4 rows now)
-  createScreenshotHeaders(sheet, scheduleData.weekStart, tutorName);
+  // Setup the column structure first with special day info
+  setupScreenshotColumnStructure(sheet, specialDays);
+  
+  // Create the headers with proper structure (4 rows now)  
+  createScreenshotHeaders(sheet, weekStart || scheduleData.weekStart, tutorName, specialDays, holidays);
   
   // Get sorted time slots
   const sortedTimeSlots = sortTimeSlots(Object.keys(scheduleData.timeSlots || {}));
@@ -66,18 +71,29 @@ function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Nam
  * Setup the column structure to match screenshot (each day has 3 sub-columns)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Target sheet
  */
-function setupScreenshotColumnStructure(sheet) {
+function setupScreenshotColumnStructure(sheet, specialDays = { rdo: [], holidays: [], empty: [] }) {
   // Column structure: Time | Sun(Name|L|A) | Mon(Name|L|A) | ... | Sat(Name|L|A)
   // Total columns: 1 + (7 days × 3 sub-columns) = 22 columns
   
   // Batch set column widths for better performance
   const columnWidths = [45]; // Time column
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
-  // Build array of column widths for batch operation
+  // Build array of column widths for batch operation with dynamic sizing
   for (let day = 0; day < 7; day++) {
-    columnWidths.push(200); // Student name column
-    columnWidths.push(16);  // Lesson status column  
-    columnWidths.push(16);  // Attendance status column
+    const dayName = dayNames[day];
+    
+    if (specialDays.rdo.includes(dayName) || specialDays.holidays.includes(dayName)) {
+      // Narrow width for RDO and holidays
+      columnWidths.push(60);  // Narrow student name column
+      columnWidths.push(12);  // Narrow lesson status column  
+      columnWidths.push(12);  // Narrow attendance status column
+    } else {
+      // Normal width for regular days
+      columnWidths.push(200); // Student name column
+      columnWidths.push(16);  // Lesson status column  
+      columnWidths.push(16);  // Attendance status column
+    }
   }
   
   // Set all column widths in batch operations (Google Apps Script optimization)
@@ -1135,4 +1151,61 @@ function detectSameDayOverlap(scheduleData, timeSlot, dayName) {
   }
   
   return false; // No overlaps found on this day
+}
+
+/**
+ * Detect special days (RDO, holidays, empty) for dynamic column width
+ * @param {Object} scheduleData - Schedule data
+ * @param {Array} rdoDays - Array of RDO day numbers (0=Sunday, etc.)
+ * @param {Array} holidays - Array of holiday objects {date, name}
+ * @param {Date} weekStart - Start of week (Sunday)
+ * @param {Array} dayNames - Day names array
+ * @returns {Object} Object with arrays of special days
+ */
+function detectSpecialDays(scheduleData, rdoDays, holidays, weekStart, dayNames) {
+  const specialDays = {
+    rdo: [],      // Regular days off (narrow, grey)
+    holidays: [], // Public holidays (narrow, different color)
+    empty: []     // No students but not RDO (normal width, available)
+  };
+  
+  for (let i = 0; i < dayNames.length; i++) {
+    const dayName = dayNames[i];
+    const dayDate = new Date(weekStart);
+    dayDate.setDate(dayDate.getDate() + i);
+    
+    // Check if it's RDO
+    if (rdoDays.includes(i)) {
+      specialDays.rdo.push(dayName);
+      continue;
+    }
+    
+    // Check if it's a holiday
+    const isHoliday = holidays.some(h => {
+      const holidayDate = new Date(h.date);
+      return holidayDate.getDate() === dayDate.getDate() && 
+             holidayDate.getMonth() === dayDate.getMonth() &&
+             holidayDate.getFullYear() === dayDate.getFullYear();
+    });
+    
+    if (isHoliday) {
+      specialDays.holidays.push(dayName);
+      continue;
+    }
+    
+    // Check if empty (no students)
+    let hasStudents = false;
+    for (const [timeSlot, slotData] of Object.entries(scheduleData.timeSlots || {})) {
+      if (slotData.days[dayName] && slotData.days[dayName].students.length > 0) {
+        hasStudents = true;
+        break;
+      }
+    }
+    
+    if (!hasStudents) {
+      specialDays.empty.push(dayName);
+    }
+  }
+  
+  return specialDays;
 }

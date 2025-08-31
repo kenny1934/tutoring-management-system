@@ -77,9 +77,9 @@ function createTutorSpreadsheet(tutor) {
     const spreadsheet = SpreadsheetApp.create(`${tutor.tutor_name} Regular Schedule 2025-2026`);
     const spreadsheetId = spreadsheet.getId();
     
-    // Share with tutor (view access)
-    DriveApp.getFileById(spreadsheetId).addViewer(tutor.user_email);
-    Logger.log(`Shared spreadsheet with tutor: ${tutor.user_email}`);
+    // Share with tutor (editor access - required for custom menu functionality)
+    DriveApp.getFileById(spreadsheetId).addEditor(tutor.user_email);
+    Logger.log(`Shared spreadsheet with tutor: ${tutor.user_email} (Editor access)`);
     
     // Store tutor ID mapping in script properties (since we don't have bound scripts)
     const scriptProperties = PropertiesService.getScriptProperties();
@@ -208,7 +208,7 @@ function setupWeeklyTabTemplate(sheet, weekStart) {
  * @param {Object} scheduleData - Processed schedule data
  * @param {string} tutorName - Tutor's name for header display
  */
-function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = 'Tutor Name') {
+function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = 'Tutor Name', rdoDays = [], holidays = []) {
   try {
     // Validate spreadsheet ID
     if (!spreadsheetId || typeof spreadsheetId !== 'string') {
@@ -255,7 +255,7 @@ function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = '
     }
     
     // Use the exact screenshot layout system
-    createExactScreenshotLayout(sheet, scheduleData, tutorName);
+    createExactScreenshotLayout(sheet, scheduleData, tutorName, weekStart, rdoDays, holidays);
     
     // Update tab color and position based on current week (happens every refresh)
     if (isCurrentWeek(weekStart)) {
@@ -546,7 +546,7 @@ function addManualRefreshInstructions(spreadsheet) {
       [''],
       ['📅 Schedule Updates:'],
       ['• Automatic updates: Twice daily (12:00 AM and 2:00 PM)'],
-      ['• Manual refresh: Contact your administrator'],
+      ['• Manual refresh: Use the "📅 Tutor Schedule" menu in the menu bar'],
       [''],
       ['🎨 Visual Guide:'],
       ['• Green tab = Current week'],
@@ -560,8 +560,13 @@ function addManualRefreshInstructions(spreadsheet) {
       ['• Light yellow = Non-standard time slots'],
       ['• ⚠️ icon = Overlapping time slots detected'],
       [''],
+      ['📌 USING THE MANUAL REFRESH:'],
+      ['• Click "📅 Tutor Schedule" in the menu bar'],
+      ['• Select "Refresh All Weeks" or "Refresh Current Week"'],
+      ['• Wait for the success message'],
+      [''],
       ['❓ Support:'],
-      ['Contact your system administrator for any issues or refresh requests.']
+      ['Contact your system administrator for setup help or issues.']
     ];
     
     // Add content to sheet
