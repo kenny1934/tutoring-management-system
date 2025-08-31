@@ -9,9 +9,96 @@
  * Created: August 2025
  */
 
+// ============================================================================
+// PUBLIC LIBRARY FUNCTIONS
+// These functions are exposed when this script is used as a library
+// ============================================================================
+
+/**
+ * Refresh the current spreadsheet's schedule (called from bound script)
+ * @param {string} spreadsheetId - The calling spreadsheet's ID
+ */
+function refreshSpreadsheetSchedule(spreadsheetId) {
+  try {
+    Logger.log(`Library call: refreshSpreadsheetSchedule for ${spreadsheetId}`);
+    
+    // Get tutor info from the spreadsheet
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const tutorId = getTutorIdFromSpreadsheet(spreadsheet);
+    
+    if (!tutorId) {
+      throw new Error('Cannot determine tutor ID for this spreadsheet');
+    }
+    
+    // Get tutor name from spreadsheet title
+    const tutorName = spreadsheet.getName().replace(' Regular Schedule 2025-2026', '');
+    
+    Logger.log(`Refreshing all weeks for tutor: ${tutorName} (ID: ${tutorId})`);
+    
+    // Refresh all weeks for this tutor
+    refreshSingleTutorSchedule(tutorId);
+    
+    return {
+      success: true,
+      message: `Successfully refreshed schedule`,
+      tutorId: tutorId,
+      tutorName: tutorName
+    };
+  } catch (error) {
+    Logger.log(`Library refresh error: ${error.toString()}`);
+    return {
+      success: false,
+      message: error.toString()
+    };
+  }
+}
+
+/**
+ * Refresh only current week for a spreadsheet (called from bound script)
+ * @param {string} spreadsheetId - The calling spreadsheet's ID
+ */
+function refreshSpreadsheetCurrentWeek(spreadsheetId) {
+  try {
+    Logger.log(`Library call: refreshSpreadsheetCurrentWeek for ${spreadsheetId}`);
+    
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const tutorId = getTutorIdFromSpreadsheet(spreadsheet);
+    
+    if (!tutorId) {
+      throw new Error('Cannot determine tutor ID for this spreadsheet');
+    }
+    
+    // Get tutor name from spreadsheet title
+    const tutorName = spreadsheet.getName().replace(' Regular Schedule 2025-2026', '');
+    
+    Logger.log(`Refreshing current week for tutor: ${tutorName} (ID: ${tutorId})`);
+    
+    const currentWeek = getSundayOfWeek(new Date());
+    refreshSingleTutorSchedule(tutorId, formatDate(currentWeek));
+    
+    return {
+      success: true,
+      message: `Successfully refreshed current week`,
+      tutorId: tutorId,
+      tutorName: tutorName
+    };
+  } catch (error) {
+    Logger.log(`Library refresh error: ${error.toString()}`);
+    return {
+      success: false,
+      message: error.toString()
+    };
+  }
+}
+
+// ============================================================================
+// LEGACY ONOPEN FUNCTION (for bound scripts - not used in standalone)
+// ============================================================================
+
 /**
  * onOpen trigger - automatically called when spreadsheet is opened
  * Creates custom menu for manual refresh functionality
+ * NOTE: This only works in bound scripts, not standalone Apps Script projects
  */
 function onOpen() {
   try {
@@ -38,28 +125,46 @@ function onOpen() {
 }
 
 /**
- * Extract tutor ID from spreadsheet (from title or properties)
+ * Extract tutor ID from spreadsheet (from script properties or database lookup)
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
  * @returns {number} Tutor ID
  */
 function getTutorIdFromSpreadsheet(spreadsheet) {
-  // First try to get from properties
-  const properties = PropertiesService.getDocumentProperties();
-  const storedTutorId = properties.getProperty('TUTOR_ID');
+  const spreadsheetId = spreadsheet.getId();
+  const title = spreadsheet.getName();
+  
+  // Use script properties (works from standalone script)
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const storedTutorId = scriptProperties.getProperty(`TUTOR_ID_${spreadsheetId}`);
   
   if (storedTutorId) {
+    Logger.log(`Found tutor ID ${storedTutorId} for spreadsheet ${title}`);
     return parseInt(storedTutorId);
   }
   
-  // If not in properties, try to extract from spreadsheet title
-  // Title format: "[Tutor Name] - Schedule 2025"
-  const title = spreadsheet.getName();
-  const tutorName = title.replace(' - Schedule 2025', '');
+  // Fallback: Try to match by name with database
+  const tutorName = title.replace(' Regular Schedule 2025-2026', '');
+  Logger.log(`Attempting to find tutor by name: "${tutorName}"`);
   
-  // This would require a database lookup - for now return 1 as default
-  // In production, implement proper tutor ID lookup
-  Logger.log(`Could not determine tutor ID for spreadsheet: ${title}, using default ID 1`);
-  return 1;
+  try {
+    const tutors = getTutorList();
+    const tutor = tutors.find(t => t.tutor_name === tutorName);
+    
+    if (tutor) {
+      // Store for future use
+      scriptProperties.setProperty(`TUTOR_ID_${spreadsheetId}`, tutor.id.toString());
+      Logger.log(`Found tutor ${tutor.tutor_name} with ID ${tutor.id}, stored for future use`);
+      return tutor.id;
+    }
+    
+    Logger.log(`No tutor found with name "${tutorName}"`);
+    Logger.log(`Available tutors: ${tutors.map(t => t.tutor_name).join(', ')}`);
+    
+  } catch (dbError) {
+    Logger.log(`Database lookup error: ${dbError.toString()}`);
+  }
+  
+  throw new Error(`Could not determine tutor ID for spreadsheet: ${title}`);
 }
 
 /**
@@ -266,6 +371,10 @@ function generateWeeklySchedule(tutorId, weekStart, spreadsheetId, tutorName = '
     const sessions = getSessionsForTutorWeek(tutorId, weekStart, weekEnd);
     Logger.log(`Found ${sessions.length} sessions for this week`);
     
+    // Get RDO and holiday data
+    const rdoDays = getTutorRDOs(tutorId);
+    const holidays = getHolidaysForWeek(weekStart, weekEnd);
+    
     // Process and format the data
     const scheduleData = formatScheduleData(sessions, weekStart);
     
@@ -280,7 +389,7 @@ function generateWeeklySchedule(tutorId, weekStart, spreadsheetId, tutorName = '
     }
     
     // Update the spreadsheet tab
-    updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName);
+    updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName, rdoDays, holidays);
     
     Logger.log(`Successfully updated schedule tab for week ${formatDate(weekStart)}`);
     
@@ -468,6 +577,77 @@ function getSessionsForTutorWeek(tutorId, startDate, endDate) {
     
     return sessions;
     
+  } finally {
+    conn.close();
+  }
+}
+
+// ============================================================================
+// RDO AND HOLIDAY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get Regular Days Off for a specific tutor
+ * @param {number} tutorId - Tutor ID
+ * @returns {Array} Array of day numbers (0=Sunday, 1=Monday, etc.)
+ */
+function getTutorRDOs(tutorId) {
+  const conn = connectToDatabase();
+  
+  try {
+    const stmt = conn.prepareStatement(`
+      SELECT day_of_week 
+      FROM tutor_rdo 
+      WHERE tutor_id = ? 
+        AND (effective_from IS NULL OR effective_from <= CURDATE())
+        AND (effective_to IS NULL OR effective_to >= CURDATE())
+    `);
+    
+    stmt.setInt(1, tutorId);
+    const rs = stmt.executeQuery();
+    
+    const rdoDays = [];
+    while (rs.next()) {
+      rdoDays.push(rs.getInt('day_of_week'));
+    }
+    
+    Logger.log(`Tutor ${tutorId} RDOs: ${rdoDays.join(', ')}`);
+    return rdoDays;
+  } finally {
+    conn.close();
+  }
+}
+
+/**
+ * Get holidays for a specific week
+ * @param {Date} weekStart - Start of week (Sunday)
+ * @param {Date} weekEnd - End of week (Saturday)
+ * @returns {Array} Array of holiday objects {date, name}
+ */
+function getHolidaysForWeek(weekStart, weekEnd) {
+  const conn = connectToDatabase();
+  
+  try {
+    const stmt = conn.prepareStatement(`
+      SELECT holiday_date, holiday_name 
+      FROM holidays 
+      WHERE holiday_date BETWEEN ? AND ?
+    `);
+    
+    stmt.setString(1, formatDate(weekStart));
+    stmt.setString(2, formatDate(weekEnd));
+    const rs = stmt.executeQuery();
+    
+    const holidays = [];
+    while (rs.next()) {
+      holidays.push({
+        date: new Date(rs.getDate('holiday_date')),
+        name: rs.getString('holiday_name')
+      });
+    }
+    
+    Logger.log(`Holidays for week ${formatDate(weekStart)}: ${holidays.map(h => h.name).join(', ')}`);
+    return holidays;
   } finally {
     conn.close();
   }
