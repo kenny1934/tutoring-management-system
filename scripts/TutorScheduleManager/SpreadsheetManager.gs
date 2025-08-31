@@ -51,10 +51,10 @@ function createTutorSpreadsheet(tutor) {
     DriveApp.getFileById(spreadsheetId).addViewer(tutor.user_email);
     Logger.log(`Shared spreadsheet with tutor: ${tutor.user_email}`);
     
-    // Store tutor ID in spreadsheet properties for menu functionality
-    const docProperties = PropertiesService.getDocumentProperties();
-    docProperties.setProperty('TUTOR_ID', tutor.id.toString());
-    Logger.log(`Stored tutor ID ${tutor.id} in spreadsheet properties`);
+    // Store tutor ID mapping in script properties (since we don't have bound scripts)
+    const scriptProperties = PropertiesService.getScriptProperties();
+    scriptProperties.setProperty(`TUTOR_ID_${spreadsheetId}`, tutor.id.toString());
+    Logger.log(`Stored tutor ID ${tutor.id} for spreadsheet ${spreadsheetId}`);
     
     // Add comprehensive instructions sheet for users
     addManualRefreshInstructions(spreadsheet);
