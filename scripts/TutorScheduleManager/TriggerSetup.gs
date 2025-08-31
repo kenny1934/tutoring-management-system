@@ -314,10 +314,11 @@ function initialSetup() {
     }
     
     Logger.log('🎉 Initial setup completed!');
-    Logger.log('📋 Next steps:');
-    Logger.log('   1. Fill in your database credentials in CONFIG section');
-    Logger.log('   2. Test with testSingleTutor() function');
-    Logger.log('   3. Run healthCheck() to verify everything works');
+    Logger.log('📋 System ready:');
+    Logger.log('   ✅ Database connected and spreadsheets created');
+    Logger.log('   ✅ Automatic refresh triggers active (12:00 AM & 2:00 PM daily)');
+    Logger.log('   ✅ Current week highlighting and manual refresh menu enabled');
+    Logger.log('💡 Run healthCheck() to verify system status anytime');
     
   } catch (error) {
     Logger.log(`❌ Initial setup failed: ${error.toString()}`);
@@ -438,7 +439,7 @@ function resetTutorSpreadsheets() {
     let deletedCount = 0;
     
     for (const tutor of tutors) {
-      const spreadsheetName = `${tutor.tutor_name} - Schedule 2025`;
+      const spreadsheetName = `${tutor.tutor_name} Regular Schedule 2025-2026`;
       const files = DriveApp.getFilesByName(spreadsheetName);
       
       while (files.hasNext()) {

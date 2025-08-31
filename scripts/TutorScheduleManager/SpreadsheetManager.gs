@@ -14,7 +14,7 @@
  * @returns {string} Spreadsheet ID
  */
 function getOrCreateTutorSpreadsheet(tutor) {
-  const spreadsheetName = `${tutor.tutor_name} - Schedule 2025`;
+  const spreadsheetName = `${tutor.tutor_name} Regular Schedule 2025-2026`;
   
   try {
     // Try to find existing spreadsheet
@@ -22,13 +22,43 @@ function getOrCreateTutorSpreadsheet(tutor) {
     
     if (files.hasNext()) {
       const file = files.next();
-      Logger.log(`Found existing spreadsheet: ${spreadsheetName}`);
-      return file.getId();
-    } else {
-      // Create new spreadsheet
-      Logger.log(`Creating new spreadsheet: ${spreadsheetName}`);
-      return createTutorSpreadsheet(tutor);
+      const fileId = file.getId();
+      
+      Logger.log(`Found file: ${spreadsheetName} (ID: ${fileId})`);
+      
+      // Check if file is trashed
+      if (file.isTrashed()) {
+        Logger.log(`File is in trash, will create new: ${spreadsheetName}`);
+        // Continue to create new spreadsheet
+      } else {
+        // Check MIME type
+        const mimeType = file.getMimeType();
+        Logger.log(`File MIME type: ${mimeType}`);
+        
+        if (mimeType !== MimeType.GOOGLE_SHEETS) {
+          Logger.log(`File is not a Google Sheet (${mimeType}), will create new: ${spreadsheetName}`);
+          // Continue to create new spreadsheet
+        } else {
+          // Validate that the spreadsheet is accessible
+          try {
+            SpreadsheetApp.openById(fileId);
+            Logger.log(`Found existing accessible spreadsheet: ${spreadsheetName} (ID: ${fileId})`);
+            return fileId;
+          } catch (accessError) {
+            Logger.log(`Found Google Sheet but cannot access it: ${accessError.toString()}`);
+            Logger.log(`File owner: ${file.getOwner()?.getEmail() || 'unknown'}`);
+            Logger.log(`File size: ${file.getSize()} bytes`);
+            Logger.log(`File created: ${file.getDateCreated()}`);
+            Logger.log(`File modified: ${file.getLastUpdated()}`);
+            // Continue to create new spreadsheet
+          }
+        }
+      }
     }
+    
+    // Create new spreadsheet if none found or inaccessible
+    Logger.log(`Creating new spreadsheet: ${spreadsheetName}`);
+    return createTutorSpreadsheet(tutor);
     
   } catch (error) {
     Logger.log(`Error accessing spreadsheet ${spreadsheetName}: ${error.toString()}`);
@@ -44,7 +74,7 @@ function getOrCreateTutorSpreadsheet(tutor) {
 function createTutorSpreadsheet(tutor) {
   try {
     // Create new spreadsheet
-    const spreadsheet = SpreadsheetApp.create(`${tutor.tutor_name} - Schedule 2025`);
+    const spreadsheet = SpreadsheetApp.create(`${tutor.tutor_name} Regular Schedule 2025-2026`);
     const spreadsheetId = spreadsheet.getId();
     
     // Share with tutor (view access)
@@ -64,6 +94,9 @@ function createTutorSpreadsheet(tutor) {
     for (const week of weeks) {
       createWeeklyTab(spreadsheetId, week);
     }
+    
+    // Sort tabs chronologically after all are created
+    sortWeeklyTabs(spreadsheet);
     
     // Then delete the default "Sheet1" (now that we have other tabs)
     const defaultSheet = spreadsheet.getSheetByName("Sheet1");
@@ -87,6 +120,12 @@ function createTutorSpreadsheet(tutor) {
  * @returns {GoogleAppsScript.Spreadsheet.Sheet} The created/updated sheet
  */
 function createWeeklyTab(spreadsheetId, weekStart) {
+  // Validate spreadsheet ID
+  if (!spreadsheetId || typeof spreadsheetId !== 'string') {
+    throw new Error(`Invalid spreadsheet ID for createWeeklyTab: ${spreadsheetId}`);
+  }
+  
+  Logger.log(`Creating weekly tab for spreadsheet: ${spreadsheetId}`);
   const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
   const tabName = formatWeekLabel(weekStart);
   
@@ -171,7 +210,34 @@ function setupWeeklyTabTemplate(sheet, weekStart) {
  */
 function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = 'Tutor Name') {
   try {
-    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    // Validate spreadsheet ID
+    if (!spreadsheetId || typeof spreadsheetId !== 'string') {
+      throw new Error(`Invalid spreadsheet ID: ${spreadsheetId}`);
+    }
+    
+    Logger.log(`Attempting to open spreadsheet: ${spreadsheetId}`);
+    
+    // Add retry logic for rate limiting
+    let spreadsheet = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
+        spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+        break;
+      } catch (openError) {
+        attempts++;
+        Logger.log(`Attempt ${attempts}/${maxAttempts} failed: ${openError.toString()}`);
+        
+        if (attempts >= maxAttempts) {
+          throw new Error(`Failed to open spreadsheet after ${maxAttempts} attempts: ${openError.toString()}`);
+        }
+        
+        // Wait 2 seconds before retry
+        Utilities.sleep(2000);
+      }
+    }
     const tabName = formatWeekLabel(weekStart);
     
     // Create tab if it doesn't exist
@@ -426,6 +492,46 @@ function addManualRefreshButton(sheet, weekStart) {
 
 
 /**
+ * Sort weekly tabs in chronological order
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
+ */
+function sortWeeklyTabs(spreadsheet) {
+  try {
+    const sheets = spreadsheet.getSheets();
+    const weeklySheets = [];
+    const otherSheets = [];
+    
+    // Separate weekly tabs from other sheets
+    for (const sheet of sheets) {
+      const sheetName = sheet.getName();
+      const weekStart = getWeekStartFromTabName(sheetName);
+      
+      if (weekStart) {
+        weeklySheets.push({ sheet, weekStart, name: sheetName });
+      } else {
+        otherSheets.push(sheet);
+      }
+    }
+    
+    // Sort weekly sheets chronologically
+    weeklySheets.sort((a, b) => a.weekStart - b.weekStart);
+    
+    // Move sheets to correct positions
+    // Move weekly sheets in chronological order
+    for (let i = 0; i < weeklySheets.length; i++) {
+      weeklySheets[i].sheet.activate();
+      spreadsheet.moveActiveSheet(i + 1); // 1-based position for moveActiveSheet
+    }
+    
+    Logger.log(`Sorted ${weeklySheets.length} weekly tabs chronologically`);
+    
+  } catch (error) {
+    Logger.log(`Error sorting weekly tabs: ${error.toString()}`);
+    // Don't throw - tab sorting is not critical for functionality
+  }
+}
+
+/**
  * Add manual refresh instructions to spreadsheet (fallback when bound script fails)
  * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
  */
@@ -436,7 +542,7 @@ function addManualRefreshInstructions(spreadsheet) {
     
     // Add instructions content
     const instructions = [
-      ['TutorScheduleManager - Usage Instructions'],
+      ['Tutor Schedule - Usage Instructions'],
       [''],
       ['📅 Schedule Updates:'],
       ['• Automatic updates: Twice daily (12:00 AM and 2:00 PM)'],
@@ -444,6 +550,7 @@ function addManualRefreshInstructions(spreadsheet) {
       [''],
       ['🎨 Visual Guide:'],
       ['• Green tab = Current week'],
+      ['• [Student info column | L column | A column]'],
       ['• L column = Lesson Status (R=Rescheduled, M=Makeup, S=Standard, ?=Pending, T=Trial)'],
       ['• A column = Attendance (✓=Attended, X=No Show, blank=Not yet marked)'],
       [''],
@@ -469,7 +576,8 @@ function addManualRefreshInstructions(spreadsheet) {
     instructionsSheet.getRange('A:A').setWrap(true);
     
     // Move instructions to the end
-    spreadsheet.moveActiveSheet(spreadsheet.getSheets().length);
+    instructionsSheet.activate();
+    spreadsheet.moveActiveSheet(spreadsheet.getSheets().length - 1);
     
     Logger.log('Added manual instructions sheet as fallback');
     
