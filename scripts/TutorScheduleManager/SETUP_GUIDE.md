@@ -4,9 +4,12 @@
 - **Automatic Schedule Generation**: Creates weekly schedule tabs for all tutors
 - **Current Week Highlighting**: Green tab color indicates current week (GMT+8 timezone)
 - **Manual Refresh Menu**: Built-in menu for manual schedule updates
+- **Performance Optimized**: Only refreshes current and future weeks, skips past weeks
 - **Enhanced Error Handling**: Robust file validation prevents duplicate spreadsheets
 - **Smart Tab Sorting**: Chronological tab ordering (0831-0906, 0907-0913, etc.)
 - **Instructions Sheet**: Built-in usage guide for tutors
+- **RDO & Holiday Support**: Automatically greys out regular days off and holidays
+- **Auto-Navigation**: Opens to current week tab automatically
 
 ## 🎯 Quick Start (5 minutes)
 
@@ -79,6 +82,8 @@ DB_PASSWORD: "password",
 ### **Schedule Settings**
 ```javascript
 WEEKS_AHEAD: 2,              // Current week + 2 weeks ahead
+WEEKS_TO_KEEP: 8,            // Keep this many weeks of past schedules visible
+SKIP_PAST_WEEKS: true,       // Skip refreshing past weeks for better performance
 MAX_STUDENTS_PER_SLOT: 12,   // Max rows per time slot
 MIN_ROWS_PER_SLOT: 5,        // Min rows even if empty
 DELAY_BETWEEN_TUTORS: 30000, // 30 seconds between tutors
@@ -196,8 +201,10 @@ listCurrentTriggers()     // View active triggers
 ### **Performance Issues**
 
 **Slow execution**
-- Normal processing time: ~2 minutes per tutor
-- Total time for all tutors: ~15 minutes
+- Normal processing time: ~30 seconds per tutor (with optimizations)
+- Total time for all tutors: ~5 minutes
+- The system now skips refreshing past weeks automatically
+- Only current and future weeks are updated to save time
 - Use `performanceTest()` to measure actual speeds
 
 **Memory errors**

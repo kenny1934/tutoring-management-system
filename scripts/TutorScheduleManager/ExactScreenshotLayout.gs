@@ -58,7 +58,7 @@ function createExactScreenshotLayout(sheet, scheduleData, tutorName = 'Tutor Nam
     }
     
     // Create the time slot section
-    currentRow = createScreenshotTimeSlotSection(sheet, currentRow, timeSlot, slotData, scheduleData);
+    currentRow = createScreenshotTimeSlotSection(sheet, currentRow, timeSlot, slotData, scheduleData, specialDays);
   }
   
   // Apply final formatting
@@ -162,9 +162,10 @@ function createScreenshotHeaders(sheet, weekStart, tutorName = 'Tutor Name') {
  * @param {string} timeSlot - Time slot string (e.g., "10:00 - 11:30")
  * @param {Object} slotData - Time slot data
  * @param {Object} scheduleData - Complete schedule data for overlap detection
+ * @param {Object} specialDays - Object with RDO and holiday day info
  * @returns {number} Next available row
  */
-function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData, scheduleData) {
+function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData, scheduleData, specialDays = {}) {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   
   // Find max students for this time slot
@@ -172,12 +173,12 @@ function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData, sc
   const studentRows = Math.max(maxStudents, 3); // Minimum 3 rows per time slot
   
   // Create class grade header row with color coding and overlap detection
-  createClassGradeHeaderRow(sheet, startRow, timeSlot, slotData, days, scheduleData);
+  createClassGradeHeaderRow(sheet, startRow, timeSlot, slotData, days, scheduleData, specialDays);
   
   // Create student rows
   for (let studentIndex = 0; studentIndex < studentRows; studentIndex++) {
     const rowNum = startRow + 1 + studentIndex;
-    createStudentDataRow(sheet, rowNum, slotData, studentIndex, days, studentIndex === 0);
+    createStudentDataRow(sheet, rowNum, slotData, studentIndex, days, studentIndex === 0, specialDays);
   }
   
   // Merge time slot cell vertically across all rows in this section
@@ -203,8 +204,9 @@ function createScreenshotTimeSlotSection(sheet, startRow, timeSlot, slotData, sc
  * @param {Object} slotData - Time slot data
  * @param {Array} days - Day names array
  * @param {Object} scheduleData - Complete schedule data for overlap detection
+ * @param {Object} specialDays - Object with RDO and holiday day info
  */
-function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, scheduleData) {
+function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, scheduleData, specialDays = {}) {
   // Check for same-day overlaps and format time slot accordingly
   let formattedTimeSlot = formatTimeSlotVertical(timeSlot);
   
@@ -241,17 +243,28 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, schedul
   for (let day = 0; day < 7; day++) {
     const baseCol = 2 + (day * 3);
     const dayData = slotData.days[days[day]];
+    const dayName = days[day];
     
-    if (dayData.classGrade) {
-      sheet.getRange(row, baseCol, 1, 3).merge();
-      
-      // Apply class grade color coding
-      const gradeCell = sheet.getRange(row, baseCol, 1, 3);
+    // Always merge the 3 sub-columns for this day
+    sheet.getRange(row, baseCol, 1, 3).merge();
+    const gradeCell = sheet.getRange(row, baseCol, 1, 3);
+    
+    // Check if this day is RDO or holiday
+    const isRDO = specialDays.rdo && specialDays.rdo.includes(dayName);
+    const isHoliday = specialDays.holidays && specialDays.holidays.includes(dayName);
+    
+    if (isRDO || isHoliday) {
+      // Apply RDO/holiday greying (overrides class grade color)
+      gradeCell.setBackground('#b0b0b0'); // Same grey for both RDO and holidays
+    } else if (dayData.classGrade) {
+      // Apply normal class grade color coding
       gradeCell.setBackground(getClassGradeColor(dayData.classGrade));
-      gradeCell.setFontWeight('bold');
-      gradeCell.setHorizontalAlignment('center');
-      gradeCell.setVerticalAlignment('middle');
     }
+    
+    // Apply common formatting
+    gradeCell.setFontWeight('bold');
+    gradeCell.setHorizontalAlignment('center');
+    gradeCell.setVerticalAlignment('middle');
   }
   
   // Format time column with category-based color coding
@@ -277,8 +290,9 @@ function createClassGradeHeaderRow(sheet, row, timeSlot, slotData, days, schedul
  * @param {number} studentIndex - Student index
  * @param {Array} days - Day names array
  * @param {boolean} isFirstStudentRow - Whether this is the first student row
+ * @param {Object} specialDays - Object with RDO and holiday day info
  */
-function createStudentDataRow(sheet, row, slotData, studentIndex, days, isFirstStudentRow) {
+function createStudentDataRow(sheet, row, slotData, studentIndex, days, isFirstStudentRow, specialDays = {}) {
   const rowData = ['']; // Empty time column for student rows
   
   // For each day, add student name and two status indicators
@@ -311,21 +325,46 @@ function createStudentDataRow(sheet, row, slotData, studentIndex, days, isFirstS
   // Apply formatting to each student cell
   for (let day = 0; day < 7; day++) {
     const dayData = slotData.days[days[day]];
+    const dayName = days[day];
+    const baseCol = 2 + (day * 3);
+    
+    // Get cells for this day
+    const studentCell = sheet.getRange(row, baseCol);
+    const lessonStatusCell = sheet.getRange(row, baseCol + 1);
+    const attendanceCell = sheet.getRange(row, baseCol + 2);
+    
+    // Apply RDO/holiday styling if applicable
+    const isRDO = specialDays.rdo && specialDays.rdo.includes(dayName);
+    const isHoliday = specialDays.holidays && specialDays.holidays.includes(dayName);
+    
+    if (isRDO || isHoliday) {
+      // Grey out RDO/holiday cells regardless of student presence
+      const greyColor = '#b0b0b0'; // Same grey for both RDO and holidays
+      studentCell.setBackground(greyColor);
+      lessonStatusCell.setBackground(greyColor);
+      attendanceCell.setBackground(greyColor);
+    }
     
     if (dayData.students[studentIndex]) {
       const student = dayData.students[studentIndex];
-      const baseCol = 2 + (day * 3);
       
-      // Format student name cell with rich text
-      const studentCell = sheet.getRange(row, baseCol);
-      applyStudentCellFormatting(studentCell, student);
+      // Format student name cell with rich text (but preserve RDO/holiday background)
+      if (!isRDO && !isHoliday) {
+        applyStudentCellFormatting(studentCell, student);
+      }
       formatStudentCellRichText(studentCell, student);
       
-      // Format status cells
-      const lessonStatusCell = sheet.getRange(row, baseCol + 1);
-      const attendanceCell = sheet.getRange(row, baseCol + 2);
-      
-      applyStatusCellFormatting(lessonStatusCell, attendanceCell, student);
+      // Format status cells (but preserve RDO/holiday background)
+      if (!isRDO && !isHoliday) {
+        applyStatusCellFormatting(lessonStatusCell, attendanceCell, student);
+      } else {
+        // Apply minimal formatting for status cells on special days
+        [lessonStatusCell, attendanceCell].forEach(cell => {
+          cell.setHorizontalAlignment('center');
+          cell.setVerticalAlignment('middle');
+          cell.setFontSize(8);
+        });
+      }
     }
   }
 }

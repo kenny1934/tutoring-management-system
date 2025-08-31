@@ -73,8 +73,18 @@ function refreshSpreadsheetCurrentWeek(spreadsheetId) {
     
     Logger.log(`Refreshing current week for tutor: ${tutorName} (ID: ${tutorId})`);
     
-    const currentWeek = getSundayOfWeek(new Date());
+    // Use GMT+8 timezone for consistent current week calculation
+    const now = new Date();
+    const gmt8Offset = 8 * 60; // GMT+8 in minutes
+    const localOffset = now.getTimezoneOffset(); // Local timezone offset from UTC
+    const gmt8Time = new Date(now.getTime() + (gmt8Offset + localOffset) * 60000);
+    const currentWeek = getSundayOfWeek(gmt8Time);
+    
+    // Refresh first, then handle colors
     refreshSingleTutorSchedule(tutorId, formatDate(currentWeek));
+    
+    // Clear all tab colors except current week, then reapply green to current week
+    clearAllTabColorsExceptCurrent(spreadsheet, currentWeek);
     
     return {
       success: true,
@@ -261,6 +271,8 @@ const CONFIG = {
   
   // Schedule settings
   WEEKS_AHEAD: 2,           // Current week + 2 weeks ahead
+  WEEKS_TO_KEEP: 8,         // Keep this many weeks of past schedules in spreadsheet
+  SKIP_PAST_WEEKS: true,    // Skip refreshing weeks that are in the past
   MAX_STUDENTS_PER_SLOT: 12, // Maximum rows allocated per time slot
   MIN_ROWS_PER_SLOT: 5,     // Minimum rows even if no students
   
@@ -336,7 +348,7 @@ function refreshSingleTutorSchedule(tutorId, weekStart = null) {
     // Determine which weeks to refresh
     const weeksToRefresh = weekStart ? 
       [new Date(weekStart)] : 
-      getWeeksToRefresh();
+      getRelevantWeeksToRefresh(); // Changed to only get relevant weeks
     
     for (const week of weeksToRefresh) {
       Logger.log(`Refreshing week starting: ${formatDate(week)}`);
@@ -653,12 +665,143 @@ function getHolidaysForWeek(weekStart, weekEnd) {
   }
 }
 
+/**
+ * Clear all tab colors in a spreadsheet (prevents stale green tabs)
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
+ */
+function clearAllTabColors(spreadsheet) {
+  try {
+    const sheets = spreadsheet.getSheets();
+    for (const sheet of sheets) {
+      // Skip instructions sheet
+      if (sheet.getName().toLowerCase().includes('instructions')) {
+        continue;
+      }
+      sheet.setTabColor(null);
+    }
+    Logger.log(`Cleared tab colors for ${sheets.length} sheets`);
+  } catch (error) {
+    Logger.log(`Warning: Could not clear tab colors: ${error.toString()}`);
+  }
+}
+
+/**
+ * Clear all tab colors except current week, ensuring current week stays green
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet - Target spreadsheet
+ * @param {Date} currentWeek - Current week's Sunday date
+ */
+function clearAllTabColorsExceptCurrent(spreadsheet, currentWeek) {
+  try {
+    const currentWeekTabName = formatWeekLabel(currentWeek);
+    const sheets = spreadsheet.getSheets();
+    
+    for (const sheet of sheets) {
+      const sheetName = sheet.getName();
+      
+      // Skip instructions sheet
+      if (sheetName.toLowerCase().includes('instructions')) {
+        continue;
+      }
+      
+      if (sheetName === currentWeekTabName) {
+        // Ensure current week tab is green and in first position
+        sheet.setTabColor('#34A853'); // Google green
+        spreadsheet.setActiveSheet(sheet);
+        spreadsheet.moveActiveSheet(1); // Move to first position
+        Logger.log(`✅ Ensured current week tab is green: ${sheetName}`);
+      } else {
+        // Clear color for all other week tabs
+        sheet.setTabColor(null);
+      }
+    }
+    
+    Logger.log(`Cleared tab colors except current week: ${currentWeekTabName}`);
+  } catch (error) {
+    Logger.log(`Warning: Could not manage tab colors: ${error.toString()}`);
+  }
+}
+
+/**
+ * Archive or remove old tabs that are beyond the retention period
+ * @param {string} spreadsheetId - The spreadsheet to clean up
+ * @returns {number} Number of tabs archived/removed
+ */
+function archiveOldTabs(spreadsheetId) {
+  if (!CONFIG.WEEKS_TO_KEEP || CONFIG.WEEKS_TO_KEEP <= 0) {
+    Logger.log('Tab archiving disabled (WEEKS_TO_KEEP not set)');
+    return 0;
+  }
+  
+  try {
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    const sheets = spreadsheet.getSheets();
+    
+    // Calculate cutoff date
+    const today = new Date();
+    const cutoffDate = new Date(today);
+    cutoffDate.setDate(cutoffDate.getDate() - (CONFIG.WEEKS_TO_KEEP * 7));
+    
+    Logger.log(`Archiving tabs older than ${formatDate(cutoffDate)}`);
+    
+    let archivedCount = 0;
+    const tabsToArchive = [];
+    
+    for (const sheet of sheets) {
+      const sheetName = sheet.getName();
+      
+      // Skip non-date tabs (like Instructions)
+      if (!sheetName.match(/^\d{4}-\d{4}$/)) {
+        continue;
+      }
+      
+      // Parse the week start date from tab name
+      const weekStart = getWeekStartFromTabName(sheetName);
+      if (!weekStart) {
+        continue;
+      }
+      
+      // Check if tab is older than retention period
+      if (weekStart < cutoffDate) {
+        tabsToArchive.push({
+          sheet: sheet,
+          name: sheetName,
+          weekStart: weekStart
+        });
+      }
+    }
+    
+    // Archive old tabs (for now, just hide them)
+    for (const tab of tabsToArchive) {
+      try {
+        // Option 1: Hide the sheet
+        tab.sheet.hideSheet();
+        Logger.log(`Archived (hidden) tab: ${tab.name}`);
+        
+        // Option 2: Delete the sheet (more aggressive)
+        // spreadsheet.deleteSheet(tab.sheet);
+        // Logger.log(`Deleted old tab: ${tab.name}`);
+        
+        archivedCount++;
+      } catch (error) {
+        Logger.log(`Error archiving tab ${tab.name}: ${error.toString()}`);
+      }
+    }
+    
+    Logger.log(`Archived ${archivedCount} old tabs`);
+    return archivedCount;
+    
+  } catch (error) {
+    Logger.log(`Error in archiveOldTabs: ${error.toString()}`);
+    return 0;
+  }
+}
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Get array of Sunday dates for weeks to refresh
+ * Get array of Sunday dates for weeks to refresh (all weeks - for initial setup)
  * @returns {Array<Date>} Array of Sunday dates (current + 2 weeks ahead)
  */
 function getWeeksToRefresh() {
@@ -677,6 +820,36 @@ function getWeeksToRefresh() {
     const sunday = new Date(currentSunday);
     sunday.setDate(sunday.getDate() + (i * 7));
     weeks.push(sunday);
+  }
+  
+  return weeks;
+}
+
+/**
+ * Get only relevant weeks to refresh (skip past weeks for performance)
+ * @returns {Array<Date>} Array of Sunday dates (only current and future weeks)
+ */
+function getRelevantWeeksToRefresh() {
+  if (!CONFIG.SKIP_PAST_WEEKS) {
+    // If not skipping past weeks, return all weeks as before
+    return getWeeksToRefresh();
+  }
+  
+  const weeks = [];
+  const today = new Date();
+  
+  // Get Sunday of current week
+  const currentSunday = getSundayOfWeek(today);
+  
+  Logger.log(`Getting relevant weeks to refresh (skipping past weeks)`);
+  Logger.log(`Current Sunday: ${formatDate(currentSunday)}`);
+  
+  // Only add current week and future weeks
+  for (let i = 0; i <= CONFIG.WEEKS_AHEAD; i++) {
+    const sunday = new Date(currentSunday);
+    sunday.setDate(sunday.getDate() + (i * 7));
+    weeks.push(sunday);
+    Logger.log(`  Adding week: ${formatDate(sunday)}`);
   }
   
   return weeks;
