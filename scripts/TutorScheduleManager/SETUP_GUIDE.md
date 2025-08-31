@@ -1,5 +1,13 @@
 # Tutor Schedule Manager - Setup Guide
 
+## ✨ Features
+- **Automatic Schedule Generation**: Creates weekly schedule tabs for all tutors
+- **Current Week Highlighting**: Green tab color indicates current week (GMT+8 timezone)
+- **Manual Refresh Menu**: Built-in menu for manual schedule updates
+- **Enhanced Error Handling**: Robust file validation prevents duplicate spreadsheets
+- **Smart Tab Sorting**: Chronological tab ordering (0831-0906, 0907-0913, etc.)
+- **Instructions Sheet**: Built-in usage guide for tutors
+
 ## 🎯 Quick Start (5 minutes)
 
 ### **Step 1: Create Apps Script Project**
@@ -93,8 +101,9 @@ listCurrentTriggers()     // View active triggers
 ## 📊 Expected Output
 
 ### **Tutor Spreadsheets**
-- **File name**: `[Tutor Name] - Schedule 2025`
+- **File name**: `[Tutor Name] Regular Schedule 2025-2026`
 - **Tabs**: Weekly tabs (current week highlighted in green)
+- **Features**: Manual refresh menu, instructions sheet, chronological tab sorting
 - **Format**: Time slots with student lists, status indicators
 - **Sharing**: Auto-shared with respective tutor's email
 

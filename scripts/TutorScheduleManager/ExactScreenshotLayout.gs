@@ -420,7 +420,7 @@ function formatStudentCellRichText(cell, student) {
   
   // Calculate spacing to push right part to the right
   // Approximate cell width in characters (name column is 200px wide, ~35-40 chars with 9px font)
-  const approximateCellWidth = 34;  // Increased to push text more to the right
+  const approximateCellWidth = 32;  // Increased to push text more to the right
   const leftLength = leftPart.length;
   const rightLength = rightPart.length;
   const totalUsed = leftLength + rightLength;
