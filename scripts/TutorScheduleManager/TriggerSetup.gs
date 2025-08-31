@@ -350,9 +350,110 @@ function quickSetupTest() {
     
     Logger.log('🎉 Quick test passed! System is ready.');
     
+    // Provide URL to open the spreadsheet manually
+    const spreadsheet = SpreadsheetApp.openById(getOrCreateTutorSpreadsheet(tutors[0]));
+    const url = spreadsheet.getUrl();
+    Logger.log(`📊 Open the spreadsheet to see features: ${url}`);
+    Logger.log('💡 The menu and colored tabs only appear when you open the spreadsheet manually!');
+    
   } catch (error) {
     Logger.log(`❌ Quick test failed: ${error.toString()}`);
     Logger.log('💡 Check your database credentials and permissions');
+    throw error;
+  }
+}
+
+/**
+ * Test function to demonstrate spreadsheet features
+ * Use this after running quickSetupTest() to check the manual features
+ */
+function testSpreadsheetFeatures() {
+  Logger.log('🧪 Testing spreadsheet features...');
+  
+  try {
+    const tutors = getTutorList();
+    if (tutors.length === 0) {
+      Logger.log('❌ No tutors found in database');
+      return;
+    }
+    
+    const tutor = tutors[0];
+    const spreadsheetId = getOrCreateTutorSpreadsheet(tutor);
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    
+    Logger.log(`✅ Testing with spreadsheet: ${tutor.tutor_name} - Schedule 2025`);
+    
+    // Check if tutor ID is stored
+    const docProperties = PropertiesService.getDocumentProperties();
+    const storedTutorId = docProperties.getProperty('TUTOR_ID');
+    Logger.log(`📋 Tutor ID stored in properties: ${storedTutorId}`);
+    
+    // Check tab colors and current week detection
+    const sheets = spreadsheet.getSheets();
+    const currentWeekFound = [];
+    
+    sheets.forEach(sheet => {
+      const tabName = sheet.getName();
+      const tabColor = sheet.getTabColor();
+      
+      // Test if this would be detected as current week
+      const weekStart = getWeekStartFromTabName(tabName);
+      if (weekStart && isCurrentWeek(weekStart)) {
+        currentWeekFound.push(tabName);
+        Logger.log(`🟢 CURRENT WEEK TAB: ${tabName} (Color: ${tabColor})`);
+      } else {
+        Logger.log(`📅 Tab: ${tabName} (Color: ${tabColor || 'default'})`);
+      }
+    });
+    
+    if (currentWeekFound.length > 0) {
+      Logger.log(`✅ Current week highlighting: ${currentWeekFound.length} tabs should be green`);
+    } else {
+      Logger.log(`⚠️ No current week tabs found - check GMT+8 timezone calculation`);
+    }
+    
+    // Provide URL to open
+    const url = spreadsheet.getUrl();
+    Logger.log(`🌐 Open this URL to see the menu: ${url}`);
+    Logger.log(`💡 Once opened, you should see:`);
+    Logger.log(`   - "Tutor Schedule" menu in the menu bar`);
+    Logger.log(`   - Green colored tab for current week`);
+    Logger.log(`   - Manual refresh options in the menu`);
+    
+  } catch (error) {
+    Logger.log(`❌ Feature test failed: ${error.toString()}`);
+    throw error;
+  }
+}
+
+/**
+ * Reset function to delete all existing tutor spreadsheets for clean testing
+ * Use this when you need to test features from scratch
+ */
+function resetTutorSpreadsheets() {
+  Logger.log('🧹 Resetting all tutor spreadsheets...');
+  
+  try {
+    const tutors = getTutorList();
+    let deletedCount = 0;
+    
+    for (const tutor of tutors) {
+      const spreadsheetName = `${tutor.tutor_name} - Schedule 2025`;
+      const files = DriveApp.getFilesByName(spreadsheetName);
+      
+      while (files.hasNext()) {
+        const file = files.next();
+        DriveApp.getFileById(file.getId()).setTrashed(true);
+        Logger.log(`🗑️ Deleted: ${spreadsheetName}`);
+        deletedCount++;
+      }
+    }
+    
+    Logger.log(`✅ Reset complete: ${deletedCount} spreadsheets deleted`);
+    Logger.log(`💡 Run quickSetupTest() now to create fresh spreadsheets with all features`);
+    
+  } catch (error) {
+    Logger.log(`❌ Reset failed: ${error.toString()}`);
     throw error;
   }
 }
