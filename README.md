@@ -68,6 +68,11 @@ This phase has built the critical workflows for managing the entire student life
     * [x] Implemented "Confirm Payment" action with bot-triggered session updates via Google Apps Script.
     * [x] Enhanced session generation logic to handle partial payments and prevent duplicate sessions.
     * [x] Added complete audit trail tracking for all payment-related activities.
+* **Attendance Reminder System:**
+    * [x] Created database views (`unchecked_attendance_reminders`, `unchecked_attendance_summary`) for tracking past sessions with unmarked attendance.
+    * [x] Implemented urgency levels (Critical >7 days, High 3-7 days, Medium 1-3 days) with color-coded indicators.
+    * [x] Built AppSheet views for both tutors (individual reminders) and administrators (summary dashboard).
+    * [x] Configured automated daily/weekly reminder notifications via AppSheet bots.
 
 ### Phase 4: Go-Live & System Transition (Future)
 
