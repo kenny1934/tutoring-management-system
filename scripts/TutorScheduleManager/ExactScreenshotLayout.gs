@@ -433,10 +433,7 @@ function applyStudentCellFormatting(cell, student) {
     cell.setFontColor('#999999'); // Gray text
   }
   
-  // Background color for unpaid sessions
-  if (student.financial_status === 'Unpaid') {
-    cell.setBackground('#FFF3E0'); // Very light orange
-  }
+  // Note: Red text for unpaid sessions is handled in formatStudentCellRichText()
   
   cell.setFontSize(9);
   cell.setVerticalAlignment('middle');
@@ -453,6 +450,10 @@ function applyStudentCellFormatting(cell, student) {
  * @param {Object} student - Student session object
  */
 function formatStudentCellRichText(cell, student) {
+  // Determine if text should be red for unpaid sessions
+  const isUnpaid = student.financial_status === 'Unpaid';
+  const leftTextColor = isUnpaid ? '#FF0000' : '#000000';  // Red for unpaid, black otherwise
+  
   // Build left part (ID and name) - no longer bold
   let leftPart = '';
   if (student.school_student_id) {
@@ -498,9 +499,9 @@ function formatStudentCellRichText(cell, student) {
   
   // Apply formatting
   if (leftPart.length > 0) {
-    // Left part - normal black text (no bold)
+    // Left part - use dynamic color (red for unpaid, black otherwise)
     const leftStyle = SpreadsheetApp.newTextStyle()
-      .setForegroundColor('#000000')
+      .setForegroundColor(leftTextColor)
       .setFontFamily('Roboto')
       .setFontSize(9)
       .build();
