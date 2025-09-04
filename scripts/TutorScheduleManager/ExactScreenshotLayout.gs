@@ -563,7 +563,7 @@ function applyStatusCellFormatting(lessonCell, attendanceCell, student) {
  */
 function getLessonStatusBackgroundColor(lessonStatus) {
   const colorMap = {
-    'R': '#FFE6CC', // Light orange for rescheduled
+    'R': '#F4CCCC', // Light red for rescheduled (same as sick)
     'M': '#FFF2CC', // Light yellow for make-up
     'S': '#F4CCCC', // Light red for sick
     'T': '#D0E0E3', // Light blue for trial
@@ -937,8 +937,8 @@ function getLessonStatusIndicator(sessionStatus) {
   const status = sessionStatus.toLowerCase();
   
   if (status.includes('rescheduled')) return 'R';
+  if (status.includes('sick leave')) return 'S';
   if (status.includes('make-up') || status.includes('makeup')) return 'M';
-  if (status.includes('sick')) return 'S';
   if (status.includes('trial')) return 'T';
   if (status.includes('to be confirmed') || status.includes('confirm')) return '?';
   
@@ -970,7 +970,7 @@ function getAttendanceStatusIndicator(sessionStatus, attendanceMarkedBy) {
 function shouldStrikethrough(sessionStatus) {
   if (!sessionStatus) return false;
   const status = sessionStatus.toLowerCase();
-  return status.includes('rescheduled') || status.includes('no show');
+  return status.includes('rescheduled') || status.includes('no show') || status.includes('sick leave');
 }
 
 /**
