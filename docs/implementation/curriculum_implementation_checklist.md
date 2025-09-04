@@ -38,8 +38,8 @@
 - [ ] **Academic calendar setup**
   - [x] Populate `academic_weeks` table with 2024-2025 dates
   - [x] Add 2025-2026 academic year calendar
-  - [ ] Verify week number calculations
-  - [ ] Test date-to-week mapping logic
+  - [x] Verify week number calculations
+  - [x] Test date-to-week mapping logic
 
 #### Evening
 - [ ] **Domain and DNS preparation**
@@ -56,26 +56,26 @@
 
 ### Day 2: Historical Data Import
 #### Morning (3-4 hours)
-- [ ] **Google Sheets data extraction**
-  - [ ] Access existing curriculum tracking spreadsheet
-  - [ ] Export 2024-2025 data to CSV/Excel
-  - [ ] Clean and normalize school names
-  - [ ] Parse week headers into date ranges
-  - [ ] Map grades and streams consistently
+- [x] **Google Sheets data extraction**
+  - [x] Access existing curriculum tracking spreadsheet
+  - [x] Export 2024-2025 data to CSV/Excel
+  - [x] Clean and normalize school names
+  - [x] Parse week headers into date ranges
+  - [x] Map grades and streams consistently
 
 #### Afternoon (2-3 hours)
-- [ ] **Data import script execution**
-  - [ ] Run data import with validation
-  - [ ] Verify all schools imported correctly
-  - [ ] Check week-to-date mappings
-  - [ ] Set confidence scores to 5 (historical data)
-  - [ ] Validate data integrity and completeness
+- [x] **Data import script execution**
+  - [x] Run data import with validation
+  - [x] Verify all schools imported correctly
+  - [x] Check week-to-date mappings
+  - [x] Set confidence scores to 5 (historical data)
+  - [x] Validate data integrity and completeness
 
 #### Evening (1 hour)
-- [ ] **Data verification**
-  - [ ] Sample check: 10 random entries match original spreadsheet
-  - [ ] Verify all schools/grades represented
-  - [ ] Confirm date ranges align with academic calendar
+- [x] **Data verification**
+  - [x] Sample check: 10 random entries match original spreadsheet
+  - [x] Verify all schools/grades represented
+  - [x] Confirm date ranges align with academic calendar
 
 **End of Day 2 Success Criteria:**
 - 2024-2025 curriculum data imported successfully
