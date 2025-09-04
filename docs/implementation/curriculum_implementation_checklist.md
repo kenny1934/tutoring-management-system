@@ -27,17 +27,17 @@
   - [x] Create service account: `curriculum-service`
   - [x] Set up Secret Manager with database configs
   
-- [ ] **Database schema creation**
-  - [ ] Run database migration script
-  - [ ] Create tables: `school_curriculum`, `curriculum_contributions`, `academic_weeks`
-  - [ ] Add columns to `session_log`
-  - [ ] Create views for AppSheet integration
-  - [ ] Test database connection and queries
+- [x] **Database schema creation**
+  - [x] Run database migration script
+  - [x] Create tables: `school_curriculum`, `curriculum_contributions`, `academic_weeks`
+  - [x] Add columns to `session_log`
+  - [x] Create views for AppSheet integration
+  - [x] Test database connection and queries
 
 #### Afternoon (2-3 hours)  
 - [ ] **Academic calendar setup**
-  - [ ] Populate `academic_weeks` table with 2024-2025 dates
-  - [ ] Add 2025-2026 academic year calendar
+  - [x] Populate `academic_weeks` table with 2024-2025 dates
+  - [x] Add 2025-2026 academic year calendar
   - [ ] Verify week number calculations
   - [ ] Test date-to-week mapping logic
 
