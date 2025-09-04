@@ -86,25 +86,32 @@
 
 ### Day 3: AppSheet Integration - Read Only
 #### Morning (2-3 hours)
-- [ ] **AppSheet virtual columns**
-  - [ ] Add `last_year_curriculum` virtual column to session_log
-  - [ ] Add `curriculum_status` virtual column  
-  - [ ] Add `curriculum_confidence` virtual column
-  - [ ] Test columns show correct data
+- [x] **AppSheet virtual columns**
+  - [x] Add `last_year_curriculum` virtual column to session_log
+  - [x] Add `curriculum_status` virtual column  
+  - [x] Add `curriculum_confidence` virtual column
+  - [x] Test columns show correct data
 
 #### Afternoon (2-3 hours)
-- [ ] **UI modifications**
-  - [ ] Add curriculum reference section to session detail view
-  - [ ] Format historical data display
-  - [ ] Add placeholder action buttons
-  - [ ] Test on mobile devices (iOS/Android)
+- [x] **UI modifications**
+  - [x] Add curriculum reference section to session detail view
+  - [x] Format historical data display
+  - [x] Add placeholder action buttons
+  - [x] Test on mobile devices (iOS/Android)
 
 #### Evening (1 hour)
-- [ ] **Initial user testing**
-  - [ ] Test with 2-3 actual session records
-  - [ ] Verify historical data shows correctly
-  - [ ] Confirm mobile responsiveness
-  - [ ] Check performance (page load times)
+- [x] **Initial user testing**
+  - [x] Test with 2-3 actual session records
+  - [x] Verify historical data shows correctly
+  - [x] Confirm mobile responsiveness
+  - [x] Check performance (page load times)
+
+**COMPLETED EXTRAS:**
+- [x] Implemented 3-week flexible curriculum matching (Week N-1, N, N+1)
+- [x] Added smart recommendations for early September
+- [x] Created live curriculum view for real-time updates
+- [x] Analyzed and confirmed no school name mismatches
+- [x] Designed comprehensive Teaching Playbook schema (topics + exercises)
 
 **End of Day 3 Success Criteria:**
 - Tutors can see last year's curriculum in session views
