@@ -37,7 +37,8 @@ CREATE TABLE enrollments (
     last_modified_time DATETIME DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
-    FOREIGN KEY (discount_id) REFERENCES discounts(id)
+    FOREIGN KEY (discount_id) REFERENCES discounts(id),
+    UNIQUE KEY unique_student_tutor_schedule (student_id, tutor_id, assigned_day, assigned_time, location)
 );
 
 CREATE TABLE session_log (
@@ -62,7 +63,8 @@ CREATE TABLE session_log (
     rescheduled_to_id INT,
     FOREIGN KEY (enrollment_id) REFERENCES enrollments(id),
     FOREIGN KEY (student_id) REFERENCES students(id),
-    FOREIGN KEY (tutor_id) REFERENCES tutors(id)
+    FOREIGN KEY (tutor_id) REFERENCES tutors(id),
+    UNIQUE KEY unique_student_tutor_session (student_id, tutor_id, session_date, time_slot, location)
 );
 
 CREATE TABLE discounts (
