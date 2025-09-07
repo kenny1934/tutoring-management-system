@@ -277,7 +277,7 @@ const CONFIG = {
   MIN_ROWS_PER_SLOT: 5,     // Minimum rows even if no students
   
   // Timing
-  DELAY_BETWEEN_TUTORS: 30000, // 30 seconds delay to prevent timeout
+  DELAY_BETWEEN_TUTORS: 1000, // 1 second delay to prevent rate limiting
   
   // Spreadsheet settings
   SPREADSHEET_FOLDER: "Tutor Schedules 2025", // Create this folder first
@@ -306,7 +306,7 @@ function refreshAllTutorSchedules() {
         
         // Delay between tutors to prevent timeout
         if (i < tutors.length - 1) {
-          Logger.log(`Waiting 30 seconds before next tutor...`);
+          Logger.log(`Waiting 1 second before next tutor...`);
           Utilities.sleep(CONFIG.DELAY_BETWEEN_TUTORS);
         }
       } catch (error) {
@@ -354,6 +354,24 @@ function refreshSingleTutorSchedule(tutorId, weekStart = null) {
       Logger.log(`Refreshing week starting: ${formatDate(week)}`);
       generateWeeklySchedule(tutorId, week, spreadsheetId, tutor.tutor_name);
     }
+    
+    // Fix tab colors after all weeks are refreshed
+    // This ensures consistent timezone calculation for tab highlighting
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    
+    // Calculate current week once in GMT+8 timezone
+    const now = new Date();
+    const gmt8Offset = 8 * 60; // GMT+8 in minutes  
+    const localOffset = now.getTimezoneOffset(); // Local timezone offset from UTC
+    const gmt8Time = new Date(now.getTime() + (gmt8Offset + localOffset) * 60000);
+    const currentWeek = getSundayOfWeek(gmt8Time);
+    
+    Logger.log(`Fixing tab colors for ${tutor.tutor_name} - current week: ${formatDate(currentWeek)}`);
+    clearAllTabColorsExceptCurrent(spreadsheet, currentWeek);
+    
+    // Sort tabs chronologically after refresh (in case new weeks were added)
+    Logger.log(`Sorting tabs chronologically for ${tutor.tutor_name}`);
+    sortWeeklyTabs(spreadsheet);
     
     Logger.log(`Completed refresh for ${tutor.tutor_name}`);
     

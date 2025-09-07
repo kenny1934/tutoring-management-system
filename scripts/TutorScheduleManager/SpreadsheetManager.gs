@@ -257,16 +257,8 @@ function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = '
     // Use the exact screenshot layout system
     createExactScreenshotLayout(sheet, scheduleData, tutorName, weekStart, rdoDays, holidays);
     
-    // Update tab color and position based on current week (happens every refresh)
-    if (isCurrentWeek(weekStart)) {
-      sheet.setTabColor('#34A853'); // Google green
-      spreadsheet.setActiveSheet(sheet);
-      spreadsheet.moveActiveSheet(1); // Move to first position
-      Logger.log(`✅ Colored current week tab green: ${tabName}`);
-    } else {
-      sheet.setTabColor(null); // Remove color for non-current weeks
-      Logger.log(`⬜ Removed color from tab: ${tabName}`);
-    }
+    // Note: Tab color is now handled by clearAllTabColorsExceptCurrent() 
+    // to ensure consistent timezone calculation across all tabs
     
     Logger.log(`Updated schedule tab: ${tabName}`);
     
@@ -448,24 +440,33 @@ function getAttendanceStatusIndicator(sessionStatus, attendanceMarkedBy) {
  * @param {Date} weekStart - Sunday of the week to check
  * @returns {boolean} True if it's the current week
  */
-function isCurrentWeek(weekStart) {
-  // Get current date in GMT+8 timezone
+function isCurrentWeek(weekStart, currentWeekStart = null) {
+  // If currentWeekStart is provided, use it (avoids timezone recalculation)
+  if (currentWeekStart) {
+    Logger.log(`🕐 Current Week Check (using provided currentWeek):`);
+    Logger.log(`  Given week start: ${weekStart.toISOString()}`);
+    Logger.log(`  Current week start: ${currentWeekStart.toISOString()}`);
+    Logger.log(`  Is current week: ${weekStart.getTime() === currentWeekStart.getTime()}`);
+    return weekStart.getTime() === currentWeekStart.getTime();
+  }
+  
+  // Fallback: Calculate current week in GMT+8 timezone  
   const now = new Date();
   const gmt8Offset = 8 * 60; // GMT+8 in minutes
   const localOffset = now.getTimezoneOffset(); // Local timezone offset from UTC
   const gmt8Time = new Date(now.getTime() + (gmt8Offset + localOffset) * 60000);
   
-  const currentWeekStart = getSundayOfWeek(gmt8Time);
+  const calculatedCurrentWeekStart = getSundayOfWeek(gmt8Time);
   
   // Debug logging
-  Logger.log(`🕐 Current Week Check:`);
+  Logger.log(`🕐 Current Week Check (calculated):`);
   Logger.log(`  Server time: ${now.toISOString()}`);
   Logger.log(`  GMT+8 time: ${gmt8Time.toISOString()}`);
   Logger.log(`  Given week start: ${weekStart.toISOString()}`);
-  Logger.log(`  Current week start: ${currentWeekStart.toISOString()}`);
-  Logger.log(`  Is current week: ${weekStart.getTime() === currentWeekStart.getTime()}`);
+  Logger.log(`  Current week start: ${calculatedCurrentWeekStart.toISOString()}`);
+  Logger.log(`  Is current week: ${weekStart.getTime() === calculatedCurrentWeekStart.getTime()}`);
   
-  return weekStart.getTime() === currentWeekStart.getTime();
+  return weekStart.getTime() === calculatedCurrentWeekStart.getTime();
 }
 
 /**
