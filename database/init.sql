@@ -37,8 +37,23 @@ CREATE TABLE enrollments (
     last_modified_time DATETIME DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
-    FOREIGN KEY (discount_id) REFERENCES discounts(id),
-    UNIQUE KEY unique_student_tutor_schedule (student_id, tutor_id, assigned_day, assigned_time, location)
+    FOREIGN KEY (discount_id) REFERENCES discounts(id)
+);
+
+-- Add constraint to prevent duplicate active enrollments while allowing renewals and re-enrollment after cancellation
+CREATE UNIQUE INDEX unique_active_enrollment_period 
+ON enrollments (
+    student_id, 
+    tutor_id, 
+    assigned_day, 
+    assigned_time, 
+    location,
+    first_lesson_date,
+    (CASE 
+        WHEN payment_status = 'Cancelled' 
+        THEN CONCAT('CANCELLED_', DATE_FORMAT(last_modified_time, '%Y%m%d%H%i%s%f'))
+        ELSE 'ACTIVE'   
+    END)
 );
 
 CREATE TABLE session_log (
