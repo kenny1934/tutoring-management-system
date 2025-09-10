@@ -376,8 +376,11 @@ function handleConfirmPayment(data) {
         updateStmt.close();
         
         // Step 2: Check if we need to generate additional sessions
+        // Only count real sessions (exclude placeholders)
         const countStmt = conn.prepareStatement(
-            "SELECT COUNT(*) as session_count FROM session_log WHERE enrollment_id = ?"
+            "SELECT COUNT(*) as session_count FROM session_log " +
+            "WHERE enrollment_id = ? " +
+            "AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Cancelled')"
         );
         countStmt.setInt(1, enrollmentId);
         const countResults = countStmt.executeQuery();
@@ -396,7 +399,7 @@ function handleConfirmPayment(data) {
         
         if (enrollResults.next()) {
             const lessonsPaid = enrollResults.getInt("lessons_paid");
-            Logger.log(`Enrollment has ${lessonsPaid} lessons paid, ${sessionCount} sessions exist`);
+            Logger.log(`Enrollment has ${lessonsPaid} lessons paid, ${sessionCount} real sessions exist (excluding placeholders)`);
             
             if (sessionCount < lessonsPaid) {
                 // Generate remaining sessions directly (no duplicate check needed)
@@ -418,13 +421,6 @@ function handleConfirmPayment(data) {
                     detailsResults.close();
                     detailsStmt.close();
                     
-                    // Generate remaining sessions starting from the next week after existing sessions
-                    let sessionDate = new Date(firstLessonDate);
-                    // Skip ahead to account for existing sessions
-                    sessionDate.setDate(sessionDate.getDate() + (sessionCount * 7));
-                    
-                    const newSessionRows = [];
-                    
                     // Get holidays once before the loop
                     const holidayStmt = conn.prepareStatement("SELECT holiday_date FROM holidays");
                     const holidayResults = holidayStmt.executeQuery();
@@ -435,8 +431,23 @@ function handleConfirmPayment(data) {
                     holidayResults.close();
                     holidayStmt.close();
                     
+                    // Calculate session dates from first lesson date, properly accounting for holidays
+                    // We need to find the (sessionCount + 1)th, (sessionCount + 2)th, etc. occurrences
+                    let sessionDate = new Date(firstLessonDate);
+                    let occurrenceCount = 0;
+                    
+                    // Skip forward to find the (sessionCount + 1)th occurrence
+                    while (occurrenceCount < sessionCount) {
+                        sessionDate.setDate(sessionDate.getDate() + 7);
+                        if (!isHoliday(sessionDate, holidays)) {
+                            occurrenceCount++;
+                        }
+                    }
+                    
+                    // Now generate the remaining sessions
+                    const newSessionRows = [];
                     for (let i = 0; i < remainingSessions; i++) {
-                        // Skip holidays
+                        // Skip holidays first (before generating session)
                         while (isHoliday(sessionDate, holidays)) {
                             sessionDate.setDate(sessionDate.getDate() + 7);
                         }
@@ -454,7 +465,11 @@ function handleConfirmPayment(data) {
                         };
                         
                         newSessionRows.push(sessionRow);
-                        sessionDate.setDate(sessionDate.getDate() + 7);
+                        
+                        // Move to next week for the next iteration (but not on the last iteration)
+                        if (i < remainingSessions - 1) {
+                            sessionDate.setDate(sessionDate.getDate() + 7);
+                        }
                     }
                     
                     enrollResults.close();
