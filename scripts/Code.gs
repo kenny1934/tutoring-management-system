@@ -1,5 +1,6 @@
 function doPost(e) {
   try {
+    Logger.log("doPost called with data: " + e.postData.contents);
     const requestData = JSON.parse(e.postData.contents);
     const action = requestData.action; 
 
@@ -10,6 +11,8 @@ function doPost(e) {
       return handleUpdateStudentInfo(requestData);
     } else if (action === "confirm_payment") {
       return handleConfirmPayment(requestData);
+    } else if (action === "generate_next_unpaid_session") {
+      return handleGenerateNextUnpaidSession(requestData);
     }
     // ---------------------
 
@@ -495,4 +498,275 @@ function handleConfirmPayment(data) {
         "Status": "Success",
         "Message": "Payment confirmed and sessions updated"
     })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleGenerateNextUnpaidSession(data) {
+    let enrollmentIds = data.enrollmentIds || []; // Array of enrollment IDs from AppSheet
+    
+    // Handle case where AppSheet sends a string or comma-separated values
+    if (typeof enrollmentIds === 'string') {
+        // Handle empty string explicitly
+        if (enrollmentIds.trim() === '') {
+            enrollmentIds = [];
+        } else if (!enrollmentIds.includes(',')) {
+            // Single ID, wrap in array
+            enrollmentIds = [enrollmentIds.trim()];
+        } else {
+            // Comma-separated, split and filter
+            enrollmentIds = enrollmentIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
+        }
+    }
+    
+    Logger.log(`Starting next unpaid session generation for ${enrollmentIds.length} enrollments`);
+    
+    if (enrollmentIds.length === 0) {
+        Logger.log("No enrollment IDs provided - returning success to prevent retries");
+        return ContentService.createTextOutput(JSON.stringify({
+            "Status": "Success",
+            "Message": "No enrollment IDs to process"
+        })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const connectionString = "jdbc:google:mysql://YOUR_INSTANCE_CONNECTION_NAME/csm_db";
+    const username = "AppSheet";
+    const password = "PASSWORD";
+
+    const conn = Jdbc.getCloudSqlConnection(connectionString, username, password);
+    
+    try {
+        // Get holidays for date calculation
+        const holidayStmt = conn.prepareStatement("SELECT holiday_date FROM holidays");
+        const holidayResults = holidayStmt.executeQuery();
+        const holidays = [];
+        while (holidayResults.next()) {
+            holidays.push(new Date(holidayResults.getDate("holiday_date").getTime()));
+        }
+        holidayResults.close();
+        holidayStmt.close();
+        Logger.log(`Loaded ${holidays.length} holidays for date calculation`);
+
+        let successCount = 0;
+        let errorCount = 0;
+        let results = [];
+
+        // Process each enrollment
+        for (let i = 0; i < enrollmentIds.length; i++) {
+            const enrollmentId = parseInt(enrollmentIds[i].toString().replace(/,/g, ''), 10);
+            
+            // Validate enrollment ID
+            if (isNaN(enrollmentId) || enrollmentId <= 0) {
+                results.push({ 
+                    enrollmentId: enrollmentIds[i], 
+                    status: "Error", 
+                    message: "Invalid enrollment ID format" 
+                });
+                errorCount++;
+                continue;
+            }
+
+            try {
+                // Get enrollment details and validate it's pending payment
+                const enrollStmt = conn.prepareStatement(
+                    "SELECT e.student_id, e.tutor_id, e.assigned_day, e.assigned_time, e.location, " +
+                    "e.payment_status, e.lessons_paid, s.student_name " +
+                    "FROM enrollments e " +
+                    "JOIN students s ON e.student_id = s.id " +
+                    "WHERE e.id = ?"
+                );
+                enrollStmt.setInt(1, enrollmentId);
+                const enrollResults = enrollStmt.executeQuery();
+
+                if (!enrollResults.next()) {
+                    results.push({ enrollmentId, status: "Error", message: "Enrollment not found" });
+                    errorCount++;
+                    enrollResults.close();
+                    enrollStmt.close();
+                    continue;
+                }
+
+                const paymentStatus = enrollResults.getString("payment_status");
+                if (paymentStatus !== "Pending Payment") {
+                    results.push({ enrollmentId, status: "Skipped", message: `Payment status is '${paymentStatus}', not 'Pending Payment'` });
+                    enrollResults.close();
+                    enrollStmt.close();
+                    continue;
+                }
+
+                const studentId = enrollResults.getInt("student_id");
+                const tutorId = enrollResults.getInt("tutor_id");
+                const assignedDay = enrollResults.getString("assigned_day");
+                const assignedTime = enrollResults.getString("assigned_time");
+                const location = enrollResults.getString("location");
+                const lessonsPaid = enrollResults.getInt("lessons_paid");
+                const studentName = enrollResults.getString("student_name");
+
+                enrollResults.close();
+                enrollStmt.close();
+
+                // Find the most recent session that occurred on the assigned weekday
+                // Convert short day name to full day name for MySQL DAYNAME() function
+                const dayNameMap = {"Sun": "Sunday", "Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday"};
+                const fullDayName = dayNameMap[assignedDay] || assignedDay;
+                
+                const lastRegularSessionStmt = conn.prepareStatement(
+                    "SELECT MAX(session_date) as last_regular_date FROM session_log " +
+                    "WHERE enrollment_id = ? AND DAYNAME(session_date) = ?"
+                );
+                lastRegularSessionStmt.setInt(1, enrollmentId);
+                lastRegularSessionStmt.setString(2, fullDayName);
+                const lastRegularResults = lastRegularSessionStmt.executeQuery();
+
+                let lastRegularDate = null;
+                if (lastRegularResults.next()) {
+                    const dateResult = lastRegularResults.getDate("last_regular_date");
+                    if (dateResult != null) {
+                        lastRegularDate = new Date(dateResult.getTime());
+                    }
+                }
+                lastRegularResults.close();
+                lastRegularSessionStmt.close();
+
+                // Count actual sessions used (excluding placeholders)
+                const sessionCountStmt = conn.prepareStatement(
+                    "SELECT COUNT(*) as session_count FROM session_log " +
+                    "WHERE enrollment_id = ? AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Cancelled')"
+                );
+                sessionCountStmt.setInt(1, enrollmentId);
+                const sessionCountResults = sessionCountStmt.executeQuery();
+                sessionCountResults.next();
+                const sessionsUsed = sessionCountResults.getInt("session_count");
+                sessionCountResults.close();
+                sessionCountStmt.close();
+
+                if (sessionsUsed >= lessonsPaid) {
+                    results.push({ enrollmentId, status: "Complete", message: `Student has used all ${lessonsPaid} paid lessons` });
+                    continue;
+                }
+
+                // Calculate next lesson date on the assigned weekday
+                let nextSessionDate;
+                if (lastRegularDate) {
+                    // Add exactly 7 days from last regular session
+                    nextSessionDate = new Date(lastRegularDate.getTime());
+                    nextSessionDate.setDate(nextSessionDate.getDate() + 7);
+                    
+                    // Skip holidays if needed
+                    while (isHoliday(nextSessionDate, holidays)) {
+                        nextSessionDate.setDate(nextSessionDate.getDate() + 7);
+                    }
+                } else {
+                    // No previous regular session found, find next occurrence of assigned day
+                    // Create timezone-aware today date (GMT+8)
+                    const today = new Date();
+                    const gmtPlus8Today = new Date(today.getTime() + (8 * 60 * 60 * 1000));
+                    nextSessionDate = getNextWeekdayDate(gmtPlus8Today, assignedDay, holidays);
+                }
+                
+                Logger.log(`Creating next session for ${studentName} on ${nextSessionDate.toISOString().split('T')[0]}`);
+
+                // Create the next session
+                const sessionStmt = conn.prepareStatement(
+                    "INSERT INTO session_log (enrollment_id, student_id, tutor_id, session_date, time_slot, " +
+                    "location, session_status, financial_status, notes, last_modified_by) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                );
+                
+                sessionStmt.setInt(1, enrollmentId);
+                sessionStmt.setInt(2, studentId);
+                sessionStmt.setInt(3, tutorId);
+                sessionStmt.setDate(4, Jdbc.newDate(nextSessionDate.getTime()));
+                sessionStmt.setString(5, assignedTime);
+                sessionStmt.setString(6, location);
+                sessionStmt.setString(7, "Scheduled");
+                sessionStmt.setString(8, "Unpaid");
+                sessionStmt.setString(9, "");
+                sessionStmt.setString(10, "System");
+
+                const rowsInserted = sessionStmt.executeUpdate();
+                sessionStmt.close();
+
+                if (rowsInserted > 0) {
+                    results.push({ 
+                        enrollmentId, 
+                        status: "Success", 
+                        message: `Created session for ${nextSessionDate.toISOString().split('T')[0]}`,
+                        studentName: studentName,
+                        sessionDate: nextSessionDate.toISOString().split('T')[0]
+                    });
+                    successCount++;
+                } else {
+                    results.push({ enrollmentId, status: "Error", message: "Failed to insert session" });
+                    errorCount++;
+                }
+
+            } catch (enrollmentError) {
+                Logger.log(`Error processing enrollment ${enrollmentId}: ${enrollmentError.toString()}`);
+                results.push({ enrollmentId, status: "Error", message: enrollmentError.toString() });
+                errorCount++;
+            }
+        }
+
+        conn.close();
+        
+        const summary = `Processed ${enrollmentIds.length} enrollments: ${successCount} success, ${errorCount} errors`;
+        Logger.log(`Next unpaid session generation completed: ${summary}`);
+        
+        return ContentService.createTextOutput(JSON.stringify({
+            "Status": "Success"
+        })).setMimeType(ContentService.MimeType.JSON);
+
+    } catch (error) {
+        Logger.log(`Error in handleGenerateNextUnpaidSession: ${error.toString()}`);
+        conn.close();
+        
+        
+        return ContentService.createTextOutput(JSON.stringify({
+            "Status": "Success", // Return Success to prevent AppSheet retries
+            "Message": error.toString()
+        })).setMimeType(ContentService.MimeType.JSON);
+    }
+}
+
+function getNextValidLessonDate(fromDate, daysToAdd, holidays) {
+    let nextDate = new Date(fromDate.getTime());
+    nextDate.setDate(nextDate.getDate() + daysToAdd);
+    
+    // Keep adding days until we find a non-holiday
+    while (isHoliday(nextDate, holidays)) {
+        nextDate.setDate(nextDate.getDate() + 1);
+        Logger.log(`Skipping holiday on ${nextDate.toISOString().split('T')[0]}, trying next day`);
+    }
+    
+    return nextDate;
+}
+
+function getDayName(dayNumber) {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days[dayNumber];
+}
+
+function getNextWeekdayDate(referenceDate, targetWeekday, holidays) {
+    // Convert target weekday to number (Sun=0, Mon=1, etc.)
+    const weekdays = {"Sun": 0, "Mon": 1, "Tue": 2, "Wed": 3, "Thu": 4, "Fri": 5, "Sat": 6};
+    const targetDay = weekdays[targetWeekday];
+    
+    if (targetDay === undefined) {
+        throw new Error(`Invalid weekday: ${targetWeekday}`);
+    }
+    
+    // Start from tomorrow
+    let nextDate = new Date(referenceDate.getTime());
+    nextDate.setDate(nextDate.getDate() + 1);
+    
+    // Find next occurrence of target weekday
+    while (nextDate.getDay() !== targetDay) {
+        nextDate.setDate(nextDate.getDate() + 1);
+    }
+    
+    // Skip holidays (move to next week if holiday)
+    while (isHoliday(nextDate, holidays)) {
+        nextDate.setDate(nextDate.getDate() + 7);
+    }
+    
+    return nextDate;
 }
