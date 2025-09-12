@@ -549,6 +549,7 @@ function getSessionsForTutorWeek(tutorId, startDate, endDate) {
       JOIN students s ON sl.student_id = s.id
       WHERE sl.tutor_id = ? 
         AND sl.session_date BETWEEN ? AND ?
+        AND sl.session_status != 'Cancelled'
       ORDER BY sl.session_date, sl.time_slot, s.student_name
     `);
     
