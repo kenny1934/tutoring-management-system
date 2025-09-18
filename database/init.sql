@@ -90,6 +90,25 @@ CREATE TABLE discounts (
     is_active BOOLEAN DEFAULT TRUE
 );
 
+CREATE TABLE parent_communications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    tutor_id INT NOT NULL,
+    contact_date DATETIME DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    contact_method ENUM('WeChat', 'Phone', 'In-Person') DEFAULT 'WeChat',
+    contact_type ENUM('Progress Update', 'Concern', 'Schedule', 'Payment', 'General', 'Homework', 'Behavior') DEFAULT 'Progress Update',
+    brief_notes VARCHAR(500) COMMENT 'Quick summary of what was discussed',
+    follow_up_needed BOOLEAN DEFAULT FALSE,
+    follow_up_date DATE NULL COMMENT 'When follow-up is needed by',
+    created_at TIMESTAMP DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    created_by VARCHAR(255) DEFAULT 'system',
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (tutor_id) REFERENCES tutors(id),
+    INDEX idx_student_date (student_id, contact_date DESC),
+    INDEX idx_tutor_date (tutor_id, contact_date DESC),
+    INDEX idx_follow_up (follow_up_needed, follow_up_date)
+) COMMENT 'Tracks all parent-tutor communications for accountability and follow-up';
+
 CREATE TABLE holidays (
     id INT AUTO_INCREMENT PRIMARY KEY,
     holiday_date DATE NOT NULL UNIQUE,
