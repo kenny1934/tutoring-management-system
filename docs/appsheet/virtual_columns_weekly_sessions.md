@@ -16,7 +16,8 @@ COUNT(
       [enrollment_id] = [_THISROW].[id],
       NOT(IN([session_status], LIST(
         "Rescheduled - Make-up Booked",
-        "Sick Leave - Make-up Booked", 
+        "Sick Leave - Make-up Booked",
+        "Weather Cancelled - Make-up Booked",
         "Cancelled"
       )))
     )

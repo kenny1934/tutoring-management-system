@@ -309,6 +309,7 @@ function getLessonStatusIndicator(sessionStatus) {
   
   const status = sessionStatus.toLowerCase();
   
+  if (status.includes('weather')) return 'W';
   if (status.includes('rescheduled')) return 'R';
   if (status.includes('make-up') || status.includes('makeup')) return 'M';
   if (status.includes('sick')) return 'S';
@@ -363,7 +364,7 @@ function applyCellStatusFormatting(cellRange, student) {
 function shouldStrikethrough(sessionStatus) {
   if (!sessionStatus) return false;
   const status = sessionStatus.toLowerCase();
-  return status.includes('rescheduled') || status.includes('no show');
+  return status.includes('rescheduled') || status.includes('no show') || status.includes('weather');
 }
 
 /**

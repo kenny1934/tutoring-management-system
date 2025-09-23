@@ -257,11 +257,14 @@ function updateScheduleTab(spreadsheetId, weekStart, scheduleData, tutorName = '
     // Use the exact screenshot layout system
     createExactScreenshotLayout(sheet, scheduleData, tutorName, weekStart, rdoDays, holidays);
     
-    // Note: Tab color is now handled by clearAllTabColorsExceptCurrent() 
+    // Note: Tab color is now handled by clearAllTabColorsExceptCurrent()
     // to ensure consistent timezone calculation across all tabs
-    
+
+    // Sort tabs chronologically to ensure proper date ordering
+    sortWeeklyTabs(spreadsheet);
+
     Logger.log(`Updated schedule tab: ${tabName}`);
-    
+
   } catch (error) {
     Logger.log(`Error updating schedule tab: ${error.toString()}`);
     throw error;
@@ -409,6 +412,7 @@ function getLessonStatusIndicator(sessionStatus) {
   
   const status = sessionStatus.toLowerCase();
   
+  if (status.includes('weather')) return 'W';
   if (status.includes('rescheduled')) return 'R';
   if (status.includes('make-up') || status.includes('makeup')) return 'M';
   if (status.includes('sick')) return 'S';
@@ -500,32 +504,37 @@ function sortWeeklyTabs(spreadsheet) {
   try {
     const sheets = spreadsheet.getSheets();
     const weeklySheets = [];
-    const otherSheets = [];
-    
-    // Separate weekly tabs from other sheets
+
+    // Collect weekly tabs only (no other sheets expected)
     for (const sheet of sheets) {
       const sheetName = sheet.getName();
       const weekStart = getWeekStartFromTabName(sheetName);
-      
+
       if (weekStart) {
         weeklySheets.push({ sheet, weekStart, name: sheetName });
-      } else {
-        otherSheets.push(sheet);
       }
     }
-    
+
+    Logger.log(`Found ${weeklySheets.length} weekly sheets to sort`);
+
     // Sort weekly sheets chronologically
     weeklySheets.sort((a, b) => a.weekStart - b.weekStart);
-    
-    // Move sheets to correct positions
-    // Move weekly sheets in chronological order
-    for (let i = 0; i < weeklySheets.length; i++) {
+
+    // Log the sorted order for debugging
+    Logger.log(`Weekly sheets sorted order: ${weeklySheets.map(ws => `${ws.name} (${formatDate(ws.weekStart)})`).join(', ')}`);
+
+    // Move sheets to correct chronological positions
+    // We need to move them in reverse order to avoid position conflicts
+    for (let i = weeklySheets.length - 1; i >= 0; i--) {
+      const targetPosition = i + 1; // 1-based position for moveActiveSheet
+      Logger.log(`Moving ${weeklySheets[i].name} to position ${targetPosition}`);
+
       weeklySheets[i].sheet.activate();
-      spreadsheet.moveActiveSheet(i + 1); // 1-based position for moveActiveSheet
+      spreadsheet.moveActiveSheet(targetPosition);
     }
-    
+
     Logger.log(`Sorted ${weeklySheets.length} weekly tabs chronologically`);
-    
+
   } catch (error) {
     Logger.log(`Error sorting weekly tabs: ${error.toString()}`);
     // Don't throw - tab sorting is not critical for functionality

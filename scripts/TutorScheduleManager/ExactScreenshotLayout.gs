@@ -563,6 +563,7 @@ function applyStatusCellFormatting(lessonCell, attendanceCell, student) {
  */
 function getLessonStatusBackgroundColor(lessonStatus) {
   const colorMap = {
+    'W': '#CCE5FF', // Light blue for weather cancelled
     'R': '#F4CCCC', // Light red for rescheduled (same as sick)
     'M': '#FFF2CC', // Light yellow for make-up
     'S': '#F4CCCC', // Light red for sick
@@ -936,6 +937,7 @@ function getLessonStatusIndicator(sessionStatus) {
   
   const status = sessionStatus.toLowerCase();
   
+  if (status.includes('weather')) return 'W';
   if (status.includes('rescheduled')) return 'R';
   if (status.includes('sick leave')) return 'S';
   if (status.includes('make-up') || status.includes('makeup')) return 'M';
@@ -970,7 +972,7 @@ function getAttendanceStatusIndicator(sessionStatus, attendanceMarkedBy) {
 function shouldStrikethrough(sessionStatus) {
   if (!sessionStatus) return false;
   const status = sessionStatus.toLowerCase();
-  return status.includes('rescheduled') || status.includes('no show') || status.includes('sick leave');
+  return status.includes('rescheduled') || status.includes('no show') || status.includes('sick leave') || status.includes('weather');
 }
 
 /**
@@ -1213,27 +1215,8 @@ function detectSpecialDays(scheduleData, rdoDays, holidays, weekStart, dayNames)
     const dayName = dayNames[i];
     const dayDate = new Date(weekStart);
     dayDate.setDate(dayDate.getDate() + i);
-    
-    // Check if it's RDO
-    if (rdoDays.includes(i)) {
-      specialDays.rdo.push(dayName);
-      continue;
-    }
-    
-    // Check if it's a holiday
-    const isHoliday = holidays.some(h => {
-      const holidayDate = new Date(h.date);
-      return holidayDate.getDate() === dayDate.getDate() && 
-             holidayDate.getMonth() === dayDate.getMonth() &&
-             holidayDate.getFullYear() === dayDate.getFullYear();
-    });
-    
-    if (isHoliday) {
-      specialDays.holidays.push(dayName);
-      continue;
-    }
-    
-    // Check if empty (no students)
+
+    // First check if there are students on this day
     let hasStudents = false;
     for (const [timeSlot, slotData] of Object.entries(scheduleData.timeSlots || {})) {
       if (slotData.days[dayName] && slotData.days[dayName].students.length > 0) {
@@ -1241,7 +1224,28 @@ function detectSpecialDays(scheduleData, rdoDays, holidays, weekStart, dayNames)
         break;
       }
     }
-    
+
+    // Only mark as RDO if it's an RDO day AND has no students
+    if (rdoDays.includes(i) && !hasStudents) {
+      specialDays.rdo.push(dayName);
+      continue;
+    }
+
+    // Check if it's a holiday
+    const isHoliday = holidays.some(h => {
+      const holidayDate = new Date(h.date);
+      return holidayDate.getDate() === dayDate.getDate() &&
+             holidayDate.getMonth() === dayDate.getMonth() &&
+             holidayDate.getFullYear() === dayDate.getFullYear();
+    });
+
+    // Only mark as holiday if it's a holiday AND has no students
+    if (isHoliday && !hasStudents) {
+      specialDays.holidays.push(dayName);
+      continue;
+    }
+
+    // Mark as empty if no students (but not RDO or holiday)
     if (!hasStudents) {
       specialDays.empty.push(dayName);
     }
