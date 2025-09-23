@@ -380,7 +380,7 @@ function handleConfirmPayment(data) {
         const countStmt = conn.prepareStatement(
             "SELECT COUNT(*) as session_count FROM session_log " +
             "WHERE enrollment_id = ? " +
-            "AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Cancelled')"
+            "AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Weather Cancelled - Make-up Booked', 'Cancelled')"
         );
         countStmt.setInt(1, enrollmentId);
         const countResults = countStmt.executeQuery();
@@ -644,7 +644,7 @@ function handleGenerateNextUnpaidSession(data) {
                 // Count actual sessions used (excluding placeholders)
                 const sessionCountStmt = conn.prepareStatement(
                     "SELECT COUNT(*) as session_count FROM session_log " +
-                    "WHERE enrollment_id = ? AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Cancelled')"
+                    "WHERE enrollment_id = ? AND session_status NOT IN ('Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked', 'Weather Cancelled - Make-up Booked', 'Cancelled')"
                 );
                 sessionCountStmt.setInt(1, enrollmentId);
                 const sessionCountResults = sessionCountStmt.executeQuery();

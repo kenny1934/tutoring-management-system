@@ -238,7 +238,7 @@ function shouldStrikethrough(sessionStatus) {
   if (!sessionStatus) return false;
   
   const status = sessionStatus.toLowerCase();
-  return status.includes('rescheduled') || status.includes('no show');
+  return status.includes('rescheduled') || status.includes('no show') || status.includes('weather');
 }
 
 /**
@@ -272,7 +272,8 @@ function getSessionStatusPriority(sessionStatus) {
   
   // Treat scheduled, rescheduled, and attended as priority 1 (regular sessions)
   // Note: "Attended" means the lesson happened, should be sorted same as scheduled
-  if (status.includes('scheduled') || status.includes('rescheduled') || status.includes('attended')) return 1;
+  // Weather cancelled sessions are treated as rescheduled (priority 1)
+  if (status.includes('scheduled') || status.includes('rescheduled') || status.includes('attended') || status.includes('weather cancelled')) return 1;
   if (status.includes('make-up') || status.includes('makeup')) return 2;
   if (status.includes('trial')) return 3;
   if (status.includes('confirm')) return 4; // "To be Confirmed"
