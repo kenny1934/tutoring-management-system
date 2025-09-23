@@ -1,0 +1,117 @@
+# Virtual Columns for Test/Exam Reminder Widget
+
+Add these virtual columns to the session_log table:
+
+## Column 1: _upcoming_tests_list (Text)
+**Purpose**: Get list of upcoming tests for this student
+
+**Formula**:
+```
+LIST(
+  SELECT(Tests and Exams[title],
+    AND(
+      CONTAINS([title], [_student_school]),
+      CONTAINS([title], [_student_grade]),
+      [Start] >= [session_date],
+      [Start] <= [session_date] + 14
+    )
+  )
+)
+```
+
+## Column 2: _test_1_date (Date)
+**Purpose**: Date of first upcoming test
+
+**Formula**:
+```
+MIN(
+  SELECT(Tests and Exams[Start],
+    AND(
+      CONTAINS([title], [_student_school]),
+      CONTAINS([title], [_student_grade]),
+      [Start] >= [session_date],
+      [Start] <= [session_date] + 14
+    )
+  )
+)
+```
+
+## Column 3: _test_1_title (Text)
+**Purpose**: Title of first upcoming test
+
+**Formula**:
+```
+INDEX(
+  SELECT(Tests and Exams[title],
+    AND(
+      CONTAINS([title], [_student_school]),
+      CONTAINS([title], [_student_grade]),
+      [Start] >= [session_date],
+      [Start] <= [session_date] + 14
+    )
+  ),
+  1
+)
+```
+
+## Column 4: _test_1_description (Text)
+**Purpose**: Description of first upcoming test
+
+**Formula**:
+```
+INDEX(
+  SELECT(Tests and Exams[description],
+    AND(
+      CONTAINS([title], [_student_school]),
+      CONTAINS([title], [_student_grade]),
+      [Start] >= [session_date],
+      [Start] <= [session_date] + 14
+    )
+  ),
+  1
+)
+```
+
+## Column 5: _test_1_category (Text)
+**Purpose**: Category of first upcoming test (Test/Exam/Quiz)
+
+**Formula**:
+```
+INDEX(
+  SELECT(Tests and Exams[_event_category],
+    AND(
+      CONTAINS([title], [_student_school]),
+      CONTAINS([title], [_student_grade]),
+      [Start] >= [session_date],
+      [Start] <= [session_date] + 14
+    )
+  ),
+  1
+)
+```
+
+## Column 6: _test_1_days_until (Number)
+**Purpose**: Number of days until first test
+
+**Formula**:
+```
+IF(
+  ISNOTBLANK([_test_1_date]),
+  [_test_1_date] - [session_date],
+  ""
+)
+```
+
+## Column 7: _test_count (Number)
+**Purpose**: Total number of upcoming tests
+
+**Formula**:
+```
+COUNT([_upcoming_tests_list])
+```
+
+## Notes:
+- Uses existing `[_student_school]` and `[_student_grade]` virtual columns
+- Date range is next 14 days from session date for proper tutor context
+- First test is determined by earliest date (MIN function)
+- Can be extended to _test_2_ and _test_3_ by using INDEX(..., 2) and INDEX(..., 3)
