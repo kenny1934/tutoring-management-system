@@ -177,7 +177,7 @@ WHERE
             INTERVAL COALESCE(e.deadline_extension_weeks, 0) WEEK
         ),
         CURDATE()
-    ) BETWEEN -7 AND 14
+    ) BETWEEN -7 AND 15
     -- CRITICAL FIX: Only show active enrollments, not old completed ones
     -- This prevents showing historical enrollments that clutter the renewal view
     AND (
@@ -189,7 +189,7 @@ WHERE
             AND e_latest.tutor_id = e.tutor_id
             AND e_latest.assigned_day = e.assigned_day
             AND e_latest.assigned_time = e.assigned_time
-            AND e_latest.payment_status = 'Paid'
+            AND e_latest.payment_status IN ('Paid', 'Pending Payment')
             -- Only consider enrollments that haven't ended too long ago
             AND DATEDIFF(
                 DATE_ADD(
@@ -220,6 +220,18 @@ WHERE
                 INTERVAL COALESCE(e.deadline_extension_weeks, 0) WEEK
             )
         )
+    )
+    -- ADDITIONAL FIX: Hide enrollments that have any newer enrollment (Paid OR Pending Payment)
+    -- This prevents showing enrollments when renewals are already in progress
+    AND NOT EXISTS (
+        SELECT 1
+        FROM enrollments e_newer
+        WHERE e_newer.student_id = e.student_id
+        AND e_newer.tutor_id = e.tutor_id
+        AND e_newer.assigned_day = e.assigned_day
+        AND e_newer.assigned_time = e.assigned_time
+        AND e_newer.first_lesson_date > e.first_lesson_date
+        AND e_newer.payment_status IN ('Paid', 'Pending Payment')
     )
 ORDER BY days_until_renewal ASC;
 
