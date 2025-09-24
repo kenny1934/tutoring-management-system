@@ -43,6 +43,8 @@ SELECT
     s.student_name,
     s.phone,
     t.tutor_name,
+    e.assigned_day,
+    e.assigned_time,
 
     -- Calculate original end date (what they paid for)
     calculate_end_date(e.first_lesson_date, e.lessons_paid) AS original_end_date,
@@ -127,7 +129,40 @@ SELECT
         WHEN COALESCE(e.deadline_extension_weeks, 0) >= 2
         THEN 'Max Extension Reached'
         ELSE 'Renew Only'
-    END AS available_actions
+    END AS available_actions,
+
+    -- Flag parallel enrollments (multiple enrollments for same student-tutor)
+    (SELECT COUNT(*)
+     FROM enrollments e_parallel
+     WHERE e_parallel.student_id = e.student_id
+     AND e_parallel.tutor_id = e.tutor_id
+     AND e_parallel.payment_status = 'Paid'
+     AND e_parallel.id != e.id
+     -- Check for overlapping enrollment periods (parallel lessons)
+     AND DATE_ADD(
+         calculate_end_date(e_parallel.first_lesson_date, e_parallel.lessons_paid),
+         INTERVAL COALESCE(e_parallel.deadline_extension_weeks, 0) WEEK
+     ) >= e.first_lesson_date
+     AND e_parallel.first_lesson_date <= DATE_ADD(
+         calculate_end_date(e.first_lesson_date, e.lessons_paid),
+         INTERVAL COALESCE(e.deadline_extension_weeks, 0) WEEK
+     )) AS parallel_enrollments_count,
+
+    -- Display format for admin clarity
+    CASE
+        WHEN (SELECT COUNT(*)
+              FROM enrollments e_p
+              WHERE e_p.student_id = e.student_id
+              AND e_p.tutor_id = e.tutor_id
+              AND e_p.payment_status = 'Paid'
+              AND e_p.id != e.id
+              AND DATE_ADD(
+                  calculate_end_date(e_p.first_lesson_date, e_p.lessons_paid),
+                  INTERVAL COALESCE(e_p.deadline_extension_weeks, 0) WEEK
+              ) >= e.first_lesson_date) > 0
+        THEN CONCAT(s.student_name, ' - ', e.assigned_day, ' ', e.assigned_time)
+        ELSE s.student_name
+    END AS display_name
 
 FROM enrollments e
 JOIN students s ON e.student_id = s.id
@@ -143,14 +178,48 @@ WHERE
         ),
         CURDATE()
     ) BETWEEN -7 AND 14
-    -- Exclude if next enrollment already exists (student already renewed)
-    AND NOT EXISTS (
-        SELECT 1
-        FROM enrollments e2
-        WHERE e2.student_id = e.student_id
-        AND e2.tutor_id = e.tutor_id
-        AND e2.first_lesson_date > e.first_lesson_date
-        AND e2.payment_status IN ('Paid', 'Unpaid')
+    -- CRITICAL FIX: Only show active enrollments, not old completed ones
+    -- This prevents showing historical enrollments that clutter the renewal view
+    AND (
+        -- Case 1: This is the most recent enrollment for this student-tutor-schedule combo
+        e.id = (
+            SELECT MAX(e_latest.id)
+            FROM enrollments e_latest
+            WHERE e_latest.student_id = e.student_id
+            AND e_latest.tutor_id = e.tutor_id
+            AND e_latest.assigned_day = e.assigned_day
+            AND e_latest.assigned_time = e.assigned_time
+            AND e_latest.payment_status = 'Paid'
+            -- Only consider enrollments that haven't ended too long ago
+            AND DATEDIFF(
+                DATE_ADD(
+                    calculate_end_date(e_latest.first_lesson_date, e_latest.lessons_paid),
+                    INTERVAL COALESCE(e_latest.deadline_extension_weeks, 0) WEEK
+                ),
+                CURDATE()
+            ) >= -30  -- Allow 30 days past end for make-ups
+        )
+        OR
+        -- Case 2: This enrollment has parallel sessions (different day/time for same student-tutor)
+        -- and it's the most recent for this specific schedule slot
+        EXISTS (
+            SELECT 1
+            FROM enrollments e_parallel
+            WHERE e_parallel.student_id = e.student_id
+            AND e_parallel.tutor_id = e.tutor_id
+            AND e_parallel.payment_status = 'Paid'
+            AND e_parallel.id != e.id
+            AND (e_parallel.assigned_day != e.assigned_day OR e_parallel.assigned_time != e.assigned_time)
+            -- Check for overlapping periods (true parallel enrollments)
+            AND DATE_ADD(
+                calculate_end_date(e_parallel.first_lesson_date, e_parallel.lessons_paid),
+                INTERVAL COALESCE(e_parallel.deadline_extension_weeks, 0) WEEK
+            ) >= e.first_lesson_date
+            AND e_parallel.first_lesson_date <= DATE_ADD(
+                calculate_end_date(e.first_lesson_date, e.lessons_paid),
+                INTERVAL COALESCE(e.deadline_extension_weeks, 0) WEEK
+            )
+        )
     )
 ORDER BY days_until_renewal ASC;
 
