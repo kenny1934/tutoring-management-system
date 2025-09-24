@@ -158,12 +158,17 @@ SELECT
     assigned_day,
     assigned_time,
     days_until_renewal,
-    scheduled_sessions,
+    sessions_ready_to_attend,
+    sessions_completed,
     pending_makeups,
+    total_credits_remaining,
     extension_status,
     available_actions,
     parallel_enrollments_count,
-    display_name
+    display_name,
+    -- Show deprecated fields for comparison
+    scheduled_sessions as scheduled_sessions_old,
+    sessions_used as sessions_used_old
 FROM active_enrollments_needing_renewal
 ORDER BY days_until_renewal ASC;
 
@@ -409,16 +414,24 @@ SELECT
     e.id as enrollment_id,
     s.student_name,
     e.lessons_paid,
-    -- Count different session types
+    -- NEW session counting approach
     (SELECT COUNT(*) FROM session_log sl
-     WHERE sl.enrollment_id = e.id AND sl.session_status = 'Scheduled') as scheduled_count,
+     WHERE sl.enrollment_id = e.id
+     AND sl.session_status IN ('Scheduled', 'Make-up Class', 'Trial Class')
+     AND sl.session_date >= CURDATE()) as ready_to_attend,
     (SELECT COUNT(*) FROM session_log sl
-     WHERE sl.enrollment_id = e.id AND sl.session_status LIKE '%Attended%') as attended_count,
+     WHERE sl.enrollment_id = e.id
+     AND sl.session_status IN ('Attended', 'Attended (Make-up)', 'No Show')) as completed,
     (SELECT COUNT(*) FROM session_log sl
-     WHERE sl.enrollment_id = e.id AND sl.session_status LIKE '%Pending Make-up%') as pending_makeup_count,
+     WHERE sl.enrollment_id = e.id
+     AND sl.session_status LIKE '%Pending Make-up%') as pending_makeups,
+    -- Total remaining calculation
+    e.lessons_paid - (SELECT COUNT(*) FROM session_log sl
+                      WHERE sl.enrollment_id = e.id
+                      AND sl.session_status IN ('Attended', 'Attended (Make-up)', 'No Show')) as total_credits_left,
+    -- OLD approach for comparison
     (SELECT COUNT(*) FROM session_log sl
-     WHERE sl.enrollment_id = e.id AND sl.session_status = 'No Show') as no_show_count,
-    -- Total sessions that consume credits
+     WHERE sl.enrollment_id = e.id AND sl.session_status = 'Scheduled') as old_scheduled_only,
     (SELECT COUNT(*) FROM session_log sl
      WHERE sl.enrollment_id = e.id
      AND sl.session_status NOT IN (
@@ -426,15 +439,7 @@ SELECT
          'Sick Leave - Make-up Booked',
          'Weather Cancelled - Make-up Booked',
          'Cancelled'
-     )) as total_sessions_used,
-    e.lessons_paid - (SELECT COUNT(*) FROM session_log sl
-                      WHERE sl.enrollment_id = e.id
-                      AND sl.session_status NOT IN (
-                          'Rescheduled - Make-up Booked',
-                          'Sick Leave - Make-up Booked',
-                          'Weather Cancelled - Make-up Booked',
-                          'Cancelled'
-                      )) as credits_remaining
+     )) as old_sessions_used
 FROM enrollments e
 JOIN students s ON e.student_id = s.id
 WHERE e.payment_status = 'Paid'
