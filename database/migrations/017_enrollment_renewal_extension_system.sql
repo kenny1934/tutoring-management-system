@@ -64,13 +64,20 @@ SELECT
         CURDATE()
     ) AS days_until_renewal,
 
-    -- Count scheduled sessions remaining
+    -- Sessions ready to be attended (scheduled and future)
     (SELECT COUNT(*)
      FROM session_log sl
      WHERE sl.enrollment_id = e.id
-     AND sl.session_status = 'Scheduled') AS scheduled_sessions,
+     AND sl.session_status IN ('Scheduled', 'Make-up Class', 'Trial Class')
+     AND sl.session_date >= CURDATE()) AS sessions_ready_to_attend,
 
-    -- Count pending make-up sessions (credits to be used)
+    -- Sessions already completed
+    (SELECT COUNT(*)
+     FROM session_log sl
+     WHERE sl.enrollment_id = e.id
+     AND sl.session_status IN ('Attended', 'Attended (Make-up)', 'No Show')) AS sessions_completed,
+
+    -- Count pending make-up sessions (credits to be used but not yet scheduled)
     (SELECT COUNT(*)
      FROM session_log sl
      WHERE sl.enrollment_id = e.id
@@ -80,7 +87,21 @@ SELECT
          'Weather Cancelled - Pending Make-up'
      )) AS pending_makeups,
 
-    -- Total sessions used (real sessions that consumed credits)
+    -- Total credits remaining (completed vs paid)
+    e.lessons_paid - (
+        SELECT COUNT(*)
+        FROM session_log sl
+        WHERE sl.enrollment_id = e.id
+        AND sl.session_status IN ('Attended', 'Attended (Make-up)', 'No Show')
+    ) AS total_credits_remaining,
+
+    -- DEPRECATED: Keep for backward compatibility
+    (SELECT COUNT(*)
+     FROM session_log sl
+     WHERE sl.enrollment_id = e.id
+     AND sl.session_status = 'Scheduled') AS scheduled_sessions,
+
+    -- DEPRECATED: Total sessions used - use sessions_completed + sessions_ready_to_attend instead
     (SELECT COUNT(*)
      FROM session_log sl
      WHERE sl.enrollment_id = e.id
@@ -90,19 +111,6 @@ SELECT
          'Weather Cancelled - Make-up Booked',
          'Cancelled'
      )) AS sessions_used,
-
-    -- Calculate remaining lesson credits
-    e.lessons_paid - (
-        SELECT COUNT(*)
-        FROM session_log sl
-        WHERE sl.enrollment_id = e.id
-        AND sl.session_status NOT IN (
-            'Rescheduled - Make-up Booked',
-            'Sick Leave - Make-up Booked',
-            'Weather Cancelled - Make-up Booked',
-            'Cancelled'
-        )
-    ) AS lesson_credits_remaining,
 
     -- Extension status for admin guidance
     CASE
