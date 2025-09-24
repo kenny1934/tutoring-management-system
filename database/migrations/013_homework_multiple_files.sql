@@ -98,14 +98,14 @@ JOIN session_log prev ON (
     prev.student_id = current.student_id
     AND prev.session_date < current.session_date
     AND DATE(prev.session_date) <= DATE_SUB(DATE(current.session_date), INTERVAL 1 DAY)  -- At least 1 day before
-    AND prev.session_status NOT IN ('Cancelled', 'Rescheduled - Make-up Booked', 'Rescheduled - Pending Make-up', 'Sick Leave - Make-up Booked', 'Sick Leave - Pending Make-up')
+    AND prev.session_status NOT IN ('Cancelled', 'Rescheduled - Make-up Booked', 'Rescheduled - Pending Make-up', 'Sick Leave - Make-up Booked', 'Sick Leave - Pending Make-up', 'Weather Cancelled - Pending Make-up', 'Weather Cancelled - Make-up Booked')
     AND prev.id = (
         SELECT MAX(id)
         FROM session_log sl_inner
         WHERE sl_inner.student_id = current.student_id
         AND sl_inner.session_date < current.session_date
         AND DATE(sl_inner.session_date) <= DATE_SUB(DATE(current.session_date), INTERVAL 1 DAY)
-        AND sl_inner.session_status NOT IN ('Cancelled', 'Rescheduled - Make-up Booked', 'Rescheduled - Pending Make-up', 'Sick Leave - Make-up Booked', 'Sick Leave - Pending Make-up')
+        AND sl_inner.session_status NOT IN ('Cancelled', 'Rescheduled - Make-up Booked', 'Rescheduled - Pending Make-up', 'Sick Leave - Make-up Booked', 'Sick Leave - Pending Make-up', 'Weather Cancelled - Pending Make-up', 'Weather Cancelled - Make-up Booked')
     )
 )
 
