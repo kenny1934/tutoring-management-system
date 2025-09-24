@@ -41,8 +41,7 @@ SELECT
     e.last_extension_date,
     e.extension_granted_by,
     s.student_name,
-    s.parent_whatsapp,
-    s.parent_email,
+    s.phone,
     t.tutor_name,
 
     -- Calculate original end date (what they paid for)
