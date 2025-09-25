@@ -6,6 +6,30 @@
     <title>MathConcept Secondary Academy - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fafafa;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --border: #e5e5e5;
+            --accent: #dc2626;
+            --accent-hover: #b91c1c;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #262626;
+            --text-primary: #ffffff;
+            --text-secondary: #d1d5db;
+            --text-muted: #9ca3af;
+            --border: #374151;
+            --accent: #dc2626;
+            --accent-hover: #b91c1c;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,9 +39,10 @@
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             line-height: 1.6;
-            background: #ffffff;
-            color: #1a1a1a;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .header {
@@ -52,8 +77,8 @@
         }
 
         .dashboard-card {
-            background: #ffffff;
-            border: 1px solid #e5e5e5;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
             border-radius: 16px;
             padding: 30px;
             text-align: center;
@@ -85,11 +110,11 @@
             font-size: 1.4em;
             font-weight: 600;
             margin-bottom: 12px;
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
 
         .card-description {
-            color: #666;
+            color: var(--text-secondary);
             margin-bottom: 20px;
             line-height: 1.5;
         }
@@ -120,7 +145,7 @@
         }
 
         .stat-item {
-            background: #fafafa;
+            background: var(--bg-secondary);
             padding: 30px 20px;
             border-radius: 12px;
             text-align: center;
@@ -134,7 +159,7 @@
         }
 
         .stat-label {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.9em;
             font-weight: 500;
         }
@@ -145,6 +170,26 @@
             text-align: center;
             padding: 40px 20px;
             margin-top: 80px;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
         }
 
         @media (max-width: 768px) {
@@ -163,13 +208,22 @@
             .container {
                 padding: 40px 20px;
             }
+
+            .theme-toggle {
+                top: 15px;
+                right: 15px;
+                padding: 10px;
+                font-size: 18px;
+            }
         }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">🌙</button>
+
     <div class="header">
         <h1>MathConcept Secondary Academy</h1>
-        <p>Data-Driven Insights Dashboard</p>
+        <p>Analytics Dashboard</p>
     </div>
 
     <div class="container">
@@ -178,8 +232,7 @@
                 <div class="card-icon">📊</div>
                 <h2 class="card-title">Summer Conversion Report 2025</h2>
                 <p class="card-description">
-                    Interactive analysis of summer course to regular course conversions with location filtering,
-                    dark mode support, and comprehensive privacy protection.
+                    Analysis of summer course to regular course conversion rates by location and student category.
                 </p>
                 <a href="summer-conversion-report.html" class="card-link">
                     View Dashboard →
@@ -188,10 +241,9 @@
 
             <div class="dashboard-card">
                 <div class="card-icon">🚀</div>
-                <h2 class="card-title">Product Roadmap 2025</h2>
+                <h2 class="card-title">CSM Pro Roadmap 2025</h2>
                 <p class="card-description">
-                    Interactive timeline showing upcoming features, development progress,
-                    and strategic initiatives for the tutoring management system.
+                    Timeline of planned features and system improvements for the tutoring management system.
                 </p>
                 <a href="presentations/feature_roadmap_2025.html" class="card-link">
                     View Roadmap →
@@ -219,11 +271,9 @@
         </div>
 
         <div style="text-align: center; margin-top: 60px;">
-            <h2 style="margin-bottom: 20px; color: #1a1a1a;">About This Dashboard</h2>
+            <h2 style="margin-bottom: 20px; color: #1a1a1a;">About</h2>
             <p style="color: #666; max-width: 600px; margin: 0 auto; line-height: 1.6;">
-                This secure dashboard provides data-driven insights while maintaining strict privacy protection.
-                All reports contain only aggregated statistics with no personally identifiable information,
-                making them safe for public access and transparency.
+                Internal dashboard for MathConcept Secondary Academy analytics and project planning.
             </p>
         </div>
     </div>
@@ -231,8 +281,39 @@
     <div class="footer">
         <p>&copy; 2025 MathConcept Secondary Academy. All rights reserved.</p>
         <p style="margin-top: 10px; opacity: 0.7;">
-            Built with privacy-first principles and modern web technologies.
+            Internal use only.
         </p>
     </div>
+
+    <script>
+        // Dark mode functionality
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+
+            // Update toggle button icon
+            const toggleButton = document.getElementById('themeToggle');
+            toggleButton.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Initialize theme on page load
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+            document.documentElement.setAttribute('data-theme', theme);
+
+            // Set initial toggle button icon
+            const toggleButton = document.getElementById('themeToggle');
+            toggleButton.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Initialize theme when page loads
+        document.addEventListener('DOMContentLoaded', initTheme);
+    </script>
 </body>
 </html>
