@@ -35,26 +35,40 @@ CREATE TABLE enrollments (
     discount_id INT,
     last_modified_by VARCHAR(255),
     last_modified_time DATETIME DEFAULT (CONVERT_TZ(NOW(), '+00:00', '+08:00')),
+    -- Extension tracking fields (added in migration 017)
+    deadline_extension_weeks INT DEFAULT 0 COMMENT 'Number of weeks deadline extended (0-2 standard, >2 special case)',
+    extension_notes TEXT COMMENT 'Audit trail of extension reasons and history',
+    last_extension_date DATE COMMENT 'Date when last extension was granted',
+    extension_granted_by VARCHAR(255) COMMENT 'Email of admin who granted extension',
+    -- Renewal tracking fields (added in migration 021)
+    renewed_from_enrollment_id INT NULL COMMENT 'Links to the previous enrollment that this renewal continues (NULL if this is a new/first enrollment)',
+    enrollment_type VARCHAR(50) DEFAULT 'Regular' COMMENT 'Type of enrollment: Regular (ongoing weekly), One-Time (single session/test prep), Trial (prospective student evaluation)',
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
-    FOREIGN KEY (discount_id) REFERENCES discounts(id)
+    FOREIGN KEY (discount_id) REFERENCES discounts(id),
+    FOREIGN KEY (renewed_from_enrollment_id) REFERENCES enrollments(id) ON DELETE SET NULL
 );
 
 -- Add constraint to prevent duplicate active enrollments while allowing renewals and re-enrollment after cancellation
-CREATE UNIQUE INDEX unique_active_enrollment_period 
+CREATE UNIQUE INDEX unique_active_enrollment_period
 ON enrollments (
-    student_id, 
-    tutor_id, 
-    assigned_day, 
-    assigned_time, 
+    student_id,
+    tutor_id,
+    assigned_day,
+    assigned_time,
     location,
     first_lesson_date,
-    (CASE 
-        WHEN payment_status = 'Cancelled' 
+    (CASE
+        WHEN payment_status = 'Cancelled'
         THEN CONCAT('CANCELLED_', DATE_FORMAT(last_modified_time, '%Y%m%d%H%i%s%f'))
-        ELSE 'ACTIVE'   
+        ELSE 'ACTIVE'
     END)
 );
+
+-- Add indexes for extension and renewal tracking (from migrations 017 and 021)
+CREATE INDEX idx_enrollments_extension_lookup ON enrollments(payment_status, deadline_extension_weeks);
+CREATE INDEX idx_renewed_from ON enrollments(renewed_from_enrollment_id);
+CREATE INDEX idx_enrollment_type ON enrollments(enrollment_type);
 
 CREATE TABLE session_log (
     id INT AUTO_INCREMENT PRIMARY KEY,
