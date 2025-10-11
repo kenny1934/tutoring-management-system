@@ -4,7 +4,8 @@ CREATE TABLE tutors (
     tutor_name VARCHAR(255) NOT NULL,
     default_location VARCHAR(255),
     role VARCHAR(50) NOT NULL,
-    profile_picture VARCHAR(500) NULL COMMENT 'AppSheet file path for tutor profile picture'
+    profile_picture VARCHAR(500) NULL COMMENT 'AppSheet file path for tutor profile picture',
+    basic_salary DECIMAL(10,2) DEFAULT 0.00 COMMENT 'Monthly base salary (before session revenue)'
 );
 
 CREATE TABLE students (
