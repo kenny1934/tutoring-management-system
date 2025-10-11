@@ -17,7 +17,9 @@ CREATE TABLE students (
     school VARCHAR(255),
     lang_stream VARCHAR(50),
     home_location VARCHAR(50),
-    UNIQUE KEY unique_student_location (school_student_id, home_location)
+    academic_stream VARCHAR(50) NULL COMMENT 'Academic stream for F4-F6: Science, Arts, or NULL for junior forms',
+    UNIQUE KEY unique_student_location (school_student_id, home_location),
+    INDEX idx_academic_stream (academic_stream)
 );
 
 CREATE TABLE enrollments (
