@@ -191,6 +191,7 @@ function handleGenerateSessions(data) {
         const paymentStatus = results.getString("payment_status");
         const timeSlot = results.getString("assigned_time");
         const location = results.getString("location");
+        const enrollmentType = results.getString("enrollment_type");
 
         // Check if sessions already exist for this enrollment to prevent duplicates
         const existingSessionsStmt = conn.prepareStatement(
@@ -236,11 +237,11 @@ function handleGenerateSessions(data) {
             // Check for planned reschedules on this date
             const dateKey = sessionDate.toISOString().slice(0, 10);
             const plannedReschedule = plannedReschedules.get(dateKey);
-            
-            let sessionStatus = "Scheduled"; // Default status
+
+            let sessionStatus = (enrollmentType === "Trial") ? "Trial Class" : "Scheduled"; // Default status
             let rescheduledToId = null;
             let makeUpForId = null;
-            
+
             if (plannedReschedule) {
                 // Always mark original session as rescheduled
                 sessionStatus = "Rescheduled - Pending Make-up";
@@ -295,9 +296,44 @@ function handleGenerateSessions(data) {
     stmt.close();
 
     if (newSessionRows.length > 0) {
-        Logger.log("Sending " + newSessionRows.length + " rows to AppSheet API.");
-        addRowsToAppSheet(newSessionRows);
-        
+        Logger.log("Inserting " + newSessionRows.length + " sessions via direct SQL.");
+
+        // Insert sessions via direct SQL
+        const insertStmt = conn.prepareStatement(
+            "INSERT INTO session_log (enrollment_id, student_id, tutor_id, location, time_slot, " +
+            "financial_status, session_date, session_status, rescheduled_to_id, make_up_for_id, last_modified_by, last_modified_time) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CONVERT_TZ(NOW(), '+00:00', '+08:00'))"
+        );
+
+        for (let session of newSessionRows) {
+            insertStmt.setInt(1, session.enrollment_id);
+            insertStmt.setInt(2, session.student_id);
+            insertStmt.setInt(3, session.tutor_id);
+            insertStmt.setString(4, session.location);
+            insertStmt.setString(5, session.time_slot);
+            insertStmt.setString(6, session.financial_status);
+            insertStmt.setString(7, session.session_date);
+            insertStmt.setString(8, session.session_status);
+
+            // Handle nullable rescheduled_to_id and make_up_for_id
+            if (session.rescheduled_to_id) {
+                insertStmt.setString(9, session.rescheduled_to_id);
+            } else {
+                insertStmt.setNull(9, java.sql.Types.INTEGER);
+            }
+
+            if (session.make_up_for_id) {
+                insertStmt.setString(10, session.make_up_for_id);
+            } else {
+                insertStmt.setNull(10, java.sql.Types.INTEGER);
+            }
+
+            insertStmt.setString(11, "System");
+            insertStmt.executeUpdate();
+        }
+        insertStmt.close();
+        Logger.log(`Successfully inserted ${newSessionRows.length} sessions`);
+
         // Mark applied planned reschedules as "Applied"
         if (rescheduleIds.length > 0) {
             const updateRescheduleStmt = conn.prepareStatement(
@@ -311,9 +347,9 @@ function handleGenerateSessions(data) {
             updateRescheduleStmt.close();
         }
     } else {
-        Logger.log("No session rows were created, so not calling API.");
+        Logger.log("No session rows were created, nothing to insert.");
     }
-    
+
     conn.close();
 
     return ContentService.createTextOutput(JSON.stringify({ "Status": "Success" })).setMimeType(ContentService.MimeType.JSON);
@@ -417,7 +453,8 @@ function handleConfirmPayment(data) {
                     const firstLessonDate = new Date(detailsResults.getDate("first_lesson_date").getTime());
                     const timeSlot = detailsResults.getString("assigned_time");
                     const location = detailsResults.getString("location");
-                    
+                    const enrollmentType = detailsResults.getString("enrollment_type");
+
                     detailsResults.close();
                     detailsStmt.close();
                     
@@ -461,7 +498,7 @@ function handleConfirmPayment(data) {
                             "time_slot": timeSlot,
                             "financial_status": "Paid",
                             "session_date": sessionDate.toISOString().slice(0, 10),
-                            "session_status": "Scheduled"
+                            "session_status": (enrollmentType === "Trial") ? "Trial Class" : "Scheduled"
                         };
                         
                         newSessionRows.push(sessionRow);
@@ -474,17 +511,36 @@ function handleConfirmPayment(data) {
                     
                     enrollResults.close();
                     enrollStmt.close();
-                    conn.close();
-                    
-                    // Add the new sessions via AppSheet API
+
+                    // Add the new sessions via direct SQL
                     if (newSessionRows.length > 0) {
-                        addRowsToAppSheet(newSessionRows);
+                        const insertStmt = conn.prepareStatement(
+                            "INSERT INTO session_log (enrollment_id, student_id, tutor_id, location, time_slot, " +
+                            "financial_status, session_date, session_status, last_modified_by, last_modified_time) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CONVERT_TZ(NOW(), '+00:00', '+08:00'))"
+                        );
+
+                        for (let session of newSessionRows) {
+                            insertStmt.setInt(1, session.enrollment_id);
+                            insertStmt.setInt(2, session.student_id);
+                            insertStmt.setInt(3, session.tutor_id);
+                            insertStmt.setString(4, session.location);
+                            insertStmt.setString(5, session.time_slot);
+                            insertStmt.setString(6, session.financial_status);
+                            insertStmt.setString(7, session.session_date);
+                            insertStmt.setString(8, session.session_status);
+                            insertStmt.setString(9, "System");
+                            insertStmt.executeUpdate();
+                        }
+                        insertStmt.close();
                         Logger.log(`Successfully generated ${newSessionRows.length} additional sessions`);
                     }
-                    
-                    return ContentService.createTextOutput(JSON.stringify({ 
-                        "Status": "Success", 
-                        "Message": `Payment confirmed. Generated ${remainingSessions} additional sessions.` 
+
+                    conn.close();
+
+                    return ContentService.createTextOutput(JSON.stringify({
+                        "Status": "Success",
+                        "Message": `Payment confirmed. Generated ${remainingSessions} additional sessions.`
                     })).setMimeType(ContentService.MimeType.JSON);
                 }
                 
@@ -583,7 +639,7 @@ function handleGenerateNextUnpaidSession(data) {
                 // Get enrollment details and validate it's pending payment
                 const enrollStmt = conn.prepareStatement(
                     "SELECT e.student_id, e.tutor_id, e.assigned_day, e.assigned_time, e.location, " +
-                    "e.payment_status, e.lessons_paid, s.student_name " +
+                    "e.payment_status, e.lessons_paid, e.enrollment_type, s.student_name " +
                     "FROM enrollments e " +
                     "JOIN students s ON e.student_id = s.id " +
                     "WHERE e.id = ?"
@@ -602,6 +658,14 @@ function handleGenerateNextUnpaidSession(data) {
                 const paymentStatus = enrollResults.getString("payment_status");
                 if (paymentStatus !== "Pending Payment") {
                     results.push({ enrollmentId, status: "Skipped", message: `Payment status is '${paymentStatus}', not 'Pending Payment'` });
+                    enrollResults.close();
+                    enrollStmt.close();
+                    continue;
+                }
+
+                const enrollmentType = enrollResults.getString("enrollment_type");
+                if (enrollmentType === "Trial") {
+                    results.push({ enrollmentId, status: "Skipped", message: "Trial enrollments don't generate additional sessions" });
                     enrollResults.close();
                     enrollStmt.close();
                     continue;

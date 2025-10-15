@@ -413,7 +413,7 @@ WHERE
     e.payment_status = 'Paid'
     -- Only show regular ongoing enrollments (exclude One-Time and Trial)
     AND e.enrollment_type = 'Regular'
-    -- Show enrollments within 14 days of renewal (or up to 7 days overdue)
+    -- Show enrollments within 15 days of renewal (or up to 15 days overdue)
     -- Uses actual_effective_end_date logic for accurate preemptive reminders
     AND DATEDIFF(
         LEAST(
@@ -441,7 +441,7 @@ WHERE
             )
         ),
         CURDATE()
-    ) BETWEEN -7 AND 15
+    ) BETWEEN -15 AND 15
     -- CRITICAL FIX: Only show active enrollments, not old completed ones
     -- This prevents showing historical enrollments that clutter the renewal view
     AND (
