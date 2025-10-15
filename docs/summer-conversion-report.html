@@ -6,6 +6,7 @@
     <title>2025 Summer Course Conversion Analysis</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
         :root {
             --primary-color: #dc2626;
@@ -15,8 +16,14 @@
             --text-light: #999999;
             --border-color: #e5e5e5;
             --sidebar-bg: #fafafa;
-            --success-color: #059669;
-            --warning-color: #d97706;
+            --success-color: #047857;
+            --warning-color: #b45309;
+
+            /* Sankey semantic colors */
+            --sankey-stage1: #3b82f6;
+            --sankey-stage2: #8b5cf6;
+            --sankey-positive: #10b981;
+            --sankey-negative: #ef4444;
         }
 
         [data-theme="dark"] {
@@ -26,6 +33,15 @@
             --text-light: #888;
             --border-color: #333;
             --sidebar-bg: #242424;
+            --primary-color: #e57373;
+            --success-color: #81c784;
+            --warning-color: #ffb74d;
+
+            /* Sankey semantic colors - dark mode */
+            --sankey-stage1: #60a5fa;
+            --sankey-stage2: #a78bfa;
+            --sankey-positive: #34d399;
+            --sankey-negative: #f87171;
         }
 
         * {
@@ -106,6 +122,12 @@
             border-color: var(--primary-color);
             background: var(--primary-color);
             color: white;
+        }
+
+        /* Darker button background in dark mode for better contrast with white text */
+        [data-theme="dark"] .filter-btn.active {
+            background: #dc2626;
+            border-color: #dc2626;
         }
 
         .dark-mode-toggle {
@@ -278,10 +300,36 @@
             font-weight: 600;
             color: var(--text-color);
             font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background-color 0.2s ease;
+        }
+
+        .data-table th:hover {
+            background: var(--border-color);
+        }
+
+        .data-table th:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: -2px;
+        }
+
+        .data-table th .sort-indicator {
+            margin-left: 6px;
+            font-size: 12px;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+        }
+
+        .data-table th.sorted .sort-indicator {
+            opacity: 1;
         }
 
         .data-table tr:hover {
             background: var(--sidebar-bg);
+            transform: translateX(2px);
+            transition: all 0.2s ease;
         }
 
         .footer {
@@ -291,6 +339,54 @@
             color: var(--text-light);
             font-size: 14px;
             margin-top: 50px;
+        }
+
+        /* Sankey diagram label readability - text shadow for contrast */
+        /* Apply text shadow to node labels in the main chart SVG */
+        #sankey_chart svg g text[text-anchor] {
+            text-shadow:
+                -1px -1px 0 rgba(255, 255, 255, 0.9),
+                1px -1px 0 rgba(255, 255, 255, 0.9),
+                -1px 1px 0 rgba(255, 255, 255, 0.9),
+                1px 1px 0 rgba(255, 255, 255, 0.9),
+                0 0 4px rgba(255, 255, 255, 0.9);
+            fill: #333333 !important;
+        }
+
+        [data-theme="dark"] #sankey_chart svg g text[text-anchor] {
+            text-shadow:
+                -1px -1px 0 rgba(0, 0, 0, 0.9),
+                1px -1px 0 rgba(0, 0, 0, 0.9),
+                -1px 1px 0 rgba(0, 0, 0, 0.9),
+                1px 1px 0 rgba(0, 0, 0, 0.9),
+                0 0 4px rgba(0, 0, 0, 0.9);
+            fill: #e5e5e5 !important;
+        }
+
+        /* Tooltip styling - light background with dark text in light mode */
+        .google-visualization-tooltip {
+            background: white !important;
+            border: 1px solid #e5e5e5 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+            white-space: nowrap !important;
+            padding: 8px 12px !important;
+            min-width: fit-content !important;
+        }
+
+        .google-visualization-tooltip text {
+            text-shadow: none !important;
+            fill: #1a1a1a !important;
+        }
+
+        /* Dark mode tooltip - dark background with light text */
+        [data-theme="dark"] .google-visualization-tooltip {
+            background: #2a2a2a !important;
+            border: 1px solid #404040 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        [data-theme="dark"] .google-visualization-tooltip text {
+            fill: #e5e5e5 !important;
         }
 
         @media (max-width: 768px) {
@@ -305,6 +401,96 @@
 
             .kpi-grid {
                 grid-template-columns: 1fr;
+            }
+
+            /* Responsive timeline - stack vertically */
+            .timeline-grid {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+
+            .timeline-stage {
+                padding: 12px;
+                border-left: 4px solid currentColor;
+                text-align: left !important;
+            }
+
+            .timeline-gradient {
+                height: 4px !important;
+                margin-top: 15px !important;
+                background: linear-gradient(180deg, var(--sankey-stage1) 0%, var(--sankey-stage1) 33%, var(--sankey-stage2) 33%, var(--sankey-stage2) 66%, var(--sankey-positive) 66%, var(--sankey-positive) 100%) !important;
+            }
+
+            /* Responsive Sankey diagram */
+            .chart-container {
+                height: 600px !important;
+                min-height: 500px;
+            }
+
+            /* Responsive table - card layout */
+            .data-table,
+            .data-table thead,
+            .data-table tbody,
+            .data-table tr,
+            .data-table td {
+                display: block;
+            }
+
+            .data-table thead {
+                display: none;
+            }
+
+            .data-table tr {
+                margin-bottom: 20px;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 15px;
+                background: var(--background-color);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .data-table td {
+                border: none;
+                padding: 8px 0;
+                display: grid;
+                grid-template-columns: 140px 1fr;
+                gap: 10px;
+                font-size: 14px;
+            }
+
+            .data-table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-muted);
+            }
+
+            /* Mobile: make gradient bars vertical */
+            .data-table td > div {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 6px !important;
+            }
+
+            .data-table td > div > div:last-child {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .data-table tr.totals-row {
+                background: var(--sidebar-bg);
+                border: 2px solid var(--primary-color);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .chart-container {
+                height: 500px !important;
+                overflow-x: auto;
+            }
+
+            .data-table td {
+                grid-template-columns: 1fr;
+                gap: 4px;
             }
         }
     </style>
@@ -465,6 +651,73 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">Primary Center Flow Analysis</h2>
+
+            <!-- Timeline Context -->
+            <div style="margin-bottom: 25px; padding: 20px; background: var(--sidebar-bg); border-radius: 12px; border: 1px solid var(--border-color);">
+                <div class="timeline-grid" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 25px; text-align: center;">
+                    <div class="timeline-stage" style="color: var(--sankey-stage1);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">June 2025</div>
+                        <div style="font-weight: 700; font-size: 15px; color: var(--sankey-stage1); margin: 8px 0;">Stage 1: 310 P6 students across 7 centres</div>
+                    </div>
+                    <div class="timeline-stage" style="color: var(--sankey-stage2);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">July to August 2025</div>
+                        <div style="font-weight: 700; font-size: 15px; color: var(--sankey-stage2); margin: 8px 0;">Stage 2: Summer Course</div>
+                    </div>
+                    <div class="timeline-stage" style="color: var(--sankey-positive);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">September 2025</div>
+                        <div style="font-weight: 700; font-size: 15px; color: var(--sankey-positive); margin: 8px 0;">Stage 3: Regular F1 Enrollment</div>
+                    </div>
+                </div>
+                <div class="timeline-gradient" style="margin-top: 20px; height: 6px; background: linear-gradient(90deg, var(--sankey-stage1) 0%, var(--sankey-stage1) 33%, var(--sankey-stage2) 33%, var(--sankey-stage2) 66%, var(--sankey-positive) 66%, var(--sankey-positive) 100%); border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+            </div>
+
+            <div class="chart-container" style="height: 850px;">
+                <div id="sankey_chart" style="width: 100%; height: 100%;"></div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 15px; color: var(--text-color);">Complete Funnel Metrics by Primary Center</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th tabindex="0" role="button" onclick="sortTable('center')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('center')}">
+                                Primary Center<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('p6Total')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('p6Total')}" class="sorted">
+                                Total P6 Students<span class="sort-indicator">↓</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('applied')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('applied')}">
+                                Applied to Summer<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('appRate')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('appRate')}">
+                                Application Rate<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('converted')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('converted')}">
+                                Converted to Regular<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('convRate')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('convRate')}">
+                                Conversion Rate<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('directEnrolled')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('directEnrolled')}">
+                                Direct Enrollment<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('totalEnrolled')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('totalEnrolled')}">
+                                Total Enrolled<span class="sort-indicator">↕</span>
+                            </th>
+                            <th tabindex="0" role="button" onclick="sortTable('overallRate')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();sortTable('overallRate')}">
+                                Overall Rate<span class="sort-indicator">↕</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="primary-center-table">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1021,11 +1274,438 @@
             });
         }
 
+        // Load and render Sankey diagram
+        function loadSankey() {
+            google.charts.load('current', {'packages':['sankey']});
+            google.charts.setOnLoadCallback(drawSankey);
+        }
+
+        function drawSankey() {
+            // Sankey data embedded directly (from database/analysis/sankey_data.csv)
+            // 4-stage flow: P6 Population → Summer Application → Regular Conversion/Direct Enrollment
+            const dataArray = [
+                ['From', 'To', 'Weight'],
+                // MAC flows
+                ['MAC P6 (85)', 'MAC: Summer Course', 28],
+                ['MAC P6 (85)', 'MAC: Skipped Summer', 57],
+                ['MAC: Summer Course', 'Regular F1', 27],
+                ['MAC: Summer Course', 'Not Enrolled', 1],
+                ['MAC: Skipped Summer', 'Regular F1', 22],
+                ['MAC: Skipped Summer', 'Not Enrolled', 35],
+                // MCP flows
+                ['MCP P6 (56)', 'MCP: Summer Course', 18],
+                ['MCP P6 (56)', 'MCP: Skipped Summer', 38],
+                ['MCP: Summer Course', 'Regular F1', 18],
+                ['MCP: Skipped Summer', 'Regular F1', 16],
+                ['MCP: Skipped Summer', 'Not Enrolled', 22],
+                // MLT flows
+                ['MLT P6 (56)', 'MLT: Summer Course', 19],
+                ['MLT P6 (56)', 'MLT: Skipped Summer', 37],
+                ['MLT: Summer Course', 'Regular F1', 16],
+                ['MLT: Summer Course', 'Not Enrolled', 3],
+                ['MLT: Skipped Summer', 'Regular F1', 13],
+                ['MLT: Skipped Summer', 'Not Enrolled', 24],
+                // MNT flows
+                ['MNT P6 (38)', 'MNT: Summer Course', 10],
+                ['MNT P6 (38)', 'MNT: Skipped Summer', 28],
+                ['MNT: Summer Course', 'Regular F1', 9],
+                ['MNT: Summer Course', 'Not Enrolled', 1],
+                ['MNT: Skipped Summer', 'Regular F1', 7],
+                ['MNT: Skipped Summer', 'Not Enrolled', 21],
+                // MOT flows
+                ['MOT P6 (38)', 'MOT: Summer Course', 15],
+                ['MOT P6 (38)', 'MOT: Skipped Summer', 23],
+                ['MOT: Summer Course', 'Regular F1', 12],
+                ['MOT: Summer Course', 'Not Enrolled', 3],
+                ['MOT: Skipped Summer', 'Regular F1', 14],
+                ['MOT: Skipped Summer', 'Not Enrolled', 9],
+                // MTA flows
+                ['MTA P6 (16)', 'MTA: Summer Course', 5],
+                ['MTA P6 (16)', 'MTA: Skipped Summer', 11],
+                ['MTA: Summer Course', 'Regular F1', 5],
+                ['MTA: Skipped Summer', 'Regular F1', 6],
+                ['MTA: Skipped Summer', 'Not Enrolled', 5],
+                // MTR flows
+                ['MTR P6 (21)', 'MTR: Summer Course', 9],
+                ['MTR P6 (21)', 'MTR: Skipped Summer', 12],
+                ['MTR: Summer Course', 'Regular F1', 8],
+                ['MTR: Summer Course', 'Not Enrolled', 1],
+                ['MTR: Skipped Summer', 'Regular F1', 5],
+                ['MTR: Skipped Summer', 'Not Enrolled', 7]
+            ];
+
+            try {
+                // Create data table with custom tooltips
+                const data = new google.visualization.DataTable();
+                data.addColumn('string', 'From');
+                data.addColumn('string', 'To');
+                data.addColumn('number', 'Weight');
+                data.addColumn({type: 'string', role: 'tooltip', p: {html: true}});
+
+                // Add rows with custom tooltips (replace "Weight" with "Students")
+                for (let i = 1; i < dataArray.length; i++) {
+                    const [from, to, weight] = dataArray[i];
+                    const tooltip = `<div style="padding: 8px; font-family: Inter, sans-serif;">
+                        <div style="margin-bottom: 4px;"><b>${from}</b> → <b>${to}</b></div>
+                        <div>Students: <b>${weight}</b></div>
+                    </div>`;
+                    data.addRow([from, to, weight, tooltip]);
+                }
+
+                // Get current theme
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+                // Get semantic colors from CSS variables
+                const root = document.documentElement;
+                const stage1Color = getComputedStyle(root).getPropertyValue('--sankey-stage1').trim();
+                const stage2Color = getComputedStyle(root).getPropertyValue('--sankey-stage2').trim();
+                const positiveColor = getComputedStyle(root).getPropertyValue('--sankey-positive').trim();
+                const negativeColor = getComputedStyle(root).getPropertyValue('--sankey-negative').trim();
+
+                const options = {
+                    sankey: {
+                        node: {
+                            colors: [stage1Color, stage2Color, positiveColor, negativeColor, stage1Color, stage2Color],
+                            label: {
+                                fontName: 'Inter',
+                                fontSize: 15,
+                                bold: true
+                                // Color is controlled by CSS for better override
+                            },
+                            nodePadding: 40,
+                            width: 25
+                        },
+                        link: {
+                            colorMode: 'source',
+                            colors: [stage1Color, stage2Color, positiveColor, negativeColor]
+                        }
+                    },
+                    tooltip: {
+                        isHtml: true,
+                        textStyle: {
+                            fontName: 'Inter',
+                            fontSize: 13,
+                            color: isDark ? '#e5e5e5' : '#1a1a1a'
+                        }
+                    }
+                };
+
+                const chart = new google.visualization.Sankey(document.getElementById('sankey_chart'));
+                chart.draw(data, options);
+
+                // Populate primary center table
+                populatePrimaryCenterTable(dataArray);
+            } catch (error) {
+                console.error('Error rendering sankey diagram:', error);
+                document.getElementById('sankey_chart').innerHTML =
+                    '<p style="text-align: center; color: var(--text-muted); padding: 40px;">Error rendering flow diagram</p>';
+            }
+        }
+
+        // Global state for sorting
+        let currentSort = {
+            column: 'p6Total',
+            ascending: false
+        };
+        let globalCenterData = [];
+        let globalDataArray = [];
+
+        // Helper function to calculate percentile-based thresholds
+        function calculateThresholds(values) {
+            const sorted = [...values].sort((a, b) => a - b);
+            const p75 = sorted[Math.floor(sorted.length * 0.75)];
+            const p50 = sorted[Math.floor(sorted.length * 0.5)];
+            return { excellent: p75, acceptable: p50 };
+        }
+
+        // Sort table by column
+        function sortTable(column) {
+            // Toggle direction if clicking same column, otherwise default to descending
+            if (currentSort.column === column) {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.column = column;
+                currentSort.ascending = false;
+            }
+
+            // Re-render table with new sort
+            renderTable();
+
+            // Update sort indicators
+            document.querySelectorAll('.data-table th').forEach(th => {
+                th.classList.remove('sorted');
+                const indicator = th.querySelector('.sort-indicator');
+                if (indicator) {
+                    indicator.textContent = '↕';
+                }
+            });
+
+            // Find and update the sorted column indicator
+            const headers = document.querySelectorAll('.data-table th');
+            const columnMap = {
+                'center': 0,
+                'p6Total': 1,
+                'applied': 2,
+                'appRate': 3,
+                'converted': 4,
+                'convRate': 5,
+                'directEnrolled': 6,
+                'totalEnrolled': 7,
+                'overallRate': 8
+            };
+
+            const headerIndex = columnMap[column];
+            if (headerIndex !== undefined && headers[headerIndex]) {
+                headers[headerIndex].classList.add('sorted');
+                const indicator = headers[headerIndex].querySelector('.sort-indicator');
+                if (indicator) {
+                    indicator.textContent = currentSort.ascending ? '↑' : '↓';
+                }
+            }
+        }
+
+        // Render table with current sort
+        function renderTable() {
+            if (globalCenterData.length === 0) return;
+
+            // Sort the data
+            const sortedCenters = [...globalCenterData].sort((a, b) => {
+                let aVal, bVal;
+
+                switch (currentSort.column) {
+                    case 'center':
+                        aVal = a[0];
+                        bVal = b[0];
+                        return currentSort.ascending
+                            ? aVal.localeCompare(bVal)
+                            : bVal.localeCompare(aVal);
+
+                    case 'p6Total':
+                    case 'applied':
+                    case 'converted':
+                    case 'directEnrolled':
+                        aVal = a[1][currentSort.column];
+                        bVal = b[1][currentSort.column];
+                        break;
+
+                    case 'appRate':
+                        aVal = (a[1].applied / a[1].p6Total) * 100;
+                        bVal = (b[1].applied / b[1].p6Total) * 100;
+                        break;
+
+                    case 'convRate':
+                        aVal = a[1].applied > 0 ? (a[1].converted / a[1].applied) * 100 : 0;
+                        bVal = b[1].applied > 0 ? (b[1].converted / b[1].applied) * 100 : 0;
+                        break;
+
+                    case 'totalEnrolled':
+                        aVal = a[1].converted + a[1].directEnrolled;
+                        bVal = b[1].converted + b[1].directEnrolled;
+                        break;
+
+                    case 'overallRate':
+                        const aTotalEnrolled = a[1].converted + a[1].directEnrolled;
+                        const bTotalEnrolled = b[1].converted + b[1].directEnrolled;
+                        aVal = (aTotalEnrolled / a[1].p6Total) * 100;
+                        bVal = (bTotalEnrolled / b[1].p6Total) * 100;
+                        break;
+
+                    default:
+                        return 0;
+                }
+
+                return currentSort.ascending ? aVal - bVal : bVal - aVal;
+            });
+
+            // Calculate thresholds
+            const rates = {
+                appRates: [],
+                convRates: [],
+                overallRates: []
+            };
+
+            sortedCenters.forEach(([_, data]) => {
+                rates.appRates.push((data.applied / data.p6Total) * 100);
+                if (data.applied > 0) {
+                    rates.convRates.push((data.converted / data.applied) * 100);
+                }
+                const totalEnrolled = data.converted + data.directEnrolled;
+                rates.overallRates.push((totalEnrolled / data.p6Total) * 100);
+            });
+
+            const appThresholds = calculateThresholds(rates.appRates);
+            const convThresholds = calculateThresholds(rates.convRates);
+            const overallThresholds = calculateThresholds(rates.overallRates);
+
+            // Populate table
+            const tbody = document.getElementById('primary-center-table');
+            tbody.innerHTML = '';
+
+            // Track totals for summary row
+            let totals = {
+                p6Total: 0,
+                applied: 0,
+                converted: 0,
+                directEnrolled: 0
+            };
+
+            sortedCenters.forEach(([center, data]) => {
+                const appRate = ((data.applied / data.p6Total) * 100).toFixed(1);
+                const convRate = data.applied > 0 ? ((data.converted / data.applied) * 100).toFixed(1) : '0.0';
+                const totalEnrolled = data.converted + data.directEnrolled;
+                const overallRate = ((totalEnrolled / data.p6Total) * 100).toFixed(1);
+
+                // Get performance styles
+                const appStyle = getPerformanceStyle(parseFloat(appRate), appThresholds);
+                const convStyle = getPerformanceStyle(parseFloat(convRate), convThresholds);
+                const overallStyle = getPerformanceStyle(parseFloat(overallRate), overallThresholds);
+
+                // Update totals
+                totals.p6Total += data.p6Total;
+                totals.applied += data.applied;
+                totals.converted += data.converted;
+                totals.directEnrolled += data.directEnrolled;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td data-label="Primary Center" style="font-weight: 600;">${center}</td>
+                    <td data-label="Total P6 Students">${data.p6Total}</td>
+                    <td data-label="Applied to Summer">${data.applied}</td>
+                    <td data-label="Application Rate">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: ${appStyle.color}; font-weight: 600; min-width: 50px;">${appRate}%</span>
+                            <div style="flex: 1; background: var(--border-color); height: 6px; border-radius: 3px; max-width: 100px; min-width: 60px;">
+                                <div style="width: ${Math.min(appRate, 100)}%; height: 100%; background: ${appStyle.color}; border-radius: 3px; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-label="Converted to Regular">${data.converted}</td>
+                    <td data-label="Conversion Rate">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: ${convStyle.color}; font-weight: 600; min-width: 50px;">${convRate}%</span>
+                            <div style="flex: 1; background: var(--border-color); height: 6px; border-radius: 3px; max-width: 100px; min-width: 60px;">
+                                <div style="width: ${Math.min(convRate, 100)}%; height: 100%; background: ${convStyle.color}; border-radius: 3px; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td data-label="Direct Enrollment">${data.directEnrolled}</td>
+                    <td data-label="Total Enrolled" style="font-weight: 600;">${totalEnrolled}</td>
+                    <td data-label="Overall Rate">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="color: ${overallStyle.color}; font-weight: 600; min-width: 50px;">${overallRate}%</span>
+                            <div style="flex: 1; background: var(--border-color); height: 6px; border-radius: 3px; max-width: 100px; min-width: 60px;">
+                                <div style="width: ${Math.min(overallRate, 100)}%; height: 100%; background: ${overallStyle.color}; border-radius: 3px; transition: width 0.3s ease;"></div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Add totals row
+            const totalEnrolled = totals.converted + totals.directEnrolled;
+            const avgAppRate = ((totals.applied / totals.p6Total) * 100).toFixed(1);
+            const avgConvRate = totals.applied > 0 ? ((totals.converted / totals.applied) * 100).toFixed(1) : '0.0';
+            const avgOverallRate = ((totalEnrolled / totals.p6Total) * 100).toFixed(1);
+
+            const totalsRow = document.createElement('tr');
+            totalsRow.className = 'totals-row';
+            totalsRow.style.borderTop = '2px solid var(--border-color)';
+            totalsRow.style.fontWeight = '700';
+            totalsRow.style.background = 'var(--sidebar-bg)';
+            totalsRow.innerHTML = `
+                <td data-label="Primary Center">TOTAL</td>
+                <td data-label="Total P6 Students">${totals.p6Total}</td>
+                <td data-label="Applied to Summer">${totals.applied}</td>
+                <td data-label="Application Rate">${avgAppRate}%</td>
+                <td data-label="Converted to Regular">${totals.converted}</td>
+                <td data-label="Conversion Rate">${avgConvRate}%</td>
+                <td data-label="Direct Enrollment">${totals.directEnrolled}</td>
+                <td data-label="Total Enrolled">${totalEnrolled}</td>
+                <td data-label="Overall Rate">${avgOverallRate}%</td>
+            `;
+            tbody.appendChild(totalsRow);
+        }
+
+        // Helper function to get color based on value and thresholds
+        function getPerformanceStyle(value, thresholds) {
+            if (value >= thresholds.excellent) {
+                return { color: 'var(--success-color)' };
+            } else if (value >= thresholds.acceptable) {
+                return { color: 'var(--warning-color)' };
+            } else {
+                return { color: 'var(--primary-color)' };
+            }
+        }
+
+        function populatePrimaryCenterTable(dataArray) {
+            // Store data globally for sorting
+            globalDataArray = dataArray;
+
+            const centerData = {};
+
+            // Parse 4-stage flow data
+            for (let i = 1; i < dataArray.length; i++) {
+                const [source, target, value] = dataArray[i];
+
+                // Extract center name from "CENTER P6 (##)" format
+                const p6Match = source.match(/^(\w+) P6 \((\d+)\)$/);
+                if (p6Match) {
+                    const center = p6Match[1];
+                    const p6Total = parseInt(p6Match[2]);
+
+                    if (!centerData[center]) {
+                        centerData[center] = { p6Total: p6Total, applied: 0, converted: 0, directEnrolled: 0 };
+                    }
+
+                    // Track applications - look for "Summer Course"
+                    if (target.includes('Summer Course')) {
+                        centerData[center].applied = value;
+                    }
+                }
+
+                // Extract conversions from "CENTER: Summer Course" nodes
+                const summerMatch = source.match(/^(\w+): Summer Course$/);
+                if (summerMatch) {
+                    const center = summerMatch[1];
+                    if (target === 'Regular F1') {
+                        if (centerData[center]) {
+                            centerData[center].converted = value;
+                        }
+                    }
+                }
+
+                // Extract direct enrollments from "CENTER: Skipped Summer" nodes going to Regular F1
+                const skippedMatch = source.match(/^(\w+): Skipped Summer$/);
+                if (skippedMatch) {
+                    const center = skippedMatch[1];
+                    if (target === 'Regular F1') {
+                        if (centerData[center]) {
+                            centerData[center].directEnrolled = value;
+                        }
+                    }
+                }
+            }
+
+            // Store globally and render
+            globalCenterData = Object.entries(centerData);
+            renderTable();
+        }
+
+        // Re-draw Sankey when theme changes
+        const originalToggle = document.getElementById('theme-toggle');
+        if (originalToggle) {
+            originalToggle.addEventListener('click', function() {
+                setTimeout(drawSankey, 100); // Redraw after theme change
+            });
+        }
+
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', function() {
             updateKPIs('combined');
             updateCategoryTable('combined');
             initializeCharts();
+            loadSankey();
         });
     </script>
 </body>
