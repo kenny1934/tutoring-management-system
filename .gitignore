@@ -39,3 +39,48 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+# =====================================================
+# Web App (FastAPI + Next.js)
+# =====================================================
+
+# Python backend
+webapp/backend/venv/
+webapp/backend/.venv/
+webapp/backend/__pycache__/
+webapp/backend/*.pyc
+webapp/backend/*.pyo
+webapp/backend/*.pyd
+webapp/backend/.Python
+webapp/backend/pip-log.txt
+webapp/backend/pip-delete-this-directory.txt
+webapp/backend/.env
+webapp/backend/.env.local
+
+# Frontend
+webapp/frontend/node_modules/
+webapp/frontend/.next/
+webapp/frontend/out/
+webapp/frontend/build/
+webapp/frontend/.env.local
+webapp/frontend/.env.development.local
+webapp/frontend/.env.test.local
+webapp/frontend/.env.production.local
+
+# Next.js
+.next/
+out/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Deployment
+*.egg-info/
+dist/
