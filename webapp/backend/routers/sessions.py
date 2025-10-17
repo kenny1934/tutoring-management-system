@@ -78,6 +78,10 @@ async def get_sessions(
         session_data = SessionResponse.model_validate(session)
         session_data.student_name = session.student.student_name if session.student else None
         session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+        session_data.school_student_id = session.student.school_student_id if session.student else None
+        session_data.grade = session.student.grade if session.student else None
+        session_data.lang_stream = session.student.lang_stream if session.student else None
+        session_data.school = session.student.school if session.student else None
         result.append(session_data)
 
     return result
@@ -104,5 +108,9 @@ async def get_session_detail(
     session_data = SessionResponse.model_validate(session)
     session_data.student_name = session.student.student_name if session.student else None
     session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
 
     return session_data

@@ -85,6 +85,7 @@ class EnrollmentResponse(EnrollmentBase):
     discount_name: Optional[str] = None
     grade: Optional[str] = None
     school: Optional[str] = None
+    lang_stream: Optional[str] = None
     deadline_extension_weeks: int = 0
     last_modified_time: Optional[datetime] = None
 
@@ -108,10 +109,14 @@ class SessionBase(BaseModel):
 
 
 class SessionResponse(SessionBase):
-    """Session response with student/tutor names"""
+    """Session response with student/tutor names and details"""
     id: int
     student_name: Optional[str] = None
     tutor_name: Optional[str] = None
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
     performance_rating: Optional[str] = None
     notes: Optional[str] = None
     last_modified_time: Optional[datetime] = None

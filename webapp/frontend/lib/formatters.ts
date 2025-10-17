@@ -56,7 +56,7 @@ export function formatEnrollmentDisplay(enrollment: Enrollment): string {
     school_student_id: enrollment.student?.school_student_id,
     student_name: enrollment.student_name,
     grade: enrollment.grade,
-    lang_stream: enrollment.student?.lang_stream,
+    lang_stream: enrollment.lang_stream,
     school: enrollment.school,
   });
 }
@@ -68,11 +68,11 @@ export function formatEnrollmentDisplay(enrollment: Enrollment): string {
 export function formatSessionDisplay(session: Session): string {
   return formatStudentDisplay({
     location: session.location,
-    school_student_id: session.student?.school_student_id,
+    school_student_id: session.school_student_id,
     student_name: session.student_name,
-    grade: session.student?.grade,
-    lang_stream: session.student?.lang_stream,
-    school: session.student?.school,
+    grade: session.grade,
+    lang_stream: session.lang_stream,
+    school: session.school,
   });
 }
 
