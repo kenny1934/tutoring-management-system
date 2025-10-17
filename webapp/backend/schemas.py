@@ -83,6 +83,8 @@ class EnrollmentResponse(EnrollmentBase):
     student_name: Optional[str] = None
     tutor_name: Optional[str] = None
     discount_name: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
     deadline_extension_weeks: int = 0
     last_modified_time: Optional[datetime] = None
 
