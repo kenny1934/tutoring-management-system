@@ -1,40 +1,223 @@
 @import "tailwindcss";
 
 @theme {
-  /* Dark theme colors (CSM Pro) */
-  --color-background: #1A1A1A;
+  /* ===== FOUNDATION COLORS ===== */
+  --color-background: #0a0a0a; /* Deep black */
+  --color-surface: #111111; /* Elevated surface */
+  --color-surface-elevated: #1a1a1a; /* Higher elevation */
   --color-foreground: #FFFFFF;
-  --color-card: #2D2D2D;
+
+  /* Cards & Containers */
+  --color-card: #1a1a1a;
   --color-card-foreground: #FFFFFF;
-  --color-popover: #2D2D2D;
+  --color-popover: #1a1a1a;
   --color-popover-foreground: #FFFFFF;
-  --color-primary: #a51c30; /* CSM AppSheet primary color */
+
+  /* ===== BRAND COLORS ===== */
+  --color-primary: #c8102e; /* CSM Red */
+  --color-primary-hover: #e01840; /* Brighter on hover */
   --color-primary-foreground: #FFFFFF;
-  --color-secondary: #424242;
+
+  /* Secondary & Muted */
+  --color-secondary: #2a2a2a;
   --color-secondary-foreground: #FFFFFF;
-  --color-muted: #424242;
+  --color-muted: #2a2a2a;
   --color-muted-foreground: #9E9E9E;
-  --color-accent: #424242;
+  --color-accent: #2a2a2a;
   --color-accent-foreground: #FFFFFF;
-  --color-destructive: #EF5350;
+
+  /* ===== SEMANTIC COLORS ===== */
+  --color-success: #10b981; /* Emerald */
+  --color-warning: #f59e0b; /* Amber */
+  --color-destructive: #ef4444; /* Red */
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #424242;
-  --color-input: #424242;
-  --color-ring: #a51c30;
+  --color-info: #3b82f6; /* Blue */
 
-  /* CSM Brand colors */
-  --color-brand: #a51c30;
-  --color-brand-dark: #8B1538;
-  --color-success: #4CAF50;
-  --color-warning: #FFC107;
-  --color-info: #00BCD4;
+  /* ===== BORDERS ===== */
+  --color-border: #2a2a2a;
+  --color-border-subtle: #333333;
+  --color-input: #2a2a2a;
+  --color-ring: #c8102e;
 
-  /* Radius */
+  /* ===== GLASSMORPHISM ===== */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: 12px;
+  --glass-blur-lg: 24px;
+
+  /* ===== GRADIENTS ===== */
+  --gradient-primary: linear-gradient(135deg, #c8102e 0%, #e01840 100%);
+  --gradient-surface: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
+
+  /* ===== SHADOWS (for depth) ===== */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 20px rgba(200, 16, 46, 0.3);
+
+  /* ===== SPACING SYSTEM (4px grid) ===== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* ===== RADIUS ===== */
+  --radius-sm: 0.25rem;
   --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* ===== ANIMATION TIMINGS ===== */
+  --timing-fast: 150ms;
+  --timing-medium: 250ms;
+  --timing-slow: 400ms;
+
+  /* Animation easings */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* ===== CUSTOM ANIMATIONS ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(200, 16, 46, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(200, 16, 46, 0.5); }
+}
+
+/* ===== UTILITY CLASSES ===== */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.glass-lg {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  -webkit-backdrop-filter: blur(var(--glass-blur-lg));
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--timing-medium) var(--ease-out);
+}
+
+.animate-slide-up {
+  animation: slideUp var(--timing-medium) var(--ease-out);
+}
+
+.animate-slide-down {
+  animation: slideDown var(--timing-medium) var(--ease-out);
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--timing-medium) var(--ease-spring);
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    to right,
+    #1a1a1a 0%,
+    #2a2a2a 20%,
+    #1a1a1a 40%,
+    #1a1a1a 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* ===== GLOBAL STYLES ===== */
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--color-background);
   color: var(--color-foreground);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
