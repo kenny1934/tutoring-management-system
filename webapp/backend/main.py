@@ -19,8 +19,8 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002").split(",")
+# Configure CORS - allow development ports 3000-3010
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005,http://localhost:3006,http://localhost:3007,http://localhost:3008,http://localhost:3009,http://localhost:3010").split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,10 +47,11 @@ async def root():
 async def health_check():
     """Detailed health check with database status"""
     from database import engine
+    from sqlalchemy import text
     try:
         # Test database connection
         with engine.connect() as connection:
-            connection.execute("SELECT 1")
+            connection.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
