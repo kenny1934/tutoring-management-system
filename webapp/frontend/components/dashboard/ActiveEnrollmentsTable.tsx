@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronDown, ChevronRight, BookOpen } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
+import { formatEnrollmentDisplay, formatSessionDateTime } from "@/lib/formatters";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { Enrollment } from "@/types";
 
 export function ActiveEnrollmentsTable() {
@@ -68,12 +70,8 @@ export function ActiveEnrollmentsTable() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Student</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Grade</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">School</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Location</th>
+                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Student Details</th>
                     <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Schedule</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Tutor</th>
                     <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                     <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Lessons</th>
                   </tr>
@@ -85,40 +83,37 @@ export function ActiveEnrollmentsTable() {
                       className="border-b border-border hover:bg-muted/50 transition-colors"
                     >
                       <td className="py-3 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{enrollment.student_name || "N/A"}</span>
-                          {enrollment.student?.school_student_id && (
-                            <span className="text-xs text-muted-foreground font-mono">
-                              {enrollment.student.school_student_id}
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium text-sm">
+                            {formatEnrollmentDisplay(enrollment)}
+                          </span>
+                          {enrollment.enrollment_type && (
+                            <Badge variant="outline" className="w-fit text-xs">
+                              {enrollment.enrollment_type}
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-1 text-sm">
+                          <span>
+                            {enrollment.assigned_day && enrollment.assigned_time
+                              ? `${enrollment.assigned_day} ${enrollment.assigned_time}`
+                              : "TBD"}
+                          </span>
+                          {enrollment.tutor_name && (
+                            <span className="text-xs text-muted-foreground">
+                              Tutor: {enrollment.tutor_name}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge variant="outline">{enrollment.grade || "N/A"}</Badge>
+                        <StatusBadge status={enrollment.payment_status} />
                       </td>
-                      <td className="py-3 px-4 text-sm">{enrollment.school || "N/A"}</td>
-                      <td className="py-3 px-4 text-sm">{enrollment.location || "N/A"}</td>
-                      <td className="py-3 px-4 text-sm">
-                        {enrollment.assigned_day && enrollment.assigned_time
-                          ? `${enrollment.assigned_day} ${enrollment.assigned_time}`
-                          : "TBD"}
-                      </td>
-                      <td className="py-3 px-4 text-sm">{enrollment.tutor_name || "N/A"}</td>
                       <td className="py-3 px-4">
-                        <Badge
-                          variant={
-                            enrollment.payment_status === "Paid"
-                              ? "success"
-                              : enrollment.payment_status === "Pending Payment"
-                              ? "warning"
-                              : "secondary"
-                          }
-                        >
-                          {enrollment.payment_status}
-                        </Badge>
+                        <Badge variant="secondary">{enrollment.lessons_paid || 0}</Badge>
                       </td>
-                      <td className="py-3 px-4 text-sm">{enrollment.lessons_paid || 0}</td>
                     </tr>
                   ))}
                 </tbody>
