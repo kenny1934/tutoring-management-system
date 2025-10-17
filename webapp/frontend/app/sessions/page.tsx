@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
+import { formatSessionDisplay } from "@/lib/formatters";
+import { StatusBadge } from "@/components/ui/status-badge";
 import type { Session } from "@/types";
 import { Calendar, Clock, MapPin, Filter, ChevronRight } from "lucide-react";
 
@@ -65,21 +67,6 @@ export default function SessionsPage() {
       return startA.localeCompare(startB);
     });
   }, [sessions]);
-
-  const getStatusVariant = (status: string): "success" | "warning" | "secondary" | "default" => {
-    switch (status.toLowerCase()) {
-      case "scheduled":
-        return "success";
-      case "make-up class":
-      case "makeup":
-        return "warning";
-      case "cancelled":
-      case "canceled":
-        return "secondary";
-      default:
-        return "default";
-    }
-  };
 
   if (loading) {
     return (
@@ -213,60 +200,29 @@ export default function SessionsPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-3">
-                          <p className="font-medium text-lg">
-                            {session.student?.student_name || `Student #${session.student_id}`}
-                          </p>
-                          {session.student?.school_student_id && (
-                            <Badge variant="outline" className="font-mono text-xs">
-                              {session.student.school_student_id}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          {session.enrollment?.subject && (
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">{session.enrollment.subject}</span>
-                            </div>
-                          )}
-
-                          {session.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-4 w-4" />
-                              <span>{session.location}</span>
-                            </div>
-                          )}
-                        </div>
+                        <p className="font-medium">
+                          {formatSessionDisplay(session)}
+                        </p>
 
                         {session.attendance_status && (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">Attendance:</span>
-                            <Badge variant="outline" className="text-xs">
-                              {session.attendance_status}
-                            </Badge>
+                            <StatusBadge status={session.attendance_status} />
                           </div>
+                        )}
+
+                        {session.notes && (
+                          <p className="text-sm text-muted-foreground">
+                            {session.notes}
+                          </p>
                         )}
                       </div>
 
                       <div className="flex flex-col items-end gap-2">
-                        <Badge variant={getStatusVariant(session.session_status)}>
-                          {session.session_status}
-                        </Badge>
+                        <StatusBadge status={session.session_status} />
 
                         {session.financial_status && (
-                          <Badge
-                            variant={
-                              session.financial_status === "Paid"
-                                ? "success"
-                                : session.financial_status === "Pending Payment"
-                                ? "warning"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {session.financial_status}
-                          </Badge>
+                          <StatusBadge status={session.financial_status} />
                         )}
                       </div>
                     </div>

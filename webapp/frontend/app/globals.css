@@ -1,30 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  /* Dark theme colors (default) */
-  --color-background: #0a0a0a;
-  --color-foreground: #ededed;
-  --color-card: #0a0a0a;
-  --color-card-foreground: #ededed;
-  --color-popover: #0a0a0a;
-  --color-popover-foreground: #ededed;
-  --color-primary: #a8294d; /* Lighter burgundy for dark mode */
-  --color-primary-foreground: #171717;
-  --color-secondary: #262626;
-  --color-secondary-foreground: #ededed;
-  --color-muted: #262626;
-  --color-muted-foreground: #a3a3a3;
-  --color-accent: #262626;
-  --color-accent-foreground: #ededed;
-  --color-destructive: #7f1d1d;
-  --color-destructive-foreground: #ededed;
-  --color-border: #262626;
-  --color-input: #262626;
-  --color-ring: #a8294d;
+  /* Dark theme colors (CSM Pro) */
+  --color-background: #1A1A1A;
+  --color-foreground: #FFFFFF;
+  --color-card: #2D2D2D;
+  --color-card-foreground: #FFFFFF;
+  --color-popover: #2D2D2D;
+  --color-popover-foreground: #FFFFFF;
+  --color-primary: #a51c30; /* CSM AppSheet primary color */
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #424242;
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: #424242;
+  --color-muted-foreground: #9E9E9E;
+  --color-accent: #424242;
+  --color-accent-foreground: #FFFFFF;
+  --color-destructive: #EF5350;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #424242;
+  --color-input: #424242;
+  --color-ring: #a51c30;
 
-  /* Brand colors */
-  --color-brand: #8B1538;
-  --color-brand-dark: #6B0F2A;
+  /* CSM Brand colors */
+  --color-brand: #a51c30;
+  --color-brand-dark: #8B1538;
+  --color-success: #4CAF50;
+  --color-warning: #FFC107;
+  --color-info: #00BCD4;
 
   /* Radius */
   --radius: 0.5rem;

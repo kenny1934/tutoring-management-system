@@ -73,10 +73,15 @@ export const enrollmentsAPI = {
 export const sessionsAPI = {
   getAll: (filters?: SessionFilters) => {
     const params = new URLSearchParams();
-    if (filters?.date) params.append("date", filters.date);
+    // Map frontend 'date' filter to backend 'from_date' and 'to_date'
+    if (filters?.date) {
+      params.append("from_date", filters.date);
+      params.append("to_date", filters.date);
+    }
     if (filters?.tutor_id) params.append("tutor_id", filters.tutor_id.toString());
     if (filters?.location) params.append("location", filters.location);
-    if (filters?.status) params.append("status", filters.status);
+    // Map frontend 'status' to backend 'session_status'
+    if (filters?.status) params.append("session_status", filters.status);
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.offset) params.append("offset", filters.offset.toString());
 
