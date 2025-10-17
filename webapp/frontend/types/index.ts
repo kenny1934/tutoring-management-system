@@ -30,6 +30,7 @@ export interface Enrollment {
   discount_name?: string;
   grade?: string;
   school?: string;
+  lang_stream?: string;
   deadline_extension_weeks?: number;
   last_modified_time?: string;
   student?: Student;
@@ -51,6 +52,10 @@ export interface Session {
   notes?: string;
   student_name?: string;
   tutor_name?: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
   enrollment?: Enrollment;
   student?: Student;
 }

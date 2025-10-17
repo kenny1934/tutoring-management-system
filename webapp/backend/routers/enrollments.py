@@ -83,6 +83,7 @@ async def get_enrollments(
         enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
         enrollment_data.grade = enrollment.student.grade if enrollment.student else None
         enrollment_data.school = enrollment.student.school if enrollment.student else None
+        enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         result.append(enrollment_data)
 
     return result
@@ -149,6 +150,7 @@ async def get_active_enrollments(
         enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
         enrollment_data.grade = enrollment.student.grade if enrollment.student else None
         enrollment_data.school = enrollment.student.school if enrollment.student else None
+        enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         result.append(enrollment_data)
 
     return result
@@ -179,5 +181,6 @@ async def get_enrollment_detail(
     enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
     enrollment_data.grade = enrollment.student.grade if enrollment.student else None
     enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
 
     return enrollment_data
