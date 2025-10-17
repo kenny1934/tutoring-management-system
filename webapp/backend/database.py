@@ -28,8 +28,13 @@ engine = create_engine(
     max_overflow=10,
     pool_timeout=30,
     pool_recycle=3600,
-    pool_pre_ping=True,  # Verify connections before using
+    pool_pre_ping=False,  # Disabled to avoid timeout issues
     echo=False,  # Set to True for SQL debugging
+    connect_args={
+        "connect_timeout": 10,  # 10 second connection timeout
+        "read_timeout": 60,  # 60 second read timeout for complex queries
+        "write_timeout": 30,
+    }
 )
 
 # Create SessionLocal class for database sessions
