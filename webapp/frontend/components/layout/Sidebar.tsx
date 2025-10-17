@@ -41,10 +41,8 @@ export function Sidebar() {
     <div className="flex h-screen w-64 flex-col bg-card border-r border-border">
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">CSM</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="CSM Pro" className="h-8 w-auto" />
           <span className="font-semibold text-lg">CSM Pro</span>
         </div>
       </div>
