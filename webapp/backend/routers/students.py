@@ -4,6 +4,7 @@ Provides read-only access to student data.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, select
 from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment
@@ -32,7 +33,24 @@ async def get_students(
     - **limit**: Maximum number of results (default 100, max 500)
     - **offset**: Pagination offset (default 0)
     """
-    query = db.query(Student)
+    # Create subquery to count enrollments efficiently
+    enrollment_count_subq = (
+        select(
+            Enrollment.student_id,
+            func.count(Enrollment.id).label("enrollment_count")
+        )
+        .group_by(Enrollment.student_id)
+        .subquery()
+    )
+
+    # Main query with left join to get enrollment counts
+    query = (
+        db.query(
+            Student,
+            func.coalesce(enrollment_count_subq.c.enrollment_count, 0).label("enrollment_count")
+        )
+        .outerjoin(enrollment_count_subq, Student.id == enrollment_count_subq.c.student_id)
+    )
 
     # Apply filters
     if search:
@@ -50,17 +68,14 @@ async def get_students(
     if academic_stream:
         query = query.filter(Student.academic_stream == academic_stream)
 
-    # Get total count before pagination
-    total = query.count()
-
     # Apply pagination
-    students = query.offset(offset).limit(limit).all()
+    students_with_counts = query.offset(offset).limit(limit).all()
 
-    # Add enrollment count to each student
+    # Build response with enrollment counts (now fetched in a single query)
     result = []
-    for student in students:
+    for student, enrollment_count in students_with_counts:
         student_data = StudentResponse.model_validate(student)
-        student_data.enrollment_count = len(student.enrollments)
+        student_data.enrollment_count = enrollment_count
         result.append(student_data)
 
     return result
