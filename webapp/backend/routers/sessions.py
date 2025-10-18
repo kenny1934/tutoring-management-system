@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor
-from schemas import SessionResponse
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse
 
 router = APIRouter()
 
@@ -87,16 +87,23 @@ async def get_sessions(
     return result
 
 
-@router.get("/sessions/{session_id}", response_model=SessionResponse)
+@router.get("/sessions/{session_id}", response_model=DetailedSessionResponse)
 async def get_session_detail(
     session_id: int,
     db: Session = Depends(get_db)
 ):
     """
-    Get detailed information for a specific session.
+    Get detailed information for a specific session including exercises and homework completion.
 
     - **session_id**: The session's database ID
+
+    Returns:
+    - Session basic information
+    - Student and tutor details
+    - Session exercises (classwork and homework)
+    - Homework completion tracking for this student
     """
+    # Load session with basic relationships only
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor)
@@ -105,12 +112,54 @@ async def get_session_detail(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-    session_data = SessionResponse.model_validate(session)
+    # Build basic session data
+    session_data = DetailedSessionResponse.model_validate(session)
     session_data.student_name = session.student.student_name if session.student else None
     session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
     session_data.school_student_id = session.student.school_student_id if session.student else None
     session_data.grade = session.student.grade if session.student else None
     session_data.lang_stream = session.student.lang_stream if session.student else None
     session_data.school = session.student.school if session.student else None
+
+    # Load exercises separately to avoid complex joins
+    exercises = db.query(SessionExercise).filter(
+        SessionExercise.session_id == session_id
+    ).all()
+
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(exercise)
+        for exercise in exercises
+    ]
+
+    # Load homework completion for this session and student
+    homework_completions = db.query(HomeworkCompletion).filter(
+        HomeworkCompletion.current_session_id == session_id,
+        HomeworkCompletion.student_id == session.student_id
+    ).all()
+
+    session_data.homework_completion = [
+        HomeworkCompletionResponse.model_validate(hw)
+        for hw in homework_completions
+    ]
+
+    # Load previous session (most recent attended session for same student, any tutor)
+    previous_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.student_id == session.student_id,
+        SessionLog.session_date < session.session_date,
+        SessionLog.session_status.in_(['Attended', 'Attended (Make-up)'])
+    ).order_by(SessionLog.session_date.desc()).first()
+
+    if previous_session:
+        prev_session_data = SessionResponse.model_validate(previous_session)
+        prev_session_data.student_name = previous_session.student.student_name if previous_session.student else None
+        prev_session_data.tutor_name = previous_session.tutor.tutor_name if previous_session.tutor else None
+        prev_session_data.school_student_id = previous_session.student.school_student_id if previous_session.student else None
+        prev_session_data.grade = previous_session.student.grade if previous_session.student else None
+        prev_session_data.lang_stream = previous_session.student.lang_stream if previous_session.student else None
+        prev_session_data.school = previous_session.student.school if previous_session.student else None
+        session_data.previous_session = prev_session_data
 
     return session_data
