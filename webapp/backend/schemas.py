@@ -125,6 +125,51 @@ class SessionResponse(SessionBase):
 
 
 # ============================================
+# Session Exercise Schemas
+# ============================================
+
+class SessionExerciseResponse(BaseModel):
+    """Session exercise (classwork/homework) response"""
+    id: int
+    session_id: int
+    exercise_type: str
+    pdf_name: str
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+    created_by: str
+    remarks: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class HomeworkCompletionResponse(BaseModel):
+    """Homework completion tracking response"""
+    id: int
+    current_session_id: int
+    session_exercise_id: int
+    student_id: int
+    completion_status: Optional[str] = None
+    submitted: bool = False
+    tutor_comments: Optional[str] = None
+    checked_by: Optional[int] = None
+    checked_at: Optional[datetime] = None
+    pdf_name: Optional[str] = None
+    page_start: Optional[int] = None
+    page_end: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DetailedSessionResponse(SessionResponse):
+    """Detailed session response with exercises and homework completion"""
+    exercises: List[SessionExerciseResponse] = []
+    homework_completion: List[HomeworkCompletionResponse] = []
+    previous_session: Optional['SessionResponse'] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================
 # Dashboard Stats Schemas
 # ============================================
 
