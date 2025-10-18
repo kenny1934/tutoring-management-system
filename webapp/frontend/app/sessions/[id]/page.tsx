@@ -127,35 +127,38 @@ export default function SessionDetailPage() {
           <SessionTabsCard session={session} />
         </motion.div>
 
-        {/* Notebook-style Performance & Notes */}
+        {/* Spiral Notebook - Performance & Notes */}
         {(session.performance_rating || session.notes) && (
           <motion.div
             variants={refinedCardVariants}
             initial="hidden"
             animate="visible"
             transition={{ delay: 0.3 }}
+            className="relative"
           >
-            <GlassCard interactive={false} className="relative overflow-hidden">
-            {/* Notebook paper background with ruled lines */}
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-50/40 via-yellow-50/30 to-orange-50/40 dark:from-amber-900/40 dark:via-yellow-900/30 dark:to-orange-900/40" />
+            {/* Spiral Notebook Container */}
+            <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-wrinkled torn-edge-right paper-shadow-lg page-curl relative overflow-visible text-gray-900 dark:text-gray-100" style={{ transform: 'rotate(-0.5deg)' }}>
+              {/* Perforated left edge with binding holes */}
+              <div className="absolute left-0 top-0 bottom-0 w-12 z-10 pointer-events-none">
+                {/* Perforation holes */}
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="absolute left-6 w-3 h-3 rounded-full bg-background/40 border border-border/50"
+                    style={{ top: `${32 + i * 64}px` }}
+                  />
+                ))}
+              </div>
 
-            <div className="relative p-6">
-              {/* Left margin line (red vertical line) */}
-              <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-red-300/40 dark:bg-red-400/20" />
+              {/* Notebook paper background with ruled lines */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-50/60 via-yellow-50/40 to-orange-50/50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-orange-900/30 rounded-lg" />
 
-              {/* Ruled lines background pattern */}
-              <div
-                className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none dark:hidden"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 35px, rgba(59, 130, 246, 0.25) 35px, rgba(59, 130, 246, 0.25) 36px)',
-                }}
-              />
-              <div
-                className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none hidden dark:block"
-                style={{
-                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 35px, rgba(147, 197, 253, 0.15) 35px, rgba(147, 197, 253, 0.15) 36px)',
-                }}
-              />
+              <div className="relative p-6 pl-14">
+                {/* Left margin line (red vertical line) */}
+                <div className="absolute left-16 top-0 bottom-0 w-0.5 bg-red-400/50 dark:bg-red-400/25" />
+
+                {/* Ruled lines background pattern */}
+                <div className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none ruled-lines rounded-lg" />
 
               {/* Content with margin spacing */}
               <div className="relative pl-12">
@@ -244,8 +247,8 @@ export default function SessionDetailPage() {
                 ) : null}
               </div>
             </div>
-          </GlassCard>
-        </motion.div>
+            </div>
+          </motion.div>
         )}
       </div>
 
