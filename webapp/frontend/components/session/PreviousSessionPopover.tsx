@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Info, X } from "lucide-react";
+import { History, X } from "lucide-react";
 import type { Session } from "@/types";
 
 interface PreviousSessionPopoverProps {
@@ -24,7 +24,7 @@ export function PreviousSessionPopover({ previousSession }: PreviousSessionPopov
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        <Info className="h-5 w-5 text-warning" />
+        <History className="h-5 w-5 text-warning" />
         {/* Badge indicator */}
         <span className="absolute -top-1 -right-1 w-3 h-3 bg-warning rounded-full border-2 border-background" />
       </motion.button>
@@ -32,28 +32,17 @@ export function PreviousSessionPopover({ previousSession }: PreviousSessionPopov
       {/* Popover */}
       <AnimatePresence>
         {isOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsOpen(false)}
-              className="fixed inset-0 z-40"
-            />
-
-            {/* Popover Content */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -10 }}
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="absolute top-12 right-0 z-50 w-80 glass border border-warning/30 rounded-lg shadow-2xl p-4"
+              className="absolute top-12 right-0 z-50 w-80 bg-background/95 backdrop-blur-md border border-warning/30 rounded-lg shadow-2xl p-4"
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-warning" />
+                  <History className="h-4 w-4 text-warning" />
                   <h3 className="font-semibold text-sm">Previous Session</h3>
                 </div>
                 <button
@@ -104,12 +93,7 @@ export function PreviousSessionPopover({ previousSession }: PreviousSessionPopov
                 )}
               </div>
 
-              {/* Helper text */}
-              <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
-                💡 Context from the last session to help prepare
-              </p>
             </motion.div>
-          </>
         )}
       </AnimatePresence>
     </div>
