@@ -36,6 +36,34 @@ export interface Enrollment {
   student?: Student;
 }
 
+// Session Exercise types
+export interface SessionExercise {
+  id: number;
+  session_id: number;
+  exercise_type: string;
+  pdf_name: string;
+  page_start?: number;
+  page_end?: number;
+  created_by: string;
+  remarks?: string;
+}
+
+// Homework Completion types
+export interface HomeworkCompletion {
+  id: number;
+  current_session_id: number;
+  session_exercise_id: number;
+  student_id: number;
+  completion_status?: string;
+  submitted: boolean;
+  tutor_comments?: string;
+  checked_by?: number;
+  checked_at?: string;
+  pdf_name?: string;
+  page_start?: number;
+  page_end?: number;
+}
+
 // Session types
 export interface Session {
   id: number;
@@ -58,6 +86,9 @@ export interface Session {
   school?: string;
   enrollment?: Enrollment;
   student?: Student;
+  exercises?: SessionExercise[];
+  homework_completion?: HomeworkCompletion[];
+  previous_session?: Session;
 }
 
 // Dashboard stats types

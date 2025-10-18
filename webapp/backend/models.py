@@ -168,6 +168,7 @@ class SessionLog(Base):
     enrollment = relationship("Enrollment", back_populates="sessions")
     student = relationship("Student", back_populates="sessions")
     tutor = relationship("Tutor", back_populates="sessions")
+    exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
 
 
 class Holiday(Base):
@@ -197,3 +198,55 @@ class PlannedReschedule(Base):
     requested_date = Column(Date, nullable=False)
     requested_by = Column(String(255))
     notes = Column(Text)
+
+
+class SessionExercise(Base):
+    """
+    Session exercises tracking classwork (CW) and homework (HW) assignments.
+    Links to curriculum and tracks effectiveness.
+    """
+    __tablename__ = "session_exercises"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("session_log.id", ondelete="CASCADE"), nullable=False)
+    exercise_type = Column(String(20), nullable=False, comment='Classwork or Homework')
+    pdf_name = Column(String(255), nullable=False)
+    page_start = Column(Integer, nullable=True, comment='NULL = whole PDF')
+    page_end = Column(Integer, nullable=True)
+    created_by = Column(String(255), nullable=False)
+    remarks = Column(Text)
+
+    # Relationships
+    session = relationship("SessionLog", back_populates="exercises")
+
+
+class HomeworkCompletion(Base):
+    """
+    Tracks homework completion status for each assignment.
+    Links session exercises to student completion records.
+    """
+    __tablename__ = "homework_completion"
+
+    id = Column(Integer, primary_key=True, index=True)
+    current_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False)
+    session_exercise_id = Column(Integer, ForeignKey("session_exercises.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    completion_status = Column(
+        Enum('Not Checked', 'Completed', 'Partially Completed', 'Not Completed', name='completion_status_enum'),
+        nullable=True
+    )
+    submitted = Column(Boolean, default=False)
+    tutor_comments = Column(Text)
+    checked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
+    checked_at = Column(DateTime, nullable=True)
+
+    # Denormalized homework details from session_exercises
+    pdf_name = Column(String(255))
+    page_start = Column(Integer)
+    page_end = Column(Integer)
+
+    # Relationships
+    session = relationship("SessionLog", foreign_keys=[current_session_id])
+    exercise = relationship("SessionExercise", foreign_keys=[session_exercise_id])
+    student = relationship("Student", foreign_keys=[student_id])
+    checked_by_tutor = relationship("Tutor", foreign_keys=[checked_by])
