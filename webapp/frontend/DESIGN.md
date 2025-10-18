@@ -21,6 +21,9 @@ High-end visual effects (glassmorphism, gradients, depth) that convey quality an
 ### 5. **Performance First**
 60fps animations, optimized rendering, smooth scrolling - speed should never be sacrificed for aesthetics.
 
+### 6. **Tactile Realism** *(New)*
+Real-world classroom objects inspire component design - notebooks, sticky notes, flashcards, whiteboards - creating intuitive, familiar interfaces through skeuomorphic elements.
+
 ## Technical Stack
 
 ### Core Technologies
@@ -173,6 +176,155 @@ The flagship interface showcasing all design patterns:
 4. **Iterate**: Gather feedback, refine animations
 5. **Document**: Keep this file updated as system evolves
 
+## Classroom Skeuomorphism
+
+### Philosophy
+Blend futuristic glassmorphism with tactile, real-world learning objects to create an interface that's both cutting-edge and comfortably familiar. Educational materials are physical by nature - leverage that familiarity to make digital workflows intuitive.
+
+### Design Language Evolution
+- **From**: Pure futuristic glassmorphism (frosted glass, neon accents)
+- **To**: Hybrid approach - glass UI shell + paper-based content cards
+- **Why**: Glass for structure/navigation, paper for content creates visual hierarchy and cognitive clarity
+
+### Physical Learning Objects Library
+
+#### 1. **Spiral Notebook** (`session notes`)
+**Purpose**: Session notes, tutor observations, student performance
+**Visual Elements**:
+- Cream paper texture with SVG noise grain
+- Blue ruled lines (36px line-height for readability)
+- Red margin line (left side, 40px from edge)
+- Spiral binding holes (8 punched circles along left margin)
+- Page curl (top-right corner with triangle fold)
+- Slight rotation (-0.5° to 0.5°) for handmade feel
+- Layered shadows for paper thickness
+- Warm amber/yellow gradient overlay (like aged paper)
+
+**Implementation**: Direct in session detail page
+**Props**: Paper color, line spacing, rotation angle
+
+#### 2. **Sticky Note** (`lib/design-system/components/education/StickyNote.tsx`)
+**Purpose**: Quick reminders, important alerts, actionable items
+**Visual Elements**:
+- Classic yellow (or pink/blue/green variants)
+- Subtle paper grain texture
+- Random rotation (-3° to 3°)
+- Shadow that lifts on hover
+- Optional transparent tape at top
+- Bottom corner shadow (curl effect)
+
+**Usage Example**:
+```tsx
+<StickyNote variant="yellow" size="md" showTape>
+  <p className="font-handwriting">Remember: Review Ch.5 homework!</p>
+</StickyNote>
+```
+
+#### 3. **Flash Card** (`lib/design-system/components/education/FlashCard.tsx`)
+**Purpose**: Vocabulary review, Q&A, concept definitions
+**Visual Elements**:
+- 3D flip animation (rotateY 180°)
+- White front / cream back
+- Cardstock texture (thicker than notebook paper)
+- Rounded corners (subtle, 4px radius)
+- Corner fold indicators
+- Perspective depth (1000px)
+- Spring-based flip transition
+
+**Usage Example**:
+```tsx
+<FlashCard
+  front={<div className="text-xl font-bold">What is React?</div>}
+  back={<div>A JavaScript library for building user interfaces</div>}
+/>
+```
+
+#### 4. **Index Card** *(Future)* (`Index3x5Card.tsx`)
+**Purpose**: Homework assignments, exercise lists
+**Visual Elements**:
+- 3:5 aspect ratio (300px × 500px)
+- Horizontal blue lines
+- Vertical red/blue line at top (for title)
+- Cardstock texture
+- Slight yellowing/aging effect
+
+#### 5. **Whiteboard Panel** *(Future)* (`Whiteboard.tsx`)
+**Purpose**: Lesson plans, diagrams, brainstorming
+**Visual Elements**:
+- Glossy white surface
+- Subtle reflection gradient
+- Dry-erase marker trails (SVG paths)
+- Eraser smudge effects
+- Metal frame border
+
+### Paper Texture System
+
+**CSS Custom Properties** (in `globals.css`):
+```css
+--paper-cream: #fef9f3 (light) / #2d2618 (dark)
+--paper-white: #fefefe / #1a1a1a
+--paper-yellow: #fff9db / #2b2a1f
+--paper-lined-blue: #a7c5e3 / #3d5975
+--paper-lined-red: #e8b4b8 / #6b3a3f
+```
+
+**Utility Classes**:
+- `.paper-texture` - SVG noise overlay (fractal noise, baseFrequency 0.9)
+- `.paper-cream/white/yellow` - Background colors
+- `.paper-shadow-sm/md/lg` - Realistic lift shadows
+- `.ruled-lines` - Horizontal lines (35px spacing)
+- `.margin-line-left` - Red vertical margin
+- `.page-curl` - Triangle fold corner
+
+**Shadows** (layered for depth):
+```css
+--shadow-paper-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)
+--shadow-paper-md: 0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.12)
+--shadow-paper-lg: 0 10px 20px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.10)
+```
+
+### Animation Behaviors
+
+**Paper Interactions**:
+- **Hover**: Slight lift (translateY -2px), shadow increase, subtle rotation correction
+- **Tap/Click**: Quick scale down (0.98), then spring back
+- **Entrance**: Stagger with slight rotation and opacity fade
+- **Exit**: Crumple effect (scale 0.8, rotate 15°, opacity 0)
+
+**Page Transitions**:
+- Flip book effect (multiple sheets cascading)
+- Slide like turning pages in a binder
+- Stack/unstack for modal overlays
+
+### Implementation Guidelines
+
+1. **Use paper components for content**, glass components for UI chrome
+2. **Limit skeuomorphic elements** to avoid overwhelming interface
+3. **Maintain accessibility** - ensure text contrast on paper backgrounds
+4. **Respect motion preferences** - disable rotation/animations if prefers-reduced-motion
+5. **SVG noise at 0.08 opacity** - subtle, never distracting
+6. **Consistent line-height** (36px) - aligns with ruled lines perfectly
+
+### Educational Object Metaphors
+
+| Component | Real-World Object | Use Case |
+|-----------|------------------|----------|
+| Session Notes | Spiral Notebook | Tutor observations, student performance |
+| Quick Alerts | Sticky Notes | Reminders, action items, warnings |
+| Study Cards | Flash Cards | Vocabulary, Q&A review, concept checks |
+| Assignments | Index Cards | Homework lists, exercise references |
+| Lesson Plans | Whiteboard | Teaching materials, diagrams, schedules |
+| Report Cards | Official Document | Grades, progress reports, certificates |
+| File Folders | Manila Folders | Student portfolios, document organization |
+
+### Dark Mode Considerations
+
+- **Paper colors shift to warm darks** (not pure black/gray)
+- **Ruled lines reduce opacity** (0.15 vs 0.25 in light mode)
+- **Margins use softer reds** (reduce saturation 20%)
+- **Noise texture stays subtle** (same 0.08 opacity)
+- **Shadows become outlines** (subtle border + soft glow)
+
 ## Future Considerations
 
 - **3D Elements**: Subtle parallax, depth effects
@@ -180,9 +332,10 @@ The flagship interface showcasing all design patterns:
 - **AR Features**: Session materials in augmented reality
 - **AI Animations**: Context-aware motion design
 - **Haptic Feedback**: Mobile vibration for confirmations
+- **Physical Material Expansion**: Cork board, graph paper, composition notebook, blueprint paper
 
 ---
 
-**Last Updated**: 2025-10-17
-**Version**: 1.0.0
-**Status**: Foundation Phase
+**Last Updated**: 2025-10-18
+**Version**: 2.0.0
+**Status**: Classroom Skeuomorphism Phase
