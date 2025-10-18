@@ -10,3 +10,6 @@ export * from "./animations/variants";
 export { AnimatedButton } from "./components/AnimatedButton";
 export { GlassCard } from "./components/GlassCard";
 export { PageTransition } from "./components/PageTransition";
+
+// Education Components (Skeuomorphic Classroom Objects)
+export { StickyNote, FlashCard } from "./components/education";
