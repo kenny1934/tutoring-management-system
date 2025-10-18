@@ -116,63 +116,138 @@ export default function SessionDetailPage() {
         <PreviousSessionPopover previousSession={session.previous_session} />
       </motion.div>
 
-      {/* Single Tabbed Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <SessionTabsCard session={session} />
-      </motion.div>
-
-      {/* Performance Rating with Star Icons */}
-      {session.performance_rating && (
+      {/* Two-column layout: Session Info + Notebook */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6">
+        {/* Single Tabbed Card */}
         <motion.div
-          variants={refinedCardVariants}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: 0.3 }}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
         >
-          <GlassCard interactive={false} className="p-6 bg-warning/5 border-warning/20">
-            <div className="flex items-center gap-3 mb-4">
-              <Star className="h-5 w-5 text-warning fill-warning" />
-              <h2 className="text-lg font-semibold">Performance Rating</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Star icons */}
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star
-                  key={i}
-                  className={cn(
-                    "h-8 w-8 transition-all",
-                    i < starCount
-                      ? "text-warning fill-warning"
-                      : "text-muted-foreground/30"
-                  )}
-                />
-              ))}
+          <SessionTabsCard session={session} />
+        </motion.div>
+
+        {/* Notebook-style Performance & Notes */}
+        {(session.performance_rating || session.notes) && (
+          <motion.div
+            variants={refinedCardVariants}
+            initial="hidden"
+            animate="visible"
+            transition={{ delay: 0.3 }}
+          >
+            <GlassCard interactive={false} className="relative overflow-hidden">
+            {/* Notebook paper background with ruled lines */}
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-50/40 via-yellow-50/30 to-orange-50/40 dark:from-amber-900/40 dark:via-yellow-900/30 dark:to-orange-900/40" />
+
+            <div className="relative p-6">
+              {/* Left margin line (red vertical line) */}
+              <div className="absolute left-10 top-0 bottom-0 w-0.5 bg-red-300/40 dark:bg-red-400/20" />
+
+              {/* Ruled lines background pattern */}
+              <div
+                className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none dark:hidden"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 35px, rgba(59, 130, 246, 0.25) 35px, rgba(59, 130, 246, 0.25) 36px)',
+                }}
+              />
+              <div
+                className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none hidden dark:block"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(transparent, transparent 35px, rgba(147, 197, 253, 0.15) 35px, rgba(147, 197, 253, 0.15) 36px)',
+                }}
+              />
+
+              {/* Content with margin spacing */}
+              <div className="relative pl-12">
+                {session.notes ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <FileText className="h-5 w-5 text-primary" />
+                      <h2 className="text-lg font-semibold">Session Notes</h2>
+                    </div>
+
+                    {/* Performance Rating as Grade Stamp - floated */}
+                    {session.performance_rating && (
+                      <motion.div
+                        initial={{ scale: 0, rotate: 0 }}
+                        animate={{ scale: 1, rotate: -6 }}
+                        transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
+                        className="float-right ml-4 mb-2 mr-2"
+                        style={{ shapeOutside: 'circle(50%)' }}
+                      >
+                        <div
+                          className="w-20 h-20 rounded-full bg-warning/90 border-4 border-warning/40 shadow-xl shadow-warning/20 flex flex-col items-center justify-center backdrop-blur-sm"
+                          style={{ shapeOutside: 'circle(50%)' }}
+                        >
+                          <div className="flex gap-0.5 mb-0.5">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                className={cn(
+                                  "h-2.5 w-2.5",
+                                  i < starCount
+                                    ? "text-white fill-white"
+                                    : "text-white/30 fill-white/30"
+                                )}
+                              />
+                            ))}
+                          </div>
+                          <div className="text-white font-bold text-xs">
+                            {starCount}/5
+                          </div>
+                          <div className="text-white/80 text-[10px] font-medium">RATING</div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <p
+                      className="text-base whitespace-pre-wrap text-foreground/90"
+                      style={{ lineHeight: '36px' }}
+                    >
+                      {session.notes}
+                    </p>
+                  </div>
+                ) : session.performance_rating ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Star className="h-5 w-5 text-warning fill-warning" />
+                      <h2 className="text-lg font-semibold">Performance Rating</h2>
+                    </div>
+                    {/* Performance Rating as Grade Stamp - centered when no notes */}
+                    <motion.div
+                      initial={{ scale: 0, rotate: 0 }}
+                      animate={{ scale: 1, rotate: -6 }}
+                      transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
+                      className="flex justify-center"
+                    >
+                      <div className="w-20 h-20 rounded-full bg-warning/90 border-4 border-warning/40 shadow-xl shadow-warning/20 flex flex-col items-center justify-center backdrop-blur-sm">
+                        <div className="flex gap-0.5 mb-0.5">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={cn(
+                                "h-2.5 w-2.5",
+                                i < starCount
+                                  ? "text-white fill-white"
+                                  : "text-white/30 fill-white/30"
+                              )}
+                            />
+                          ))}
+                        </div>
+                        <div className="text-white font-bold text-xs">
+                          {starCount}/5
+                        </div>
+                        <div className="text-white/80 text-[10px] font-medium">RATING</div>
+                      </div>
+                    </motion.div>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </GlassCard>
         </motion.div>
-      )}
-
-      {/* Session Notes */}
-      {session.notes && (
-        <motion.div
-          variants={refinedCardVariants}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: 0.4 }}
-        >
-          <GlassCard interactive={false} className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <FileText className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Session Notes</h2>
-            </div>
-            <p className="text-base whitespace-pre-wrap leading-relaxed">{session.notes}</p>
-          </GlassCard>
-        </motion.div>
-      )}
+        )}
+      </div>
 
       {/* Courseware Section */}
       {session.exercises && session.exercises.length > 0 && (
