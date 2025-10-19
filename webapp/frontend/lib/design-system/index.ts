@@ -16,8 +16,10 @@ export {
   // Paper & Note Components
   StickyNote,
   FlashCard,
+  CompositionNotebook,
   // Math & Academic Components
   GraphPaper,
+  EngineeringPaper,
   WorksheetCard,
   WorksheetProblem,
   AnswerBlank,
@@ -25,9 +27,12 @@ export {
   Subject,
   TeacherComment,
   CalculatorDisplay,
+  Certificate,
   // Organization Components
   FileFolder,
   IndexCard,
+  BinderTabs,
+  BinderTab,
   // Interactive & Feedback Components
   Highlighter,
   RubberStamp,
