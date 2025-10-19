@@ -858,3 +858,285 @@ html {
 .font-handwriting-pencil {
   font-family: 'Shadows Into Light', cursive;
 }
+
+/* ===== ENGINEERING & TECHNICAL PAPER PATTERNS ===== */
+
+/* Quad paper - 4 squares per inch (lighter blue/green engineering style) */
+.quad-paper-4 {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.35mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.35mm
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .quad-paper-4 {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 6.25mm,
+        rgba(34, 139, 34, 0.15) 6.25mm,
+        rgba(34, 139, 34, 0.15) 6.35mm
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 6.25mm,
+        rgba(34, 139, 34, 0.15) 6.25mm,
+        rgba(34, 139, 34, 0.15) 6.35mm
+      );
+  }
+}
+
+/* Quad paper with major gridlines (every 5th line thicker) */
+.quad-paper-4-major {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.35mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.25mm,
+      rgba(34, 139, 34, 0.25) 6.35mm
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31.25mm,
+      rgba(34, 139, 34, 0.4) 31.25mm,
+      rgba(34, 139, 34, 0.4) 31.5mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 31.25mm,
+      rgba(34, 139, 34, 0.4) 31.25mm,
+      rgba(34, 139, 34, 0.4) 31.5mm
+    );
+}
+
+/* Engineering paper - light blue engineering tradition */
+.engineering-paper {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 4.9mm,
+      rgba(65, 105, 225, 0.22) 4.9mm,
+      rgba(65, 105, 225, 0.22) 5mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 4.9mm,
+      rgba(65, 105, 225, 0.22) 4.9mm,
+      rgba(65, 105, 225, 0.22) 5mm
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .engineering-paper {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 4.9mm,
+        rgba(65, 105, 225, 0.15) 4.9mm,
+        rgba(65, 105, 225, 0.15) 5mm
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 4.9mm,
+        rgba(65, 105, 225, 0.15) 4.9mm,
+        rgba(65, 105, 225, 0.15) 5mm
+      );
+  }
+}
+
+/* Isometric paper - for 3D drawings */
+.isometric-paper {
+  background-image:
+    repeating-linear-gradient(
+      60deg,
+      transparent,
+      transparent 19px,
+      rgba(59, 130, 246, 0.25) 19px,
+      rgba(59, 130, 246, 0.25) 20px
+    ),
+    repeating-linear-gradient(
+      120deg,
+      transparent,
+      transparent 19px,
+      rgba(59, 130, 246, 0.25) 19px,
+      rgba(59, 130, 246, 0.25) 20px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      rgba(59, 130, 246, 0.25) 19px,
+      rgba(59, 130, 246, 0.25) 20px
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .isometric-paper {
+    background-image:
+      repeating-linear-gradient(
+        60deg,
+        transparent,
+        transparent 19px,
+        rgba(59, 130, 246, 0.15) 19px,
+        rgba(59, 130, 246, 0.15) 20px
+      ),
+      repeating-linear-gradient(
+        120deg,
+        transparent,
+        transparent 19px,
+        rgba(59, 130, 246, 0.15) 19px,
+        rgba(59, 130, 246, 0.15) 20px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 19px,
+        rgba(59, 130, 246, 0.15) 19px,
+        rgba(59, 130, 246, 0.15) 20px
+      );
+  }
+}
+
+/* ===== COMPOSITION NOTEBOOK STYLES ===== */
+
+/* Marbled cover - classic black composition notebook texture */
+.marbled-cover {
+  background:
+    radial-gradient(ellipse at 10% 20%, #2a2a2a 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, #3d3d3d 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 70%, #333333 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 30%, #4a4a4a 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 50%, #2d2d2d 0%, transparent 50%),
+    radial-gradient(ellipse at 40% 90%, #454545 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 50%, #383838 0%, transparent 50%),
+    linear-gradient(135deg, #3d3d3d 0%, #2a2a2a 50%, #4a4a4a 100%);
+}
+
+/* Sewn binding effect */
+.sewn-binding {
+  position: relative;
+}
+
+.sewn-binding::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.1) 2px,
+      rgba(0, 0, 0, 0.1) 3px
+    );
+  pointer-events: none;
+}
+
+/* Wide-ruled lines (standard school notebook) */
+.ruled-wide {
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 43px,
+      rgba(59, 130, 246, 0.25) 43px,
+      rgba(59, 130, 246, 0.25) 44px
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .ruled-wide {
+    background-image:
+      repeating-linear-gradient(
+        transparent,
+        transparent 43px,
+        rgba(147, 197, 253, 0.15) 43px,
+        rgba(147, 197, 253, 0.15) 44px
+      );
+  }
+}
+
+/* College-ruled lines (narrower spacing) */
+.ruled-college {
+  background-image:
+    repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      rgba(59, 130, 246, 0.25) 31px,
+      rgba(59, 130, 246, 0.25) 32px
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .ruled-college {
+    background-image:
+      repeating-linear-gradient(
+        transparent,
+        transparent 31px,
+        rgba(147, 197, 253, 0.15) 31px,
+        rgba(147, 197, 253, 0.15) 32px
+      );
+  }
+}
+
+/* ===== CERTIFICATE & FOIL EFFECTS ===== */
+
+/* Ribbon tail clip-path for certificate seals */
+.clip-ribbon-tail {
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 85%,
+    50% 100%,
+    0 85%
+  );
+}
+
+/* Foil gradient effects */
+.foil-gold {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 25%, #ffd700 50%, #ffed4e 75%, #ffd700 100%);
+  background-size: 200% 200%;
+}
+
+.foil-silver {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 25%, #c0c0c0 50%, #e8e8e8 75%, #c0c0c0 100%);
+  background-size: 200% 200%;
+}
+
+.foil-bronze {
+  background: linear-gradient(135deg, #cd7f32 0%, #e9a76e 25%, #cd7f32 50%, #e9a76e 75%, #cd7f32 100%);
+  background-size: 200% 200%;
+}
+
+/* Embossed seal effect */
+.embossed-seal {
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+}
