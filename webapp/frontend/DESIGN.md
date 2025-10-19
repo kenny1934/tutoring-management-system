@@ -325,6 +325,28 @@ Blend futuristic glassmorphism with tactile, real-world learning objects to crea
 - **Noise texture stays subtle** (same 0.08 opacity)
 - **Shadows become outlines** (subtle border + soft glow)
 
+## Extended Component Library
+
+📋 **See COMPONENTS_BRAINSTORM.md** for comprehensive research and planning of 22+ additional educational components, including:
+
+**Priority 1 (In Development)**:
+- Graph Paper Panel (charts, coordinate planes)
+- Worksheet Card (problem sets, exercises)
+- Report Card (grades, progress reports)
+- Manila Folder/File Tabs (navigation, organization)
+- Highlighter Marks (text emphasis)
+- Date/Grade Stamps (metadata, status)
+
+**Coming Soon**:
+- Calculator Display (retro LED/LCD)
+- Certificate/Award (achievements)
+- Composition Notebook (formal notes)
+- Index Cards 3x5 (quick refs)
+- Sticker Badges (gamification)
+- Pencil/Pen Annotations (handwritten comments)
+
+The brainstorm document includes use cases, implementation details, priority ratings, and a 5-phase roadmap.
+
 ## Future Considerations
 
 - **3D Elements**: Subtle parallax, depth effects
@@ -332,10 +354,9 @@ Blend futuristic glassmorphism with tactile, real-world learning objects to crea
 - **AR Features**: Session materials in augmented reality
 - **AI Animations**: Context-aware motion design
 - **Haptic Feedback**: Mobile vibration for confirmations
-- **Physical Material Expansion**: Cork board, graph paper, composition notebook, blueprint paper
 
 ---
 
-**Last Updated**: 2025-10-18
-**Version**: 2.0.0
-**Status**: Classroom Skeuomorphism Phase
+**Last Updated**: 2025-10-19
+**Version**: 2.1.0
+**Status**: Classroom Skeuomorphism Phase - Component Expansion
