@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -233,19 +234,32 @@
   border-radius: inherit;
 }
 
-/* Paper with cream color */
+/* Paper colors - Tailwind v4 compatible with media queries */
 .paper-cream {
-  background: light-dark(var(--paper-cream), var(--paper-cream-dark));
+  background-color: #fef9f3;
+}
+@media (prefers-color-scheme: dark) {
+  .paper-cream {
+    background-color: #2d2618;
+  }
 }
 
-/* Paper with white color */
 .paper-white {
-  background: light-dark(var(--paper-white), var(--paper-white-dark));
+  background-color: #fefefe;
+}
+@media (prefers-color-scheme: dark) {
+  .paper-white {
+    background-color: #1a1a1a;
+  }
 }
 
-/* Paper with yellow (sticky note) color */
 .paper-yellow {
-  background: light-dark(var(--paper-yellow), var(--paper-yellow-dark));
+  background-color: #fff9db;
+}
+@media (prefers-color-scheme: dark) {
+  .paper-yellow {
+    background-color: #2b2a1f;
+  }
 }
 
 /* Realistic paper shadow */
@@ -291,8 +305,13 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: light-dark(rgba(239, 68, 68, 0.4), rgba(239, 68, 68, 0.25));
+  background: rgba(239, 68, 68, 0.4);
   pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .margin-line-left::before {
+    background: rgba(239, 68, 68, 0.25);
+  }
 }
 
 /* Page curl effect (top-right corner) */
@@ -305,9 +324,14 @@
   height: 0;
   border-style: solid;
   border-width: 0 24px 24px 0;
-  border-color: transparent light-dark(#e5e5e5, #2a2a2a) transparent transparent;
+  border-color: transparent #e5e5e5 transparent transparent;
   box-shadow: var(--shadow-paper-curl);
   pointer-events: none;
+}
+@media (prefers-color-scheme: dark) {
+  .page-curl::after {
+    border-color: transparent #2a2a2a transparent transparent;
+  }
 }
 
 /* ===== TORN PAPER EDGE EFFECTS ===== */
@@ -404,6 +428,151 @@
   border-radius: inherit;
 }
 
+/* ===== HIGHLIGHTER UTILITIES ===== */
+
+.highlight-yellow {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 255, 0, 0) 0.9%,
+    rgba(255, 255, 0, 0.3) 2.4%,
+    rgba(255, 255, 0, 0.4) 5.8%,
+    rgba(255, 255, 0, 0.35) 93%,
+    rgba(255, 255, 0, 0.3) 96%,
+    rgba(255, 255, 0, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-pink {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 182, 193, 0) 0.9%,
+    rgba(255, 182, 193, 0.3) 2.4%,
+    rgba(255, 182, 193, 0.4) 5.8%,
+    rgba(255, 182, 193, 0.35) 93%,
+    rgba(255, 182, 193, 0.3) 96%,
+    rgba(255, 182, 193, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-green {
+  background: linear-gradient(
+    104deg,
+    rgba(144, 238, 144, 0) 0.9%,
+    rgba(144, 238, 144, 0.3) 2.4%,
+    rgba(144, 238, 144, 0.4) 5.8%,
+    rgba(144, 238, 144, 0.35) 93%,
+    rgba(144, 238, 144, 0.3) 96%,
+    rgba(144, 238, 144, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-blue {
+  background: linear-gradient(
+    104deg,
+    rgba(173, 216, 230, 0) 0.9%,
+    rgba(173, 216, 230, 0.3) 2.4%,
+    rgba(173, 216, 230, 0.4) 5.8%,
+    rgba(173, 216, 230, 0.35) 93%,
+    rgba(173, 216, 230, 0.3) 96%,
+    rgba(173, 216, 230, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-orange {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 200, 124, 0) 0.9%,
+    rgba(255, 200, 124, 0.3) 2.4%,
+    rgba(255, 200, 124, 0.4) 5.8%,
+    rgba(255, 200, 124, 0.35) 93%,
+    rgba(255, 200, 124, 0.3) 96%,
+    rgba(255, 200, 124, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+/* ===== RUBBER STAMP UTILITIES ===== */
+
+.rubber-stamp {
+  display: inline-block;
+  padding: 0.5em 1em;
+  border: 3px solid currentColor;
+  border-radius: 0.5em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  transform: rotate(-3deg);
+  font-size: 0.9em;
+  line-height: 1.2;
+}
+
+.rubber-stamp-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5em;
+  height: 3.5em;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+  transform: rotate(-5deg);
+  font-size: 0.85em;
+  text-align: center;
+  padding: 0.5em;
+  line-height: 1.1;
+}
+
+.rubber-stamp-red {
+  color: #dc2626;
+}
+
+.rubber-stamp-green {
+  color: #16a34a;
+}
+
+.rubber-stamp-blue {
+  color: #2563eb;
+}
+
+.rubber-stamp-orange {
+  color: #ea580c;
+}
+
+.rubber-stamp-purple {
+  color: #9333ea;
+}
+
+/* ===== HANDWRITING FONTS ===== */
+
+.font-handwriting-cursive {
+  font-family: 'Caveat', cursive;
+}
+
+.font-handwriting-print {
+  font-family: 'Indie Flower', cursive;
+}
+
+.font-handwriting-marker {
+  font-family: 'Permanent Marker', cursive;
+}
+
+.font-handwriting-pencil {
+  font-family: 'Shadows Into Light', cursive;
+}
+
 /* ===== GLOBAL STYLES ===== */
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -441,4 +610,251 @@ html {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ===== CLASSROOM SKEUOMORPHISM - CSS UTILITIES ===== */
+
+/* Graph Paper Patterns */
+.graph-paper-5mm {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 4.9mm,
+      rgba(59, 130, 246, 0.3) 4.9mm,
+      rgba(59, 130, 246, 0.3) 5mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 4.9mm,
+      rgba(59, 130, 246, 0.3) 4.9mm,
+      rgba(59, 130, 246, 0.3) 5mm
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .graph-paper-5mm {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 4.9mm,
+        rgba(59, 130, 246, 0.18) 4.9mm,
+        rgba(59, 130, 246, 0.18) 5mm
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 4.9mm,
+        rgba(59, 130, 246, 0.18) 4.9mm,
+        rgba(59, 130, 246, 0.18) 5mm
+      );
+  }
+}
+
+.graph-paper-1cm {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 9.9mm,
+      rgba(59, 130, 246, 0.4) 9.9mm,
+      rgba(59, 130, 246, 0.4) 10mm
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 9.9mm,
+      rgba(59, 130, 246, 0.4) 9.9mm,
+      rgba(59, 130, 246, 0.4) 10mm
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .graph-paper-1cm {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 9.9mm,
+        rgba(59, 130, 246, 0.25) 9.9mm,
+        rgba(59, 130, 246, 0.25) 10mm
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 9.9mm,
+        rgba(59, 130, 246, 0.25) 9.9mm,
+        rgba(59, 130, 246, 0.25) 10mm
+      );
+  }
+}
+
+.graph-paper-quad {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 24px,
+      rgba(59, 130, 246, 0.35) 24px,
+      rgba(59, 130, 246, 0.35) 25px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 24px,
+      rgba(59, 130, 246, 0.35) 24px,
+      rgba(59, 130, 246, 0.35) 25px
+    );
+}
+@media (prefers-color-scheme: dark) {
+  .graph-paper-quad {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 24px,
+        rgba(59, 130, 246, 0.2) 24px,
+        rgba(59, 130, 246, 0.2) 25px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 24px,
+        rgba(59, 130, 246, 0.2) 24px,
+        rgba(59, 130, 246, 0.2) 25px
+      );
+  }
+}
+
+.graph-paper-dot {
+  background-image:
+    radial-gradient(
+      circle,
+      rgba(59, 130, 246, 0.5) 1px,
+      transparent 1px
+    );
+  background-size: 20px 20px;
+}
+@media (prefers-color-scheme: dark) {
+  .graph-paper-dot {
+    background-image:
+      radial-gradient(
+        circle,
+        rgba(59, 130, 246, 0.3) 1px,
+        transparent 1px
+      );
+  }
+}
+
+/* Highlighter Marks */
+.highlight-yellow {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 255, 0, 0) 0.9%,
+    rgba(255, 255, 0, 0.3) 2.4%,
+    rgba(255, 255, 0, 0.4) 5.8%,
+    rgba(255, 255, 0, 0.5) 93%,
+    rgba(255, 255, 0, 0.4) 96%,
+    rgba(255, 255, 0, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-pink {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 182, 193, 0) 0.9%,
+    rgba(255, 182, 193, 0.3) 2.4%,
+    rgba(255, 182, 193, 0.4) 5.8%,
+    rgba(255, 182, 193, 0.5) 93%,
+    rgba(255, 182, 193, 0.4) 96%,
+    rgba(255, 182, 193, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-green {
+  background: linear-gradient(
+    104deg,
+    rgba(144, 238, 144, 0) 0.9%,
+    rgba(144, 238, 144, 0.3) 2.4%,
+    rgba(144, 238, 144, 0.4) 5.8%,
+    rgba(144, 238, 144, 0.5) 93%,
+    rgba(144, 238, 144, 0.4) 96%,
+    rgba(144, 238, 144, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-blue {
+  background: linear-gradient(
+    104deg,
+    rgba(173, 216, 230, 0) 0.9%,
+    rgba(173, 216, 230, 0.3) 2.4%,
+    rgba(173, 216, 230, 0.4) 5.8%,
+    rgba(173, 216, 230, 0.5) 93%,
+    rgba(173, 216, 230, 0.4) 96%,
+    rgba(173, 216, 230, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+.highlight-orange {
+  background: linear-gradient(
+    104deg,
+    rgba(255, 165, 0, 0) 0.9%,
+    rgba(255, 165, 0, 0.3) 2.4%,
+    rgba(255, 165, 0, 0.4) 5.8%,
+    rgba(255, 165, 0, 0.5) 93%,
+    rgba(255, 165, 0, 0.4) 96%,
+    rgba(255, 165, 0, 0) 98%
+  );
+  border-radius: 0.5em 0.3em;
+  padding: 0.1em 0.2em;
+}
+
+/* Rubber Stamp Styles */
+.rubber-stamp {
+  display: inline-block;
+  padding: 0.5em 1em;
+  border: 3px solid currentColor;
+  border-radius: 0.25em;
+  transform: rotate(-3deg);
+  opacity: 0.7;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rubber-stamp-red {
+  color: #dc2626;
+}
+
+.rubber-stamp-green {
+  color: #16a34a;
+}
+
+.rubber-stamp-blue {
+  color: #2563eb;
+}
+
+/* Handwriting Fonts */
+.font-handwriting-cursive {
+  font-family: 'Caveat', cursive;
+}
+
+.font-handwriting-print {
+  font-family: 'Indie Flower', cursive;
+}
+
+.font-handwriting-marker {
+  font-family: 'Permanent Marker', cursive;
+}
+
+.font-handwriting-pencil {
+  font-family: 'Shadows Into Light', cursive;
 }
