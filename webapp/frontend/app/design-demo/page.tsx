@@ -24,6 +24,10 @@ import {
   HandwrittenNote,
   CircleAnnotation,
   UnderlineAnnotation,
+  EngineeringPaper,
+  Certificate,
+  CompositionNotebook,
+  BinderTabs,
 } from "@/lib/design-system";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -630,6 +634,204 @@ export default function DesignDemoPage() {
                 Well done :)
               </HandwrittenNote>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Engineering Paper Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-6">Engineering & Technical Paper</h2>
+        <p className="text-muted-foreground mb-6">
+          Precise grid patterns for technical drawings, geometry proofs, and engineering diagrams
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <EngineeringPaper ruling="quad" scale="4-per-inch" showMeasurements={true} showMajorGrid={true}>
+            <div className="space-y-4 text-gray-900 dark:text-gray-100">
+              <h3 className="font-bold">Quad Ruling (4/inch)</h3>
+              <p className="text-sm">
+                Traditional engineering paper with light green grid lines and major gridlines every 5th line.
+                Perfect for technical sketches and geometric proofs.
+              </p>
+              <div className="mt-4 p-3 bg-blue-50/50 dark:bg-blue-900/50 rounded border border-blue-200 dark:border-blue-700">
+                <div className="text-xs font-mono dark:text-gray-100">Scale: 1:1</div>
+                <div className="text-xs font-mono dark:text-gray-100">Grid: 6.25mm × 6.25mm</div>
+              </div>
+            </div>
+          </EngineeringPaper>
+
+          <EngineeringPaper ruling="isometric" theme="white">
+            <div className="space-y-4 text-gray-900 dark:text-gray-100">
+              <h3 className="font-bold">Isometric Paper</h3>
+              <p className="text-sm">
+                Isometric grid for 3D drawings and technical illustrations.
+                60-degree angles for proper perspective.
+              </p>
+            </div>
+          </EngineeringPaper>
+        </div>
+      </section>
+
+      {/* Certificate Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-6">Certificates & Awards</h2>
+        <p className="text-muted-foreground mb-6">
+          Formal achievement certificates with decorative borders and ribbon seals
+        </p>
+        <div className="flex flex-col items-center space-y-8">
+          <div className="w-full max-w-5xl">
+            <Certificate
+              title="Certificate of Excellence"
+              recipientName="Jordan Martinez"
+              achievement="Outstanding Performance in Advanced Mathematics"
+              date="October 19, 2025"
+              variant="gold"
+              showSeal={true}
+            />
+          </div>
+
+          <div className="w-full max-w-5xl">
+            <Certificate
+              title="Achievement Award"
+              recipientName="Taylor Kim"
+              achievement="Mastery of Quadratic Equations"
+              date="October 15, 2025"
+              variant="silver"
+              showSeal={true}
+            >
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+                Awarded for demonstrating exceptional understanding and consistent high performance
+              </p>
+            </Certificate>
+          </div>
+        </div>
+      </section>
+
+      {/* Composition Notebook Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-6">Composition Notebook</h2>
+        <p className="text-muted-foreground mb-6">
+          Classic black marbled composition notebooks with sewn binding
+        </p>
+        <div className="flex justify-center">
+          <div className="w-full max-w-5xl">
+            <CompositionNotebook
+              coverLabel="Algebra II - Fall 2025"
+              ruling="college"
+              showCover={true}
+            >
+              <div className="space-y-8">
+                <div>
+                  <h3 className="font-bold text-xl mb-3">Chapter 1: Linear Equations</h3>
+                  <p className="text-sm leading-8">
+                    A linear equation is an algebraic equation in which each term is either a constant
+                    or the product of a constant and a single variable.
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Standard Form:</h4>
+                  <p className="text-sm font-mono leading-8">ax + by = c</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Slope-Intercept Form:</h4>
+                  <p className="text-sm font-mono leading-8">y = mx + b</p>
+                </div>
+              </div>
+            </CompositionNotebook>
+          </div>
+        </div>
+      </section>
+
+      {/* Binder Tabs Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-6">Binder Divider Tabs</h2>
+        <p className="text-muted-foreground mb-6">
+          Multi-section navigation with colored staggered tabs
+        </p>
+        <div className="flex justify-center">
+          <div className="w-full max-w-5xl">
+            <BinderTabs
+              tabs={[
+            {
+              label: "Ch. 1",
+              color: "red",
+              content: (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-2xl">Chapter 1: Foundations</h3>
+                  <p>
+                    This chapter covers the fundamental concepts of algebra, including
+                    variables, expressions, and basic equation solving.
+                  </p>
+                  <ul className="list-disc list-inside space-y-2">
+                    <li>Variables and Constants</li>
+                    <li>Algebraic Expressions</li>
+                    <li>Order of Operations</li>
+                    <li>Solving Simple Equations</li>
+                  </ul>
+                </div>
+              ),
+            },
+            {
+              label: "Ch. 2",
+              color: "orange",
+              content: (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-2xl">Chapter 2: Linear Functions</h3>
+                  <p>
+                    Explore linear relationships, graphing techniques, and real-world
+                    applications of linear functions.
+                  </p>
+                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded">
+                    <p className="font-mono text-sm">y = mx + b</p>
+                    <p className="text-xs mt-2">m = slope, b = y-intercept</p>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              label: "Ch. 3",
+              color: "yellow",
+              content: (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-2xl">Chapter 3: Systems of Equations</h3>
+                  <p>
+                    Learn multiple methods for solving systems of equations, including
+                    substitution, elimination, and graphing.
+                  </p>
+                </div>
+              ),
+            },
+            {
+              label: "Ch. 4",
+              color: "green",
+              content: (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-2xl">Chapter 4: Quadratic Functions</h3>
+                  <p>
+                    Master quadratic equations, parabolas, and the quadratic formula.
+                  </p>
+                  <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900 rounded">
+                    <p className="font-mono text-sm">x = (-b ± √(b² - 4ac)) / 2a</p>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              label: "Ch. 5",
+              color: "blue",
+              content: (
+                <div className="space-y-4">
+                  <h3 className="font-bold text-2xl">Chapter 5: Polynomials</h3>
+                  <p>
+                    Work with polynomial expressions, factoring, and polynomial division.
+                  </p>
+                </div>
+              ),
+            },
+          ]}
+          showBinderHoles={true}
+            />
           </div>
         </div>
       </section>
