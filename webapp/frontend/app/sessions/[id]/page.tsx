@@ -21,8 +21,8 @@ import {
   User,
   GraduationCap,
 } from "lucide-react";
-import { LEDMarqueeHeader } from "@/components/session/LEDMarqueeHeader";
-import { PreviousSessionPopover } from "@/components/session/PreviousSessionPopover";
+import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
+import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -73,10 +73,14 @@ export default function SessionDetailPage() {
   if (loading) {
     return (
       <PageTransition className="flex flex-col gap-6 p-8">
-        <div className="h-20 w-full bg-muted rounded animate-pulse" />
-        <GlassCard interactive={false} className="p-6">
-          <div className="h-64 bg-muted/30 rounded animate-pulse" />
-        </GlassCard>
+        {/* Chalkboard skeleton */}
+        <div className="h-[100px] w-full bg-[#2d4739] dark:bg-[#1a2821] rounded-lg animate-pulse border-8 border-[#4a3728] dark:border-[#3a2818]" />
+
+        {/* FileFolder skeleton */}
+        <div className="h-64 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47] paper-texture" />
+
+        {/* Notebook skeleton */}
+        <div className="h-48 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse paper-texture paper-wrinkled" />
       </PageTransition>
     );
   }
@@ -115,22 +119,18 @@ export default function SessionDetailPage() {
 
   return (
     <PageTransition className="flex flex-col gap-6 p-8">
-      {/* Header with LED Marquee */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="flex items-center gap-4"
-      >
+      {/* Bookmark Tab for Previous Session (fixed position) */}
+      <BookmarkTab previousSession={session.previous_session} />
+
+      {/* Header with Chalkboard */}
+      <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <LEDMarqueeHeader session={session} statusColor={statusColor} />
+          <ChalkboardHeader session={session} statusColor={statusColor} />
         </div>
-        {/* Previous Session Popover */}
-        <PreviousSessionPopover previousSession={session.previous_session} />
-      </motion.div>
+      </div>
 
       {/* Two-column layout: Session Info + Notebook */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6">
@@ -147,17 +147,6 @@ export default function SessionDetailPage() {
                 color: "blue",
                 content: (
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Date</p>
-                      <p className="font-medium">
-                        {new Date(session.session_date).toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Time Slot</p>
                       <div className="flex items-center gap-2">
