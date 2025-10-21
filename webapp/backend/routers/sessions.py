@@ -182,13 +182,24 @@ async def get_session_detail(
     ).order_by(SessionLog.session_date.desc()).first()
 
     if previous_session:
-        prev_session_data = SessionResponse.model_validate(previous_session)
+        prev_session_data = DetailedSessionResponse.model_validate(previous_session)
         prev_session_data.student_name = previous_session.student.student_name if previous_session.student else None
         prev_session_data.tutor_name = previous_session.tutor.tutor_name if previous_session.tutor else None
         prev_session_data.school_student_id = previous_session.student.school_student_id if previous_session.student else None
         prev_session_data.grade = previous_session.student.grade if previous_session.student else None
         prev_session_data.lang_stream = previous_session.student.lang_stream if previous_session.student else None
         prev_session_data.school = previous_session.student.school if previous_session.student else None
+
+        # Load exercises for previous session
+        prev_exercises = db.query(SessionExercise).filter(
+            SessionExercise.session_id == previous_session.id
+        ).all()
+
+        prev_session_data.exercises = [
+            SessionExerciseResponse.model_validate(exercise)
+            for exercise in prev_exercises
+        ]
+
         session_data.previous_session = prev_session_data
 
     return session_data

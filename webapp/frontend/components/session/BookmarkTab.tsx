@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { History, Star, BookmarkCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { History, Star, Home, ChevronDown, ChevronRight, BookOpen } from "lucide-react";
 import type { Session, HomeworkCompletion } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -14,12 +14,18 @@ interface BookmarkTabProps {
 
 export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isClassworkExpanded, setIsClassworkExpanded] = useState(false);
   const [isHomeworkExpanded, setIsHomeworkExpanded] = useState(false);
 
   if (!previousSession && homeworkToCheck.length === 0) return null;
 
   // Count star rating
   const starCount = previousSession ? (previousSession.performance_rating || "").split("⭐").length - 1 : 0;
+
+  // Get classwork from previous session
+  const classworkList = previousSession?.exercises?.filter(ex =>
+    ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  ) || [];
 
   // Count unchecked homework
   const uncheckedCount = homeworkToCheck.filter(hw =>
@@ -60,7 +66,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)',
               }}
             >
-              PREV
+              RECAP
             </div>
           </div>
 
@@ -109,6 +115,13 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                   {previousSession.session_status}
                 </Badge>
               </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Tutor</span>
+                <p className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                  {previousSession.tutor_name || "N/A"}
+                </p>
+              </div>
             </div>
 
             {/* Performance Rating */}
@@ -148,6 +161,85 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
               </div>
             )}
 
+            {/* Classwork - Collapsible */}
+            {classworkList.length > 0 && (
+              <div className="mb-3">
+                {/* Collapsible Header */}
+                <button
+                  onClick={() => setIsClassworkExpanded(!isClassworkExpanded)}
+                  className="w-full flex items-center gap-2 mb-3 hover:bg-[#8b6f47]/10 dark:hover:bg-[#8b6f47]/20 p-2 -mx-2 rounded transition-colors"
+                >
+                  {isClassworkExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-[#8b6f47]" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-[#8b6f47]" />
+                  )}
+                  <BookOpen className="h-4 w-4 text-[#8b6f47]" />
+                  <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                    Classwork
+                  </h4>
+                  <Badge variant="secondary" className="text-xs ml-auto">
+                    {classworkList.length}
+                  </Badge>
+                </button>
+
+                {/* Collapsible Content */}
+                <AnimatePresence>
+                  {isClassworkExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-1.5 pb-2">
+                        {classworkList.map((cw, index) => (
+                          <div
+                            key={cw.id}
+                            className={cn(
+                              "py-2 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
+                              index > 0 && "mt-1.5"
+                            )}
+                          >
+                            {/* Main row: PDF name */}
+                            <div className="mb-1">
+                              <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight">
+                                {cw.pdf_name}
+                              </p>
+                            </div>
+
+                            {/* Metadata row */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                              {(cw.page_start || cw.page_end) && (
+                                <span>
+                                  p.{cw.page_start}
+                                  {cw.page_end && cw.page_end !== cw.page_start && `-${cw.page_end}`}
+                                </span>
+                              )}
+                              {cw.created_by && (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-muted-foreground/50">•</span>
+                                  {cw.created_by}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Remarks if any */}
+                            {cw.remarks && (
+                              <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
+                                "{cw.remarks}"
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
             {/* Homework to Check - Collapsible */}
             {homeworkToCheck.length > 0 && (
               <div>
@@ -161,13 +253,13 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                   ) : (
                     <ChevronRight className="h-4 w-4 text-[#8b6f47]" />
                   )}
-                  <BookmarkCheck className="h-4 w-4 text-[#8b6f47]" />
+                  <Home className="h-4 w-4 text-[#8b6f47]" />
                   <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                    Homework to Check
+                    Homework
                   </h4>
                   {uncheckedCount > 0 && (
                     <Badge variant="destructive" className="text-xs ml-auto">
-                      {uncheckedCount} pending
+                      {uncheckedCount}
                     </Badge>
                   )}
                 </button>
