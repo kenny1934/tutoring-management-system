@@ -167,7 +167,7 @@ class DetailedSessionResponse(SessionResponse):
     """Detailed session response with exercises and homework completion"""
     exercises: List[SessionExerciseResponse] = []
     homework_completion: List[HomeworkCompletionResponse] = []
-    previous_session: Optional['SessionResponse'] = None
+    previous_session: Optional['DetailedSessionResponse'] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -216,3 +216,4 @@ class SessionFilters(BaseModel):
 
 # Enable forward references for nested models
 StudentDetailResponse.model_rebuild()
+DetailedSessionResponse.model_rebuild()
