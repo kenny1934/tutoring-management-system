@@ -156,6 +156,9 @@ class HomeworkCompletionResponse(BaseModel):
     pdf_name: Optional[str] = None
     page_start: Optional[int] = None
     page_end: Optional[int] = None
+    homework_assigned_date: Optional[date] = None
+    assigned_by_tutor_id: Optional[int] = None
+    assigned_by_tutor: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

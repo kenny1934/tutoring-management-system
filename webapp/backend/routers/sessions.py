@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse
 
 router = APIRouter()
@@ -131,16 +131,45 @@ async def get_session_detail(
         for exercise in exercises
     ]
 
-    # Load homework completion for this session and student
-    homework_completions = db.query(HomeworkCompletion).filter(
-        HomeworkCompletion.current_session_id == session_id,
-        HomeworkCompletion.student_id == session.student_id
+    # Load homework to check from previous session (using homework_to_check view)
+    homework_to_check = db.query(HomeworkToCheck).filter(
+        HomeworkToCheck.current_session_id == session_id
     ).all()
 
-    session_data.homework_completion = [
-        HomeworkCompletionResponse.model_validate(hw)
-        for hw in homework_completions
-    ]
+    # Convert homework_to_check view data to HomeworkCompletionResponse format
+    homework_completion_list = []
+    for hw in homework_to_check:
+        # Parse pages field (e.g., "p.1-3" or "p.5") into page_start and page_end
+        page_start = None
+        page_end = None
+        if hw.pages:
+            pages_str = hw.pages.replace('p.', '')
+            if '-' in pages_str:
+                parts = pages_str.split('-')
+                page_start = int(parts[0]) if parts[0].isdigit() else None
+                page_end = int(parts[1]) if parts[1].isdigit() else None
+            elif pages_str.isdigit():
+                page_start = int(pages_str)
+
+        homework_completion_list.append(HomeworkCompletionResponse(
+            id=hw.session_exercise_id,  # Use exercise ID as identifier
+            current_session_id=hw.current_session_id,
+            session_exercise_id=hw.session_exercise_id,
+            student_id=hw.student_id,
+            completion_status=hw.completion_status,
+            submitted=hw.submitted or False,
+            tutor_comments=hw.tutor_comments,
+            checked_by=hw.checked_by,
+            checked_at=hw.checked_at,
+            pdf_name=hw.pdf_name,
+            page_start=page_start,
+            page_end=page_end,
+            homework_assigned_date=hw.homework_assigned_date,
+            assigned_by_tutor_id=hw.assigned_by_tutor_id,
+            assigned_by_tutor=hw.assigned_by_tutor
+        ))
+
+    session_data.homework_completion = homework_completion_list
 
     # Load previous session (most recent attended session for same student, any tutor)
     previous_session = db.query(SessionLog).options(
