@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { GlassCard, PageTransition } from "@/lib/design-system";
+import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, FileFolder, Certificate } from "@/lib/design-system";
 import { motion } from "framer-motion";
 import type { Session } from "@/types";
 import {
@@ -15,9 +15,13 @@ import {
   BookOpen,
   NotebookPen,
   Home,
+  Calendar,
+  Clock,
+  MapPin,
+  User,
+  GraduationCap,
 } from "lucide-react";
 import { LEDMarqueeHeader } from "@/components/session/LEDMarqueeHeader";
-import { SessionTabsCard } from "@/components/session/SessionTabsCard";
 import { PreviousSessionPopover } from "@/components/session/PreviousSessionPopover";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -97,6 +101,18 @@ export default function SessionDetailPage() {
   // Count emoji stars in performance rating
   const starCount = (session.performance_rating || "").split("⭐").length - 1;
 
+  // Convert star count to letter grade
+  const getLetterGrade = (stars: number): string => {
+    if (stars >= 5) return "A+";
+    if (stars >= 4) return "A";
+    if (stars >= 3) return "B";
+    if (stars >= 2) return "C";
+    if (stars >= 1) return "D";
+    return "F";
+  };
+
+  const letterGrade = getLetterGrade(starCount);
+
   return (
     <PageTransition className="flex flex-col gap-6 p-8">
       {/* Header with LED Marquee */}
@@ -118,13 +134,111 @@ export default function SessionDetailPage() {
 
       {/* Two-column layout: Session Info + Notebook */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6">
-        {/* Single Tabbed Card */}
+        {/* File Folder with Session Info and People tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
         >
-          <SessionTabsCard session={session} />
+          <FileFolder
+            tabs={[
+              {
+                label: "Session",
+                color: "blue",
+                content: (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Date</p>
+                      <p className="font-medium">
+                        {new Date(session.session_date).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Time Slot</p>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <p className="font-medium">{session.time_slot || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Location</p>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <p className="font-medium">{session.location || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Financial Status</p>
+                      {session.financial_status === "Paid" ? (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+                          className="flex items-center gap-2 p-2 bg-success/10 border border-success/30 rounded-lg w-fit"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-success" />
+                          <Badge variant="success">{session.financial_status}</Badge>
+                        </motion.div>
+                      ) : (
+                        <Badge variant="warning">{session.financial_status || "Unpaid"}</Badge>
+                      )}
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                label: "People",
+                color: "green",
+                content: (
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Student</p>
+                      <p className="font-semibold text-xl">{session.student_name || "Unknown"}</p>
+                      {session.school_student_id && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          ID: {session.school_student_id}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1.5">Grade</p>
+                        <Badge variant="outline" className="w-fit">
+                          {session.grade || "N/A"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1.5">Stream</p>
+                        <Badge variant="outline" className="w-fit">
+                          {session.lang_stream || "N/A"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">School</p>
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                        <p className="font-medium">{session.school || "N/A"}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Tutor</p>
+                      <p className="font-medium text-lg">{session.tutor_name || "Not Assigned"}</p>
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
+            defaultTab={0}
+          />
         </motion.div>
 
         {/* Spiral Notebook - Performance & Notes */}
@@ -173,33 +287,11 @@ export default function SessionDetailPage() {
                     {session.performance_rating && (
                       <motion.div
                         initial={{ scale: 0, rotate: 0 }}
-                        animate={{ scale: 1, rotate: -6 }}
+                        animate={{ scale: 1, rotate: -12 }}
                         transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
                         className="float-right ml-4 mb-2 mr-2"
-                        style={{ shapeOutside: 'circle(50%)' }}
                       >
-                        <div
-                          className="w-20 h-20 rounded-full bg-warning/90 border-4 border-warning/40 shadow-xl shadow-warning/20 flex flex-col items-center justify-center backdrop-blur-sm"
-                          style={{ shapeOutside: 'circle(50%)' }}
-                        >
-                          <div className="flex gap-0.5 mb-0.5">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star
-                                key={i}
-                                className={cn(
-                                  "h-2.5 w-2.5",
-                                  i < starCount
-                                    ? "text-white fill-white"
-                                    : "text-white/30 fill-white/30"
-                                )}
-                              />
-                            ))}
-                          </div>
-                          <div className="text-white font-bold text-xs">
-                            {starCount}/5
-                          </div>
-                          <div className="text-white/80 text-[10px] font-medium">RATING</div>
-                        </div>
+                        <GradeStamp grade={letterGrade} size="lg" />
                       </motion.div>
                     )}
 
@@ -219,29 +311,11 @@ export default function SessionDetailPage() {
                     {/* Performance Rating as Grade Stamp - centered when no notes */}
                     <motion.div
                       initial={{ scale: 0, rotate: 0 }}
-                      animate={{ scale: 1, rotate: -6 }}
+                      animate={{ scale: 1, rotate: -8 }}
                       transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
                       className="flex justify-center"
                     >
-                      <div className="w-20 h-20 rounded-full bg-warning/90 border-4 border-warning/40 shadow-xl shadow-warning/20 flex flex-col items-center justify-center backdrop-blur-sm">
-                        <div className="flex gap-0.5 mb-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={cn(
-                                "h-2.5 w-2.5",
-                                i < starCount
-                                  ? "text-white fill-white"
-                                  : "text-white/30 fill-white/30"
-                              )}
-                            />
-                          ))}
-                        </div>
-                        <div className="text-white font-bold text-xs">
-                          {starCount}/5
-                        </div>
-                        <div className="text-white/80 text-[10px] font-medium">RATING</div>
-                      </div>
+                      <GradeStamp grade={letterGrade} size="lg" />
                     </motion.div>
                   </div>
                 ) : null}
@@ -254,187 +328,200 @@ export default function SessionDetailPage() {
 
       {/* Courseware Section */}
       {session.exercises && session.exercises.length > 0 && (
-        <motion.div
-          variants={refinedCardVariants}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: 0.5 }}
-        >
-          <GlassCard interactive={false} className="p-6 border-success/20">
-          <div className="flex items-center gap-3 mb-4">
-            <BookOpen className="h-5 w-5 text-success" />
-            <h2 className="text-lg font-semibold">Courseware</h2>
-          </div>
-          <div className="space-y-6">
-            {/* Classwork */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <NotebookPen className="h-4 w-4" />
-                Classwork
-              </h3>
-              <div className="space-y-2">
-                {session.exercises
-                  .filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW")
-                  .map((exercise) => (
-                    <div
-                      key={exercise.id}
-                      className="p-3 bg-background/50 rounded-lg border border-border"
-                    >
-                      <p className="font-medium">{exercise.pdf_name}</p>
-                      {exercise.page_start && exercise.page_end ? (
-                        <p className="text-sm text-muted-foreground">
-                          Pages {exercise.page_start}-{exercise.page_end}
-                        </p>
-                      ) : exercise.page_start ? (
-                        <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Entire PDF</p>
-                      )}
-                      {exercise.remarks && (
-                        <p className="text-sm text-muted-foreground mt-1">{exercise.remarks}</p>
-                      )}
-                    </div>
-                  ))}
-                {session.exercises.filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW").length === 0 && (
-                  <p className="text-sm text-muted-foreground">No classwork assigned</p>
-                )}
-              </div>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Classwork Worksheet */}
+          {session.exercises.filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW").length > 0 && (
+            <motion.div
+              variants={refinedCardVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.5 }}
+            >
+              <WorksheetCard title="Classwork" numbering="none">
+                <div className="space-y-3">
+                  {session.exercises
+                    .filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW")
+                    .map((exercise, index) => (
+                      <WorksheetProblem key={exercise.id} number={index + 1}>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{exercise.pdf_name}</p>
+                          {exercise.page_start && exercise.page_end ? (
+                            <p className="text-sm text-muted-foreground">
+                              Pages {exercise.page_start}-{exercise.page_end}
+                            </p>
+                          ) : exercise.page_start ? (
+                            <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Entire PDF</p>
+                          )}
+                          {exercise.remarks && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>
+                          )}
+                        </div>
+                      </WorksheetProblem>
+                    ))}
+                </div>
+              </WorksheetCard>
+            </motion.div>
+          )}
 
-            {/* Visual separator */}
-            <div className="border-t border-border my-4"></div>
-
-            {/* Homework */}
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Homework
-              </h3>
-              <div className="space-y-2">
-                {session.exercises
-                  .filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW")
-                  .map((exercise) => (
-                    <div
-                      key={exercise.id}
-                      className="p-3 bg-background/50 rounded-lg border border-border"
-                    >
-                      <p className="font-medium">{exercise.pdf_name}</p>
-                      {exercise.page_start && exercise.page_end ? (
-                        <p className="text-sm text-muted-foreground">
-                          Pages {exercise.page_start}-{exercise.page_end}
-                        </p>
-                      ) : exercise.page_start ? (
-                        <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Entire PDF</p>
-                      )}
-                      {exercise.remarks && (
-                        <p className="text-sm text-muted-foreground mt-1">{exercise.remarks}</p>
-                      )}
-                    </div>
-                  ))}
-                {session.exercises.filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW").length === 0 && (
-                  <p className="text-sm text-muted-foreground">No homework assigned</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </GlassCard>
-        </motion.div>
+          {/* Homework Worksheet */}
+          {session.exercises.filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW").length > 0 && (
+            <motion.div
+              variants={refinedCardVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.6 }}
+            >
+              <WorksheetCard title="Homework" numbering="none">
+                <div className="space-y-3">
+                  {session.exercises
+                    .filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW")
+                    .map((exercise, index) => (
+                      <WorksheetProblem key={exercise.id} number={index + 1}>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{exercise.pdf_name}</p>
+                          {exercise.page_start && exercise.page_end ? (
+                            <p className="text-sm text-muted-foreground">
+                              Pages {exercise.page_start}-{exercise.page_end}
+                            </p>
+                          ) : exercise.page_start ? (
+                            <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Entire PDF</p>
+                          )}
+                          {exercise.remarks && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>
+                          )}
+                        </div>
+                      </WorksheetProblem>
+                    ))}
+                </div>
+              </WorksheetCard>
+            </motion.div>
+          )}
+        </div>
       )}
 
-      {/* Homework Completion Section */}
+      {/* Homework Completion Section - Index Card Grid */}
       {session.homework_completion && session.homework_completion.length > 0 && (
-        <motion.div
-          variants={refinedCardVariants}
-          initial="hidden"
-          animate="visible"
-          transition={{ delay: 0.6 }}
-        >
-          <GlassCard interactive={false} className="p-6 border-info/20">
-          <div className="flex items-center gap-3 mb-4">
+        <div>
+          <div className="flex items-center gap-3 mb-6">
             <CheckCircle2 className="h-5 w-5 text-info" />
             <h2 className="text-lg font-semibold">Homework Completion</h2>
           </div>
-          <div className="space-y-3">
-            {session.homework_completion.map((hw) => (
-              <div key={hw.id} className="p-4 bg-background/50 rounded-lg border border-border">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <p className="font-medium">{hw.pdf_name}</p>
-                    {hw.page_start && hw.page_end ? (
-                      <p className="text-sm text-muted-foreground">
-                        Pages {hw.page_start}-{hw.page_end}
-                      </p>
-                    ) : hw.page_start ? (
-                      <p className="text-sm text-muted-foreground">Page {hw.page_start}</p>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-2">
-                    {hw.submitted && (
-                      <Badge variant="outline" className="text-xs">
-                        Submitted
-                      </Badge>
-                    )}
-                    {hw.completion_status && (
-                      <Badge
-                        variant={
-                          hw.completion_status === "Completed"
-                            ? "success"
-                            : hw.completion_status === "Partially Completed"
-                            ? "warning"
-                            : hw.completion_status === "Not Completed"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                      >
-                        {hw.completion_status}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                {hw.tutor_comments && (
-                  <div className="mt-2 pt-2 border-t border-border">
-                    <p className="text-sm text-muted-foreground">Tutor Comments:</p>
-                    <p className="text-sm">{hw.tutor_comments}</p>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {session.homework_completion.map((hw, index) => {
+              // Determine card color based on completion status
+              const cardColor = hw.completion_status === "Completed"
+                ? "cream"
+                : hw.completion_status === "Partially Completed"
+                ? "yellow"
+                : "white";
+
+              // Alternate rotation for realism
+              const rotation = index % 3 === 0 ? -1 : index % 3 === 1 ? 0.5 : -0.5;
+
+              return (
+                <motion.div
+                  key={hw.id}
+                  variants={refinedCardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.7 + index * 0.1 }}
+                  style={{ transform: `rotate(${rotation}deg)` }}
+                >
+                  <IndexCard size="4x6" lined color={cardColor}>
+                    <div className="space-y-2">
+                      {/* Title with status badge */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-bold text-sm leading-tight flex-1">{hw.pdf_name}</h3>
+                        {hw.completion_status && (
+                          <Badge
+                            variant={
+                              hw.completion_status === "Completed"
+                                ? "success"
+                                : hw.completion_status === "Partially Completed"
+                                ? "warning"
+                                : hw.completion_status === "Not Completed"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="text-[10px] h-5 shrink-0"
+                          >
+                            {hw.completion_status}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Page range */}
+                      {hw.page_start && hw.page_end ? (
+                        <p className="text-xs text-muted-foreground">
+                          Pages {hw.page_start}-{hw.page_end}
+                        </p>
+                      ) : hw.page_start ? (
+                        <p className="text-xs text-muted-foreground">Page {hw.page_start}</p>
+                      ) : null}
+
+                      {/* Submitted badge */}
+                      {hw.submitted && (
+                        <Badge variant="outline" className="text-[10px] h-5 w-fit">
+                          ✓ Submitted
+                        </Badge>
+                      )}
+
+                      {/* Tutor comments in handwritten style */}
+                      {hw.tutor_comments && (
+                        <div className="mt-3 pt-2 border-t border-border/30">
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+                            Tutor Notes:
+                          </p>
+                          <p className="text-xs leading-relaxed italic">
+                            {hw.tutor_comments}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </IndexCard>
+                </motion.div>
+              );
+            })}
           </div>
-        </GlassCard>
-        </motion.div>
+        </div>
       )}
 
-      {/* Coming Soon Sections (Toned Down) */}
+      {/* Future Features Certificate */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
-        <motion.div
-          animate={{
-            boxShadow: [
-              "0 0 15px rgba(200, 16, 46, 0.2)",
-              "0 0 25px rgba(200, 16, 46, 0.35)",
-              "0 0 15px rgba(200, 16, 46, 0.2)"
-            ]
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
+        <Certificate
+          title="Future Enhancements"
+          recipientName="CSM Pro Students & Tutors"
+          achievement="Advanced Session Features"
+          date="Coming Q1 2026"
+          signedBy="Development Team"
+          variant="silver"
+          showSeal={true}
         >
-          <GlassCard interactive={false} className="p-6 border-2 border-dashed border-primary/30">
-            <div className="text-center py-8">
-              <h3 className="text-lg font-semibold mb-2 text-gradient">Coming Soon</h3>
-              <p className="text-sm text-muted-foreground">
-                Test scores, attendance analytics, and Google Calendar integration
-              </p>
+          <div className="mt-6 space-y-2">
+            <p className="text-base text-muted-foreground">
+              Upcoming features to enhance your learning experience:
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 mt-4">
+              <Badge variant="outline" className="text-sm">
+                Test Scores
+              </Badge>
+              <Badge variant="outline" className="text-sm">
+                Attendance Analytics
+              </Badge>
+              <Badge variant="outline" className="text-sm">
+                Google Calendar Integration
+              </Badge>
             </div>
-          </GlassCard>
-        </motion.div>
+          </div>
+        </Certificate>
       </motion.div>
     </PageTransition>
   );
