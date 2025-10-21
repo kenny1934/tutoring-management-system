@@ -3,21 +3,28 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { History, Star } from "lucide-react";
-import type { Session } from "@/types";
+import { History, Star, BookmarkCheck } from "lucide-react";
+import type { Session, HomeworkCompletion } from "@/types";
 import { cn } from "@/lib/utils";
+import { IndexCard } from "@/lib/design-system";
 
 interface BookmarkTabProps {
   previousSession: Session["previous_session"];
+  homeworkToCheck?: HomeworkCompletion[];
 }
 
-export function BookmarkTab({ previousSession }: BookmarkTabProps) {
+export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (!previousSession) return null;
+  if (!previousSession && homeworkToCheck.length === 0) return null;
 
   // Count star rating
-  const starCount = (previousSession.performance_rating || "").split("⭐").length - 1;
+  const starCount = previousSession ? (previousSession.performance_rating || "").split("⭐").length - 1 : 0;
+
+  // Count unchecked homework
+  const uncheckedCount = homeworkToCheck.filter(hw =>
+    !hw.completion_status || hw.completion_status === "Not Checked"
+  ).length;
 
   return (
     <div className="fixed right-0 top-1/4 z-40">
@@ -57,9 +64,11 @@ export function BookmarkTab({ previousSession }: BookmarkTabProps) {
             </div>
           </div>
 
-          {/* Notification dot */}
-          {previousSession.performance_rating && (
-            <span className="absolute top-2 right-2 w-2 h-2 bg-warning rounded-full animate-pulse" />
+          {/* Notification badge */}
+          {uncheckedCount > 0 && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+              <span className="text-[10px] font-bold text-white">{uncheckedCount}</span>
+            </div>
           )}
         </button>
 
@@ -129,12 +138,79 @@ export function BookmarkTab({ previousSession }: BookmarkTabProps) {
 
             {/* Notes Preview */}
             {previousSession.notes && (
-              <div>
+              <div className="mb-4">
                 <p className="text-xs text-muted-foreground mb-2">Session Notes</p>
                 <div className="p-3 bg-background/50 rounded border border-border/50">
                   <p className="text-xs leading-relaxed line-clamp-4 text-foreground/80 italic">
                     {previousSession.notes}
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Homework to Check */}
+            {homeworkToCheck.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <BookmarkCheck className="h-4 w-4 text-[#8b6f47]" />
+                  <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Homework to Check</h4>
+                  {uncheckedCount > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {uncheckedCount} pending
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {homeworkToCheck.map((hw) => (
+                    <IndexCard
+                      key={hw.id}
+                      variant="blue"
+                      className="text-xs"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">
+                            {hw.pdf_name}
+                          </p>
+                          <Badge
+                            variant={
+                              hw.completion_status === "Completed" ? "success" :
+                              hw.completion_status === "Partially Completed" ? "warning" :
+                              hw.completion_status === "Not Completed" ? "destructive" :
+                              "default"
+                            }
+                            className="text-[10px] shrink-0"
+                          >
+                            {hw.completion_status || "Not Checked"}
+                          </Badge>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground space-y-0.5">
+                          {(hw.page_start || hw.page_end) && (
+                            <p>
+                              Pages: {hw.page_start}
+                              {hw.page_end && hw.page_end !== hw.page_start && `-${hw.page_end}`}
+                            </p>
+                          )}
+                          {hw.homework_assigned_date && (
+                            <p>
+                              Assigned: {new Date(hw.homework_assigned_date).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </p>
+                          )}
+                          {hw.assigned_by_tutor && (
+                            <p>By: {hw.assigned_by_tutor}</p>
+                          )}
+                        </div>
+                        {hw.tutor_comments && (
+                          <p className="text-[10px] italic text-foreground/70 mt-1">
+                            "{hw.tutor_comments}"
+                          </p>
+                        )}
+                      </div>
+                    </IndexCard>
+                  ))}
                 </div>
               </div>
             )}
