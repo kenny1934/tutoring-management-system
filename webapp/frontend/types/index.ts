@@ -62,6 +62,9 @@ export interface HomeworkCompletion {
   pdf_name?: string;
   page_start?: number;
   page_end?: number;
+  homework_assigned_date?: string;
+  assigned_by_tutor_id?: number;
+  assigned_by_tutor?: string;
 }
 
 // Session types

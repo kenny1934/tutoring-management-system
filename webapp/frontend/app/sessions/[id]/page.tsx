@@ -120,7 +120,10 @@ export default function SessionDetailPage() {
   return (
     <PageTransition className="flex flex-col gap-6 p-8">
       {/* Bookmark Tab for Previous Session (fixed position) */}
-      <BookmarkTab previousSession={session.previous_session} />
+      <BookmarkTab
+        previousSession={session.previous_session}
+        homeworkToCheck={session.homework_completion}
+      />
 
       {/* Header with Chalkboard */}
       <div className="flex items-center gap-4">
@@ -389,93 +392,6 @@ export default function SessionDetailPage() {
               </WorksheetCard>
             </motion.div>
           )}
-        </div>
-      )}
-
-      {/* Homework Completion Section - Index Card Grid */}
-      {session.homework_completion && session.homework_completion.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-6">
-            <CheckCircle2 className="h-5 w-5 text-info" />
-            <h2 className="text-lg font-semibold">Homework Completion</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {session.homework_completion.map((hw, index) => {
-              // Determine card color based on completion status
-              const cardColor = hw.completion_status === "Completed"
-                ? "cream"
-                : hw.completion_status === "Partially Completed"
-                ? "yellow"
-                : "white";
-
-              // Alternate rotation for realism
-              const rotation = index % 3 === 0 ? -1 : index % 3 === 1 ? 0.5 : -0.5;
-
-              return (
-                <motion.div
-                  key={hw.id}
-                  variants={refinedCardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ delay: 0.7 + index * 0.1 }}
-                  style={{ transform: `rotate(${rotation}deg)` }}
-                >
-                  <IndexCard size="4x6" lined color={cardColor}>
-                    <div className="space-y-2">
-                      {/* Title with status badge */}
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-bold text-sm leading-tight flex-1">{hw.pdf_name}</h3>
-                        {hw.completion_status && (
-                          <Badge
-                            variant={
-                              hw.completion_status === "Completed"
-                                ? "success"
-                                : hw.completion_status === "Partially Completed"
-                                ? "warning"
-                                : hw.completion_status === "Not Completed"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                            className="text-[10px] h-5 shrink-0"
-                          >
-                            {hw.completion_status}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Page range */}
-                      {hw.page_start && hw.page_end ? (
-                        <p className="text-xs text-muted-foreground">
-                          Pages {hw.page_start}-{hw.page_end}
-                        </p>
-                      ) : hw.page_start ? (
-                        <p className="text-xs text-muted-foreground">Page {hw.page_start}</p>
-                      ) : null}
-
-                      {/* Submitted badge */}
-                      {hw.submitted && (
-                        <Badge variant="outline" className="text-[10px] h-5 w-fit">
-                          ✓ Submitted
-                        </Badge>
-                      )}
-
-                      {/* Tutor comments in handwritten style */}
-                      {hw.tutor_comments && (
-                        <div className="mt-3 pt-2 border-t border-border/30">
-                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-                            Tutor Notes:
-                          </p>
-                          <p className="text-xs leading-relaxed italic">
-                            {hw.tutor_comments}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </IndexCard>
-                </motion.div>
-              );
-            })}
-          </div>
         </div>
       )}
 

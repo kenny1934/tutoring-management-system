@@ -250,3 +250,42 @@ class HomeworkCompletion(Base):
     exercise = relationship("SessionExercise", foreign_keys=[session_exercise_id])
     student = relationship("Student", foreign_keys=[student_id])
     checked_by_tutor = relationship("Tutor", foreign_keys=[checked_by])
+
+
+class HomeworkToCheck(Base):
+    """
+    View that shows homework from previous session that needs checking in current session.
+    Read-only view - combines data from session_exercises and homework_completion.
+    """
+    __tablename__ = "homework_to_check"
+    __table_args__ = {'info': {'is_view': True}}  # Mark as view for SQLAlchemy
+
+    # Use composite primary key since this is a view
+    current_session_id = Column(Integer, primary_key=True)
+    session_exercise_id = Column(Integer, primary_key=True)
+
+    # Session info
+    student_id = Column(Integer)
+    current_tutor_id = Column(Integer)
+    current_session_date = Column(Date)
+    student_name = Column(String(255))
+    current_tutor_name = Column(String(255))
+
+    # Previous session info
+    previous_session_id = Column(Integer)
+    homework_assigned_date = Column(Date)
+    assigned_by_tutor_id = Column(Integer)
+    assigned_by_tutor = Column(String(255))
+
+    # Homework details from session_exercises
+    pdf_name = Column(String(255))
+    pages = Column(String(50))
+    assignment_remarks = Column(Text)
+
+    # Completion status from homework_completion (if checked)
+    completion_status = Column(String(50))
+    submitted = Column(Boolean)
+    tutor_comments = Column(Text)
+    checked_at = Column(DateTime)
+    checked_by = Column(Integer)
+    check_status = Column(String(20))  # 'Checked' or 'Pending'
