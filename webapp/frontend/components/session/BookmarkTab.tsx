@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { History, Star, BookmarkCheck } from "lucide-react";
+import { History, Star, BookmarkCheck, ChevronDown, ChevronRight } from "lucide-react";
 import type { Session, HomeworkCompletion } from "@/types";
 import { cn } from "@/lib/utils";
-import { IndexCard } from "@/lib/design-system";
 
 interface BookmarkTabProps {
   previousSession: Session["previous_session"];
@@ -15,6 +14,7 @@ interface BookmarkTabProps {
 
 export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkTabProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isHomeworkExpanded, setIsHomeworkExpanded] = useState(false);
 
   if (!previousSession && homeworkToCheck.length === 0) return null;
 
@@ -73,13 +73,13 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
         </button>
 
         {/* Expanded Content Card */}
-        <div className="w-72 bg-[#fef9f3] dark:bg-[#2d2618] shadow-2xl border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-r-lg overflow-hidden">
+        <div className="relative w-72 max-h-[calc(100vh-16rem)] bg-[#fef9f3] dark:bg-[#2d2618] shadow-2xl border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-r-lg overflow-hidden">
           {/* Paper texture background */}
           <div className="absolute inset-0 opacity-30 pointer-events-none" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
           }} />
 
-          <div className="relative p-5">
+          <div className="relative p-4 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#d4a574] scrollbar-track-transparent [scrollbar-gutter:stable]">
             {/* Header */}
             <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#d4a574]/30">
               <History className="h-4 w-4 text-[#8b6f47]" />
@@ -87,7 +87,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
             </div>
 
             {/* Date and Status */}
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3 mb-3">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Date</p>
                 <p className="font-medium text-gray-900 dark:text-gray-100">
@@ -113,7 +113,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
 
             {/* Performance Rating */}
             {previousSession.performance_rating && (
-              <div className="mb-4 p-3 bg-warning/10 rounded-lg border border-warning/20">
+              <div className="mb-3 p-3 bg-warning/10 rounded-lg border border-warning/20">
                 <p className="text-xs text-muted-foreground mb-2">Performance</p>
                 <div className="flex items-center gap-2">
                   <div className="flex gap-0.5">
@@ -138,7 +138,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
 
             {/* Notes Preview */}
             {previousSession.notes && (
-              <div className="mb-4">
+              <div className="mb-3">
                 <p className="text-xs text-muted-foreground mb-2">Session Notes</p>
                 <div className="p-3 bg-background/50 rounded border border-border/50">
                   <p className="text-xs leading-relaxed line-clamp-4 text-foreground/80 italic">
@@ -148,70 +148,104 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
               </div>
             )}
 
-            {/* Homework to Check */}
+            {/* Homework to Check - Collapsible */}
             {homeworkToCheck.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
+                {/* Collapsible Header */}
+                <button
+                  onClick={() => setIsHomeworkExpanded(!isHomeworkExpanded)}
+                  className="w-full flex items-center gap-2 mb-3 hover:bg-[#8b6f47]/10 dark:hover:bg-[#8b6f47]/20 p-2 -mx-2 rounded transition-colors"
+                >
+                  {isHomeworkExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-[#8b6f47]" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-[#8b6f47]" />
+                  )}
                   <BookmarkCheck className="h-4 w-4 text-[#8b6f47]" />
-                  <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Homework to Check</h4>
+                  <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                    Homework to Check
+                  </h4>
                   {uncheckedCount > 0 && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-xs ml-auto">
                       {uncheckedCount} pending
                     </Badge>
                   )}
-                </div>
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                  {homeworkToCheck.map((hw) => (
-                    <IndexCard
-                      key={hw.id}
-                      variant="blue"
-                      className="text-xs"
+                </button>
+
+                {/* Collapsible Content */}
+                <AnimatePresence>
+                  {isHomeworkExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden"
                     >
-                      <div className="space-y-1.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">
-                            {hw.pdf_name}
-                          </p>
-                          <Badge
-                            variant={
-                              hw.completion_status === "Completed" ? "success" :
-                              hw.completion_status === "Partially Completed" ? "warning" :
-                              hw.completion_status === "Not Completed" ? "destructive" :
-                              "default"
-                            }
-                            className="text-[10px] shrink-0"
+                      <div className="space-y-1.5 pb-2">
+                        {homeworkToCheck.map((hw, index) => (
+                          <div
+                            key={hw.id}
+                            className={cn(
+                              "py-2 px-2.5 bg-[#f5ede3]/50 dark:bg-[#3a3020]/30 rounded border border-[#d4a574]/20",
+                              index > 0 && "mt-1.5"
+                            )}
                           >
-                            {hw.completion_status || "Not Checked"}
-                          </Badge>
-                        </div>
-                        <div className="text-[10px] text-muted-foreground space-y-0.5">
-                          {(hw.page_start || hw.page_end) && (
-                            <p>
-                              Pages: {hw.page_start}
-                              {hw.page_end && hw.page_end !== hw.page_start && `-${hw.page_end}`}
-                            </p>
-                          )}
-                          {hw.homework_assigned_date && (
-                            <p>
-                              Assigned: {new Date(hw.homework_assigned_date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </p>
-                          )}
-                          {hw.assigned_by_tutor && (
-                            <p>By: {hw.assigned_by_tutor}</p>
-                          )}
-                        </div>
-                        {hw.tutor_comments && (
-                          <p className="text-[10px] italic text-foreground/70 mt-1">
-                            "{hw.tutor_comments}"
-                          </p>
-                        )}
+                            {/* Main row: PDF name and status */}
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight">
+                                {hw.pdf_name}
+                              </p>
+                              <Badge
+                                variant={
+                                  hw.completion_status === "Completed" ? "success" :
+                                  hw.completion_status === "Partially Completed" ? "warning" :
+                                  hw.completion_status === "Not Completed" ? "destructive" :
+                                  "default"
+                                }
+                                className="text-[9px] h-4 px-1.5 shrink-0"
+                              >
+                                {hw.completion_status || "Not Checked"}
+                              </Badge>
+                            </div>
+
+                            {/* Metadata row */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                              {(hw.page_start || hw.page_end) && (
+                                <span>
+                                  p.{hw.page_start}
+                                  {hw.page_end && hw.page_end !== hw.page_start && `-${hw.page_end}`}
+                                </span>
+                              )}
+                              {hw.homework_assigned_date && (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-muted-foreground/50">•</span>
+                                  {new Date(hw.homework_assigned_date).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              )}
+                              {hw.assigned_by_tutor && (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-muted-foreground/50">•</span>
+                                  {hw.assigned_by_tutor}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Comments if any */}
+                            {hw.tutor_comments && (
+                              <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
+                                "{hw.tutor_comments}"
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    </IndexCard>
-                  ))}
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </div>
