@@ -25,6 +25,7 @@ import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { DeskSurface } from "@/components/layout/DeskSurface";
 
 // Refined card animation variant (less dramatic)
 const refinedCardVariants = {
@@ -118,12 +119,13 @@ export default function SessionDetailPage() {
   const letterGrade = getLetterGrade(starCount);
 
   return (
-    <PageTransition className="flex flex-col gap-6 p-8">
-      {/* Bookmark Tab for Previous Session (fixed position) */}
-      <BookmarkTab
-        previousSession={session.previous_session}
-        homeworkToCheck={session.homework_completion}
-      />
+    <DeskSurface>
+      <PageTransition className="flex flex-col gap-6 p-8">
+        {/* Bookmark Tab for Previous Session (fixed position) */}
+        <BookmarkTab
+          previousSession={session.previous_session}
+          homeworkToCheck={session.homework_completion}
+        />
 
       {/* Header with Chalkboard */}
       <div className="flex items-center gap-4">
@@ -142,8 +144,10 @@ export default function SessionDetailPage() {
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          style={{ transform: 'rotate(-1.5deg)' }}
         >
           <FileFolder
+            className="desk-shadow-high"
             tabs={[
               {
                 label: "Session",
@@ -241,9 +245,10 @@ export default function SessionDetailPage() {
             animate="visible"
             transition={{ delay: 0.3 }}
             className="relative"
+            style={{ transform: 'rotate(0.8deg)' }}
           >
             {/* Spiral Notebook Container */}
-            <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-wrinkled torn-edge-right paper-shadow-lg page-curl relative overflow-visible text-gray-900 dark:text-gray-100" style={{ transform: 'rotate(-0.5deg)' }}>
+            <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-wrinkled torn-edge-right page-curl desk-shadow-medium relative overflow-visible text-gray-900 dark:text-gray-100">
               {/* Perforated left edge with binding holes */}
               <div className="absolute left-0 top-0 bottom-0 w-12 z-10 pointer-events-none">
                 {/* Perforation holes */}
@@ -328,8 +333,9 @@ export default function SessionDetailPage() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.5 }}
+              style={{ transform: 'rotate(-0.5deg)' }}
             >
-              <WorksheetCard title="Classwork" numbering="none">
+              <WorksheetCard title="Classwork" numbering="none" className="desk-shadow-low">
                 <div className="space-y-3">
                   {session.exercises
                     .filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW")
@@ -364,8 +370,9 @@ export default function SessionDetailPage() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.6 }}
+              style={{ transform: 'rotate(0.8deg)' }}
             >
-              <WorksheetCard title="Homework" numbering="none">
+              <WorksheetCard title="Homework" numbering="none" className="desk-shadow-low">
                 <div className="space-y-3">
                   {session.exercises
                     .filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW")
@@ -400,6 +407,7 @@ export default function SessionDetailPage() {
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.5, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        style={{ transform: 'rotate(-0.3deg)' }}
       >
         <Certificate
           title="Future Enhancements"
@@ -409,6 +417,7 @@ export default function SessionDetailPage() {
           signedBy="Development Team"
           variant="silver"
           showSeal={true}
+          className="desk-shadow-flat"
         >
           <div className="mt-6 space-y-2">
             <p className="text-base text-muted-foreground">
@@ -429,5 +438,6 @@ export default function SessionDetailPage() {
         </Certificate>
       </motion.div>
     </PageTransition>
+    </DeskSurface>
   );
 }

@@ -120,17 +120,17 @@ export function Certificate({
         </h1>
 
         {/* Formal statement */}
-        <p className="text-lg italic text-gray-700 dark:text-gray-300 mt-8">
+        <p className="text-lg italic text-gray-800 dark:text-gray-300 mt-8">
           This certifies that
         </p>
 
         {/* Recipient name */}
-        <h2 className="text-4xl font-serif font-semibold border-b-2 border-gray-400 dark:border-gray-600 inline-block px-8 pb-2">
+        <h2 className="text-4xl font-serif font-semibold text-gray-900 dark:text-gray-100 border-b-2 border-gray-500 dark:border-gray-600 inline-block px-8 pb-2">
           {recipientName}
         </h2>
 
         {/* Achievement description */}
-        <p className="text-lg text-gray-700 dark:text-gray-300 mt-6">
+        <p className="text-lg text-gray-800 dark:text-gray-300 mt-6">
           has successfully achieved
         </p>
 
@@ -145,18 +145,18 @@ export function Certificate({
         <div className="flex justify-between items-end mt-12 px-8">
           {/* Date */}
           <div className="text-left">
-            <div className="border-b border-gray-400 dark:border-gray-600 pb-1 min-w-[200px] text-center mb-2">
+            <div className="border-b border-gray-500 dark:border-gray-600 pb-1 min-w-[200px] text-center mb-2 text-gray-900 dark:text-gray-100">
               {date}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Date</p>
+            <p className="text-sm text-gray-700 dark:text-gray-400">Date</p>
           </div>
 
           {/* Signature */}
           <div className="text-right">
-            <div className="border-b border-gray-400 dark:border-gray-600 pb-1 min-w-[250px] text-center mb-2">
-              <span className="font-serif italic text-xl">{signedBy}</span>
+            <div className="border-b border-gray-500 dark:border-gray-600 pb-1 min-w-[250px] text-center mb-2">
+              <span className="font-serif italic text-xl text-gray-900 dark:text-gray-100">{signedBy}</span>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Authorized Signature</p>
+            <p className="text-sm text-gray-700 dark:text-gray-400">Authorized Signature</p>
           </div>
         </div>
       </div>
