@@ -111,7 +111,7 @@ export function FileFolder({
         transition={{ duration: 0.2 }}
         className={cn(
           "bg-[#e6d5b8] dark:bg-[#3d3a32] p-6 rounded-lg",
-          "paper-shadow-md border border-amber-900/20",
+          "paper-shadow-md border border-amber-900/40 dark:border-amber-900/20",
           tabPosition === "top" ? "rounded-tl-none" : "rounded-tr-none"
         )}
       >
@@ -147,12 +147,12 @@ function FolderTab({ label, color, active, onClick, position }: FolderTabProps) 
         "relative px-4 py-2 font-medium text-sm transition-all",
         "font-handwriting-print",
         active
-          ? "bg-[#e6d5b8] dark:bg-[#3d3a32] text-foreground z-10"
-          : "bg-[#d4c5a8] dark:bg-[#2d2a22] text-foreground/70 hover:text-foreground z-0",
+          ? "bg-[#e6d5b8] dark:bg-[#3d3a32] text-gray-900 dark:text-foreground z-10"
+          : "bg-[#d4c5a8] dark:bg-[#2d2a22] text-gray-700 dark:text-foreground/70 hover:text-gray-900 dark:hover:text-foreground z-0",
         position === "top"
           ? "rounded-t-lg clip-path-tab-top"
           : "rounded-l-lg clip-path-tab-side",
-        "border border-amber-900/20",
+        "border border-amber-900/40 dark:border-amber-900/20",
         active && "border-b-0"
       )}
       style={{
