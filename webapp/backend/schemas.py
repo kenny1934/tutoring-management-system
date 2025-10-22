@@ -86,7 +86,7 @@ class EnrollmentResponse(EnrollmentBase):
     grade: Optional[str] = None
     school: Optional[str] = None
     lang_stream: Optional[str] = None
-    deadline_extension_weeks: int = 0
+    deadline_extension_weeks: Optional[int] = 0
     last_modified_time: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -19,14 +19,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS - allow development ports 3000-3010
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005,http://localhost:3006,http://localhost:3007,http://localhost:3008,http://localhost:3009,http://localhost:3010").split(",")
+# Configure CORS - allow all origins in development
+# In production, this should be restricted to specific domains
+environment = os.getenv("ENVIRONMENT", "development")
+if environment == "development":
+    # Allow all origins in development
+    allow_origins = ["*"]
+    allow_credentials = False  # Must be False when allow_origins is ["*"]
+else:
+    # In production, use specific origins from environment variable
+    allow_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+    allow_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "OPTIONS"],  # Only allow GET for MVP (read-only)
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

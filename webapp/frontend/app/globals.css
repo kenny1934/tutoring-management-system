@@ -1395,3 +1395,72 @@ html {
   margin-right: 8px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
+/* ===== SIDEBAR TOOLTIP - M3 Expressive ===== */
+.tooltip-wrapper {
+  position: relative;
+}
+
+.tooltip-wrapper:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  color: #2a2219;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  pointer-events: none;
+
+  /* M3 Expressive spring animation */
+  animation: tooltipFadeIn 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards;
+}
+
+/* Dark mode tooltip */
+.dark .tooltip-wrapper:hover::after {
+  background: rgba(42, 42, 42, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Tooltip arrow (optional - pointing left towards sidebar) */
+.tooltip-wrapper:hover::before {
+  content: '';
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 6px 6px 0;
+  border-color: transparent rgba(255, 255, 255, 0.95) transparent transparent;
+  z-index: 10000;
+  pointer-events: none;
+
+  animation: tooltipFadeIn 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards;
+}
+
+.dark .tooltip-wrapper:hover::before {
+  border-color: transparent rgba(42, 42, 42, 0.95) transparent transparent;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
