@@ -1,18 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
 
+@variant dark (&:is(.dark *));
+
 @theme {
-  /* ===== FOUNDATION COLORS ===== */
-  --color-background: #0a0a0a; /* Deep black */
-  --color-surface: #111111; /* Elevated surface */
-  --color-surface-elevated: #1a1a1a; /* Higher elevation */
-  --color-foreground: #FFFFFF;
+  /* ===== LIGHT MODE COLORS (M3 Expressive) ===== */
+  /* Warm, educational palette for classroom vibe */
+  --color-background: #fef9f3; /* Warm cream background */
+  --color-surface: #ffffff; /* Pure white elevated surface */
+  --color-surface-elevated: #fef9f3; /* Cream for higher elevation */
+  --color-surface-variant: #f5f0e8; /* Warm neutral variant */
+  --color-foreground: #2a2219; /* Warm dark brown text */
 
   /* Cards & Containers */
-  --color-card: #1a1a1a;
-  --color-card-foreground: #FFFFFF;
-  --color-popover: #1a1a1a;
-  --color-popover-foreground: #FFFFFF;
+  --color-card: #ffffff;
+  --color-card-foreground: #2a2219;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2a2219;
 
   /* ===== BRAND COLORS ===== */
   --color-primary: #c8102e; /* CSM Red */
@@ -20,24 +24,24 @@
   --color-primary-foreground: #FFFFFF;
 
   /* Secondary & Muted */
-  --color-secondary: #2a2a2a;
-  --color-secondary-foreground: #FFFFFF;
-  --color-muted: #2a2a2a;
-  --color-muted-foreground: #9E9E9E;
-  --color-accent: #2a2a2a;
-  --color-accent-foreground: #FFFFFF;
+  --color-secondary: #f5f0e8;
+  --color-secondary-foreground: #2a2219;
+  --color-muted: #f5f0e8;
+  --color-muted-foreground: #6b5a4a; /* Warm muted text */
+  --color-accent: #f5f0e8;
+  --color-accent-foreground: #2a2219;
 
   /* ===== SEMANTIC COLORS ===== */
-  --color-success: #10b981; /* Emerald */
-  --color-warning: #f59e0b; /* Amber */
-  --color-destructive: #ef4444; /* Red */
+  --color-success: #16a34a; /* Green */
+  --color-warning: #ea580c; /* Orange */
+  --color-destructive: #dc2626; /* Red */
   --color-destructive-foreground: #FFFFFF;
-  --color-info: #3b82f6; /* Blue */
+  --color-info: #2563eb; /* Blue */
 
   /* ===== BORDERS ===== */
-  --color-border: #2a2a2a;
-  --color-border-subtle: #333333;
-  --color-input: #2a2a2a;
+  --color-border: #e8d4b8; /* Warm tan border */
+  --color-border-subtle: #f5e6d3;
+  --color-input: #e8d4b8;
   --color-ring: #c8102e;
 
   /* ===== GLASSMORPHISM ===== */
@@ -85,22 +89,82 @@
   --spacing-3xl: 64px;
   --spacing-4xl: 96px;
 
-  /* ===== RADIUS ===== */
-  --radius-sm: 0.25rem;
-  --radius: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  /* ===== M3 EXPRESSIVE SHAPE SCALE (Corner Radius) ===== */
+  --radius-extra-small: 4px;
+  --radius-small: 8px;
+  --radius-medium: 12px;
+  --radius-large: 16px;
+  --radius-extra-large: 28px;
   --radius-full: 9999px;
 
-  /* ===== ANIMATION TIMINGS ===== */
-  --timing-fast: 150ms;
-  --timing-medium: 250ms;
-  --timing-slow: 400ms;
+  /* Legacy aliases for backwards compatibility */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
 
-  /* Animation easings */
+  /* ===== M3 EXPRESSIVE MOTION SYSTEM ===== */
+  /* Timing Values */
+  --timing-fast: 200ms; /* M3 Expressive fast */
+  --timing-medium: 350ms; /* M3 Expressive default */
+  --timing-slow: 500ms; /* M3 Expressive slow */
+
+  /* M3 Expressive Spring Motion (Spatial - for position/size) */
+  --spring-expressive-fast: cubic-bezier(0.30, 1.25, 0.40, 1.00); /* Approximates damping 0.6, stiffness 800 */
+  --spring-expressive-default: cubic-bezier(0.38, 1.21, 0.22, 1.00); /* Approximates damping 0.8, stiffness 380 */
+  --spring-expressive-slow: cubic-bezier(0.42, 1.15, 0.30, 1.00); /* Approximates damping 0.8, stiffness 200 */
+
+  /* M3 Standard Spring Motion (less bouncy) */
+  --spring-standard-fast: cubic-bezier(0.40, 0.95, 0.50, 1.00); /* Approximates damping 0.9, stiffness 1400 */
+  --spring-standard-default: cubic-bezier(0.45, 0.90, 0.55, 1.00); /* Approximates damping 0.9, stiffness 700 */
+
+  /* Legacy animation easings */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: var(--spring-expressive-default); /* Use M3 Expressive by default */
+
+  /* ===== DESK SURFACE COLORS ===== */
+  --color-desk-light-base: #8b6f47;
+  --color-desk-light-highlight: #a67c52;
+  --color-desk-light-shadow: #6b5437;
+
+  --color-desk-dark-base: #3d2817;
+  --color-desk-dark-highlight: #4a3428;
+  --color-desk-dark-shadow: #2a1810;
+
+  /* Desk lighting */
+  --color-lamp-glow-light: rgba(255, 245, 220, 0.3);
+  --color-lamp-glow-dark: rgba(255, 220, 150, 0.08);
+
+  /* Desk shadows */
+  --shadow-desk-soft: rgba(0, 0, 0, 0.15);
+  --shadow-desk-strong: rgba(0, 0, 0, 0.5);
+}
+
+/* ===== DARK MODE COLOR OVERRIDES ===== */
+/* Applied when .dark class is present on HTML element (next-themes) */
+.dark {
+  --color-background: #0a0a0a;
+  --color-surface: #111111;
+  --color-surface-elevated: #1a1a1a;
+  --color-surface-variant: #2a2a2a;
+  --color-foreground: #FFFFFF;
+
+  --color-card: #1a1a1a;
+  --color-card-foreground: #FFFFFF;
+  --color-popover: #1a1a1a;
+  --color-popover-foreground: #FFFFFF;
+
+  --color-secondary: #2a2a2a;
+  --color-secondary-foreground: #FFFFFF;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #6B7280;
+  --color-accent: #2a2a2a;
+  --color-accent-foreground: #FFFFFF;
+
+  --color-border: #2a2a2a;
+  --color-border-subtle: #333333;
+  --color-input: #2a2a2a;
 }
 
 /* ===== CUSTOM ANIMATIONS ===== */
@@ -1139,4 +1203,195 @@ html {
     inset 0 2px 4px rgba(255, 255, 255, 0.3),
     inset 0 -2px 4px rgba(0, 0, 0, 0.3),
     0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== TEACHER'S DESK SURFACE ===== */
+
+/* Desk Background Base */
+.desk-background {
+  background: linear-gradient(
+    135deg,
+    var(--color-desk-light-base) 0%,
+    var(--color-desk-light-highlight) 50%,
+    var(--color-desk-light-base) 100%
+  );
+}
+
+.dark .desk-background {
+  background: linear-gradient(
+    135deg,
+    var(--color-desk-dark-base) 0%,
+    var(--color-desk-dark-highlight) 50%,
+    var(--color-desk-dark-base) 100%
+  );
+}
+
+/* Wood Grain Texture SVG - Enhanced with natural variation */
+.wood-grain-texture {
+  background-image: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' /%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Cpattern id='wood' x='0' y='0' width='200' height='200' patternUnits='userSpaceOnUse'%3E%3C!-- Main grain lines with variation --%3E%3Cpath d='M8 0 Q8 50 10 100 T12 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.22'/%3E%3Cpath d='M25 0 Q24 60 25 120 T26 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M42 0 Q43 45 42 90 T41 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.20'/%3E%3Cpath d='M58 0 Q57 55 58 110 T59 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3Cpath d='M75 0 Q76 48 75 96 T74 200' stroke='%23000' stroke-width='0.7' fill='none' opacity='0.24'/%3E%3Cpath d='M92 0 Q91 52 92 104 T93 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.20'/%3E%3Cpath d='M108 0 Q109 58 108 116 T107 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.19'/%3E%3Cpath d='M125 0 Q124 50 125 100 T126 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.19'/%3E%3Cpath d='M142 0 Q143 54 142 108 T141 200' stroke='%23000' stroke-width='0.8' fill='none' opacity='0.25'/%3E%3Cpath d='M158 0 Q157 49 158 98 T159 200' stroke='%23000' stroke-width='0.5' fill='none' opacity='0.18'/%3E%3Cpath d='M175 0 Q176 56 175 112 T174 200' stroke='%23000' stroke-width='0.6' fill='none' opacity='0.21'/%3E%3Cpath d='M192 0 Q191 51 192 102 T193 200' stroke='%23000' stroke-width='0.4' fill='none' opacity='0.18'/%3E%3C!-- Wood knots and irregularities --%3E%3Cellipse cx='65' cy='80' rx='8' ry='12' fill='%23000' opacity='0.10' transform='rotate(15 65 80)'/%3E%3Cellipse cx='145' cy='140' rx='6' ry='10' fill='%23000' opacity='0.11' transform='rotate(-8 145 140)'/%3E%3C!-- Fine grain detail --%3E%3Crect width='200' height='200' fill='url(%23noise)' opacity='0.05'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23wood)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 400px 300px;
+  mix-blend-mode: multiply;
+}
+
+.dark .wood-grain-texture {
+  opacity: 0.55;
+  mix-blend-mode: overlay;
+}
+
+/* Desk Lighting Gradient */
+.desk-lighting {
+  background: radial-gradient(
+    ellipse 120% 80% at 20% 10%,
+    var(--color-lamp-glow-light),
+    transparent 70%
+  );
+}
+
+.dark .desk-lighting {
+  background: radial-gradient(
+    ellipse 100% 70% at 15% 5%,
+    var(--color-lamp-glow-dark),
+    transparent 60%
+  );
+}
+
+/* Vignette Edge Darkening */
+.desk-vignette {
+  background: radial-gradient(
+    ellipse 80% 70% at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+}
+
+.dark .desk-vignette {
+  background: radial-gradient(
+    ellipse 75% 65% at center,
+    transparent 35%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+}
+
+/* Desk Paper Shadows - Light Mode (Natural sunlight, 45° angle) */
+.desk-shadow-high {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.desk-shadow-medium {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18), 0 3px 6px rgba(0, 0, 0, 0.12);
+}
+
+.desk-shadow-low {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.desk-shadow-flat {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Desk Paper Shadows - Dark Mode (Desk lamp, stronger contrast) */
+@media (prefers-color-scheme: dark) {
+  .desk-shadow-high {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .desk-shadow-medium {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), 0 4px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  .desk-shadow-low {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.2);
+  }
+
+  .desk-shadow-flat {
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* ===== CORK BOARD SIDEBAR TEXTURE ===== */
+
+/* Cork Board Base Colors */
+.cork-board-background {
+  background: linear-gradient(
+    135deg,
+    #c19a6b 0%,
+    #d4a574 50%,
+    #c19a6b 100%
+  );
+}
+
+.dark .cork-board-background {
+  background: linear-gradient(
+    135deg,
+    #5a4a3a 0%,
+    #6b5a4a 50%,
+    #5a4a3a 100%
+  );
+}
+
+/* Cork Texture Pattern - Realistic cork grain */
+.cork-texture {
+  background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='corkNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='6' /%3E%3CfeColorMatrix type='saturate' values='0.3'/%3E%3C/filter%3E%3C/defs%3E%3C!-- Cork grain texture --%3E%3Crect width='100%25' height='100%25' fill='url(%23corkNoise)' opacity='0.25'/%3E%3C!-- Random cork specks and variations --%3E%3Ccircle cx='45' cy='67' r='2' fill='%23000' opacity='0.15'/%3E%3Ccircle cx='123' cy='189' r='1.5' fill='%23000' opacity='0.12'/%3E%3Ccircle cx='234' cy='98' r='2.5' fill='%23000' opacity='0.14'/%3E%3Ccircle cx='178' cy='234' r='1.8' fill='%23000' opacity='0.13'/%3E%3Ccircle cx='312' cy='145' r='2.2' fill='%23000' opacity='0.11'/%3E%3Ccircle cx='89' cy='298' r='1.6' fill='%23000' opacity='0.14'/%3E%3Ccircle cx='267' cy='45' r='2' fill='%23000' opacity='0.12'/%3E%3Ccircle cx='156' cy='156' r='1.7' fill='%23000' opacity='0.13'/%3E%3Ccircle cx='345' cy='267' r='2.3' fill='%23000' opacity='0.11'/%3E%3Ccircle cx='67' cy='356' r='1.9' fill='%23000' opacity='0.15'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  mix-blend-mode: multiply;
+}
+
+.dark .cork-texture {
+  opacity: 0.7;
+  mix-blend-mode: overlay;
+}
+
+/* File Folder Tab Styles */
+.folder-tab {
+  position: relative;
+  background: linear-gradient(
+    to bottom,
+    #f5e6d3 0%,
+    #e8d4b8 100%
+  );
+  border: 1px solid #c4a67a;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.dark .folder-tab {
+  background: linear-gradient(
+    to bottom,
+    #4a3f2f 0%,
+    #3a2f1f 100%
+  );
+  border-color: #6b5a4a;
+}
+
+.folder-tab-active {
+  background: linear-gradient(
+    to bottom,
+    #fff8e7 0%,
+    #f5e6d3 100%
+  );
+  transform: translateX(-2px);
+  box-shadow:
+    -2px -2px 4px rgba(0, 0, 0, 0.15),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.dark .folder-tab-active {
+  background: linear-gradient(
+    to bottom,
+    #5a4f3f 0%,
+    #4a3f2f 100%
+  );
+}
+
+/* Folder color dots */
+.folder-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
