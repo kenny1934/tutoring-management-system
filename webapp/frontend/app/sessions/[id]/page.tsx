@@ -4,22 +4,17 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, FileFolder, Certificate } from "@/lib/design-system";
+import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, Certificate } from "@/lib/design-system";
 import { motion } from "framer-motion";
 import type { Session } from "@/types";
 import {
   ArrowLeft,
   Star,
   FileText,
-  CheckCircle2,
   BookOpen,
   NotebookPen,
   Home,
   Calendar,
-  Clock,
-  MapPin,
-  User,
-  GraduationCap,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
@@ -137,108 +132,8 @@ export default function SessionDetailPage() {
         </div>
       </div>
 
-      {/* Two-column layout: Session Info + Notebook */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] gap-6">
-        {/* File Folder with Session Info and People tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          style={{ transform: 'rotate(-1.5deg)' }}
-        >
-          <FileFolder
-            className="desk-shadow-high"
-            tabs={[
-              {
-                label: "Session",
-                color: "blue",
-                content: (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Time Slot</p>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium">{session.time_slot || "N/A"}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Location</p>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium">{session.location || "N/A"}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Financial Status</p>
-                      {session.financial_status === "Paid" ? (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-                          className="flex items-center gap-2 p-2 bg-success/10 border border-success/30 rounded-lg w-fit"
-                        >
-                          <CheckCircle2 className="h-4 w-4 text-success" />
-                          <Badge variant="success">{session.financial_status}</Badge>
-                        </motion.div>
-                      ) : (
-                        <Badge variant="warning">{session.financial_status || "Unpaid"}</Badge>
-                      )}
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                label: "People",
-                color: "green",
-                content: (
-                  <div className="space-y-5">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Student</p>
-                      <p className="font-semibold text-xl">{session.student_name || "Unknown"}</p>
-                      {session.school_student_id && (
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          ID: {session.school_student_id}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1.5">Grade</p>
-                        <Badge variant="outline" className="w-fit">
-                          {session.grade || "N/A"}
-                        </Badge>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1.5">Stream</p>
-                        <Badge variant="outline" className="w-fit">
-                          {session.lang_stream || "N/A"}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">School</p>
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                        <p className="font-medium">{session.school || "N/A"}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Tutor</p>
-                      <p className="font-medium text-lg">{session.tutor_name || "Not Assigned"}</p>
-                    </div>
-                  </div>
-                ),
-              },
-            ]}
-            defaultTab={0}
-          />
-        </motion.div>
-
-        {/* Spiral Notebook - Performance & Notes */}
-        {(session.performance_rating || session.notes) && (
+      {/* Spiral Notebook - Performance & Notes */}
+      {(session.performance_rating || session.notes) && (
           <motion.div
             variants={refinedCardVariants}
             initial="hidden"
@@ -321,7 +216,6 @@ export default function SessionDetailPage() {
             </div>
           </motion.div>
         )}
-      </div>
 
       {/* Courseware Section */}
       {session.exercises && session.exercises.length > 0 && (
