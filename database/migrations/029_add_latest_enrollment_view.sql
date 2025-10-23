@@ -15,6 +15,7 @@ SELECT 'Creating latest enrollment view for Looker Studio...' as status;
 -- =====================================================
 -- Only includes students with active enrollments (effective_end_date >= today)
 -- Includes both 'Paid' and 'Pending Payment' statuses
+-- Only includes 'Regular' enrollment type (excludes One-Time and Trial)
 -- Excludes terminated students
 CREATE OR REPLACE VIEW latest_enrollments AS
 SELECT
@@ -44,10 +45,12 @@ INNER JOIN (
         MAX(first_lesson_date) as max_first_lesson_date
     FROM enrollments
     WHERE payment_status IN ('Paid', 'Pending Payment')
+      AND enrollment_type = 'Regular'
     GROUP BY student_id
 ) latest ON e.student_id = latest.student_id
         AND e.first_lesson_date = latest.max_first_lesson_date
 WHERE e.payment_status IN ('Paid', 'Pending Payment')
+  AND e.enrollment_type = 'Regular'
   AND calculate_effective_end_date(
         e.first_lesson_date,
         e.lessons_paid,
