@@ -192,5 +192,180 @@
 
 ---
 
-**✅ Configuration Complete!** 
+**✅ Configuration Complete!**
 Your AppSheet interface for planned reschedules is now ready for testing.
+
+---
+
+# Tutor Work Week Configuration - RDO-Based Week Start
+
+## Overview
+
+This configuration enables each tutor to have a custom work week based on their Regular Days Off (RDO). The work week starts the day after the tutor's last consecutive RDO.
+
+**Examples:**
+- Tutor with RDO on Tuesday (2) and Wednesday (3) → Work week starts Thursday (4)
+- Tutor with RDO on Saturday (6) and Sunday (0) → Work week starts Monday (1)
+- Tutor with RDO on Friday (5), Saturday (6), and Sunday (0) → Work week starts Monday (1)
+
+## Database Implementation
+
+### Migration File
+**File:** `/database/migrations/033_add_tutor_work_week_start.sql`
+
+This migration:
+1. Adds `work_week_start_day` column to `tutors` table
+2. Creates `calculate_work_week_start()` function to compute work week start day
+3. Creates triggers to auto-update when `tutor_rdo` table changes
+4. Populates existing tutor data
+
+**Key Features:**
+- Handles week wrap-around case (Saturday + Sunday RDOs)
+- Considers only currently effective RDOs (based on `effective_from` and `effective_to`)
+- Automatically updates when RDO data changes (INSERT, UPDATE, DELETE)
+
+### Function Logic: calculate_work_week_start()
+
+```sql
+-- Pseudo-code:
+IF tutor has both Saturday (6) AND Sunday (0) as RDOs:
+    last_rdo_day = MIN(day_of_week)  -- Returns 0 (Sunday)
+ELSE:
+    last_rdo_day = MAX(day_of_week)  -- Returns highest RDO day
+END IF
+
+work_week_start_day = (last_rdo_day + 1) MOD 7
+```
+
+**Why this logic?**
+- Week days are numbered 0-6 (Sunday-Saturday)
+- When RDO includes both Saturday (6) and Sunday (0), this is a wrap-around case
+- Sunday (0) is actually the "last" consecutive day, not Saturday (6)
+- Using MIN detects this case and correctly sets work week to start Monday (1)
+
+## AppSheet Configuration
+
+### Step 1: Ensure tutor_rdo Table is Added
+
+1. **Go to:** AppSheet Editor → Data → Tables
+2. **Add table:** `tutor_rdo` from Cloud SQL
+3. **Verify columns:**
+   - `id` (Number, Key)
+   - `tutor_id` (Ref → tutors)
+   - `day_of_week` (Number, 0=Sunday to 6=Saturday)
+   - `effective_from` (Date, optional)
+   - `effective_to` (Date, optional)
+
+### Step 2: Sync tutors Table to Include New Column
+
+1. **Go to:** Data → Tables → tutors
+2. **Click:** Regenerate structure
+3. **Verify:** `work_week_start_day` column appears (Type: Number)
+
+### Step 3: Update Session Slices to Use Custom Work Week
+
+Find your session slice (e.g., "Current Week Sessions") and update the formula:
+
+#### Old Formula (Standard Monday-Sunday Week):
+```
+AND(
+    [tutor_id] = USERSETTINGS("SelectedTutor"),
+    [session_date] >= (USERSETTINGS("SelectedScheduleDate") - WEEKDAY(USERSETTINGS("SelectedScheduleDate")) + 1),
+    [session_date] <= (USERSETTINGS("SelectedScheduleDate") - WEEKDAY(USERSETTINGS("SelectedScheduleDate")) + 7),
+    [session_status] <> "Cancelled"
+)
+```
+
+#### New Formula (RDO-Based Custom Work Week):
+```
+AND(
+    [tutor_id] = USERSETTINGS("SelectedTutor"),
+
+    [session_date] >= (
+        USERSETTINGS("SelectedScheduleDate") -
+        MOD(
+            WEEKDAY(USERSETTINGS("SelectedScheduleDate")) -
+            [tutor_id].[work_week_start_day] + 7,
+            7
+        )
+    ),
+
+    [session_date] <= (
+        USERSETTINGS("SelectedScheduleDate") -
+        MOD(
+            WEEKDAY(USERSETTINGS("SelectedScheduleDate")) -
+            [tutor_id].[work_week_start_day] + 7,
+            7
+        ) + 6
+    ),
+
+    [session_status] <> "Cancelled"
+)
+```
+
+### How the Formula Works
+
+**Given:**
+- Selected date: Friday, October 23, 2025 (WEEKDAY = 5)
+- Tutor's work_week_start_day: 4 (Thursday)
+
+**Calculation:**
+1. Days offset from work week start = `(5 - 4 + 7) MOD 7 = 1`
+2. Work week start date = `Oct 23 - 1 = Oct 22` (Thursday)
+3. Work week end date = `Oct 22 + 6 = Oct 28` (Wednesday)
+
+**Result:** Shows sessions from Thursday Oct 22 to Wednesday Oct 28
+
+### Step 4: Verify in AppSheet
+
+1. **Test with different tutors:**
+   - Select a tutor with standard RDO (e.g., Sat-Sun) → Should show Mon-Sun week
+   - Select a tutor with mid-week RDO (e.g., Tue-Wed) → Should show Thu-Wed week
+
+2. **Verify the slice:**
+   - Navigate to different dates within a week
+   - Confirm the same 7-day period displays regardless of selected date
+
+## Testing Examples
+
+### Example 1: Weekend RDO
+**Tutor RDO:** Saturday (6), Sunday (0)
+- **Database:** work_week_start_day = 1
+- **Work week:** Monday → Sunday
+- **If selected date is Wednesday:** Shows Mon-Sun of that week
+
+### Example 2: Mid-week RDO
+**Tutor RDO:** Tuesday (2), Wednesday (3)
+- **Database:** work_week_start_day = 4
+- **Work week:** Thursday → Wednesday
+- **If selected date is Monday:** Shows Thu (previous week) → Wed (current week)
+
+### Example 3: Friday-Weekend RDO
+**Tutor RDO:** Friday (5), Saturday (6), Sunday (0)
+- **Database:** work_week_start_day = 1 (wrap-around detected)
+- **Work week:** Monday → Sunday
+- **If selected date is Thursday:** Shows Mon-Sun of that week
+
+## Maintenance
+
+### Adding/Updating Tutor RDOs
+
+When you add or modify RDO records in the `tutor_rdo` table:
+1. Database triggers automatically recalculate `work_week_start_day`
+2. AppSheet will reflect the new work week on next sync
+3. No manual intervention needed
+
+### Manual Recalculation (if needed)
+
+If `work_week_start_day` appears incorrect, run this SQL:
+
+```sql
+UPDATE tutors
+SET work_week_start_day = calculate_work_week_start(id)
+WHERE id = <tutor_id>;
+```
+
+---
+
+**✅ Tutor Work Week Configuration Complete!**
+Sessions will now display based on each tutor's custom work week defined by their RDOs.
