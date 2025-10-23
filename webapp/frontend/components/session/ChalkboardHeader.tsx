@@ -1,8 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin } from "lucide-react";
+import { Calendar, Clock, MapPin, CheckCircle2, HandCoins, Info, GraduationCap } from "lucide-react";
 import type { Session } from "@/types";
 
 interface ChalkboardHeaderProps {
@@ -11,6 +12,8 @@ interface ChalkboardHeaderProps {
 }
 
 export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps) {
+  const [showAcademicInfo, setShowAcademicInfo] = useState(false);
+
   const sessionDate = new Date(session.session_date);
   const formattedDate = sessionDate.toLocaleDateString("en-US", {
     weekday: "short",
@@ -25,7 +28,7 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.38, 1.21, 0.22, 1.00] }} // M3 Expressive spring
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
-      className="relative w-full rounded-[28px] overflow-hidden group"
+      className="relative w-full rounded-[28px] overflow-visible group z-50"
       style={{
         height: '100px',
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
@@ -61,8 +64,8 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
       {/* Content - M3 Expressive */}
       <div className="relative h-full flex items-center justify-between px-8 py-4">
         {/* Left side - Student ID, Name, and Metadata with M3 Expressive animation */}
-        <div className="flex-1 min-w-0">
-          <motion.h1
+        <div className="flex-1 min-w-0 relative">
+          <motion.div
             initial={{ opacity: 0, x: -20, scale: 0.95 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             transition={{
@@ -70,18 +73,97 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
               duration: 0.35,
               ease: [0.38, 1.21, 0.22, 1.00], // M3 Expressive default spring
             }}
-            className="text-2xl font-bold text-white/98 mb-1 truncate"
-            style={{
-              textShadow: '2px 2px 6px rgba(0,0,0,0.5), 0 0 12px rgba(255,255,255,0.15)',
-              letterSpacing: '0.03em', // M3 Expressive wide tracking
-              fontWeight: 700, // M3 Expressive display bold
-            }}
+            className="flex items-center gap-2 mb-1"
           >
-            {session.school_student_id && (
-              <span className="text-white/85 mr-2">{session.school_student_id}</span>
+            <h1
+              className="text-2xl font-bold text-white/98 truncate"
+              style={{
+                textShadow: '2px 2px 6px rgba(0,0,0,0.5), 0 0 12px rgba(255,255,255,0.15)',
+                letterSpacing: '0.03em', // M3 Expressive wide tracking
+                fontWeight: 700, // M3 Expressive display bold
+              }}
+            >
+              {session.school_student_id && (
+                <span className="text-white/85 mr-2">{session.school_student_id}</span>
+              )}
+              {session.student_name || "Unknown Student"}
+            </h1>
+
+            {/* Academic Info Button */}
+            {(session.grade || session.lang_stream || session.school) && (
+              <button
+                onMouseEnter={() => setShowAcademicInfo(true)}
+                onMouseLeave={() => setShowAcademicInfo(false)}
+                className="relative flex-shrink-0 p-1 rounded-full hover:bg-white/10 transition-colors"
+                aria-label="View academic information"
+              >
+                <Info className="h-4 w-4 text-white/70 hover:text-white/90 transition-colors" />
+
+                {/* Academic Info Popover */}
+                <AnimatePresence>
+                  {showAcademicInfo && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -5 }}
+                      transition={{
+                        duration: 0.2,
+                        ease: [0.38, 1.21, 0.22, 1.00],
+                      }}
+                      className="absolute left-0 top-full mt-2 w-auto p-2.5 bg-[#e6d5b8] dark:bg-[#3d3a32] rounded-lg shadow-xl border border-amber-900/40 dark:border-amber-900/20 z-[9999]"
+                      style={{
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                      }}
+                    >
+                      <table className="text-center">
+                        <thead>
+                          <tr>
+                            {session.grade && (
+                              <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                Grade
+                              </th>
+                            )}
+                            {session.lang_stream && (
+                              <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                Stream
+                              </th>
+                            )}
+                            {session.school && (
+                              <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                School
+                              </th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            {session.grade && (
+                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                {session.grade}
+                              </td>
+                            )}
+                            {session.lang_stream && (
+                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                {session.lang_stream}
+                              </td>
+                            )}
+                            {session.school && (
+                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <GraduationCap className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
+                                  <span>{session.school}</span>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
             )}
-            {session.student_name || "Unknown Student"}
-          </motion.h1>
+          </motion.div>
           <motion.div
             initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
@@ -147,6 +229,35 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
               >
                 <MapPin className="h-3.5 w-3.5 text-white/85" />
                 <span>{session.location}</span>
+              </motion.div>
+            )}
+
+            {/* Separator */}
+            {session.financial_status && <span className="text-white/50">•</span>}
+
+            {/* Financial Status */}
+            {session.financial_status && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  delay: 0.45,
+                  duration: 0.25,
+                  ease: [0.38, 1.21, 0.22, 1.00],
+                }}
+                className="flex items-center gap-1.5"
+              >
+                {session.financial_status === "Paid" ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                    <span className="text-green-300 font-semibold">Paid</span>
+                  </>
+                ) : (
+                  <>
+                    <HandCoins className="h-3.5 w-3.5 text-red-400" />
+                    <span className="text-red-300 font-semibold">Unpaid</span>
+                  </>
+                )}
               </motion.div>
             )}
           </motion.div>
