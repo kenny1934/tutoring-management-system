@@ -1,0 +1,45 @@
+{
+  "revenue_calculation": {
+    "avg_lessons_per_enrollment": 6,
+    "avg_fee_per_lesson": 350,
+    "currency_symbol": "$",
+    "description": "Revenue opportunity is calculated as: non_converted_students × avg_lessons × avg_fee_per_lesson. This represents potential one-time revenue from converting remaining summer students to regular course enrollments.",
+    "projection_timeframe": "One-time (6-lesson package)"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "database": "csm_db",
+    "timeout": 30
+  },
+  "report_settings": {
+    "company_name": "MathConcept Secondary Academy",
+    "report_title": "2025 Summer Course Conversion Analysis",
+    "logo_path": "../docs/assets/images/中學班 LOGO_PNG_白.png",
+    "locations": ["MSA", "MSB"],
+    "student_categories": [
+      "New Students",
+      "MC P6 to F1 Students",
+      "Returning Students"
+    ]
+  },
+  "design": {
+    "primary_color": "#dc2626",
+    "background_color": "#ffffff",
+    "text_color": "#1a1a1a",
+    "text_muted": "#666666",
+    "text_light": "#999999",
+    "border_color": "#e5e5e5",
+    "sidebar_bg": "#fafafa",
+    "highlight_bg": "#fef2f2",
+    "font_family": "Inter, sans-serif",
+    "success_color": "#059669",
+    "warning_color": "#d97706",
+    "error_color": "#dc2626"
+  },
+  "cache_settings": {
+    "cache_directory": "cache",
+    "cache_filename": "summer_data_cache.json",
+    "cache_expiry_hours": 24
+  }
+}

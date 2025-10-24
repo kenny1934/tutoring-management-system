@@ -137,6 +137,7 @@ class SessionExerciseResponse(BaseModel):
     page_start: Optional[int] = None
     page_end: Optional[int] = None
     created_by: str
+    created_at: Optional[datetime] = None
     remarks: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
