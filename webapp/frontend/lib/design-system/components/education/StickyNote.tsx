@@ -71,6 +71,7 @@ export function StickyNote({
   // Use state for random rotation to avoid hydration mismatch
   const [mounted, setMounted] = useState(false);
   const [randomRotation] = useState(() => Math.random() * 6 - 3);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -83,16 +84,15 @@ export function StickyNote({
   return (
     <motion.div
       className="relative inline-block"
-      style={{
-        transform: `rotate(${finalRotation}deg)`,
-      }}
-      initial={{ scale: 1, rotate: finalRotation }}
-      whileHover={{
-        scale: 1.02,
-        rotate: 0,
-        y: -4,
+      initial={{ scale: 1, rotate: finalRotation, y: 0 }}
+      animate={{
+        rotate: isHovered ? 0 : finalRotation,
+        scale: isHovered ? 1.02 : 1,
+        y: isHovered ? -4 : 0,
         transition: { duration: 0.2 },
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       {...props}
     >
       {/* Tape effect at top - outside the clipped area */}
@@ -101,7 +101,7 @@ export function StickyNote({
       )}
 
       {/* Sticky note paper with torn edge */}
-      <motion.div
+      <div
         className={cn(
           "relative",
           "paper-texture",
@@ -109,10 +109,11 @@ export function StickyNote({
           colors.bg,
           sizeClasses[size],
           colors.shadow,
+          className,
         )}
-        whileHover={{
-          boxShadow: "0 12px 24px rgba(0, 0, 0, 0.2)",
-          transition: { duration: 0.2 },
+        style={{
+          boxShadow: isHovered ? "0 12px 24px rgba(0, 0, 0, 0.2)" : undefined,
+          transition: "box-shadow 0.2s",
         }}
       >
         {/* Paper grain overlay */}
@@ -137,7 +138,7 @@ export function StickyNote({
             clipPath: "polygon(100% 0, 100% 100%, 0 100%)",
           }}
         />
-      </motion.div>
+      </div>
     </motion.div>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, Certificate } from "@/lib/design-system";
+import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, GraphPaper, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
 import type { Session } from "@/types";
 import {
@@ -15,10 +15,11 @@ import {
   NotebookPen,
   Home,
   Calendar,
+  PenTool,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
-import { Badge } from "@/components/ui/badge";
+import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
@@ -132,205 +133,214 @@ export default function SessionDetailPage() {
         </div>
       </div>
 
-      {/* Spiral Notebook - Performance & Notes */}
-      {(session.performance_rating || session.notes) && (
-          <motion.div
-            variants={refinedCardVariants}
-            initial="hidden"
-            animate="visible"
-            transition={{ delay: 0.3 }}
-            className="relative"
-            style={{ transform: 'rotate(0.8deg)' }}
-          >
-            {/* Spiral Notebook Container */}
-            <div className="bg-[#fef9f3] dark:bg-[#2d2618] paper-texture paper-wrinkled torn-edge-right page-curl desk-shadow-medium relative overflow-visible text-gray-900 dark:text-gray-100">
-              {/* Perforated left edge with binding holes */}
-              <div className="absolute left-0 top-0 bottom-0 w-12 z-10 pointer-events-none">
-                {/* Perforation holes */}
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute left-6 w-3 h-3 rounded-full bg-background/40 border border-border/50"
-                    style={{ top: `${32 + i * 64}px` }}
-                  />
-                ))}
-              </div>
+      {/* Dynamic Courseware and Notes Section */}
+      {(() => {
+        // Calculate what content exists
+        const cwExercises = session.exercises?.filter(
+          (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+        ) || [];
+        const hwExercises = session.exercises?.filter(
+          (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
+        ) || [];
+        const hasNotes = !!(session.performance_rating || session.notes);
+        const hasCW = cwExercises.length > 0;
+        const hasHW = hwExercises.length > 0;
+        const hasExercises = hasCW || hasHW;
 
-              {/* Notebook paper background with ruled lines */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-50/60 via-yellow-50/40 to-orange-50/50 dark:from-amber-900/30 dark:via-yellow-900/20 dark:to-orange-900/30 rounded-lg" />
+        // If no content at all, return nothing
+        if (!hasExercises && !hasNotes) return null;
 
-              <div className="relative p-6 pl-14">
-                {/* Left margin line (red vertical line) */}
-                <div className="absolute left-16 top-0 bottom-0 w-0.5 bg-red-400/50 dark:bg-red-400/25" />
+        // If only notes (no courseware), show just sticky note
+        if (!hasExercises && hasNotes) {
+          return (
+            <motion.div
+              variants={refinedCardVariants}
+              initial="hidden"
+              animate="visible"
+              transition={{ delay: 0.3 }}
+              className="flex justify-center pl-14"
+            >
+              <StickyNote variant="pink" size="md" showTape={true} className="desk-shadow-medium">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                    Session Notes
+                  </h3>
+                </div>
+                {session.performance_rating && (
+                  <motion.div
+                    initial={{ scale: 0, rotate: 0 }}
+                    animate={{ scale: 1, rotate: -12 }}
+                    transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
+                    className={cn(session.notes ? "float-right ml-3 mb-2" : "flex justify-center mb-3")}
+                  >
+                    <GradeStamp grade={letterGrade} size="md" />
+                  </motion.div>
+                )}
+                {session.notes && (
+                  <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
+                    {session.notes}
+                  </p>
+                )}
+                {!session.notes && session.performance_rating && (
+                  <p className="text-center text-sm text-gray-600 dark:text-gray-400 italic">
+                    Performance grade recorded
+                  </p>
+                )}
+              </StickyNote>
+            </motion.div>
+          );
+        }
 
-                {/* Ruled lines background pattern */}
-                <div className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none ruled-lines rounded-lg" />
+        // Courseware exists - show unified vertical layout with wooden tab
+        return (
+          <div className="relative pt-16 pl-14">
+            {/* Wooden Tab */}
+            <CoursewareBanner title="Today's Courseware" />
 
-              {/* Content with margin spacing */}
-              <div className="relative pl-12">
-                {session.notes ? (
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <FileText className="h-5 w-5 text-primary" />
-                      <h2 className="text-lg font-semibold">Session Notes</h2>
+            {/* Two-column layout: Unified Courseware (70%) on left, Notes (30%) on right */}
+            <div className={cn(
+              "flex flex-col lg:flex-row gap-6"
+            )}>
+              {/* Left column: Unified Courseware Section */}
+              <motion.div
+                variants={refinedCardVariants}
+                initial="hidden"
+                animate="visible"
+                transition={{ delay: 0.4 }}
+                className={cn(
+                  "flex-1",
+                  hasNotes && "lg:w-[70%]",
+                  !hasNotes && "w-full"
+                )}
+                style={{ transform: 'rotate(-0.3deg)' }}
+              >
+                <GraphPaper gridSize="1cm" className="desk-shadow-low min-h-[300px]">
+                  {/* Classwork Section */}
+                  {hasCW && (
+                    <>
+                      <div className="mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                          <PenTool className="h-5 w-5 text-red-500 dark:text-red-400" />
+                          Classwork
+                        </h3>
+                      </div>
+                      <div className="space-y-3 mb-6">
+                        {cwExercises.map((exercise, index) => {
+                          const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
+                          return (
+                            <motion.div
+                              key={exercise.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.5 + index * 0.1, duration: 0.3 }}
+                              className="flex gap-2 p-2 pl-4 rounded-md border-l-4 border-red-500 dark:border-red-400 cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:scale-[1.01] hover:shadow-sm"
+                              title={tooltip}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name}</p>
+                                {exercise.page_start && exercise.page_end ? (
+                                  <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
+                                ) : exercise.page_start ? (
+                                  <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Entire PDF</p>
+                                )}
+                                {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Homework Section */}
+                  {hasHW && (
+                    <>
+                      <div className="mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                          <Home className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                          Homework
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                        {hwExercises.map((exercise, index) => {
+                          const tooltip = `Created by ${exercise.created_by}${exercise.created_at ? ` at ${new Date(exercise.created_at).toLocaleString()}` : ''}`;
+                          const baseDelay = hasCW ? 0.5 + cwExercises.length * 0.1 : 0.5;
+                          return (
+                            <motion.div
+                              key={exercise.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: baseDelay + index * 0.1, duration: 0.3 }}
+                              className="flex gap-2 p-2 pl-4 rounded-md border-l-4 border-blue-500 dark:border-blue-400 cursor-pointer transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800/30 hover:scale-[1.01] hover:shadow-sm"
+                              title={tooltip}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 dark:text-gray-100 break-all">{exercise.pdf_name}</p>
+                                {exercise.page_start && exercise.page_end ? (
+                                  <p className="text-sm text-muted-foreground">Pages {exercise.page_start}-{exercise.page_end}</p>
+                                ) : exercise.page_start ? (
+                                  <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Entire PDF</p>
+                                )}
+                                {exercise.remarks && <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>}
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </GraphPaper>
+              </motion.div>
+
+              {/* Right column: Session Notes */}
+              {hasNotes && (
+                <motion.div
+                  variants={refinedCardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ delay: 0.6 }}
+                  className="flex-shrink-0 lg:w-[calc(30%-0.75rem)]"
+                >
+                  <StickyNote variant="pink" size="md" showTape={true} className="desk-shadow-medium h-full">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                        Notes
+                      </h3>
                     </div>
-
-                    {/* Performance Rating as Grade Stamp - floated */}
                     {session.performance_rating && (
                       <motion.div
                         initial={{ scale: 0, rotate: 0 }}
                         animate={{ scale: 1, rotate: -12 }}
-                        transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
-                        className="float-right ml-4 mb-2 mr-2"
+                        transition={{ type: "spring", stiffness: 200, delay: 0.7 }}
+                        className={cn(session.notes ? "float-right ml-3 mb-2" : "flex justify-center mb-3")}
                       >
-                        <GradeStamp grade={letterGrade} size="lg" />
+                        <GradeStamp grade={letterGrade} size="md" />
                       </motion.div>
                     )}
-
-                    <p
-                      className="text-base whitespace-pre-wrap text-foreground/90"
-                      style={{ lineHeight: '36px' }}
-                    >
-                      {session.notes}
-                    </p>
-                  </div>
-                ) : session.performance_rating ? (
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <Star className="h-5 w-5 text-warning fill-warning" />
-                      <h2 className="text-lg font-semibold">Performance Rating</h2>
-                    </div>
-                    {/* Performance Rating as Grade Stamp - centered when no notes */}
-                    <motion.div
-                      initial={{ scale: 0, rotate: 0 }}
-                      animate={{ scale: 1, rotate: -8 }}
-                      transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
-                      className="flex justify-center"
-                    >
-                      <GradeStamp grade={letterGrade} size="lg" />
-                    </motion.div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            </div>
-          </motion.div>
-        )}
-
-      {/* Courseware Section */}
-      {session.exercises && session.exercises.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Classwork Worksheet */}
-          {session.exercises.filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW").length > 0 && (
-            <motion.div
-              variants={refinedCardVariants}
-              initial="hidden"
-              animate="visible"
-              transition={{ delay: 0.5 }}
-              style={{ transform: 'rotate(-0.5deg)' }}
-            >
-              <WorksheetCard title="Classwork" numbering="none" className="desk-shadow-low">
-                <div className="space-y-3">
-                  {session.exercises
-                    .filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW")
-                    .map((exercise, index) => (
-                      <WorksheetProblem key={exercise.id} number={index + 1}>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{exercise.pdf_name}</p>
-                          {exercise.page_start && exercise.page_end ? (
-                            <p className="text-sm text-muted-foreground">
-                              Pages {exercise.page_start}-{exercise.page_end}
-                            </p>
-                          ) : exercise.page_start ? (
-                            <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Entire PDF</p>
-                          )}
-                          {exercise.remarks && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>
-                          )}
-                        </div>
-                      </WorksheetProblem>
-                    ))}
-                </div>
-              </WorksheetCard>
-            </motion.div>
-          )}
-
-          {/* Homework Worksheet */}
-          {session.exercises.filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW").length > 0 && (
-            <motion.div
-              variants={refinedCardVariants}
-              initial="hidden"
-              animate="visible"
-              transition={{ delay: 0.6 }}
-              style={{ transform: 'rotate(0.8deg)' }}
-            >
-              <WorksheetCard title="Homework" numbering="none" className="desk-shadow-low">
-                <div className="space-y-3">
-                  {session.exercises
-                    .filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW")
-                    .map((exercise, index) => (
-                      <WorksheetProblem key={exercise.id} number={index + 1}>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{exercise.pdf_name}</p>
-                          {exercise.page_start && exercise.page_end ? (
-                            <p className="text-sm text-muted-foreground">
-                              Pages {exercise.page_start}-{exercise.page_end}
-                            </p>
-                          ) : exercise.page_start ? (
-                            <p className="text-sm text-muted-foreground">Page {exercise.page_start}</p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Entire PDF</p>
-                          )}
-                          {exercise.remarks && (
-                            <p className="text-sm text-muted-foreground mt-1 italic">{exercise.remarks}</p>
-                          )}
-                        </div>
-                      </WorksheetProblem>
-                    ))}
-                </div>
-              </WorksheetCard>
-            </motion.div>
-          )}
-        </div>
-      )}
-
-      {/* Future Features Certificate */}
-      <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        style={{ transform: 'rotate(-0.3deg)' }}
-      >
-        <Certificate
-          title="Future Enhancements"
-          recipientName="CSM Pro Students & Tutors"
-          achievement="Advanced Session Features"
-          date="Coming Q1 2026"
-          signedBy="Development Team"
-          variant="silver"
-          showSeal={true}
-          className="desk-shadow-flat"
-        >
-          <div className="mt-6 space-y-2">
-            <p className="text-base text-muted-foreground">
-              Upcoming features to enhance your learning experience:
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 mt-4">
-              <Badge variant="outline" className="text-sm">
-                Test Scores
-              </Badge>
-              <Badge variant="outline" className="text-sm">
-                Attendance Analytics
-              </Badge>
-              <Badge variant="outline" className="text-sm">
-                Google Calendar Integration
-              </Badge>
+                    {session.notes && (
+                      <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap leading-relaxed">
+                        {session.notes}
+                      </p>
+                    )}
+                    {!session.notes && session.performance_rating && (
+                      <p className="text-center text-sm text-gray-600 dark:text-gray-400 italic">
+                        Performance grade recorded
+                      </p>
+                    )}
+                  </StickyNote>
+                </motion.div>
+              )}
             </div>
           </div>
-        </Certificate>
-      </motion.div>
+        );
+      })()}
+
     </PageTransition>
     </DeskSurface>
   );

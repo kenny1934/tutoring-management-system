@@ -115,7 +115,7 @@ SELECT
 FROM enrollments e
 JOIN students s ON e.student_id = s.id
 JOIN tutors t ON e.tutor_id = t.id
-WHERE e.payment_status = 'Paid';
+WHERE e.payment_status IN ('Paid', 'Pending Payment');
 -- CRITICAL: No time filter here - this view must be available for ALL paid enrollments
 -- Used by Valid If constraints which must always have access to effective_end_date
 

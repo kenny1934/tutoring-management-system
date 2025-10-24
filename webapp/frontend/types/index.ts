@@ -45,6 +45,7 @@ export interface SessionExercise {
   page_start?: number;
   page_end?: number;
   created_by: string;
+  created_at?: string;
   remarks?: string;
 }
 

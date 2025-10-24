@@ -19,8 +19,8 @@
   --color-popover-foreground: #2a2219;
 
   /* ===== BRAND COLORS ===== */
-  --color-primary: #c8102e; /* CSM Red */
-  --color-primary-hover: #e01840; /* Brighter on hover */
+  --color-primary: #a0704b; /* Golden Oak */
+  --color-primary-hover: #cd853f; /* Lighter oak on hover */
   --color-primary-foreground: #FFFFFF;
 
   /* Secondary & Muted */
@@ -42,7 +42,7 @@
   --color-border: #e8d4b8; /* Warm tan border */
   --color-border-subtle: #f5e6d3;
   --color-input: #e8d4b8;
-  --color-ring: #c8102e;
+  --color-ring: #a0704b;
 
   /* ===== GLASSMORPHISM ===== */
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -63,7 +63,7 @@
   --paper-lined-red-dark: #6b3a3f;
 
   /* ===== GRADIENTS ===== */
-  --gradient-primary: linear-gradient(135deg, #c8102e 0%, #e01840 100%);
+  --gradient-primary: linear-gradient(135deg, #a0704b 0%, #cd853f 100%);
   --gradient-surface: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
 
   /* ===== SHADOWS (for depth) ===== */
@@ -71,7 +71,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 20px rgba(200, 16, 46, 0.3);
+  --shadow-glow: 0 0 20px rgba(160, 112, 75, 0.3);
 
   /* Paper shadows for realistic lift */
   --shadow-paper-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
@@ -302,28 +302,25 @@
 .paper-cream {
   background-color: #fef9f3;
 }
-@media (prefers-color-scheme: dark) {
-  .paper-cream {
-    background-color: #2d2618;
-  }
+
+.dark .paper-cream {
+  background-color: #2d2618;
 }
 
 .paper-white {
   background-color: #fefefe;
 }
-@media (prefers-color-scheme: dark) {
-  .paper-white {
-    background-color: #1a1a1a;
-  }
+
+.dark .paper-white {
+  background-color: #1a1a1a;
 }
 
 .paper-yellow {
   background-color: #fff9db;
 }
-@media (prefers-color-scheme: dark) {
-  .paper-yellow {
-    background-color: #2b2a1f;
-  }
+
+.dark .paper-yellow {
+  background-color: #2b2a1f;
 }
 
 /* Realistic paper shadow */
@@ -350,8 +347,8 @@
 }
 
 /* Dark mode version */
-@media (prefers-color-scheme: dark) {
-  .ruled-lines {
+
+.dark .ruled-lines {
     background-image: repeating-linear-gradient(
       transparent,
       transparent 35px,
@@ -359,7 +356,6 @@
       rgba(147, 197, 253, 0.15) 36px
     );
   }
-}
 
 /* Red margin line (left side of notebook) */
 .margin-line-left::before {
@@ -372,11 +368,10 @@
   background: rgba(239, 68, 68, 0.4);
   pointer-events: none;
 }
-@media (prefers-color-scheme: dark) {
-  .margin-line-left::before {
+
+.dark .margin-line-left::before {
     background: rgba(239, 68, 68, 0.25);
   }
-}
 
 /* Page curl effect (top-right corner) */
 .page-curl::after {
@@ -392,11 +387,10 @@
   box-shadow: var(--shadow-paper-curl);
   pointer-events: none;
 }
-@media (prefers-color-scheme: dark) {
-  .page-curl::after {
+
+.dark .page-curl::after {
     border-color: transparent #2a2a2a transparent transparent;
   }
-}
 
 /* ===== TORN PAPER EDGE EFFECTS ===== */
 
@@ -696,8 +690,8 @@ html {
       rgba(59, 130, 246, 0.3) 5mm
     );
 }
-@media (prefers-color-scheme: dark) {
-  .graph-paper-5mm {
+
+.dark .graph-paper-5mm {
     background-image:
       repeating-linear-gradient(
         0deg,
@@ -714,7 +708,6 @@ html {
         rgba(59, 130, 246, 0.18) 5mm
       );
   }
-}
 
 .graph-paper-1cm {
   background-image:
@@ -733,8 +726,8 @@ html {
       rgba(59, 130, 246, 0.4) 10mm
     );
 }
-@media (prefers-color-scheme: dark) {
-  .graph-paper-1cm {
+
+.dark .graph-paper-1cm {
     background-image:
       repeating-linear-gradient(
         0deg,
@@ -751,7 +744,6 @@ html {
         rgba(59, 130, 246, 0.25) 10mm
       );
   }
-}
 
 .graph-paper-quad {
   background-image:
@@ -770,8 +762,8 @@ html {
       rgba(59, 130, 246, 0.35) 25px
     );
 }
-@media (prefers-color-scheme: dark) {
-  .graph-paper-quad {
+
+.dark .graph-paper-quad {
     background-image:
       repeating-linear-gradient(
         0deg,
@@ -788,7 +780,6 @@ html {
         rgba(59, 130, 246, 0.2) 25px
       );
   }
-}
 
 .graph-paper-dot {
   background-image:
@@ -799,8 +790,8 @@ html {
     );
   background-size: 20px 20px;
 }
-@media (prefers-color-scheme: dark) {
-  .graph-paper-dot {
+
+.dark .graph-paper-dot {
     background-image:
       radial-gradient(
         circle,
@@ -808,7 +799,6 @@ html {
         transparent 1px
       );
   }
-}
 
 /* Highlighter Marks */
 .highlight-yellow {
@@ -943,8 +933,8 @@ html {
       rgba(34, 139, 34, 0.25) 6.35mm
     );
 }
-@media (prefers-color-scheme: dark) {
-  .quad-paper-4 {
+
+.dark .quad-paper-4 {
     background-image:
       repeating-linear-gradient(
         0deg,
@@ -961,7 +951,6 @@ html {
         rgba(34, 139, 34, 0.15) 6.35mm
       );
   }
-}
 
 /* Quad paper with major gridlines (every 5th line thicker) */
 .quad-paper-4-major {
@@ -1014,8 +1003,8 @@ html {
       rgba(65, 105, 225, 0.22) 5mm
     );
 }
-@media (prefers-color-scheme: dark) {
-  .engineering-paper {
+
+.dark .engineering-paper {
     background-image:
       repeating-linear-gradient(
         0deg,
@@ -1032,7 +1021,6 @@ html {
         rgba(65, 105, 225, 0.15) 5mm
       );
   }
-}
 
 /* Isometric paper - for 3D drawings */
 .isometric-paper {
@@ -1059,8 +1047,8 @@ html {
       rgba(59, 130, 246, 0.25) 20px
     );
 }
-@media (prefers-color-scheme: dark) {
-  .isometric-paper {
+
+.dark .isometric-paper {
     background-image:
       repeating-linear-gradient(
         60deg,
@@ -1084,7 +1072,6 @@ html {
         rgba(59, 130, 246, 0.15) 20px
       );
   }
-}
 
 /* ===== COMPOSITION NOTEBOOK STYLES ===== */
 
@@ -1134,8 +1121,8 @@ html {
       rgba(59, 130, 246, 0.25) 44px
     );
 }
-@media (prefers-color-scheme: dark) {
-  .ruled-wide {
+
+.dark .ruled-wide {
     background-image:
       repeating-linear-gradient(
         transparent,
@@ -1144,7 +1131,6 @@ html {
         rgba(147, 197, 253, 0.15) 44px
       );
   }
-}
 
 /* College-ruled lines (narrower spacing) */
 .ruled-college {
@@ -1156,8 +1142,8 @@ html {
       rgba(59, 130, 246, 0.25) 32px
     );
 }
-@media (prefers-color-scheme: dark) {
-  .ruled-college {
+
+.dark .ruled-college {
     background-image:
       repeating-linear-gradient(
         transparent,
@@ -1166,7 +1152,6 @@ html {
         rgba(147, 197, 253, 0.15) 32px
       );
   }
-}
 
 /* ===== CERTIFICATE & FOIL EFFECTS ===== */
 
@@ -1291,8 +1276,8 @@ html {
 }
 
 /* Desk Paper Shadows - Dark Mode (Desk lamp, stronger contrast) */
-@media (prefers-color-scheme: dark) {
-  .desk-shadow-high {
+
+.dark .desk-shadow-high {
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.3);
   }
 
@@ -1307,7 +1292,6 @@ html {
   .desk-shadow-flat {
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15);
   }
-}
 
 /* ===== CORK BOARD SIDEBAR TEXTURE ===== */
 
