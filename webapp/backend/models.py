@@ -214,6 +214,7 @@ class SessionExercise(Base):
     page_start = Column(Integer, nullable=True, comment='NULL = whole PDF')
     page_end = Column(Integer, nullable=True)
     created_by = Column(String(255), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     remarks = Column(Text)
 
     # Relationships

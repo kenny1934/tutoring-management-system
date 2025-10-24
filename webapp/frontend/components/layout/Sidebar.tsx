@@ -9,7 +9,6 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { useTheme } from "next-themes";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -22,7 +21,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
-  const { theme } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Load collapsed state from localStorage
@@ -60,10 +58,10 @@ export function Sidebar() {
     <div
       className={cn(
         "flex h-screen flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50",
+        "bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(17,17,17,0.6)]",
         isCollapsed ? "w-[72px]" : "w-64"
       )}
       style={{
-        backgroundColor: theme === 'dark' ? 'rgba(17, 17, 17, 0.6)' : 'rgba(255, 255, 255, 0.6)',
         transition: 'width 350ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
       }}
     >
@@ -165,9 +163,8 @@ export function Sidebar() {
             <select
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
-              className="w-full px-4 py-2.5 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-border transition-all"
+              className="w-full px-4 py-2.5 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-border transition-all bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)]"
               style={{
-                backgroundColor: theme === 'dark' ? 'rgba(17, 17, 17, 0.8)' : 'rgba(255, 255, 255, 0.8)',
                 transition: 'all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
               }}
               suppressHydrationWarning
@@ -223,10 +220,10 @@ export function Sidebar() {
         <div
           className={cn(
             "flex items-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+            "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
             isCollapsed ? "justify-center p-2" : "gap-3 p-4"
           )}
           style={{
-            backgroundColor: theme === 'dark' ? 'rgba(42, 42, 42, 0.3)' : 'rgba(245, 240, 232, 0.5)',
             transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
           }}
         >
