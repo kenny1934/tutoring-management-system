@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse
 
 router = APIRouter()
 
@@ -203,3 +203,32 @@ async def get_session_detail(
         session_data.previous_session = prev_session_data
 
     return session_data
+
+
+@router.get("/sessions/{session_id}/curriculum-suggestions", response_model=CurriculumSuggestionResponse)
+async def get_curriculum_suggestions(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get curriculum suggestions from last year for a specific session.
+
+    - **session_id**: The session's database ID
+
+    Returns:
+    - Curriculum topics from last year's Week N-1, N, and N+1
+    - Formatted suggestions display
+    - Student, tutor, and session context
+    """
+    # Query the session_curriculum_suggestions view
+    suggestion = db.query(SessionCurriculumSuggestion).filter(
+        SessionCurriculumSuggestion.id == session_id
+    ).first()
+
+    if not suggestion:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No curriculum suggestion found for session {session_id}"
+        )
+
+    return CurriculumSuggestionResponse.model_validate(suggestion)

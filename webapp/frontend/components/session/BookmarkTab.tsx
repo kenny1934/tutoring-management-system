@@ -33,7 +33,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
   ).length;
 
   return (
-    <div className="fixed right-0 top-1/4 z-40">
+    <div className={isExpanded ? "fixed right-0 top-1/4 z-50" : "fixed right-0 top-1/4 z-40"}>
       <motion.div
         initial={{ x: 280 }}
         animate={{ x: isExpanded ? 0 : 280 }}
