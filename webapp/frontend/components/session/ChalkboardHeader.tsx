@@ -28,7 +28,7 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.38, 1.21, 0.22, 1.00] }} // M3 Expressive spring
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
-      className="relative w-full rounded-[28px] overflow-visible group z-50"
+      className="relative w-full rounded-[28px] overflow-hidden group z-50"
       style={{
         height: '100px',
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
@@ -323,7 +323,7 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
       </div>
 
       {/* M3 Expressive chalk dust particles effect (bottom) */}
-      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-t from-white/15 to-transparent transition-opacity duration-300 group-hover:from-white/20" />
+      <div className="absolute bottom-3 left-6 right-4 h-1.5 bg-gradient-to-t from-white/15 to-transparent transition-opacity duration-300 group-hover:from-white/20 rounded-b-[18px]" />
 
       {/* Chalk eraser - subtle detail (inspired by reference image) */}
       <motion.div
