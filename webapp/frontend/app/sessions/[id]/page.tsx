@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, GraphPaper, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
-import type { Session } from "@/types";
+import type { Session, CurriculumSuggestion } from "@/types";
 import {
   ArrowLeft,
   Star,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
+import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -47,6 +48,7 @@ export default function SessionDetailPage() {
   const sessionId = parseInt(params.id as string);
 
   const [session, setSession] = useState<Session | null>(null);
+  const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +67,21 @@ export default function SessionDetailPage() {
     }
 
     fetchSession();
+  }, [sessionId]);
+
+  useEffect(() => {
+    async function fetchCurriculumSuggestion() {
+      try {
+        const data = await api.sessions.getCurriculumSuggestions(sessionId);
+        setCurriculumSuggestion(data);
+      } catch (err) {
+        // Silently fail if no curriculum suggestions available
+        console.log("No curriculum suggestions found for this session");
+        setCurriculumSuggestion(null);
+      }
+    }
+
+    fetchCurriculumSuggestion();
   }, [sessionId]);
 
   if (loading) {
@@ -123,6 +140,9 @@ export default function SessionDetailPage() {
           homeworkToCheck={session.homework_completion}
         />
 
+        {/* Curriculum Tab for Curriculum Suggestions (fixed position) */}
+        <CurriculumTab suggestion={curriculumSuggestion} />
+
       {/* Header with Chalkboard */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -164,7 +184,7 @@ export default function SessionDetailPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <FileText className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                   <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                    Session Notes
+                    Comments
                   </h3>
                 </div>
                 {session.performance_rating && (
@@ -310,7 +330,7 @@ export default function SessionDetailPage() {
                     <div className="flex items-center gap-2 mb-3">
                       <FileText className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                       <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                        Notes
+                        Comments
                       </h3>
                     </div>
                     {session.performance_rating && (
