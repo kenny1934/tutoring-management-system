@@ -174,6 +174,57 @@ class DetailedSessionResponse(SessionResponse):
 
 
 # ============================================
+# Curriculum Suggestion Schemas
+# ============================================
+
+class CurriculumSuggestionResponse(BaseModel):
+    """Curriculum suggestion from last year's curriculum for a session"""
+    id: int
+    enrollment_id: Optional[int] = None
+    student_id: Optional[int] = None
+    tutor_id: Optional[int] = None
+    session_date: Optional[date] = None
+    time_slot: Optional[str] = None
+    location: Optional[str] = None
+    session_status: Optional[str] = None
+    financial_status: Optional[str] = None
+
+    # Student info
+    school_student_id: Optional[str] = None
+    student_name: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+
+    # Tutor info
+    tutor_name: Optional[str] = None
+
+    # Current week info
+    current_week_number: Optional[int] = None
+    current_academic_year: Optional[str] = None
+
+    # Last year's curriculum suggestions (3 weeks)
+    week_before_topic: Optional[str] = None
+    week_before_number: Optional[int] = None
+    same_week_topic: Optional[str] = None
+    same_week_number: Optional[int] = None
+    week_after_topic: Optional[str] = None
+    week_after_number: Optional[int] = None
+
+    # Primary suggestion and formatted display
+    primary_suggestion: Optional[str] = None
+    suggestions_display: Optional[str] = None
+    user_friendly_display: Optional[str] = None
+    options_for_buttons: Optional[str] = None
+
+    # Metadata
+    suggestion_count: Optional[int] = None
+    coverage_status: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================
 # Dashboard Stats Schemas
 # ============================================
 

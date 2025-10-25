@@ -290,3 +290,58 @@ class HomeworkToCheck(Base):
     checked_at = Column(DateTime)
     checked_by = Column(Integer)
     check_status = Column(String(20))  # 'Checked' or 'Pending'
+
+
+class SessionCurriculumSuggestion(Base):
+    """
+    View that shows curriculum suggestions from last year for each session.
+    Provides reference materials from previous academic year to guide tutors.
+    Read-only view - shows Week N-1, N, and N+1 topics from last year's curriculum.
+    """
+    __tablename__ = "session_curriculum_suggestions"
+    __table_args__ = {'info': {'is_view': True}}  # Mark as view for SQLAlchemy
+
+    # Use session ID as primary key
+    id = Column(Integer, primary_key=True)
+
+    # Basic session info
+    enrollment_id = Column(Integer)
+    student_id = Column(Integer)
+    tutor_id = Column(Integer)
+    session_date = Column(Date)
+    time_slot = Column(String(100))
+    location = Column(String(100))
+    session_status = Column(String(100))
+    financial_status = Column(String(100))
+
+    # Student info
+    school_student_id = Column(String(100))
+    student_name = Column(String(255))
+    grade = Column(String(50))
+    school = Column(String(255))
+    lang_stream = Column(String(50))
+
+    # Tutor info
+    tutor_name = Column(String(255))
+
+    # Current week info
+    current_week_number = Column(Integer)
+    current_academic_year = Column(String(20))
+
+    # Last year's curriculum suggestions (3 weeks)
+    week_before_topic = Column(Text)
+    week_before_number = Column(Integer)
+    same_week_topic = Column(Text)
+    same_week_number = Column(Integer)
+    week_after_topic = Column(Text)
+    week_after_number = Column(Integer)
+
+    # Primary suggestion and formatted display
+    primary_suggestion = Column(Text)
+    suggestions_display = Column(Text)  # Multi-line formatted display
+    user_friendly_display = Column(Text)  # Single line summary
+    options_for_buttons = Column(Text)  # Pipe-separated options
+
+    # Metadata
+    suggestion_count = Column(Integer)
+    coverage_status = Column(String(50))
