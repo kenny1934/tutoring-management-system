@@ -266,6 +266,44 @@ class SessionFilters(BaseModel):
     to_date: Optional[date] = None
 
 
+# ============================================
+# Calendar Event Schemas
+# ============================================
+
+class CalendarEventResponse(BaseModel):
+    """Calendar event from Google Calendar"""
+    id: int
+    event_id: str
+    title: str
+    description: Optional[str] = None
+    start_date: date
+    end_date: Optional[date] = None
+    school: Optional[str] = None
+    grade: Optional[str] = None
+    academic_stream: Optional[str] = None
+    event_type: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    last_synced_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UpcomingTestAlert(BaseModel):
+    """Upcoming test/exam alert with countdown"""
+    id: int
+    event_id: str
+    title: str
+    description: Optional[str] = None
+    start_date: str  # ISO format
+    end_date: Optional[str] = None  # ISO format
+    school: str
+    grade: str
+    academic_stream: Optional[str] = None
+    event_type: str
+    days_until: int  # Number of days until the test
+
+
 # Enable forward references for nested models
 StudentDetailResponse.model_rebuild()
 DetailedSessionResponse.model_rebuild()
