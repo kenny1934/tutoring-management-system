@@ -6,6 +6,17 @@ curriculum_data/
 *curriculum*.csv
 curriculum_import.sql
 
+# Student and enrollment data (contains PII)
+*Primary*.csv
+*Secondary*.csv
+*Assignments*.csv
+*Enrolled*.csv
+*Enrollment*.csv
+*Session*Log*.csv
+*Conversion*.csv
+2025 Primary - Secondary List/
+Session Log - Conversion Data*.csv
+
 # Database credentials and configs
 .env
 config/database.json
