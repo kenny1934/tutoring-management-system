@@ -1,79 +1,240 @@
-# Tutoring Management System (CSM) Project
+# Tutoring Management System (CSM)
 
-This repository contains the documentation, scripts, and design specifications for the custom CSM (Class Session Manager) application built with AppSheet, Google Cloud SQL, and Google Sheets.
+A comprehensive management system for tutoring operations, handling student enrollment, session scheduling, attendance tracking, and reporting.
 
-## Project Goal
+## Current Status
 
-The primary goal of this project is to develop a robust, scalable, and efficient system to replace manual spreadsheet-based workflows. The application will manage all aspects of the regular tutoring course, including student enrollment, session scheduling, attendance tracking, material logging, and reporting.
+This project consists of two parallel systems:
 
-Key objectives include:
--   **Centralized Data:** Using a Cloud SQL database as the single source of truth.
--   **Role-Based Access:** Providing a secure, per-user experience for Admins, Tutors, and other roles.
--   **Automation:** Automating the generation of recurring sessions and payment reminders.
--   **Real-time Reporting:** Creating high-performance, live dashboards using a formula-driven approach.
+1. **Legacy AppSheet System (Production)** - Currently in active use for daily operations
+2. **Modern Web Application (Development)** - Next-generation FastAPI + Next.js platform under development
 
 ## Technology Stack
 
-* **Frontend & Business Logic:** AppSheet
-* **Database:** Google Cloud SQL
-* **Data Staging & Reporting:** Google Sheets
-* **Advanced Automation:** Google Apps Script
+### Modern Web Application (In Development)
 
-## Project Status & Roadmap
+**Backend:**
+- FastAPI 0.109.0 - High-performance Python web framework
+- SQLAlchemy 2.0.25 - SQL toolkit and ORM
+- Pydantic 2.5.3 - Data validation using Python type annotations
+- Google Cloud SQL Connector - Secure database connections
+- Google Calendar API - Test/exam tracking integration
 
-### Phase 1: Foundation & Hybrid Workflow (Completed)
+**Frontend:**
+- Next.js 15.5.5 - React framework with Turbopack
+- React 19.1.0 - UI library
+- Tailwind CSS 4.x - Utility-first CSS framework
+- TypeScript 5.x - Type-safe JavaScript
+- Framer Motion - Animation library
+- Recharts - Data visualization
+- next-themes - Dark mode support
 
-This initial phase focused on establishing a solid data backend and a functional "Hybrid" workflow to handle the initial bulk enrollment period.
+**Database:**
+- Google Cloud SQL (MySQL) - Production database
+- Shared with legacy AppSheet system
 
-* **Cloud SQL Database:**
-    * [x] Deployed a production-ready Cloud SQL (MySQL) instance on the corporate Google Workspace account.
-    * [x] Designed and created the core database schema: `tutors`, `students`, `enrollments`, `session_log`, and `discounts`.
-    * [x] Established a secure connection between the database and AppSheet.
+### Legacy AppSheet System (Production)
 
-* **Google Sheets (Hybrid Workflow Staging):**
-    * [x] Created the `"CSM Regular Course - Assignments"` workbook as the central staging area.
-    * [x] **`Consolidated_Student_List`:** Built a unified student master list by importing and combining data from separate source files. Implemented an Apps Script with a UI button (`CSM Admin Tools > Refresh Student List`) to keep this sheet synchronized with the SQL `students` table. The sync script pulls all student records from the MySQL database and updates the Google Sheet with current data.
-    * [x] **`MSA/B Final Schedule`:** Created the master visual grid for high-level tutor allocation and class planning.
-    * [x] **`Schedule_Lookup_Data`:** Developed a robust formula-driven helper sheet to "unpivot" the visual schedule grid into a searchable list, enabling complex lookups.
-    * [x] **`MSA/B Assignments` Sheets:** Established as the primary workspace for the admin team. It automatically pulls student data and uses the `Schedule_Lookup_Data` to look up the correct `Assigned Tutor` based on Day, Time, Grade, and Stream.
+**Technology:**
+- AppSheet - No-code platform for business apps
+- Google Cloud SQL - Backend database
+- Google Sheets - Data staging and reporting
+- Google Apps Script - Advanced automation
 
-* **CSM Pro App (Core Automation):**
-    * [x] Created the "CSM Pro" AppSheet application.
-    * [x] Connected the app to both the Cloud SQL database (for permanent records) and the `Assignments` Google Sheet (for the hybrid workflow).
-    * [x] **`Generate Sessions` Action:** Built the core action that allows an admin to promote a finalized assignment from the spreadsheet into an official `enrollments` record in the database.
-    * [x] **`Generate Recurring Sessions` Bot:** Developed and debugged a robust automation. It uses a webhook to call a dedicated Google Apps Script, which reads the new enrollment from the database and uses the AppSheet API to reliably generate the correct number of session records.
+## Project Structure
 
-### Phase 2: Core Application Build-out (In Progress)
+```
+tutoring-management-system/
+├── webapp/                    # Modern web application
+│   ├── backend/              # FastAPI backend
+│   │   ├── main.py          # FastAPI application entry point
+│   │   ├── database.py      # Database connection and session management
+│   │   ├── models.py        # SQLAlchemy ORM models
+│   │   ├── schemas.py       # Pydantic validation schemas
+│   │   ├── routers/         # API route handlers
+│   │   └── services/        # Business logic and external services
+│   └── frontend/            # Next.js frontend
+│       ├── app/             # Next.js app directory (pages and layouts)
+│       ├── components/      # React components
+│       ├── lib/             # Utility functions and API client
+│       └── types/           # TypeScript type definitions
+├── database/                 # Database migrations and schema
+│   └── migrations/          # SQL migration scripts
+├── docs/                    # Project documentation
+│   ├── general/            # Design notes and implementation guides
+│   ├── integrations/       # Integration documentation (WeChat, coupons)
+│   └── archived/           # Legacy documentation
+├── backend/                 # Legacy Python scripts
+├── scripts/                 # Automation scripts (Apps Script, etc.)
+├── tests/                   # Playwright tests
+└── private/                 # Private data (not committed)
+```
 
-This phase focuses on building the essential user interface and features within the AppSheet app for daily operations. See `TODO.md` for a detailed task list.
+## Web Application Features
 
-### Phase 3: Financial Management & Renewals (Mostly Complete)
+### Current Features
+- **Session Management**: View and manage tutoring sessions with curriculum suggestions
+- **Calendar Integration**: Sync test/exam dates from Google Calendar
+- **Student Dashboard**: Track student information and session history
+- **Exercise Tracking**: Record classwork and homework assignments
+- **Homework Completion**: Monitor homework submission and completion status
+- **Dark Mode**: System-wide theme support
+- **Responsive Design**: Mobile-friendly interface
 
-This phase has built the critical workflows for managing the entire student lifecycle, from trial classes to renewals and overdue payments.
+### Planned Features
+- Student enrollment management
+- Tutor scheduling and workload tracking
+- Payment and financial management
+- Attendance tracking and reminders
+- Comprehensive reporting dashboards
+- User authentication and role-based access
 
-* **Holiday-Aware Scheduling:**
-    * [x] Added a `holidays` table to the database to store non-working days.
-    * [x] The Google Apps Script for session generation now automatically skips holidays, extending enrollment periods accurately.
-* **Renewal Workflow Foundation:**
-    * [x] Created a `calculate_end_date` SQL function to determine the correct, holiday-adjusted end date for an enrollment, ignoring rescheduled make-up classes.
-    * [x] Built the `active_enrollments_needing_renewal` database view to provide a real-time list of students whose enrollments are ending soon.
-    * [x] Created a comprehensive renewal UI with "Renew Enrollment" action that pre-fills enrollment forms.
-* **Payment Reminder Automation:**
-    * [x] Implemented weekly automated email reminders for students needing renewal contact.
-    * [x] Built email template system using virtual columns for easy configuration management.
-    * [x] Created comprehensive testing and deployment procedures for email automation.
-* **Overdue Payment Management:**
-    * [x] Built real-time overdue detection using virtual columns that immediately flag overdue payments.
-    * [x] Created "Overdue Accounts" view with urgency levels, priority sorting, and comprehensive filtering.
-    * [x] Implemented "Confirm Payment" action with bot-triggered session updates via Google Apps Script.
-    * [x] Enhanced session generation logic to handle partial payments and prevent duplicate sessions.
-    * [x] Added complete audit trail tracking for all payment-related activities.
-* **Attendance Reminder System:**
-    * [x] Created database views (`unchecked_attendance_reminders`, `unchecked_attendance_summary`) for tracking past sessions with unmarked attendance.
-    * [x] Implemented urgency levels (Critical >7 days, High 3-7 days, Medium 1-3 days) with color-coded indicators.
-    * [x] Built AppSheet views for both tutors (individual reminders) and administrators (summary dashboard).
-    * [x] Configured automated daily/weekly reminder notifications via AppSheet bots.
+## Development Setup
 
-### Phase 4: Go-Live & System Transition (Future)
+### Prerequisites
+- Python 3.11+
+- Node.js 20+
+- Access to Google Cloud SQL instance
+- Google OAuth credentials
+- Google Calendar API key
 
-This final phase involves the final data migration, decommissioning the temporary spreadsheet workflows, and transitioning the team to a fully "app-first" operational model.
+### Backend Setup
+
+1. Navigate to backend directory:
+```bash
+cd webapp/backend
+```
+
+2. Create virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+```
+
+5. Run development server:
+```bash
+uvicorn main:app --reload --port 8000 --host 127.0.0.1
+```
+
+API documentation available at: http://localhost:8000/docs
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+```bash
+cd webapp/frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Configure environment variables:
+```bash
+cp .env.local.example .env.local
+# Edit .env.local with API endpoint
+```
+
+4. Run development server:
+```bash
+npm run dev
+```
+
+Application available at: http://localhost:3000
+
+## Legacy AppSheet System
+
+The AppSheet system handles:
+- Student enrollment workflow
+- Session generation and scheduling
+- Payment tracking and renewals
+- Attendance reminders
+- Tutor workload management
+
+See `docs/general/` for detailed AppSheet implementation documentation.
+
+## Database
+
+### Schema Overview
+- `students` - Student information and contact details
+- `tutors` - Tutor profiles and assignments
+- `enrollments` - Student enrollment blocks with payment tracking
+- `session_log` - Individual tutoring sessions
+- `session_exercises` - Classwork and homework assignments
+- `homework_completion` - Homework tracking and grading
+- `holidays` - Non-working days for scheduling
+- `discounts` - Discount codes and amounts
+- `calendar_events` - Test/exam dates from Google Calendar
+
+### Migrations
+Database migrations are located in `database/migrations/` numbered sequentially.
+
+## Documentation
+
+- **General Documentation**: `docs/general/` - Design notes, terminology, future improvements
+- **Integration Guides**: `docs/integrations/` - WeChat, coupon tracking, revenue tracking
+- **Archived Docs**: `docs/archived/` - Legacy implementation documentation
+- **API Documentation**: http://localhost:8000/docs (when backend is running)
+
+## Security
+
+This is a private repository. Security considerations:
+- Environment variables for sensitive credentials
+- Google Cloud SQL with IP-based access restrictions
+- CORS configured for specific origins only
+- Input validation using Pydantic schemas
+- Security audit report available (not committed to git)
+
+See `webapp/backend/.env.example` for required security configurations.
+
+## Development Workflow
+
+1. All database changes must include migration scripts in `database/migrations/`
+2. Backend changes require Pydantic schema updates in `schemas.py`
+3. Frontend changes should follow the existing component structure
+4. Test changes using Playwright (tests in `tests/`)
+
+## Project Roadmap
+
+### Phase 1: Foundation ✅
+- Database schema design and deployment
+- AppSheet application with core workflows
+- Google Sheets integration for hybrid workflow
+
+### Phase 2: Web Application (Current)
+- FastAPI backend with read/write API endpoints
+- Next.js frontend with core features
+- Session management and curriculum suggestions
+- Calendar integration
+
+### Phase 3: Feature Parity
+- Migrate all AppSheet features to web application
+- User authentication and authorization
+- Financial management and reporting
+- Advanced scheduling and automation
+
+### Phase 4: Production Migration
+- Complete transition from AppSheet to web application
+- User training and documentation
+- Performance optimization
+- Production deployment
+
+## Related Repositories
+
+- **GitHub Pages Dashboard**: [tutoring-dashboard](https://github.com/kenny1934/tutoring-dashboard) - Public-facing analytics dashboard
+
+## License
+
+Private - All Rights Reserved
