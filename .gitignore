@@ -107,3 +107,4 @@ dist/
 Screenshot*.png
 Screenshot*.jpg
 tests/screenshots/
+security-report.md
