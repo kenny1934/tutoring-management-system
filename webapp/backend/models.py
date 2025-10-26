@@ -345,3 +345,34 @@ class SessionCurriculumSuggestion(Base):
     # Metadata
     suggestion_count = Column(Integer)
     coverage_status = Column(String(50))
+
+
+class CalendarEvent(Base):
+    """
+    Calendar events table for Google Calendar integration.
+    Caches test/exam events to reduce API calls and enable fast lookups.
+    Events are matched to students by school and grade.
+    """
+    __tablename__ = "calendar_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Google Calendar event ID (for sync tracking)
+    event_id = Column(String(255), nullable=False, unique=True)
+
+    # Event details
+    title = Column(String(500), nullable=False)
+    description = Column(Text)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date)
+
+    # Parsed information for matching
+    school = Column(String(100))  # e.g., TIS, PCMS, SRL-E
+    grade = Column(String(20))    # e.g., F1, F2, F3, F4, F5, F6
+    academic_stream = Column(String(10))  # e.g., A (Arts), S (Science), C (Commerce) - only for F4-F6
+    event_type = Column(String(100))  # e.g., Test, Quiz, Exam, Final Exam
+
+    # Metadata
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    last_synced_at = Column(DateTime, server_default=func.now())

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, GraphPaper, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
-import type { Session, CurriculumSuggestion } from "@/types";
+import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
 import {
   ArrowLeft,
   Star,
@@ -21,6 +21,7 @@ import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
+import { TestAlertBanner } from "@/components/session/TestAlertBanner";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
@@ -49,6 +50,7 @@ export default function SessionDetailPage() {
 
   const [session, setSession] = useState<Session | null>(null);
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
+  const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +84,21 @@ export default function SessionDetailPage() {
     }
 
     fetchCurriculumSuggestion();
+  }, [sessionId]);
+
+  useEffect(() => {
+    async function fetchUpcomingTests() {
+      try {
+        const data = await api.sessions.getUpcomingTests(sessionId);
+        setUpcomingTests(data);
+      } catch (err) {
+        // Silently fail if no upcoming tests available
+        console.log("No upcoming tests found for this session");
+        setUpcomingTests([]);
+      }
+    }
+
+    fetchUpcomingTests();
   }, [sessionId]);
 
   if (loading) {
@@ -151,6 +168,11 @@ export default function SessionDetailPage() {
         <div className="flex-1 min-w-0">
           <ChalkboardHeader session={session} statusColor={statusColor} />
         </div>
+      </div>
+
+      {/* Upcoming Tests Alert Banner */}
+      <div className="pl-14">
+        <TestAlertBanner tests={upcomingTests} />
       </div>
 
       {/* Dynamic Courseware and Notes Section */}

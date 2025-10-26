@@ -6,6 +6,7 @@ import type {
   DashboardStats,
   StudentFilters,
   SessionFilters,
+  UpcomingTestAlert,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -96,6 +97,10 @@ export const sessionsAPI = {
 
   getCurriculumSuggestions: (sessionId: number) => {
     return fetchAPI<CurriculumSuggestion>(`/sessions/${sessionId}/curriculum-suggestions`);
+  },
+
+  getUpcomingTests: (sessionId: number) => {
+    return fetchAPI<UpcomingTestAlert[]>(`/sessions/${sessionId}/upcoming-tests`);
   },
 };
 

@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert
 
 router = APIRouter()
 
@@ -232,3 +232,74 @@ async def get_curriculum_suggestions(
         )
 
     return CurriculumSuggestionResponse.model_validate(suggestion)
+
+
+@router.get("/sessions/{session_id}/upcoming-tests", response_model=List[UpcomingTestAlert])
+async def get_upcoming_tests(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get upcoming tests/exams for a student's school and grade within 14 days of the session date.
+
+    - **session_id**: The session's database ID
+
+    Returns:
+    - List of upcoming tests within 14 days
+    - Each test includes school, grade, event type, date, and days_until countdown
+    """
+    from services.google_calendar_service import get_upcoming_tests_for_session
+
+    # Get session to extract student info
+    session = db.query(SessionLog).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Get student to extract school, grade, and academic stream
+    student = db.query(Student).filter(Student.id == session.student_id).first()
+
+    if not student or not student.school or not student.grade:
+        # Return empty list if student doesn't have required info
+        return []
+
+    # Get upcoming tests for this student's school and grade
+    upcoming_tests = get_upcoming_tests_for_session(
+        db=db,
+        school=student.school,
+        grade=student.grade,
+        academic_stream=student.academic_stream,
+        session_date=session.session_date,
+        days_ahead=14
+    )
+
+    return upcoming_tests
+
+
+@router.post("/calendar/sync")
+async def sync_calendar(
+    force: bool = False,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually sync calendar events from Google Calendar.
+
+    - **force**: If true, force sync even if last sync was recent
+
+    Returns:
+    - Number of events synced
+    """
+    from services.google_calendar_service import sync_calendar_events
+
+    try:
+        synced_count = sync_calendar_events(db=db, force_sync=force)
+        return {
+            "success": True,
+            "events_synced": synced_count,
+            "message": f"Successfully synced {synced_count} calendar events"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to sync calendar: {str(e)}"
+        )

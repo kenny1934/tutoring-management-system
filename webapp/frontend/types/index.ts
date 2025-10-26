@@ -177,3 +177,18 @@ export interface SessionFilters {
   limit?: number;
   offset?: number;
 }
+
+// Calendar Event types
+export interface UpcomingTestAlert {
+  id: number;
+  event_id: string;
+  title: string;
+  description?: string;
+  start_date: string;  // ISO format
+  end_date?: string;  // ISO format
+  school: string;
+  grade: string;
+  academic_stream?: string;
+  event_type: string;
+  days_until: number;  // Number of days until the test
+}
