@@ -102,3 +102,8 @@ dist/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Screenshots and test artifacts
+Screenshot*.png
+Screenshot*.jpg
+tests/screenshots/
