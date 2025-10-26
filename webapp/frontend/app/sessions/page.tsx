@@ -12,7 +12,7 @@ import type { Session } from "@/types";
 import { Calendar, Clock, MapPin, Filter, ChevronRight, ArrowRight } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,27 @@ export default function SessionsPage() {
     return today.toISOString().split("T")[0];
   });
   const [statusFilter, setStatusFilter] = useState("");
+  const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile device for performance optimization
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle card click with flip animation
+  const handleCardClick = (sessionId: number) => {
+    setFlippingCardId(sessionId);
+    // Delay navigation to show flip animation
+    setTimeout(() => {
+      router.push(`/sessions/${sessionId}`);
+    }, 400);
+  };
 
   useEffect(() => {
     async function fetchSessions() {
@@ -77,22 +98,46 @@ export default function SessionsPage() {
   if (loading) {
     return (
       <DeskSurface>
-        <PageTransition className="flex flex-col gap-6 p-8">
+        <PageTransition className="flex flex-col gap-6 p-4 sm:p-8">
           {/* Header Skeleton - Index card style */}
-          <div className="h-32 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47] paper-texture" />
+          <div className={cn(
+            "h-32 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47]",
+            !isMobile && "paper-texture"
+          )} />
 
           {/* Filters Skeleton */}
-          <div className="h-24 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#e8d4b8] dark:border-[#6b5a4a] paper-texture" />
+          <div className={cn(
+            "h-24 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
+            !isMobile && "paper-texture"
+          )} />
 
-          {/* Sessions Skeleton - Index cards */}
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="space-y-3">
-              <div className="h-16 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#d4a574] dark:border-[#8b6f47] paper-texture" />
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="h-24 bg-white dark:bg-[#1a1a1a] rounded animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a] ml-4 paper-texture" />
-              ))}
-            </div>
-          ))}
+          {/* Sessions Skeleton - Index cards with paper shuffle animation */}
+          <AnimatePresence mode="wait">
+            {[1, 2, 3].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -50, rotateY: -15 }}
+                animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                transition={{
+                  delay: i * 0.15,
+                  duration: 0.5,
+                  ease: [0.38, 1.21, 0.22, 1.00]
+                }}
+                className="space-y-3"
+              >
+                <div className={cn(
+                  "h-16 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#d4a574] dark:border-[#8b6f47]",
+                  !isMobile && "paper-texture"
+                )} />
+                {[1, 2, 3].map((j) => (
+                  <div key={j} className={cn(
+                    "h-24 bg-white dark:bg-[#1a1a1a] rounded animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a] ml-4",
+                    !isMobile && "paper-texture"
+                  )} />
+                ))}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </PageTransition>
       </DeskSurface>
     );
@@ -115,28 +160,30 @@ export default function SessionsPage() {
 
   return (
     <DeskSurface>
-      <PageTransition className="flex flex-col gap-6 p-8">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
         {/* Cork Board Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.38, 1.21, 0.22, 1.00] }}
+          transition={{ duration: isMobile ? 0.3 : 0.5, ease: [0.38, 1.21, 0.22, 1.00] }}
           className="relative rounded-lg overflow-hidden desk-shadow-medium"
           style={{
             background: 'linear-gradient(135deg, #c19a6b 0%, #b8956a 50%, #a0826d 100%)',
             boxShadow: '0 8px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
           }}
         >
-          {/* Cork texture */}
-          <div
-            className="absolute inset-0 opacity-60"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='cork'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23cork)' opacity='0.4'/%3E%3C/svg%3E")`,
-            }}
-          />
+          {/* Cork texture - hidden on mobile for performance */}
+          {!isMobile && (
+            <div
+              className="absolute inset-0 opacity-60"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='cork'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23cork)' opacity='0.4'/%3E%3C/svg%3E")`,
+              }}
+            />
+          )}
 
           {/* Content */}
-          <div className="relative p-6 flex items-center justify-between">
+          <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
             <div className="flex items-center gap-4">
               {/* Pinned sticky note with title */}
               <motion.div
@@ -197,9 +244,12 @@ export default function SessionsPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-        className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-6 desk-shadow-low paper-texture"
-        style={{ transform: 'rotate(-0.2deg)' }}
+        transition={{ delay: isMobile ? 0.3 : 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+        className={cn(
+          "relative bg-[#fef9f3] dark:bg-[#2d2618] border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-4 sm:p-6 desk-shadow-low",
+          !isMobile && "paper-texture"
+        )}
+        style={{ transform: isMobile ? 'none' : 'rotate(-0.2deg)' }}
       >
         <div className="flex flex-col sm:flex-row gap-6">
           {/* Date Picker - Calendar Pad Style */}
@@ -291,48 +341,62 @@ export default function SessionsPage() {
           >
             {/* Time Slot Header - Index Card Style */}
             <div
-              className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 mb-4 desk-shadow-low paper-texture"
-              style={{ transform: 'rotate(-0.1deg)' }}
+              className={cn(
+                "relative bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 mb-4 desk-shadow-low",
+                !isMobile && "paper-texture"
+              )}
+              style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                 <div className="flex items-center gap-3">
                   <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
-                    <Clock className="h-5 w-5 text-white" />
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                     {timeSlot}
                   </h3>
                 </div>
-                <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-sm">
+                <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
                   {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
                 </div>
               </div>
             </div>
 
             {/* Session Cards */}
-            <div className="space-y-3 ml-4">
-              {sessionsInSlot.map((session, sessionIndex) => (
-                <motion.div
-                  key={session.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{
-                    delay: 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
-                    duration: 0.35,
-                    ease: [0.38, 1.21, 0.22, 1.00]
-                  }}
-                  whileHover={{
-                    scale: 1.02,
-                    y: -4,
-                    transition: { duration: 0.2 }
-                  }}
-                  onClick={() => router.push(`/sessions/${session.id}`)}
-                  className="relative bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f] paper-texture"
-                  style={{
-                    transform: `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  }}
-                >
+            <div className="space-y-3 ml-0 sm:ml-4">
+              {sessionsInSlot.map((session, sessionIndex) => {
+                const isFlipping = flippingCardId === session.id;
+                return (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      rotateY: isFlipping ? 90 : 0,
+                      scale: isFlipping ? 0.95 : 1
+                    }}
+                    transition={{
+                      delay: isMobile ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
+                      duration: isFlipping ? 0.4 : 0.35,
+                      ease: [0.38, 1.21, 0.22, 1.00]
+                    }}
+                    whileHover={!isMobile ? {
+                      scale: 1.02,
+                      y: -4,
+                      transition: { duration: 0.2 }
+                    } : {}}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleCardClick(session.id)}
+                    className={cn(
+                      "relative bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]",
+                      !isMobile && "paper-texture"
+                    )}
+                    style={{
+                      transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    }}
+                  >
                   <div className="flex items-start justify-between gap-4">
                     {/* Left side - Session info */}
                     <div className="space-y-2 flex-1 min-w-0">
@@ -367,10 +431,13 @@ export default function SessionsPage() {
                     </div>
                   </div>
 
-                  {/* Paper corner fold effect */}
-                  <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[20px] border-b-gray-200 dark:border-b-gray-700 border-l-[20px] border-l-transparent opacity-50" />
+                  {/* Paper corner fold effect - hidden on mobile for cleaner look */}
+                  {!isMobile && (
+                    <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[20px] border-b-gray-200 dark:border-b-gray-700 border-l-[20px] border-l-transparent opacity-50" />
+                  )}
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         ))
@@ -382,62 +449,87 @@ export default function SessionsPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{
-            delay: 0.8 + groupedSessions.length * 0.1,
-            duration: 0.5,
+            delay: isMobile ? 0.4 : 0.8 + groupedSessions.length * 0.1,
+            duration: isMobile ? 0.3 : 0.5,
             ease: [0.38, 1.21, 0.22, 1.00]
           }}
-          className="relative bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 border-4 border-amber-400 dark:border-amber-600 rounded-lg p-6 desk-shadow-medium paper-texture"
-          style={{ transform: 'rotate(0.3deg)' }}
+          className={cn(
+            "relative bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 border-4 border-amber-400 dark:border-amber-600 rounded-lg p-4 sm:p-6 desk-shadow-medium",
+            !isMobile && "paper-texture"
+          )}
+          style={{ transform: isMobile ? 'none' : 'rotate(0.3deg)' }}
         >
-          {/* Paper texture overlay */}
-          <div
-            className="absolute inset-0 opacity-10 pointer-events-none rounded-lg"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
-            }}
-          />
+          {/* Paper texture overlay - hidden on mobile */}
+          {!isMobile && (
+            <div
+              className="absolute inset-0 opacity-10 pointer-events-none rounded-lg"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
+              }}
+            />
+          )}
 
           {/* Header */}
-          <div className="relative mb-6">
-            <h3 className="text-xl font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide text-center">
+          <div className="relative mb-4 sm:mb-6">
+            <h3 className="text-lg sm:text-xl font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide text-center">
               Session Summary
             </h3>
-            <p className="text-center text-sm text-amber-700 dark:text-amber-300 mt-1">
-              {new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <p className="text-center text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-1">
+              {new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: isMobile ? 'short' : 'long',
+                year: 'numeric',
+                month: isMobile ? 'short' : 'long',
+                day: 'numeric'
+              })}
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="relative grid gap-6 md:grid-cols-3">
+          <div className="relative grid gap-3 sm:gap-6 grid-cols-3">
             {/* Total Sessions */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Total Sessions
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: isMobile ? 0.5 : 0.9 + groupedSessions.length * 0.1, duration: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
+            >
+              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                Total
               </p>
-              <p className="text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
                 {sessions.length}
               </p>
-            </div>
+            </motion.div>
 
             {/* Time Slots */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Time Slots
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: isMobile ? 0.55 : 0.95 + groupedSessions.length * 0.1, duration: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
+            >
+              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                Slots
               </p>
-              <p className="text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
                 {groupedSessions.length}
               </p>
-            </div>
+            </motion.div>
 
             {/* Average per Slot */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-              <p className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                Avg per Slot
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: isMobile ? 0.6 : 1.0 + groupedSessions.length * 0.1, duration: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
+            >
+              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                Average
               </p>
-              <p className="text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
                 {(sessions.length / groupedSessions.length).toFixed(1)}
               </p>
-            </div>
+            </motion.div>
           </div>
 
           {/* Corner fold */}
