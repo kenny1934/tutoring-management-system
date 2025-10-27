@@ -33,6 +33,8 @@ export {
   IndexCard,
   BinderTabs,
   BinderTab,
+  GradeBookHeader,
+  StudentCard,
   // Interactive & Feedback Components
   Highlighter,
   RubberStamp,
