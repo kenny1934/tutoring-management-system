@@ -15,6 +15,7 @@ export { Certificate } from "./Certificate";
 export { FileFolder } from "./FileFolder";
 export { IndexCard } from "./IndexCard";
 export { BinderTabs, BinderTab } from "./BinderTabs";
+export { GradeBookHeader, StudentCard } from "./GradeBook";
 
 // Interactive & Feedback Components
 export { Highlighter } from "./Highlighter";
