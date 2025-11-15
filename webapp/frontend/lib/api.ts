@@ -75,10 +75,15 @@ export const enrollmentsAPI = {
 export const sessionsAPI = {
   getAll: (filters?: SessionFilters) => {
     const params = new URLSearchParams();
-    // Map frontend 'date' filter to backend 'from_date' and 'to_date'
+    // Support both single date and date range filters
     if (filters?.date) {
+      // Map frontend 'date' filter to backend 'from_date' and 'to_date'
       params.append("from_date", filters.date);
       params.append("to_date", filters.date);
+    } else if (filters?.from_date || filters?.to_date) {
+      // Support explicit date range for weekly/monthly views
+      if (filters.from_date) params.append("from_date", filters.from_date);
+      if (filters.to_date) params.append("to_date", filters.to_date);
     }
     if (filters?.tutor_id) params.append("tutor_id", filters.tutor_id.toString());
     if (filters?.location) params.append("location", filters.location);

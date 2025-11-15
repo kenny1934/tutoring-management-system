@@ -15,6 +15,9 @@ import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
+import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
+import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
 
 export default function SessionsPage() {
   const router = useRouter();
@@ -22,13 +25,11 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [statusFilter, setStatusFilter] = useState("");
   const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   // Detect mobile device for performance optimization
   useEffect(() => {
@@ -53,12 +54,26 @@ export default function SessionsPage() {
     async function fetchSessions() {
       try {
         setLoading(true);
-        const data = await api.sessions.getAll({
-          date: selectedDate || undefined,
+
+        // Prepare date filters based on view mode
+        let filters: any = {
           location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
           status: statusFilter || undefined,
           limit: 500,
-        });
+        };
+
+        if (viewMode === "list") {
+          // For list view, fetch just the selected date
+          filters.date = toDateString(selectedDate);
+        } else if (viewMode === "weekly") {
+          // For weekly view, fetch the entire week
+          const { start, end } = getWeekBounds(selectedDate);
+          filters.from_date = toDateString(start);
+          filters.to_date = toDateString(end);
+        }
+        // For daily and monthly views (future implementation)
+
+        const data = await api.sessions.getAll(filters);
         setSessions(data);
         setError(null);
       } catch (err) {
@@ -69,7 +84,7 @@ export default function SessionsPage() {
     }
 
     fetchSessions();
-  }, [selectedDate, statusFilter, selectedLocation]);
+  }, [selectedDate, statusFilter, selectedLocation, viewMode]);
 
   // Group sessions by time slot
   const groupedSessions = useMemo(() => {
@@ -240,77 +255,139 @@ export default function SessionsPage() {
           </div>
         </motion.div>
 
-      {/* Filters - Desk Organizer Style */}
+      {/* View Switcher */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: isMobile ? 0.3 : 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-        className={cn(
-          "relative bg-[#fef9f3] dark:bg-[#2d2618] border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-4 sm:p-6 desk-shadow-low",
-          !isMobile && "paper-texture"
-        )}
-        style={{ transform: isMobile ? 'none' : 'rotate(-0.2deg)' }}
+        className="flex justify-center"
       >
-        <div className="flex flex-col sm:flex-row gap-6">
-          {/* Date Picker - Calendar Pad Style */}
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-              <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                Session Date
-              </label>
-            </div>
-            <div className="relative">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                style={{
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Status Filter - Index Tab Style */}
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Filter className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-              <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                Status Filter
-              </label>
-            </div>
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                style={{
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 1rem center',
-                }}
-              >
-                <option value="">All Statuses</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Make-up Class">Make-up Class</option>
-                <option value="Cancelled">Cancelled</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Paper clip decoration */}
-        <div className="absolute -top-3 left-8 w-16 h-8 border-2 border-gray-400 dark:border-gray-500 rounded-full opacity-40"
-          style={{ transform: 'rotate(-15deg)' }}
-        />
+        <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} />
       </motion.div>
 
-      {/* Grouped Sessions */}
-      {groupedSessions.length === 0 ? (
+      {/* Filters - Desk Organizer Style (only show in list view) */}
+      {viewMode === "list" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: isMobile ? 0.3 : 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+          className={cn(
+            "relative bg-[#fef9f3] dark:bg-[#2d2618] border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-4 sm:p-6 desk-shadow-low",
+            !isMobile && "paper-texture"
+          )}
+          style={{ transform: isMobile ? 'none' : 'rotate(-0.2deg)' }}
+        >
+          <div className="flex flex-col sm:flex-row gap-6">
+            {/* Date Picker - Calendar Pad Style */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                  Session Date
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={toDateString(selectedDate)}
+                  onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
+                  style={{
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Status Filter - Index Tab Style */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                  Status Filter
+                </label>
+              </div>
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
+                  style={{
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 1rem center',
+                  }}
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Make-up Class">Make-up Class</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Paper clip decoration */}
+          <div className="absolute -top-3 left-8 w-16 h-8 border-2 border-gray-400 dark:border-gray-500 rounded-full opacity-40"
+            style={{ transform: 'rotate(-15deg)' }}
+          />
+        </motion.div>
+      )}
+
+      {/* Weekly Calendar View */}
+      {viewMode === "weekly" && (
+        <WeeklyGridView
+          sessions={sessions}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          isMobile={isMobile}
+        />
+      )}
+
+      {/* Daily View Placeholder */}
+      {viewMode === "daily" && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+          className="flex justify-center py-12"
+        >
+          <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
+            <div className="text-center">
+              <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Daily View</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Coming soon...
+              </p>
+            </div>
+          </StickyNote>
+        </motion.div>
+      )}
+
+      {/* Monthly View Placeholder */}
+      {viewMode === "monthly" && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.6, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+          className="flex justify-center py-12"
+        >
+          <StickyNote variant="blue" size="lg" showTape={true} className="desk-shadow-medium">
+            <div className="text-center">
+              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Monthly View</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Coming soon...
+              </p>
+            </div>
+          </StickyNote>
+        </motion.div>
+      )}
+
+      {/* List View: Grouped Sessions */}
+      {viewMode === "list" && groupedSessions.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -327,7 +404,7 @@ export default function SessionsPage() {
             </div>
           </StickyNote>
         </motion.div>
-      ) : (
+      ) : viewMode === "list" ? (
         groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
           <motion.div
             key={timeSlot}
@@ -441,10 +518,10 @@ export default function SessionsPage() {
             </div>
           </motion.div>
         ))
-      )}
+      ) : null}
 
-      {/* Quick Stats - Report Card Style */}
-      {groupedSessions.length > 0 && (
+      {/* Quick Stats - Report Card Style (only show in list view) */}
+      {viewMode === "list" && groupedSessions.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -475,7 +552,7 @@ export default function SessionsPage() {
               Session Summary
             </h3>
             <p className="text-center text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-1">
-              {new Date(selectedDate).toLocaleDateString('en-US', {
+              {selectedDate.toLocaleDateString('en-US', {
                 weekday: isMobile ? 'short' : 'long',
                 year: 'numeric',
                 month: isMobile ? 'short' : 'long',
