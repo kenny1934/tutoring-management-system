@@ -171,6 +171,8 @@ export interface StudentFilters {
 
 export interface SessionFilters {
   date?: string;
+  from_date?: string;
+  to_date?: string;
   tutor_id?: number;
   location?: string;
   status?: string;
