@@ -86,13 +86,15 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
           }} />
 
           <div className="relative p-4 max-h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#d4a574] scrollbar-track-transparent [scrollbar-gutter:stable]">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#d4a574]/30">
-              <History className="h-4 w-4 text-[#8b6f47]" />
-              <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Previous Session</h3>
-            </div>
+            {previousSession && (
+              <>
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#d4a574]/30">
+                  <History className="h-4 w-4 text-[#8b6f47]" />
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Previous Session</h3>
+                </div>
 
-            {/* Date and Status */}
+                {/* Date and Status */}
             <div className="space-y-3 mb-3">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Date</p>
@@ -228,7 +230,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                             {/* Remarks if any */}
                             {cw.remarks && (
                               <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
-                                "{cw.remarks}"
+                                &ldquo;{cw.remarks}&rdquo;
                               </p>
                             )}
                           </div>
@@ -238,6 +240,8 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                   )}
                 </AnimatePresence>
               </div>
+            )}
+              </>
             )}
 
             {/* Homework to Check - Collapsible */}
@@ -329,7 +333,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                             {/* Comments if any */}
                             {hw.tutor_comments && (
                               <p className="text-[10px] italic text-foreground/70 mt-1 leading-tight">
-                                "{hw.tutor_comments}"
+                                &ldquo;{hw.tutor_comments}&rdquo;
                               </p>
                             )}
                           </div>

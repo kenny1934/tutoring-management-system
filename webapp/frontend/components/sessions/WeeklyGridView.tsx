@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { formatSessionDisplay } from "@/lib/formatters";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { MoreSessionsPopover } from "@/components/sessions/MoreSessionsPopover";
 import type { Session } from "@/types";
 import {
   getWeekDates,
@@ -18,11 +18,9 @@ import {
   groupSessionsByDate,
   calculateSessionPosition,
   calculateSessionHeight,
-  calculateSessionLayouts,
   parseTimeSlot,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
 
 interface WeeklyGridViewProps {
   sessions: Session[];
@@ -37,7 +35,11 @@ export function WeeklyGridView({
   onDateChange,
   isMobile = false,
 }: WeeklyGridViewProps) {
-  const router = useRouter();
+  const [openSessionId, setOpenSessionId] = useState<number | null>(null);
+  const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
+  const sessionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const today = getToday();
 
@@ -59,10 +61,6 @@ export function WeeklyGridView({
 
   const handleNextWeek = () => {
     onDateChange(getNextWeek(selectedDate));
-  };
-
-  const handleSessionClick = (sessionId: number) => {
-    router.push(`/sessions/${sessionId}`);
   };
 
   // Generate hour labels
@@ -174,7 +172,6 @@ export function WeeklyGridView({
               {weekDates.map((date, dayIndex) => {
                 const dateKey = toDateString(date);
                 const daySessions = sessionsByDate.get(dateKey) || [];
-                const sessionsWithLayout = calculateSessionLayouts(daySessions);
 
                 return (
                   <div
@@ -198,47 +195,118 @@ export function WeeklyGridView({
                       />
                     ))}
 
-                    {/* Sessions */}
-                    {sessionsWithLayout.map((session) => {
-                      const parsed = parseTimeSlot(session.time_slot);
-                      const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
-                      const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
+                    {/* Sessions - Vertical Stacking Container */}
+                    {daySessions.length > 0 && (() => {
+                      // Group sessions by overlapping time ranges
+                      const timeGroups = new Map<string, Session[]>();
 
-                      return (
-                        <motion.div
-                          key={session.id}
-                          whileHover={{ scale: 1.02, zIndex: 50 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => handleSessionClick(session.id)}
-                          className={cn(
-                            "absolute cursor-pointer rounded px-2 py-1 overflow-hidden",
-                            "bg-white dark:bg-gray-800",
-                            "border-l-4 border-[#d4a574] dark:border-[#8b6f47]",
-                            "shadow-sm hover:shadow-md transition-shadow"
-                          )}
-                          style={{
-                            top: `${top}px`,
-                            height: `${height}px`,
-                            left: `${session.layoutLeft}%`,
-                            width: `${session.layoutWidth}%`,
-                          }}
-                        >
-                          <div className="text-xs">
-                            <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                              {formatSessionDisplay(session)}
-                            </p>
-                            {parsed && (
-                              <p className="text-gray-600 dark:text-gray-400">
-                                {parsed.start} - {parsed.end}
-                              </p>
-                            )}
-                            <div className="mt-1">
-                              <StatusBadge status={session.session_status} size="xs" />
+                      daySessions.forEach((session) => {
+                        const parsed = parseTimeSlot(session.time_slot);
+                        if (!parsed) return;
+
+                        const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
+                        const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
+                        const key = `${dateKey}-${top}-${height}`;
+
+                        if (!timeGroups.has(key)) {
+                          timeGroups.set(key, []);
+                        }
+                        timeGroups.get(key)!.push(session);
+                      });
+
+                      return Array.from(timeGroups.entries()).map(([key, sessions]) => {
+                        const firstSession = sessions[0];
+                        const top = calculateSessionPosition(firstSession.time_slot, pixelsPerMinute);
+                        const height = calculateSessionHeight(firstSession.time_slot, pixelsPerMinute);
+
+                        const maxDisplayedSessions = Math.max(1, Math.floor(height / 28)); // ~28px per session
+                        const hasMoreSessions = sessions.length > maxDisplayedSessions;
+                        const displayedSessions = hasMoreSessions
+                          ? sessions.slice(0, maxDisplayedSessions - 1)
+                          : sessions;
+
+                        return (
+                          <div
+                            key={key}
+                            className="absolute w-full overflow-hidden"
+                            style={{
+                              top: `${top}px`,
+                              height: `${height}px`,
+                            }}
+                          >
+                            <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#d4a574] scrollbar-track-transparent">
+                              {displayedSessions.map((session) => {
+                                return (
+                                  <motion.div
+                                    key={session.id}
+                                    ref={(el) => {
+                                      if (el) sessionRefs.current.set(session.id, el);
+                                    }}
+                                    whileHover={{ scale: 1.01, zIndex: 50 }}
+                                    whileTap={{ scale: 0.99 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenSessionId(session.id);
+                                      setOpenMoreGroup(null);
+                                    }}
+                                    className={cn(
+                                      "cursor-pointer rounded px-1.5 py-0.5",
+                                      "bg-white dark:bg-gray-800",
+                                      "border-l-3",
+                                      session.session_status === "Confirmed" && "border-green-500",
+                                      session.session_status === "Pending" && "border-yellow-500",
+                                      session.session_status === "Cancelled" && "border-red-500",
+                                      session.session_status === "Completed" && "border-blue-500",
+                                      !session.session_status && "border-[#d4a574] dark:border-[#8b6f47]",
+                                      "shadow-sm hover:shadow-md transition-shadow",
+                                      "overflow-hidden flex-shrink-0"
+                                    )}
+                                    style={{
+                                      minHeight: "24px",
+                                    }}
+                                  >
+                                    <div className="flex flex-col">
+                                      <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight">
+                                        {session.school_student_id || "N/A"}
+                                      </p>
+                                      <p className="font-semibold text-[10px] text-gray-900 dark:text-gray-100 truncate leading-tight">
+                                        {session.student_name || "Unknown"}
+                                      </p>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+
+                              {hasMoreSessions && (
+                                <div
+                                  ref={(el) => {
+                                    if (el) moreButtonRefs.current.set(key, el);
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenMoreGroup(key);
+                                    setOpenSessionId(null);
+                                  }}
+                                  className={cn(
+                                    "cursor-pointer rounded px-1.5 py-0.5 text-center",
+                                    "bg-[#fef9f3] dark:bg-[#2d2618]",
+                                    "border-l-3 border-[#d4a574] dark:border-[#8b6f47]",
+                                    "shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
+                                  )}
+                                  style={{
+                                    minHeight: "24px",
+                                  }}
+                                >
+                                  <p className="font-bold text-[9px] text-[#a0704b] dark:text-[#cd853f]">
+                                    +{sessions.length - displayedSessions.length} more
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        </motion.div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 );
               })}
@@ -246,6 +314,59 @@ export function WeeklyGridView({
           </div>
         </div>
       </div>
+
+      {/* Session Detail Popovers */}
+      {openSessionId !== null && (() => {
+        const session = sessions.find((s) => s.id === openSessionId);
+        const ref = sessionRefs.current.get(openSessionId);
+        if (!session || !ref) return null;
+
+        return (
+          <SessionDetailPopover
+            session={session}
+            isOpen={true}
+            onClose={() => setOpenSessionId(null)}
+            triggerRef={{ current: ref }}
+          />
+        );
+      })()}
+
+      {/* More Sessions Popover */}
+      {openMoreGroup !== null && (() => {
+        const ref = moreButtonRefs.current.get(openMoreGroup);
+        if (!ref) return null;
+
+        // Parse dateKey from the group key (format: dateKey-top-height)
+        const keyParts = openMoreGroup.split('-');
+        const dateKey = keyParts.slice(0, 3).join('-'); // YYYY-MM-DD format
+        const daySessions = sessionsByDate.get(dateKey) || [];
+
+        // Find all sessions in this time group for this specific day
+        const timeGroups = new Map<string, Session[]>();
+        daySessions.forEach((session) => {
+          const parsed = parseTimeSlot(session.time_slot);
+          if (!parsed) return;
+
+          const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
+          const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
+          const key = `${dateKey}-${top}-${height}`;
+
+          if (!timeGroups.has(key)) {
+            timeGroups.set(key, []);
+          }
+          timeGroups.get(key)!.push(session);
+        });
+
+        const groupSessions = timeGroups.get(openMoreGroup) || [];
+
+        return (
+          <MoreSessionsPopover
+            sessions={groupSessions}
+            triggerRef={{ current: ref }}
+            onClose={() => setOpenMoreGroup(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

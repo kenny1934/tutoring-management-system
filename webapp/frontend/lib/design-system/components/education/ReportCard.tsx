@@ -104,7 +104,7 @@ export function ReportCard({
 
       {/* Footer seal/signature area */}
       <div className="mt-8 pt-4 border-t border-gray-300 dark:border-gray-700 text-center text-xs text-muted-foreground">
-        <p>This report represents the student's progress and performance during the specified term.</p>
+        <p>This report represents the student&apos;s progress and performance during the specified term.</p>
       </div>
     </div>
   );

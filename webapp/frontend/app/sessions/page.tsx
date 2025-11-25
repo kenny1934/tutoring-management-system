@@ -4,11 +4,11 @@ import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { formatSessionDisplay } from "@/lib/formatters";
 import { StatusBadge } from "@/components/ui/status-badge";
-import type { Session } from "@/types";
+import type { Session, Tutor } from "@/types";
 import { Calendar, Clock, MapPin, Filter, ChevronRight, ArrowRight } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -27,6 +27,8 @@ export default function SessionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [statusFilter, setStatusFilter] = useState("");
+  const [tutorFilter, setTutorFilter] = useState("");
+  const [tutors, setTutors] = useState<Tutor[]>([]);
   const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -39,6 +41,19 @@ export default function SessionsPage() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Fetch tutors on mount
+  useEffect(() => {
+    async function fetchTutors() {
+      try {
+        const data = await tutorsAPI.getAll();
+        setTutors(data);
+      } catch (err) {
+        console.error("Failed to load tutors:", err);
+      }
+    }
+    fetchTutors();
   }, []);
 
   // Handle card click with flip animation
@@ -56,9 +71,10 @@ export default function SessionsPage() {
         setLoading(true);
 
         // Prepare date filters based on view mode
-        let filters: any = {
+        const filters: Record<string, string | number | undefined> = {
           location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
           status: statusFilter || undefined,
+          tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
           limit: 500,
         };
 
@@ -84,7 +100,7 @@ export default function SessionsPage() {
     }
 
     fetchSessions();
-  }, [selectedDate, statusFilter, selectedLocation, viewMode]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
 
   // Group sessions by time slot
   const groupedSessions = useMemo(() => {
@@ -265,8 +281,8 @@ export default function SessionsPage() {
         <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} />
       </motion.div>
 
-      {/* Filters - Desk Organizer Style (only show in list view) */}
-      {viewMode === "list" && (
+      {/* Filters - Desk Organizer Style (show for list and weekly views) */}
+      {(viewMode === "list" || viewMode === "weekly") && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -278,26 +294,28 @@ export default function SessionsPage() {
           style={{ transform: isMobile ? 'none' : 'rotate(-0.2deg)' }}
         >
           <div className="flex flex-col sm:flex-row gap-6">
-            {/* Date Picker - Calendar Pad Style */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                  Session Date
-                </label>
+            {/* Date Picker - Calendar Pad Style (only for list view) */}
+            {viewMode === "list" && (
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                    Session Date
+                  </label>
+                </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={toDateString(selectedDate)}
+                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                    className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
+                    style={{
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    }}
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={toDateString(selectedDate)}
-                  onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                  style={{
-                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-              </div>
-            </div>
+            )}
 
             {/* Status Filter - Index Tab Style */}
             <div className="flex-1">
@@ -321,9 +339,47 @@ export default function SessionsPage() {
                 >
                   <option value="">All Statuses</option>
                   <option value="Scheduled">Scheduled</option>
+                  <option value="Attended">Attended</option>
+                  <option value="Attended (Make-up)">Attended (Make-up)</option>
                   <option value="Make-up Class">Make-up Class</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Completed">Completed</option>
+                  <option value="Trial Class">Trial Class</option>
+                  <option value="Rescheduled - Pending Make-up">Rescheduled - Pending Make-up</option>
+                  <option value="Rescheduled - Make-up Booked">Rescheduled - Make-up Booked</option>
+                  <option value="Sick Leave - Pending Make-up">Sick Leave - Pending Make-up</option>
+                  <option value="Sick Leave - Make-up Booked">Sick Leave - Make-up Booked</option>
+                  <option value="Weather Cancelled - Pending Make-up">Weather Cancelled - Pending Make-up</option>
+                  <option value="Weather Cancelled - Make-up Booked">Weather Cancelled - Make-up Booked</option>
+                  <option value="No Show">No Show</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Tutor Filter */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                  Tutor Filter
+                </label>
+              </div>
+              <div className="relative">
+                <select
+                  value={tutorFilter}
+                  onChange={(e) => setTutorFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
+                  style={{
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 1rem center',
+                  }}
+                >
+                  <option value="">All Tutors</option>
+                  {tutors.map((tutor) => (
+                    <option key={tutor.id} value={tutor.id.toString()}>
+                      {tutor.tutor_name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

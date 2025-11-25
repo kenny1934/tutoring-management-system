@@ -1,3 +1,9 @@
+// Tutor types
+export interface Tutor {
+  id: number;
+  tutor_name: string;
+}
+
 // Student types
 export interface Student {
   id: number;
