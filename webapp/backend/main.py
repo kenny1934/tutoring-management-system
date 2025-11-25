@@ -78,13 +78,14 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats
+from routers import students, enrollments, sessions, stats, tutors
 
 # Register routers
 app.include_router(students.router, prefix="/api", tags=["students"])
 app.include_router(enrollments.router, prefix="/api", tags=["enrollments"])
 app.include_router(sessions.router, prefix="/api", tags=["sessions"])
 app.include_router(stats.router, prefix="/api", tags=["stats"])
+app.include_router(tutors.router, prefix="/api", tags=["tutors"])
 
 
 if __name__ == "__main__":

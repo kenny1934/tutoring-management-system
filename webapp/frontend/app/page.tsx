@@ -171,7 +171,7 @@ export default function DashboardPage() {
               >
                 <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded shadow-md border border-gray-200 dark:border-gray-700">
                   <p className="text-sm text-muted-foreground">
-                    Welcome back! Here's an overview of your tutoring center
+                    Welcome back! Here&apos;s an overview of your tutoring center
                   </p>
                 </div>
                 {/* Pushpin */}

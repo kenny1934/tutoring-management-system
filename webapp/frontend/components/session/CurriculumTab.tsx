@@ -88,7 +88,7 @@ export function CurriculumTab({ suggestion }: CurriculumTabProps) {
             <div className="mb-4 pb-3 border-b-2 border-dashed border-teal-600/30">
               <div className="flex items-center gap-2 mb-2">
                 <Lightbulb className="h-4 w-4 text-teal-700 dark:text-teal-400" />
-                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Last Year's Curriculum</h3>
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Last Year&apos;s Curriculum</h3>
               </div>
               <Badge variant="secondary" className="text-xs">
                 {lastYear}

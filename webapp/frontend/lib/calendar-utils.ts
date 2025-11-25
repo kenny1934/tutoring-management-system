@@ -116,7 +116,7 @@ export function generateTimeSlots(): string[] {
   const endHour = 22;
 
   for (let hour = startHour; hour < endHour; hour++) {
-    for (let minute of [0, 30]) {
+    for (const minute of [0, 30]) {
       const time = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
       slots.push(time);
     }

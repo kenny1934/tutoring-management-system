@@ -1,4 +1,5 @@
 import type {
+  Tutor,
   Student,
   Enrollment,
   Session,
@@ -33,6 +34,13 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
     throw error;
   }
 }
+
+// Tutors API
+export const tutorsAPI = {
+  getAll: () => {
+    return fetchAPI<Tutor[]>("/tutors");
+  },
+};
 
 // Students API
 export const studentsAPI = {
@@ -123,6 +131,7 @@ export const statsAPI = {
 
 // Export all APIs as a single object
 export const api = {
+  tutors: tutorsAPI,
   students: studentsAPI,
   enrollments: enrollmentsAPI,
   sessions: sessionsAPI,
