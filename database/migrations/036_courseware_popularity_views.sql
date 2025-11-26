@@ -17,15 +17,117 @@ SELECT
         THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
         ELSE TRIM(BOTH '"' FROM se.pdf_name)
     END AS normalized_path,
-    -- Extract just the filename (for joining with summary views)
-    SUBSTRING_INDEX(
-        CASE
-            WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
-            THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
-            ELSE TRIM(BOTH '"' FROM se.pdf_name)
-        END,
-        '\\', -1
-    ) AS filename,
+    -- Extract filename and strip common extensions (.docx, .xlsx, .pptx, .pdf, .doc, .jpg)
+    CASE
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.docx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.xlsx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pptx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pdf'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.doc'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.jpg'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        ELSE SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)
+    END AS filename,
     se.pdf_name AS original_pdf_name,
     se.exercise_type,
     se.page_start,
@@ -51,15 +153,117 @@ JOIN tutors t ON sl.tutor_id = t.id;
 -- ============================================================================
 CREATE OR REPLACE VIEW courseware_popularity_summary AS
 SELECT
-    -- Group by filename only
-    SUBSTRING_INDEX(
-        CASE
-            WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
-            THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
-            ELSE TRIM(BOTH '"' FROM se.pdf_name)
-        END,
-        '\\', -1
-    ) AS filename,
+    -- Group by filename (with extension stripped)
+    CASE
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.docx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.xlsx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pptx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pdf'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.doc'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.jpg'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        ELSE SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)
+    END AS filename,
 
     -- All unique normalized paths for this filename
     GROUP_CONCAT(DISTINCT
@@ -89,14 +293,116 @@ FROM session_exercises se
 JOIN session_log sl ON se.session_id = sl.id
 JOIN students s ON sl.student_id = s.id
 GROUP BY
-    SUBSTRING_INDEX(
-        CASE
-            WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
-            THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
-            ELSE TRIM(BOTH '"' FROM se.pdf_name)
-        END,
-        '\\', -1
-    );
+    CASE
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.docx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.xlsx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pptx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pdf'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.doc'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.jpg'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        ELSE SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)
+    END;
 
 -- ============================================================================
 -- View 3: courseware_popularity_recent (Last 14 Days)
@@ -104,15 +410,117 @@ GROUP BY
 -- ============================================================================
 CREATE OR REPLACE VIEW courseware_popularity_recent AS
 SELECT
-    -- Group by filename only
-    SUBSTRING_INDEX(
-        CASE
-            WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
-            THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
-            ELSE TRIM(BOTH '"' FROM se.pdf_name)
-        END,
-        '\\', -1
-    ) AS filename,
+    -- Group by filename (with extension stripped)
+    CASE
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.docx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.xlsx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pptx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pdf'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.doc'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.jpg'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        ELSE SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)
+    END AS filename,
 
     -- All unique normalized paths for this filename
     GROUP_CONCAT(DISTINCT
@@ -143,11 +551,113 @@ JOIN session_log sl ON se.session_id = sl.id
 JOIN students s ON sl.student_id = s.id
 WHERE sl.session_date >= CURDATE() - INTERVAL 14 DAY
 GROUP BY
-    SUBSTRING_INDEX(
-        CASE
-            WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
-            THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
-            ELSE TRIM(BOTH '"' FROM se.pdf_name)
-        END,
-        '\\', -1
-    );
+    CASE
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.docx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.xlsx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pptx'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 5)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.pdf'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.doc'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        WHEN LOWER(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) LIKE '%.jpg'
+        THEN LEFT(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1), CHAR_LENGTH(SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)) - 4)
+        ELSE SUBSTRING_INDEX(
+            CASE
+                WHEN TRIM(BOTH '"' FROM se.pdf_name) REGEXP '^[A-Za-z]:'
+                THEN SUBSTRING(TRIM(BOTH '"' FROM se.pdf_name), 3)
+                ELSE TRIM(BOTH '"' FROM se.pdf_name)
+            END, '\\', -1)
+    END;
