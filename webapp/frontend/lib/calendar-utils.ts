@@ -294,14 +294,14 @@ export function getToday(): Date {
 
 /**
  * Calculate the top position for a session based on its start time
- * Returns pixels from the start of the day (8:00 AM = 0px)
+ * Returns pixels from the start of the day (10:00 AM = 0px)
  */
 export function calculateSessionPosition(timeSlot: string, pixelsPerMinute: number = 1): number {
   const parsed = parseTimeSlot(timeSlot);
   if (!parsed) return 0;
 
   const startMinutes = timeToMinutes(parsed.start);
-  const dayStartMinutes = 8 * 60; // 8:00 AM
+  const dayStartMinutes = 10 * 60; // 10:00 AM
 
   return (startMinutes - dayStartMinutes) * pixelsPerMinute;
 }
