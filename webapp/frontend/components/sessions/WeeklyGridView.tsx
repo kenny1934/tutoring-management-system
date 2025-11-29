@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { MoreSessionsPopover } from "@/components/sessions/MoreSessionsPopover";
@@ -15,13 +15,34 @@ import {
   getToday,
   getPreviousWeek,
   getNextWeek,
+  getSchoolYearWeek,
   groupSessionsByDate,
   calculateSessionPosition,
   calculateSessionHeight,
   parseTimeSlot,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
+
+// Helper to get tutor name without Mr/Ms prefix for sorting
+const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+
+// Grade tag colors
+const GRADE_COLORS: Record<string, string> = {
+  "F1C": "#c2dfce",
+  "F1E": "#cedaf5",
+  "F2C": "#fbf2d0",
+  "F2E": "#f0a19e",
+  "F3C": "#e2b1cc",
+  "F3E": "#ebb26e",
+  "F4C": "#7dc347",
+  "F4E": "#a590e6",
+};
+
+const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
+  const key = `${grade || ""}${langStream || ""}`;
+  return GRADE_COLORS[key] || "#e5e7eb";
+};
 
 interface WeeklyGridViewProps {
   sessions: Session[];
@@ -29,6 +50,7 @@ interface WeeklyGridViewProps {
   onDateChange: (date: Date) => void;
   isMobile?: boolean;
   tutorFilter?: string;
+  fillHeight?: boolean;
 }
 
 export function WeeklyGridView({
@@ -37,20 +59,63 @@ export function WeeklyGridView({
   onDateChange,
   isMobile = false,
   tutorFilter = "",
+  fillHeight = false,
 }: WeeklyGridViewProps) {
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
   const sessionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const weekDates = useMemo(() => getWeekDates(selectedDate), [selectedDate]);
   const today = getToday();
 
-  // Pixels per minute (adjust for mobile)
-  const pixelsPerMinute = isMobile ? 0.75 : 1;
+  // Measure available height when fillHeight is enabled
+  useEffect(() => {
+    if (!fillHeight || !containerRef.current) return;
 
-  // Total height: 10:00 AM to 8:00 PM = 10 hours = 600 minutes
-  const totalHeight = 10 * 60 * pixelsPerMinute;
+    const measureHeight = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      // Get viewport height minus the container's top position minus some padding
+      const rect = container.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 16; // 16px bottom padding
+      setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
+    };
+
+    measureHeight();
+    window.addEventListener('resize', measureHeight);
+    return () => window.removeEventListener('resize', measureHeight);
+  }, [fillHeight]);
+
+  // Calculate grid height - use measured height when fillHeight is enabled
+  const totalMinutes = 10 * 60; // 10:00 AM to 8:00 PM = 10 hours
+  const navHeaderHeight = 40; // Approximate height of week navigation
+  const dayHeaderHeight = 36; // Approximate height of day headers
+
+  // Pixels per minute calculation
+  let pixelsPerMinute: number;
+  let totalHeight: number;
+
+  if (fillHeight) {
+    if (containerHeight) {
+      // Calculate pixelsPerMinute to fit the available height
+      // Account for: navHeader(40) + dayHeader(36) + borders(8) + space-y-1(4) + buffer(12) = 100px
+      const gridHeight = containerHeight - 100;
+      pixelsPerMinute = Math.max(0.5, gridHeight / totalMinutes); // Minimum 0.5 to keep things readable
+      totalHeight = gridHeight;
+    } else {
+      // Before measurement, use a safe small default to avoid scrollbar flash
+      pixelsPerMinute = 0.5;
+      totalHeight = totalMinutes * pixelsPerMinute;
+    }
+  } else {
+    // Default fixed calculation
+    pixelsPerMinute = isMobile ? 0.75 : 1;
+    totalHeight = totalMinutes * pixelsPerMinute;
+  }
 
   // Group sessions by date
   const sessionsByDate = useMemo(
@@ -70,48 +135,79 @@ export function WeeklyGridView({
   const hours = Array.from({ length: 11 }, (_, i) => i + 10); // 10 AM to 8 PM
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className={cn("space-y-1 flex flex-col", fillHeight && "flex-1 min-h-0 overflow-hidden")}>
       {/* Week Navigation */}
-      <div className="flex items-center justify-between bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-4 paper-texture">
+      <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5 paper-texture">
+        {/* Left: Prev button */}
         <Button
           variant="outline"
           size="sm"
           onClick={handlePreviousWeek}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1 h-7 px-2 text-xs"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Previous
+          <ChevronLeft className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Prev</span>
         </Button>
 
-        <div className="text-center">
-          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            {weekDates[0].toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} -{" "}
-            {weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </p>
+        {/* Center: Today, Date picker, Week info */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Today button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDateChange(getToday())}
+            className="flex items-center gap-1 h-7 px-2 text-xs"
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Today</span>
+          </Button>
+
+          {/* Date picker */}
+          <input
+            type="date"
+            value={toDateString(selectedDate)}
+            onChange={(e) => onDateChange(new Date(e.target.value + 'T00:00:00'))}
+            className="h-7 px-2 text-xs bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
+          />
+
+          {/* Week info */}
+          <div className="text-center hidden sm:block">
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
+              Week {getSchoolYearWeek(weekDates[0])}
+            </p>
+            <p className="text-[10px] text-gray-600 dark:text-gray-400">
+              {weekDates[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} - {weekDates[6].toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </p>
+          </div>
+          {/* Mobile week number */}
+          <span className="sm:hidden text-xs font-bold text-gray-900 dark:text-gray-100">
+            W{getSchoolYearWeek(weekDates[0])}
+          </span>
         </div>
 
+        {/* Right: Next button */}
         <Button
           variant="outline"
           size="sm"
           onClick={handleNextWeek}
-          className="flex items-center gap-2"
+          className="flex items-center gap-1 h-7 px-2 text-xs"
         >
-          Next
-          <ChevronRight className="h-4 w-4" />
+          <span className="hidden sm:inline">Next</span>
+          <ChevronRight className="h-3.5 w-3.5" />
         </Button>
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+      <div className={cn(
+        "bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
+        fillHeight && "flex-1 flex flex-col min-h-0"
+      )}>
+        <div className={cn(fillHeight ? "overflow-hidden flex-1 flex flex-col min-h-0" : "overflow-x-auto")}>
+          <div className={cn(fillHeight ? "flex-1 flex flex-col overflow-hidden" : "min-w-[800px]")}>
             {/* Day Headers */}
             <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-              <div className="p-3 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400">TIME</p>
+              <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center">
+                <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {weekDates.map((date, index) => {
                 const isToday = isSameDay(date, today);
@@ -119,7 +215,7 @@ export function WeeklyGridView({
                   <div
                     key={index}
                     className={cn(
-                      "p-3 text-center border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "py-1 px-1.5 text-center border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
                       isToday
                         ? "bg-[#a0704b] dark:bg-[#cd853f]"
                         : "bg-[#fef9f3] dark:bg-[#2d2618]"
@@ -127,7 +223,7 @@ export function WeeklyGridView({
                   >
                     <p
                       className={cn(
-                        "text-xs font-bold uppercase",
+                        "text-[10px] font-bold uppercase leading-tight",
                         isToday ? "text-white" : "text-gray-600 dark:text-gray-400"
                       )}
                     >
@@ -135,7 +231,7 @@ export function WeeklyGridView({
                     </p>
                     <p
                       className={cn(
-                        "text-lg font-bold",
+                        "text-base font-bold leading-tight",
                         isToday ? "text-white" : "text-gray-900 dark:text-gray-100"
                       )}
                     >
@@ -147,7 +243,10 @@ export function WeeklyGridView({
             </div>
 
             {/* Time Grid */}
-            <div className="grid" style={{ height: `${totalHeight}px`, gridTemplateColumns: "60px repeat(7, 1fr)" }}>
+            <div
+              className={cn("grid", fillHeight && "overflow-hidden")}
+              style={{ height: `${totalHeight}px`, gridTemplateColumns: "60px repeat(7, 1fr)" }}
+            >
               {/* Time Labels Column */}
               <div className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {hours.map((hour) => (
@@ -165,7 +264,7 @@ export function WeeklyGridView({
                 {hours.map((hour) => (
                   <div
                     key={`${hour}-30`}
-                    className="absolute w-full border-t border-dashed border-gray-300 dark:border-gray-600"
+                    className="absolute w-full border-t border-dashed border-gray-200/60 dark:border-gray-700/50"
                     style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                   />
                 ))}
@@ -175,11 +274,15 @@ export function WeeklyGridView({
               {weekDates.map((date, dayIndex) => {
                 const dateKey = toDateString(date);
                 const daySessions = sessionsByDate.get(dateKey) || [];
+                const isToday = isSameDay(date, today);
 
                 return (
                   <div
                     key={dayIndex}
-                    className="relative border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    className={cn(
+                      "relative border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      isToday && "bg-amber-50/30 dark:bg-amber-900/10"
+                    )}
                   >
                     {/* Hour grid lines */}
                     {hours.map((hour) => (
@@ -193,10 +296,34 @@ export function WeeklyGridView({
                     {hours.map((hour) => (
                       <div
                         key={`${hour}-30`}
-                        className="absolute w-full border-t border-dashed border-gray-300 dark:border-gray-600"
+                        className="absolute w-full border-t border-dashed border-gray-200/60 dark:border-gray-700/50"
                         style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                       />
                     ))}
+
+                    {/* Current Time Indicator */}
+                    {isToday && (() => {
+                      const now = new Date();
+                      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                      const startMinutes = 10 * 60; // 10:00 AM
+                      const endMinutes = 20 * 60;   // 8:00 PM
+
+                      if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
+                        const topPosition = (currentMinutes - startMinutes) * pixelsPerMinute;
+                        return (
+                          <div
+                            className="absolute left-0 right-0 z-20 pointer-events-none"
+                            style={{ top: `${topPosition}px` }}
+                          >
+                            <div className="flex items-center">
+                              <div className="w-2 h-2 rounded-full bg-red-500 -ml-1 shadow-sm" />
+                              <div className="flex-1 h-[2px] bg-red-500 shadow-sm" />
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Sessions - Vertical Stacking Container */}
                     {daySessions.length > 0 && (() => {
@@ -217,13 +344,69 @@ export function WeeklyGridView({
                         timeGroups.get(key)!.push(session);
                       });
 
-                      // Sort sessions within each time group by tutor_name, then school_student_id
+                      // Sort sessions within each time group with main group priority
                       timeGroups.forEach((groupSessions) => {
-                        groupSessions.sort((a, b) => {
-                          const tutorCompare = (a.tutor_name || '').localeCompare(b.tutor_name || '');
-                          if (tutorCompare !== 0) return tutorCompare;
-                          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                        // Group by tutor first
+                        const byTutor = new Map<string, Session[]>();
+                        groupSessions.forEach(s => {
+                          const tutor = s.tutor_name || '';
+                          if (!byTutor.has(tutor)) byTutor.set(tutor, []);
+                          byTutor.get(tutor)!.push(s);
                         });
+
+                        // For each tutor, find main group and sort
+                        const sortedSessions: Session[] = [];
+                        const tutorNames = [...byTutor.keys()].sort((a, b) =>
+                          getTutorSortName(a).localeCompare(getTutorSortName(b))
+                        );
+
+                        for (const tutor of tutorNames) {
+                          const tutorSessions = byTutor.get(tutor)!;
+
+                          // Find majority grade+lang_stream among Scheduled only
+                          const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
+                          const gradeCounts = new Map<string, number>();
+                          scheduledSessions.forEach(s => {
+                            const key = `${s.grade || ''}${s.lang_stream || ''}`;
+                            gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+                          });
+                          const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+                          // Sort with main group priority
+                          tutorSessions.sort((a, b) => {
+                            const getPriority = (s: Session) => {
+                              const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
+                              const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
+                              const status = s.session_status || '';
+
+                              if (status === 'Trial Class') return 0;
+                              if (isMainGroup && status === 'Scheduled') return 1;
+                              if (isMainGroup && status === 'Attended') return 2;
+                              if (status === 'Scheduled') return 3;
+                              if (status === 'Attended') return 4;
+                              if (status === 'Make-up Class') return 5;
+                              if (status === 'Attended (Make-up)') return 6;
+                              return 10 + getStatusSortOrder(status);
+                            };
+
+                            const priorityA = getPriority(a);
+                            const priorityB = getPriority(b);
+                            if (priorityA !== priorityB) return priorityA - priorityB;
+
+                            // Within same priority (especially main group), sort by school then student_id
+                            if (priorityA <= 2) {
+                              const schoolCompare = (a.school || '').localeCompare(b.school || '');
+                              if (schoolCompare !== 0) return schoolCompare;
+                            }
+                            return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                          });
+
+                          sortedSessions.push(...tutorSessions);
+                        }
+
+                        // Replace original array contents
+                        groupSessions.length = 0;
+                        groupSessions.push(...sortedSessions);
                       });
 
                       // Detect overlapping groups and assign columns
@@ -286,7 +469,7 @@ export function WeeklyGridView({
                         const widthPercent = 100 / (info?.totalColumns || 1);
                         const leftPercent = (info?.column || 0) * widthPercent;
 
-                        const maxDisplayedSessions = Math.max(1, Math.floor(height / 28)); // ~28px per session
+                        const maxDisplayedSessions = Math.max(1, Math.floor(height / 24)); // ~24px per session (22px + gap)
                         const hasMoreSessions = sessions.length > maxDisplayedSessions;
                         const displayedSessions = hasMoreSessions
                           ? sessions.slice(0, maxDisplayedSessions - 1)
@@ -313,39 +496,62 @@ export function WeeklyGridView({
                                     ref={(el) => {
                                       if (el) sessionRefs.current.set(session.id, el);
                                     }}
-                                    whileHover={{ scale: 1.01, zIndex: 50 }}
-                                    whileTap={{ scale: 0.99 }}
+                                    whileHover={{
+                                      scale: 1.02,
+                                      y: -1,
+                                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                                      zIndex: 50
+                                    }}
+                                    whileTap={{ scale: 0.98 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setOpenSessionId(session.id);
                                       setOpenMoreGroup(null);
                                     }}
                                     className={cn(
-                                      "cursor-pointer rounded-l overflow-hidden",
-                                      "bg-white dark:bg-gray-800",
-                                      "shadow-sm hover:shadow-md transition-shadow",
-                                      "flex-shrink-0 flex"
+                                      "cursor-pointer rounded overflow-hidden",
+                                      "shadow-sm transition-all",
+                                      "flex-shrink-0 flex",
+                                      statusConfig.bgTint
                                     )}
                                     style={{
-                                      minHeight: "24px",
+                                      minHeight: "22px",
                                     }}
                                   >
                                     <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
-                                      <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between">
-                                        <span>{session.school_student_id || "N/A"}</span>
+                                      <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
+                                        <span className="flex items-center gap-0.5">
+                                          {session.school_student_id || "N/A"}
+                                          {session.financial_status !== "Paid" && (
+                                            <HandCoins className="h-2.5 w-2.5 text-red-500" />
+                                          )}
+                                        </span>
                                         {!tutorFilter && session.tutor_name && (
                                           <span>{session.tutor_name.split(' ')[1] || session.tutor_name.split(' ')[0]}</span>
                                         )}
                                       </p>
                                       <p className={cn(
-                                        "font-semibold text-[10px] text-gray-900 dark:text-gray-100 truncate leading-tight",
+                                        "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
+                                        session.financial_status !== "Paid"
+                                          ? "text-red-600 dark:text-red-400"
+                                          : "text-gray-900 dark:text-gray-100",
                                         statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
                                       )}>
-                                        {session.student_name || "Unknown"}
+                                        <span className="truncate">{session.student_name || "Unknown"}</span>
+                                        {widthPercent >= 50 && session.grade && (
+                                          <span
+                                            className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
+                                            style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+                                          >{session.grade}{session.lang_stream || ''}</span>
+                                        )}
+                                        {widthPercent > 50 && session.school && (
+                                          <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
+                                        )}
                                       </p>
                                     </div>
                                     <div className={cn("w-4 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
-                                      <StatusIcon className="h-2 w-2 text-white" />
+                                      <StatusIcon className={cn("h-2.5 w-2.5 text-white", statusConfig.iconClass)} />
                                     </div>
                                   </motion.div>
                                 );
@@ -363,15 +569,16 @@ export function WeeklyGridView({
                                   }}
                                   className={cn(
                                     "cursor-pointer rounded px-1.5 py-0.5 text-center",
-                                    "bg-[#fef9f3] dark:bg-[#2d2618]",
-                                    "border-r-3 border-[#d4a574] dark:border-[#8b6f47]",
-                                    "shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
+                                    "bg-amber-100 dark:bg-amber-900/50",
+                                    "border border-amber-400 dark:border-amber-600",
+                                    "shadow-sm hover:shadow-md hover:bg-amber-200 dark:hover:bg-amber-800/50",
+                                    "transition-all flex-shrink-0"
                                   )}
                                   style={{
-                                    minHeight: "24px",
+                                    minHeight: "20px",
                                   }}
                                 >
-                                  <p className="font-bold text-[9px] text-[#a0704b] dark:text-[#cd853f]">
+                                  <p className="font-bold text-[9px] text-amber-800 dark:text-amber-200">
                                     +{sessions.length - displayedSessions.length} more
                                   </p>
                                 </div>
@@ -432,13 +639,69 @@ export function WeeklyGridView({
           timeGroups.get(key)!.push(session);
         });
 
-        // Sort sessions within each time group by tutor_name, then school_student_id
+        // Sort sessions within each time group with main group priority
         timeGroups.forEach((groupSessions) => {
-          groupSessions.sort((a, b) => {
-            const tutorCompare = (a.tutor_name || '').localeCompare(b.tutor_name || '');
-            if (tutorCompare !== 0) return tutorCompare;
-            return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          // Group by tutor first
+          const byTutor = new Map<string, Session[]>();
+          groupSessions.forEach(s => {
+            const tutor = s.tutor_name || '';
+            if (!byTutor.has(tutor)) byTutor.set(tutor, []);
+            byTutor.get(tutor)!.push(s);
           });
+
+          // For each tutor, find main group and sort
+          const sortedSessions: Session[] = [];
+          const tutorNames = [...byTutor.keys()].sort((a, b) =>
+            getTutorSortName(a).localeCompare(getTutorSortName(b))
+          );
+
+          for (const tutor of tutorNames) {
+            const tutorSessions = byTutor.get(tutor)!;
+
+            // Find majority grade+lang_stream among Scheduled only
+            const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
+            const gradeCounts = new Map<string, number>();
+            scheduledSessions.forEach(s => {
+              const key = `${s.grade || ''}${s.lang_stream || ''}`;
+              gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+            });
+            const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+            // Sort with main group priority
+            tutorSessions.sort((a, b) => {
+              const getPriority = (s: Session) => {
+                const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
+                const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
+                const status = s.session_status || '';
+
+                if (status === 'Trial Class') return 0;
+                if (isMainGroup && status === 'Scheduled') return 1;
+                if (isMainGroup && status === 'Attended') return 2;
+                if (status === 'Scheduled') return 3;
+                if (status === 'Attended') return 4;
+                if (status === 'Make-up Class') return 5;
+                if (status === 'Attended (Make-up)') return 6;
+                return 10 + getStatusSortOrder(status);
+              };
+
+              const priorityA = getPriority(a);
+              const priorityB = getPriority(b);
+              if (priorityA !== priorityB) return priorityA - priorityB;
+
+              // Within same priority (especially main group), sort by school then student_id
+              if (priorityA <= 2) {
+                const schoolCompare = (a.school || '').localeCompare(b.school || '');
+                if (schoolCompare !== 0) return schoolCompare;
+              }
+              return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+            });
+
+            sortedSessions.push(...tutorSessions);
+          }
+
+          // Replace original array contents
+          groupSessions.length = 0;
+          groupSessions.push(...sortedSessions);
         });
 
         const groupSessions = timeGroups.get(openMoreGroup) || [];
