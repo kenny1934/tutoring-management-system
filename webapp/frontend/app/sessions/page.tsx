@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
-import { formatSessionDisplay } from "@/lib/formatters";
-import { StatusBadge } from "@/components/ui/status-badge";
 import type { Session, Tutor } from "@/types";
-import { Calendar, Clock, MapPin, Filter, ChevronRight, ArrowRight } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ArrowRight, HandCoins } from "lucide-react";
+import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,7 +13,25 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
+import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
+
+// Grade tag colors
+const GRADE_COLORS: Record<string, string> = {
+  "F1C": "#c2dfce",
+  "F1E": "#cedaf5",
+  "F2C": "#fbf2d0",
+  "F2E": "#f0a19e",
+  "F3C": "#e2b1cc",
+  "F3E": "#ebb26e",
+  "F4C": "#7dc347",
+  "F4E": "#a590e6",
+};
+
+const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
+  const key = `${grade || ""}${langStream || ""}`;
+  return GRADE_COLORS[key] || "#e5e7eb"; // fallback to gray-200
+};
 
 export default function SessionsPage() {
   const router = useRouter();
@@ -102,6 +116,9 @@ export default function SessionsPage() {
     fetchSessions();
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
 
+  // Helper to get tutor name without Mr/Ms prefix for sorting
+  const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+
   // Group sessions by time slot
   const groupedSessions = useMemo(() => {
     const groups: Record<string, Session[]> = {};
@@ -112,6 +129,71 @@ export default function SessionsPage() {
         groups[timeSlot] = [];
       }
       groups[timeSlot].push(session);
+    });
+
+    // Sort sessions within each group using main group priority
+    Object.values(groups).forEach((groupSessions) => {
+      // Group by tutor first
+      const byTutor = new Map<string, Session[]>();
+      groupSessions.forEach(s => {
+        const tutor = s.tutor_name || '';
+        if (!byTutor.has(tutor)) byTutor.set(tutor, []);
+        byTutor.get(tutor)!.push(s);
+      });
+
+      // For each tutor, find main group and sort
+      const sortedSessions: Session[] = [];
+      const tutorNames = [...byTutor.keys()].sort((a, b) =>
+        getTutorSortName(a).localeCompare(getTutorSortName(b))
+      );
+
+      for (const tutor of tutorNames) {
+        const tutorSessions = byTutor.get(tutor)!;
+
+        // Find majority grade+lang_stream among Scheduled only
+        const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
+        const gradeCounts = new Map<string, number>();
+        scheduledSessions.forEach(s => {
+          const key = `${s.grade || ''}${s.lang_stream || ''}`;
+          gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
+        });
+        const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+
+        // Sort with main group priority
+        tutorSessions.sort((a, b) => {
+          const getPriority = (s: Session) => {
+            const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
+            const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
+            const status = s.session_status || '';
+
+            if (status === 'Trial Class') return 0;
+            if (isMainGroup && status === 'Scheduled') return 1;
+            if (isMainGroup && status === 'Attended') return 2;
+            if (status === 'Scheduled') return 3;
+            if (status === 'Attended') return 4;
+            if (status === 'Make-up Class') return 5;
+            if (status === 'Attended (Make-up)') return 6;
+            return 10 + getStatusSortOrder(status);
+          };
+
+          const priorityA = getPriority(a);
+          const priorityB = getPriority(b);
+          if (priorityA !== priorityB) return priorityA - priorityB;
+
+          // Within same priority (especially main group), sort by school then student_id
+          if (priorityA <= 2) {
+            const schoolCompare = (a.school || '').localeCompare(b.school || '');
+            if (schoolCompare !== 0) return schoolCompare;
+          }
+          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+        });
+
+        sortedSessions.push(...tutorSessions);
+      }
+
+      // Replace original array contents
+      groupSessions.length = 0;
+      groupSessions.push(...sortedSessions);
     });
 
     // Sort time slots chronologically
@@ -125,6 +207,16 @@ export default function SessionsPage() {
       return startA.localeCompare(startB);
     });
   }, [sessions]);
+
+  // Filter and sort tutors by selected location
+  const filteredTutors = useMemo(() => {
+    const filtered = selectedLocation === "All Locations"
+      ? tutors
+      : tutors.filter(t => t.default_location === selectedLocation);
+    return [...filtered].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
+    );
+  }, [tutors, selectedLocation]);
 
   if (loading) {
     return (
@@ -190,207 +282,78 @@ export default function SessionsPage() {
   }
 
   return (
-    <DeskSurface>
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
-        {/* Cork Board Header */}
+    <DeskSurface fullHeight={viewMode === "weekly"}>
+      <PageTransition className={cn(
+        "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+        viewMode === "weekly" && "h-full overflow-hidden"
+      )}>
+        {/* Unified Compact Toolbar */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: isMobile ? 0.3 : 0.5, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className="relative rounded-lg overflow-hidden desk-shadow-medium"
-          style={{
-            background: 'linear-gradient(135deg, #c19a6b 0%, #b8956a 50%, #a0826d 100%)',
-            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-          }}
-        >
-          {/* Cork texture - hidden on mobile for performance */}
-          {!isMobile && (
-            <div
-              className="absolute inset-0 opacity-60"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='cork'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23cork)' opacity='0.4'/%3E%3C/svg%3E")`,
-              }}
-            />
-          )}
-
-          {/* Content */}
-          <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-            <div className="flex items-center gap-4">
-              {/* Pinned sticky note with title */}
-              <motion.div
-                initial={{ scale: 0, rotate: -5 }}
-                animate={{ scale: 1, rotate: -2 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="relative"
-              >
-                <StickyNote variant="yellow" size="sm" showTape={false}>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    Class Schedule
-                  </h1>
-                </StickyNote>
-                {/* Pushpin */}
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-red-500 shadow-md"
-                  style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 2px rgba(0,0,0,0.2)' }}
-                />
-              </motion.div>
-
-              {/* Pinned info card */}
-              <motion.div
-                initial={{ scale: 0, rotate: 3 }}
-                animate={{ scale: 1, rotate: 1 }}
-                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="relative hidden sm:block"
-              >
-                <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded shadow-md border border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-muted-foreground">
-                    View and manage all tutoring sessions
-                  </p>
-                </div>
-                {/* Pushpin */}
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-blue-500 shadow-md"
-                  style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 2px rgba(0,0,0,0.2)' }}
-                />
-              </motion.div>
-            </div>
-
-            {/* Session count badge */}
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-              className="relative"
-            >
-              <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-4 py-2 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold shadow-md">
-                {sessions.length} sessions
-              </div>
-              {/* Pushpin */}
-              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-green-500 shadow-md"
-                style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.3), inset 0 -1px 2px rgba(0,0,0,0.2)' }}
-              />
-            </motion.div>
-          </div>
-        </motion.div>
-
-      {/* View Switcher */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: isMobile ? 0.3 : 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-        className="flex justify-center"
-      >
-        <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} />
-      </motion.div>
-
-      {/* Filters - Desk Organizer Style (show for list and weekly views) */}
-      {(viewMode === "list" || viewMode === "weekly") && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: isMobile ? 0.3 : 0.5, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+          transition={{ duration: 0.3, ease: [0.38, 1.21, 0.22, 1.00] }}
           className={cn(
-            "relative bg-[#fef9f3] dark:bg-[#2d2618] border-4 border-[#d4a574] dark:border-[#8b6f47] rounded-lg p-4 sm:p-6 desk-shadow-low",
+            "flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
           )}
-          style={{ transform: isMobile ? 'none' : 'rotate(-0.2deg)' }}
         >
-          <div className="flex flex-col sm:flex-row gap-6">
-            {/* Date Picker - Calendar Pad Style (only for list view) */}
-            {viewMode === "list" && (
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-3">
-                  <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                  <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                    Session Date
-                  </label>
-                </div>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={toDateString(selectedDate)}
-                    onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                    className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                    style={{
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Status Filter - Index Tab Style */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                  Status Filter
-                </label>
-              </div>
-              <div className="relative">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                  style={{
-                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 1rem center',
-                  }}
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Scheduled">Scheduled</option>
-                  <option value="Attended">Attended</option>
-                  <option value="Attended (Make-up)">Attended (Make-up)</option>
-                  <option value="Make-up Class">Make-up Class</option>
-                  <option value="Trial Class">Trial Class</option>
-                  <option value="Rescheduled - Pending Make-up">Rescheduled - Pending Make-up</option>
-                  <option value="Rescheduled - Make-up Booked">Rescheduled - Make-up Booked</option>
-                  <option value="Sick Leave - Pending Make-up">Sick Leave - Pending Make-up</option>
-                  <option value="Sick Leave - Make-up Booked">Sick Leave - Make-up Booked</option>
-                  <option value="Weather Cancelled - Pending Make-up">Weather Cancelled - Pending Make-up</option>
-                  <option value="Weather Cancelled - Make-up Booked">Weather Cancelled - Make-up Booked</option>
-                  <option value="No Show">No Show</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Tutor Filter */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-                <label className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                  Tutor Filter
-                </label>
-              </div>
-              <div className="relative">
-                <select
-                  value={tutorFilter}
-                  onChange={(e) => setTutorFilter(e.target.value)}
-                  className="w-full px-4 py-3 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-2 focus:ring-[#a0704b] dark:focus:ring-[#cd853f] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]"
-                  style={{
-                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 1rem center',
-                  }}
-                >
-                  <option value="">All Tutors</option>
-                  {tutors.map((tutor) => (
-                    <option key={tutor.id} value={tutor.id.toString()}>
-                      {tutor.tutor_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          {/* Title */}
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+            <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Schedule</h1>
           </div>
 
-          {/* Paper clip decoration */}
-          <div className="absolute -top-3 left-8 w-16 h-8 border-2 border-gray-400 dark:border-gray-500 rounded-full opacity-40"
-            style={{ transform: 'rotate(-15deg)' }}
-          />
+          <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+          {/* Inline View Switcher */}
+          <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
+
+          {/* Show filters for list and weekly views */}
+          {(viewMode === "list" || viewMode === "weekly") && (
+            <>
+              <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+              {/* Date Picker (only for list view) */}
+              {viewMode === "list" && (
+                <input
+                  type="date"
+                  value={toDateString(selectedDate)}
+                  onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                  className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
+                />
+              )}
+
+              {/* Compact Status Filter with color indicators */}
+              <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+
+              {/* Compact Tutor Filter */}
+              <select
+                value={tutorFilter}
+                onChange={(e) => setTutorFilter(e.target.value)}
+                className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 0.5rem center',
+                }}
+              >
+                <option value="">Tutor</option>
+                {filteredTutors.map((tutor) => (
+                  <option key={tutor.id} value={tutor.id.toString()}>
+                    {tutor.tutor_name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          <div className="flex-1" />
+
+          {/* Session count */}
+          <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
+            {sessions.length} sessions
+          </span>
         </motion.div>
-      )}
 
       {/* Weekly Calendar View */}
       {viewMode === "weekly" && (
@@ -400,6 +363,7 @@ export default function SessionsPage() {
           onDateChange={setSelectedDate}
           isMobile={isMobile}
           tutorFilter={tutorFilter}
+          fillHeight
         />
       )}
 
@@ -500,9 +464,16 @@ export default function SessionsPage() {
             <div className="space-y-3 ml-0 sm:ml-4">
               {sessionsInSlot.map((session, sessionIndex) => {
                 const isFlipping = flippingCardId === session.id;
+                const statusConfig = getSessionStatusConfig(session.session_status);
+                const StatusIcon = statusConfig.Icon;
+                const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
+                const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
                 return (
+                  <div key={session.id}>
+                    {isNewTutor && (
+                      <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-4" />
+                    )}
                   <motion.div
-                    key={session.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{
                       opacity: 1,
@@ -523,7 +494,8 @@ export default function SessionsPage() {
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleCardClick(session.id)}
                     className={cn(
-                      "relative bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3 sm:p-4 cursor-pointer transition-all duration-200 hover:border-[#a0704b] dark:hover:border-[#cd853f]",
+                      "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
+                      statusConfig.bgTint,
                       !isMobile && "paper-texture"
                     )}
                     style={{
@@ -531,45 +503,77 @@ export default function SessionsPage() {
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                     }}
                   >
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Left side - Session info */}
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-gray-900 dark:text-gray-100">
-                          {formatSessionDisplay(session)}
-                        </p>
-                        <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                  {/* Main content */}
+                  <div className="flex-1 p-3 sm:p-4 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      {/* Left side - Session info */}
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className={cn(
+                            "flex items-center gap-1.5",
+                            statusConfig.strikethrough && "line-through"
+                          )}>
+                            <span className={cn(
+                              "text-sm text-gray-700 dark:text-gray-300",
+                              statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                            )}>
+                              {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
+                            </span>
+                            <span className={cn(
+                              "font-bold text-base",
+                              session.financial_status !== "Paid"
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-gray-900 dark:text-gray-100",
+                              statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                            )}>
+                              {session.student_name}
+                            </span>
+                          </p>
+                          {session.grade && (
+                            <span
+                              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
+                              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+                            >{session.grade}{session.lang_stream || ''}</span>
+                          )}
+                          {session.school && (
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
+                          )}
+                          {session.financial_status !== "Paid" && (
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
+                              <HandCoins className="h-3.5 w-3.5" />
+                              Unpaid
+                            </span>
+                          )}
+                          <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                        </div>
+
+                        {session.notes && (
+                          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
+                            {session.notes}
+                          </p>
+                        )}
                       </div>
 
-                      {session.attendance_status && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Attendance:</span>
-                          <StatusBadge status={session.attendance_status} />
-                        </div>
-                      )}
-
-                      {session.notes && (
-                        <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2">
-                          {session.notes}
+                      {/* Right side - Status text */}
+                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+                        <p className={cn("text-sm font-medium", statusConfig.textClass)}>
+                          {session.session_status}
                         </p>
-                      )}
-                    </div>
-
-                    {/* Right side - Status badges */}
-                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                      <StatusBadge status={session.session_status} />
-
-                      {session.financial_status && (
-                        <StatusBadge status={session.financial_status} />
-                      )}
+                        {session.tutor_name && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {session.tutor_name}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Paper corner fold effect - hidden on mobile for cleaner look */}
-                  {!isMobile && (
-                    <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[20px] border-b-gray-200 dark:border-b-gray-700 border-l-[20px] border-l-transparent opacity-50" />
-                  )}
+                  {/* Status color strip with icon - RIGHT side */}
+                  <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                    <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                  </div>
                 </motion.div>
+                  </div>
                 );
               })}
             </div>
