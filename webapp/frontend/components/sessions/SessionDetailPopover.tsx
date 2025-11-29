@@ -24,6 +24,7 @@ interface SessionDetailPopoverProps {
   isOpen: boolean;
   onClose: () => void;
   triggerRef: React.RefObject<HTMLElement | null>;
+  tutorFilter?: string;
 }
 
 export function SessionDetailPopover({
@@ -31,6 +32,7 @@ export function SessionDetailPopover({
   isOpen,
   onClose,
   triggerRef,
+  tutorFilter = "",
 }: SessionDetailPopoverProps) {
   const router = useRouter();
 
@@ -127,7 +129,7 @@ export function SessionDetailPopover({
             </div>
           )}
 
-          {session.tutor_name && (
+          {!tutorFilter && session.tutor_name && (
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Tutor:</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">

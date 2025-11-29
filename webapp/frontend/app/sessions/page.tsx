@@ -399,6 +399,7 @@ export default function SessionsPage() {
           selectedDate={selectedDate}
           onDateChange={setSelectedDate}
           isMobile={isMobile}
+          tutorFilter={tutorFilter}
         />
       )}
 

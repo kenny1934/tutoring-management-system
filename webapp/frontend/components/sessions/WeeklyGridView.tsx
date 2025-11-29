@@ -21,12 +21,14 @@ import {
   parseTimeSlot,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
 
 interface WeeklyGridViewProps {
   sessions: Session[];
   selectedDate: Date;
   onDateChange: (date: Date) => void;
   isMobile?: boolean;
+  tutorFilter?: string;
 }
 
 export function WeeklyGridView({
@@ -34,6 +36,7 @@ export function WeeklyGridView({
   selectedDate,
   onDateChange,
   isMobile = false,
+  tutorFilter = "",
 }: WeeklyGridViewProps) {
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
@@ -46,8 +49,8 @@ export function WeeklyGridView({
   // Pixels per minute (adjust for mobile)
   const pixelsPerMinute = isMobile ? 0.75 : 1;
 
-  // Total height: 8:00 AM to 10:00 PM = 14 hours = 840 minutes
-  const totalHeight = 14 * 60 * pixelsPerMinute;
+  // Total height: 10:00 AM to 8:00 PM = 10 hours = 600 minutes
+  const totalHeight = 10 * 60 * pixelsPerMinute;
 
   // Group sessions by date
   const sessionsByDate = useMemo(
@@ -64,7 +67,7 @@ export function WeeklyGridView({
   };
 
   // Generate hour labels
-  const hours = Array.from({ length: 15 }, (_, i) => i + 8); // 8 AM to 10 PM
+  const hours = Array.from({ length: 11 }, (_, i) => i + 10); // 10 AM to 8 PM
 
   return (
     <div className="space-y-4">
@@ -106,7 +109,7 @@ export function WeeklyGridView({
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
             {/* Day Headers */}
-            <div className="grid grid-cols-8 border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10">
+            <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
               <div className="p-3 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <p className="text-xs font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
@@ -144,14 +147,14 @@ export function WeeklyGridView({
             </div>
 
             {/* Time Grid */}
-            <div className="grid grid-cols-8" style={{ height: `${totalHeight}px` }}>
+            <div className="grid" style={{ height: `${totalHeight}px`, gridTemplateColumns: "60px repeat(7, 1fr)" }}>
               {/* Time Labels Column */}
               <div className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {hours.map((hour) => (
                   <div
                     key={hour}
                     className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
-                    style={{ top: `${(hour - 8) * 60 * pixelsPerMinute}px` }}
+                    style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
                   >
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 px-2">
                       {hour.toString().padStart(2, '0')}:00
@@ -163,7 +166,7 @@ export function WeeklyGridView({
                   <div
                     key={`${hour}-30`}
                     className="absolute w-full border-t border-dashed border-gray-300 dark:border-gray-600"
-                    style={{ top: `${((hour - 8) * 60 + 30) * pixelsPerMinute}px` }}
+                    style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                   />
                 ))}
               </div>
@@ -183,7 +186,7 @@ export function WeeklyGridView({
                       <div
                         key={hour}
                         className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
-                        style={{ top: `${(hour - 8) * 60 * pixelsPerMinute}px` }}
+                        style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
                       />
                     ))}
                     {/* 30-minute grid lines */}
@@ -191,7 +194,7 @@ export function WeeklyGridView({
                       <div
                         key={`${hour}-30`}
                         className="absolute w-full border-t border-dashed border-gray-300 dark:border-gray-600"
-                        style={{ top: `${((hour - 8) * 60 + 30) * pixelsPerMinute}px` }}
+                        style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                       />
                     ))}
 
@@ -214,10 +217,74 @@ export function WeeklyGridView({
                         timeGroups.get(key)!.push(session);
                       });
 
+                      // Sort sessions within each time group by tutor_name, then school_student_id
+                      timeGroups.forEach((groupSessions) => {
+                        groupSessions.sort((a, b) => {
+                          const tutorCompare = (a.tutor_name || '').localeCompare(b.tutor_name || '');
+                          if (tutorCompare !== 0) return tutorCompare;
+                          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                        });
+                      });
+
+                      // Detect overlapping groups and assign columns
+                      interface TimeGroupInfo {
+                        key: string;
+                        top: number;
+                        bottom: number;
+                        column: number;
+                        totalColumns: number;
+                      }
+
+                      const groupInfos: TimeGroupInfo[] = Array.from(timeGroups.keys()).map(key => {
+                        const parts = key.split('-');
+                        const height = parseFloat(parts[parts.length - 1]);
+                        const top = parseFloat(parts[parts.length - 2]);
+                        return { key, top, bottom: top + height, column: 0, totalColumns: 1 };
+                      });
+
+                      // Sort by start time
+                      groupInfos.sort((a, b) => a.top - b.top);
+
+                      // Assign columns using a greedy algorithm
+                      const columns: TimeGroupInfo[][] = [];
+                      for (const group of groupInfos) {
+                        let placed = false;
+                        for (let col = 0; col < columns.length; col++) {
+                          const lastInCol = columns[col][columns[col].length - 1];
+                          if (lastInCol.bottom <= group.top) {
+                            // No overlap, can place in this column
+                            columns[col].push(group);
+                            group.column = col;
+                            placed = true;
+                            break;
+                          }
+                        }
+                        if (!placed) {
+                          // Need a new column
+                          group.column = columns.length;
+                          columns.push([group]);
+                        }
+                      }
+
+                      // Update totalColumns for overlapping groups
+                      for (const group of groupInfos) {
+                        const overlapping = groupInfos.filter(g =>
+                          !(g.bottom <= group.top || g.top >= group.bottom)
+                        );
+                        const maxCol = Math.max(...overlapping.map(g => g.column));
+                        overlapping.forEach(g => g.totalColumns = Math.max(g.totalColumns, maxCol + 1));
+                      }
+
+                      const groupInfoMap = new Map(groupInfos.map(g => [g.key, g]));
+
                       return Array.from(timeGroups.entries()).map(([key, sessions]) => {
                         const firstSession = sessions[0];
                         const top = calculateSessionPosition(firstSession.time_slot, pixelsPerMinute);
                         const height = calculateSessionHeight(firstSession.time_slot, pixelsPerMinute);
+
+                        const info = groupInfoMap.get(key);
+                        const widthPercent = 100 / (info?.totalColumns || 1);
+                        const leftPercent = (info?.column || 0) * widthPercent;
 
                         const maxDisplayedSessions = Math.max(1, Math.floor(height / 28)); // ~28px per session
                         const hasMoreSessions = sessions.length > maxDisplayedSessions;
@@ -228,14 +295,18 @@ export function WeeklyGridView({
                         return (
                           <div
                             key={key}
-                            className="absolute w-full overflow-hidden"
+                            className="absolute overflow-hidden"
                             style={{
                               top: `${top}px`,
                               height: `${height}px`,
+                              left: `${leftPercent}%`,
+                              width: `${widthPercent}%`,
                             }}
                           >
                             <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#d4a574] scrollbar-track-transparent">
                               {displayedSessions.map((session) => {
+                                const statusConfig = getSessionStatusConfig(session.session_status);
+                                const StatusIcon = statusConfig.Icon;
                                 return (
                                   <motion.div
                                     key={session.id}
@@ -250,28 +321,31 @@ export function WeeklyGridView({
                                       setOpenMoreGroup(null);
                                     }}
                                     className={cn(
-                                      "cursor-pointer rounded px-1.5 py-0.5",
+                                      "cursor-pointer rounded-l overflow-hidden",
                                       "bg-white dark:bg-gray-800",
-                                      "border-l-3",
-                                      session.session_status === "Confirmed" && "border-green-500",
-                                      session.session_status === "Pending" && "border-yellow-500",
-                                      session.session_status === "Cancelled" && "border-red-500",
-                                      session.session_status === "Completed" && "border-blue-500",
-                                      !session.session_status && "border-[#d4a574] dark:border-[#8b6f47]",
                                       "shadow-sm hover:shadow-md transition-shadow",
-                                      "overflow-hidden flex-shrink-0"
+                                      "flex-shrink-0 flex"
                                     )}
                                     style={{
                                       minHeight: "24px",
                                     }}
                                   >
-                                    <div className="flex flex-col">
-                                      <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight">
-                                        {session.school_student_id || "N/A"}
+                                    <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
+                                      <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between">
+                                        <span>{session.school_student_id || "N/A"}</span>
+                                        {!tutorFilter && session.tutor_name && (
+                                          <span>{session.tutor_name.split(' ')[1] || session.tutor_name.split(' ')[0]}</span>
+                                        )}
                                       </p>
-                                      <p className="font-semibold text-[10px] text-gray-900 dark:text-gray-100 truncate leading-tight">
+                                      <p className={cn(
+                                        "font-semibold text-[10px] text-gray-900 dark:text-gray-100 truncate leading-tight",
+                                        statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
+                                      )}>
                                         {session.student_name || "Unknown"}
                                       </p>
+                                    </div>
+                                    <div className={cn("w-4 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
+                                      <StatusIcon className="h-2 w-2 text-white" />
                                     </div>
                                   </motion.div>
                                 );
@@ -290,7 +364,7 @@ export function WeeklyGridView({
                                   className={cn(
                                     "cursor-pointer rounded px-1.5 py-0.5 text-center",
                                     "bg-[#fef9f3] dark:bg-[#2d2618]",
-                                    "border-l-3 border-[#d4a574] dark:border-[#8b6f47]",
+                                    "border-r-3 border-[#d4a574] dark:border-[#8b6f47]",
                                     "shadow-sm hover:shadow-md transition-shadow flex-shrink-0"
                                   )}
                                   style={{
@@ -327,6 +401,7 @@ export function WeeklyGridView({
             isOpen={true}
             onClose={() => setOpenSessionId(null)}
             triggerRef={{ current: ref }}
+            tutorFilter={tutorFilter}
           />
         );
       })()}
@@ -357,6 +432,15 @@ export function WeeklyGridView({
           timeGroups.get(key)!.push(session);
         });
 
+        // Sort sessions within each time group by tutor_name, then school_student_id
+        timeGroups.forEach((groupSessions) => {
+          groupSessions.sort((a, b) => {
+            const tutorCompare = (a.tutor_name || '').localeCompare(b.tutor_name || '');
+            if (tutorCompare !== 0) return tutorCompare;
+            return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          });
+        });
+
         const groupSessions = timeGroups.get(openMoreGroup) || [];
 
         return (
@@ -364,6 +448,7 @@ export function WeeklyGridView({
             sessions={groupSessions}
             triggerRef={{ current: ref }}
             onClose={() => setOpenMoreGroup(null)}
+            tutorFilter={tutorFilter}
           />
         );
       })()}

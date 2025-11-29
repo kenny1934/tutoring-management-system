@@ -14,18 +14,21 @@ import {
 import { X } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
 import type { Session } from "@/types";
 
 interface MoreSessionsPopoverProps {
   sessions: Session[];
   triggerRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
+  tutorFilter?: string;
 }
 
 export function MoreSessionsPopover({
   sessions,
   triggerRef,
   onClose,
+  tutorFilter = "",
 }: MoreSessionsPopoverProps) {
   const [sessionToShow, setSessionToShow] = useState<Session | null>(null);
   const sessionItemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -91,33 +94,42 @@ export function MoreSessionsPopover({
           </div>
 
           <div className="space-y-1">
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                ref={(el) => {
-                  if (el) sessionItemRefs.current.set(session.id, el);
-                }}
-                onClick={() => setSessionToShow(session)}
-                className={cn(
-                  "cursor-pointer rounded px-2 py-1.5",
-                  "bg-white dark:bg-gray-800",
-                  "border-l-3",
-                  session.session_status === "Confirmed" && "border-green-500",
-                  session.session_status === "Pending" && "border-yellow-500",
-                  session.session_status === "Cancelled" && "border-red-500",
-                  session.session_status === "Completed" && "border-blue-500",
-                  !session.session_status && "border-[#d4a574]",
-                  "hover:shadow-md transition-shadow"
-                )}
-              >
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
-                  {session.school_student_id || "N/A"}
-                </p>
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                  {session.student_name || "Unknown"}
-                </p>
-              </div>
-            ))}
+            {sessions.map((session) => {
+              const statusConfig = getSessionStatusConfig(session.session_status);
+              const StatusIcon = statusConfig.Icon;
+              return (
+                <div
+                  key={session.id}
+                  ref={(el) => {
+                    if (el) sessionItemRefs.current.set(session.id, el);
+                  }}
+                  onClick={() => setSessionToShow(session)}
+                  className={cn(
+                    "cursor-pointer rounded-l overflow-hidden flex",
+                    "bg-white dark:bg-gray-800",
+                    "hover:shadow-md transition-shadow"
+                  )}
+                >
+                  <div className="flex-1 min-w-0 px-2 py-1.5">
+                    <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 flex justify-between">
+                      <span>{session.school_student_id || "N/A"}</span>
+                      {!tutorFilter && session.tutor_name && (
+                        <span>{session.tutor_name.split(' ')[1] || session.tutor_name.split(' ')[0]}</span>
+                      )}
+                    </p>
+                    <p className={cn(
+                      "text-xs font-semibold text-gray-900 dark:text-gray-100",
+                      statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
+                    )}>
+                      {session.student_name || "Unknown"}
+                    </p>
+                  </div>
+                  <div className={cn("w-5 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
+                    <StatusIcon className="h-3 w-3 text-white" />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </FloatingPortal>
@@ -128,6 +140,7 @@ export function MoreSessionsPopover({
           isOpen={true}
           onClose={() => setSessionToShow(null)}
           triggerRef={{ current: sessionItemRefs.current.get(sessionToShow.id) || null }}
+          tutorFilter={tutorFilter}
         />
       )}
     </>
