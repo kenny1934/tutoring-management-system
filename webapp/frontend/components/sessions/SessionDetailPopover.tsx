@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useEffect } from "react";
+import Link from "next/link";
 import {
   useFloating,
   autoUpdate,
@@ -14,7 +14,7 @@ import {
 } from "@floating-ui/react";
 import { ArrowRight, X } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
@@ -23,7 +23,7 @@ interface SessionDetailPopoverProps {
   session: Session;
   isOpen: boolean;
   onClose: () => void;
-  triggerRef: React.RefObject<HTMLElement | null>;
+  clickPosition: { x: number; y: number } | null;
   tutorFilter?: string;
 }
 
@@ -31,10 +31,26 @@ export function SessionDetailPopover({
   session,
   isOpen,
   onClose,
-  triggerRef,
+  clickPosition,
   tutorFilter = "",
 }: SessionDetailPopoverProps) {
-  const router = useRouter();
+  // Virtual reference based on click position
+  const virtualReference = useMemo(() => {
+    if (!clickPosition) return null;
+    return {
+      getBoundingClientRect: () => ({
+        x: clickPosition.x,
+        y: clickPosition.y,
+        top: clickPosition.y,
+        left: clickPosition.x,
+        bottom: clickPosition.y,
+        right: clickPosition.x,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      }),
+    };
+  }, [clickPosition]);
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -52,15 +68,15 @@ export function SessionDetailPopover({
       }),
     ],
     whileElementsMounted: autoUpdate,
-    placement: "bottom",
+    placement: "bottom-start",
   });
 
-  // Set reference in useLayoutEffect - runs synchronously after DOM mutations, before paint
-  useLayoutEffect(() => {
-    if (triggerRef.current) {
-      refs.setReference(triggerRef.current);
+  // Use setPositionReference for virtual references (not elements.reference)
+  useEffect(() => {
+    if (virtualReference) {
+      refs.setPositionReference(virtualReference);
     }
-  }, [triggerRef.current, refs]);
+  }, [virtualReference, refs]);
 
   const dismiss = useDismiss(context);
   const { getFloatingProps } = useInteractions([dismiss]);
@@ -68,13 +84,6 @@ export function SessionDetailPopover({
   if (!isOpen) return null;
 
   const parsed = parseTimeSlot(session.time_slot);
-
-  const handleViewDetails = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    onClose();
-    router.push(`/sessions/${session.id}`);
-  };
 
   return (
     <FloatingPortal>
@@ -173,15 +182,15 @@ export function SessionDetailPopover({
           </div>
         </div>
 
-        {/* Action button */}
-        <Button
-          onClick={handleViewDetails}
-          className="w-full flex items-center justify-center gap-2"
-          size="sm"
+        {/* Action link - using Link for Ctrl+click / middle-click support */}
+        <Link
+          href={`/sessions/${session.id}`}
+          onClick={onClose}
+          className={buttonVariants({ size: "sm", className: "w-full flex items-center justify-center gap-2 whitespace-nowrap" })}
         >
           View Details
           <ArrowRight className="h-4 w-4" />
-        </Button>
+        </Link>
       </div>
     </FloatingPortal>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useLayoutEffect } from "react";
+import { useState, useLayoutEffect } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -48,7 +48,7 @@ export function MoreSessionsPopover({
   tutorFilter = "",
 }: MoreSessionsPopoverProps) {
   const [sessionToShow, setSessionToShow] = useState<Session | null>(null);
-  const sessionItemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   const { refs, floatingStyles, context } = useFloating({
     open: true,
@@ -119,10 +119,10 @@ export function MoreSessionsPopover({
               return (
                 <div
                   key={session.id}
-                  ref={(el) => {
-                    if (el) sessionItemRefs.current.set(session.id, el);
+                  onClick={(e) => {
+                    setClickPosition({ x: e.clientX, y: e.clientY });
+                    setSessionToShow(session);
                   }}
-                  onClick={() => setSessionToShow(session)}
                   className={cn(
                     "cursor-pointer rounded overflow-hidden flex",
                     "shadow-sm hover:shadow-md transition-all",
@@ -176,7 +176,7 @@ export function MoreSessionsPopover({
           session={sessionToShow}
           isOpen={true}
           onClose={() => setSessionToShow(null)}
-          triggerRef={{ current: sessionItemRefs.current.get(sessionToShow.id) || null }}
+          clickPosition={clickPosition}
           tutorFilter={tutorFilter}
         />
       )}
