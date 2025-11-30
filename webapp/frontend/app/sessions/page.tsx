@@ -423,7 +423,7 @@ export default function SessionsPage() {
                         )}
                         style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
                       >
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
                               <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
