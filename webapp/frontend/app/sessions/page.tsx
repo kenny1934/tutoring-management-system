@@ -4,7 +4,8 @@ import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Session, Tutor } from "@/types";
-import { Calendar, Clock, ChevronRight, ArrowRight, HandCoins } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Clock, ChevronRight, ExternalLink, HandCoins } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -14,6 +15,7 @@ import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher"
 import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
 
 // Grade tag colors
@@ -468,6 +470,7 @@ export default function SessionsPage() {
                               } : {}}
                               whileTap={{ scale: 0.98 }}
                               onClick={(e) => handleCardClick(session, e)}
+                              title="Click for quick view"
                               className={cn(
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
@@ -519,13 +522,29 @@ export default function SessionsPage() {
                                           <span className="hidden sm:inline">Unpaid</span>
                                         </span>
                                       )}
-                                      <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                                      <Link
+                                        href={`/sessions/${session.id}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0"
+                                      >
+                                        <span className="hidden sm:inline">View</span>
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </Link>
                                     </div>
 
                                     {session.notes && (
                                       <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
                                         {session.notes}
                                       </p>
+                                    )}
+
+                                    {session.performance_rating && (
+                                      <StarRating
+                                        rating={parseStarRating(session.performance_rating)}
+                                        showEmpty={true}
+                                        size="sm"
+                                        className="mt-1"
+                                      />
                                     )}
                                   </div>
 

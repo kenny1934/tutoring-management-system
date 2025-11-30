@@ -12,12 +12,30 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ArrowRight, X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
+
+// Grade tag colors
+const GRADE_COLORS: Record<string, string> = {
+  "F1C": "#c2dfce",
+  "F1E": "#cedaf5",
+  "F2C": "#fbf2d0",
+  "F2E": "#f0a19e",
+  "F3C": "#e2b1cc",
+  "F3E": "#ebb26e",
+  "F4C": "#7dc347",
+  "F4E": "#a590e6",
+};
+
+const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
+  const key = `${grade || ""}${langStream || ""}`;
+  return GRADE_COLORS[key] || "#e5e7eb";
+};
 
 interface SessionDetailPopoverProps {
   session: Session;
@@ -122,11 +140,13 @@ export function SessionDetailPopover({
         {/* Details */}
         <div className="space-y-2 text-sm mb-4">
           {session.grade && (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Grade:</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
-                {session.grade}
-                {session.lang_stream && ` (${session.lang_stream})`}
+              <span
+                className="text-xs px-1.5 py-0.5 rounded text-gray-800"
+                style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+              >
+                {session.grade}{session.lang_stream}
               </span>
             </div>
           )}
@@ -180,6 +200,17 @@ export function SessionDetailPopover({
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
             <SessionStatusTag status={session.session_status} size="sm" />
           </div>
+
+          {session.performance_rating && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Rating:</span>
+              <StarRating
+                rating={parseStarRating(session.performance_rating)}
+                showEmpty={true}
+                size="sm"
+              />
+            </div>
+          )}
         </div>
 
         {/* Action link - using Link for Ctrl+click / middle-click support */}
@@ -189,7 +220,7 @@ export function SessionDetailPopover({
           className={buttonVariants({ size: "sm", className: "w-full flex items-center justify-center gap-2 whitespace-nowrap" })}
         >
           View Details
-          <ArrowRight className="h-4 w-4" />
+          <ExternalLink className="h-4 w-4" />
         </Link>
       </div>
     </FloatingPortal>
