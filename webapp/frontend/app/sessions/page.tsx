@@ -487,30 +487,30 @@ export default function SessionsPage() {
                                 <div className="flex items-start justify-between gap-2">
                                   {/* Left side - Session info */}
                                   <div className="space-y-1.5 flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
                                       <p className={cn(
-                                        "flex items-center gap-1.5",
-                                        statusConfig.strikethrough && "line-through"
+                                        "flex items-center gap-1.5 min-w-0",
+                                        statusConfig.strikethrough && "line-through decoration-gray-500 dark:decoration-gray-400"
                                       )}>
                                         <span className={cn(
                                           "text-sm text-gray-700 dark:text-gray-300",
-                                          statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                                          statusConfig.strikethrough && "text-gray-500 dark:text-gray-400"
                                         )}>
                                           {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
                                         </span>
                                         <span className={cn(
-                                          "font-bold text-base",
+                                          "font-bold text-base truncate",
                                           session.financial_status !== "Paid"
                                             ? "text-red-600 dark:text-red-400"
                                             : "text-gray-900 dark:text-gray-100",
-                                          statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                                          statusConfig.strikethrough && "text-gray-500 dark:text-gray-400"
                                         )}>
                                           {session.student_name}
                                         </span>
                                       </p>
                                       {session.grade && (
                                         <span
-                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
+                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline"
                                           style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                                         >{session.grade}{session.lang_stream || ''}</span>
                                       )}
@@ -520,7 +520,7 @@ export default function SessionsPage() {
                                       {session.financial_status !== "Paid" && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
                                           <HandCoins className="h-3.5 w-3.5" />
-                                          Unpaid
+                                          <span className="hidden sm:inline">Unpaid</span>
                                         </span>
                                       )}
                                       <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
@@ -535,7 +535,7 @@ export default function SessionsPage() {
 
                                   {/* Right side - Status text */}
                                   <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
-                                    <p className={cn("text-sm font-medium", statusConfig.textClass)}>
+                                    <p className={cn("text-sm font-medium truncate max-w-[80px] sm:max-w-none", statusConfig.textClass)}>
                                       {session.session_status}
                                     </p>
                                     {session.tutor_name && (
