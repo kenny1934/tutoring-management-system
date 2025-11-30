@@ -120,6 +120,7 @@ class SessionResponse(SessionBase):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     last_modified_time: Optional[datetime] = None
+    exercises: List["SessionExerciseResponse"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -305,5 +306,6 @@ class UpcomingTestAlert(BaseModel):
 
 
 # Enable forward references for nested models
+SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
 DetailedSessionResponse.model_rebuild()

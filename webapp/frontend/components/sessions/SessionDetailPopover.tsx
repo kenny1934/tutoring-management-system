@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   useFloating,
@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
@@ -36,6 +36,93 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
   const key = `${grade || ""}${langStream || ""}`;
   return GRADE_COLORS[key] || "#e5e7eb";
 };
+
+// Parse full path to display name (filename without extension)
+// V:\abc\def\ghi.pdf → ghi
+// jkl.docx → jkl
+// mno → mno
+const getDisplayName = (pdfName: string): string => {
+  const filename = pdfName.split(/[/\\]/).pop() || pdfName;
+  return filename.replace(/\.[^.]+$/, '');
+};
+
+// Exercise item with copy functionality
+function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(exercise.pdf_name);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const displayName = getDisplayName(exercise.pdf_name);
+  const pageInfo = exercise.page_start
+    ? exercise.page_end && exercise.page_end !== exercise.page_start
+      ? ` (p${exercise.page_start}-${exercise.page_end})`
+      : ` (p${exercise.page_start})`
+    : '';
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <span className="truncate text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
+        {displayName}{pageInfo}
+      </span>
+      <button
+        onClick={handleCopy}
+        className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
+        title="Copy full path"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-green-500" />
+        ) : (
+          <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+// Exercises list component
+function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number }> }) {
+  const cwExercises = exercises.filter(
+    (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  );
+  const hwExercises = exercises.filter(
+    (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
+  );
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+      {cwExercises.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
+            <PenTool className="h-3 w-3" />
+            <span className="text-xs font-medium">Classwork</span>
+          </div>
+          <div className="space-y-0.5 pl-4">
+            {cwExercises.map((ex, i) => (
+              <ExerciseItem key={i} exercise={ex} />
+            ))}
+          </div>
+        </div>
+      )}
+      {hwExercises.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
+            <Home className="h-3 w-3" />
+            <span className="text-xs font-medium">Homework</span>
+          </div>
+          <div className="space-y-0.5 pl-4">
+            {hwExercises.map((ex, i) => (
+              <ExerciseItem key={i} exercise={ex} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SessionDetailPopoverProps {
   session: Session;
@@ -210,6 +297,11 @@ export function SessionDetailPopover({
                 size="sm"
               />
             </div>
+          )}
+
+          {/* Exercises (CW/HW) */}
+          {session.exercises && session.exercises.length > 0 && (
+            <ExercisesList exercises={session.exercises} />
           )}
         </div>
 

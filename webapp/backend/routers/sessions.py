@@ -41,7 +41,8 @@ async def get_sessions(
     """
     query = db.query(SessionLog).options(
         joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor)
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
     )
 
     # Apply filters
@@ -82,6 +83,10 @@ async def get_sessions(
         session_data.grade = session.student.grade if session.student else None
         session_data.lang_stream = session.student.lang_stream if session.student else None
         session_data.school = session.student.school if session.student else None
+        session_data.exercises = [
+            SessionExerciseResponse.model_validate(ex)
+            for ex in session.exercises
+        ]
         result.append(session_data)
 
     return result
