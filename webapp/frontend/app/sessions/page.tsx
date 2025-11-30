@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Session, Tutor } from "@/types";
@@ -46,6 +46,38 @@ export default function SessionsPage() {
   const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // Toolbar height tracking for dynamic sticky offset
+  // Use callback ref (setState) so effect re-runs when element mounts
+  const [toolbarElement, setToolbarElement] = useState<HTMLDivElement | null>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(52);
+
+  // Track toolbar height changes (for responsive wrapping)
+  useLayoutEffect(() => {
+    // Only track when in list view and element is mounted
+    if (viewMode !== "list" || !toolbarElement) return;
+
+    const updateHeight = () => {
+      setToolbarHeight(toolbarElement.getBoundingClientRect().height);
+    };
+
+    // Initial measurement
+    updateHeight();
+
+    // ResizeObserver for element size changes
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeight();
+    });
+    resizeObserver.observe(toolbarElement);
+
+    // Window resize listener as backup (for when wrapping changes due to width)
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [viewMode, toolbarElement]);
 
   // Detect mobile device for performance optimization
   useEffect(() => {
@@ -281,78 +313,353 @@ export default function SessionsPage() {
     );
   }
 
+  // Toolbar content (shared between animated and non-animated versions)
+  const toolbarContent = (
+    <>
+      {/* Title */}
+      <div className="flex items-center gap-2">
+        <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+        <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Schedule</h1>
+      </div>
+
+      <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+      {/* Inline View Switcher */}
+      <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
+
+      {/* Show filters for list and weekly views */}
+      {(viewMode === "list" || viewMode === "weekly") && (
+        <>
+          <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+
+          {/* Date Picker (only for list view) */}
+          {viewMode === "list" && (
+            <input
+              type="date"
+              value={toDateString(selectedDate)}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
+            />
+          )}
+
+          {/* Compact Status Filter with color indicators */}
+          <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+
+          {/* Compact Tutor Filter */}
+          <select
+            value={tutorFilter}
+            onChange={(e) => setTutorFilter(e.target.value)}
+            className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.5rem center',
+            }}
+          >
+            <option value="">Tutor</option>
+            {filteredTutors.map((tutor) => (
+              <option key={tutor.id} value={tutor.id.toString()}>
+                {tutor.tutor_name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+
+      <div className="flex-1" />
+
+      {/* Session count */}
+      <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
+        {sessions.length} sessions
+      </span>
+    </>
+  );
+
+  // Toolbar: outer div is clean sticky container, inner div has visual styling
+  const toolbarStickyClasses = "sticky top-0 z-30";
+  const toolbarInnerClasses = cn(
+    "flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+    !isMobile && "paper-texture"
+  );
+
+  // For list view: Add scroll container wrapper to enable CSS sticky
+  // For other views: Use PageTransition with animations
+  if (viewMode === "list") {
+    return (
+      <DeskSurface>
+        <div className="h-full overflow-y-auto">
+          <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+            {/* Toolbar - outer div is sticky, inner div has visual styling */}
+            <div ref={setToolbarElement} className={toolbarStickyClasses}>
+              <div className={toolbarInnerClasses}>
+                {toolbarContent}
+              </div>
+            </div>
+
+            {/* List view content */}
+            {groupedSessions.length === 0 ? (
+              <div className="flex justify-center py-12">
+                <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
+                  <div className="text-center">
+                    <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Try selecting a different date or adjusting your filters
+                    </p>
+                  </div>
+                </StickyNote>
+              </div>
+            ) : (
+              <>
+                {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
+                  <React.Fragment key={timeSlot}>
+                    {/* Time Slot Header - Index Card Style */}
+                    {/* Outer div is clean sticky container; inner div has visual effects */}
+                    <div className="sticky z-20 mb-4" style={{ top: toolbarHeight }}>
+                      <div
+                        className={cn(
+                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low",
+                          !isMobile && "paper-texture"
+                        )}
+                        style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
+                      >
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
+                              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+                              {timeSlot}
+                            </h3>
+                          </div>
+                          <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
+                            {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Session Cards */}
+                    <div className="space-y-3 ml-0 sm:ml-4">
+                      {sessionsInSlot.map((session, sessionIndex) => {
+                        const isFlipping = flippingCardId === session.id;
+                        const statusConfig = getSessionStatusConfig(session.session_status);
+                        const StatusIcon = statusConfig.Icon;
+                        const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
+                        const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
+                        return (
+                          <div key={session.id}>
+                            {isNewTutor && (
+                              <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-4" />
+                            )}
+                            <motion.div
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{
+                                opacity: 1,
+                                x: 0,
+                                rotateY: isFlipping ? 90 : 0,
+                                scale: isFlipping ? 0.95 : 1
+                              }}
+                              transition={{
+                                delay: isMobile ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
+                                duration: isFlipping ? 0.4 : 0.35,
+                                ease: [0.38, 1.21, 0.22, 1.00]
+                              }}
+                              whileHover={!isMobile ? {
+                                scale: 1.02,
+                                y: -4,
+                                transition: { duration: 0.2 }
+                              } : {}}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleCardClick(session.id)}
+                              className={cn(
+                                "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
+                                statusConfig.bgTint,
+                                !isMobile && "paper-texture"
+                              )}
+                              style={{
+                                transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
+                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                              }}
+                            >
+                              {/* Main content */}
+                              <div className="flex-1 p-3 sm:p-4 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  {/* Left side - Session info */}
+                                  <div className="space-y-1.5 flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className={cn(
+                                        "flex items-center gap-1.5",
+                                        statusConfig.strikethrough && "line-through"
+                                      )}>
+                                        <span className={cn(
+                                          "text-sm text-gray-700 dark:text-gray-300",
+                                          statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                                        )}>
+                                          {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
+                                        </span>
+                                        <span className={cn(
+                                          "font-bold text-base",
+                                          session.financial_status !== "Paid"
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-gray-900 dark:text-gray-100",
+                                          statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
+                                        )}>
+                                          {session.student_name}
+                                        </span>
+                                      </p>
+                                      {session.grade && (
+                                        <span
+                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
+                                          style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
+                                        >{session.grade}{session.lang_stream || ''}</span>
+                                      )}
+                                      {session.school && (
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
+                                      )}
+                                      {session.financial_status !== "Paid" && (
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
+                                          <HandCoins className="h-3.5 w-3.5" />
+                                          Unpaid
+                                        </span>
+                                      )}
+                                      <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                                    </div>
+
+                                    {session.notes && (
+                                      <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
+                                        {session.notes}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {/* Right side - Status text */}
+                                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+                                    <p className={cn("text-sm font-medium", statusConfig.textClass)}>
+                                      {session.session_status}
+                                    </p>
+                                    {session.tutor_name && (
+                                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                                        {session.tutor_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status color strip with icon - RIGHT side */}
+                              <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                                <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                              </div>
+                            </motion.div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </React.Fragment>
+                ))}
+
+                {/* Quick Stats - Report Card Style */}
+                {groupedSessions.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      delay: isMobile ? 0.4 : 0.3 + groupedSessions.length * 0.05,
+                      duration: isMobile ? 0.3 : 0.5,
+                      ease: [0.38, 1.21, 0.22, 1.00]
+                    }}
+                    className={cn(
+                      "relative bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 border-4 border-amber-400 dark:border-amber-600 rounded-lg p-4 sm:p-6 desk-shadow-medium",
+                      !isMobile && "paper-texture"
+                    )}
+                    style={{ transform: isMobile ? 'none' : 'rotate(0.3deg)' }}
+                  >
+                    {/* Paper texture overlay - hidden on mobile */}
+                    {!isMobile && (
+                      <div
+                        className="absolute inset-0 opacity-10 pointer-events-none rounded-lg"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
+                        }}
+                      />
+                    )}
+
+                    {/* Header */}
+                    <div className="relative mb-4 sm:mb-6">
+                      <h3 className="text-lg sm:text-xl font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide text-center">
+                        Session Summary
+                      </h3>
+                      <p className="text-center text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-1">
+                        {selectedDate.toLocaleDateString('en-US', {
+                          weekday: isMobile ? 'short' : 'long',
+                          year: 'numeric',
+                          month: isMobile ? 'short' : 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="relative grid gap-3 sm:gap-6 grid-cols-3">
+                      {/* Total Sessions */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
+                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                          Total
+                        </p>
+                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+                          {sessions.length}
+                        </p>
+                      </div>
+
+                      {/* Time Slots */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
+                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                          Slots
+                        </p>
+                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+                          {groupedSessions.length}
+                        </p>
+                      </div>
+
+                      {/* Average per Slot */}
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
+                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
+                          Average
+                        </p>
+                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
+                          {(sessions.length / groupedSessions.length).toFixed(1)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Corner fold */}
+                    <div className="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-t-amber-600 dark:border-t-amber-700 border-l-[30px] border-l-transparent" />
+                  </motion.div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </DeskSurface>
+    );
+  }
+
+  // Non-list views (weekly, daily, monthly)
   return (
     <DeskSurface fullHeight={viewMode === "weekly"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
         viewMode === "weekly" && "h-full overflow-hidden"
       )}>
-        {/* Unified Compact Toolbar */}
+        {/* Toolbar with animation (non-list views don't need sticky) */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className={cn(
-            "flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
-            !isMobile && "paper-texture"
-          )}
+          className={toolbarInnerClasses}
         >
-          {/* Title */}
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-            <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Schedule</h1>
-          </div>
-
-          <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-          {/* Inline View Switcher */}
-          <ViewSwitcher currentView={viewMode} onViewChange={setViewMode} compact />
-
-          {/* Show filters for list and weekly views */}
-          {(viewMode === "list" || viewMode === "weekly") && (
-            <>
-              <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-
-              {/* Date Picker (only for list view) */}
-              {viewMode === "list" && (
-                <input
-                  type="date"
-                  value={toDateString(selectedDate)}
-                  onChange={(e) => setSelectedDate(new Date(e.target.value))}
-                  className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
-                />
-              )}
-
-              {/* Compact Status Filter with color indicators */}
-              <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
-
-              {/* Compact Tutor Filter */}
-              <select
-                value={tutorFilter}
-                onChange={(e) => setTutorFilter(e.target.value)}
-                className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer pr-7"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 0.5rem center',
-                }}
-              >
-                <option value="">Tutor</option>
-                {filteredTutors.map((tutor) => (
-                  <option key={tutor.id} value={tutor.id.toString()}>
-                    {tutor.tutor_name}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
-          <div className="flex-1" />
-
-          {/* Session count */}
-          <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
-            {sessions.length} sessions
-          </span>
+          {toolbarContent}
         </motion.div>
 
       {/* Weekly Calendar View */}
@@ -404,274 +711,6 @@ export default function SessionsPage() {
               </p>
             </div>
           </StickyNote>
-        </motion.div>
-      )}
-
-      {/* List View: Grouped Sessions */}
-      {viewMode === "list" && groupedSessions.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className="flex justify-center py-12"
-        >
-          <StickyNote variant="blue" size="lg" showTape={true} className="desk-shadow-medium">
-            <div className="text-center">
-              <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Try selecting a different date or adjusting your filters
-              </p>
-            </div>
-          </StickyNote>
-        </motion.div>
-      ) : viewMode === "list" ? (
-        groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
-          <motion.div
-            key={timeSlot}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: 0.6 + groupIndex * 0.1,
-              duration: 0.5,
-              ease: [0.38, 1.21, 0.22, 1.00]
-            }}
-          >
-            {/* Time Slot Header - Index Card Style */}
-            <div
-              className={cn(
-                "relative bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 mb-4 desk-shadow-low",
-                !isMobile && "paper-texture"
-              )}
-              style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
-                    <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {timeSlot}
-                  </h3>
-                </div>
-                <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
-                  {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
-                </div>
-              </div>
-            </div>
-
-            {/* Session Cards */}
-            <div className="space-y-3 ml-0 sm:ml-4">
-              {sessionsInSlot.map((session, sessionIndex) => {
-                const isFlipping = flippingCardId === session.id;
-                const statusConfig = getSessionStatusConfig(session.session_status);
-                const StatusIcon = statusConfig.Icon;
-                const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
-                const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
-                return (
-                  <div key={session.id}>
-                    {isNewTutor && (
-                      <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-4" />
-                    )}
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{
-                      opacity: 1,
-                      x: 0,
-                      rotateY: isFlipping ? 90 : 0,
-                      scale: isFlipping ? 0.95 : 1
-                    }}
-                    transition={{
-                      delay: isMobile ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
-                      duration: isFlipping ? 0.4 : 0.35,
-                      ease: [0.38, 1.21, 0.22, 1.00]
-                    }}
-                    whileHover={!isMobile ? {
-                      scale: 1.02,
-                      y: -4,
-                      transition: { duration: 0.2 }
-                    } : {}}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCardClick(session.id)}
-                    className={cn(
-                      "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
-                      statusConfig.bgTint,
-                      !isMobile && "paper-texture"
-                    )}
-                    style={{
-                      transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    }}
-                  >
-                  {/* Main content */}
-                  <div className="flex-1 p-3 sm:p-4 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      {/* Left side - Session info */}
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className={cn(
-                            "flex items-center gap-1.5",
-                            statusConfig.strikethrough && "line-through"
-                          )}>
-                            <span className={cn(
-                              "text-sm text-gray-700 dark:text-gray-300",
-                              statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
-                            )}>
-                              {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
-                            </span>
-                            <span className={cn(
-                              "font-bold text-base",
-                              session.financial_status !== "Paid"
-                                ? "text-red-600 dark:text-red-400"
-                                : "text-gray-900 dark:text-gray-100",
-                              statusConfig.strikethrough && "text-gray-400 dark:text-gray-500"
-                            )}>
-                              {session.student_name}
-                            </span>
-                          </p>
-                          {session.grade && (
-                            <span
-                              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                              style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
-                            >{session.grade}{session.lang_stream || ''}</span>
-                          )}
-                          {session.school && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
-                          )}
-                          {session.financial_status !== "Paid" && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
-                              <HandCoins className="h-3.5 w-3.5" />
-                              Unpaid
-                            </span>
-                          )}
-                          <ArrowRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
-                        </div>
-
-                        {session.notes && (
-                          <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
-                            {session.notes}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Right side - Status text */}
-                      <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
-                        <p className={cn("text-sm font-medium", statusConfig.textClass)}>
-                          {session.session_status}
-                        </p>
-                        {session.tutor_name && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            {session.tutor_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status color strip with icon - RIGHT side */}
-                  <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
-                    <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
-                  </div>
-                </motion.div>
-                  </div>
-                );
-              })}
-            </div>
-          </motion.div>
-        ))
-      ) : null}
-
-      {/* Quick Stats - Report Card Style (only show in list view) */}
-      {viewMode === "list" && groupedSessions.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: isMobile ? 0.4 : 0.8 + groupedSessions.length * 0.1,
-            duration: isMobile ? 0.3 : 0.5,
-            ease: [0.38, 1.21, 0.22, 1.00]
-          }}
-          className={cn(
-            "relative bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 border-4 border-amber-400 dark:border-amber-600 rounded-lg p-4 sm:p-6 desk-shadow-medium",
-            !isMobile && "paper-texture"
-          )}
-          style={{ transform: isMobile ? 'none' : 'rotate(0.3deg)' }}
-        >
-          {/* Paper texture overlay - hidden on mobile */}
-          {!isMobile && (
-            <div
-              className="absolute inset-0 opacity-10 pointer-events-none rounded-lg"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
-              }}
-            />
-          )}
-
-          {/* Header */}
-          <div className="relative mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide text-center">
-              Session Summary
-            </h3>
-            <p className="text-center text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-1">
-              {selectedDate.toLocaleDateString('en-US', {
-                weekday: isMobile ? 'short' : 'long',
-                year: 'numeric',
-                month: isMobile ? 'short' : 'long',
-                day: 'numeric'
-              })}
-            </p>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="relative grid gap-3 sm:gap-6 grid-cols-3">
-            {/* Total Sessions */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: isMobile ? 0.5 : 0.9 + groupedSessions.length * 0.1, duration: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
-            >
-              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                Total
-              </p>
-              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                {sessions.length}
-              </p>
-            </motion.div>
-
-            {/* Time Slots */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: isMobile ? 0.55 : 0.95 + groupedSessions.length * 0.1, duration: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
-            >
-              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                Slots
-              </p>
-              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                {groupedSessions.length}
-              </p>
-            </motion.div>
-
-            {/* Average per Slot */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: isMobile ? 0.6 : 1.0 + groupedSessions.length * 0.1, duration: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center"
-            >
-              <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                Average
-              </p>
-              <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                {(sessions.length / groupedSessions.length).toFixed(1)}
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Corner fold */}
-          <div className="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-t-amber-600 dark:border-t-amber-700 border-l-[30px] border-l-transparent" />
         </motion.div>
       )}
       </PageTransition>

@@ -2,6 +2,7 @@
 export interface Tutor {
   id: number;
   tutor_name: string;
+  default_location?: string;
 }
 
 // Student types
