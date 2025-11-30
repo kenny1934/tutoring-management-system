@@ -253,47 +253,104 @@ export default function SessionsPage() {
 
   if (loading) {
     return (
-      <DeskSurface>
-        <PageTransition className="flex flex-col gap-6 p-4 sm:p-8">
-          {/* Header Skeleton - Index card style */}
+      <DeskSurface fullHeight={viewMode === "weekly"}>
+        <PageTransition className={cn(
+          "flex flex-col gap-6 p-4 sm:p-8",
+          viewMode === "weekly" && "h-full overflow-hidden"
+        )}>
+          {/* Header Skeleton */}
           <div className={cn(
-            "h-32 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47]",
+            "h-24 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47]",
             !isMobile && "paper-texture"
           )} />
 
           {/* Filters Skeleton */}
           <div className={cn(
-            "h-24 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "h-14 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
             !isMobile && "paper-texture"
           )} />
 
-          {/* Sessions Skeleton - Index cards with paper shuffle animation */}
-          <AnimatePresence mode="wait">
-            {[1, 2, 3].map((i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -50, rotateY: -15 }}
-                animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                transition={{
-                  delay: i * 0.15,
-                  duration: 0.5,
-                  ease: [0.38, 1.21, 0.22, 1.00]
-                }}
-                className="space-y-3"
-              >
-                <div className={cn(
-                  "h-16 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#d4a574] dark:border-[#8b6f47]",
-                  !isMobile && "paper-texture"
-                )} />
-                {[1, 2, 3].map((j) => (
-                  <div key={j} className={cn(
-                    "h-24 bg-white dark:bg-[#1a1a1a] rounded animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a] ml-4",
-                    !isMobile && "paper-texture"
-                  )} />
+          {viewMode === "weekly" ? (
+            /* Weekly View Skeleton */
+            <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+              {/* Day headers row */}
+              <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
+                <div className="p-2 bg-[#fef9f3] dark:bg-[#2d2618]" />
+                {[1,2,3,4,5,6,7].map(i => (
+                  <div key={i} className="py-2 px-1.5 text-center bg-[#fef9f3] dark:bg-[#2d2618] border-l border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="h-3 w-8 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-1" />
+                    <div className="h-5 w-6 mx-auto bg-gray-400 dark:bg-gray-500 rounded animate-pulse" />
+                  </div>
                 ))}
-              </motion.div>
-            ))}
-          </AnimatePresence>
+              </div>
+              {/* Grid body */}
+              <div className="grid flex-1" style={{ gridTemplateColumns: "60px repeat(7, 1fr)", height: "calc(100% - 52px)" }}>
+                {/* Time labels column */}
+                <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] py-4">
+                  {["10AM","11AM","12PM","1PM","2PM","3PM","4PM","5PM"].map(t => (
+                    <div key={t} className="h-3 w-10 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-8" />
+                  ))}
+                </div>
+                {/* Day columns */}
+                {[1,2,3,4,5,6,7].map(d => (
+                  <div key={d} className="border-l border-[#e8d4b8] dark:border-[#6b5a4a] relative p-1">
+                    {d % 2 === 0 && (
+                      <div className="absolute top-4 left-1 right-1 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    )}
+                    {d % 3 === 0 && (
+                      <div className="absolute top-16 left-1 right-1 h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            /* List View Skeleton */
+            <AnimatePresence mode="wait">
+              {[1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    delay: i * 0.1,
+                    duration: 0.4,
+                    ease: [0.38, 1.21, 0.22, 1.00]
+                  }}
+                  className="space-y-3"
+                >
+                  {/* Time slot header skeleton */}
+                  <div className={cn(
+                    "flex items-center gap-3 p-4 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f]",
+                    !isMobile && "paper-texture"
+                  )}>
+                    <div className="w-9 h-9 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
+                    <div className="h-5 w-24 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                    <div className="ml-auto h-6 w-16 bg-amber-200 dark:bg-amber-800 rounded-full animate-pulse" />
+                  </div>
+                  {/* Session card skeletons */}
+                  <div className="ml-0 sm:ml-4 space-y-3">
+                    {[1, 2].map((j) => (
+                      <div key={j} className={cn(
+                        "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                        !isMobile && "paper-texture"
+                      )}>
+                        <div className="flex-1 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                            <div className="h-4 w-10 bg-green-200 dark:bg-green-900 rounded animate-pulse hidden sm:block" />
+                          </div>
+                          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        </div>
+                        <div className="w-10 sm:w-12 bg-gray-300 dark:bg-gray-600 animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
         </PageTransition>
       </DeskSurface>
     );
@@ -337,8 +394,14 @@ export default function SessionsPage() {
           {viewMode === "list" && (
             <input
               type="date"
-              value={toDateString(selectedDate)}
-              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              defaultValue={toDateString(selectedDate)}
+              key={toDateString(selectedDate)}
+              onBlur={(e) => {
+                const date = new Date(e.target.value + 'T00:00:00');
+                if (!isNaN(date.getTime()) && toDateString(date) !== toDateString(selectedDate)) {
+                  setSelectedDate(date);
+                }
+              }}
               className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
             />
           )}

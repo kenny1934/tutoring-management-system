@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, HandCoins } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { MoreSessionsPopover } from "@/components/sessions/MoreSessionsPopover";
@@ -64,7 +64,9 @@ export function WeeklyGridView({
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
-  const sessionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [expandedEmptyDays, setExpandedEmptyDays] = useState<Set<number>>(new Set());
+  const [showAllDays, setShowAllDays] = useState(false);
+  const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -123,6 +125,49 @@ export function WeeklyGridView({
     [sessions]
   );
 
+  // Calculate which days have sessions
+  const daysWithSessions = useMemo(() => {
+    const result = new Set<number>();
+    weekDates.forEach((date, index) => {
+      const dateKey = toDateString(date);
+      if ((sessionsByDate.get(dateKey) || []).length > 0) {
+        result.add(index);
+      }
+    });
+    return result;
+  }, [weekDates, sessionsByDate]);
+
+  // Check if a day should be collapsed
+  const isDayCollapsed = (dayIndex: number) => {
+    if (showAllDays) return false;
+    if (daysWithSessions.has(dayIndex)) return false;
+    return !expandedEmptyDays.has(dayIndex);
+  };
+
+  // Toggle individual day expansion
+  const toggleDayExpand = (dayIndex: number) => {
+    setExpandedEmptyDays(prev => {
+      const next = new Set(prev);
+      if (next.has(dayIndex)) {
+        next.delete(dayIndex);
+      } else {
+        next.add(dayIndex);
+      }
+      return next;
+    });
+  };
+
+  // Generate dynamic grid columns
+  const gridColumns = useMemo(() => {
+    const columns = weekDates.map((_, index) =>
+      isDayCollapsed(index) ? "36px" : "1fr"
+    );
+    return `60px ${columns.join(" ")}`;
+  }, [weekDates, showAllDays, expandedEmptyDays, daysWithSessions]);
+
+  // Count empty days for toggle button visibility
+  const emptyDaysCount = 7 - daysWithSessions.size;
+
   const handlePreviousWeek = () => {
     onDateChange(getPreviousWeek(selectedDate));
   };
@@ -165,8 +210,14 @@ export function WeeklyGridView({
           {/* Date picker */}
           <input
             type="date"
-            value={toDateString(selectedDate)}
-            onChange={(e) => onDateChange(new Date(e.target.value + 'T00:00:00'))}
+            defaultValue={toDateString(selectedDate)}
+            key={toDateString(selectedDate)}
+            onBlur={(e) => {
+              const date = new Date(e.target.value + 'T00:00:00');
+              if (!isNaN(date.getTime()) && toDateString(date) !== toDateString(selectedDate)) {
+                onDateChange(date);
+              }
+            }}
             className="h-7 px-2 text-xs bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
           />
 
@@ -184,6 +235,24 @@ export function WeeklyGridView({
             W{getSchoolYearWeek(weekDates[0])}
           </span>
         </div>
+
+        {/* Toggle empty days button */}
+        {emptyDaysCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAllDays(!showAllDays)}
+            className="flex items-center gap-1 h-7 px-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            title={showAllDays ? "Hide empty days" : "Show all days"}
+          >
+            {showAllDays ? (
+              <EyeOff className="h-3.5 w-3.5" />
+            ) : (
+              <Eye className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">{showAllDays ? "Hide empty" : `+${emptyDaysCount} empty`}</span>
+          </Button>
+        )}
 
         {/* Right: Next button */}
         <Button
@@ -205,38 +274,59 @@ export function WeeklyGridView({
         <div className={cn(fillHeight ? "overflow-hidden flex-1 flex flex-col min-h-0" : "overflow-x-auto")}>
           <div className={cn(fillHeight ? "flex-1 flex flex-col overflow-hidden" : "min-w-[800px]")}>
             {/* Day Headers */}
-            <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
+            <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center">
                 <p className="text-[10px] font-bold text-gray-600 dark:text-gray-400">TIME</p>
               </div>
               {weekDates.map((date, index) => {
                 const isToday = isSameDay(date, today);
+                const isCollapsed = isDayCollapsed(index);
+                const hasNoSessions = !daysWithSessions.has(index);
                 return (
                   <div
                     key={index}
+                    onClick={hasNoSessions ? () => toggleDayExpand(index) : undefined}
                     className={cn(
-                      "py-1 px-1.5 text-center border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a] transition-all",
+                      isCollapsed ? "py-1 px-0.5" : "py-1 px-1.5",
                       isToday
                         ? "bg-[#a0704b] dark:bg-[#cd853f]"
-                        : "bg-[#fef9f3] dark:bg-[#2d2618]"
+                        : "bg-[#fef9f3] dark:bg-[#2d2618]",
+                      hasNoSessions && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                     )}
                   >
-                    <p
-                      className={cn(
-                        "text-[10px] font-bold uppercase leading-tight",
-                        isToday ? "text-white" : "text-gray-600 dark:text-gray-400"
-                      )}
-                    >
-                      {getDayName(date, true)}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-base font-bold leading-tight",
-                        isToday ? "text-white" : "text-gray-900 dark:text-gray-100"
-                      )}
-                    >
-                      {date.getDate()}
-                    </p>
+                    {isCollapsed ? (
+                      <div className="h-full flex items-center justify-center">
+                        <span
+                          className={cn(
+                            "text-[9px] font-bold whitespace-nowrap",
+                            isToday ? "text-white/80" : "text-gray-400 dark:text-gray-500"
+                          )}
+                          style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                        >
+                          {getDayName(date, true)} {date.getDate()}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p
+                          className={cn(
+                            "text-[10px] font-bold uppercase leading-tight",
+                            isToday ? "text-white" : "text-gray-600 dark:text-gray-400"
+                          )}
+                        >
+                          {getDayName(date, true)}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-base font-bold leading-tight",
+                            isToday ? "text-white" : "text-gray-900 dark:text-gray-100"
+                          )}
+                        >
+                          {date.getDate()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -245,7 +335,7 @@ export function WeeklyGridView({
             {/* Time Grid */}
             <div
               className={cn("grid", fillHeight && "overflow-hidden")}
-              style={{ height: `${totalHeight}px`, gridTemplateColumns: "60px repeat(7, 1fr)" }}
+              style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
               {/* Time Labels Column */}
               <div className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -275,15 +365,27 @@ export function WeeklyGridView({
                 const dateKey = toDateString(date);
                 const daySessions = sessionsByDate.get(dateKey) || [];
                 const isToday = isSameDay(date, today);
+                const isCollapsed = isDayCollapsed(dayIndex);
+                const hasNoSessions = !daysWithSessions.has(dayIndex);
 
                 return (
                   <div
                     key={dayIndex}
+                    onClick={isCollapsed && hasNoSessions ? () => toggleDayExpand(dayIndex) : undefined}
                     className={cn(
                       "relative border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
-                      isToday && "bg-amber-50/30 dark:bg-amber-900/10"
+                      isToday && "bg-amber-50/30 dark:bg-amber-900/10",
+                      isCollapsed && "bg-gray-50 dark:bg-gray-900/30",
+                      isCollapsed && hasNoSessions && "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50"
                     )}
                   >
+                    {/* Collapsed day expand indicator */}
+                    {isCollapsed && hasNoSessions && (
+                      <div className="absolute inset-0 flex items-center justify-center z-10">
+                        <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+                      </div>
+                    )}
+
                     {/* Hour grid lines */}
                     {hours.map((hour) => (
                       <div
@@ -493,9 +595,6 @@ export function WeeklyGridView({
                                 return (
                                   <motion.div
                                     key={session.id}
-                                    ref={(el) => {
-                                      if (el) sessionRefs.current.set(session.id, el);
-                                    }}
                                     whileHover={{
                                       scale: 1.02,
                                       y: -1,
@@ -506,6 +605,7 @@ export function WeeklyGridView({
                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      setPopoverClickPosition({ x: e.clientX, y: e.clientY });
                                       setOpenSessionId(session.id);
                                       setOpenMoreGroup(null);
                                     }}
@@ -599,15 +699,14 @@ export function WeeklyGridView({
       {/* Session Detail Popovers */}
       {openSessionId !== null && (() => {
         const session = sessions.find((s) => s.id === openSessionId);
-        const ref = sessionRefs.current.get(openSessionId);
-        if (!session || !ref) return null;
+        if (!session) return null;
 
         return (
           <SessionDetailPopover
             session={session}
             isOpen={true}
             onClose={() => setOpenSessionId(null)}
-            triggerRef={{ current: ref }}
+            clickPosition={popoverClickPosition}
             tutorFilter={tutorFilter}
           />
         );
