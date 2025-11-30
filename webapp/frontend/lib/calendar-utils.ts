@@ -293,6 +293,36 @@ export function getToday(): Date {
 }
 
 /**
+ * Get the school year week number (Week 1 = first week of September)
+ * School year starts on September 1st
+ */
+export function getSchoolYearWeek(date: Date): number {
+  // Determine the school year start date
+  // If we're before September, school year started previous year
+  const year = date.getMonth() < 8 ? date.getFullYear() - 1 : date.getFullYear();
+  const schoolYearStart = new Date(year, 8, 1); // September 1st
+  schoolYearStart.setHours(0, 0, 0, 0);
+
+  // Get the start of the week containing Sept 1st
+  const startOfSchoolWeek = new Date(schoolYearStart);
+  const dayOfWeek = startOfSchoolWeek.getDay();
+  startOfSchoolWeek.setDate(startOfSchoolWeek.getDate() - dayOfWeek);
+
+  // Get the start of the current week
+  const currentWeekStart = new Date(date);
+  const currentDayOfWeek = currentWeekStart.getDay();
+  currentWeekStart.setDate(currentWeekStart.getDate() - currentDayOfWeek);
+  currentWeekStart.setHours(0, 0, 0, 0);
+
+  // Calculate the difference in weeks
+  const diffTime = currentWeekStart.getTime() - startOfSchoolWeek.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const weekNumber = Math.floor(diffDays / 7) + 1;
+
+  return weekNumber;
+}
+
+/**
  * Calculate the top position for a session based on its start time
  * Returns pixels from the start of the day (10:00 AM = 0px)
  */

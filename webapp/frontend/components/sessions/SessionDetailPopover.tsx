@@ -13,7 +13,7 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { ArrowRight, X } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
@@ -71,6 +71,8 @@ export function SessionDetailPopover({
 
   const handleViewDetails = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
+    onClose();
     router.push(`/sessions/${session.id}`);
   };
 
@@ -138,6 +140,15 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {session.session_date && (
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Date:</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {new Date(session.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            </div>
+          )}
+
           {parsed && (
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Time:</span>
@@ -158,7 +169,7 @@ export function SessionDetailPopover({
 
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
-            <StatusBadge status={session.session_status} />
+            <SessionStatusTag status={session.session_status} size="sm" />
           </div>
         </div>
 

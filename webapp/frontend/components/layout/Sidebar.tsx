@@ -45,7 +45,9 @@ export function Sidebar() {
     async function fetchLocations() {
       try {
         const data = await api.stats.getLocations();
-        const allLocations = ["All Locations", ...data];
+        // Filter out "Various" placeholder
+        const filteredData = data.filter((loc: string) => loc !== "Various");
+        const allLocations = ["All Locations", ...filteredData];
         setLocations(allLocations);
       } catch (error) {
         console.error("Failed to fetch locations:", error);
