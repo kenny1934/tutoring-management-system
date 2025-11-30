@@ -9,11 +9,11 @@ import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
 
 // Grade tag colors
@@ -34,7 +34,6 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
 };
 
 export default function SessionsPage() {
-  const router = useRouter();
   const { selectedLocation } = useLocation();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +42,12 @@ export default function SessionsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [tutorFilter, setTutorFilter] = useState("");
   const [tutors, setTutors] = useState<Tutor[]>([]);
-  const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  // Popover state for list view
+  const [popoverSession, setPopoverSession] = useState<Session | null>(null);
+  const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Toolbar height tracking for dynamic sticky offset
   // Use callback ref (setState) so effect re-runs when element mounts
@@ -102,13 +104,10 @@ export default function SessionsPage() {
     fetchTutors();
   }, []);
 
-  // Handle card click with flip animation
-  const handleCardClick = (sessionId: number) => {
-    setFlippingCardId(sessionId);
-    // Delay navigation to show flip animation
-    setTimeout(() => {
-      router.push(`/sessions/${sessionId}`);
-    }, 400);
+  // Handle card click - open popover at click position
+  const handleCardClick = (session: Session, event: React.MouseEvent) => {
+    setPopoverClickPosition({ x: event.clientX, y: event.clientY });
+    setPopoverSession(session);
   };
 
   useEffect(() => {
@@ -442,7 +441,6 @@ export default function SessionsPage() {
                     {/* Session Cards */}
                     <div className="space-y-3 ml-0 sm:ml-4">
                       {sessionsInSlot.map((session, sessionIndex) => {
-                        const isFlipping = flippingCardId === session.id;
                         const statusConfig = getSessionStatusConfig(session.session_status);
                         const StatusIcon = statusConfig.Icon;
                         const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
@@ -456,13 +454,11 @@ export default function SessionsPage() {
                               initial={{ opacity: 0, x: -20 }}
                               animate={{
                                 opacity: 1,
-                                x: 0,
-                                rotateY: isFlipping ? 90 : 0,
-                                scale: isFlipping ? 0.95 : 1
+                                x: 0
                               }}
                               transition={{
                                 delay: isMobile ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
-                                duration: isFlipping ? 0.4 : 0.35,
+                                duration: 0.35,
                                 ease: [0.38, 1.21, 0.22, 1.00]
                               }}
                               whileHover={!isMobile ? {
@@ -471,7 +467,7 @@ export default function SessionsPage() {
                                 transition: { duration: 0.2 }
                               } : {}}
                               whileTap={{ scale: 0.98 }}
-                              onClick={() => handleCardClick(session.id)}
+                              onClick={(e) => handleCardClick(session, e)}
                               className={cn(
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
@@ -641,6 +637,17 @@ export default function SessionsPage() {
             )}
           </div>
         </div>
+
+        {/* Session Detail Popover */}
+        {popoverSession && (
+          <SessionDetailPopover
+            session={popoverSession}
+            isOpen={!!popoverSession}
+            onClose={() => setPopoverSession(null)}
+            clickPosition={popoverClickPosition}
+            tutorFilter={tutorFilter}
+          />
+        )}
       </DeskSurface>
     );
   }
