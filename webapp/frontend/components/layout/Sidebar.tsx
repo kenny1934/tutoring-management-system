@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar, BarChart3, MapPin, Eye } from "lucide-react";
+import { Home, Users, Calendar, BarChart3, MapPin, Eye, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -17,7 +17,12 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: BarChart3, color: "bg-orange-500" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
+
+export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
@@ -56,102 +61,123 @@ export function Sidebar() {
     fetchLocations();
   }, [mounted, setLocations]);
 
-  return (
-    <div
-      className={cn(
-        "flex h-screen flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50",
-        "bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(17,17,17,0.6)]",
-        isCollapsed ? "w-[72px]" : "w-64"
-      )}
-      style={{
-        transition: 'width 350ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-      }}
-    >
-      {/* Logo Header - M3 Expressive (Clickable Toggle) */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="flex h-16 items-center justify-center px-3 border-b border-white/10 dark:border-white/5 w-full hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer group"
-        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        <div className="flex items-center gap-3 transition-all duration-350">
-          <img
-            src="/logo.png"
-            alt="CSM Pro"
-            className={cn(
-              "transition-all duration-350 group-hover:scale-105",
-              isCollapsed ? "h-8 w-auto" : "h-9 w-auto"
-            )}
-          />
-          {!isCollapsed && (
-            <span className="font-bold text-xl group-hover:text-primary transition-colors">CSM Pro</span>
-          )}
-        </div>
-      </button>
+  // Close mobile menu on navigation
+  const handleNavClick = () => {
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
 
-      {/* Navigation - M3 Expressive Pills */}
+  // Sidebar content - shared between desktop and mobile
+  const sidebarContent = (isMobile: boolean) => (
+    <>
+      {/* Logo Header */}
+      <div className="flex h-16 items-center justify-between px-3 border-b border-white/10 dark:border-white/5">
+        {isMobile ? (
+          // Mobile: Logo + Close button
+          <>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="CSM Pro" className="h-9 w-auto" />
+              <span className="font-bold text-xl">CSM Pro</span>
+            </div>
+            <button
+              onClick={onMobileClose}
+              className="p-2 rounded-lg hover:bg-foreground/10 transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </>
+        ) : (
+          // Desktop: Clickable toggle
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="flex items-center justify-center w-full hover:bg-foreground/5 active:bg-foreground/10 transition-colors cursor-pointer group"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <div className="flex items-center gap-3 transition-all duration-350">
+              <img
+                src="/logo.png"
+                alt="CSM Pro"
+                className={cn(
+                  "transition-all duration-350 group-hover:scale-105",
+                  isCollapsed ? "h-8 w-auto" : "h-9 w-auto"
+                )}
+              />
+              {!isCollapsed && (
+                <span className="font-bold text-xl group-hover:text-primary transition-colors">CSM Pro</span>
+              )}
+            </div>
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
       <nav className="flex-1 space-y-2 px-3 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
+          const showExpanded = isMobile || !isCollapsed;
           return (
             <div
               key={item.name}
-              className={cn("relative", isCollapsed && "tooltip-wrapper")}
+              className={cn("relative", !showExpanded && "tooltip-wrapper")}
               data-tooltip={item.name}
             >
               <Link
                 href={item.href}
+                onClick={handleNavClick}
                 style={{
                   transition: `all ${isActive ? '350ms' : '200ms'} cubic-bezier(0.38, 1.21, 0.22, 1.00)`
                 }}
                 className={cn(
                   "group relative flex items-center rounded-2xl text-sm font-medium",
-                  isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3.5",
+                  showExpanded ? "gap-3 px-4 py-3.5" : "justify-center p-3",
                   isActive
                     ? "bg-primary/10 text-primary shadow-sm"
                     : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.02] active:scale-[0.98]"
                 )}
               >
-              {/* Color indicator with glow - hide when collapsed */}
-              {!isCollapsed && (
-                <div className={cn(
-                  "w-2 h-2 rounded-full transition-all duration-300",
-                  item.color,
-                  isActive
-                    ? "scale-100 opacity-100 shadow-[0_0_8px_currentColor]"
-                    : "scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-60"
-                )} />
-              )}
-
-              {/* Icon - larger when collapsed */}
-              <item.icon
-                className={cn(
-                  "transition-transform duration-300",
-                  isCollapsed ? "h-6 w-6" : "h-5 w-5",
-                  isActive ? "scale-110" : "group-hover:scale-110"
+                {/* Color indicator with glow */}
+                {showExpanded && (
+                  <div className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-300",
+                    item.color,
+                    isActive
+                      ? "scale-100 opacity-100 shadow-[0_0_8px_currentColor]"
+                      : "scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-60"
+                  )} />
                 )}
-                style={{
-                  transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
-                }}
-              />
 
-              {/* Label - hide when collapsed */}
-              {!isCollapsed && (
-                <>
-                  <span className="flex-1">{item.name}</span>
-                  {isActive && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
+                {/* Icon */}
+                <item.icon
+                  className={cn(
+                    "transition-transform duration-300",
+                    showExpanded ? "h-5 w-5" : "h-6 w-6",
+                    isActive ? "scale-110" : "group-hover:scale-110"
                   )}
-                </>
-              )}
+                  style={{
+                    transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
+                  }}
+                />
+
+                {/* Label */}
+                {showExpanded && (
+                  <>
+                    <span className="flex-1">{item.name}</span>
+                    {isActive && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
+                    )}
+                  </>
+                )}
               </Link>
             </div>
           );
         })}
       </nav>
 
-      {/* Filters - M3 Expressive - hide when collapsed */}
-      {!isCollapsed && (
+      {/* Filters - show when expanded or mobile */}
+      {(isMobile || !isCollapsed) && (
         <div className="border-t border-white/10 dark:border-white/5 p-4 space-y-4">
           {/* Theme Toggle */}
           <ThemeToggle />
@@ -217,13 +243,13 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* User info - M3 Expressive */}
+      {/* User info */}
       <div className="border-t border-white/10 dark:border-white/5 p-4">
         <div
           className={cn(
             "flex items-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
             "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-            isCollapsed ? "justify-center p-2" : "gap-3 p-4"
+            (isMobile || !isCollapsed) ? "gap-3 p-4" : "justify-center p-2"
           )}
           style={{
             transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
@@ -232,7 +258,7 @@ export function Sidebar() {
           <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
             <span className="text-base font-bold text-primary-foreground">KC</span>
           </div>
-          {!isCollapsed && (
+          {(isMobile || !isCollapsed) && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
               <p className="text-xs font-medium text-foreground/60">Admin</p>
@@ -240,6 +266,47 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div
+        className={cn(
+          "hidden md:flex h-screen flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50",
+          "bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(17,17,17,0.6)]",
+          isCollapsed ? "w-[72px]" : "w-64"
+        )}
+        style={{
+          transition: 'width 350ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+        }}
+      >
+        {sidebarContent(false)}
+      </div>
+
+      {/* Mobile Drawer - hidden on desktop */}
+      {/* Backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300",
+          isMobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={onMobileClose}
+        aria-hidden="true"
+      />
+
+      {/* Drawer */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 w-72 flex flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50 md:hidden",
+          "bg-[rgba(255,255,255,0.95)] dark:bg-[rgba(17,17,17,0.95)]",
+          "transition-transform duration-300 ease-out",
+          isMobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent(true)}
+      </div>
+    </>
   );
 }
