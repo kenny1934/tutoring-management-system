@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
+import { DailyGridView } from "@/components/sessions/DailyGridView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -125,8 +126,8 @@ export default function SessionsPage() {
           limit: 500,
         };
 
-        if (viewMode === "list") {
-          // For list view, fetch just the selected date
+        if (viewMode === "list" || viewMode === "daily") {
+          // For list and daily views, fetch just the selected date
           filters.date = toDateString(selectedDate);
         } else if (viewMode === "weekly") {
           // For weekly view, fetch the entire week
@@ -134,7 +135,7 @@ export default function SessionsPage() {
           filters.from_date = toDateString(start);
           filters.to_date = toDateString(end);
         }
-        // For daily and monthly views (future implementation)
+        // For monthly view (future implementation)
 
         const data = await api.sessions.getAll(filters);
         setSessions(data);
@@ -253,22 +254,32 @@ export default function SessionsPage() {
 
   if (loading) {
     return (
-      <DeskSurface fullHeight={viewMode === "weekly"}>
+      <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily"}>
         <PageTransition className={cn(
-          "flex flex-col gap-6 p-4 sm:p-8",
-          viewMode === "weekly" && "h-full overflow-hidden"
+          "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+          (viewMode === "weekly" || viewMode === "daily") && "h-full overflow-hidden"
         )}>
-          {/* Header Skeleton */}
+          {/* Toolbar Skeleton */}
           <div className={cn(
-            "h-24 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-4 border-[#d4a574] dark:border-[#8b6f47]",
+            "flex items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
-          )} />
-
-          {/* Filters Skeleton */}
-          <div className={cn(
-            "h-14 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#e8d4b8] dark:border-[#6b5a4a]",
-            !isMobile && "paper-texture"
-          )} />
+          )}>
+            {/* Title */}
+            <div className="h-5 w-5 bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
+            <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            {/* View switcher */}
+            <div className="flex gap-1">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="h-7 w-7 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              ))}
+            </div>
+            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            {/* Filters placeholder */}
+            <div className="h-7 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+            <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+            <div className="ml-auto h-5 w-16 bg-amber-200/50 dark:bg-amber-800/50 rounded-full animate-pulse" />
+          </div>
 
           {viewMode === "weekly" ? (
             /* Weekly View Skeleton */
@@ -304,6 +315,68 @@ export default function SessionsPage() {
                 ))}
               </div>
             </div>
+          ) : viewMode === "daily" ? (
+            /* Daily View Skeleton */
+            <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+              {/* Day Navigation Skeleton */}
+              <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5">
+                <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                  <div className="h-7 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                  <div className="h-5 w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse hidden sm:block" />
+                </div>
+                <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+              </div>
+
+              {/* Grid Skeleton */}
+              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+                {/* Tutor headers row - 1 expanded + 3 collapsed */}
+                <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px" }}>
+                  <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="h-3 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                  </div>
+                  {/* Expanded tutor header */}
+                  <div className="py-1 px-1.5 text-center bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <div className="h-3 w-20 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-1" />
+                    <div className="h-3 w-16 mx-auto bg-[#d4a574]/50 dark:bg-[#8b6f47]/50 rounded animate-pulse" />
+                  </div>
+                  {/* Collapsed tutor headers */}
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className={cn(
+                      "py-1 px-0.5 border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      i % 2 === 1 ? "bg-[#f5ede3] dark:bg-[#181510]" : "bg-[#fef9f3] dark:bg-[#2d2618]"
+                    )}>
+                      <div className="h-full flex items-center justify-center">
+                        <div className="h-8 w-2 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Grid body */}
+                <div className="grid flex-1" style={{ gridTemplateColumns: "60px 1fr 36px 36px 36px", height: "calc(100% - 40px)" }}>
+                  {/* Time labels column */}
+                  <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] py-4">
+                    {["10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00"].map(t => (
+                      <div key={t} className="h-3 w-10 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-8" />
+                    ))}
+                  </div>
+                  {/* Expanded tutor column with session placeholders */}
+                  <div className="border-r border-[#e8d4b8] dark:border-[#6b5a4a] relative p-1">
+                    <div className="absolute top-8 left-1 right-1 h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    <div className="absolute top-28 left-1 right-1 h-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    <div className="absolute top-48 left-1 right-1 h-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  </div>
+                  {/* Collapsed tutor columns */}
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className={cn(
+                      "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      i % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : ""
+                    )} />
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             /* List View Skeleton */
             <AnimatePresence mode="wait">
@@ -317,11 +390,10 @@ export default function SessionsPage() {
                     duration: 0.4,
                     ease: [0.38, 1.21, 0.22, 1.00]
                   }}
-                  className="space-y-3"
                 >
                   {/* Time slot header skeleton */}
                   <div className={cn(
-                    "flex items-center gap-3 p-4 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f]",
+                    "flex items-center gap-3 p-4 bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-l-4 border-[#a0704b] dark:border-[#cd853f] mb-4",
                     !isMobile && "paper-texture"
                   )}>
                     <div className="w-9 h-9 bg-[#a0704b]/30 dark:bg-[#cd853f]/30 rounded-full animate-pulse" />
@@ -736,10 +808,10 @@ export default function SessionsPage() {
 
   // Non-list views (weekly, daily, monthly)
   return (
-    <DeskSurface fullHeight={viewMode === "weekly"}>
+    <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
-        viewMode === "weekly" && "h-full overflow-hidden"
+        (viewMode === "weekly" || viewMode === "daily") && "h-full overflow-hidden"
       )}>
         {/* Toolbar with animation (non-list views don't need sticky) */}
         <motion.div
@@ -763,24 +835,16 @@ export default function SessionsPage() {
         />
       )}
 
-      {/* Daily View Placeholder */}
+      {/* Daily View */}
       {viewMode === "daily" && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className="flex justify-center py-12"
-        >
-          <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
-            <div className="text-center">
-              <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Daily View</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Coming soon...
-              </p>
-            </div>
-          </StickyNote>
-        </motion.div>
+        <DailyGridView
+          sessions={sessions}
+          tutors={filteredTutors}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          isMobile={isMobile}
+          fillHeight
+        />
       )}
 
       {/* Monthly View Placeholder */}
