@@ -604,12 +604,12 @@ export default function SessionsPage() {
     !isMobile && "paper-texture"
   );
 
-  // For list view: Add scroll container wrapper to enable CSS sticky
+  // For list view: Use fullHeight to propagate height constraints for sticky positioning
   // For other views: Use PageTransition with animations
   if (viewMode === "list") {
     return (
-      <DeskSurface>
-        <div className="h-full overflow-y-auto">
+      <DeskSurface fullHeight>
+        <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
             <div ref={setToolbarElement} className={toolbarStickyClasses}>
