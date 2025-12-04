@@ -139,6 +139,7 @@ interface SessionDetailPopoverProps {
   onClose: () => void;
   clickPosition: { x: number; y: number } | null;
   tutorFilter?: string;
+  onNavigate?: () => void;
 }
 
 export function SessionDetailPopover({
@@ -147,6 +148,7 @@ export function SessionDetailPopover({
   onClose,
   clickPosition,
   tutorFilter = "",
+  onNavigate,
 }: SessionDetailPopoverProps) {
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
@@ -327,7 +329,10 @@ export function SessionDetailPopover({
         {/* Action link - using Link for Ctrl+click / middle-click support */}
         <Link
           href={`/sessions/${session.id}`}
-          onClick={onClose}
+          onClick={() => {
+            onNavigate?.();
+            onClose();
+          }}
           className={buttonVariants({ size: "sm", className: "w-full flex items-center justify-center gap-2 whitespace-nowrap" })}
         >
           View Details

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useMemo, useRef } from "react";
 import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +38,9 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
   return GRADE_COLORS[key] || "#e5e7eb"; // fallback to gray-200
 };
 
+// Key for storing scroll position in sessionStorage
+const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
+
 export default function SessionsPage() {
   const { selectedLocation } = useLocation();
   const router = useRouter();
@@ -69,6 +72,9 @@ export default function SessionsPage() {
   // Use callback ref (setState) so effect re-runs when element mounts
   const [toolbarElement, setToolbarElement] = useState<HTMLDivElement | null>(null);
   const [toolbarHeight, setToolbarHeight] = useState(52);
+
+  // Scroll container ref for position restoration
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Track toolbar height changes (for responsive wrapping)
   useLayoutEffect(() => {
@@ -115,6 +121,29 @@ export default function SessionsPage() {
 
     router.replace(`/sessions?${params.toString()}`, { scroll: false });
   }, [viewMode, selectedDate, router]);
+
+  // Restore scroll position when returning to list view (after data loads)
+  useEffect(() => {
+    if (viewMode !== 'list' || loading) return;
+
+    const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
+    if (savedPosition && scrollContainerRef.current) {
+      // Use requestAnimationFrame to ensure DOM is ready after render
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = parseInt(savedPosition, 10);
+        }
+        sessionStorage.removeItem(SCROLL_POSITION_KEY);
+      });
+    }
+  }, [viewMode, loading]);
+
+  // Save scroll position before navigating to session detail
+  const saveScrollPosition = () => {
+    if (scrollContainerRef.current) {
+      sessionStorage.setItem(SCROLL_POSITION_KEY, scrollContainerRef.current.scrollTop.toString());
+    }
+  };
 
   // Fetch tutors on mount
   useEffect(() => {
@@ -609,7 +638,7 @@ export default function SessionsPage() {
   if (viewMode === "list") {
     return (
       <DeskSurface fullHeight>
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
             {/* Toolbar - outer div is sticky, inner div has visual styling */}
             <div ref={setToolbarElement} className={toolbarStickyClasses}>
@@ -745,7 +774,10 @@ export default function SessionsPage() {
                                       )}
                                       <Link
                                         href={`/sessions/${session.id}`}
-                                        onClick={(e) => e.stopPropagation()}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          saveScrollPosition();
+                                        }}
                                         className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0"
                                       >
                                         <span className="hidden sm:inline">View</span>
@@ -886,6 +918,7 @@ export default function SessionsPage() {
             onClose={() => setPopoverSession(null)}
             clickPosition={popoverClickPosition}
             tutorFilter={tutorFilter}
+            onNavigate={saveScrollPosition}
           />
         )}
       </DeskSurface>
