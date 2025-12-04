@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "@/contexts/LocationContext";
 import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -96,6 +97,7 @@ export function MonthlyCalendarView({
   onViewModeChange,
   isMobile = false,
 }: MonthlyCalendarViewProps) {
+  const { selectedLocation } = useLocation();
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [popoverTab, setPopoverTab] = useState<"list" | "grid">("list");
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
@@ -511,7 +513,7 @@ function DayPopover({
   const tutorIds = Array.from(sessionsByTutor.keys()).sort((a, b) => {
     const tutorA = tutorMap.get(a);
     const tutorB = tutorMap.get(b);
-    return (tutorA?.tutor_name || "").localeCompare(tutorB?.tutor_name || "");
+    return getTutorSortName(tutorA?.tutor_name || "").localeCompare(getTutorSortName(tutorB?.tutor_name || ""));
   });
 
   return (
@@ -760,6 +762,7 @@ interface GridViewProps {
 }
 
 function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPopoverClickPosition }: GridViewProps) {
+  const { selectedLocation } = useLocation();
   // Calculate dynamic time slots based on actual sessions
   const timeSlots = useMemo(() => {
     // Collect all sessions from all tutors
@@ -796,11 +799,12 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
 
   return (
     <div className="p-3">
-      <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+      <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-x-auto">
+        <div style={{ minWidth: `${40 + tutorIds.length * 80}px` }}>
         {/* Tutor Headers */}
         <div
           className="grid border-b border-[#e8d4b8] dark:border-[#6b5a4a]"
-          style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, 1fr)` }}
+          style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
         >
           <div className="p-1 bg-[#fef9f3] dark:bg-[#2d2618] text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
             Time
@@ -831,7 +835,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
           <div
             key={time}
             className="grid border-b last:border-b-0 border-[#e8d4b8] dark:border-[#6b5a4a]"
-            style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `40px repeat(${tutorIds.length}, minmax(80px, 1fr))` }}
           >
             {/* Time Label */}
             <div className="p-0.5 text-[8px] text-[#8b6f47] dark:text-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618] flex items-center justify-center">
@@ -876,7 +880,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                       >
                         {/* Row 1: Student ID + unpaid icon */}
                         <div className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
-                          <span className="truncate">{session.school_student_id || "N/A"}</span>
+                          <span className="truncate">{selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}</span>
                           {session.financial_status !== "Paid" && (
                             <HandCoins className="h-2 w-2 text-red-500 flex-shrink-0" />
                           )}
@@ -907,6 +911,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
             })}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
@@ -919,6 +924,7 @@ interface SessionCardProps {
 }
 
 function SessionCard({ session, onClick }: SessionCardProps) {
+  const { selectedLocation } = useLocation();
   const config = getSessionStatusConfig(session.session_status);
   const StatusIcon = config.Icon;
 
@@ -938,7 +944,7 @@ function SessionCard({ session, onClick }: SessionCardProps) {
         {/* Top Row: Student ID + Time */}
         <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
           <span className="flex items-center gap-0.5">
-            {session.school_student_id || "N/A"}
+            {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}
             {session.financial_status !== "Paid" && (
               <HandCoins className="h-2.5 w-2.5 text-red-500" />
             )}
