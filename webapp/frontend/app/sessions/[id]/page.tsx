@@ -104,7 +104,7 @@ export default function SessionDetailPage() {
 
   if (loading) {
     return (
-      <PageTransition className="flex flex-col gap-6 p-8">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
         {/* Chalkboard skeleton */}
         <div className="h-[100px] w-full bg-[#2d4739] dark:bg-[#1a2821] rounded-lg animate-pulse border-8 border-[#4a3728] dark:border-[#3a2818]" />
 
@@ -130,7 +130,7 @@ export default function SessionDetailPage() {
 
   return (
     <DeskSurface>
-      <PageTransition className="flex flex-col gap-6 p-8">
+      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
         {/* Bookmark Tab for Previous Session (fixed position) */}
         <BookmarkTab
           previousSession={session.previous_session}
@@ -141,17 +141,33 @@ export default function SessionDetailPage() {
         <CurriculumTab suggestion={curriculumSuggestion} />
 
       {/* Header with Chalkboard */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1 min-w-0">
+      <div>
+        {/* Mobile: Navigation bar with back + context */}
+        <div className="sm:hidden flex items-center gap-2 mb-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground">Sessions</span>
+        </div>
+
+        {/* Desktop: Side-by-side layout */}
+        <div className="hidden sm:flex items-center gap-4">
+          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <ChalkboardHeader session={session} />
+          </div>
+        </div>
+
+        {/* Mobile: Full-width chalkboard */}
+        <div className="sm:hidden">
           <ChalkboardHeader session={session} />
         </div>
       </div>
 
       {/* Upcoming Tests Alert Banner */}
-      <div className="pl-14">
+      <div className="pl-0 sm:pl-8 lg:pl-14">
         <TestAlertBanner tests={upcomingTests} />
       </div>
 
@@ -180,7 +196,7 @@ export default function SessionDetailPage() {
               initial="hidden"
               animate="visible"
               transition={{ delay: 0.3 }}
-              className="flex justify-center pl-14"
+              className="flex justify-center pl-0 sm:pl-8 lg:pl-14"
             >
               <StickyNote variant="pink" size="md" showTape={true} className="desk-shadow-medium">
                 <div className="flex items-center gap-2 mb-3">
@@ -216,7 +232,7 @@ export default function SessionDetailPage() {
 
         // Courseware exists - show unified vertical layout with wooden tab
         return (
-          <div className="relative pt-16 pl-14">
+          <div className="relative pt-8 sm:pt-12 lg:pt-16 pl-0 sm:pl-8 lg:pl-14">
             {/* Wooden Tab */}
             <CoursewareBanner title="Today's Courseware" />
 

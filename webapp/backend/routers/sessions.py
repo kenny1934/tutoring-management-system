@@ -22,7 +22,7 @@ async def get_sessions(
     financial_status: Optional[str] = Query(None, description="Filter by financial status"),
     from_date: Optional[date] = Query(None, description="Filter by session_date >= this date"),
     to_date: Optional[date] = Query(None, description="Filter by session_date <= this date"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
+    limit: int = Query(100, ge=1, le=2000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db)
 ):

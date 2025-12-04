@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import { api, tutorsAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
 import { Calendar, Clock, ChevronRight, ExternalLink, HandCoins } from "lucide-react";
@@ -14,10 +15,11 @@ import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
 import { DailyGridView } from "@/components/sessions/DailyGridView";
+import { MonthlyCalendarView } from "@/components/sessions/MonthlyCalendarView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { toDateString, getWeekBounds } from "@/lib/calendar-utils";
+import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
 
 // Grade tag colors
 const GRADE_COLORS: Record<string, string> = {
@@ -38,15 +40,26 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
 
 export default function SessionsPage() {
   const { selectedLocation } = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
+
+  // Initialize state from URL query params (with fallbacks)
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const dateParam = searchParams.get('date');
+    return dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
+  });
   const [statusFilter, setStatusFilter] = useState("");
   const [tutorFilter, setTutorFilter] = useState("");
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [isMobile, setIsMobile] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const param = searchParams.get('view');
+    return (param as ViewMode) || 'list';
+  });
 
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
@@ -94,6 +107,15 @@ export default function SessionsPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Sync view state to URL (use replace to avoid polluting history)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('view', viewMode);
+    params.set('date', toDateString(selectedDate));
+
+    router.replace(`/sessions?${params.toString()}`, { scroll: false });
+  }, [viewMode, selectedDate, router]);
+
   // Fetch tutors on mount
   useEffect(() => {
     async function fetchTutors() {
@@ -123,7 +145,7 @@ export default function SessionsPage() {
           location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
           status: statusFilter || undefined,
           tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
-          limit: 500,
+          limit: viewMode === "monthly" ? 2000 : 500,
         };
 
         if (viewMode === "list" || viewMode === "daily") {
@@ -134,8 +156,12 @@ export default function SessionsPage() {
           const { start, end } = getWeekBounds(selectedDate);
           filters.from_date = toDateString(start);
           filters.to_date = toDateString(end);
+        } else if (viewMode === "monthly") {
+          // For monthly view, fetch the entire month
+          const { start, end } = getMonthBounds(selectedDate);
+          filters.from_date = toDateString(start);
+          filters.to_date = toDateString(end);
         }
-        // For monthly view (future implementation)
 
         const data = await api.sessions.getAll(filters);
         setSessions(data);
@@ -254,10 +280,10 @@ export default function SessionsPage() {
 
   if (loading) {
     return (
-      <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily"}>
+      <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
         <PageTransition className={cn(
           "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
-          (viewMode === "weekly" || viewMode === "daily") && "h-full overflow-hidden"
+          (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
         )}>
           {/* Toolbar Skeleton */}
           <div className={cn(
@@ -373,6 +399,66 @@ export default function SessionsPage() {
                       "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
                       i % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : ""
                     )} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : viewMode === "monthly" ? (
+            /* Monthly View Skeleton */
+            <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+              {/* Month Navigation Skeleton */}
+              <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5">
+                <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                  <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                </div>
+                <div className="h-7 w-16 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+              </div>
+
+              {/* Calendar Grid Skeleton */}
+              <div className="flex-1 bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+                {/* Weekday Headers */}
+                <div className="grid grid-cols-7 border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
+                    <div
+                      key={day}
+                      className={cn(
+                        "py-1.5 px-1 text-center bg-[#fef9f3] dark:bg-[#2d2618]",
+                        i > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      )}
+                    >
+                      <div className="h-3 w-8 mx-auto bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+                {/* Calendar Days Grid - 6 rows */}
+                <div className="grid grid-cols-7 auto-rows-fr" style={{ minHeight: isMobile ? "400px" : "500px" }}>
+                  {Array.from({ length: 42 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "p-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a]",
+                        i % 7 !== 0 && "border-l",
+                        (i < 3 || i > 30) && "opacity-40"
+                      )}
+                    >
+                      {/* Day number */}
+                      <div className="h-4 w-4 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-1" />
+                      {/* Tutor workload placeholders - show on some cells */}
+                      {i % 4 === 0 && i >= 3 && i <= 30 && (
+                        <div className="space-y-0.5">
+                          <div className="h-2.5 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                          <div className="h-2.5 w-10 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        </div>
+                      )}
+                      {/* Load bar placeholder */}
+                      {i % 3 === 0 && i >= 3 && i <= 30 && (
+                        <div className="absolute bottom-1 left-1 right-1">
+                          <div className="h-1 w-full bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -627,7 +713,7 @@ export default function SessionsPage() {
                                         statusConfig.strikethrough && "line-through decoration-gray-500 dark:decoration-gray-400"
                                       )}>
                                         <span className={cn(
-                                          "text-sm text-gray-700 dark:text-gray-300",
+                                          "text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap flex-shrink-0",
                                           statusConfig.strikethrough && "text-gray-500 dark:text-gray-400"
                                         )}>
                                           {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
@@ -808,10 +894,10 @@ export default function SessionsPage() {
 
   // Non-list views (weekly, daily, monthly)
   return (
-    <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily"}>
+    <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
-        (viewMode === "weekly" || viewMode === "daily") && "h-full overflow-hidden"
+        (viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly") && "h-full overflow-hidden"
       )}>
         {/* Toolbar with animation (non-list views don't need sticky) */}
         <motion.div
@@ -847,24 +933,16 @@ export default function SessionsPage() {
         />
       )}
 
-      {/* Monthly View Placeholder */}
+      {/* Monthly View */}
       {viewMode === "monthly" && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
-          className="flex justify-center py-12"
-        >
-          <StickyNote variant="blue" size="lg" showTape={true} className="desk-shadow-medium">
-            <div className="text-center">
-              <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Monthly View</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Coming soon...
-              </p>
-            </div>
-          </StickyNote>
-        </motion.div>
+        <MonthlyCalendarView
+          sessions={sessions}
+          tutors={filteredTutors}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          onViewModeChange={setViewMode}
+          isMobile={isMobile}
+        />
       )}
       </PageTransition>
     </DeskSurface>

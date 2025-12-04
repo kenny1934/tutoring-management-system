@@ -66,27 +66,27 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
           {/* Sticky corner fold effect */}
           <div className="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-t-amber-600 dark:border-t-amber-700 border-l-[30px] border-l-transparent" />
 
-          <div className="relative p-5">
+          <div className="relative p-3 sm:p-5">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center justify-center w-10 h-10 bg-amber-500 dark:bg-amber-600 rounded-full shadow-md">
-                <AlertTriangle className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-amber-500 dark:bg-amber-600 rounded-full shadow-md">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide flex items-center gap-2">
                   Upcoming Assessments
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-amber-500 dark:bg-amber-600 text-white rounded-full">
+                  <span className="text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 bg-amber-500 dark:bg-amber-600 text-white rounded-full">
                     {tests.length}
                   </span>
                 </h3>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
+                <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-300">
                   Assessments scheduled within the next 14 days
                 </p>
               </div>
             </div>
 
             {/* Test List */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {tests.map((test, index) => {
                 const testDate = new Date(test.start_date);
                 const formattedDate = testDate.toLocaleDateString("en-US", {
@@ -105,7 +105,7 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 + 0.2 }}
                     className={cn(
-                      "flex items-start gap-3 p-3 rounded-md border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
+                      "flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-md border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-md",
                       colors.background,
                       colors.border
                     )}
@@ -113,12 +113,12 @@ export function TestAlertBanner({ tests }: TestAlertBannerProps) {
                     {/* Calendar Icon */}
                     <div
                       className={cn(
-                        "flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-md shadow-sm",
+                        "flex-shrink-0 flex flex-col items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-md shadow-sm",
                         colors.icon
                       )}
                     >
-                      <Calendar className="h-6 w-6 text-white" />
-                      <span className="text-xs font-bold text-white mt-0.5">
+                      <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                      <span className="text-[10px] sm:text-xs font-bold text-white mt-0.5">
                         {test.days_until}d
                       </span>
                     </div>

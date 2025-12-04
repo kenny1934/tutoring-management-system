@@ -183,7 +183,7 @@ export function DailyGridView({
   // Toggle individual tutor expansion
   const toggleTutorExpand = (tutorId: number) => {
     if (showAllTutors) {
-      // Transitioning from "show all" mode - expand all others except this one
+      // Transitioning from "show all" mode - collapse only clicked tutor
       setShowAllTutors(false);
       setExpandedTutors(new Set(activeTutors.filter(t => t.id !== tutorId).map(t => t.id)));
     } else {
@@ -200,12 +200,26 @@ export function DailyGridView({
   };
 
   // Generate dynamic grid columns
+  const allCollapsed = !showAllTutors && expandedTutors.size === 0;
   const gridColumns = useMemo(() => {
     const columns = activeTutors.map(t => {
       const isCollapsed = showAllTutors ? false : !expandedTutors.has(t.id);
-      return isCollapsed ? "36px" : "1fr";
+      // Use minmax() to ensure expanded columns have minimum readable width
+      return isCollapsed ? "36px" : "minmax(150px, 1fr)";
     });
-    return `60px ${columns.join(" ")}`;
+    // Add spacer column if all tutors are collapsed to fill remaining width
+    const spacer = allCollapsed ? " 1fr" : "";
+    return `60px ${columns.join(" ")}${spacer}`;
+  }, [activeTutors, expandedTutors, showAllTutors, allCollapsed]);
+
+  // Calculate minimum width needed for horizontal scrolling
+  const minGridWidth = useMemo(() => {
+    const timeColumnWidth = 60;
+    const tutorColumnsWidth = activeTutors.reduce((sum, t) => {
+      const isCollapsed = showAllTutors ? false : !expandedTutors.has(t.id);
+      return sum + (isCollapsed ? 36 : 150);
+    }, 0);
+    return timeColumnWidth + tutorColumnsWidth;
   }, [activeTutors, expandedTutors, showAllTutors]);
 
   // Count collapsed tutors for toggle button
@@ -223,8 +237,8 @@ export function DailyGridView({
     onDateChange(nextDay);
   };
 
-  // Generate hour labels
-  const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
+  // Generate hour labels (excludes endHour since that's the bottom boundary)
+  const hours = Array.from({ length: endHour - startHour }, (_, i) => i + startHour);
 
   // Calculate session position using dynamic start hour
   const getSessionTop = (timeSlot: string) => {
@@ -336,8 +350,8 @@ export function DailyGridView({
         "bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
         fillHeight && "flex-1 flex flex-col min-h-0"
       )}>
-        <div className={cn(fillHeight ? "overflow-hidden flex-1 flex flex-col min-h-0" : "overflow-x-auto")}>
-          <div className={cn(fillHeight ? "flex-1 flex flex-col overflow-hidden" : "min-w-[800px]")}>
+        <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1a1a1a]" : "overflow-x-auto")}>
+          <div className={cn(fillHeight ? "flex-1 flex flex-col bg-white dark:bg-[#1a1a1a]" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
             {/* Tutor Headers */}
             <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center">
@@ -380,15 +394,19 @@ export function DailyGridView({
                   </div>
                 );
               })}
+              {/* Spacer cell when all tutors collapsed */}
+              {allCollapsed && (
+                <div className="bg-[#fef9f3] dark:bg-[#2d2618]" />
+              )}
             </div>
 
             {/* Time Grid */}
             <div
-              className={cn("grid", fillHeight && "overflow-hidden")}
+              className="grid border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]"
               style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
               {/* Time Labels Column */}
-              <div className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="relative h-full bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {hours.map((hour) => (
                   <div
                     key={hour}
@@ -408,6 +426,11 @@ export function DailyGridView({
                     style={{ top: `${((hour - startHour) * 60 + 30) * pixelsPerMinute}px` }}
                   />
                 ))}
+                {/* Final grid line at endHour (bottom boundary) */}
+                <div
+                  className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  style={{ top: `${(endHour - startHour) * 60 * pixelsPerMinute}px` }}
+                />
               </div>
 
               {/* Tutor Columns */}
@@ -420,9 +443,9 @@ export function DailyGridView({
                     key={tutor.id}
                     onClick={isCollapsed ? () => toggleTutorExpand(tutor.id) : undefined}
                     className={cn(
-                      "relative border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "relative h-full border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
                       isCollapsed && "bg-gray-50 dark:bg-gray-900/30 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50",
-                      !isCollapsed && index % 2 === 1 && "bg-[#f8f4ef] dark:bg-[#131310]"
+                      !isCollapsed && (index % 2 === 1 ? "bg-[#f8f4ef] dark:bg-[#131310]" : "bg-white dark:bg-[#1a1a1a]")
                     )}
                   >
                     {/* Collapsed tutor expand indicator */}
@@ -448,6 +471,11 @@ export function DailyGridView({
                         style={{ top: `${((hour - startHour) * 60 + 30) * pixelsPerMinute}px` }}
                       />
                     ))}
+                    {/* Final grid line at endHour (bottom boundary) */}
+                    <div
+                      className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      style={{ top: `${(endHour - startHour) * 60 * pixelsPerMinute}px` }}
+                    />
 
                     {/* Current Time Indicator (show on today) */}
                     {isToday && (() => {
@@ -593,7 +621,7 @@ export function DailyGridView({
                         const widthPercent = 100 / (info?.totalColumns || 1);
                         const leftPercent = (info?.column || 0) * widthPercent;
 
-                        const maxDisplayedSessions = Math.max(1, Math.floor(height / 24)); // ~24px per session
+                        const maxDisplayedSessions = Math.max(1, Math.floor((height - 6) / 28)); // ~28px per session (22px card + 2px gap + 4px buffer for subpixel rounding)
                         const hasMoreSessions = sessionsInGroup.length > maxDisplayedSessions;
                         const displayedSessions = hasMoreSessions
                           ? sessionsInGroup.slice(0, maxDisplayedSessions - 1)
@@ -610,7 +638,7 @@ export function DailyGridView({
                               width: `${widthPercent}%`,
                             }}
                           >
-                            <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-[#d4a574] scrollbar-track-transparent">
+                            <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-hidden">
                               {displayedSessions.map((session) => {
                                 const statusConfig = getSessionStatusConfig(session.session_status);
                                 const StatusIcon = statusConfig.Icon;
@@ -659,13 +687,13 @@ export function DailyGridView({
                                         statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
                                       )}>
                                         <span className="truncate">{session.student_name || "Unknown"}</span>
-                                        {widthPercent >= 50 && session.grade && (
+                                        {!isMobile && widthPercent >= 50 && session.grade && (
                                           <span
                                             className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
                                             style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                                           >{session.grade}{session.lang_stream || ''}</span>
                                         )}
-                                        {widthPercent > 50 && session.school && (
+                                        {!isMobile && widthPercent > 50 && session.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                         )}
                                       </p>
@@ -711,6 +739,24 @@ export function DailyGridView({
                   </div>
                 );
               })}
+              {/* Spacer cell when all tutors collapsed */}
+              {allCollapsed && (
+                <div className="relative h-full bg-[#fef9f3] dark:bg-[#2d2618]">
+                  {/* Hour grid lines for spacer */}
+                  {hours.map((hour) => (
+                    <div
+                      key={hour}
+                      className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      style={{ top: `${(hour - startHour) * 60 * pixelsPerMinute}px` }}
+                    />
+                  ))}
+                  {/* Final grid line at endHour (bottom boundary) */}
+                  <div
+                    className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    style={{ top: `${(endHour - startHour) * 60 * pixelsPerMinute}px` }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

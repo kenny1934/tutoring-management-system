@@ -12,8 +12,8 @@ interface DeskSurfaceProps {
 export function DeskSurface({ children, fullHeight = false }: DeskSurfaceProps) {
   return (
     <div className={cn(
-      "relative desk-background h-full",
-      fullHeight && "overflow-hidden"
+      "relative desk-background min-h-full",
+      fullHeight && "h-full overflow-hidden"
     )}>
       {/* Wood grain texture overlay - visible and warm */}
       <div className="absolute inset-0 wood-grain-texture opacity-75 pointer-events-none" />
@@ -25,7 +25,7 @@ export function DeskSurface({ children, fullHeight = false }: DeskSurfaceProps) 
       <div className="absolute inset-0 desk-vignette pointer-events-none" />
 
       {/* Content */}
-      <div className={cn("relative z-10 h-full", fullHeight && "flex flex-col")}>
+      <div className={cn("relative z-10 min-h-full", fullHeight && "h-full flex flex-col")}>
         {children}
       </div>
     </div>

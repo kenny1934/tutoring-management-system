@@ -35,7 +35,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-hidden bg-background">
+        <main className="flex-1 overflow-auto bg-background">
           {children}
         </main>
       </div>
