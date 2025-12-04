@@ -8,6 +8,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { ActiveEnrollmentsTable } from "@/components/dashboard/ActiveEnrollmentsTable";
 import { GradeDistributionChart } from "@/components/dashboard/GradeDistributionChart";
 import { SchoolDistributionChart } from "@/components/dashboard/SchoolDistributionChart";
+import { TestCalendar } from "@/components/dashboard/TestCalendar";
 import type { DashboardStats } from "@/types";
 import { Users, BookOpen, Calendar, DollarSign, AlertCircle } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -418,6 +419,16 @@ export default function DashboardPage() {
             </StickyNote>
           </motion.div>
         </div>
+
+        {/* Tests & Exams Calendar */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.15, duration: 0.4, ease: [0.38, 1.21, 0.22, 1.00] }}
+          style={{ transform: isMobile ? 'none' : 'rotate(0.3deg)' }}
+        >
+          <TestCalendar isMobile={isMobile} />
+        </motion.div>
 
         {/* Active Enrollments Table - Graph Paper Style */}
         <motion.div

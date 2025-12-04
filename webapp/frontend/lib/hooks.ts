@@ -1,6 +1,6 @@
 import useSWR, { SWRConfiguration } from 'swr';
-import { sessionsAPI, tutorsAPI } from './api';
-import type { Session, SessionFilters, Tutor } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent } from '@/types';
 
 // SWR configuration for optimal caching behavior
 // - revalidateOnFocus: Auto-refresh when tutor tabs back (important during lessons)
@@ -46,6 +46,18 @@ export function useTutors() {
   return useSWR<Tutor[]>(
     'tutors',
     () => tutorsAPI.getAll(),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching calendar events (tests/exams)
+ * Returns cached data immediately, then revalidates in background
+ */
+export function useCalendarEvents(daysAhead: number = 30) {
+  return useSWR<CalendarEvent[]>(
+    ['calendar-events', daysAhead],
+    () => calendarAPI.getEvents(daysAhead),
     swrConfig
   );
 }

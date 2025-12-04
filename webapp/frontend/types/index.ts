@@ -202,3 +202,19 @@ export interface UpcomingTestAlert {
   event_type: string;
   days_until: number;  // Number of days until the test
 }
+
+export interface CalendarEvent {
+  id: number;
+  event_id: string;
+  title: string;
+  description?: string;
+  start_date: string;  // ISO format (YYYY-MM-DD)
+  end_date?: string;
+  school?: string;
+  grade?: string;
+  academic_stream?: string;
+  event_type?: string;
+  created_at: string;
+  updated_at: string;
+  last_synced_at: string;
+}
