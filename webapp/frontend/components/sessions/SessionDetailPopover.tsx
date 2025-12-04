@@ -299,6 +299,16 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {/* Notes */}
+          {session.notes && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Notes:</span>
+              <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap">
+                {session.notes}
+              </p>
+            </div>
+          )}
+
           {/* Exercises (CW/HW) */}
           {session.exercises && session.exercises.length > 0 && (
             <ExercisesList exercises={session.exercises} />
