@@ -10,9 +10,9 @@ import type { Session, Tutor } from "@/types";
 import {
   toDateString,
   getToday,
-  calculateSessionPosition,
   calculateSessionHeight,
   parseTimeSlot,
+  timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
@@ -87,6 +87,36 @@ export function DailyGridView({
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   }, [sessions, tutors]);
 
+  // Calculate dynamic time range based on actual sessions
+  const { startHour, endHour } = useMemo(() => {
+    if (sessions.length === 0) {
+      return { startHour: 10, endHour: 20 };
+    }
+
+    let minStartMinutes = Infinity;
+    let maxEndMinutes = -Infinity;
+
+    sessions.forEach((session) => {
+      const parsed = parseTimeSlot(session.time_slot);
+      if (!parsed) return;
+
+      const startMins = timeToMinutes(parsed.start);
+      const endMins = timeToMinutes(parsed.end);
+      minStartMinutes = Math.min(minStartMinutes, startMins);
+      maxEndMinutes = Math.max(maxEndMinutes, endMins);
+    });
+
+    if (minStartMinutes === Infinity) {
+      return { startHour: 10, endHour: 20 };
+    }
+
+    // Start at floor hour of earliest session, end at ceil hour of latest session
+    const calcStartHour = Math.max(8, Math.floor(minStartMinutes / 60));
+    const calcEndHour = Math.min(20, Math.ceil(maxEndMinutes / 60));
+
+    return { startHour: calcStartHour, endHour: calcEndHour };
+  }, [sessions]);
+
   // Auto-expand first tutor with sessions (only on initial load)
   useEffect(() => {
     if (hasAutoExpanded.current) return;
@@ -120,7 +150,7 @@ export function DailyGridView({
   }, [fillHeight]);
 
   // Calculate grid height - use measured height when fillHeight is enabled
-  const totalMinutes = 10 * 60; // 10:00 AM to 8:00 PM = 10 hours
+  const totalMinutes = (endHour - startHour) * 60;
 
   // Pixels per minute calculation
   let pixelsPerMinute: number;
@@ -152,22 +182,29 @@ export function DailyGridView({
 
   // Toggle individual tutor expansion
   const toggleTutorExpand = (tutorId: number) => {
-    setExpandedTutors(prev => {
-      const next = new Set(prev);
-      if (next.has(tutorId)) {
-        next.delete(tutorId);
-      } else {
-        next.add(tutorId);
-      }
-      return next;
-    });
+    if (showAllTutors) {
+      // Transitioning from "show all" mode - expand all others except this one
+      setShowAllTutors(false);
+      setExpandedTutors(new Set(activeTutors.filter(t => t.id !== tutorId).map(t => t.id)));
+    } else {
+      setExpandedTutors(prev => {
+        const next = new Set(prev);
+        if (next.has(tutorId)) {
+          next.delete(tutorId);
+        } else {
+          next.add(tutorId);
+        }
+        return next;
+      });
+    }
   };
 
   // Generate dynamic grid columns
   const gridColumns = useMemo(() => {
-    const columns = activeTutors.map(t =>
-      isTutorCollapsed(t.id) ? "36px" : "1fr"
-    );
+    const columns = activeTutors.map(t => {
+      const isCollapsed = showAllTutors ? false : !expandedTutors.has(t.id);
+      return isCollapsed ? "36px" : "1fr";
+    });
     return `60px ${columns.join(" ")}`;
   }, [activeTutors, expandedTutors, showAllTutors]);
 
@@ -187,7 +224,15 @@ export function DailyGridView({
   };
 
   // Generate hour labels
-  const hours = Array.from({ length: 11 }, (_, i) => i + 10); // 10 AM to 8 PM
+  const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
+
+  // Calculate session position using dynamic start hour
+  const getSessionTop = (timeSlot: string) => {
+    const parsed = parseTimeSlot(timeSlot);
+    if (!parsed) return 0;
+    const startMins = timeToMinutes(parsed.start);
+    return (startMins - startHour * 60) * pixelsPerMinute;
+  };
 
   // Format full date display
   const fullDateDisplay = selectedDate.toLocaleDateString('en-US', {
@@ -348,7 +393,7 @@ export function DailyGridView({
                   <div
                     key={hour}
                     className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
-                    style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
+                    style={{ top: `${(hour - startHour) * 60 * pixelsPerMinute}px` }}
                   >
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 px-2">
                       {hour.toString().padStart(2, '0')}:00
@@ -360,7 +405,7 @@ export function DailyGridView({
                   <div
                     key={`${hour}-30`}
                     className="absolute w-full border-t border-dashed border-gray-200/60 dark:border-gray-700/50"
-                    style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
+                    style={{ top: `${((hour - startHour) * 60 + 30) * pixelsPerMinute}px` }}
                   />
                 ))}
               </div>
@@ -392,7 +437,7 @@ export function DailyGridView({
                       <div
                         key={hour}
                         className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
-                        style={{ top: `${(hour - 10) * 60 * pixelsPerMinute}px` }}
+                        style={{ top: `${(hour - startHour) * 60 * pixelsPerMinute}px` }}
                       />
                     ))}
                     {/* 30-minute grid lines */}
@@ -400,7 +445,7 @@ export function DailyGridView({
                       <div
                         key={`${hour}-30`}
                         className="absolute w-full border-t border-dashed border-gray-200/60 dark:border-gray-700/50"
-                        style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
+                        style={{ top: `${((hour - startHour) * 60 + 30) * pixelsPerMinute}px` }}
                       />
                     ))}
 
@@ -408,11 +453,11 @@ export function DailyGridView({
                     {isToday && (() => {
                       const now = new Date();
                       const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                      const startMinutes = 10 * 60; // 10:00 AM
-                      const endMinutes = 20 * 60;   // 8:00 PM
+                      const dayStartMinutes = startHour * 60;
+                      const dayEndMinutes = endHour * 60;
 
-                      if (currentMinutes >= startMinutes && currentMinutes <= endMinutes) {
-                        const topPosition = (currentMinutes - startMinutes) * pixelsPerMinute;
+                      if (currentMinutes >= dayStartMinutes && currentMinutes <= dayEndMinutes) {
+                        const topPosition = (currentMinutes - dayStartMinutes) * pixelsPerMinute;
                         return (
                           <div
                             className="absolute left-0 right-0 z-20 pointer-events-none"
@@ -437,7 +482,7 @@ export function DailyGridView({
                         const parsed = parseTimeSlot(session.time_slot);
                         if (!parsed) return;
 
-                        const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
+                        const top = getSessionTop(session.time_slot);
                         const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
                         const key = `${tutor.id}-${top}-${height}`;
 
@@ -541,7 +586,7 @@ export function DailyGridView({
 
                       return Array.from(timeGroups.entries()).map(([key, sessionsInGroup]) => {
                         const firstSession = sessionsInGroup[0];
-                        const top = calculateSessionPosition(firstSession.time_slot, pixelsPerMinute);
+                        const top = getSessionTop(firstSession.time_slot);
                         const height = calculateSessionHeight(firstSession.time_slot, pixelsPerMinute);
 
                         const info = groupInfoMap.get(key);
@@ -702,7 +747,7 @@ export function DailyGridView({
           const parsed = parseTimeSlot(session.time_slot);
           if (!parsed) return;
 
-          const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
+          const top = getSessionTop(session.time_slot);
           const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
           const key = `${tutorId}-${top}-${height}`;
 
