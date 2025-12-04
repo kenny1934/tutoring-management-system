@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useSession } from "@/lib/hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion } from "framer-motion";
@@ -49,28 +50,11 @@ export default function SessionDetailPage() {
   const router = useRouter();
   const sessionId = parseInt(params.id as string);
 
-  const [session, setSession] = useState<Session | null>(null);
+  // SWR hook for session data with caching
+  const { data: session, error, isLoading: loading } = useSession(sessionId);
+
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchSession() {
-      try {
-        setLoading(true);
-        const data = await api.sessions.getById(sessionId);
-        setSession(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load session");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSession();
-  }, [sessionId]);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -120,7 +104,7 @@ export default function SessionDetailPage() {
   if (error || !session) {
     return (
       <PageTransition className="flex h-full items-center justify-center">
-        <div className="text-destructive">Error: {error || "Session not found"}</div>
+        <div className="text-destructive">Error: {error instanceof Error ? error.message : "Session not found"}</div>
       </PageTransition>
     );
   }

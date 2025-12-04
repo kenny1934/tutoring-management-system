@@ -253,7 +253,14 @@ async def get_upcoming_tests(
     - List of upcoming tests within 14 days
     - Each test includes school, grade, event type, date, and days_until countdown
     """
-    from services.google_calendar_service import get_upcoming_tests_for_session
+    from services.google_calendar_service import get_upcoming_tests_for_session, sync_calendar_events
+
+    # Auto-sync calendar events (respects 15-min TTL, won't sync if recent)
+    try:
+        sync_calendar_events(db=db, force_sync=False)
+    except Exception as e:
+        # Log but don't fail the request if sync fails
+        print(f"Calendar sync failed (non-fatal): {e}")
 
     # Get session to extract student info
     session = db.query(SessionLog).filter(SessionLog.id == session_id).first()

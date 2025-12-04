@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef } from "react";
-import { api, tutorsAPI } from "@/lib/api";
+import { useSessions, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
@@ -46,10 +46,6 @@ export default function SessionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Initialize state from URL query params (with fallbacks)
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const dateParam = searchParams.get('date');
@@ -57,12 +53,39 @@ export default function SessionsPage() {
   });
   const [statusFilter, setStatusFilter] = useState("");
   const [tutorFilter, setTutorFilter] = useState("");
-  const [tutors, setTutors] = useState<Tutor[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const param = searchParams.get('view');
     return (param as ViewMode) || 'list';
   });
+
+  // Build filters for SWR hook
+  const sessionFilters = useMemo(() => {
+    const filters: Record<string, string | number | undefined> = {
+      location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
+      status: statusFilter || undefined,
+      tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
+      limit: viewMode === "monthly" ? 2000 : 500,
+    };
+
+    if (viewMode === "list" || viewMode === "daily") {
+      filters.date = toDateString(selectedDate);
+    } else if (viewMode === "weekly") {
+      const { start, end } = getWeekBounds(selectedDate);
+      filters.from_date = toDateString(start);
+      filters.to_date = toDateString(end);
+    } else if (viewMode === "monthly") {
+      const { start, end } = getMonthBounds(selectedDate);
+      filters.from_date = toDateString(start);
+      filters.to_date = toDateString(end);
+    }
+
+    return filters;
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+
+  // SWR hooks for data fetching with caching
+  const { data: sessions = [], error, isLoading: loading } = useSessions(sessionFilters);
+  const { data: tutors = [] } = useTutors();
 
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
@@ -145,18 +168,6 @@ export default function SessionsPage() {
     }
   };
 
-  // Fetch tutors on mount
-  useEffect(() => {
-    async function fetchTutors() {
-      try {
-        const data = await tutorsAPI.getAll();
-        setTutors(data);
-      } catch (err) {
-        console.error("Failed to load tutors:", err);
-      }
-    }
-    fetchTutors();
-  }, []);
 
   // Handle card click - open popover at click position
   const handleCardClick = (session: Session, event: React.MouseEvent) => {
@@ -164,46 +175,6 @@ export default function SessionsPage() {
     setPopoverSession(session);
   };
 
-  useEffect(() => {
-    async function fetchSessions() {
-      try {
-        setLoading(true);
-
-        // Prepare date filters based on view mode
-        const filters: Record<string, string | number | undefined> = {
-          location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
-          status: statusFilter || undefined,
-          tutor_id: tutorFilter ? parseInt(tutorFilter) : undefined,
-          limit: viewMode === "monthly" ? 2000 : 500,
-        };
-
-        if (viewMode === "list" || viewMode === "daily") {
-          // For list and daily views, fetch just the selected date
-          filters.date = toDateString(selectedDate);
-        } else if (viewMode === "weekly") {
-          // For weekly view, fetch the entire week
-          const { start, end } = getWeekBounds(selectedDate);
-          filters.from_date = toDateString(start);
-          filters.to_date = toDateString(end);
-        } else if (viewMode === "monthly") {
-          // For monthly view, fetch the entire month
-          const { start, end } = getMonthBounds(selectedDate);
-          filters.from_date = toDateString(start);
-          filters.to_date = toDateString(end);
-        }
-
-        const data = await api.sessions.getAll(filters);
-        setSessions(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load sessions");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSessions();
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
 
   // Helper to get tutor name without Mr/Ms prefix for sorting
   const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
@@ -550,7 +521,7 @@ export default function SessionsPage() {
           <StickyNote variant="pink" size="lg" showTape={true}>
             <div className="text-center">
               <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Oops!</p>
-              <p className="text-sm text-gray-900 dark:text-gray-100">Error: {error}</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">Error: {error instanceof Error ? error.message : "Failed to load sessions"}</p>
             </div>
           </StickyNote>
         </PageTransition>
