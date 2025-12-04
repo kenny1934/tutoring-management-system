@@ -879,7 +879,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                         style={{ borderLeftWidth: 2 }}
                       >
                         {/* Row 1: Student ID + unpaid icon */}
-                        <div className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           <span className="truncate">{selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}</span>
                           {session.financial_status !== "Paid" && (
                             <HandCoins className="h-2 w-2 text-red-500 flex-shrink-0" />
@@ -943,7 +943,7 @@ function SessionCard({ session, onClick }: SessionCardProps) {
       <div className="flex-1 min-w-0">
         {/* Top Row: Student ID + Time */}
         <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
-          <span className="flex items-center gap-0.5">
+          <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
             {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}
             {session.financial_status !== "Paid" && (
               <HandCoins className="h-2.5 w-2.5 text-red-500" />

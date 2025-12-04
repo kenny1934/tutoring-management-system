@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
@@ -48,12 +48,19 @@ const getDisplayName = (pdfName: string): string => {
 
 // Exercise item with copy functionality
 function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(exercise.pdf_name);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(exercise.pdf_name);
+      setCopyState('copied');
+      setTimeout(() => setCopyState('idle'), 1500);
+    } catch (err) {
+      // Clipboard API may not be available on some mobile browsers
+      console.warn('Clipboard not available:', err);
+      setCopyState('failed');
+      setTimeout(() => setCopyState('idle'), 1500);
+    }
   };
 
   const displayName = getDisplayName(exercise.pdf_name);
@@ -65,7 +72,7 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <span className="truncate text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
+      <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
         {displayName}{pageInfo}
       </span>
       <button
@@ -73,8 +80,10 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
         className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
         title="Copy full path"
       >
-        {copied ? (
+        {copyState === 'copied' ? (
           <Check className="h-3 w-3 text-green-500" />
+        ) : copyState === 'failed' ? (
+          <XCircle className="h-3 w-3 text-red-500" />
         ) : (
           <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
         )}
@@ -285,7 +294,7 @@ export function SessionDetailPopover({
 
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
-            <SessionStatusTag status={session.session_status} size="sm" />
+            <SessionStatusTag status={session.session_status} size="sm" className="max-w-[140px] min-w-0" />
           </div>
 
           {session.performance_rating && (

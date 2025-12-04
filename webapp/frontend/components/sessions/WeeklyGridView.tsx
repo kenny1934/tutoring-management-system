@@ -160,9 +160,19 @@ export function WeeklyGridView({
   // Generate dynamic grid columns
   const gridColumns = useMemo(() => {
     const columns = weekDates.map((_, index) =>
-      isDayCollapsed(index) ? "36px" : "1fr"
+      isDayCollapsed(index) ? "36px" : "minmax(100px, 1fr)"
     );
     return `60px ${columns.join(" ")}`;
+  }, [weekDates, showAllDays, expandedEmptyDays, daysWithSessions]);
+
+  // Calculate minimum width needed for horizontal scrolling
+  const minGridWidth = useMemo(() => {
+    const timeColumnWidth = 60;
+    const dayColumnsWidth = weekDates.reduce((sum, _, index) => {
+      const isCollapsed = isDayCollapsed(index);
+      return sum + (isCollapsed ? 36 : 100);
+    }, 0);
+    return timeColumnWidth + dayColumnsWidth;
   }, [weekDates, showAllDays, expandedEmptyDays, daysWithSessions]);
 
   // Count empty days for toggle button visibility
@@ -176,8 +186,8 @@ export function WeeklyGridView({
     onDateChange(getNextWeek(selectedDate));
   };
 
-  // Generate hour labels
-  const hours = Array.from({ length: 11 }, (_, i) => i + 10); // 10 AM to 8 PM
+  // Generate hour labels (10:00 to 19:00 - 20:00 is the end boundary)
+  const hours = Array.from({ length: 10 }, (_, i) => i + 10); // 10 AM to 7 PM
 
   return (
     <div ref={containerRef} className={cn("space-y-1 flex flex-col", fillHeight && "flex-1 min-h-0 overflow-hidden")}>
@@ -271,8 +281,8 @@ export function WeeklyGridView({
         "bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
         fillHeight && "flex-1 flex flex-col min-h-0"
       )}>
-        <div className={cn(fillHeight ? "overflow-hidden flex-1 flex flex-col min-h-0" : "overflow-x-auto")}>
-          <div className={cn(fillHeight ? "flex-1 flex flex-col overflow-hidden" : "min-w-[800px]")}>
+        <div className={cn(fillHeight ? "overflow-x-auto overflow-y-hidden flex-1 flex flex-col min-h-0 bg-white dark:bg-[#1a1a1a]" : "overflow-x-auto")}>
+          <div className={cn(fillHeight ? "flex-1 flex flex-col bg-white dark:bg-[#1a1a1a]" : "min-w-[800px]")} style={fillHeight ? { minWidth: `${minGridWidth}px` } : undefined}>
             {/* Day Headers */}
             <div className="grid border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] sticky top-0 bg-white dark:bg-[#1a1a1a] z-10" style={{ gridTemplateColumns: gridColumns }}>
               <div className="p-1.5 bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center">
@@ -334,11 +344,11 @@ export function WeeklyGridView({
 
             {/* Time Grid */}
             <div
-              className={cn("grid", fillHeight && "overflow-hidden")}
+              className="grid bg-white dark:bg-[#1a1a1a]"
               style={{ height: `${totalHeight}px`, gridTemplateColumns: gridColumns }}
             >
               {/* Time Labels Column */}
-              <div className="relative bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="relative h-full bg-[#fef9f3] dark:bg-[#2d2618] border-r border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {hours.map((hour) => (
                   <div
                     key={hour}
@@ -358,6 +368,11 @@ export function WeeklyGridView({
                     style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                   />
                 ))}
+                {/* Final grid line at 20:00 (bottom boundary) */}
+                <div
+                  className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  style={{ top: `${10 * 60 * pixelsPerMinute}px` }}
+                />
               </div>
 
               {/* Day Columns */}
@@ -373,7 +388,7 @@ export function WeeklyGridView({
                     key={dayIndex}
                     onClick={isCollapsed && hasNoSessions ? () => toggleDayExpand(dayIndex) : undefined}
                     className={cn(
-                      "relative border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      "relative h-full border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a]",
                       isToday && "bg-amber-50/30 dark:bg-amber-900/10",
                       isCollapsed && "bg-gray-50 dark:bg-gray-900/30",
                       isCollapsed && hasNoSessions && "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50"
@@ -402,6 +417,11 @@ export function WeeklyGridView({
                         style={{ top: `${((hour - 10) * 60 + 30) * pixelsPerMinute}px` }}
                       />
                     ))}
+                    {/* Final grid line at 20:00 (bottom boundary) */}
+                    <div
+                      className="absolute w-full border-t border-[#e8d4b8] dark:border-[#6b5a4a]"
+                      style={{ top: `${10 * 60 * pixelsPerMinute}px` }}
+                    />
 
                     {/* Current Time Indicator */}
                     {isToday && (() => {
@@ -571,7 +591,7 @@ export function WeeklyGridView({
                         const widthPercent = 100 / (info?.totalColumns || 1);
                         const leftPercent = (info?.column || 0) * widthPercent;
 
-                        const maxDisplayedSessions = Math.max(1, Math.floor(height / 24)); // ~24px per session (22px + gap)
+                        const maxDisplayedSessions = Math.max(1, Math.floor((height - 4) / 24)); // ~24px per session (22px + gap), account for p-0.5 padding (4px)
                         const hasMoreSessions = sessions.length > maxDisplayedSessions;
                         const displayedSessions = hasMoreSessions
                           ? sessions.slice(0, maxDisplayedSessions - 1)
@@ -639,13 +659,13 @@ export function WeeklyGridView({
                                         statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
                                       )}>
                                         <span className="truncate">{session.student_name || "Unknown"}</span>
-                                        {widthPercent >= 50 && session.grade && (
+                                        {!isMobile && widthPercent >= 50 && session.grade && (
                                           <span
                                             className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap"
                                             style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                                           >{session.grade}{session.lang_stream || ''}</span>
                                         )}
-                                        {widthPercent > 50 && session.school && (
+                                        {!isMobile && widthPercent > 50 && session.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                         )}
                                       </p>
