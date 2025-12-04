@@ -1,11 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { History, Star, Home, ChevronDown, ChevronRight, BookOpen } from "lucide-react";
+import { History, Star, Home, ChevronDown, ChevronRight, BookOpen, Copy, Check } from "lucide-react";
 import type { Session, HomeworkCompletion } from "@/types";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
+
+// Copy button component for PDF paths
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-0.5 hover:bg-[#d4a574]/20 rounded flex-shrink-0"
+      title="Copy full path"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-green-500" />
+      ) : (
+        <Copy className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+      )}
+    </button>
+  );
+}
 
 interface BookmarkTabProps {
   previousSession: Session["previous_session"];
@@ -16,6 +42,23 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClassworkExpanded, setIsClassworkExpanded] = useState(false);
   const [isHomeworkExpanded, setIsHomeworkExpanded] = useState(false);
+  const [tutorEmailMap, setTutorEmailMap] = useState<Record<string, string>>({});
+
+  // Fetch tutors for email→name lookup
+  useEffect(() => {
+    api.tutors.getAll().then(tutors => {
+      const map: Record<string, string> = {};
+      tutors.forEach(t => {
+        if (t.user_email) map[t.user_email] = t.tutor_name;
+      });
+      setTutorEmailMap(map);
+    }).catch(() => {
+      // Silently fail - will show email as fallback
+    });
+  }, []);
+
+  // Get tutor display name from email
+  const getTutorDisplayName = (email: string) => tutorEmailMap[email] || email;
 
   if (!previousSession && homeworkToCheck.length === 0) return null;
 
@@ -33,12 +76,12 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
   ).length;
 
   return (
-    <div className={isExpanded ? "fixed right-0 top-1/4 z-50" : "fixed right-0 top-1/4 z-40"}>
+    <div className={isExpanded ? "fixed right-0 top-1/4 z-50 pointer-events-none" : "fixed right-0 top-1/4 z-40 pointer-events-none"}>
       <motion.div
         initial={{ x: 280 }}
         animate={{ x: isExpanded ? 0 : 280 }}
         transition={{ type: "spring", stiffness: 200, damping: 25 }}
-        className="flex"
+        className="flex pointer-events-auto"
         onMouseEnter={() => setIsExpanded(true)}
         onMouseLeave={() => setIsExpanded(false)}
       >
@@ -204,11 +247,12 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                               index > 0 && "mt-1.5"
                             )}
                           >
-                            {/* Main row: PDF name */}
-                            <div className="mb-1">
-                              <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight">
+                            {/* Main row: PDF name with copy button */}
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={cw.pdf_name}>
                                 {cw.pdf_name}
                               </p>
+                              <CopyButton text={cw.pdf_name} />
                             </div>
 
                             {/* Metadata row */}
@@ -222,7 +266,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                               {cw.created_by && (
                                 <span className="flex items-center gap-1">
                                   <span className="text-muted-foreground/50">•</span>
-                                  {cw.created_by}
+                                  {getTutorDisplayName(cw.created_by)}
                                 </span>
                               )}
                             </div>
@@ -287,11 +331,14 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                               index > 0 && "mt-1.5"
                             )}
                           >
-                            {/* Main row: PDF name and status */}
+                            {/* Main row: PDF name with copy button and status */}
                             <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight">
-                                {hw.pdf_name}
-                              </p>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="font-semibold text-xs text-gray-900 dark:text-gray-100 leading-tight truncate min-w-0" title={hw.pdf_name}>
+                                  {hw.pdf_name}
+                                </p>
+                                <CopyButton text={hw.pdf_name} />
+                              </div>
                               <Badge
                                 variant={
                                   hw.completion_status === "Completed" ? "success" :
@@ -325,7 +372,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
                               {hw.assigned_by_tutor && (
                                 <span className="flex items-center gap-1">
                                   <span className="text-muted-foreground/50">•</span>
-                                  {hw.assigned_by_tutor}
+                                  {getTutorDisplayName(hw.assigned_by_tutor)}
                                 </span>
                               )}
                             </div>

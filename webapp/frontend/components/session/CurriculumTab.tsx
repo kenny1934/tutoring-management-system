@@ -38,12 +38,12 @@ export function CurriculumTab({ suggestion }: CurriculumTabProps) {
   const lastYear = calculateLastYear(suggestion.current_academic_year);
 
   return (
-    <div className="fixed right-0 top-[45%] z-40">
+    <div className="fixed right-0 top-[45%] z-40 pointer-events-none">
       <motion.div
         initial={{ x: 280 }}
         animate={{ x: isExpanded ? 0 : 280 }}
         transition={{ type: "spring", stiffness: 200, damping: 25 }}
-        className="flex"
+        className="flex pointer-events-auto"
         onMouseEnter={() => setIsExpanded(true)}
         onMouseLeave={() => setIsExpanded(false)}
       >

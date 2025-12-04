@@ -41,6 +41,13 @@ const sizeClasses = {
   lg: "w-80 h-80 p-8",
 };
 
+// Outer container sizes (without padding) for hover area
+const outerSizeClasses = {
+  sm: "w-48 h-48",
+  md: "w-64 h-64",
+  lg: "w-80 h-80",
+};
+
 /**
  * StickyNote - A realistic sticky note component
  *
@@ -83,7 +90,8 @@ export function StickyNote({
 
   return (
     <motion.div
-      className="relative inline-block"
+      className={cn("relative", outerSizeClasses[size])}
+      inherit={false}
       initial={{ scale: 1, rotate: finalRotation, y: 0 }}
       animate={{
         rotate: isHovered ? 0 : finalRotation,

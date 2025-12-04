@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GradeStamp, GraphPaper, StickyNote } from "@/lib/design-system";
+import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
+import { StarRating } from "@/components/ui/star-rating";
 import { motion } from "framer-motion";
 import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
 import {
@@ -124,29 +125,8 @@ export default function SessionDetailPage() {
     );
   }
 
-  const statusColor =
-    session.session_status === "Completed" || session.session_status === "Attended"
-      ? "success"
-      : session.session_status === "Scheduled"
-      ? "default"
-      : session.session_status === "Cancelled"
-      ? "destructive"
-      : "secondary";
-
   // Count emoji stars in performance rating
   const starCount = (session.performance_rating || "").split("⭐").length - 1;
-
-  // Convert star count to letter grade
-  const getLetterGrade = (stars: number): string => {
-    if (stars >= 5) return "A+";
-    if (stars >= 4) return "A";
-    if (stars >= 3) return "B";
-    if (stars >= 2) return "C";
-    if (stars >= 1) return "D";
-    return "F";
-  };
-
-  const letterGrade = getLetterGrade(starCount);
 
   return (
     <DeskSurface>
@@ -166,7 +146,7 @@ export default function SessionDetailPage() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
-          <ChalkboardHeader session={session} statusColor={statusColor} />
+          <ChalkboardHeader session={session} />
         </div>
       </div>
 
@@ -211,12 +191,12 @@ export default function SessionDetailPage() {
                 </div>
                 {session.performance_rating && (
                   <motion.div
-                    initial={{ scale: 0, rotate: 0 }}
-                    animate={{ scale: 1, rotate: -12 }}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
                     className={cn(session.notes ? "float-right ml-3 mb-2" : "flex justify-center mb-3")}
                   >
-                    <GradeStamp grade={letterGrade} size="md" />
+                    <StarRating rating={starCount} size="md" showEmpty={true} />
                   </motion.div>
                 )}
                 {session.notes && (
@@ -346,7 +326,7 @@ export default function SessionDetailPage() {
                   initial="hidden"
                   animate="visible"
                   transition={{ delay: 0.6 }}
-                  className="flex-shrink-0 lg:w-[calc(30%-0.75rem)]"
+                  className="flex-shrink-0 lg:w-[calc(30%-0.75rem)] relative z-10"
                 >
                   <StickyNote variant="pink" size="md" showTape={true} className="desk-shadow-medium h-full">
                     <div className="flex items-center gap-2 mb-3">
@@ -357,12 +337,12 @@ export default function SessionDetailPage() {
                     </div>
                     {session.performance_rating && (
                       <motion.div
-                        initial={{ scale: 0, rotate: 0 }}
-                        animate={{ scale: 1, rotate: -12 }}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
                         transition={{ type: "spring", stiffness: 200, delay: 0.7 }}
                         className={cn(session.notes ? "float-right ml-3 mb-2" : "flex justify-center mb-3")}
                       >
-                        <GradeStamp grade={letterGrade} size="md" />
+                        <StarRating rating={starCount} size="md" showEmpty={true} />
                       </motion.div>
                     )}
                     {session.notes && (
