@@ -8,6 +8,7 @@ import type {
   StudentFilters,
   SessionFilters,
   UpcomingTestAlert,
+  CalendarEvent,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -117,6 +118,22 @@ export const sessionsAPI = {
   },
 };
 
+// Calendar API
+export const calendarAPI = {
+  getEvents: (daysAhead?: number) => {
+    const params = daysAhead ? `?days_ahead=${daysAhead}` : '';
+    return fetchAPI<CalendarEvent[]>(`/calendar/events${params}`);
+  },
+
+  sync: (force?: boolean) => {
+    const params = force ? '?force=true' : '';
+    return fetchAPI<{ success: boolean; events_synced: number; message: string }>(
+      `/calendar/sync${params}`,
+      { method: 'POST' }
+    );
+  },
+};
+
 // Stats API
 export const statsAPI = {
   getDashboard: (location?: string) => {
@@ -135,5 +152,6 @@ export const api = {
   students: studentsAPI,
   enrollments: enrollmentsAPI,
   sessions: sessionsAPI,
+  calendar: calendarAPI,
   stats: statsAPI,
 };

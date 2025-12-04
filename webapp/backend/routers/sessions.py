@@ -8,7 +8,8 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse
+from datetime import date, timedelta
 
 router = APIRouter()
 
@@ -315,3 +316,38 @@ async def sync_calendar(
             status_code=500,
             detail=f"Failed to sync calendar: {str(e)}"
         )
+
+
+@router.get("/calendar/events", response_model=List[CalendarEventResponse])
+async def get_calendar_events(
+    days_ahead: int = Query(30, ge=1, le=90, description="Number of days ahead to fetch events"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all upcoming calendar events (tests/exams) within the specified date range.
+
+    - **days_ahead**: Number of days ahead to fetch events (default: 30, max: 90)
+
+    Returns:
+    - List of calendar events sorted by start date
+    """
+    from services.google_calendar_service import sync_calendar_events
+    from models import CalendarEvent
+
+    # Auto-sync calendar events (respects 15-min TTL)
+    try:
+        sync_calendar_events(db=db, force_sync=False)
+    except Exception as e:
+        # Log but don't fail if sync fails
+        print(f"Calendar sync failed (non-fatal): {e}")
+
+    # Fetch all events within date range
+    start_date = date.today()
+    end_date = start_date + timedelta(days=days_ahead)
+
+    events = db.query(CalendarEvent).filter(
+        CalendarEvent.start_date >= start_date,
+        CalendarEvent.start_date <= end_date
+    ).order_by(CalendarEvent.start_date).all()
+
+    return events
