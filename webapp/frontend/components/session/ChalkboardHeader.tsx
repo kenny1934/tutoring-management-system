@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, MapPin, CheckCircle2, HandCoins, Info, GraduationCap } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
 import type { Session } from "@/types";
 
 interface ChalkboardHeaderProps {
   session: Session;
-  statusColor: "success" | "default" | "destructive" | "secondary";
 }
 
-export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps) {
+export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
+  const statusConfig = getSessionStatusConfig(session.session_status);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
 
   const sessionDate = new Date(session.session_date);
@@ -28,7 +29,7 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.38, 1.21, 0.22, 1.00] }} // M3 Expressive spring
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
-      className="relative w-full rounded-[28px] overflow-hidden group z-50"
+      className="relative w-full rounded-[28px] group z-50"
       style={{
         height: '100px',
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
@@ -307,17 +308,20 @@ export function ChalkboardHeader({ session, statusColor }: ChalkboardHeaderProps
           <div className="relative">
             {/* M3 Expressive glow effect */}
             <div className="absolute inset-0 -m-3 rounded-full bg-white/25 blur-md transition-all duration-300 group-hover:bg-white/35" />
-            <Badge
-              variant={statusColor}
-              className="relative text-sm px-5 py-2 shadow-lg whitespace-nowrap font-bold border-2 border-white/40 rounded-full"
+            <div
+              className={cn(
+                "relative text-sm px-5 py-2 shadow-lg whitespace-nowrap font-bold border-2 border-white/40 rounded-full text-white flex items-center gap-2",
+                statusConfig.bgClass
+              )}
               style={{
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                transition: 'all 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)', // M3 Expressive fast
+                transition: 'all 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)',
                 letterSpacing: '0.02em',
               }}
             >
+              <statusConfig.Icon className={cn("h-4 w-4", statusConfig.iconClass)} />
               {session.session_status}
-            </Badge>
+            </div>
           </div>
         </motion.div>
       </div>

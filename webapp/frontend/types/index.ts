@@ -1,6 +1,7 @@
 // Tutor types
 export interface Tutor {
   id: number;
+  user_email?: string;
   tutor_name: string;
   default_location?: string;
 }
