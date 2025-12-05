@@ -1,6 +1,6 @@
 import useSWR, { SWRConfiguration } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment } from '@/types';
 
 // SWR configuration for optimal caching behavior
 // - revalidateOnFocus: Auto-refresh when tutor tabs back (important during lessons)
@@ -58,6 +58,55 @@ export function useCalendarEvents(daysAhead: number = 30) {
   return useSWR<CalendarEvent[]>(
     ['calendar-events', daysAhead],
     () => calendarAPI.getEvents(daysAhead),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching students list with filters
+ * Returns cached data immediately, then revalidates in background
+ */
+export function useStudents(filters?: StudentFilters) {
+  const key = filters ? ['students', JSON.stringify(filters)] : ['students'];
+  return useSWR<Student[]>(
+    key,
+    () => studentsAPI.getAll(filters),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching a single student by ID
+ * Returns null key when id is falsy to skip fetching
+ */
+export function useStudent(id: number | null | undefined) {
+  return useSWR<Student>(
+    id ? ['student', id] : null,
+    () => studentsAPI.getById(id!),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching enrollments for a student
+ * Returns null key when studentId is falsy to skip fetching
+ */
+export function useStudentEnrollments(studentId: number | null | undefined) {
+  return useSWR<Enrollment[]>(
+    studentId ? ['enrollments', studentId] : null,
+    () => enrollmentsAPI.getAll(studentId!),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching sessions for a specific student
+ * Returns null key when studentId is falsy to skip fetching
+ */
+export function useStudentSessions(studentId: number | null | undefined, limit: number = 100) {
+  return useSWR<Session[]>(
+    studentId ? ['student-sessions', studentId, limit] : null,
+    () => sessionsAPI.getAll({ student_id: studentId!, limit }),
     swrConfig
   );
 }
