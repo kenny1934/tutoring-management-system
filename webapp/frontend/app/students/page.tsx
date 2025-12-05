@@ -1,325 +1,849 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useStudents, useCalendarEvents, useStudent, useStudentSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
-import type { Student } from "@/types";
-import { Search, Filter, User } from "lucide-react";
-import { PageTransition, GradeBookHeader, StudentCard } from "@/lib/design-system";
-import { motion, AnimatePresence } from "framer-motion";
+import type { Student, StudentFilters } from "@/types";
+import Link from "next/link";
+import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2 } from "lucide-react";
+import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageTransition, StickyNote } from "@/lib/design-system";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import {
+  useFloating,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+  useDismiss,
+  useInteractions,
+  FloatingPortal,
+} from "@floating-ui/react";
+import { studentsAPI } from "@/lib/api";
+import type { Session, Enrollment, CalendarEvent } from "@/types";
+
+// School colors for visual distinction
+const SCHOOL_COLORS: Record<string, string> = {
+  "TIS": "#c2dfce",
+  "RCHK": "#cedaf5",
+  "CIS": "#fbf2d0",
+  "HKIS": "#f0a19e",
+  "ISF": "#e2b1cc",
+  "VSA": "#ebb26e",
+  "SIS": "#7dc347",
+  "CDNIS": "#a590e6",
+};
+
+const getSchoolColor = (school: string | undefined): string => {
+  if (!school) return "#e5e7eb";
+  return SCHOOL_COLORS[school] || "#e5e7eb";
+};
+
+// Key for storing scroll position
+const SCROLL_POSITION_KEY = 'students-list-scroll-position';
+const STUDENTS_PER_PAGE = 50;
 
 export default function StudentsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [gradeFilter, setGradeFilter] = useState("");
-  const [flippingCardId, setFlippingCardId] = useState<number | null>(null);
+
+  // Initialize state from URL params
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [gradeFilter, setGradeFilter] = useState(searchParams.get('grade') || '');
+  const [schoolFilter, setSchoolFilter] = useState(searchParams.get('school') || '');
+  const [currentPage, setCurrentPage] = useState(() => {
+    const page = searchParams.get('page');
+    return page ? parseInt(page) : 1;
+  });
   const [isMobile, setIsMobile] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // Popover state (lifted to page level for correct positioning)
+  const [popoverStudent, setPopoverStudent] = useState<Student | null>(null);
+  const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Detect mobile device
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  // Handle search on blur or Enter key
+  const handleSearchSubmit = () => {
+    if (searchInput !== searchTerm) {
       setSearchTerm(searchInput);
-    }, 300);
+      setCurrentPage(1); // Reset to page 1 on search
+    }
+  };
 
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  // Build filters for SWR hook
+  const filters: StudentFilters = useMemo(() => ({
+    search: searchTerm || undefined,
+    grade: gradeFilter || undefined,
+    school: schoolFilter || undefined,
+    location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
+    limit: STUDENTS_PER_PAGE,
+    offset: (currentPage - 1) * STUDENTS_PER_PAGE,
+  }), [searchTerm, gradeFilter, schoolFilter, selectedLocation, currentPage]);
 
+  // SWR hook for data fetching
+  const { data: students = [], error, isLoading: loading } = useStudents(filters);
+
+  // Fetch total count (without pagination)
   useEffect(() => {
-    async function fetchStudents() {
+    const fetchTotalCount = async () => {
       try {
-        setLoading(true);
-        const data = await api.students.getAll({
+        const countFilters = {
           search: searchTerm || undefined,
           grade: gradeFilter || undefined,
+          school: schoolFilter || undefined,
           location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
-          limit: 100,
-        });
-        setStudents(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load students");
-      } finally {
-        setLoading(false);
+          limit: 500, // Get max to count
+        };
+        const allStudents = await studentsAPI.getAll(countFilters);
+        setTotalCount(allStudents.length);
+      } catch {
+        setTotalCount(null);
       }
+    };
+    fetchTotalCount();
+  }, [searchTerm, gradeFilter, schoolFilter, selectedLocation]);
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('search', searchTerm);
+    if (gradeFilter) params.set('grade', gradeFilter);
+    if (schoolFilter) params.set('school', schoolFilter);
+    if (currentPage > 1) params.set('page', currentPage.toString());
+
+    const query = params.toString();
+    router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
+  }, [searchTerm, gradeFilter, schoolFilter, currentPage, router]);
+
+  // Restore scroll position
+  useEffect(() => {
+    if (loading) return;
+    const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
+    if (savedPosition && scrollContainerRef.current) {
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = parseInt(savedPosition, 10);
+        }
+        sessionStorage.removeItem(SCROLL_POSITION_KEY);
+      });
     }
+  }, [loading]);
 
-    fetchStudents();
-  }, [searchTerm, gradeFilter, selectedLocation]);
-
-  // Handle card click with flip animation
-  const handleCardClick = (studentId: number) => {
-    setFlippingCardId(studentId);
-    setTimeout(() => {
-      router.push(`/students/${studentId}`);
-    }, 400);
+  const saveScrollPosition = () => {
+    if (scrollContainerRef.current) {
+      sessionStorage.setItem(SCROLL_POSITION_KEY, scrollContainerRef.current.scrollTop.toString());
+    }
   };
+
+  // Get unique schools and grades for filter options
+  const uniqueSchools = useMemo(() => {
+    const schools = new Set<string>();
+    students.forEach(s => s.school && schools.add(s.school));
+    return Array.from(schools).sort();
+  }, [students]);
+
+  // Calculate if there might be more pages
+  const hasMorePages = students.length === STUDENTS_PER_PAGE;
+
+  // Toolbar classes
+  const toolbarClasses = cn(
+    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+    !isMobile && "paper-texture"
+  );
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a]">
-        <PageTransition className="flex flex-col gap-6 p-4 sm:p-8">
-          {/* Header Skeleton */}
-          <div className={cn(
-            "h-32 bg-gradient-to-br from-[#8B1538] to-[#4a0b1a] rounded-lg animate-pulse border-4 border-[#6d1028]"
-          )} />
+      <DeskSurface fullHeight>
+        <PageTransition className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+          {/* Toolbar Skeleton */}
+          <div className={toolbarClasses}>
+            <div className="h-5 w-5 bg-[#d4a574]/50 rounded animate-pulse" />
+            <div className="h-5 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+            <div className="h-7 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-7 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+            <div className="ml-auto h-5 w-16 bg-amber-200/50 rounded-full animate-pulse" />
+          </div>
 
-          {/* Filters Skeleton */}
-          <div className={cn(
-            "h-24 bg-white dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#1e3a5f]/30"
-          )} />
-
-          {/* Cards Skeleton */}
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {/* Card Skeletons */}
+          <div className="space-y-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="h-48 bg-[#FFF8DC] dark:bg-[#2d2618] rounded-lg animate-pulse border-2 border-[#1e3a5f]/30"
-              />
+              <div key={i} className={cn(
+                "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                !isMobile && "paper-texture"
+              )}>
+                <div className="flex-1 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                  </div>
+                  <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                </div>
+                <div className="w-10 sm:w-12 bg-gray-300 dark:bg-gray-600 animate-pulse" />
+              </div>
             ))}
           </div>
         </PageTransition>
-      </div>
+      </DeskSurface>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a] flex items-center justify-center p-8">
-        <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-500 rounded-lg p-6 text-center">
-          <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Error</p>
-          <p className="text-sm text-gray-900 dark:text-gray-100">{error}</p>
-        </div>
-      </div>
+      <DeskSurface>
+        <PageTransition className="flex h-full items-center justify-center p-8">
+          <StickyNote variant="pink" size="lg" showTape={true}>
+            <div className="text-center">
+              <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Oops!</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100">
+                Error: {error instanceof Error ? error.message : "Failed to load students"}
+              </p>
+            </div>
+          </StickyNote>
+        </PageTransition>
+      </DeskSurface>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a]">
-      <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
-        {/* Grade Book Header */}
-        <GradeBookHeader
-          title="Student Registry"
-          subtitle="Complete Student Directory"
-          theme="burgundy"
-          rightContent={
-            <div className="bg-[#2d5016] dark:bg-[#3d7018] text-white px-4 py-2 rounded-full border-2 border-[#1f3610] font-bold shadow-lg">
-              {students.length} student{students.length !== 1 ? "s" : ""}
+    <DeskSurface fullHeight>
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+          {/* Compact Toolbar */}
+          <div className={toolbarClasses}>
+            {/* Title */}
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Students</h1>
             </div>
-          }
-        />
 
-        {/* Search and Filters - Grade Book Toolbar Style */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className={cn(
-            "relative bg-white dark:bg-[#2d2618] border-2 border-[#1e3a5f] dark:border-[#4a6fa5] rounded-lg p-4 sm:p-6",
-            "shadow-md"
-          )}
-          style={{
-            background: "linear-gradient(to bottom, #ffffff 0%, #f8f8f8 100%)",
-          }}
-        >
-          {/* Ruler markings at top */}
-          <div className="absolute top-0 left-4 right-4 h-3 flex items-start justify-around">
-            {Array.from({ length: 40 }, (_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "bg-gray-400 dark:bg-gray-600",
-                  i % 5 === 0 ? "w-px h-3" : "w-px h-2"
-                )}
-              />
-            ))}
-          </div>
+            <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-          <div className="flex flex-col sm:flex-row gap-4 mt-2">
             {/* Search Input */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Search className="h-4 w-4 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                <label className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                  Search Students
-                </label>
-              </div>
+            <div className="relative flex-1 min-w-[140px] max-w-xs">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name or student ID..."
+                placeholder="Search..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full px-4 py-2 bg-[#FFF8DC] dark:bg-[#1a1a1a] border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 rounded focus:outline-none focus:ring-2 focus:ring-[#2c5aa0] dark:focus:ring-[#5a7fb5] text-gray-900 dark:text-gray-100 font-medium transition-all duration-200 hover:border-[#2c5aa0] dark:hover:border-[#5a7fb5]"
-                style={{
-                  fontFamily: "Georgia, serif",
-                }}
+                onBlur={handleSearchSubmit}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                className="w-full pl-8 pr-3 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100"
               />
             </div>
 
             {/* Grade Filter */}
-            <div className="flex-1 sm:max-w-xs">
-              <div className="flex items-center gap-2 mb-2">
-                <Filter className="h-4 w-4 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                <label className="text-xs font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-                  Filter by Grade
-                </label>
-              </div>
-              <select
-                value={gradeFilter}
-                onChange={(e) => setGradeFilter(e.target.value)}
-                className="w-full px-4 py-2 bg-[#FFF8DC] dark:bg-[#1a1a1a] border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 rounded focus:outline-none focus:ring-2 focus:ring-[#2c5aa0] dark:focus:ring-[#5a7fb5] text-gray-900 dark:text-gray-100 font-medium appearance-none cursor-pointer transition-all duration-200 hover:border-[#2c5aa0] dark:hover:border-[#5a7fb5]"
-                style={{
-                  fontFamily: "Georgia, serif",
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%231e3a5f' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 1rem center',
-                }}
-              >
-                <option value="">All Grades</option>
-                <option value="S1">S1</option>
-                <option value="S2">S2</option>
-                <option value="S3">S3</option>
-                <option value="S4">S4</option>
-                <option value="S5">S5</option>
-                <option value="S6">S6</option>
-              </select>
-            </div>
+            <select
+              value={gradeFilter}
+              onChange={(e) => { setGradeFilter(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.5rem center',
+              }}
+            >
+              <option value="">Grade</option>
+              <option value="F1">F1</option>
+              <option value="F2">F2</option>
+              <option value="F3">F3</option>
+              <option value="F4">F4</option>
+              <option value="F5">F5</option>
+              <option value="F6">F6</option>
+            </select>
+
+            {/* School Filter */}
+            <select
+              value={schoolFilter}
+              onChange={(e) => { setSchoolFilter(e.target.value); setCurrentPage(1); }}
+              className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.5rem center',
+              }}
+            >
+              <option value="">School</option>
+              {uniqueSchools.map(school => (
+                <option key={school} value={school}>{school}</option>
+              ))}
+            </select>
+
+            <div className="flex-1" />
+
+            {/* Student count */}
+            <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
+              {totalCount !== null ? `${totalCount} students` : `${students.length}+ students`}
+            </span>
           </div>
-        </motion.div>
 
-        {/* Student Cards Grid */}
-        {students.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4, duration: 0.4 }}
-            className="flex justify-center py-12"
-          >
-            <div className="bg-[#FFF8DC] dark:bg-[#2d2618] border-2 border-[#1e3a5f] rounded-lg p-8 text-center shadow-md">
-              <User className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                No students found
-              </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
-                Try adjusting your search or filters
-              </p>
+          {/* Student Cards */}
+          {students.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
+                <div className="text-center">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No students found</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    Try adjusting your search or filters
+                  </p>
+                </div>
+              </StickyNote>
             </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.4 }}
-            className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-          >
-            {students.map((student, index) => (
-              <motion.div
-                key={student.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  delay: 0.5 + index * 0.05,
-                  duration: 0.3,
-                }}
-              >
+          ) : (
+            <div className="space-y-2">
+              {students.map((student, index) => (
                 <StudentCard
-                  studentName={student.student_name}
-                  studentId={student.school_student_id || undefined}
-                  grade={student.grade || undefined}
-                  school={student.school || undefined}
-                  location={student.home_location || undefined}
-                  enrollmentCount={student.enrollment_count || 0}
-                  onClick={() => handleCardClick(student.id)}
-                  isFlipping={flippingCardId === student.id}
+                  key={student.id}
+                  student={student}
+                  index={index}
+                  isMobile={isMobile}
+                  isSelected={popoverStudent?.id === student.id}
+                  saveScrollPosition={saveScrollPosition}
+                  onClick={(e) => {
+                    setPopoverClickPosition({ x: e.clientX, y: e.clientY });
+                    setPopoverStudent(student);
+                  }}
                 />
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
+              ))}
+            </div>
+          )}
 
-        {/* Summary Statistics - Report Card Style */}
-        {students.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: 0.6 + students.length * 0.05,
-              duration: 0.5,
-            }}
-            className={cn(
-              "relative bg-gradient-to-br from-[#FFF8DC] to-[#FFEFD5] border-4 border-[#1e3a5f] dark:border-[#4a6fa5] rounded-lg p-6 shadow-lg"
-            )}
-          >
-            {/* Decorative top border */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#D4AF37] via-[#FFD700] to-[#D4AF37]" />
+          {/* Student Detail Popover (rendered at page level for correct positioning) */}
+          {popoverStudent && (
+            <StudentDetailPopover
+              student={popoverStudent}
+              isOpen={!!popoverStudent}
+              onClose={() => setPopoverStudent(null)}
+              clickPosition={popoverClickPosition}
+              isMobile={isMobile}
+              saveScrollPosition={saveScrollPosition}
+            />
+          )}
 
-            {/* Header */}
-            <div className="mb-6 text-center">
-              <h3
-                className="text-xl font-bold text-[#1e3a5f] dark:text-[#7a9fd5]"
-                style={{ fontFamily: "Georgia, serif" }}
+          {/* Pagination */}
+          {(currentPage > 1 || hasMorePages) && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.3 }}
+              className="flex items-center justify-center gap-4 py-4"
+            >
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                  currentPage === 1
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                )}
               >
-                Registry Summary
-              </h3>
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </button>
+
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Page {currentPage}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={!hasMorePages}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                  !hasMorePages
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                )}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </DeskSurface>
+  );
+}
+
+// Helper to format date
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Helper to get days until a date
+function getDaysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// Rich popover content component
+function RichPopoverContent({
+  student,
+  isMobile,
+  saveScrollPosition,
+  onClose,
+}: {
+  student: Student;
+  isMobile: boolean;
+  saveScrollPosition: () => void;
+  onClose: () => void;
+}) {
+  // Use SWR hooks for caching (data persists between popover opens)
+  const { data: studentDetail, isLoading: loadingDetail } = useStudent(student.id);
+  const { data: recentSessions = [], isLoading: loadingSessions } = useStudentSessions(student.id, 20);
+  const { data: calendarEvents = [] } = useCalendarEvents(30);
+
+  const loading = loadingDetail || loadingSessions;
+
+  // Filter upcoming tests for this student's school/grade
+  const upcomingTests = useMemo(() => {
+    const filtered = calendarEvents.filter((event: CalendarEvent) => {
+      const schoolMatch = !event.school || event.school === student.school;
+      const gradeMatch = !event.grade || event.grade === student.grade;
+      return schoolMatch && gradeMatch;
+    });
+    return filtered.slice(0, 3);
+  }, [calendarEvents, student.school, student.grade]);
+
+  // Get active enrollment (latest by first_lesson_date, non-cancelled)
+  const activeEnrollment = useMemo(() => {
+    if (!studentDetail?.enrollments?.length) return null;
+    const sorted = [...studentDetail.enrollments].sort((a: Enrollment, b: Enrollment) => {
+      const dateA = a.first_lesson_date ? new Date(a.first_lesson_date).getTime() : 0;
+      const dateB = b.first_lesson_date ? new Date(b.first_lesson_date).getTime() : 0;
+      return dateB - dateA; // Latest first
+    });
+    return sorted.find((e: Enrollment) => e.payment_status !== 'Cancelled') || sorted[0];
+  }, [studentDetail]);
+
+  // Get last attended session
+  const lastSession = useMemo(() => {
+    return recentSessions.find(
+      (s) => s.session_status === 'Attended' || s.session_status === 'Attended (Make-up)'
+    ) || recentSessions[0];
+  }, [recentSessions]);
+
+  // Get next upcoming test
+  const nextTest = upcomingTests[0];
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-[#a0704b]/20 flex items-center justify-center">
+            <Users className="h-4 w-4 text-[#a0704b]" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
+              {student.student_name}
+            </h3>
+            <p className="text-xs text-gray-500 font-mono">
+              {student.school_student_id || `#${student.id}`}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+        >
+          <X className="h-4 w-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
+        {/* School & Grade Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {student.school && (
+            <span
+              className="text-xs px-2 py-0.5 rounded text-gray-800"
+              style={{ backgroundColor: getSchoolColor(student.school) }}
+            >
+              {student.school}
+            </span>
+          )}
+          {student.grade && (
+            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+              {student.grade}{student.lang_stream || ''}
+            </span>
+          )}
+          {student.academic_stream && (
+            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+              {student.academic_stream}
+            </span>
+          )}
+        </div>
+
+        {/* Contact Info */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {student.phone && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+              <Phone className="h-3 w-3" />
+              <span className="font-mono">{student.phone}</span>
             </div>
-
-            {/* Stats Grid */}
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 text-center">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  Total Students
-                </p>
-                <p className="text-3xl font-bold text-[#1e3a5f] dark:text-[#7a9fd5]">
-                  {students.length}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 text-center">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  Active Enrollments
-                </p>
-                <p className="text-3xl font-bold text-[#2d5016] dark:text-[#6d9d3f]">
-                  {students.reduce((sum, s) => sum + (s.enrollment_count || 0), 0)}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 text-center">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  Avg per Student
-                </p>
-                <p className="text-3xl font-bold text-[#8B1538] dark:text-[#c41e3a]">
-                  {(students.reduce((sum, s) => sum + (s.enrollment_count || 0), 0) / students.length).toFixed(1)}
-                </p>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border-2 border-[#1e3a5f]/30 dark:border-[#4a6fa5]/30 text-center">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  Unique Grades
-                </p>
-                <p className="text-3xl font-bold text-[#1e3a5f] dark:text-[#7a9fd5]">
-                  {new Set(students.map(s => s.grade).filter(Boolean)).size}
-                </p>
-              </div>
+          )}
+          {student.home_location && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+              <MapPin className="h-3 w-3" />
+              <span>{student.home_location}</span>
             </div>
-          </motion.div>
+          )}
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+            <span className="ml-2 text-xs text-gray-500">Loading...</span>
+          </div>
         )}
-      </PageTransition>
-    </div>
+
+        {/* Current Enrollment Section */}
+        {!loading && (
+          <div className="border-t border-[#d4a574]/20 pt-3">
+            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              Current Enrollment
+            </h4>
+            {activeEnrollment ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <User className="h-3 w-3 text-blue-500" />
+                  <span className="text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{activeEnrollment.tutor_name || 'Unassigned'}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Clock className="h-3 w-3 text-amber-500" />
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {activeEnrollment.assigned_day || 'TBD'} {activeEnrollment.assigned_time || ''}
+                    {activeEnrollment.location && <span className="text-gray-500"> @ {activeEnrollment.location}</span>}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <CreditCard className="h-3 w-3 text-green-500" />
+                  <span className={cn(
+                    "font-medium",
+                    activeEnrollment.payment_status === 'Paid' ? 'text-green-600' :
+                    activeEnrollment.payment_status === 'Pending Payment' ? 'text-amber-600' :
+                    'text-gray-500'
+                  )}>
+                    {activeEnrollment.payment_status}
+                  </span>
+                  {activeEnrollment.lessons_paid && (
+                    <span className="text-gray-500">({activeEnrollment.lessons_paid} lessons)</span>
+                  )}
+                </div>
+                {activeEnrollment.first_lesson_date && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Calendar className="h-3 w-3 text-purple-500" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Started: {formatDate(activeEnrollment.first_lesson_date)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No current enrollment</p>
+            )}
+          </div>
+        )}
+
+        {/* Last Session Section */}
+        {!loading && (
+          <div className="border-t border-[#d4a574]/20 pt-3">
+            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              Last Session
+            </h4>
+            {lastSession ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-700 dark:text-gray-300">
+                    {formatDate(lastSession.session_date)}
+                  </span>
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                    lastSession.session_status === 'Attended' || lastSession.session_status === 'Attended (Make-up)'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                      : lastSession.session_status === 'Cancelled'
+                      ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                  )}>
+                    {lastSession.session_status}
+                  </span>
+                </div>
+                {lastSession.performance_rating && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm">{lastSession.performance_rating}</span>
+                  </div>
+                )}
+                {lastSession.notes && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 italic">
+                    &ldquo;{lastSession.notes}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No sessions yet</p>
+            )}
+          </div>
+        )}
+
+        {/* Upcoming Test Section */}
+        {!loading && (
+          <div className="border-t border-[#d4a574]/20 pt-3">
+            <h4 className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              Upcoming Tests
+            </h4>
+            {nextTest ? (
+              <div className="space-y-1">
+                {upcomingTests.map((test) => {
+                  const daysUntil = getDaysUntil(test.start_date);
+                  return (
+                    <div key={test.id} className="flex items-center gap-2 text-xs">
+                      <Calendar className="h-3 w-3 text-red-500 flex-shrink-0" />
+                      <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
+                        {test.title}
+                      </span>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded font-medium whitespace-nowrap",
+                        daysUntil <= 3 ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' :
+                        daysUntil <= 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' :
+                        'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                      )}>
+                        {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `in ${daysUntil}d`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic">No upcoming tests</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-[#d4a574]/30">
+        <Link
+          href={`/students/${student.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            saveScrollPosition();
+          }}
+          className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#a0704b] hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          View Full Profile
+          <ExternalLink className="h-4 w-4" />
+        </Link>
+      </div>
+    </>
+  );
+}
+
+// Simple StudentCard component (popover logic lifted to page level)
+function StudentCard({
+  student,
+  index,
+  isMobile,
+  isSelected,
+  saveScrollPosition,
+  onClick,
+}: {
+  student: Student;
+  index: number;
+  isMobile: boolean;
+  isSelected: boolean;
+  saveScrollPosition: () => void;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <motion.div
+      onClick={onClick}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{
+        delay: isMobile ? 0 : index * 0.03,
+        duration: 0.3,
+        ease: [0.38, 1.21, 0.22, 1.00]
+      }}
+      whileHover={!isMobile ? { scale: 1.01, y: -2, transition: { duration: 0.15 } } : {}}
+      className={cn(
+        "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+        !isMobile && "paper-texture",
+        isSelected && "ring-2 ring-[#a0704b]"
+      )}
+      style={{
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
+      }}
+    >
+      {/* Main content */}
+      <div className="flex-1 p-3 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Student ID */}
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+            {student.school_student_id || `#${student.id}`}
+          </span>
+          {/* Student Name */}
+          <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {student.student_name}
+          </span>
+          {/* Grade Badge */}
+          {student.grade && (
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 whitespace-nowrap">
+              {student.grade}{student.lang_stream || ''}
+            </span>
+          )}
+          {/* School Badge */}
+          {student.school && (
+            <span
+              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline"
+              style={{ backgroundColor: getSchoolColor(student.school) }}
+            >
+              {student.school}
+            </span>
+          )}
+          {/* View Link */}
+          <Link
+            href={`/students/${student.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              saveScrollPosition();
+            }}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors flex-shrink-0 ml-auto"
+          >
+            <span className="hidden sm:inline">View</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {/* Location */}
+        {student.home_location && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+            {student.home_location}
+          </p>
+        )}
+      </div>
+
+      {/* Enrollment count strip */}
+      <div className={cn(
+        "w-10 sm:w-12 flex-shrink-0 flex flex-col items-center justify-center",
+        student.enrollment_count && student.enrollment_count > 0
+          ? "bg-green-500 dark:bg-green-600"
+          : "bg-gray-300 dark:bg-gray-600"
+      )}>
+        <BookOpen className="h-4 w-4 text-white mb-0.5" />
+        <span className="text-xs font-bold text-white">
+          {student.enrollment_count || 0}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// StudentDetailPopover component (follows SessionDetailPopover pattern)
+function StudentDetailPopover({
+  student,
+  isOpen,
+  onClose,
+  clickPosition,
+  isMobile,
+  saveScrollPosition,
+}: {
+  student: Student;
+  isOpen: boolean;
+  onClose: () => void;
+  clickPosition: { x: number; y: number } | null;
+  isMobile: boolean;
+  saveScrollPosition: () => void;
+}) {
+  // Virtual reference based on click position
+  const virtualReference = useMemo(() => {
+    if (!clickPosition) return null;
+    return {
+      getBoundingClientRect: () => ({
+        x: clickPosition.x,
+        y: clickPosition.y,
+        top: clickPosition.y,
+        left: clickPosition.x,
+        bottom: clickPosition.y,
+        right: clickPosition.x,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      }),
+    };
+  }, [clickPosition]);
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: (open) => {
+      if (!open) onClose();
+    },
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: "end", padding: 16 }),
+      shift({ padding: 16 }),
+    ],
+    whileElementsMounted: autoUpdate,
+    placement: "bottom-start",
+  });
+
+  // Use setPositionReference for virtual references (not elements.reference)
+  useEffect(() => {
+    if (virtualReference) {
+      refs.setPositionReference(virtualReference);
+    }
+  }, [virtualReference, refs]);
+
+  const dismiss = useDismiss(context);
+  const { getFloatingProps } = useInteractions([dismiss]);
+
+  if (!isOpen) return null;
+
+  return (
+    <FloatingPortal>
+      <div
+        ref={refs.setFloating}
+        style={floatingStyles}
+        {...getFloatingProps()}
+        className={cn(
+          "z-[9999] w-80 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl",
+          !isMobile && "paper-texture"
+        )}
+      >
+        <RichPopoverContent
+          student={student}
+          isMobile={isMobile}
+          saveScrollPosition={saveScrollPosition}
+          onClose={onClose}
+        />
+      </div>
+    </FloatingPortal>
   );
 }

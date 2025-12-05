@@ -1,392 +1,643 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
-import type { Student, Enrollment } from "@/types";
-import { ArrowLeft, User, GraduationCap, MapPin, Phone, Mail, BookOpen, Calendar, DollarSign } from "lucide-react";
-import { PageTransition, FileFolder, RubberStamp } from "@/lib/design-system";
-import { motion } from "framer-motion";
+import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents } from "@/lib/hooks";
+import type { Session, CalendarEvent } from "@/types";
+import Link from "next/link";
+import {
+  ArrowLeft, User, BookOpen, Calendar, FileText,
+  GraduationCap, Phone, MapPin, ExternalLink
+} from "lucide-react";
+import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageTransition, StickyNote } from "@/lib/design-system";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getSessionStatusConfig } from "@/lib/session-status";
+
+// Tab types
+type TabId = "profile" | "sessions" | "tests" | "notes";
+
+interface Tab {
+  id: TabId;
+  label: string;
+  icon: React.ElementType;
+}
+
+const TABS: Tab[] = [
+  { id: "profile", label: "Profile", icon: User },
+  { id: "sessions", label: "Sessions", icon: Calendar },
+  { id: "tests", label: "Tests", icon: BookOpen },
+  { id: "notes", label: "Notes", icon: FileText },
+];
+
+// School colors
+const SCHOOL_COLORS: Record<string, string> = {
+  "TIS": "#c2dfce",
+  "RCHK": "#cedaf5",
+  "CIS": "#fbf2d0",
+  "HKIS": "#f0a19e",
+  "ISF": "#e2b1cc",
+  "VSA": "#ebb26e",
+  "SIS": "#7dc347",
+  "CDNIS": "#a590e6",
+};
+
+const getSchoolColor = (school: string | undefined): string => {
+  if (!school) return "#e5e7eb";
+  return SCHOOL_COLORS[school] || "#e5e7eb";
+};
+
+// Helper to format date
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const studentId = parseInt(params.id as string);
+  const studentId = params.id ? parseInt(params.id as string) : null;
 
-  const [student, setStudent] = useState<Student | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  const [isMobile, setIsMobile] = useState(false);
 
+  // Fetch student data
+  const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
+  const { data: enrollments = [] } = useStudentEnrollments(studentId);
+  const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
+  const { data: calendarEvents = [] } = useCalendarEvents(60);
+
+  // Detect mobile device
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [studentData, enrollmentData] = await Promise.all([
-          api.students.getById(studentId),
-          api.enrollments.getAll(studentId),
-        ]);
-        setStudent(studentData);
-        setEnrollments(enrollmentData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load student");
-      } finally {
-        setLoading(false);
-      }
-    }
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
-    fetchData();
-  }, [studentId]);
+  // Filter calendar events for this student's school/grade
+  const filteredTests = useMemo(() => {
+    if (!student?.school || !student?.grade) return [];
+    return calendarEvents.filter(event =>
+      event.school === student.school && event.grade === student.grade
+    );
+  }, [calendarEvents, student]);
 
-  if (loading) {
+  // Sort sessions by date (most recent first)
+  const sortedSessions = useMemo(() => {
+    return [...sessions].sort((a, b) =>
+      new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+    );
+  }, [sessions]);
+
+  // Get active enrollments
+  const activeEnrollments = useMemo(() => {
+    return enrollments.filter(e =>
+      e.payment_status === 'Paid' || e.payment_status === 'Pending Payment'
+    );
+  }, [enrollments]);
+
+  if (studentLoading) {
     return (
-      <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a]">
-        <PageTransition className="flex flex-col gap-6 p-4 sm:p-8">
-          <div className="h-16 bg-[#e6d5b8] dark:bg-[#3d3a32] rounded animate-pulse" />
-          <div className="h-96 bg-[#e6d5b8] dark:bg-[#3d3a32] rounded animate-pulse" />
+      <DeskSurface fullHeight>
+        <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
+          {/* Header Skeleton */}
+          <div className={cn(
+            "flex items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-4 py-3",
+            !isMobile && "paper-texture"
+          )}>
+            <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+            <div className="h-6 w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+            <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          </div>
+
+          {/* Tabs Skeleton */}
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-9 w-24 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+            ))}
+          </div>
+
+          {/* Content Skeleton */}
+          <div className={cn(
+            "flex-1 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+            !isMobile && "paper-texture"
+          )}>
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{ width: `${60 + i * 10}%` }} />
+              ))}
+            </div>
+          </div>
         </PageTransition>
-      </div>
+      </DeskSurface>
     );
   }
 
-  if (error || !student) {
+  if (studentError || !student) {
     return (
-      <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a] flex items-center justify-center p-8">
-        <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-500 rounded-lg p-6 text-center">
-          <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Error</p>
-          <p className="text-sm text-gray-900 dark:text-gray-100">
-            {error || "Student not found"}
-          </p>
-        </div>
-      </div>
+      <DeskSurface>
+        <PageTransition className="flex h-full items-center justify-center p-8">
+          <StickyNote variant="pink" size="lg" showTape={true}>
+            <div className="text-center">
+              <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Student not found</p>
+              <p className="text-sm text-gray-900 dark:text-gray-100 mb-4">
+                {studentError instanceof Error ? studentError.message : "Unable to load student data"}
+              </p>
+              <button
+                onClick={() => router.back()}
+                className="px-4 py-2 bg-[#a0704b] text-white rounded-lg hover:bg-[#8b6140] transition-colors"
+              >
+                Back to Students
+              </button>
+            </div>
+          </StickyNote>
+        </PageTransition>
+      </DeskSurface>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF8DC] dark:bg-[#1a1a1a]">
-      <PageTransition className="flex flex-col gap-6 p-4 sm:p-8">
-        {/* Header with Back Button and Manila Folder Tab */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex items-center gap-4"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            className="hover:bg-[#E6D5B8] dark:hover:bg-[#3d3a32]"
+    <DeskSurface fullHeight>
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-3 p-2 sm:p-4">
+          {/* Compact Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+              "flex flex-wrap items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
+              !isMobile && "paper-texture"
+            )}
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-
-          {/* Manila Folder Tab Header */}
-          <div className="flex-1 relative">
-            <div
-              className="relative bg-[#e6d5b8] dark:bg-[#3d3a32] rounded-t-lg px-6 py-4 border-2 border-b-0 border-amber-900/40 dark:border-amber-900/20"
-              style={{
-                clipPath: "polygon(0 30%, 2% 0%, 25% 0%, 27% 30%, 100% 30%, 100% 100%, 0 100%)",
-              }}
+            {/* Back Button */}
+            <button
+              onClick={() => router.back()}
+              className="p-1.5 rounded-lg hover:bg-[#d4a574]/20 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <div className="ml-[27%]">
-                  <h1
-                    className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-foreground"
-                    style={{ fontFamily: "Georgia, serif" }}
-                  >
-                    {student.student_name}
-                  </h1>
-                  <p className="text-sm font-mono text-gray-600 dark:text-gray-400 mt-1">
-                    Student ID: {student.school_student_id || "N/A"}
-                  </p>
-                </div>
+              <ArrowLeft className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+            </button>
 
-                {/* Confidential Stamp */}
-                <motion.div
-                  initial={{ scale: 0, rotate: -15 }}
-                  animate={{ scale: 1, rotate: -12 }}
-                  transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                  className="hidden sm:block"
-                >
-                  <div
-                    className="px-4 py-2 border-4 border-red-600 dark:border-red-500 rounded text-red-600 dark:text-red-500 font-bold text-lg uppercase tracking-wider"
-                    style={{
-                      fontFamily: "Arial, sans-serif",
-                      transform: "rotate(-12deg)",
-                      opacity: 0.6,
-                    }}
-                  >
-                    Student Record
-                  </div>
-                </motion.div>
-              </div>
+            {/* Student ID */}
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+              {student.school_student_id || `#${student.id}`}
+            </span>
 
-              {/* Type-written label on tab */}
-              <div
-                className="absolute top-2 left-[3%] w-[22%] text-center"
-                style={{ fontFamily: "Courier, monospace" }}
+            {/* Student Name */}
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
+              {student.student_name}
+            </h1>
+
+            {/* Grade Badge */}
+            {student.grade && (
+              <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                {student.grade}{student.lang_stream || ''}
+              </span>
+            )}
+
+            {/* School Badge */}
+            {student.school && (
+              <span
+                className="text-xs px-2 py-0.5 rounded text-gray-800 hidden sm:inline"
+                style={{ backgroundColor: getSchoolColor(student.school) }}
               >
-                <div className="text-xs font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#2d2618] px-2 py-1 rounded border border-gray-400 dark:border-gray-600">
-                  {student.grade || "N/A"}
-                </div>
-              </div>
+                {student.school}
+              </span>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Enrollment count */}
+            <div className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400">
+              <BookOpen className="h-4 w-4" />
+              <span>{activeEnrollments.length} enrollment{activeEnrollments.length !== 1 ? 's' : ''}</span>
             </div>
+          </motion.div>
+
+          {/* Horizontal Tab Navigation */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.3 }}
+            className="flex gap-1 overflow-x-auto pb-1"
+          >
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+                    isActive
+                      ? "bg-[#a0704b] text-white shadow-md"
+                      : "bg-white dark:bg-[#1a1a1a] text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                  {/* Badge for sessions/tests count */}
+                  {tab.id === "sessions" && sortedSessions.length > 0 && (
+                    <span className={cn(
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      isActive ? "bg-white/20 text-white" : "bg-[#a0704b]/10 text-[#a0704b]"
+                    )}>
+                      {sortedSessions.length}
+                    </span>
+                  )}
+                  {tab.id === "tests" && filteredTests.length > 0 && (
+                    <span className={cn(
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                    )}>
+                      {filteredTests.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </motion.div>
+
+          {/* Tab Content */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1"
+            >
+              {/* Profile Tab */}
+              {activeTab === "profile" && (
+                <ProfileTab student={student} enrollments={enrollments} isMobile={isMobile} />
+              )}
+
+              {/* Sessions Tab */}
+              {activeTab === "sessions" && (
+                <SessionsTab sessions={sortedSessions} loading={sessionsLoading} isMobile={isMobile} />
+              )}
+
+              {/* Tests Tab */}
+              {activeTab === "tests" && (
+                <TestsTab tests={filteredTests} student={student} isMobile={isMobile} />
+              )}
+
+              {/* Notes Tab */}
+              {activeTab === "notes" && (
+                <NotesTab sessions={sortedSessions} isMobile={isMobile} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    </DeskSurface>
+  );
+}
+
+// Profile Tab Component
+function ProfileTab({ student, enrollments, isMobile }: { student: any; enrollments: any[]; isMobile: boolean }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      {/* Personal Info Card */}
+      <div className={cn(
+        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+        !isMobile && "paper-texture"
+      )}>
+        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <User className="h-4 w-4" />
+          Personal Info
+        </h3>
+        <div className="space-y-3">
+          <InfoRow label="Name" value={student.student_name} />
+          <InfoRow label="Student ID" value={student.school_student_id} mono />
+          <InfoRow label="Phone" value={student.phone} icon={Phone} />
+          <InfoRow label="Location" value={student.home_location} icon={MapPin} />
+        </div>
+      </div>
+
+      {/* Academic Info Card */}
+      <div className={cn(
+        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+        !isMobile && "paper-texture"
+      )}>
+        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+          <GraduationCap className="h-4 w-4" />
+          Academic Info
+        </h3>
+        <div className="space-y-3">
+          <InfoRow label="School" value={student.school} />
+          <InfoRow label="Grade" value={student.grade} />
+          <InfoRow label="Language" value={student.lang_stream} />
+          <InfoRow label="Stream" value={student.academic_stream} />
+        </div>
+      </div>
+
+      {/* Active Enrollments Card */}
+      {enrollments.length > 0 && (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          !isMobile && "paper-texture"
+        )}>
+          <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Enrollments ({enrollments.length})
+          </h3>
+          <div className="space-y-2">
+            {enrollments.map((enrollment) => (
+              <div
+                key={enrollment.id}
+                className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {enrollment.assigned_day} {enrollment.assigned_time}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {enrollment.location} • {enrollment.tutor_name || 'No tutor'}
+                      {enrollment.first_lesson_date && ` • Started ${formatDate(enrollment.first_lesson_date)}`}
+                    </span>
+                  </div>
+                </div>
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded-full font-medium",
+                  enrollment.payment_status === 'Paid'
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                )}>
+                  {enrollment.payment_status}
+                </span>
+              </div>
+            ))}
           </div>
-        </motion.div>
-
-        {/* File Folder with Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-        >
-          <FileFolder
-            tabs={[
-              {
-                label: "Personal Info",
-                color: "yellow",
-                content: (
-                  <div className="space-y-6">
-                    {/* Personal Information Form */}
-                    <div className="bg-white dark:bg-[#2d2618] rounded border-2 border-gray-300 dark:border-gray-600 p-6">
-                      <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
-                        <User className="h-5 w-5 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                        <h3
-                          className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide"
-                          style={{ fontFamily: "Arial, sans-serif" }}
-                        >
-                          Personal Information
-                        </h3>
-                      </div>
-
-                      <div className="space-y-4">
-                        <FormField label="Full Name" value={student.student_name} />
-                        <FormField label="Student ID" value={student.school_student_id || "N/A"} mono />
-                        <FormField label="Phone Number" value={student.phone || "N/A"} mono />
-                      </div>
-                    </div>
-
-                    {/* Location Information */}
-                    <div className="bg-white dark:bg-[#2d2618] rounded border-2 border-gray-300 dark:border-gray-600 p-6">
-                      <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
-                        <MapPin className="h-5 w-5 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                        <h3
-                          className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide"
-                          style={{ fontFamily: "Arial, sans-serif" }}
-                        >
-                          Location
-                        </h3>
-                      </div>
-
-                      <FormField label="Home Location" value={student.home_location || "N/A"} />
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                label: "Academic",
-                color: "blue",
-                content: (
-                  <div className="space-y-6">
-                    {/* Academic Information Form */}
-                    <div className="bg-white dark:bg-[#2d2618] rounded border-2 border-gray-300 dark:border-gray-600 p-6">
-                      <div className="flex items-center gap-2 mb-4 pb-2 border-b-2 border-gray-400 dark:border-gray-600">
-                        <GraduationCap className="h-5 w-5 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                        <h3
-                          className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide"
-                          style={{ fontFamily: "Arial, sans-serif" }}
-                        >
-                          Academic Information
-                        </h3>
-                      </div>
-
-                      <div className="space-y-4">
-                        <FormField label="Current Grade" value={student.grade || "N/A"} badge />
-                        <FormField label="School" value={student.school || "N/A"} />
-                        <FormField label="Language Stream" value={student.lang_stream || "N/A"} />
-                        <FormField label="Academic Stream" value={student.academic_stream || "N/A"} />
-                      </div>
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                label: "Enrollments",
-                color: "green",
-                content: (
-                  <div className="space-y-4">
-                    {/* Enrollment Header */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                        <h3
-                          className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide"
-                          style={{ fontFamily: "Arial, sans-serif" }}
-                        >
-                          Active Enrollments
-                        </h3>
-                      </div>
-                      <Badge variant="secondary" className="bg-[#2d5016] dark:bg-[#3d7018] text-white border-2 border-[#1f3610]">
-                        {enrollments.length} enrollment{enrollments.length !== 1 ? "s" : ""}
-                      </Badge>
-                    </div>
-
-                    {enrollments.length === 0 ? (
-                      <div className="bg-white dark:bg-[#2d2618] rounded border-2 border-gray-300 dark:border-gray-600 p-8 text-center">
-                        <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400 dark:text-gray-600" />
-                        <p className="text-gray-600 dark:text-gray-400">
-                          No enrollments found for this student
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {enrollments.map((enrollment, index) => (
-                          <motion.div
-                            key={enrollment.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1, duration: 0.3 }}
-                            className="relative bg-white dark:bg-[#2d2618] rounded border-2 border-gray-300 dark:border-gray-600 p-5 hover:border-[#2c5aa0] dark:hover:border-[#5a7fb5] transition-all duration-200"
-                          >
-                            {/* Class Schedule Card Style */}
-                            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                              <div className="flex-1 space-y-3">
-                                {/* Schedule */}
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="h-4 w-4 text-[#1e3a5f] dark:text-[#7a9fd5]" />
-                                  <span className="font-bold text-gray-900 dark:text-gray-100">
-                                    {enrollment.assigned_day && enrollment.assigned_time
-                                      ? `${enrollment.assigned_day} ${enrollment.assigned_time}`
-                                      : "Schedule TBD"}
-                                  </span>
-                                </div>
-
-                                {/* First Lesson */}
-                                {enrollment.first_lesson_date && (
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    <span className="font-medium">First lesson:</span>{" "}
-                                    {new Date(enrollment.first_lesson_date).toLocaleDateString()}
-                                  </div>
-                                )}
-
-                                {/* Location */}
-                                {enrollment.location && (
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                                    <span className="font-medium">Location:</span> {enrollment.location}
-                                  </div>
-                                )}
-
-                                {/* Lessons Paid */}
-                                {enrollment.lessons_paid && (
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <DollarSign className="h-4 w-4 text-green-600 dark:text-green-500" />
-                                    <span className="text-gray-600 dark:text-gray-400">
-                                      <span className="font-medium">Lessons paid:</span> {enrollment.lessons_paid}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Status Stamps */}
-                              <div className="flex flex-col items-end gap-2">
-                                {/* Payment Status Stamp */}
-                                {enrollment.payment_status && (
-                                  <div
-                                    className={cn(
-                                      "px-3 py-1 border-3 rounded font-bold text-xs uppercase tracking-wider",
-                                      enrollment.payment_status === "Paid"
-                                        ? "border-green-600 text-green-600 dark:border-green-500 dark:text-green-500"
-                                        : enrollment.payment_status === "Pending Payment"
-                                        ? "border-yellow-600 text-yellow-600 dark:border-yellow-500 dark:text-yellow-500"
-                                        : "border-gray-600 text-gray-600 dark:border-gray-500 dark:text-gray-500"
-                                    )}
-                                    style={{
-                                      transform: "rotate(-3deg)",
-                                      opacity: 0.8,
-                                    }}
-                                  >
-                                    {enrollment.payment_status}
-                                  </div>
-                                )}
-
-                                {/* Enrollment Type Badge */}
-                                {enrollment.enrollment_type && (
-                                  <Badge
-                                    variant="outline"
-                                    className="border-[#1e3a5f] text-[#1e3a5f] dark:border-[#4a6fa5] dark:text-[#7a9fd5]"
-                                  >
-                                    {enrollment.enrollment_type}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Hole punches for binder */}
-                            <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-around py-4">
-                              {[1, 2, 3].map((i) => (
-                                <div
-                                  key={i}
-                                  className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600 border border-gray-400 dark:border-gray-500"
-                                />
-                              ))}
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
-            defaultTab={0}
-            tabPosition="top"
-          />
-        </motion.div>
-      </PageTransition>
+        </div>
+      )}
     </div>
   );
 }
 
-// Helper component for form fields
-interface FormFieldProps {
-  label: string;
-  value: string;
-  mono?: boolean;
-  badge?: boolean;
+// Info Row helper
+function InfoRow({ label, value, icon: Icon, mono }: { label: string; value?: string | null; icon?: React.ElementType; mono?: boolean }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+        {Icon && <Icon className="h-3 w-3" />}
+        {label}
+      </span>
+      <span className={cn(
+        "text-sm text-gray-900 dark:text-gray-100",
+        mono && "font-mono"
+      )}>
+        {value}
+      </span>
+    </div>
+  );
 }
 
-function FormField({ label, value, mono = false, badge = false }: FormFieldProps) {
+// Sessions Tab Component
+function SessionsTab({ sessions, loading, isMobile }: { sessions: Session[]; loading: boolean; isMobile: boolean }) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <div className="flex justify-center py-12">
+        <StickyNote variant="yellow" size="md" showTape={true}>
+          <div className="text-center">
+            <Calendar className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No sessions yet</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Sessions will appear here once scheduled
+            </p>
+          </div>
+        </StickyNote>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2 py-2 border-b border-gray-200 dark:border-gray-700">
-      <div
-        className="sm:w-1/3 font-bold text-sm text-gray-700 dark:text-gray-300 uppercase tracking-wide"
-        style={{ fontFamily: "Arial, sans-serif" }}
-      >
-        {label}:
-      </div>
-      <div className="sm:w-2/3">
-        {badge ? (
-          <Badge
-            variant="outline"
-            className="border-[#1e3a5f] text-[#1e3a5f] dark:border-[#4a6fa5] dark:text-[#7a9fd5] font-bold"
-          >
-            {value}
-          </Badge>
-        ) : (
-          <span
+    <div className="space-y-2">
+      {sessions.map((session, index) => {
+        const statusConfig = getSessionStatusConfig(session.session_status);
+        const StatusIcon = statusConfig.Icon;
+        const sessionDate = new Date(session.session_date + 'T00:00:00');
+
+        return (
+          <motion.div
+            key={session.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
             className={cn(
-              "text-gray-900 dark:text-gray-100",
-              mono && "font-mono text-sm"
+              "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+              statusConfig.bgTint,
+              !isMobile && "paper-texture"
             )}
-            style={!mono ? { fontFamily: "Georgia, serif" } : undefined}
           >
-            {value}
-          </span>
-        )}
+            <div className="flex-1 p-3 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </span>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {session.time_slot}
+                </span>
+                {session.tutor_name && (
+                  <>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {session.tutor_name}
+                    </span>
+                  </>
+                )}
+                <Link
+                  href={`/sessions/${session.id}`}
+                  className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+              {session.notes && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
+                  {session.notes}
+                </p>
+              )}
+            </div>
+            <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.bgClass)}>
+              <StatusIcon className="h-4 w-4 text-white" />
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Tests Tab Component
+function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; student: any; isMobile: boolean }) {
+  if (tests.length === 0) {
+    return (
+      <div className="flex justify-center py-12">
+        <StickyNote variant="green" size="md" showTape={true}>
+          <div className="text-center">
+            <BookOpen className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No upcoming tests</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              {student.school && student.grade
+                ? `No tests found for ${student.school} ${student.grade}`
+                : 'Set school and grade to see relevant tests'}
+            </p>
+          </div>
+        </StickyNote>
       </div>
+    );
+  }
+
+  // Sort by date
+  const sortedTests = [...tests].sort((a, b) =>
+    new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+  );
+
+  return (
+    <div className="space-y-2">
+      {sortedTests.map((test, index) => {
+        const testDate = new Date(test.start_date + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const daysUntil = Math.ceil((testDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        const isPast = daysUntil < 0;
+
+        return (
+          <motion.div
+            key={test.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+            className={cn(
+              "p-3 rounded-lg border",
+              isPast
+                ? "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60"
+                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+              !isMobile && "paper-texture"
+            )}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "text-sm font-medium",
+                    isPast ? "text-gray-500" : "text-gray-900 dark:text-gray-100"
+                  )}>
+                    {test.title}
+                  </span>
+                  {test.event_type && (
+                    <span className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded",
+                      test.event_type === 'Test' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
+                      test.event_type === 'Exam' ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" :
+                      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                    )}>
+                      {test.event_type}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {testDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </p>
+                {test.description && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                    {test.description}
+                  </p>
+                )}
+              </div>
+              <span className={cn(
+                "text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
+                isPast
+                  ? "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                  : daysUntil === 0
+                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                    : daysUntil <= 3
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                      : "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+              )}>
+                {isPast ? 'Past' : daysUntil === 0 ? 'Today' : daysUntil === 1 ? '1 day' : `${daysUntil} days`}
+              </span>
+            </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Notes Tab Component
+function NotesTab({ sessions, isMobile }: { sessions: Session[]; isMobile: boolean }) {
+  // Extract notes from sessions
+  const sessionNotes = sessions.filter(s => s.notes && s.notes.trim().length > 0);
+
+  if (sessionNotes.length === 0) {
+    return (
+      <div className="flex justify-center py-12">
+        <StickyNote variant="blue" size="md" showTape={true}>
+          <div className="text-center">
+            <FileText className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No notes yet</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Session notes will appear here
+            </p>
+          </div>
+        </StickyNote>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sessionNotes.map((session, index) => {
+        const sessionDate = new Date(session.session_date + 'T00:00:00');
+        return (
+          <motion.div
+            key={session.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: isMobile ? 0 : index * 0.05, duration: 0.2 }}
+            className={cn(
+              "p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400",
+              !isMobile && "paper-texture"
+            )}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              {session.tutor_name && (
+                <>
+                  <span className="text-xs text-amber-500">•</span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    {session.tutor_name}
+                  </span>
+                </>
+              )}
+            </div>
+            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+              {session.notes}
+            </p>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }

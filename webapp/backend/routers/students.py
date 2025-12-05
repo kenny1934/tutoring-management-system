@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select
 from typing import List, Optional
 from database import get_db
-from models import Student, Enrollment
+from models import Student, Enrollment, Tutor
 from schemas import StudentResponse, StudentDetailResponse
 
 router = APIRouter()
@@ -17,6 +17,7 @@ router = APIRouter()
 async def get_students(
     search: Optional[str] = Query(None, description="Search by student name or ID"),
     grade: Optional[str] = Query(None, description="Filter by grade"),
+    school: Optional[str] = Query(None, description="Filter by school"),
     location: Optional[str] = Query(None, description="Filter by home location"),
     academic_stream: Optional[str] = Query(None, description="Filter by academic stream (Science/Arts)"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
@@ -28,6 +29,7 @@ async def get_students(
 
     - **search**: Search by student name or school_student_id
     - **grade**: Filter by grade (e.g., 'P6', 'F1', 'F2')
+    - **school**: Filter by school name
     - **location**: Filter by home location
     - **academic_stream**: Filter by academic stream for F4-F6 students
     - **limit**: Maximum number of results (default 100, max 500)
@@ -62,6 +64,9 @@ async def get_students(
     if grade:
         query = query.filter(Student.grade == grade)
 
+    if school:
+        query = query.filter(Student.school == school)
+
     if location:
         query = query.filter(Student.home_location == location)
 
@@ -92,11 +97,14 @@ async def get_student_detail(
     - **student_id**: The student's database ID
     """
     student = db.query(Student).options(
-        joinedload(Student.enrollments)
+        joinedload(Student.enrollments).joinedload(Enrollment.tutor)
     ).filter(Student.id == student_id).first()
 
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {student_id} not found")
 
-    # Build response with enrollment details
-    return StudentDetailResponse.model_validate(student)
+    # Build response with enrollment details including tutor names
+    response = StudentDetailResponse.model_validate(student)
+    for i, enrollment in enumerate(student.enrollments):
+        response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+    return response
