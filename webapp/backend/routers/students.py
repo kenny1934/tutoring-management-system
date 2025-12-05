@@ -13,6 +13,13 @@ from schemas import StudentResponse, StudentDetailResponse
 router = APIRouter()
 
 
+@router.get("/students/schools", response_model=List[str])
+async def get_unique_schools(db: Session = Depends(get_db)):
+    """Get list of all unique school names for autocomplete."""
+    schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().all()
+    return sorted([s[0] for s in schools if s[0]])
+
+
 @router.get("/students", response_model=List[StudentResponse])
 async def get_students(
     search: Optional[str] = Query(None, description="Search by student name or ID"),
@@ -20,6 +27,8 @@ async def get_students(
     school: Optional[str] = Query(None, description="Filter by school"),
     location: Optional[str] = Query(None, description="Filter by home location"),
     academic_stream: Optional[str] = Query(None, description="Filter by academic stream (Science/Arts)"),
+    sort_by: Optional[str] = Query(None, description="Sort field: id, name, school, grade"),
+    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     db: Session = Depends(get_db)
@@ -32,6 +41,8 @@ async def get_students(
     - **school**: Filter by school name
     - **location**: Filter by home location
     - **academic_stream**: Filter by academic stream for F4-F6 students
+    - **sort_by**: Sort field (id, name, school, grade)
+    - **sort_order**: Sort order (asc or desc, default desc)
     - **limit**: Maximum number of results (default 100, max 500)
     - **offset**: Pagination offset (default 0)
     """
@@ -72,6 +83,19 @@ async def get_students(
 
     if academic_stream:
         query = query.filter(Student.academic_stream == academic_stream)
+
+    # Apply sorting
+    sort_columns = {
+        "id": Student.id,
+        "name": Student.student_name,
+        "school": Student.school,
+        "grade": Student.grade,
+    }
+    sort_column = sort_columns.get(sort_by, Student.id)
+    if sort_order == "asc":
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
 
     # Apply pagination
     students_with_counts = query.offset(offset).limit(limit).all()

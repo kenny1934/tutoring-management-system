@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Clock, MapPin, CheckCircle2, HandCoins, Info, GraduationCap } from "lucide-react";
+import { Calendar, Clock, MapPin, CheckCircle2, HandCoins, Info, GraduationCap, Hash, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import type { Session } from "@/types";
@@ -112,12 +113,16 @@ export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
               {session.school_student_id && (
                 <span className="text-white/85 mr-2">{session.school_student_id}</span>
               )}
-              {session.student_name || "Unknown Student"}
+              <Link
+                href={`/students/${session.student_id}`}
+                className="hover:text-amber-200 hover:underline decoration-amber-200/50 underline-offset-2 transition-colors"
+              >
+                {session.student_name || "Unknown Student"}
+              </Link>
             </h1>
 
-            {/* Academic Info Button */}
-            {(session.grade || session.lang_stream || session.school) && (
-              <button
+            {/* Info Button - always shown since we always have session ID */}
+            <button
                 ref={infoButtonRef}
                 onMouseEnter={handleInfoMouseEnter}
                 onMouseLeave={() => setShowAcademicInfo(false)}
@@ -147,54 +152,139 @@ export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
                         boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
                       }}
                     >
-                      <table className="text-center">
-                        <thead>
-                          <tr>
-                            {session.grade && (
+                      <div className="space-y-2">
+                        {/* Academic Info Row */}
+                        {(session.grade || session.lang_stream || session.school) && (
+                          <table className="text-center w-full">
+                            <thead>
+                              <tr>
+                                {session.grade && (
+                                  <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                    Grade
+                                  </th>
+                                )}
+                                {session.lang_stream && (
+                                  <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                    Stream
+                                  </th>
+                                )}
+                                {session.school && (
+                                  <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                    School
+                                  </th>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                {session.grade && (
+                                  <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                    {session.grade}
+                                  </td>
+                                )}
+                                {session.lang_stream && (
+                                  <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                    {session.lang_stream}
+                                  </td>
+                                )}
+                                {session.school && (
+                                  <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <GraduationCap className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
+                                      <span>{session.school}</span>
+                                    </div>
+                                  </td>
+                                )}
+                              </tr>
+                            </tbody>
+                          </table>
+                        )}
+
+                        {/* IDs Row */}
+                        <table className="text-center w-full">
+                          <thead>
+                            <tr>
                               <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                Grade
+                                Session
                               </th>
-                            )}
-                            {session.lang_stream && (
-                              <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                Stream
-                              </th>
-                            )}
-                            {session.school && (
-                              <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
-                                School
-                              </th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            {session.grade && (
-                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                {session.grade}
+                              {session.enrollment_id && (
+                                <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                  Enrollment
+                                </th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td className="px-3 py-1 text-sm font-mono font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                                #{session.id}
                               </td>
-                            )}
-                            {session.lang_stream && (
-                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                {session.lang_stream}
-                              </td>
-                            )}
-                            {session.school && (
-                              <td className="px-3 py-1 text-sm font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <GraduationCap className="h-3.5 w-3.5 text-gray-600 dark:text-gray-400" />
-                                  <span>{session.school}</span>
-                                </div>
-                              </td>
-                            )}
-                          </tr>
-                        </tbody>
-                      </table>
+                              {session.enrollment_id && (
+                                <td className="px-3 py-1 text-sm font-mono font-medium whitespace-nowrap">
+                                  <Link
+                                    href={`/enrollments/${session.enrollment_id}`}
+                                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    #{session.enrollment_id}
+                                  </Link>
+                                </td>
+                              )}
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {/* Linked Sessions */}
+                        {session.rescheduled_to && (
+                          <div className="pt-2 border-t border-amber-900/20 dark:border-amber-900/10">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Make-up Session</span>
+                              <Link
+                                href={`/sessions/${session.rescheduled_to.id}`}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ArrowRight className="h-3 w-3" />
+                                <span className="font-mono">#{session.rescheduled_to.id}</span>
+                              </Link>
+                            </div>
+                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 space-y-0.5">
+                              <div>{new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                              <div className="flex items-center gap-2">
+                                {session.rescheduled_to.tutor_name && <span>{session.rescheduled_to.tutor_name}</span>}
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{session.rescheduled_to.session_status}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {session.make_up_for && (
+                          <div className="pt-2 border-t border-amber-900/20 dark:border-amber-900/10">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">Original Session</span>
+                              <Link
+                                href={`/sessions/${session.make_up_for.id}`}
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ArrowRight className="h-3 w-3 rotate-180" />
+                                <span className="font-mono">#{session.make_up_for.id}</span>
+                              </Link>
+                            </div>
+                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 space-y-0.5">
+                              <div>{new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                              <div className="flex items-center gap-2">
+                                {session.make_up_for.tutor_name && <span>{session.make_up_for.tutor_name}</span>}
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{session.make_up_for.session_status}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </button>
-            )}
+            </button>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, x: -15 }}

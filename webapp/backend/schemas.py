@@ -108,6 +108,17 @@ class SessionBase(BaseModel):
     financial_status: str = Field('Unpaid', max_length=50)
 
 
+class LinkedSessionInfo(BaseModel):
+    """Compact session info for linked session display (make-up/original)"""
+    id: int
+    session_date: date
+    time_slot: Optional[str] = None
+    tutor_name: Optional[str] = None
+    session_status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SessionResponse(SessionBase):
     """Session response with student/tutor names and details"""
     id: int = Field(..., gt=0)
@@ -120,6 +131,10 @@ class SessionResponse(SessionBase):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     last_modified_time: Optional[datetime] = None
+    rescheduled_to_id: Optional[int] = Field(None, gt=0)
+    make_up_for_id: Optional[int] = Field(None, gt=0)
+    rescheduled_to: Optional[LinkedSessionInfo] = None
+    make_up_for: Optional[LinkedSessionInfo] = None
     exercises: List["SessionExerciseResponse"] = []
 
     model_config = ConfigDict(from_attributes=True)

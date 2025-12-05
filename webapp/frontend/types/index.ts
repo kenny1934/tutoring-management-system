@@ -121,6 +121,15 @@ export interface CurriculumSuggestion {
   coverage_status?: string;
 }
 
+// Linked session info for make-up/original session display
+export interface LinkedSessionInfo {
+  id: number;
+  session_date: string;
+  time_slot?: string;
+  tutor_name?: string;
+  session_status: string;
+}
+
 // Session types
 export interface Session {
   id: number;
@@ -141,6 +150,10 @@ export interface Session {
   grade?: string;
   lang_stream?: string;
   school?: string;
+  rescheduled_to_id?: number;
+  make_up_for_id?: number;
+  rescheduled_to?: LinkedSessionInfo;
+  make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;
   student?: Student;
   exercises?: SessionExercise[];
@@ -171,8 +184,11 @@ export interface APIResponse<T> {
 export interface StudentFilters {
   search?: string;
   grade?: string;
+  school?: string;
   location?: string;
   academic_stream?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
   limit?: number;
   offset?: number;
 }
@@ -181,7 +197,9 @@ export interface SessionFilters {
   date?: string;
   from_date?: string;
   to_date?: string;
+  student_id?: number;
   tutor_id?: number;
+  enrollment_id?: number;
   location?: string;
   status?: string;
   limit?: number;
