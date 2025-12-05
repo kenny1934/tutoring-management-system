@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
@@ -227,12 +227,23 @@ export function SessionDetailPopover({
 
         {/* Header */}
         <div className="mb-3 pr-6">
-          <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
-            {session.school_student_id || "N/A"}
-          </p>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
+              {session.school_student_id || "N/A"}
+            </p>
+            <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+          </div>
+          <Link
+            href={`/students/${session.student_id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate?.();
+              onClose();
+            }}
+            className="text-lg font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+          >
             {session.student_name || "Unknown Student"}
-          </h3>
+          </Link>
         </div>
 
         {/* Details */}
@@ -294,10 +305,84 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {session.financial_status && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Payment:</span>
+              <div className="flex items-center gap-1">
+                {session.financial_status === "Paid" ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    <span className="text-sm font-medium text-green-600">Paid</span>
+                  </>
+                ) : (
+                  <>
+                    <HandCoins className="h-3.5 w-3.5 text-red-500" />
+                    <span className="text-sm font-medium text-red-600">Unpaid</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
             <SessionStatusTag status={session.session_status} size="sm" className="max-w-[140px] min-w-0" />
           </div>
+
+          {/* Session Linking */}
+          {session.rescheduled_to && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Make-up Session</span>
+                <Link
+                  href={`/sessions/${session.rescheduled_to.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate?.();
+                    onClose();
+                  }}
+                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <ArrowRight className="h-3 w-3" />
+                  <span className="font-mono">#{session.rescheduled_to.id}</span>
+                </Link>
+              </div>
+              <div className="text-xs text-gray-700 dark:text-gray-300 space-y-0.5 pl-2">
+                <div>{new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div className="flex items-center gap-2">
+                  {session.rescheduled_to.tutor_name && <span>{session.rescheduled_to.tutor_name}</span>}
+                  <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[10px] px-1 py-0" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {session.make_up_for && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Original Session</span>
+                <Link
+                  href={`/sessions/${session.make_up_for.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate?.();
+                    onClose();
+                  }}
+                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  <ArrowRight className="h-3 w-3 rotate-180" />
+                  <span className="font-mono">#{session.make_up_for.id}</span>
+                </Link>
+              </div>
+              <div className="text-xs text-gray-700 dark:text-gray-300 space-y-0.5 pl-2">
+                <div>{new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div className="flex items-center gap-2">
+                  {session.make_up_for.tutor_name && <span>{session.make_up_for.tutor_name}</span>}
+                  <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[10px] px-1 py-0" />
+                </div>
+              </div>
+            </div>
+          )}
 
           {session.performance_rating && (
             <div className="flex justify-between items-center">

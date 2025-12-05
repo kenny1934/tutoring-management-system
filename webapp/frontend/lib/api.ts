@@ -49,8 +49,11 @@ export const studentsAPI = {
     const params = new URLSearchParams();
     if (filters?.search) params.append("search", filters.search);
     if (filters?.grade) params.append("grade", filters.grade);
+    if (filters?.school) params.append("school", filters.school);
     if (filters?.location) params.append("location", filters.location);
     if (filters?.academic_stream) params.append("academic_stream", filters.academic_stream);
+    if (filters?.sort_by) params.append("sort_by", filters.sort_by);
+    if (filters?.sort_order) params.append("sort_order", filters.sort_order);
     if (filters?.limit) params.append("limit", filters.limit.toString());
     if (filters?.offset) params.append("offset", filters.offset.toString());
 
@@ -60,6 +63,10 @@ export const studentsAPI = {
 
   getById: (id: number) => {
     return fetchAPI<Student>(`/students/${id}`);
+  },
+
+  getSchools: () => {
+    return fetchAPI<string[]>("/students/schools");
   },
 };
 
@@ -94,7 +101,9 @@ export const sessionsAPI = {
       if (filters.from_date) params.append("from_date", filters.from_date);
       if (filters.to_date) params.append("to_date", filters.to_date);
     }
+    if (filters?.student_id) params.append("student_id", filters.student_id.toString());
     if (filters?.tutor_id) params.append("tutor_id", filters.tutor_id.toString());
+    if (filters?.enrollment_id) params.append("enrollment_id", filters.enrollment_id.toString());
     if (filters?.location) params.append("location", filters.location);
     // Map frontend 'status' to backend 'session_status'
     if (filters?.status) params.append("session_status", filters.status);

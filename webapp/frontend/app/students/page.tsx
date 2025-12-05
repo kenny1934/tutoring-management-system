@@ -6,7 +6,7 @@ import { useStudents, useCalendarEvents, useStudent, useStudentSessions } from "
 import { useLocation } from "@/contexts/LocationContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
-import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2 } from "lucide-react";
+import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
@@ -55,12 +55,19 @@ export default function StudentsPage() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [gradeFilter, setGradeFilter] = useState(searchParams.get('grade') || '');
   const [schoolFilter, setSchoolFilter] = useState(searchParams.get('school') || '');
+  const [sortOption, setSortOption] = useState(searchParams.get('sort') || 'id_desc');
   const [currentPage, setCurrentPage] = useState(() => {
     const page = searchParams.get('page');
     return page ? parseInt(page) : 1;
   });
   const [isMobile, setIsMobile] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // School autocomplete state
+  const [allSchools, setAllSchools] = useState<string[]>([]);
+  const [schoolSearchInput, setSchoolSearchInput] = useState(searchParams.get('school') || '');
+  const [showSchoolSuggestions, setShowSchoolSuggestions] = useState(false);
+  const schoolInputRef = useRef<HTMLInputElement>(null);
 
   // Popover state (lifted to page level for correct positioning)
   const [popoverStudent, setPopoverStudent] = useState<Student | null>(null);
@@ -76,6 +83,26 @@ export default function StudentsPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Fetch all schools for autocomplete
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        const schools = await studentsAPI.getSchools();
+        setAllSchools(schools);
+      } catch (err) {
+        console.error('Failed to fetch schools:', err);
+      }
+    };
+    fetchSchools();
+  }, []);
+
+  // Filter schools for autocomplete suggestions
+  const filteredSchools = useMemo(() => {
+    if (!schoolSearchInput) return allSchools;
+    const search = schoolSearchInput.toLowerCase();
+    return allSchools.filter(school => school.toLowerCase().includes(search));
+  }, [allSchools, schoolSearchInput]);
+
   // Handle search on blur or Enter key
   const handleSearchSubmit = () => {
     if (searchInput !== searchTerm) {
@@ -84,15 +111,23 @@ export default function StudentsPage() {
     }
   };
 
+  // Parse sort option into sort_by and sort_order
+  const [sortBy, sortOrder] = useMemo(() => {
+    const [field, order] = sortOption.split('_') as [string, 'asc' | 'desc'];
+    return [field, order];
+  }, [sortOption]);
+
   // Build filters for SWR hook
   const filters: StudentFilters = useMemo(() => ({
     search: searchTerm || undefined,
     grade: gradeFilter || undefined,
     school: schoolFilter || undefined,
     location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
+    sort_by: sortBy,
+    sort_order: sortOrder,
     limit: STUDENTS_PER_PAGE,
     offset: (currentPage - 1) * STUDENTS_PER_PAGE,
-  }), [searchTerm, gradeFilter, schoolFilter, selectedLocation, currentPage]);
+  }), [searchTerm, gradeFilter, schoolFilter, selectedLocation, sortBy, sortOrder, currentPage]);
 
   // SWR hook for data fetching
   const { data: students = [], error, isLoading: loading } = useStudents(filters);
@@ -123,11 +158,12 @@ export default function StudentsPage() {
     if (searchTerm) params.set('search', searchTerm);
     if (gradeFilter) params.set('grade', gradeFilter);
     if (schoolFilter) params.set('school', schoolFilter);
+    if (sortOption !== 'id_desc') params.set('sort', sortOption);
     if (currentPage > 1) params.set('page', currentPage.toString());
 
     const query = params.toString();
     router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
-  }, [searchTerm, gradeFilter, schoolFilter, currentPage, router]);
+  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, router]);
 
   // Restore scroll position
   useEffect(() => {
@@ -149,12 +185,6 @@ export default function StudentsPage() {
     }
   };
 
-  // Get unique schools and grades for filter options
-  const uniqueSchools = useMemo(() => {
-    const schools = new Set<string>();
-    students.forEach(s => s.school && schools.add(s.school));
-    return Array.from(schools).sort();
-  }, [students]);
 
   // Calculate if there might be more pages
   const hasMorePages = students.length === STUDENTS_PER_PAGE;
@@ -267,10 +297,82 @@ export default function StudentsPage() {
               <option value="F6">F6</option>
             </select>
 
-            {/* School Filter */}
+            {/* School Filter - Autocomplete */}
+            <div className="relative hidden sm:block">
+              <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                ref={schoolInputRef}
+                type="text"
+                placeholder="School..."
+                value={schoolSearchInput}
+                onChange={(e) => {
+                  setSchoolSearchInput(e.target.value);
+                  setShowSchoolSuggestions(true);
+                }}
+                onFocus={() => setShowSchoolSuggestions(true)}
+                onBlur={() => {
+                  // Delay to allow click on suggestion
+                  setTimeout(() => setShowSchoolSuggestions(false), 150);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    // If exact match, select it
+                    const match = allSchools.find(s => s.toLowerCase() === schoolSearchInput.toLowerCase());
+                    if (match) {
+                      setSchoolFilter(match);
+                      setSchoolSearchInput(match);
+                    } else if (schoolSearchInput === '') {
+                      setSchoolFilter('');
+                    }
+                    setShowSchoolSuggestions(false);
+                    setCurrentPage(1);
+                  } else if (e.key === 'Escape') {
+                    setShowSchoolSuggestions(false);
+                  }
+                }}
+                className="w-28 pl-7 pr-6 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100"
+              />
+              {schoolFilter && (
+                <button
+                  onClick={() => {
+                    setSchoolFilter('');
+                    setSchoolSearchInput('');
+                    setCurrentPage(1);
+                  }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                >
+                  <X className="h-3 w-3 text-gray-400" />
+                </button>
+              )}
+              {/* Suggestions dropdown */}
+              {showSchoolSuggestions && filteredSchools.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 w-40 max-h-48 overflow-y-auto bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md shadow-lg z-50">
+                  {filteredSchools.map((school) => (
+                    <button
+                      key={school}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setSchoolFilter(school);
+                        setSchoolSearchInput(school);
+                        setShowSchoolSuggestions(false);
+                        setCurrentPage(1);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-1.5 text-left text-sm hover:bg-[#a0704b]/10",
+                        schoolFilter === school && "bg-[#a0704b]/20 font-medium"
+                      )}
+                    >
+                      {school}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
             <select
-              value={schoolFilter}
-              onChange={(e) => { setSchoolFilter(e.target.value); setCurrentPage(1); }}
+              value={sortOption}
+              onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
               className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 appearance-none cursor-pointer pr-7 hidden sm:block"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0704b' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
@@ -278,10 +380,11 @@ export default function StudentsPage() {
                 backgroundPosition: 'right 0.5rem center',
               }}
             >
-              <option value="">School</option>
-              {uniqueSchools.map(school => (
-                <option key={school} value={school}>{school}</option>
-              ))}
+              <option value="id_desc">Newest</option>
+              <option value="id_asc">Oldest</option>
+              <option value="name_asc">Name A-Z</option>
+              <option value="name_desc">Name Z-A</option>
+              <option value="school_asc">School A-Z</option>
             </select>
 
             <div className="flex-1" />
@@ -396,6 +499,20 @@ function getDaysUntil(dateStr: string): number {
   const target = new Date(dateStr);
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// Helper to get display payment status (shows "Overdue" if pending and past start date)
+function getDisplayPaymentStatus(enrollment: Enrollment): string {
+  if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
+    const startDate = new Date(enrollment.first_lesson_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    if (today >= startDate) {
+      return 'Overdue';
+    }
+  }
+  return enrollment.payment_status || '';
 }
 
 // Rich popover content component
@@ -545,20 +662,31 @@ function RichPopoverContent({
                     {activeEnrollment.location && <span className="text-gray-500"> @ {activeEnrollment.location}</span>}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs">
-                  <CreditCard className="h-3 w-3 text-green-500" />
-                  <span className={cn(
-                    "font-medium",
-                    activeEnrollment.payment_status === 'Paid' ? 'text-green-600' :
-                    activeEnrollment.payment_status === 'Pending Payment' ? 'text-amber-600' :
-                    'text-gray-500'
-                  )}>
-                    {activeEnrollment.payment_status}
-                  </span>
-                  {activeEnrollment.lessons_paid && (
-                    <span className="text-gray-500">({activeEnrollment.lessons_paid} lessons)</span>
-                  )}
-                </div>
+                {(() => {
+                  const displayStatus = getDisplayPaymentStatus(activeEnrollment);
+                  return (
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <CreditCard className={cn(
+                        "h-3 w-3",
+                        displayStatus === 'Paid' ? 'text-green-500' :
+                        displayStatus === 'Overdue' ? 'text-red-500' :
+                        'text-amber-500'
+                      )} />
+                      <span className={cn(
+                        "font-medium",
+                        displayStatus === 'Paid' ? 'text-green-600' :
+                        displayStatus === 'Overdue' ? 'text-red-600' :
+                        displayStatus === 'Pending Payment' ? 'text-amber-600' :
+                        'text-gray-500'
+                      )}>
+                        {displayStatus}
+                      </span>
+                      {activeEnrollment.lessons_paid && (
+                        <span className="text-gray-500">({activeEnrollment.lessons_paid} lessons)</span>
+                      )}
+                    </div>
+                  );
+                })()}
                 {activeEnrollment.first_lesson_date && (
                   <div className="flex items-center gap-1.5 text-xs">
                     <Calendar className="h-3 w-3 text-purple-500" />

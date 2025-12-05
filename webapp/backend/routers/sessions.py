@@ -8,16 +8,28 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo
 from datetime import date, timedelta
 
 router = APIRouter()
+
+
+def _build_linked_session_info(session: SessionLog, tutor: Tutor = None) -> LinkedSessionInfo:
+    """Build a LinkedSessionInfo object from a session."""
+    return LinkedSessionInfo(
+        id=session.id,
+        session_date=session.session_date,
+        time_slot=session.time_slot,
+        tutor_name=tutor.tutor_name if tutor else None,
+        session_status=session.session_status
+    )
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
 async def get_sessions(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    enrollment_id: Optional[int] = Query(None, description="Filter by enrollment ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
     session_status: Optional[str] = Query(None, description="Filter by session status"),
     financial_status: Optional[str] = Query(None, description="Filter by financial status"),
@@ -32,6 +44,7 @@ async def get_sessions(
 
     - **student_id**: Filter by specific student
     - **tutor_id**: Filter by specific tutor
+    - **enrollment_id**: Filter by specific enrollment
     - **location**: Filter by location
     - **session_status**: Filter by session status (Scheduled, Completed, Cancelled, etc.)
     - **financial_status**: Filter by financial status (Paid, Unpaid, Waived)
@@ -52,6 +65,9 @@ async def get_sessions(
 
     if tutor_id:
         query = query.filter(SessionLog.tutor_id == tutor_id)
+
+    if enrollment_id:
+        query = query.filter(SessionLog.enrollment_id == enrollment_id)
 
     if location:
         query = query.filter(SessionLog.location == location)
@@ -74,6 +90,22 @@ async def get_sessions(
     # Apply pagination
     sessions = query.offset(offset).limit(limit).all()
 
+    # Collect linked session IDs for batch loading
+    linked_ids = set()
+    for session in sessions:
+        if session.rescheduled_to_id:
+            linked_ids.add(session.rescheduled_to_id)
+        if session.make_up_for_id:
+            linked_ids.add(session.make_up_for_id)
+
+    # Load linked sessions in one query
+    linked_sessions = {}
+    if linked_ids:
+        linked_query = db.query(SessionLog).options(
+            joinedload(SessionLog.tutor)
+        ).filter(SessionLog.id.in_(linked_ids)).all()
+        linked_sessions = {s.id: s for s in linked_query}
+
     # Build response with related data
     result = []
     for session in sessions:
@@ -88,6 +120,15 @@ async def get_sessions(
             SessionExerciseResponse.model_validate(ex)
             for ex in session.exercises
         ]
+
+        # Add linked session info
+        if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
+            linked = linked_sessions[session.rescheduled_to_id]
+            session_data.rescheduled_to = _build_linked_session_info(linked, linked.tutor)
+        if session.make_up_for_id and session.make_up_for_id in linked_sessions:
+            linked = linked_sessions[session.make_up_for_id]
+            session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)
+
         result.append(session_data)
 
     return result
@@ -207,6 +248,21 @@ async def get_session_detail(
         ]
 
         session_data.previous_session = prev_session_data
+
+    # Load linked sessions (rescheduled_to and make_up_for)
+    if session.rescheduled_to_id:
+        linked = db.query(SessionLog).options(
+            joinedload(SessionLog.tutor)
+        ).filter(SessionLog.id == session.rescheduled_to_id).first()
+        if linked:
+            session_data.rescheduled_to = _build_linked_session_info(linked, linked.tutor)
+
+    if session.make_up_for_id:
+        linked = db.query(SessionLog).options(
+            joinedload(SessionLog.tutor)
+        ).filter(SessionLog.id == session.make_up_for_id).first()
+        if linked:
+            session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)
 
     return session_data
 

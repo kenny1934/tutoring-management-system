@@ -110,3 +110,27 @@ export function useStudentSessions(studentId: number | null | undefined, limit: 
     swrConfig
   );
 }
+
+/**
+ * Hook for fetching a single enrollment by ID
+ * Returns null key when id is falsy to skip fetching
+ */
+export function useEnrollment(id: number | null | undefined) {
+  return useSWR<Enrollment>(
+    id ? ['enrollment', id] : null,
+    () => enrollmentsAPI.getById(id!),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching sessions for a specific enrollment
+ * Returns null key when enrollmentId is falsy to skip fetching
+ */
+export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
+  return useSWR<Session[]>(
+    enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
+    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
+    swrConfig
+  );
+}

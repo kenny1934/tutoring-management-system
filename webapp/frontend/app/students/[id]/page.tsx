@@ -1,19 +1,31 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents } from "@/lib/hooks";
-import type { Session, CalendarEvent } from "@/types";
+import type { Session, CalendarEvent, Enrollment } from "@/types";
 import Link from "next/link";
 import {
   ArrowLeft, User, BookOpen, Calendar, FileText,
-  GraduationCap, Phone, MapPin, ExternalLink
+  GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
+  CheckCircle2, HandCoins
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig } from "@/lib/session-status";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import {
+  useFloating,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+  useDismiss,
+  useInteractions,
+  FloatingPortal,
+} from "@floating-ui/react";
 
 // Tab types
 type TabId = "profile" | "sessions" | "tests" | "notes";
@@ -54,13 +66,44 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// Helper to get display payment status (shows "Overdue" if pending and past start date)
+function getDisplayPaymentStatus(enrollment: Enrollment): string {
+  if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
+    const startDate = new Date(enrollment.first_lesson_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    startDate.setHours(0, 0, 0, 0);
+    if (today >= startDate) {
+      return 'Overdue';
+    }
+  }
+  return enrollment.payment_status || '';
+}
+
 export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const studentId = params.id ? parseInt(params.id as string) : null;
 
-  const [activeTab, setActiveTab] = useState<TabId>("profile");
+  // Read initial tab from URL, default to "profile"
+  const initialTab = (searchParams.get('tab') as TabId) || 'profile';
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Update URL when tab changes (without adding to history)
+  const handleTabChange = (tab: TabId) => {
+    setActiveTab(tab);
+    router.replace(`/students/${params.id}?tab=${tab}`, { scroll: false });
+  };
+
+  // Session popover state (lifted to page level for correct positioning)
+  const [popoverSession, setPopoverSession] = useState<Session | null>(null);
+  const [sessionClickPosition, setSessionClickPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Enrollment popover state
+  const [popoverEnrollment, setPopoverEnrollment] = useState<Enrollment | null>(null);
+  const [enrollmentClickPosition, setEnrollmentClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Fetch student data
   const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
@@ -229,7 +272,7 @@ export default function StudentDetailPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all",
                     isActive
@@ -273,12 +316,30 @@ export default function StudentDetailPage() {
             >
               {/* Profile Tab */}
               {activeTab === "profile" && (
-                <ProfileTab student={student} enrollments={enrollments} isMobile={isMobile} />
+                <ProfileTab
+                  student={student}
+                  enrollments={enrollments}
+                  isMobile={isMobile}
+                  onEnrollmentClick={(enrollment, e) => {
+                    setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
+                    setPopoverEnrollment(enrollment);
+                  }}
+                  selectedEnrollmentId={popoverEnrollment?.id}
+                />
               )}
 
               {/* Sessions Tab */}
               {activeTab === "sessions" && (
-                <SessionsTab sessions={sortedSessions} loading={sessionsLoading} isMobile={isMobile} />
+                <SessionsTab
+                  sessions={sortedSessions}
+                  loading={sessionsLoading}
+                  isMobile={isMobile}
+                  onSessionClick={(session, e) => {
+                    setSessionClickPosition({ x: e.clientX, y: e.clientY });
+                    setPopoverSession(session);
+                  }}
+                  selectedSessionId={popoverSession?.id}
+                />
               )}
 
               {/* Tests Tab */}
@@ -294,12 +355,45 @@ export default function StudentDetailPage() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Session Detail Popover */}
+      {popoverSession && (
+        <SessionDetailPopover
+          session={popoverSession}
+          isOpen={!!popoverSession}
+          onClose={() => setPopoverSession(null)}
+          clickPosition={sessionClickPosition}
+        />
+      )}
+
+      {/* Enrollment Detail Popover */}
+      {popoverEnrollment && (
+        <EnrollmentDetailPopover
+          enrollment={popoverEnrollment}
+          isOpen={!!popoverEnrollment}
+          onClose={() => setPopoverEnrollment(null)}
+          clickPosition={enrollmentClickPosition}
+          isMobile={isMobile}
+        />
+      )}
     </DeskSurface>
   );
 }
 
 // Profile Tab Component
-function ProfileTab({ student, enrollments, isMobile }: { student: any; enrollments: any[]; isMobile: boolean }) {
+function ProfileTab({
+  student,
+  enrollments,
+  isMobile,
+  onEnrollmentClick,
+  selectedEnrollmentId,
+}: {
+  student: any;
+  enrollments: any[];
+  isMobile: boolean;
+  onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
+  selectedEnrollmentId?: number;
+}) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
@@ -350,7 +444,12 @@ function ProfileTab({ student, enrollments, isMobile }: { student: any; enrollme
             {enrollments.map((enrollment) => (
               <div
                 key={enrollment.id}
-                className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50"
+                onClick={(e) => onEnrollmentClick(enrollment, e)}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all",
+                  "bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/50",
+                  selectedEnrollmentId === enrollment.id && "ring-2 ring-[#a0704b]"
+                )}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex flex-col">
@@ -363,14 +462,21 @@ function ProfileTab({ student, enrollments, isMobile }: { student: any; enrollme
                     </span>
                   </div>
                 </div>
-                <span className={cn(
-                  "text-xs px-2 py-0.5 rounded-full font-medium",
-                  enrollment.payment_status === 'Paid'
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
-                )}>
-                  {enrollment.payment_status}
-                </span>
+                {(() => {
+                  const displayStatus = getDisplayPaymentStatus(enrollment);
+                  return (
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded-full font-medium",
+                      displayStatus === 'Paid'
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                        : displayStatus === 'Overdue'
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                    )}>
+                      {displayStatus}
+                    </span>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -400,7 +506,19 @@ function InfoRow({ label, value, icon: Icon, mono }: { label: string; value?: st
 }
 
 // Sessions Tab Component
-function SessionsTab({ sessions, loading, isMobile }: { sessions: Session[]; loading: boolean; isMobile: boolean }) {
+function SessionsTab({
+  sessions,
+  loading,
+  isMobile,
+  onSessionClick,
+  selectedSessionId,
+}: {
+  sessions: Session[];
+  loading: boolean;
+  isMobile: boolean;
+  onSessionClick: (session: Session, e: React.MouseEvent) => void;
+  selectedSessionId?: number;
+}) {
   if (loading) {
     return (
       <div className="space-y-2">
@@ -437,17 +555,20 @@ function SessionsTab({ sessions, loading, isMobile }: { sessions: Session[]; loa
         return (
           <motion.div
             key={session.id}
+            onClick={(e) => onSessionClick(session, e)}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
             className={cn(
-              "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+              "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] cursor-pointer",
               statusConfig.bgTint,
-              !isMobile && "paper-texture"
+              !isMobile && "paper-texture",
+              selectedSessionId === session.id && "ring-2 ring-[#a0704b]"
             )}
           >
             <div className="flex-1 p-3 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </span>
@@ -463,8 +584,25 @@ function SessionsTab({ sessions, loading, isMobile }: { sessions: Session[]; loa
                     </span>
                   </>
                 )}
+                {session.financial_status && (
+                  <>
+                    <span className="text-xs text-gray-400">•</span>
+                    {session.financial_status === "Paid" ? (
+                      <span className="flex items-center gap-0.5 text-xs text-green-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        <span className="hidden sm:inline">Paid</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-0.5 text-xs text-red-600">
+                        <HandCoins className="h-3 w-3" />
+                        <span className="hidden sm:inline">Unpaid</span>
+                      </span>
+                    )}
+                  </>
+                )}
                 <Link
                   href={`/sessions/${session.id}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" />
@@ -477,7 +615,7 @@ function SessionsTab({ sessions, loading, isMobile }: { sessions: Session[]; loa
               )}
             </div>
             <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.bgClass)}>
-              <StatusIcon className="h-4 w-4 text-white" />
+              <StatusIcon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
             </div>
           </motion.div>
         );
@@ -639,5 +777,182 @@ function NotesTab({ sessions, isMobile }: { sessions: Session[]; isMobile: boole
         );
       })}
     </div>
+  );
+}
+
+// Enrollment Detail Popover Component
+function EnrollmentDetailPopover({
+  enrollment,
+  isOpen,
+  onClose,
+  clickPosition,
+  isMobile,
+}: {
+  enrollment: Enrollment;
+  isOpen: boolean;
+  onClose: () => void;
+  clickPosition: { x: number; y: number } | null;
+  isMobile: boolean;
+}) {
+  // Virtual reference based on click position
+  const virtualReference = useMemo(() => {
+    if (!clickPosition) return null;
+    return {
+      getBoundingClientRect: () => ({
+        x: clickPosition.x,
+        y: clickPosition.y,
+        top: clickPosition.y,
+        left: clickPosition.x,
+        bottom: clickPosition.y,
+        right: clickPosition.x,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      }),
+    };
+  }, [clickPosition]);
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: (open) => {
+      if (!open) onClose();
+    },
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: "end", padding: 16 }),
+      shift({ padding: 16 }),
+    ],
+    whileElementsMounted: autoUpdate,
+    placement: "bottom-start",
+  });
+
+  // Use setPositionReference for virtual references
+  useEffect(() => {
+    if (virtualReference) {
+      refs.setPositionReference(virtualReference);
+    }
+  }, [virtualReference, refs]);
+
+  const dismiss = useDismiss(context);
+  const { getFloatingProps } = useInteractions([dismiss]);
+
+  if (!isOpen) return null;
+
+  return (
+    <FloatingPortal>
+      <div
+        ref={refs.setFloating}
+        style={floatingStyles}
+        {...getFloatingProps()}
+        className={cn(
+          "z-[9999] w-72 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl",
+          !isMobile && "paper-texture"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-[#a0704b]/20 flex items-center justify-center">
+              <BookOpen className="h-4 w-4 text-[#a0704b]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
+                Enrollment
+              </h3>
+              <p className="text-xs text-gray-500 font-mono">
+                #{enrollment.id}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 space-y-3">
+          {/* Schedule */}
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {enrollment.assigned_day} {enrollment.assigned_time}
+            </span>
+          </div>
+
+          {/* Tutor */}
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4 text-purple-500" />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {enrollment.tutor_name || 'No tutor assigned'}
+            </span>
+          </div>
+
+          {/* Location */}
+          {enrollment.location && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-amber-500" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {enrollment.location}
+              </span>
+            </div>
+          )}
+
+          {/* Payment */}
+          {(() => {
+            const displayStatus = getDisplayPaymentStatus(enrollment);
+            return (
+              <div className="flex items-center gap-2">
+                <CreditCard className={cn(
+                  "h-4 w-4",
+                  displayStatus === 'Paid' ? 'text-green-500' :
+                  displayStatus === 'Overdue' ? 'text-red-500' :
+                  'text-amber-500'
+                )} />
+                <span className={cn(
+                  "text-sm font-medium",
+                  displayStatus === 'Paid' ? 'text-green-600' :
+                  displayStatus === 'Overdue' ? 'text-red-600' :
+                  displayStatus === 'Pending Payment' ? 'text-amber-600' :
+                  'text-gray-500'
+                )}>
+                  {displayStatus}
+                </span>
+                {enrollment.lessons_paid && (
+                  <span className="text-xs text-gray-500">({enrollment.lessons_paid} lessons)</span>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Start Date */}
+          {enrollment.first_lesson_date && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-indigo-500" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Started: {formatDate(enrollment.first_lesson_date)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-[#d4a574]/30">
+          <Link
+            href={`/enrollments/${enrollment.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#a0704b] hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            View Details
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </FloatingPortal>
   );
 }

@@ -128,15 +128,28 @@ export default function SessionDetailPage() {
       <div>
         {/* Mobile: Navigation bar with back + context */}
         <div className="sm:hidden flex items-center gap-2 mb-3">
-          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => router.back()}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/sessions');
+            }
+          }}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">Sessions</span>
+          <span className="text-sm text-muted-foreground">Session</span>
+          <span className="text-sm text-muted-foreground font-mono">#{session.id}</span>
         </div>
 
         {/* Desktop: Side-by-side layout */}
         <div className="hidden sm:flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => router.back()}>
+          <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => {
+            if (window.history.length > 1) {
+              router.back();
+            } else {
+              router.push('/sessions');
+            }
+          }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
