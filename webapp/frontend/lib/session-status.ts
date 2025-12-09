@@ -37,6 +37,7 @@ export const getSessionStatusConfig = (status: string | undefined): SessionStatu
     "Scheduled": { bgClass: "bg-sky-400", bgTint: "bg-sky-50/80 dark:bg-sky-900/20", textClass: "text-sky-600 dark:text-sky-400", Icon: Clock },
     "Attended": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle },
     "Attended (Make-up)": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-yellow-300" },
+    "Attended (Trial)": { bgClass: "bg-green-600", bgTint: "bg-green-50/80 dark:bg-green-900/20", textClass: "text-green-600 dark:text-green-400", Icon: CheckCircle2, iconClass: "text-blue-300" },
     "Make-up Class": { bgClass: "bg-yellow-500", bgTint: "bg-yellow-50/80 dark:bg-yellow-900/20", textClass: "text-yellow-600 dark:text-yellow-400", Icon: PencilLine },
     "Trial Class": { bgClass: "bg-blue-500", bgTint: "bg-blue-50/80 dark:bg-blue-900/20", textClass: "text-blue-600 dark:text-blue-400", Icon: FlaskConical },
     "Cancelled": { bgClass: "bg-red-500", bgTint: "bg-red-50/80 dark:bg-red-900/20", textClass: "text-red-500 dark:text-red-400", Icon: XCircle, strikethrough: true },
@@ -59,6 +60,7 @@ export const getStatusSortOrder = (status: string | undefined): number => {
     "Make-up Class": 3,
     "Attended": 4,
     "Attended (Make-up)": 5,
+    "Attended (Trial)": 5,
     "No Show": 6,
     "Rescheduled - Pending Make-up": 7,
     "Sick Leave - Pending Make-up": 8,
@@ -75,4 +77,15 @@ export const getStatusSortOrder = (status: string | undefined): number => {
 
   // Fallback for any unrecognized status
   return 99;
+};
+
+/**
+ * Returns the display status for a session, deriving special statuses like "Attended (Trial)"
+ * when the session was originally a Trial Class but is now marked as Attended.
+ */
+export const getDisplayStatus = (session: { session_status: string; previous_session_status?: string }): string => {
+  if (session.session_status === 'Attended' && session.previous_session_status === 'Trial Class') {
+    return 'Attended (Trial)';
+  }
+  return session.session_status;
 };

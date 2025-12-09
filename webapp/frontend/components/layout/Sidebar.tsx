@@ -9,6 +9,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -27,6 +28,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState(0);
+
+  // Check if on dashboard page
+  const isOnDashboard = pathname === "/";
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -61,6 +66,21 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     fetchLocations();
   }, [mounted, setLocations]);
 
+  // Fetch stats for notification bell (when not on dashboard)
+  useEffect(() => {
+    if (!mounted || isOnDashboard) return;
+
+    async function fetchStats() {
+      try {
+        const stats = await api.stats.getDashboard(selectedLocation);
+        setPendingPayments(stats.pending_payment_enrollments);
+      } catch (error) {
+        console.error("Failed to fetch stats:", error);
+      }
+    }
+    fetchStats();
+  }, [mounted, isOnDashboard, selectedLocation]);
+
   // Close mobile menu on navigation
   const handleNavClick = () => {
     if (onMobileClose) {
@@ -78,7 +98,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           <>
             <div className="flex items-center gap-3">
               <img src="/logo.png" alt="CSM Pro" className="h-9 w-auto" />
-              <span className="font-bold text-xl">CSM Pro</span>
+              <div>
+                <span className="font-bold text-xl block">CSM Pro</span>
+                <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
+              </div>
             </div>
             <button
               onClick={onMobileClose}
@@ -106,7 +129,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 )}
               />
               {!isCollapsed && (
-                <span className="font-bold text-xl group-hover:text-primary transition-colors">CSM Pro</span>
+                <div className="text-left">
+                  <span className="font-bold text-xl group-hover:text-primary transition-colors block">CSM Pro</span>
+                  <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resource Orchestration</span>
+                </div>
               )}
             </div>
           </button>
@@ -174,6 +200,26 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             </div>
           );
         })}
+
+        {/* Notification Bell - only when NOT on dashboard */}
+        {!isOnDashboard && (
+          <div className={cn(
+            "pt-2 mt-2 border-t border-white/10 dark:border-white/5",
+            (isMobile || !isCollapsed) ? "px-4" : "flex justify-center px-3"
+          )}>
+            <div className={cn(
+              "flex items-center rounded-2xl transition-colors",
+              (isMobile || !isCollapsed)
+                ? "gap-3 py-2 text-sm font-medium text-foreground/70"
+                : "justify-center p-1"
+            )}>
+              <NotificationBell pendingPayments={pendingPayments} />
+              {(isMobile || !isCollapsed) && (
+                <span>Notifications</span>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Filters - show when expanded or mobile */}

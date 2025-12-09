@@ -39,6 +39,18 @@ class StudentDetailResponse(StudentResponse):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StudentBasic(BaseModel):
+    """Minimal student info for lists/popovers"""
+    id: int
+    school_student_id: Optional[str] = None
+    student_name: str
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================
 # Tutor Schemas
 # ============================================
@@ -131,6 +143,7 @@ class SessionResponse(SessionBase):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     last_modified_time: Optional[datetime] = None
+    previous_session_status: Optional[str] = Field(None, max_length=50)
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)
     rescheduled_to: Optional[LinkedSessionInfo] = None

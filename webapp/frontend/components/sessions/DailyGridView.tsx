@@ -15,7 +15,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 
 // Helper to get tutor name without Mr/Ms prefix for sorting
 const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
@@ -640,7 +640,8 @@ export function DailyGridView({
                           >
                             <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-hidden">
                               {displayedSessions.map((session) => {
-                                const statusConfig = getSessionStatusConfig(session.session_status);
+                                const displayStatus = getDisplayStatus(session);
+                                const statusConfig = getSessionStatusConfig(displayStatus);
                                 const StatusIcon = statusConfig.Icon;
                                 return (
                                   <motion.div

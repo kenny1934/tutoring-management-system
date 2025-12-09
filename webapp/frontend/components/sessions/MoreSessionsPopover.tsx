@@ -14,7 +14,7 @@ import {
 import { X, HandCoins } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import type { Session } from "@/types";
 
 // Grade tag colors
@@ -114,7 +114,7 @@ export function MoreSessionsPopover({
 
           <div className="space-y-1.5">
             {sessions.map((session) => {
-              const statusConfig = getSessionStatusConfig(session.session_status);
+              const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
               const StatusIcon = statusConfig.Icon;
               return (
                 <div

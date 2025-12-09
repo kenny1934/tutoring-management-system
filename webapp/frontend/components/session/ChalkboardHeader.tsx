@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Clock, MapPin, CheckCircle2, HandCoins, Info, GraduationCap, Hash, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import type { Session } from "@/types";
 
 interface ChalkboardHeaderProps {
@@ -13,7 +13,8 @@ interface ChalkboardHeaderProps {
 }
 
 export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
-  const statusConfig = getSessionStatusConfig(session.session_status);
+  const displayStatus = getDisplayStatus(session);
+  const statusConfig = getSessionStatusConfig(displayStatus);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
@@ -427,7 +428,7 @@ export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
                 "relative w-9 h-9 rounded-full shadow-lg flex items-center justify-center border-2 border-white/40",
                 statusConfig.bgClass
               )}
-              aria-label={`Status: ${session.session_status}`}
+              aria-label={`Status: ${displayStatus}`}
             >
               <statusConfig.Icon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
             </button>
@@ -445,7 +446,7 @@ export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
                     statusConfig.bgClass
                   )}
                 >
-                  {session.session_status}
+                  {displayStatus}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -485,7 +486,7 @@ export function ChalkboardHeader({ session }: ChalkboardHeaderProps) {
                 }}
               >
                 <statusConfig.Icon className={cn("h-4 w-4", statusConfig.iconClass)} />
-                {session.session_status}
+                {displayStatus}
               </div>
             </div>
           </motion.div>

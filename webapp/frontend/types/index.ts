@@ -150,6 +150,7 @@ export interface Session {
   grade?: string;
   lang_stream?: string;
   school?: string;
+  previous_session_status?: string;
   rescheduled_to_id?: number;
   make_up_for_id?: number;
   rescheduled_to?: LinkedSessionInfo;

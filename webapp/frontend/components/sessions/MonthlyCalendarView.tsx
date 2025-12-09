@@ -21,7 +21,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -148,7 +148,7 @@ export function MonthlyCalendarView({
           );
         }
         // Status counts
-        const status = session.session_status || "Unknown";
+        const status = getDisplayStatus(session) || "Unknown";
         statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
         // Unpaid count
         if (session.financial_status !== "Paid") {
@@ -861,7 +861,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                   )}
                 >
                   {sessionsAtTime.map((session) => {
-                    const config = getSessionStatusConfig(session.session_status);
+                    const config = getSessionStatusConfig(getDisplayStatus(session));
                     return (
                       <div
                         key={session.id}
@@ -925,7 +925,7 @@ interface SessionCardProps {
 
 function SessionCard({ session, onClick }: SessionCardProps) {
   const { selectedLocation } = useLocation();
-  const config = getSessionStatusConfig(session.session_status);
+  const config = getSessionStatusConfig(getDisplayStatus(session));
   const StatusIcon = config.Icon;
 
   return (

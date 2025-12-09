@@ -306,7 +306,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   if (isLoading) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] p-4",
+        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4",
         !isMobile && "paper-texture",
         className
       )}>
@@ -325,7 +325,8 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   if (error) {
     return (
       <div className={cn(
-        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] p-4",
+        "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4",
+        !isMobile && "paper-texture",
         className
       )}>
         <div className="text-center text-red-500 dark:text-red-400">
@@ -338,15 +339,15 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
-      !isMobile && "paper-texture desk-shadow-low",
+      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px]",
+      !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/50 dark:border-[#8b6f47]/50 bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
         <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-          <h3 className="font-bold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
+          <Calendar className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -371,12 +372,12 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Month label */}
-      <div className="text-center py-2 font-semibold text-gray-800 dark:text-gray-200">
+      <div className="flex-shrink-0 text-center py-2 font-semibold text-gray-800 dark:text-gray-200">
         {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </div>
 
       {/* Calendar Grid */}
-      <div className="px-3 pb-2">
+      <div className="flex-shrink-0 px-3 pb-2">
         {/* Day headers */}
         <div className="grid grid-cols-7 mb-1">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
@@ -438,44 +439,64 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
       </div>
 
-      {/* Selected date events */}
-      {selectedDate && selectedDateEvents.length > 0 && (
-        <div className="px-3 pb-3 border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
-          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-          </p>
-          <div className="space-y-1.5">
-            {selectedDateEvents.map((event) => (
-              <TestItemPopover
-                key={event.id}
-                event={event}
-                isMobile={isMobile}
-                variant="selected-date"
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Upcoming tests list */}
-      <div className="border-t-2 border-[#d4a574]/50 dark:border-[#8b6f47]/50 bg-white dark:bg-[#1a1a1a]">
-        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-          <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+      {/* Bottom section - toggles between upcoming and selected date events */}
+      <div className="flex-1 min-h-0 flex flex-col border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]">
+        {/* Tab header */}
+        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => setSelectedDate(null)}
+            className={cn(
+              "text-xs font-semibold uppercase tracking-wide transition-colors",
+              selectedDate
+                ? "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
+                : "text-[#a0704b] dark:text-[#cd853f]"
+            )}
+          >
             Upcoming
-          </h4>
+          </button>
+          {selectedDate && (
+            <>
+              <span className="text-gray-300 dark:text-gray-600">|</span>
+              <span className="text-xs font-semibold text-[#a0704b] dark:text-[#cd853f]">
+                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            </>
+          )}
         </div>
 
-        {eventsWithDaysUntil.length === 0 ? (
-          <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-            No upcoming tests
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {eventsWithDaysUntil.map((event) => (
-              <TestItemPopover key={event.id} event={event} isMobile={isMobile} />
-            ))}
-          </div>
-        )}
+        {/* Content - either upcoming or selected date events */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {selectedDate && selectedDateEvents.length > 0 ? (
+            /* Show selected date events */
+            <div className="divide-y divide-gray-100 dark:divide-gray-800 p-2 space-y-1.5">
+              {selectedDateEvents.map((event) => (
+                <TestItemPopover
+                  key={event.id}
+                  event={event}
+                  isMobile={isMobile}
+                  variant="selected-date"
+                />
+              ))}
+            </div>
+          ) : selectedDate && selectedDateEvents.length === 0 ? (
+            /* Selected date has no events */
+            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              No events on this date
+            </div>
+          ) : eventsWithDaysUntil.length === 0 ? (
+            /* No upcoming events */
+            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              No upcoming tests
+            </div>
+          ) : (
+            /* Show upcoming list */
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {eventsWithDaysUntil.map((event) => (
+                <TestItemPopover key={event.id} event={event} isMobile={isMobile} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

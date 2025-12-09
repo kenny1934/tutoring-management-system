@@ -14,6 +14,7 @@ import {
 } from "@floating-ui/react";
 import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -326,7 +327,7 @@ export function SessionDetailPopover({
 
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
-            <SessionStatusTag status={session.session_status} size="sm" className="max-w-[140px] min-w-0" />
+            <SessionStatusTag status={getDisplayStatus(session)} size="sm" className="max-w-[140px] min-w-0" />
           </div>
 
           {/* Session Linking */}
