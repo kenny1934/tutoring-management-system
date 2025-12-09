@@ -16,8 +16,8 @@ export function ViewSwitcher({ currentView, onViewChange, compact = false }: Vie
   const views: { mode: ViewMode; icon: typeof List; label: string }[] = [
     { mode: "list", icon: List, label: "List" },
     { mode: "weekly", icon: Grid3x3, label: "Week" },
-    { mode: "daily", icon: CalendarDays, label: "Day" },
-    { mode: "monthly", icon: CalendarIcon, label: "Month" },
+    { mode: "daily", icon: CalendarIcon, label: "Day" },
+    { mode: "monthly", icon: CalendarDays, label: "Month" },
   ];
 
   return (

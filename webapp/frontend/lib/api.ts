@@ -143,6 +143,33 @@ export const calendarAPI = {
   },
 };
 
+// Search result types
+export interface SearchResults {
+  students: Array<{
+    id: number;
+    student_name: string;
+    school_student_id: string | null;
+    school: string | null;
+    grade: string | null;
+  }>;
+  sessions: Array<{
+    id: number;
+    student_id: number;
+    student_name: string | null;
+    session_date: string | null;
+    session_status: string | null;
+    tutor_name: string | null;
+  }>;
+  enrollments: Array<{
+    id: number;
+    student_id: number;
+    student_name: string | null;
+    tutor_name: string | null;
+    location: string | null;
+    payment_status: string | null;
+  }>;
+}
+
 // Stats API
 export const statsAPI = {
   getDashboard: (location?: string) => {
@@ -152,6 +179,12 @@ export const statsAPI = {
 
   getLocations: () => {
     return fetchAPI<string[]>("/locations");
+  },
+
+  search: (query: string, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (limit) params.append("limit", limit.toString());
+    return fetchAPI<SearchResults>(`/search?${params.toString()}`);
   },
 };
 

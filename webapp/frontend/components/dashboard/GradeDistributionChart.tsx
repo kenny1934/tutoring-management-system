@@ -1,27 +1,35 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { GraduationCap } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Enrollment } from "@/types";
 
+// Warm sepia palette matching dashboard theme
 const COLORS = [
-  "#3b82f6", // blue-500
-  "#8b5cf6", // violet-500
-  "#ec4899", // pink-500
-  "#f59e0b", // amber-500
-  "#10b981", // emerald-500
-  "#6366f1", // indigo-500
+  "#a0704b", // primary sepia
+  "#cd853f", // peru/tan
+  "#d4a574", // light tan
+  "#8b6f47", // dark olive brown
+  "#c2956e", // camel
+  "#b8860b", // dark goldenrod
 ];
 
 export function GradeDistributionChart() {
+  const router = useRouter();
   const { selectedLocation } = useLocation();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle click on pie slice - navigate to students page with grade filter
+  const handleSliceClick = (data: { name: string }) => {
+    if (data.name === "Unknown") return;
+    router.push(`/students?grade=${encodeURIComponent(data.name)}`);
+  };
 
   useEffect(() => {
     async function fetchEnrollments() {
@@ -61,52 +69,64 @@ export function GradeDistributionChart() {
   }, [enrollments]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <GraduationCap className="h-5 w-5" />
-          Grade Distribution
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <div className="h-32 w-32 bg-muted rounded-full animate-pulse" />
-          </div>
-        ) : error ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <div className="text-center text-destructive">Error: {error}</div>
-          </div>
-        ) : chartData.length === 0 ? (
-          <div className="h-[300px] flex items-center justify-center">
-            <div className="text-center text-muted-foreground">No data available</div>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(props) => {
-                  const { name, percent } = props as unknown as { name: string; percent: number };
-                  return `${name} (${(percent * 100).toFixed(0)}%)`;
-                }}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        )}
-      </CardContent>
-    </Card>
+    <div>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-4">
+        <GraduationCap className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Grade Distribution</h3>
+      </div>
+
+      {/* Chart */}
+      {loading ? (
+        <div className="h-[250px] flex items-center justify-center">
+          <div className="h-24 w-24 bg-[#f5ede3] dark:bg-[#3d3628] rounded-full animate-pulse" />
+        </div>
+      ) : error ? (
+        <div className="h-[250px] flex items-center justify-center">
+          <div className="text-center text-red-500 dark:text-red-400 text-sm">Error: {error}</div>
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="h-[250px] flex items-center justify-center">
+          <div className="text-center text-gray-500 dark:text-gray-400 text-sm">No data available</div>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={250}>
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={(props) => {
+                const { name, percent } = props as unknown as { name: string; percent: number };
+                return percent > 0.05 ? `${name} (${(percent * 100).toFixed(0)}%)` : "";
+              }}
+              outerRadius={70}
+              fill="#8884d8"
+              dataKey="value"
+              onClick={handleSliceClick}
+              style={{ cursor: "pointer" }}
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "var(--tooltip-bg, #fef9f3)",
+                border: "1px solid var(--tooltip-border, #e8d4b8)",
+                borderRadius: "8px",
+                color: "var(--tooltip-text, #1f2937)",
+              }}
+            />
+            <Legend
+              wrapperStyle={{
+                fontSize: "12px",
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+    </div>
   );
 }

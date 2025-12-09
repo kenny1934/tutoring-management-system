@@ -14,7 +14,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import {
   useFloating,
@@ -548,7 +548,7 @@ function SessionsTab({
   return (
     <div className="space-y-2">
       {sessions.map((session, index) => {
-        const statusConfig = getSessionStatusConfig(session.session_status);
+        const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
         const StatusIcon = statusConfig.Icon;
         const sessionDate = new Date(session.session_date + 'T00:00:00');
 

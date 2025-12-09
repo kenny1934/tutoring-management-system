@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
 import { Calendar, Clock, ChevronRight, ExternalLink, HandCoins } from "lucide-react";
-import { getSessionStatusConfig, getStatusSortOrder } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -669,7 +669,8 @@ export default function SessionsPage() {
                     {/* Session Cards */}
                     <div className="space-y-3 ml-0 sm:ml-4">
                       {sessionsInSlot.map((session, sessionIndex) => {
-                        const statusConfig = getSessionStatusConfig(session.session_status);
+                        const displayStatus = getDisplayStatus(session);
+                        const statusConfig = getSessionStatusConfig(displayStatus);
                         const StatusIcon = statusConfig.Icon;
                         const prevSession = sessionIndex > 0 ? sessionsInSlot[sessionIndex - 1] : null;
                         const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
@@ -780,7 +781,7 @@ export default function SessionsPage() {
                                   {/* Right side - Status text */}
                                   <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
                                     <p className={cn("text-sm font-medium truncate max-w-[80px] sm:max-w-none", statusConfig.textClass)}>
-                                      {session.session_status}
+                                      {displayStatus}
                                     </p>
                                     {session.tutor_name && (
                                       <p className="text-xs text-gray-600 dark:text-gray-400">
