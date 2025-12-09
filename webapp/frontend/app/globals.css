@@ -282,6 +282,51 @@
   animation: shimmer 2s linear infinite;
 }
 
+/* Sepia-toned shimmer for warm parchment loading states */
+.shimmer-sepia {
+  background: linear-gradient(
+    to right,
+    #f5ede3 0%,
+    #fef9f3 20%,
+    #f5ede3 40%,
+    #f5ede3 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+
+.dark .shimmer-sepia {
+  background: linear-gradient(
+    to right,
+    #2d2618 0%,
+    #3d3628 20%,
+    #2d2618 40%,
+    #2d2618 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Card hover lift effect for micro-interactions */
+.card-hover {
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+.dark .card-hover:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Reduced motion - disable animations */
+@media (prefers-reduced-motion: reduce) {
+  .card-hover:hover {
+    transform: none;
+  }
+}
+
 /* ===== PAPER TEXTURE UTILITIES ===== */
 
 /* SVG noise texture for realistic paper grain */

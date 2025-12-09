@@ -5,6 +5,8 @@ import { useCalendarEvents } from "@/lib/hooks";
 import { CalendarEvent } from "@/types";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen } from "lucide-react";
+import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
+import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
   useFloating,
   offset,
@@ -310,11 +312,11 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="animate-pulse space-y-4">
-          <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-32" />
+        <div className="space-y-4">
+          <div className="h-6 shimmer-sepia rounded w-32" />
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div key={i} className="h-8 shimmer-sepia rounded" />
             ))}
           </div>
         </div>
@@ -339,14 +341,14 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px]",
+      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+          <TestsAccent className="w-8 h-6" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
         </div>
         <div className="flex items-center gap-1">
@@ -485,8 +487,10 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             </div>
           ) : eventsWithDaysUntil.length === 0 ? (
             /* No upcoming events */
-            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              No upcoming tests
+            <div className="flex flex-col items-center justify-center px-3 py-4 text-gray-500 dark:text-gray-400">
+              <NoUpcomingTests className="mb-1 opacity-80" />
+              <p className="text-sm font-medium">All caught up!</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">No tests or exams coming up</p>
             </div>
           ) : (
             /* Show upcoming list */

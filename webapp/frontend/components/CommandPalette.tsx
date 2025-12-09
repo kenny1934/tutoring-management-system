@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api, SearchResults } from "@/lib/api";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { SearchNoResults } from "@/components/illustrations/EmptyStates";
 
 // localStorage key for recent searches
 const RECENT_SEARCHES_KEY = "command-palette-recent-searches";
@@ -450,15 +451,15 @@ export function CommandPalette() {
             </div>
           )}
 
-          {/* Enhanced empty state */}
+          {/* Enhanced empty state with illustration */}
           {!loading && allItems.length === 0 && searchTerm.length >= 2 && (
-            <div className="px-4 py-8 text-center">
-              <Search className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-              <p className="text-gray-500 dark:text-gray-400">
+            <div className="flex flex-col items-center px-4 py-6 text-center">
+              <SearchNoResults className="mb-2 opacity-90" />
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                 No results for &quot;{query}&quot;
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Try a student name, tutor, or use @student, #session
+                Try a different search or use @student, #session
               </p>
             </div>
           )}

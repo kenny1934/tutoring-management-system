@@ -9,6 +9,7 @@ import type {
   SessionFilters,
   UpcomingTestAlert,
   CalendarEvent,
+  ActivityEvent,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -185,6 +186,11 @@ export const statsAPI = {
     const params = new URLSearchParams({ q: query });
     if (limit) params.append("limit", limit.toString());
     return fetchAPI<SearchResults>(`/search?${params.toString()}`);
+  },
+
+  getActivityFeed: (location?: string) => {
+    const params = location && location !== "All Locations" ? `?location=${location}` : "";
+    return fetchAPI<ActivityEvent[]>(`/activity-feed${params}`);
   },
 };
 

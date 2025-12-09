@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_
 from typing import List, Optional, Dict, Any
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, time
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor
-from schemas import DashboardStats, StudentBasic
+from schemas import DashboardStats, StudentBasic, ActivityEvent
 
 router = APIRouter()
 
@@ -297,3 +297,123 @@ async def global_search(
             for e in enrollments
         ],
     }
+
+
+@router.get("/activity-feed", response_model=List[ActivityEvent])
+async def get_activity_feed(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    limit: int = Query(10, ge=1, le=50, description="Max events to return"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get recent activity events for dashboard feed.
+
+    Returns a chronological list of recent events including:
+    - Sessions attended/completed
+    - Sessions cancelled
+    - Make-up sessions completed
+    - Payments received
+    - New enrollments
+    """
+    today = date.today()
+    events = []
+
+    # 1. Sessions: attended, make-ups, cancelled, rescheduled, sick leave, weather (last 7 days)
+    # Filter out sessions with empty audit column (AppSheet data gaps)
+    sessions_query = db.query(SessionLog).options(
+        joinedload(SessionLog.student)
+    ).filter(
+        SessionLog.last_modified_time.isnot(None),
+        SessionLog.session_date >= (today - timedelta(days=7)),
+        SessionLog.session_status.in_([
+            'Attended', 'Attended (Make-up)', 'Cancelled',
+            'Rescheduled - Pending Make-up', 'Sick Leave - Pending Make-up',
+            'Weather Cancelled - Pending Make-up',
+            'Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked',
+            'Weather Cancelled - Make-up Booked'
+        ])
+    )
+    if location and location != "All Locations":
+        sessions_query = sessions_query.filter(SessionLog.location == location)
+
+    for s in sessions_query.all():
+        if 'Make-up Booked' in s.session_status:
+            event_type, title = "makeup_booked", "Make-up booked"
+        elif 'Rescheduled' in s.session_status:
+            event_type, title = "session_rescheduled", "Session rescheduled"
+        elif 'Sick Leave' in s.session_status:
+            event_type, title = "sick_leave", "Sick leave"
+        elif 'Weather Cancelled' in s.session_status:
+            event_type, title = "weather_cancelled", "Weather cancelled"
+        elif s.session_status == 'Cancelled':
+            event_type, title = "session_cancelled", "Session cancelled"
+        elif s.session_status == 'Attended (Make-up)':
+            event_type, title = "makeup_completed", "Make-up completed"
+        else:
+            event_type, title = "session_attended", "Session completed"
+
+        grade_desc = ""
+        if s.student:
+            grade_desc = f"{s.student.grade or ''}{s.student.lang_stream or ''}".strip()
+
+        events.append(ActivityEvent(
+            id=f"session_{s.id}",
+            type=event_type,
+            title=title,
+            student=s.student.student_name if s.student else "Unknown",
+            school_student_id=s.student.school_student_id if s.student else None,
+            location=s.location,
+            description=grade_desc if grade_desc else None,
+            timestamp=s.last_modified_time,
+            link=f"/sessions/{s.id}"
+        ))
+
+    # 2. Enrollments: new (14 days) + payments (30 days)
+    # Filter out enrollments with empty audit column (AppSheet data gaps)
+    enrollments_query = db.query(Enrollment).options(
+        joinedload(Enrollment.student)
+    ).filter(
+        Enrollment.last_modified_time.isnot(None),
+        or_(
+            and_(Enrollment.payment_date.isnot(None),
+                 Enrollment.payment_date >= (today - timedelta(days=30))),
+            Enrollment.first_lesson_date >= (today - timedelta(days=14))
+        )
+    )
+    if location and location != "All Locations":
+        enrollments_query = enrollments_query.filter(Enrollment.location == location)
+
+    for e in enrollments_query.all():
+        # Payment received
+        if e.payment_date and e.payment_date >= (today - timedelta(days=30)):
+            events.append(ActivityEvent(
+                id=f"payment_{e.id}",
+                type="payment_received",
+                title="Payment received",
+                student=e.student.student_name if e.student else "Unknown",
+                school_student_id=e.student.school_student_id if e.student else None,
+                location=e.location,
+                description=f"{e.lessons_paid} lessons" if e.lessons_paid else None,
+                timestamp=datetime.combine(e.payment_date, time(12, 0)),
+                link=f"/enrollments/{e.id}"
+            ))
+        # New enrollment (only past/today, not future dates)
+        if e.first_lesson_date and e.first_lesson_date >= (today - timedelta(days=14)) and e.first_lesson_date <= today:
+            grade_desc = ""
+            if e.student:
+                grade_desc = f"{e.student.grade or ''}{e.student.lang_stream or ''}".strip()
+            events.append(ActivityEvent(
+                id=f"enrollment_{e.id}",
+                type="new_enrollment",
+                title="New enrollment",
+                student=e.student.student_name if e.student else "Unknown",
+                school_student_id=e.student.school_student_id if e.student else None,
+                location=e.location,
+                description=grade_desc if grade_desc else None,
+                timestamp=e.last_modified_time,
+                link=f"/enrollments/{e.id}"
+            ))
+
+    # Sort by timestamp DESC and limit
+    events.sort(key=lambda x: x.timestamp, reverse=True)
+    return events[:limit]

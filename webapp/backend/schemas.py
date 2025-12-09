@@ -269,6 +269,19 @@ class DashboardStats(BaseModel):
     revenue_this_month: Optional[Decimal] = Field(None, ge=0)
 
 
+class ActivityEvent(BaseModel):
+    """Activity feed event for dashboard"""
+    id: str = Field(..., min_length=1)
+    type: str = Field(..., max_length=50)
+    title: str = Field(..., max_length=100)
+    student: str = Field(..., max_length=200)
+    school_student_id: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=50)
+    description: Optional[str] = Field(None, max_length=200)
+    timestamp: datetime
+    link: Optional[str] = Field(None, max_length=200)
+
+
 # ============================================
 # Query Parameter Schemas
 # ============================================
