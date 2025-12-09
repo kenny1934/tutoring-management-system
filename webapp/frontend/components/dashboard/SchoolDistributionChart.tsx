@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { School } from "lucide-react";
 import { api } from "@/lib/api";
+import { SchoolAccent } from "@/components/illustrations/CardAccents";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Enrollment } from "@/types";
 
@@ -83,14 +83,14 @@ export function SchoolDistributionChart() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <School className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+        <SchoolAccent className="w-8 h-6" />
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">School Distribution</h3>
       </div>
 
       {/* Chart */}
       {loading ? (
         <div className="h-[250px] flex items-center justify-center">
-          <div className="h-24 w-24 bg-[#f5ede3] dark:bg-[#3d3628] rounded-full animate-pulse" />
+          <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
       ) : error ? (
         <div className="h-[250px] flex items-center justify-center">

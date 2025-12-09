@@ -10,6 +10,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
+import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -225,6 +226,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       {/* Filters - show when expanded or mobile */}
       {(isMobile || !isCollapsed) && (
         <div className="border-t border-white/10 dark:border-white/5 p-4 space-y-4">
+          {/* Weekly Mini-Calendar */}
+          <WeeklyMiniCalendar />
+
           {/* Theme Toggle */}
           <ThemeToggle />
 

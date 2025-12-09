@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { GraduationCap } from "lucide-react";
 import { api } from "@/lib/api";
+import { GradeAccent } from "@/components/illustrations/CardAccents";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Enrollment } from "@/types";
 
@@ -72,14 +72,14 @@ export function GradeDistributionChart() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <GraduationCap className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+        <GradeAccent className="w-8 h-6" />
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Grade Distribution</h3>
       </div>
 
       {/* Chart */}
       {loading ? (
         <div className="h-[250px] flex items-center justify-center">
-          <div className="h-24 w-24 bg-[#f5ede3] dark:bg-[#3d3628] rounded-full animate-pulse" />
+          <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
       ) : error ? (
         <div className="h-[250px] flex items-center justify-center">

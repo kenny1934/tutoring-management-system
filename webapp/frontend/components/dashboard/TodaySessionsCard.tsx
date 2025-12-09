@@ -8,6 +8,10 @@ import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder } from "@/
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
+import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
+import { SessionsAccent } from "@/components/illustrations/CardAccents";
+import { ProgressRing } from "@/components/dashboard/ProgressRing";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Session } from "@/types";
 
 // Format today's date as YYYY-MM-DD
@@ -54,6 +58,8 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
   const { selectedLocation } = useLocation();
   const todayString = getTodayString();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [popoverSession, setPopoverSession] = useState<Session | null>(null);
+  const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
@@ -220,11 +226,11 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
         !isMobile && "paper-texture",
         className
       )}>
-        <div className="p-4 animate-pulse">
-          <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-4" />
+        <div className="p-4">
+          <div className="h-5 shimmer-sepia rounded w-32 mb-4" />
           <div className="space-y-2">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-12 bg-gray-100 dark:bg-gray-800 rounded" />
+              <div key={i} className="h-12 shimmer-sepia rounded" />
             ))}
           </div>
         </div>
@@ -234,7 +240,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px]",
+      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
@@ -242,10 +248,19 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
       <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628] flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <SessionsAccent className="w-8 h-6" />
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Today's Sessions</h3>
           </div>
           <div className="flex items-center gap-3">
+            {/* Progress Ring */}
+            {stats.total > 0 && (
+              <ProgressRing
+                completed={stats.completed}
+                total={stats.total}
+                size={32}
+                strokeWidth={3}
+              />
+            )}
             {/* Select All checkbox */}
             {stats.total > 0 && (
               <button
@@ -260,9 +275,6 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                 <span className="hidden sm:inline">Select All</span>
               </button>
             )}
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {stats.total} sessions
-            </span>
           </div>
         </div>
       </div>
@@ -270,9 +282,10 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
       {/* Sessions List */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {groupedSessions.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <Calendar className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            <p className="text-sm">No sessions scheduled for today</p>
+          <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+            <NoSessionsToday className="mb-2 opacity-80" />
+            <p className="text-sm font-medium">No sessions today</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Time for a coffee break!</p>
           </div>
         ) : (
           <div className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
@@ -298,6 +311,10 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                       isAlternate={idx % 2 === 1}
                       isSelected={selectedIds.has(session.id)}
                       onToggleSelect={() => toggleSelect(session.id)}
+                      onRowClick={(e) => {
+                        setClickPosition({ x: e.clientX, y: e.clientY });
+                        setPopoverSession(session);
+                      }}
                     />
                   ))}
                 </div>
@@ -375,6 +392,16 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
           </div>
         )}
       </div>
+
+      {/* Session Detail Popover */}
+      {popoverSession && (
+        <SessionDetailPopover
+          session={popoverSession}
+          isOpen={!!popoverSession}
+          onClose={() => setPopoverSession(null)}
+          clickPosition={clickPosition}
+        />
+      )}
     </div>
   );
 }
@@ -385,25 +412,29 @@ interface SessionRowProps {
   isAlternate: boolean;
   isSelected: boolean;
   onToggleSelect: () => void;
+  onRowClick: (e: React.MouseEvent) => void;
 }
 
-function SessionRow({ session, isAlternate, isSelected, onToggleSelect }: SessionRowProps) {
+function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick }: SessionRowProps) {
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
   const gradeColor = getGradeColor(session.grade, session.lang_stream);
-  const isUnpaid = session.enrollment?.payment_status === 'Pending Payment';
+  const isUnpaid = session.financial_status !== 'Paid';
 
   return (
-    <div className={cn(
-      "px-3 py-2",
-      isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30",
-      isSelected && "bg-amber-50 dark:bg-amber-900/20"
-    )}>
+    <div
+      className={cn(
+        "px-3 py-2 cursor-pointer hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/60 transition-colors",
+        isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30",
+        isSelected && "bg-amber-50 dark:bg-amber-900/20"
+      )}
+      onClick={onRowClick}
+    >
       {/* Main row: Checkbox + Info + Status */}
       <div className="flex items-center gap-2">
         {/* Checkbox */}
         <button
-          onClick={onToggleSelect}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
           className="flex-shrink-0 p-0.5"
         >
           {isSelected ? (
@@ -432,7 +463,7 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect }: Sessio
           {/* Grade badge */}
           {session.grade && (
             <span
-              className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+              className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
               style={{ backgroundColor: gradeColor }}
             >
               {session.grade}{session.lang_stream || ''}

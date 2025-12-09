@@ -174,6 +174,19 @@ export interface DashboardStats {
   revenue_this_month?: number | null;
 }
 
+// Activity feed event types
+export interface ActivityEvent {
+  id: string;
+  type: 'session_attended' | 'payment_received' | 'new_enrollment' | 'makeup_completed' | 'session_cancelled' | 'session_rescheduled' | 'sick_leave' | 'weather_cancelled' | 'makeup_booked';
+  title: string;
+  student: string;
+  school_student_id?: string;
+  location?: string;
+  description?: string;
+  timestamp: string;
+  link?: string;
+}
+
 // API response types
 export interface APIResponse<T> {
   data: T;

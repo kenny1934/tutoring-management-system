@@ -1,6 +1,6 @@
 import useSWR, { SWRConfiguration } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent } from '@/types';
 
 // SWR configuration for optimal caching behavior
 // - revalidateOnFocus: Auto-refresh when tutor tabs back (important during lessons)
@@ -131,6 +131,38 @@ export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
   return useSWR<Session[]>(
     enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
     () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching dashboard stats with caching
+ * Returns cached data immediately for instant navigation
+ */
+export function useDashboardStats(location?: string) {
+  const key = location && location !== "All Locations"
+    ? ['dashboard-stats', location]
+    : ['dashboard-stats'];
+
+  return useSWR<DashboardStats>(
+    key,
+    () => api.stats.getDashboard(location),
+    swrConfig
+  );
+}
+
+/**
+ * Hook for fetching activity feed events
+ * Returns recent activity (sessions, payments, enrollments)
+ */
+export function useActivityFeed(location?: string) {
+  const key = location && location !== "All Locations"
+    ? ['activity-feed', location]
+    : ['activity-feed'];
+
+  return useSWR<ActivityEvent[]>(
+    key,
+    () => api.stats.getActivityFeed(location),
     swrConfig
   );
 }

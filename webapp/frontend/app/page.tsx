@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
+import { useDashboardStats } from "@/lib/hooks";
 import { GradeDistributionChart } from "@/components/dashboard/GradeDistributionChart";
 import { SchoolDistributionChart } from "@/components/dashboard/SchoolDistributionChart";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
 import { TodaySessionsCard } from "@/components/dashboard/TodaySessionsCard";
-import type { DashboardStats } from "@/types";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -16,9 +16,7 @@ import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { selectedLocation } = useLocation();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation);
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile device for performance optimization
@@ -31,30 +29,13 @@ export default function DashboardPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        setLoading(true);
-        const data = await api.stats.getDashboard(selectedLocation);
-        setStats(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load stats");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStats();
-  }, [selectedLocation]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <DeskSurface>
         <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
           {/* Header Skeleton (taller now - includes stats row) */}
           <div className={cn(
-            "h-44 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "h-44 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
             !isMobile && "paper-texture"
           )} />
 
@@ -62,7 +43,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {[1, 2].map((i) => (
               <div key={i} className={cn(
-                "h-56 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "h-56 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
                 !isMobile && "paper-texture"
               )} />
             ))}
@@ -72,7 +53,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {[1, 2].map((i) => (
               <div key={i} className={cn(
-                "h-64 bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl animate-pulse border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "h-64 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
                 !isMobile && "paper-texture"
               )} />
             ))}
@@ -149,6 +130,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
             className={cn(
               "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
@@ -160,6 +142,7 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
             className={cn(
               "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
@@ -169,6 +152,16 @@ export default function DashboardPage() {
             <SchoolDistributionChart />
           </motion.div>
         </div>
+
+        {/* Activity Feed */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+          transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
+        >
+          <ActivityFeed isMobile={isMobile} />
+        </motion.div>
       </PageTransition>
     </DeskSurface>
   );
