@@ -384,7 +384,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
             </div>
             <Link
               href={`/sessions?date=${todayString}`}
-              className="flex items-center gap-1 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+              className="flex items-center gap-1 text-sm text-[#a0704b] dark:text-[#cd853f] hover:underline"
             >
               View All
               <ChevronRight className="h-3 w-3" />
