@@ -448,7 +448,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           <button
             onClick={() => setSelectedDate(null)}
             className={cn(
-              "text-xs font-semibold uppercase tracking-wide transition-colors",
+              "text-sm transition-colors",
               selectedDate
                 ? "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400"
                 : "text-[#a0704b] dark:text-[#cd853f]"
@@ -459,7 +459,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           {selectedDate && (
             <>
               <span className="text-gray-300 dark:text-gray-600">|</span>
-              <span className="text-xs font-semibold text-[#a0704b] dark:text-[#cd853f]">
+              <span className="text-sm text-[#a0704b] dark:text-[#cd853f]">
                 {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </span>
             </>

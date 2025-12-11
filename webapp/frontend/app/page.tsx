@@ -11,6 +11,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
+import { BinderClip, PaperClip, Pushpin } from "@/components/ui/stationery-accents";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -109,15 +110,15 @@ export default function DashboardPage() {
         {/* Today's Sessions + Test Calendar */}
         <div className="grid gap-4 md:grid-cols-2">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16, rotate: -0.5 }}
+            animate={{ opacity: 1, y: 0, rotate: -0.5 }}
             transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
           >
             <TodaySessionsCard isMobile={isMobile} />
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 16, rotate: 0.7 }}
+            animate={{ opacity: 1, y: 0, rotate: 0.7 }}
             transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
             id="tests-calendar"
           >
@@ -128,36 +129,40 @@ export default function DashboardPage() {
         {/* Distribution Charts */}
         <div className="grid gap-4 md:grid-cols-2">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            initial={{ opacity: 0, y: 16, rotate: -0.3 }}
+            animate={{ opacity: 1, y: 0, rotate: -0.3 }}
+            whileHover={{ y: -2, rotate: -0.3, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.25, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
+            {/* Stationery accent */}
+            <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
             <GradeDistributionChart />
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+            initial={{ opacity: 0, y: 16, rotate: 0.5 }}
+            animate={{ opacity: 1, y: 0, rotate: 0.5 }}
+            whileHover={{ y: -2, rotate: 0.5, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
             transition={{ delay: 0.3, duration: 0.3, ease: "easeOut" }}
             className={cn(
-              "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
+              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 sm:p-6",
               !isMobile && "paper-texture"
             )}
           >
+            {/* Stationery accent */}
+            <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
             <SchoolDistributionChart />
           </motion.div>
         </div>
 
         {/* Activity Feed */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          whileHover={{ y: -2, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
+          initial={{ opacity: 0, y: 16, rotate: -0.4 }}
+          animate={{ opacity: 1, y: 0, rotate: -0.4 }}
+          whileHover={{ y: -2, rotate: -0.4, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
           transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
         >
           <ActivityFeed isMobile={isMobile} />

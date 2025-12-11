@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Caveat } from "next/font/google";
 import "./globals.css";
 import { LayoutShell } from "@/components/layout/LayoutShell";
 import { Providers } from "@/components/providers/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-handwriting",
+});
 
 export const metadata: Metadata = {
   title: "CSM Pro - Tutoring Management System",
@@ -18,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} desk-background`}>
+      <body className={`${inter.className} ${caveat.variable} desk-background`}>
         <Providers>
           <LayoutShell>{children}</LayoutShell>
         </Providers>

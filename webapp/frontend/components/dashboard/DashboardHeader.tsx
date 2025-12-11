@@ -3,12 +3,12 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Calendar, Search, Command } from "lucide-react";
+import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command } from "lucide-react";
 import { usefulTools } from "@/config/useful-tools";
-import { useWeather, getWeatherIcon, getWeatherDescription } from "@/lib/useWeather";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
+import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import type { DashboardStats } from "@/types";
 import {
@@ -41,19 +41,9 @@ const quickLinks = [
   { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: '#' }, // Placeholder
 ];
 
-// Format today's date
-const formatDate = (): string => {
-  const today = new Date();
-  return today.toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-};
 
 export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
-  const { data: weather, isLoading: weatherLoading } = useWeather();
   const { open: openCommandPalette } = useCommandPalette();
 
   // Random emoji - memoized so it doesn't change on every render
@@ -79,7 +69,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+      "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+      "shadow-md border-t-4 border-t-[#a0704b] dark:border-t-[#8b6f47]",
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
@@ -109,28 +100,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               </kbd>
             </button>
 
-            {/* Date & Weather Widget */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full">
-              <Calendar className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {formatDate()}
-              </span>
-              {weatherLoading ? (
-                <span className="text-sm text-gray-400 animate-pulse">...</span>
-              ) : weather ? (
-                <div className="flex items-center gap-1 border-l border-[#e8d4b8] dark:border-[#6b5a4a] pl-2 ml-1">
-                  <span
-                    className="text-base"
-                    title={getWeatherDescription(weather.weatherCode)}
-                  >
-                    {getWeatherIcon(weather.weatherCode, weather.isDay)}
-                  </span>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {weather.temperature}°C
-                  </span>
-                </div>
-              ) : null}
-            </div>
+            {/* Tear-off Calendar (includes weather) */}
+            <TearOffCalendar />
 
             {/* Location Badge */}
             {location && location !== "All Locations" && (
