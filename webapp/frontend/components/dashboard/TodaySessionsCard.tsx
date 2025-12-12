@@ -8,6 +8,7 @@ import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder } from "@/
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
+import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
 import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
@@ -506,33 +507,13 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
         </div>
       </div>
 
-      {/* Action buttons row (disabled placeholders) */}
-      <div className="mt-1.5 ml-6 flex items-center gap-1.5">
-        <button
-          disabled
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
-          title="Coming soon"
-        >
-          <CheckSquare className="h-3 w-3" />
-          <span className="hidden xs:inline">Attend</span>
-        </button>
-        <button
-          disabled
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
-          title="Coming soon"
-        >
-          <PenTool className="h-3 w-3" />
-          <span className="hidden xs:inline">CW</span>
-        </button>
-        <button
-          disabled
-          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50"
-          title="Coming soon"
-        >
-          <Home className="h-3 w-3" />
-          <span className="hidden xs:inline">HW</span>
-        </button>
-      </div>
+      {/* Action buttons row */}
+      <SessionActionButtons
+        session={session}
+        size="md"
+        showLabels
+        className="mt-1.5 ml-6"
+      />
     </div>
   );
 }
