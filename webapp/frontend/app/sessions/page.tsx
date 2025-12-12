@@ -8,6 +8,7 @@ import type { Session, Tutor } from "@/types";
 import Link from "next/link";
 import { Calendar, Clock, ChevronRight, ExternalLink, HandCoins } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -790,6 +791,14 @@ export default function SessionsPage() {
                                     )}
                                   </div>
                                 </div>
+
+                                {/* Action buttons row */}
+                                <SessionActionButtons
+                                  session={session}
+                                  size="md"
+                                  showLabels
+                                  className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
+                                />
                               </div>
 
                               {/* Status color strip with icon - RIGHT side */}

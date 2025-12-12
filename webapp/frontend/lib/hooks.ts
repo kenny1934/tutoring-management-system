@@ -51,6 +51,17 @@ export function useTutors() {
 }
 
 /**
+ * Hook for fetching locations list
+ */
+export function useLocations() {
+  return useSWR<string[]>(
+    'locations',
+    () => api.stats.getLocations(),
+    swrConfig
+  );
+}
+
+/**
  * Hook for fetching calendar events (tests/exams)
  * Returns cached data immediately, then revalidates in background
  */

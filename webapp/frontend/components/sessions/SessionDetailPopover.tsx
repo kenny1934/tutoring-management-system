@@ -17,6 +17,7 @@ import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
+import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
@@ -107,7 +108,7 @@ function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string
       {cwExercises.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
-            <PenTool className="h-3 w-3" />
+            <PenTool className="h-3 w-3 text-red-500" />
             <span className="text-xs font-medium">Classwork</span>
           </div>
           <div className="space-y-0.5 pl-4">
@@ -120,7 +121,7 @@ function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string
       {hwExercises.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
-            <Home className="h-3 w-3" />
+            <Home className="h-3 w-3 text-blue-500" />
             <span className="text-xs font-medium">Homework</span>
           </div>
           <div className="space-y-0.5 pl-4">
@@ -411,6 +412,14 @@ export function SessionDetailPopover({
             <ExercisesList exercises={session.exercises} />
           )}
         </div>
+
+        {/* Action Buttons */}
+        <SessionActionButtons
+          session={session}
+          size="md"
+          showLabels
+          className="mb-3 pt-3 border-t border-gray-200 dark:border-gray-700"
+        />
 
         {/* Action link - using Link for Ctrl+click / middle-click support */}
         <Link

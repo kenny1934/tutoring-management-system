@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
 import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Session, Tutor } from "@/types";
 import {
@@ -980,6 +981,13 @@ function SessionCard({ session, onClick }: SessionCardProps) {
         <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f] truncate">
           {session.tutor_name || "No tutor"}
         </div>
+
+        {/* Action Buttons */}
+        <SessionActionButtons
+          session={session}
+          size="sm"
+          className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700"
+        />
       </div>
 
       {/* Status Icon Strip */}
