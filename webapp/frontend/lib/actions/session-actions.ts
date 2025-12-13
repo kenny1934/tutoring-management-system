@@ -7,8 +7,8 @@ import {
   PenTool,
   Home,
   MessageSquarePlus,
-  Pencil,
   Undo2,
+  Pencil,
 } from 'lucide-react';
 import type { Session } from '@/types';
 import type { ActionConfig } from './types';
@@ -191,24 +191,6 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
 
   // ----------------------------------------
-  // Edit Action (Admin only)
-  // ----------------------------------------
-  {
-    id: 'edit',
-    label: 'Edit Session',
-    shortLabel: 'Edit',
-    icon: Pencil,
-    colorClass: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400',
-    isVisible: () => true, // Always visible (permission controls access)
-    allowedRoles: ['admin', 'super_admin'], // Only admins can edit
-    api: {
-      enabled: false,
-      method: 'PUT',
-      endpoint: '/api/sessions/{id}',
-    },
-  },
-
-  // ----------------------------------------
   // Undo Action
   // ----------------------------------------
   {
@@ -225,6 +207,24 @@ export const sessionActions: ActionConfig<Session>[] = [
       endpoint: '/api/sessions/{id}/undo',
     },
     confirmMessage: 'Revert to previous status?',
+  },
+
+  // ----------------------------------------
+  // Edit Action (always last)
+  // ----------------------------------------
+  {
+    id: 'edit',
+    label: 'Edit Session',
+    shortLabel: 'Edit',
+    icon: Pencil,
+    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    isVisible: () => true,
+    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    api: {
+      enabled: true, // Handled specially - opens modal
+      method: 'PATCH',
+      endpoint: '/api/sessions/{id}',
+    },
   },
 ];
 
