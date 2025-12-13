@@ -137,6 +137,14 @@ export function SessionActionButtons({
     return true;
   });
 
+  // Check if session has CW/HW exercises (for active indicator)
+  const hasCW = session.exercises?.some(
+    (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  ) ?? false;
+  const hasHW = session.exercises?.some(
+    (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
+  ) ?? false;
+
   if (visibleActions.length === 0) return null;
 
   const handleClick = (
@@ -174,6 +182,8 @@ export function SessionActionButtons({
           const label = showLabels
             ? action.shortLabel || action.label
             : undefined;
+          // Check if this action has active content (CW/HW assigned)
+          const isActive = action.id === "cw" ? hasCW : action.id === "hw" ? hasHW : false;
 
           return (
             <button
@@ -185,7 +195,8 @@ export function SessionActionButtons({
                 sizeClasses[size],
                 isEnabled
                   ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
-                  : cn(action.colorClass, "cursor-not-allowed opacity-50")
+                  : cn(action.colorClass, "cursor-not-allowed opacity-50"),
+                isActive && "ring-1 ring-green-400 ring-offset-1"
               )}
               title={isEnabled ? action.label : "Coming soon"}
             >

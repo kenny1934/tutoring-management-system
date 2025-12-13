@@ -24,6 +24,7 @@ import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
+import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
@@ -55,6 +56,7 @@ export default function SessionDetailPage() {
 
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -153,13 +155,13 @@ export default function SessionDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <ChalkboardHeader session={session} />
+            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} />
           </div>
         </div>
 
         {/* Mobile: Full-width chalkboard */}
         <div className="sm:hidden">
-          <ChalkboardHeader session={session} />
+          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} />
         </div>
       </div>
 
@@ -377,6 +379,17 @@ export default function SessionDetailPage() {
       })()}
 
     </PageTransition>
+
+      {/* Edit Session Modal */}
+      <EditSessionModal
+        session={session}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={(sessionId, updates) => {
+          console.log("Session saved:", sessionId, updates);
+          setIsEditModalOpen(false);
+        }}
+      />
     </DeskSurface>
   );
 }
