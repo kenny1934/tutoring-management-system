@@ -18,6 +18,8 @@ import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
 import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 
 // Muted dusty chalk palette (top-down view colors)
 const CHALK_PALETTE = {
@@ -153,6 +155,8 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get visible actions for this session
@@ -175,6 +179,22 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
     // Special handling for edit action
     if (action.id === 'edit') {
       onEdit?.();
+      return;
+    }
+
+    // Special handling for CW/HW actions - open exercise modal
+    if (action.id === 'cw') {
+      setExerciseModalType("CW");
+      return;
+    }
+    if (action.id === 'hw') {
+      setExerciseModalType("HW");
+      return;
+    }
+
+    // Special handling for rate action - open rate modal
+    if (action.id === 'rate') {
+      setIsRateModalOpen(true);
       return;
     }
 
@@ -292,7 +312,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={action.id !== 'edit' && !action.api.enabled}
+              disabled={!['edit', 'cw', 'hw', 'rate'].includes(action.id) && !action.api.enabled}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : undefined}
             />
@@ -653,6 +673,23 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
         animate={{ opacity: [0, 0.12, 0.08, 0] }}
         transition={{ delay: 0.8, duration: 2.2, ease: [0.42, 1.15, 0.30, 1.00] }}
         className="hidden sm:block absolute top-5 right-48 w-20 h-8 bg-white/8 rounded-full blur-md transform rotate-6"
+      />
+
+      {/* Exercise Modal for CW/HW */}
+      {exerciseModalType && (
+        <ExerciseModal
+          session={session}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
+
+      {/* Rate Session Modal */}
+      <RateSessionModal
+        session={session}
+        isOpen={isRateModalOpen}
+        onClose={() => setIsRateModalOpen(false)}
       />
     </motion.div>
   );
