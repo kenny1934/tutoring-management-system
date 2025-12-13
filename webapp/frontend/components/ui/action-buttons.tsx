@@ -6,6 +6,8 @@ import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 
 // Size configurations for buttons
 const sizeClasses = {
@@ -129,6 +131,8 @@ export function SessionActionButtons({
   className,
 }: SessionActionButtonsProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
 
   // Filter actions by visibility and optionally by role
   const visibleActions = sessionActions.filter((action) => {
@@ -159,6 +163,22 @@ export function SessionActionButtons({
       return;
     }
 
+    // Special handling for CW/HW actions - open exercise modal
+    if (action.id === "cw") {
+      setExerciseModalType("CW");
+      return;
+    }
+    if (action.id === "hw") {
+      setExerciseModalType("HW");
+      return;
+    }
+
+    // Special handling for rate action - open rate modal
+    if (action.id === "rate") {
+      setIsRateModalOpen(true);
+      return;
+    }
+
     if (!action.api.enabled) {
       return;
     }
@@ -177,8 +197,8 @@ export function SessionActionButtons({
       <div className={cn("flex flex-wrap gap-1.5", className)}>
         {visibleActions.map((action) => {
           const Icon = action.icon;
-          // Edit action is always enabled (opens modal)
-          const isEnabled = action.id === "edit" || action.api.enabled;
+          // Edit, CW, HW, Rate actions are always enabled (open modals)
+          const isEnabled = ["edit", "cw", "hw", "rate"].includes(action.id) || action.api.enabled;
           const label = showLabels
             ? action.shortLabel || action.label
             : undefined;
@@ -213,6 +233,23 @@ export function SessionActionButtons({
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSave={handleSave}
+      />
+
+      {/* Exercise Modal for CW/HW */}
+      {exerciseModalType && (
+        <ExerciseModal
+          session={session}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
+
+      {/* Rate Session Modal */}
+      <RateSessionModal
+        session={session}
+        isOpen={isRateModalOpen}
+        onClose={() => setIsRateModalOpen(false)}
       />
     </>
   );
