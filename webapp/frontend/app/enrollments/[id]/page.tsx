@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useEnrollment, useEnrollmentSessions } from "@/lib/hooks";
+import { useEnrollment, useEnrollmentSessions, usePageTitle } from "@/lib/hooks";
 import type { Session, Enrollment } from "@/types";
 import Link from "next/link";
 import {
@@ -50,12 +50,17 @@ export default function EnrollmentDetailPage() {
 
   const [isMobile, setIsMobile] = useState(false);
 
+  // Fetch enrollment data
+  const { data: enrollment, error: enrollmentError, isLoading: enrollmentLoading } = useEnrollment(enrollmentId);
+
+  // Dynamic page title
+  usePageTitle(
+    enrollment ? `Enrollment #${enrollment.id}` : "Loading..."
+  );
+
   // Session popover state
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [sessionClickPosition, setSessionClickPosition] = useState<{ x: number; y: number } | null>(null);
-
-  // Fetch enrollment data
-  const { data: enrollment, error: enrollmentError, isLoading: enrollmentLoading } = useEnrollment(enrollmentId);
 
   // Fetch sessions for this enrollment
   const { data: enrollmentSessions = [], isLoading: sessionsLoading } = useEnrollmentSessions(enrollmentId);

@@ -6,13 +6,14 @@ import { useSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder } from "@/lib/session-status";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
 import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session } from "@/types";
 
 // Format today's date as YYYY-MM-DD
@@ -44,6 +45,10 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
 // Strip honorific prefixes for tutor name sorting
 const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
+// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
+const canBeMarked = (session: Session): boolean =>
+  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
+
 interface TodaySessionsCardProps {
   className?: string;
   isMobile?: boolean;
@@ -61,6 +66,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
+  const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
 
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
@@ -190,6 +196,19 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
       }
     };
   }, [sessions]);
+
+  // Compute which bulk actions are available based on selected sessions
+  const selectedSessions = useMemo(() =>
+    sessions.filter(s => selectedIds.has(s.id)),
+    [sessions, selectedIds]
+  );
+
+  const bulkActionsAvailable = useMemo(() => ({
+    attended: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+  }), [selectedSessions]);
 
   // Bulk selection handlers
   const toggleSelect = useCallback((id: number) => {
@@ -333,31 +352,66 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {selectedIds.size} selected
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Attendance actions - conditional based on selected sessions */}
+              {bulkActionsAvailable.attended && (
+                <button
+                  disabled
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
+                  title="Coming soon"
+                >
+                  <CheckCheck className="h-3 w-3" />
+                  <span className="hidden xs:inline">Attended</span>
+                </button>
+              )}
+              {bulkActionsAvailable.noShow && (
+                <button
+                  disabled
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
+                  title="Coming soon"
+                >
+                  <UserX className="h-3 w-3" />
+                  <span className="hidden xs:inline">No Show</span>
+                </button>
+              )}
+              {bulkActionsAvailable.reschedule && (
+                <button
+                  disabled
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                  title="Coming soon"
+                >
+                  <CalendarClock className="h-3 w-3" />
+                  <span className="hidden xs:inline">Reschedule</span>
+                </button>
+              )}
+              {bulkActionsAvailable.sickLeave && (
+                <button
+                  disabled
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                  title="Coming soon"
+                >
+                  <Ambulance className="h-3 w-3" />
+                  <span className="hidden xs:inline">Sick</span>
+                </button>
+              )}
+              {/* Exercise actions - always visible */}
               <button
-                disabled
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
-                title="Coming soon"
-              >
-                <CheckCheck className="h-3 w-3" />
-                <span className="hidden xs:inline">Attended</span>
-              </button>
-              <button
-                disabled
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 cursor-not-allowed opacity-50"
-                title="Coming soon"
+                onClick={() => setBulkExerciseType("CW")}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                title="Assign Classwork"
               >
                 <PenTool className="h-3 w-3" />
                 <span className="hidden xs:inline">CW</span>
               </button>
               <button
-                disabled
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 cursor-not-allowed opacity-50"
-                title="Coming soon"
+                onClick={() => setBulkExerciseType("HW")}
+                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                title="Assign Homework"
               >
                 <Home className="h-3 w-3" />
                 <span className="hidden xs:inline">HW</span>
               </button>
+              {/* Clear button - always visible */}
               <button
                 onClick={clearSelection}
                 className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -401,6 +455,16 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
           isOpen={!!popoverSession}
           onClose={() => setPopoverSession(null)}
           clickPosition={clickPosition}
+        />
+      )}
+
+      {/* Bulk Exercise Modal */}
+      {bulkExerciseType && (
+        <BulkExerciseModal
+          sessions={selectedSessions}
+          exerciseType={bulkExerciseType}
+          isOpen={true}
+          onClose={() => setBulkExerciseType(null)}
         />
       )}
     </div>

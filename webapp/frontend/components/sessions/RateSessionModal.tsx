@@ -158,15 +158,15 @@ export function RateSessionModal({
           </div>
         </div>
 
-        {/* Session Notes */}
+        {/* Comments */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Session Notes
+            Comments
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add session notes..."
+            placeholder="Add comments..."
             rows={4}
             className={cn(inputClass, "resize-none")}
           />

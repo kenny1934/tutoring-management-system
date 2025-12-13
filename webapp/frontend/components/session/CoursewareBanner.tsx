@@ -37,7 +37,7 @@ export function CoursewareBanner({ title, className }: CoursewareBannerProps) {
         ease: [0.38, 1.21, 0.22, 1.0],
       }}
       className={cn(
-        "absolute top-4 sm:top-6 lg:top-8 left-4 sm:left-12 lg:left-20 z-10 inline-block px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 rounded-t-lg",
+        "absolute -top-2 sm:-top-1 lg:top-0 left-4 sm:left-12 lg:left-20 z-10 inline-block px-3 sm:px-4 lg:px-6 py-1.5 sm:py-2 rounded-t-lg",
         className
       )}
       style={{

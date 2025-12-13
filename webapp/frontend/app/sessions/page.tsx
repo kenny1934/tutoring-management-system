@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useState, useMemo, useRef } from "react";
-import { useSessions, useTutors } from "@/lib/hooks";
+import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useSessions, useTutors, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, PenTool, Home } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -19,6 +19,7 @@ import { DailyGridView } from "@/components/sessions/DailyGridView";
 import { MonthlyCalendarView } from "@/components/sessions/MonthlyCalendarView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
 
@@ -39,10 +40,16 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
   return GRADE_COLORS[key] || "#e5e7eb"; // fallback to gray-200
 };
 
+// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
+const canBeMarked = (session: Session): boolean =>
+  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
+
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 
 export default function SessionsPage() {
+  usePageTitle("Sessions");
+
   const { selectedLocation } = useLocation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,8 +59,12 @@ export default function SessionsPage() {
     const dateParam = searchParams.get('date');
     return dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
   });
-  const [statusFilter, setStatusFilter] = useState("");
-  const [tutorFilter, setTutorFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(() => {
+    return searchParams.get('status') || "";
+  });
+  const [tutorFilter, setTutorFilter] = useState(() => {
+    return searchParams.get('tutor') || "";
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const param = searchParams.get('view');
@@ -92,6 +103,10 @@ export default function SessionsPage() {
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
 
@@ -111,6 +126,10 @@ export default function SessionsPage() {
   // Use callback ref (setState) so effect re-runs when element mounts
   const [toolbarElement, setToolbarElement] = useState<HTMLDivElement | null>(null);
   const [toolbarHeight, setToolbarHeight] = useState(52);
+
+  // Bulk action bar height tracking
+  const [bulkActionBarElement, setBulkActionBarElement] = useState<HTMLDivElement | null>(null);
+  const [bulkActionBarHeight, setBulkActionBarHeight] = useState(0);
 
   // Scroll container ref for position restoration
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -142,6 +161,25 @@ export default function SessionsPage() {
     };
   }, [viewMode, toolbarElement]);
 
+  // Track bulk action bar height changes
+  useLayoutEffect(() => {
+    if (!bulkActionBarElement) {
+      setBulkActionBarHeight(0);
+      return;
+    }
+
+    const updateHeight = () => {
+      setBulkActionBarHeight(bulkActionBarElement.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(bulkActionBarElement);
+
+    return () => resizeObserver.disconnect();
+  }, [bulkActionBarElement]);
+
   // Detect mobile device for performance optimization
   useEffect(() => {
     const checkMobile = () => {
@@ -157,9 +195,11 @@ export default function SessionsPage() {
     const params = new URLSearchParams();
     params.set('view', viewMode);
     params.set('date', toDateString(selectedDate));
+    if (statusFilter) params.set('status', statusFilter);
+    if (tutorFilter) params.set('tutor', tutorFilter);
 
     router.replace(`/sessions?${params.toString()}`, { scroll: false });
-  }, [viewMode, selectedDate, router]);
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, router]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
@@ -291,6 +331,58 @@ export default function SessionsPage() {
       getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
     );
   }, [tutors, selectedLocation]);
+
+  // Bulk selection computations
+  const allSessionIds = useMemo(() => sessions.map(s => s.id), [sessions]);
+
+  const selectedSessions = useMemo(() =>
+    sessions.filter(s => selectedIds.has(s.id)),
+    [sessions, selectedIds]
+  );
+
+  const bulkActionsAvailable = useMemo(() => ({
+    attended: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+  }), [selectedSessions]);
+
+  // Bulk selection handlers
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      if (prev.size === allSessionIds.length) {
+        return new Set();
+      }
+      return new Set(allSessionIds);
+    });
+  }, [allSessionIds]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
+  const hasSelection = selectedIds.size > 0;
+
+  // Calculate sticky top for time slot headers (accounts for bulk action bar when visible)
+  const timeSlotStickyTop = toolbarHeight + (hasSelection ? bulkActionBarHeight : 0);
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
 
   if (loading) {
     return (
@@ -549,7 +641,7 @@ export default function SessionsPage() {
       {/* Title */}
       <div className="flex items-center gap-2">
         <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-        <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Schedule</h1>
+        <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Sessions</h1>
       </div>
 
       <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
@@ -609,6 +701,21 @@ export default function SessionsPage() {
 
       <div className="flex-1" />
 
+      {/* Select All checkbox (only in list view) */}
+      {viewMode === "list" && sessions.length > 0 && (
+        <button
+          onClick={toggleSelectAll}
+          className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+        >
+          {isAllSelected ? (
+            <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+          ) : (
+            <Square className="h-3.5 w-3.5" />
+          )}
+          <span className="hidden sm:inline">Select All</span>
+        </button>
+      )}
+
       {/* Session count */}
       <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
         {sessions.length} sessions
@@ -637,6 +744,85 @@ export default function SessionsPage() {
               </div>
             </div>
 
+            {/* Bulk Action Bar - appears when selections exist */}
+            {hasSelection && (
+              <div ref={setBulkActionBarElement} className="sticky z-25 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2" style={{ top: toolbarHeight }}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {selectedIds.size} selected
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Attendance actions - conditional based on selected sessions */}
+                    {bulkActionsAvailable.attended && (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
+                        title="Coming soon"
+                      >
+                        <CheckCheck className="h-3 w-3" />
+                        <span className="hidden xs:inline">Attended</span>
+                      </button>
+                    )}
+                    {bulkActionsAvailable.noShow && (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
+                        title="Coming soon"
+                      >
+                        <UserX className="h-3 w-3" />
+                        <span className="hidden xs:inline">No Show</span>
+                      </button>
+                    )}
+                    {bulkActionsAvailable.reschedule && (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                        title="Coming soon"
+                      >
+                        <CalendarClock className="h-3 w-3" />
+                        <span className="hidden xs:inline">Reschedule</span>
+                      </button>
+                    )}
+                    {bulkActionsAvailable.sickLeave && (
+                      <button
+                        disabled
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                        title="Coming soon"
+                      >
+                        <Ambulance className="h-3 w-3" />
+                        <span className="hidden xs:inline">Sick</span>
+                      </button>
+                    )}
+                    {/* Exercise actions - always visible */}
+                    <button
+                      onClick={() => setBulkExerciseType("CW")}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                      title="Assign Classwork"
+                    >
+                      <PenTool className="h-3 w-3" />
+                      <span className="hidden xs:inline">CW</span>
+                    </button>
+                    <button
+                      onClick={() => setBulkExerciseType("HW")}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                      title="Assign Homework"
+                    >
+                      <Home className="h-3 w-3" />
+                      <span className="hidden xs:inline">HW</span>
+                    </button>
+                    {/* Clear button - always visible */}
+                    <button
+                      onClick={clearSelection}
+                      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    >
+                      <X className="h-3 w-3" />
+                      <span className="hidden xs:inline">Clear</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* List view content */}
             {groupedSessions.length === 0 ? (
               <div className="flex justify-center py-12">
@@ -656,7 +842,7 @@ export default function SessionsPage() {
                   <React.Fragment key={timeSlot}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div className="sticky z-20 mb-4" style={{ top: toolbarHeight }}>
+                    <div className="sticky z-20 mb-4" style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
@@ -731,13 +917,26 @@ export default function SessionsPage() {
                               className={cn(
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
-                                !isMobile && "paper-texture"
+                                !isMobile && "paper-texture",
+                                selectedIds.has(session.id) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
                               )}
                               style={{
                                 transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
                                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                               }}
                             >
+                              {/* Checkbox for bulk selection */}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
+                                className="flex-shrink-0 p-2 sm:p-3 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                {selectedIds.has(session.id) ? (
+                                  <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                                ) : (
+                                  <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+                                )}
+                              </button>
+
                               {/* Main content */}
                               <div className="flex-1 p-3 sm:p-4 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
@@ -844,85 +1043,6 @@ export default function SessionsPage() {
                     </AnimatePresence>
                   </React.Fragment>
                 ))}
-
-                {/* Quick Stats - Report Card Style */}
-                {groupedSessions.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: isMobile ? 0.4 : 0.3 + groupedSessions.length * 0.05,
-                      duration: isMobile ? 0.3 : 0.5,
-                      ease: [0.38, 1.21, 0.22, 1.00]
-                    }}
-                    className={cn(
-                      "relative bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 border-4 border-amber-400 dark:border-amber-600 rounded-lg p-4 sm:p-6 desk-shadow-medium",
-                      !isMobile && "paper-texture"
-                    )}
-                    style={{ transform: isMobile ? 'none' : 'rotate(0.3deg)' }}
-                  >
-                    {/* Paper texture overlay - hidden on mobile */}
-                    {!isMobile && (
-                      <div
-                        className="absolute inset-0 opacity-10 pointer-events-none rounded-lg"
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23paper)' opacity='0.5'/%3E%3C/svg%3E")`,
-                        }}
-                      />
-                    )}
-
-                    {/* Header */}
-                    <div className="relative mb-4 sm:mb-6">
-                      <h3 className="text-lg sm:text-xl font-bold text-amber-900 dark:text-amber-100 uppercase tracking-wide text-center">
-                        Session Summary
-                      </h3>
-                      <p className="text-center text-xs sm:text-sm text-amber-700 dark:text-amber-300 mt-1">
-                        {selectedDate.toLocaleDateString('en-US', {
-                          weekday: isMobile ? 'short' : 'long',
-                          year: 'numeric',
-                          month: isMobile ? 'short' : 'long',
-                          day: 'numeric'
-                        })}
-                      </p>
-                    </div>
-
-                    {/* Stats Grid */}
-                    <div className="relative grid gap-3 sm:gap-6 grid-cols-3">
-                      {/* Total Sessions */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                          Total
-                        </p>
-                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                          {sessions.length}
-                        </p>
-                      </div>
-
-                      {/* Time Slots */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                          Slots
-                        </p>
-                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                          {groupedSessions.length}
-                        </p>
-                      </div>
-
-                      {/* Average per Slot */}
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 border-2 border-amber-300 dark:border-amber-700 text-center">
-                        <p className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1 sm:mb-2">
-                          Average
-                        </p>
-                        <p className="text-2xl sm:text-4xl font-bold text-[#a0704b] dark:text-[#cd853f]">
-                          {(sessions.length / groupedSessions.length).toFixed(1)}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Corner fold */}
-                    <div className="absolute top-0 right-0 w-0 h-0 border-t-[30px] border-t-amber-600 dark:border-t-amber-700 border-l-[30px] border-l-transparent" />
-                  </motion.div>
-                )}
               </>
             )}
           </div>
@@ -937,6 +1057,16 @@ export default function SessionsPage() {
             clickPosition={popoverClickPosition}
             tutorFilter={tutorFilter}
             onNavigate={saveScrollPosition}
+          />
+        )}
+
+        {/* Bulk Exercise Modal */}
+        {bulkExerciseType && (
+          <BulkExerciseModal
+            sessions={selectedSessions}
+            exerciseType={bulkExerciseType}
+            isOpen={true}
+            onClose={() => setBulkExerciseType(null)}
           />
         )}
       </DeskSurface>

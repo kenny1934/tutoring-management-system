@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor
-from schemas import StudentResponse, StudentDetailResponse
+from schemas import StudentResponse, StudentDetailResponse, StudentUpdate
 
 router = APIRouter()
 
@@ -132,3 +132,23 @@ async def get_student_detail(
     for i, enrollment in enumerate(student.enrollments):
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
     return response
+
+
+@router.patch("/students/{student_id}", response_model=StudentResponse)
+async def update_student(
+    student_id: int,
+    student_update: StudentUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update a student's information."""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail=f"Student {student_id} not found")
+
+    update_data = student_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+
+    db.commit()
+    db.refresh(student)
+    return student

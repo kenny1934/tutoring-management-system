@@ -1,0 +1,136 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+// Format date to YYYY-MM-DD
+const toDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Get the start of the week (Sunday)
+const getWeekStart = (baseDate: Date, weekOffset: number = 0): Date => {
+  const d = new Date(baseDate);
+  // Move to Sunday of current week
+  d.setDate(d.getDate() - d.getDay());
+  // Apply week offset
+  d.setDate(d.getDate() + weekOffset * 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+// Get an array of 7 days starting from Sunday
+const getWeekDays = (weekOffset: number = 0): Date[] => {
+  const start = getWeekStart(new Date(), weekOffset);
+  const days: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  return days;
+};
+
+// Format week range for header (e.g., "Dec 8 - 14")
+const formatWeekRange = (days: Date[]): string => {
+  const start = days[0];
+  const end = days[6];
+  const startMonth = start.toLocaleDateString('en-US', { month: 'short' });
+  const endMonth = end.toLocaleDateString('en-US', { month: 'short' });
+
+  if (startMonth === endMonth) {
+    return `${startMonth} ${start.getDate()} - ${end.getDate()}`;
+  }
+  return `${startMonth} ${start.getDate()} - ${endMonth} ${end.getDate()}`;
+};
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+interface WeeklyMiniCalendarProps {
+  className?: string;
+}
+
+export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
+  const today = toDateString(new Date());
+
+  const goToPrevWeek = () => setWeekOffset(prev => prev - 1);
+  const goToNextWeek = () => setWeekOffset(prev => prev + 1);
+  const goToThisWeek = () => setWeekOffset(0);
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      {/* Header with navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={goToPrevWeek}
+          className="p-1 hover:bg-foreground/10 rounded transition-colors"
+          aria-label="Previous week"
+        >
+          <ChevronLeft className="h-3.5 w-3.5 text-foreground/60" />
+        </button>
+        <button
+          onClick={goToThisWeek}
+          className={cn(
+            "text-xs font-semibold transition-colors",
+            weekOffset === 0
+              ? "text-primary"
+              : "text-foreground/70 hover:text-foreground"
+          )}
+        >
+          {formatWeekRange(weekDays)}
+        </button>
+        <button
+          onClick={goToNextWeek}
+          className="p-1 hover:bg-foreground/10 rounded transition-colors"
+          aria-label="Next week"
+        >
+          <ChevronRight className="h-3.5 w-3.5 text-foreground/60" />
+        </button>
+      </div>
+
+      {/* Week days */}
+      <div className="flex justify-between gap-1">
+        {weekDays.map((day, i) => {
+          const dateStr = toDateString(day);
+          const isToday = dateStr === today;
+
+          return (
+            <Link
+              key={dateStr}
+              href={`/sessions?date=${dateStr}`}
+              className={cn(
+                "flex-1 flex flex-col items-center py-1.5 px-0.5 rounded-lg transition-all",
+                "hover:bg-foreground/10 hover:scale-105 active:scale-95",
+                isToday && "bg-primary/10 ring-1 ring-primary/30"
+              )}
+              title={day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            >
+              {/* Day label */}
+              <span className={cn(
+                "text-[10px] font-semibold",
+                isToday ? "text-primary" : "text-foreground/60"
+              )}>
+                {DAY_LABELS[i]}
+              </span>
+
+              {/* Date number */}
+              <span className={cn(
+                "text-xs font-bold mt-0.5",
+                isToday ? "text-primary" : "text-foreground/80"
+              )}>
+                {day.getDate()}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
