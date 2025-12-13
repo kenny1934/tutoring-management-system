@@ -6,7 +6,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ExternalLink, HandCoins } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -91,6 +91,21 @@ export default function SessionsPage() {
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Collapse state for time slot groups
+  const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
+
+  const toggleSlot = (timeSlot: string) => {
+    setCollapsedSlots(prev => {
+      const next = new Set(prev);
+      if (next.has(timeSlot)) {
+        next.delete(timeSlot);
+      } else {
+        next.add(timeSlot);
+      }
+      return next;
+    });
+  };
 
   // Toolbar height tracking for dynamic sticky offset
   // Use callback ref (setState) so effect re-runs when element mounts
@@ -241,11 +256,9 @@ export default function SessionsPage() {
           const priorityB = getPriority(b);
           if (priorityA !== priorityB) return priorityA - priorityB;
 
-          // Within same priority (especially main group), sort by school then student_id
-          if (priorityA <= 2) {
-            const schoolCompare = (a.school || '').localeCompare(b.school || '');
-            if (schoolCompare !== 0) return schoolCompare;
-          }
+          // Within same priority, sort by school then student_id
+          const schoolCompare = (a.school || '').localeCompare(b.school || '');
+          if (schoolCompare !== 0) return schoolCompare;
           return (a.school_student_id || '').localeCompare(b.school_student_id || '');
         });
 
@@ -641,12 +654,13 @@ export default function SessionsPage() {
               <>
                 {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
                   <React.Fragment key={timeSlot}>
-                    {/* Time Slot Header - Index Card Style */}
+                    {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
                     <div className="sticky z-20 mb-4" style={{ top: toolbarHeight }}>
                       <div
+                        onClick={() => toggleSlot(timeSlot)}
                         className={cn(
-                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low",
+                          "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
                           !isMobile && "paper-texture"
                         )}
                         style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
@@ -659,6 +673,12 @@ export default function SessionsPage() {
                             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                               {timeSlot}
                             </h3>
+                            <motion.div
+                              animate={{ rotate: collapsedSlots.has(timeSlot) ? -90 : 0 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                            </motion.div>
                           </div>
                           <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
                             {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
@@ -667,9 +687,18 @@ export default function SessionsPage() {
                       </div>
                     </div>
 
-                    {/* Session Cards */}
-                    <div className="space-y-3 ml-0 sm:ml-4">
-                      {sessionsInSlot.map((session, sessionIndex) => {
+                    {/* Session Cards (Collapsible) */}
+                    <AnimatePresence initial={false}>
+                      {!collapsedSlots.has(timeSlot) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                          className="overflow-hidden"
+                        >
+                          <div className="space-y-3 ml-0 sm:ml-4">
+                            {sessionsInSlot.map((session, sessionIndex) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
                         const StatusIcon = statusConfig.Icon;
@@ -808,8 +837,11 @@ export default function SessionsPage() {
                             </motion.div>
                           </div>
                         );
-                      })}
-                    </div>
+                            })}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </React.Fragment>
                 ))}
 
