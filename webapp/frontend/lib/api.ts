@@ -69,6 +69,13 @@ export const studentsAPI = {
   getSchools: () => {
     return fetchAPI<string[]>("/students/schools");
   },
+
+  update: (id: number, data: Partial<Student>) => {
+    return fetchAPI<Student>(`/students/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // Enrollments API

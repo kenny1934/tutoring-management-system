@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
-import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session, Tutor } from "@/types";
 import {
   toDateString,
@@ -59,6 +60,10 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
   const key = `${grade || ""}${langStream || ""}`;
   return GRADE_COLORS[key] || "#e5e7eb";
 };
+
+// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
+const canBeMarked = (session: Session): boolean =>
+  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -480,6 +485,50 @@ function DayPopover({
   const { date, sessions } = dayData;
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+
+  const selectedSessions = useMemo(() =>
+    sessions.filter(s => selectedIds.has(s.id)),
+    [sessions, selectedIds]
+  );
+
+  const bulkActionsAvailable = useMemo(() => ({
+    attended: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+  }), [selectedSessions]);
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      if (prev.size === sessions.length) {
+        return new Set();
+      }
+      return new Set(sessions.map(s => s.id));
+    });
+  }, [sessions]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const isAllSelected = selectedIds.size === sessions.length && sessions.length > 0;
+  const hasSelection = selectedIds.size > 0;
+
   // Group sessions by time slot for list view
   const sessionsByTimeSlot = useMemo(() => {
     return groupSessionsByTimeSlot(sessions);
@@ -541,6 +590,20 @@ function DayPopover({
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1.5 py-0.5 rounded">
               {sessions.length} sessions
             </span>
+            {/* Select All button */}
+            {tab === "list" && sessions.length > 0 && (
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 ml-1"
+              >
+                {isAllSelected ? (
+                  <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                <span className="hidden sm:inline">All</span>
+              </button>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -580,6 +643,85 @@ function DayPopover({
           </button>
         </div>
 
+        {/* Bulk Action Bar - appears when selections exist */}
+        {hasSelection && tab === "list" && (
+          <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Attendance actions - conditional based on selected sessions */}
+                {bulkActionsAvailable.attended && (
+                  <button
+                    disabled
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
+                    title="Coming soon"
+                  >
+                    <CheckCheck className="h-3 w-3" />
+                    <span className="hidden xs:inline">Attended</span>
+                  </button>
+                )}
+                {bulkActionsAvailable.noShow && (
+                  <button
+                    disabled
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
+                    title="Coming soon"
+                  >
+                    <UserX className="h-3 w-3" />
+                    <span className="hidden xs:inline">No Show</span>
+                  </button>
+                )}
+                {bulkActionsAvailable.reschedule && (
+                  <button
+                    disabled
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                    title="Coming soon"
+                  >
+                    <CalendarClock className="h-3 w-3" />
+                    <span className="hidden xs:inline">Reschedule</span>
+                  </button>
+                )}
+                {bulkActionsAvailable.sickLeave && (
+                  <button
+                    disabled
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
+                    title="Coming soon"
+                  >
+                    <Ambulance className="h-3 w-3" />
+                    <span className="hidden xs:inline">Sick</span>
+                  </button>
+                )}
+                {/* Exercise actions - always visible */}
+                <button
+                  onClick={() => setBulkExerciseType("CW")}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                  title="Assign Classwork"
+                >
+                  <PenTool className="h-3 w-3" />
+                  <span className="hidden xs:inline">CW</span>
+                </button>
+                <button
+                  onClick={() => setBulkExerciseType("HW")}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                  title="Assign Homework"
+                >
+                  <Home className="h-3 w-3" />
+                  <span className="hidden xs:inline">HW</span>
+                </button>
+                {/* Clear button - always visible */}
+                <button
+                  onClick={clearSelection}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <X className="h-3 w-3" />
+                  <span className="hidden xs:inline">Clear</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         <div className="overflow-y-auto" style={{ maxHeight: isMobile ? "calc(80vh - 180px)" : "calc(70vh - 180px)" }}>
           {tab === "list" ? (
@@ -588,6 +730,8 @@ function DayPopover({
               sessionsByTimeSlot={sessionsByTimeSlot}
               setOpenSessionId={setOpenSessionId}
               setPopoverClickPosition={setPopoverClickPosition}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
             />
           ) : (
             <GridView
@@ -613,6 +757,16 @@ function DayPopover({
             />
           );
         })()}
+
+        {/* Bulk Exercise Modal */}
+        {bulkExerciseType && (
+          <BulkExerciseModal
+            sessions={selectedSessions}
+            exerciseType={bulkExerciseType}
+            isOpen={true}
+            onClose={() => setBulkExerciseType(null)}
+          />
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
@@ -646,9 +800,11 @@ interface ListViewProps {
   sessionsByTimeSlot: Map<string, Session[]>;
   setOpenSessionId: (id: number | null) => void;
   setPopoverClickPosition: (pos: { x: number; y: number } | null) => void;
+  selectedIds: Set<number>;
+  onToggleSelect: (id: number) => void;
 }
 
-function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPopoverClickPosition }: ListViewProps) {
+function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPopoverClickPosition, selectedIds, onToggleSelect }: ListViewProps) {
   // Sort sessions within each slot using main sessions page logic
   const getSortedSlotSessions = (sessions: Session[]) => {
     // Group by tutor
@@ -740,6 +896,11 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
                       onClick={(e) => {
                         setPopoverClickPosition({ x: e.clientX, y: e.clientY });
                         setOpenSessionId(session.id);
+                      }}
+                      isSelected={selectedIds.has(session.id)}
+                      onToggleSelect={(e) => {
+                        e.stopPropagation();
+                        onToggleSelect(session.id);
                       }}
                     />
                   </div>
@@ -922,9 +1083,11 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
 interface SessionCardProps {
   session: Session;
   onClick: (e: React.MouseEvent) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (e: React.MouseEvent) => void;
 }
 
-function SessionCard({ session, onClick }: SessionCardProps) {
+function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCardProps) {
   const { selectedLocation } = useLocation();
   const config = getSessionStatusConfig(getDisplayStatus(session));
   const StatusIcon = config.Icon;
@@ -933,13 +1096,28 @@ function SessionCard({ session, onClick }: SessionCardProps) {
     <div
       onClick={onClick}
       className={cn(
-        "relative flex items-center gap-2 pl-2 pr-7 py-1.5 rounded-md cursor-pointer transition-all overflow-hidden",
+        "relative flex items-center gap-2 pr-7 py-1.5 rounded-md cursor-pointer transition-all overflow-hidden",
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "hover:shadow-md hover:scale-[1.01]",
-        config.bgTint
+        config.bgTint,
+        isSelected && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
       )}
       style={{ borderLeftWidth: 3 }}
     >
+      {/* Checkbox for bulk selection */}
+      {onToggleSelect && (
+        <button
+          onClick={onToggleSelect}
+          className="flex-shrink-0 p-1.5 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors rounded-l"
+        >
+          {isSelected ? (
+            <CheckSquare className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+          ) : (
+            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+          )}
+        </button>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 min-w-0">
         {/* Top Row: Student ID + Time */}

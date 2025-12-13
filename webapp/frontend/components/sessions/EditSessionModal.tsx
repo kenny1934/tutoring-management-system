@@ -450,13 +450,13 @@ export function EditSessionModal({
           </div>
         </div>
 
-        {/* Notes */}
+        {/* Comments */}
         <div>
-          <label className={labelClass}>Notes</label>
+          <label className={labelClass}>Comments</label>
           <textarea
             value={form.notes}
             onChange={(e) => updateField("notes", e.target.value)}
-            placeholder="Add session notes..."
+            placeholder="Add comments..."
             rows={3}
             className={cn(inputClass, "resize-none")}
           />

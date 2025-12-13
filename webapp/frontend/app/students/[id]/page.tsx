@@ -2,13 +2,16 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment } from "@/types";
+import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle } from "@/lib/hooks";
+import type { Session, CalendarEvent, Enrollment, Student } from "@/types";
+import { studentsAPI } from "@/lib/api";
+import { mutate } from "swr";
 import Link from "next/link";
 import {
   ArrowLeft, User, BookOpen, Calendar, FileText,
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
-  CheckCircle2, HandCoins
+  CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
+  Palette, FlaskConical, Briefcase, ChevronDown
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -28,7 +31,7 @@ import {
 } from "@floating-ui/react";
 
 // Tab types
-type TabId = "profile" | "sessions" | "tests" | "notes";
+type TabId = "profile" | "sessions" | "courseware" | "tests" | "notes";
 
 interface Tab {
   id: TabId;
@@ -39,6 +42,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "sessions", label: "Sessions", icon: Calendar },
+  { id: "courseware", label: "Courseware", icon: BookMarked },
   { id: "tests", label: "Tests", icon: BookOpen },
   { id: "notes", label: "Notes", icon: FileText },
 ];
@@ -91,6 +95,14 @@ export default function StudentDetailPage() {
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Fetch student data
+  const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
+
+  // Dynamic page title
+  usePageTitle(
+    student ? `${student.school_student_id || ''} ${student.student_name}`.trim() : "Loading..."
+  );
+
   // Update URL when tab changes (without adding to history)
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
@@ -105,9 +117,20 @@ export default function StudentDetailPage() {
   const [popoverEnrollment, setPopoverEnrollment] = useState<Enrollment | null>(null);
   const [enrollmentClickPosition, setEnrollmentClickPosition] = useState<{ x: number; y: number } | null>(null);
 
-  // Fetch student data
-  const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
+  // Edit mode state
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [isEditingAcademic, setIsEditingAcademic] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Student>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [allSchools, setAllSchools] = useState<string[]>([]);
+
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
+
+  // Fetch all schools for autocomplete
+  useEffect(() => {
+    studentsAPI.getSchools().then(setAllSchools).catch(console.error);
+  }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
   const { data: calendarEvents = [] } = useCalendarEvents(60);
 
@@ -134,6 +157,23 @@ export default function StudentDetailPage() {
     );
   }, [sessions]);
 
+  // Aggregate all exercises from sessions for courseware history
+  const coursewareHistory = useMemo(() => {
+    if (!sessions.length) return [];
+
+    return sessions
+      .filter(s => s.exercises && s.exercises.length > 0)
+      .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
+      .flatMap(session =>
+        session.exercises!.map(ex => ({
+          ...ex,
+          session_id: session.id,
+          session_date: session.session_date,
+          tutor_name: session.tutor_name,
+        }))
+      );
+  }, [sessions]);
+
   // Get active enrollments
   const activeEnrollments = useMemo(() => {
     return enrollments.filter(e =>
@@ -141,36 +181,132 @@ export default function StudentDetailPage() {
     );
   }, [enrollments]);
 
+  // Edit handlers
+  const handleEditPersonal = () => {
+    if (student) {
+      setEditForm({ ...student });
+      setIsEditingPersonal(true);
+    }
+  };
+
+  const handleEditAcademic = () => {
+    if (student) {
+      setEditForm({ ...student });
+      setIsEditingAcademic(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingPersonal(false);
+    setIsEditingAcademic(false);
+    setEditForm({});
+  };
+
+  const handleFormChange = (field: string, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!student) return;
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const updatedStudent = await studentsAPI.update(student.id, editForm);
+      // Optimistic update - set new data immediately, skip revalidation
+      mutate(['student', student.id], { ...student, ...updatedStudent }, false);
+      setIsEditingPersonal(false);
+      setIsEditingAcademic(false);
+      setEditForm({});
+    } catch (error) {
+      console.error('Failed to save student:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
+      // Don't close edit mode on error - let user fix and retry
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (studentLoading) {
     return (
       <DeskSurface fullHeight>
         <PageTransition className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Header Skeleton */}
           <div className={cn(
-            "flex items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-4 py-3",
+            "flex flex-wrap items-center gap-3 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2",
             !isMobile && "paper-texture"
           )}>
-            <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-6 w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
-            <div className="h-5 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            {/* Back button */}
+            <div className="h-8 w-8 bg-gray-300 dark:bg-gray-600 rounded-lg animate-pulse" />
+            {/* Student ID */}
+            <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            {/* Name */}
+            <div className="h-6 w-32 sm:w-40 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+            {/* Grade badge */}
+            <div className="h-5 w-12 bg-blue-100 dark:bg-blue-900/50 rounded animate-pulse" />
+            {/* School badge (hidden on mobile) */}
+            <div className="h-5 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse hidden sm:block" />
+            <div className="flex-1" />
+            {/* Enrollment count */}
+            <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
           </div>
 
-          {/* Tabs Skeleton */}
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-9 w-24 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse" />
+          {/* Tabs Skeleton - 5 tabs */}
+          <div className="flex gap-1 overflow-x-auto pb-1">
+            {[1, 2, 3, 4, 5].map(i => (
+              <div
+                key={i}
+                className={cn(
+                  "h-9 rounded-full animate-pulse",
+                  i === 1 ? "w-24 bg-[#a0704b]" : "w-24 bg-gray-200 dark:bg-gray-700"
+                )}
+              />
             ))}
           </div>
 
-          {/* Content Skeleton */}
-          <div className={cn(
-            "flex-1 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
-            !isMobile && "paper-texture"
-          )}>
-            <div className="space-y-4">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" style={{ width: `${60 + i * 10}%` }} />
-              ))}
+          {/* Content Skeleton - Profile tab style with cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Personal Info Card */}
+            <div className={cn(
+              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              !isMobile && "paper-texture"
+            )}>
+              <div className="h-5 w-28 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex justify-between">
+                    <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Academic Info Card */}
+            <div className={cn(
+              "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              !isMobile && "paper-texture"
+            )}>
+              <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex justify-between">
+                    <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                    <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Enrollments Card - spans full width */}
+            <div className={cn(
+              "lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+              !isMobile && "paper-texture"
+            )}>
+              <div className="h-5 w-36 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mb-4" />
+              <div className="space-y-3">
+                {[1, 2].map(i => (
+                  <div key={i} className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+                ))}
+              </div>
             </div>
           </div>
         </PageTransition>
@@ -291,6 +427,14 @@ export default function StudentDetailPage() {
                       {sortedSessions.length}
                     </span>
                   )}
+                  {tab.id === "courseware" && coursewareHistory.length > 0 && (
+                    <span className={cn(
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      isActive ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-600"
+                    )}>
+                      {coursewareHistory.length}
+                    </span>
+                  )}
                   {tab.id === "tests" && filteredTests.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
@@ -325,6 +469,18 @@ export default function StudentDetailPage() {
                     setPopoverEnrollment(enrollment);
                   }}
                   selectedEnrollmentId={popoverEnrollment?.id}
+                  // Edit props
+                  isEditingPersonal={isEditingPersonal}
+                  isEditingAcademic={isEditingAcademic}
+                  editForm={editForm}
+                  onEditPersonal={handleEditPersonal}
+                  onEditAcademic={handleEditAcademic}
+                  onCancelEdit={handleCancelEdit}
+                  onSave={handleSave}
+                  onFormChange={handleFormChange}
+                  isSaving={isSaving}
+                  saveError={saveError}
+                  allSchools={allSchools}
                 />
               )}
 
@@ -339,6 +495,15 @@ export default function StudentDetailPage() {
                     setPopoverSession(session);
                   }}
                   selectedSessionId={popoverSession?.id}
+                />
+              )}
+
+              {/* Courseware Tab */}
+              {activeTab === "courseware" && (
+                <CoursewareTab
+                  coursewareHistory={coursewareHistory}
+                  loading={sessionsLoading}
+                  isMobile={isMobile}
                 />
               )}
 
@@ -381,52 +546,186 @@ export default function StudentDetailPage() {
 }
 
 // Profile Tab Component
+const GRADE_OPTIONS = [
+  { value: "F1", label: "F1" },
+  { value: "F2", label: "F2" },
+  { value: "F3", label: "F3" },
+  { value: "F4", label: "F4" },
+  { value: "F5", label: "F5" },
+  { value: "F6", label: "F6" },
+];
+
+const STREAM_OPTIONS = [
+  { value: "C", label: "C" },
+  { value: "E", label: "E" },
+];
+
+const ACADEMIC_STREAM_OPTIONS = [
+  { value: "Arts", label: "Arts", icon: Palette, color: "#e2b1cc" },
+  { value: "Science", label: "Science", icon: FlaskConical, color: "#cedaf5" },
+  { value: "Commerce", label: "Commerce", icon: Briefcase, color: "#fbf2d0" },
+];
+
 function ProfileTab({
   student,
   enrollments,
   isMobile,
   onEnrollmentClick,
   selectedEnrollmentId,
+  // Edit props
+  isEditingPersonal,
+  isEditingAcademic,
+  editForm,
+  onEditPersonal,
+  onEditAcademic,
+  onCancelEdit,
+  onSave,
+  onFormChange,
+  isSaving,
+  saveError,
+  allSchools,
 }: {
-  student: any;
-  enrollments: any[];
+  student: Student;
+  enrollments: Enrollment[];
   isMobile: boolean;
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
+  // Edit props
+  isEditingPersonal: boolean;
+  isEditingAcademic: boolean;
+  editForm: Partial<Student>;
+  onEditPersonal: () => void;
+  onEditAcademic: () => void;
+  onCancelEdit: () => void;
+  onSave: () => void;
+  onFormChange: (field: string, value: string) => void;
+  isSaving: boolean;
+  saveError: string | null;
+  allSchools: string[];
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
-        !isMobile && "paper-texture"
+        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 transition-all",
+        !isMobile && "paper-texture",
+        isEditingPersonal && "ring-2 ring-amber-400"
       )}>
-        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Personal Info
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Personal Info
+          </h3>
+          {isEditingPersonal ? (
+            <div className="flex items-center gap-2">
+              {saveError && (
+                <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
+                  {saveError}
+                </span>
+              )}
+              <button
+                onClick={onCancelEdit}
+                disabled={isSaving}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onSave}
+                disabled={isSaving}
+                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onEditPersonal}
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              title="Edit personal info"
+            >
+              <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
-          <InfoRow label="Name" value={student.student_name} />
-          <InfoRow label="Student ID" value={student.school_student_id} mono />
-          <InfoRow label="Phone" value={student.phone} icon={Phone} />
-          <InfoRow label="Location" value={student.home_location} icon={MapPin} />
+          {isEditingPersonal ? (
+            <>
+              <EditableInfoRow label="Name" field="student_name" value={editForm.student_name} onChange={onFormChange} required />
+              <InfoRow label="Student ID" value={student.school_student_id} mono />
+              <EditableInfoRow label="Phone" field="phone" value={editForm.phone} onChange={onFormChange} type="tel" />
+              <InfoRow label="Location" value={student.home_location} icon={MapPin} />
+            </>
+          ) : (
+            <>
+              <InfoRow label="Name" value={student.student_name} />
+              <InfoRow label="Student ID" value={student.school_student_id} mono />
+              <InfoRow label="Phone" value={student.phone} icon={Phone} />
+              <InfoRow label="Location" value={student.home_location} icon={MapPin} />
+            </>
+          )}
         </div>
       </div>
 
       {/* Academic Info Card */}
       <div className={cn(
-        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
-        !isMobile && "paper-texture"
+        "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 transition-all",
+        !isMobile && "paper-texture",
+        isEditingAcademic && "ring-2 ring-amber-400"
       )}>
-        <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-          <GraduationCap className="h-4 w-4" />
-          Academic Info
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" />
+            Academic Info
+          </h3>
+          {isEditingAcademic ? (
+            <div className="flex items-center gap-2">
+              {saveError && (
+                <span className="text-xs text-red-500 max-w-[120px] truncate" title={saveError}>
+                  {saveError}
+                </span>
+              )}
+              <button
+                onClick={onCancelEdit}
+                disabled={isSaving}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onSave}
+                disabled={isSaving}
+                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+              >
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onEditAcademic}
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              title="Edit academic info"
+            >
+              <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+            </button>
+          )}
+        </div>
         <div className="space-y-3">
-          <InfoRow label="School" value={student.school} />
-          <InfoRow label="Grade" value={student.grade} />
-          <InfoRow label="Language" value={student.lang_stream} />
-          <InfoRow label="Stream" value={student.academic_stream} />
+          {isEditingAcademic ? (
+            <>
+              <EditableInfoRow label="School" field="school" value={editForm.school} onChange={onFormChange} type="autocomplete" suggestions={allSchools} />
+              <EditableInfoRow label="Grade" field="grade" value={editForm.grade} onChange={onFormChange} type="select" options={GRADE_OPTIONS} />
+              <EditableInfoRow label="Lang Stream" field="lang_stream" value={editForm.lang_stream} onChange={onFormChange} type="select" options={STREAM_OPTIONS} />
+              <EditableInfoRow label="Acad. Stream" field="academic_stream" value={editForm.academic_stream} onChange={onFormChange} type="icon-select" iconOptions={ACADEMIC_STREAM_OPTIONS} />
+            </>
+          ) : (
+            <>
+              <InfoRow label="School" value={student.school} />
+              <InfoRow label="Grade" value={student.grade} />
+              <InfoRow label="Lang Stream" value={student.lang_stream} />
+              <InfoRow label="Acad. Stream" value={student.academic_stream} />
+            </>
+          )}
         </div>
       </div>
 
@@ -501,6 +800,186 @@ function InfoRow({ label, value, icon: Icon, mono }: { label: string; value?: st
       )}>
         {value}
       </span>
+    </div>
+  );
+}
+
+// Autocomplete Input component
+function AutocompleteInput({ value, onChange, suggestions, className }: {
+  value: string;
+  onChange: (val: string) => void;
+  suggestions: string[];
+  className: string;
+}) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const filtered = suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()));
+
+  return (
+    <div className="relative flex-1">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); setShowSuggestions(true); }}
+        onFocus={() => setShowSuggestions(true)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+        className={className}
+      />
+      {showSuggestions && filtered.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 max-h-32 overflow-y-auto bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-md shadow-lg z-10">
+          {filtered.map(s => (
+            <button
+              key={s}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(s); setShowSuggestions(false); }}
+              className="w-full px-2 py-1 text-left text-sm hover:bg-amber-50 dark:hover:bg-amber-900/20"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Icon Select component for Academic Stream
+function IconSelect({ value, onChange, options, className }: {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string; icon: React.ElementType; color: string }[];
+  className: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selected = options.find(o => o.value === value);
+
+  return (
+    <div className="relative flex-1">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+        className={cn(className, "flex items-center justify-between text-left w-full")}
+      >
+        <span className="flex items-center gap-2">
+          {selected ? (
+            <>
+              <selected.icon className="h-3.5 w-3.5" style={{ color: selected.color }} />
+              {selected.label}
+            </>
+          ) : (
+            <span className="text-gray-400">None</span>
+          )}
+        </span>
+        <ChevronDown className="h-3 w-3 text-gray-400" />
+      </button>
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 rounded-md shadow-lg z-10">
+          {/* None/clear option */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { onChange(""); setIsOpen(false); }}
+            className={cn(
+              "w-full px-2 py-1.5 text-left text-sm text-gray-400",
+              "hover:bg-amber-50 dark:hover:bg-amber-900/20",
+              !value && "bg-amber-100 dark:bg-amber-900/40"
+            )}
+          >
+            None
+          </button>
+          {options.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={cn(
+                "w-full px-2 py-1.5 text-left text-sm flex items-center gap-2",
+                "hover:bg-amber-50 dark:hover:bg-amber-900/20",
+                value === opt.value && "bg-amber-100 dark:bg-amber-900/40"
+              )}
+            >
+              <opt.icon className="h-3.5 w-3.5" style={{ color: opt.color }} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Editable Info Row helper for edit mode
+function EditableInfoRow({
+  label,
+  field,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  options,
+  suggestions,
+  iconOptions,
+}: {
+  label: string;
+  field: string;
+  value?: string;
+  onChange: (field: string, value: string) => void;
+  type?: "text" | "tel" | "select" | "autocomplete" | "icon-select";
+  required?: boolean;
+  options?: { value: string; label: string }[];
+  suggestions?: string[];
+  iconOptions?: { value: string; label: string; icon: React.ElementType; color: string }[];
+}) {
+  const inputClass = cn(
+    "flex-1 px-2 py-1 rounded border text-sm",
+    "bg-white dark:bg-gray-900",
+    "border-amber-300 dark:border-amber-700",
+    "focus:outline-none focus:ring-2 focus:ring-amber-400",
+    "transition-all"
+  );
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 flex-shrink-0">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </span>
+      {type === "autocomplete" && suggestions ? (
+        <AutocompleteInput
+          value={value || ""}
+          onChange={(val) => onChange(field, val)}
+          suggestions={suggestions}
+          className={inputClass}
+        />
+      ) : type === "icon-select" && iconOptions ? (
+        <IconSelect
+          value={value || ""}
+          onChange={(val) => onChange(field, val)}
+          options={iconOptions}
+          className={inputClass}
+        />
+      ) : type === "select" && options ? (
+        <select
+          value={value || ""}
+          onChange={(e) => onChange(field, e.target.value)}
+          className={inputClass}
+        >
+          <option value="">Select...</option>
+          {options.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={type === "autocomplete" || type === "icon-select" ? "text" : type}
+          value={value || ""}
+          onChange={(e) => onChange(field, e.target.value)}
+          className={inputClass}
+          required={required}
+        />
+      )}
     </div>
   );
 }
@@ -714,6 +1193,133 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
                 {isPast ? 'Past' : daysUntil === 0 ? 'Today' : daysUntil === 1 ? '1 day' : `${daysUntil} days`}
               </span>
             </div>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Helper to extract display name from PDF path
+const getDisplayName = (pdfName: string): string => {
+  const filename = pdfName.split(/[/\\]/).pop() || pdfName;
+  return filename.replace(/\.[^.]+$/, '');
+};
+
+// Courseware Tab Component
+interface CoursewareExercise {
+  id?: number;
+  exercise_type: string;
+  pdf_name: string;
+  page_start?: number;
+  page_end?: number;
+  remarks?: string;
+  session_id: number;
+  session_date: string;
+  tutor_name?: string;
+}
+
+function CoursewareTab({
+  coursewareHistory,
+  loading,
+  isMobile,
+}: {
+  coursewareHistory: CoursewareExercise[];
+  loading: boolean;
+  isMobile: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (coursewareHistory.length === 0) {
+    return (
+      <div className="flex justify-center py-12">
+        <StickyNote variant="blue" size="md" showTape={true}>
+          <div className="text-center">
+            <BookMarked className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No courseware yet</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Classwork and homework will appear here
+            </p>
+          </div>
+        </StickyNote>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {coursewareHistory.map((exercise, index) => {
+        const sessionDate = new Date(exercise.session_date + 'T00:00:00');
+        const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
+
+        return (
+          <motion.div
+            key={`${exercise.session_id}-${exercise.id || index}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+            className={cn(
+              "p-4 rounded-lg border-l-4",
+              isCW
+                ? "bg-red-50 dark:bg-red-900/10 border-red-400"
+                : "bg-blue-50 dark:bg-blue-900/10 border-blue-400",
+              !isMobile && "paper-texture"
+            )}
+          >
+            {/* Header: Date, Tutor, Session Link */}
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-500 dark:text-gray-400">
+              <span className="font-medium">
+                {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+              {exercise.tutor_name && (
+                <>
+                  <span>•</span>
+                  <span>{exercise.tutor_name}</span>
+                </>
+              )}
+              <Link
+                href={`/sessions/${exercise.session_id}`}
+                className="ml-auto text-blue-600 dark:text-blue-400 hover:underline font-mono"
+              >
+                #{exercise.session_id}
+              </Link>
+            </div>
+
+            {/* Content: Type badge + PDF name + Pages */}
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
+                isCW
+                  ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
+                  : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
+              )}>
+                {isCW ? <PenTool className="h-3 w-3" /> : <Home className="h-3 w-3" />}
+                {isCW ? "CW" : "HW"}
+              </span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {getDisplayName(exercise.pdf_name)}
+              </span>
+              {exercise.page_start && (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Remarks if any */}
+            {exercise.remarks && (
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                {exercise.remarks}
+              </p>
+            )}
           </motion.div>
         );
       })}

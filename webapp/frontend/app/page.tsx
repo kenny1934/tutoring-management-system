@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocation } from "@/contexts/LocationContext";
-import { useDashboardStats } from "@/lib/hooks";
+import { useDashboardStats, usePageTitle } from "@/lib/hooks";
 import { GradeDistributionChart } from "@/components/dashboard/GradeDistributionChart";
 import { SchoolDistributionChart } from "@/components/dashboard/SchoolDistributionChart";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const { selectedLocation } = useLocation();
   const { data: stats, isLoading, error } = useDashboardStats(selectedLocation);
   const [isMobile, setIsMobile] = useState(false);
+
+  usePageTitle("Dashboard");
 
   // Detect mobile device for performance optimization
   useEffect(() => {

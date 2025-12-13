@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent } from '@/types';
@@ -176,4 +177,16 @@ export function useActivityFeed(location?: string) {
     () => api.stats.getActivityFeed(location),
     swrConfig
   );
+}
+
+/**
+ * Hook for setting dynamic browser tab titles
+ * Updates document.title with page context
+ */
+const BASE_TITLE = "CSM Pro";
+
+export function usePageTitle(title?: string) {
+  useEffect(() => {
+    document.title = title ? `${BASE_TITLE} - ${title}` : BASE_TITLE;
+  }, [title]);
 }

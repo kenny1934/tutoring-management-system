@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useStudents, useCalendarEvents, useStudent, useStudentSessions } from "@/lib/hooks";
+import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
@@ -46,6 +46,8 @@ const SCROLL_POSITION_KEY = 'students-list-scroll-position';
 const STUDENTS_PER_PAGE = 50;
 
 export default function StudentsPage() {
+  usePageTitle("Students");
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();

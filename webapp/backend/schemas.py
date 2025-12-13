@@ -39,6 +39,16 @@ class StudentDetailResponse(StudentResponse):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StudentUpdate(BaseModel):
+    """Schema for updating student fields"""
+    student_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    phone: Optional[str] = Field(None, max_length=20)
+    school: Optional[str] = Field(None, max_length=200)
+    grade: Optional[str] = Field(None, max_length=20)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    academic_stream: Optional[str] = Field(None, max_length=50)
+
+
 class StudentBasic(BaseModel):
     """Minimal student info for lists/popovers"""
     id: int
