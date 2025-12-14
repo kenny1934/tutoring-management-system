@@ -93,6 +93,13 @@ export const enrollmentsAPI = {
   getById: (id: number) => {
     return fetchAPI<Enrollment>(`/enrollments/${id}`);
   },
+
+  update: (id: number, data: Partial<Enrollment>) => {
+    return fetchAPI<Enrollment>(`/enrollments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // Sessions API

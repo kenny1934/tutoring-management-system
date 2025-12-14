@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
-from schemas import EnrollmentResponse
+from schemas import EnrollmentResponse, EnrollmentUpdate
 
 router = APIRouter()
 
@@ -175,6 +175,46 @@ async def get_enrollment_detail(
     if not enrollment:
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
+    enrollment_data = EnrollmentResponse.model_validate(enrollment)
+    enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
+    enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+    enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
+    enrollment_data.grade = enrollment.student.grade if enrollment.student else None
+    enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+
+    return enrollment_data
+
+
+@router.patch("/enrollments/{enrollment_id}", response_model=EnrollmentResponse)
+async def update_enrollment(
+    enrollment_id: int,
+    enrollment_update: EnrollmentUpdate,
+    db: Session = Depends(get_db)
+):
+    """Update an enrollment's information."""
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor),
+        joinedload(Enrollment.discount)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    update_data = enrollment_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(enrollment, field, value)
+
+    db.commit()
+    # Re-query with joins to ensure relationships are loaded
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor),
+        joinedload(Enrollment.discount)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    # Manually set relationship fields (same as GET endpoint)
     enrollment_data = EnrollmentResponse.model_validate(enrollment)
     enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
     enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None

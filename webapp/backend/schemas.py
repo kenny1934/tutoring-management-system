@@ -114,6 +114,19 @@ class EnrollmentResponse(EnrollmentBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EnrollmentUpdate(BaseModel):
+    """Schema for updating enrollment fields"""
+    tutor_id: Optional[int] = Field(None, gt=0)
+    assigned_day: Optional[str] = Field(None, max_length=20)
+    assigned_time: Optional[str] = Field(None, max_length=20)
+    location: Optional[str] = Field(None, max_length=200)
+    lessons_paid: Optional[int] = Field(None, ge=0)
+    payment_date: Optional[date] = None
+    first_lesson_date: Optional[date] = None
+    payment_status: Optional[str] = Field(None, max_length=50)
+    enrollment_type: Optional[str] = Field(None, max_length=50)
+
+
 # ============================================
 # Session Schemas
 # ============================================
