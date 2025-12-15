@@ -112,6 +112,18 @@ export function useStudentEnrollments(studentId: number | null | undefined) {
 }
 
 /**
+ * Hook for fetching "My Students" enrollments for a specific tutor
+ * Returns active, latest enrollments filtered by tutor and optionally location
+ */
+export function useMyStudents(tutorId: number | null | undefined, location?: string) {
+  return useSWR<Enrollment[]>(
+    tutorId ? ['my-students', tutorId, location || 'all'] : null,
+    () => enrollmentsAPI.getMyStudents(tutorId!, location),
+    swrConfig
+  );
+}
+
+/**
  * Hook for fetching sessions for a specific student
  * Returns null key when studentId is falsy to skip fetching
  */

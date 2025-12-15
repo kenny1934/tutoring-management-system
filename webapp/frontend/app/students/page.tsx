@@ -23,6 +23,8 @@ import {
 } from "@floating-ui/react";
 import { studentsAPI } from "@/lib/api";
 import type { Session, Enrollment, CalendarEvent } from "@/types";
+import { TutorSelector } from "@/components/selectors/TutorSelector";
+import { MyStudentsView } from "@/components/students/MyStudentsView";
 
 // School colors for visual distinction
 const SCHOOL_COLORS: Record<string, string> = {
@@ -64,6 +66,16 @@ export default function StudentsPage() {
   });
   const [isMobile, setIsMobile] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // View mode state: 'all' (default student list) or 'my' (tutor's students)
+  const [viewMode, setViewMode] = useState<'all' | 'my'>(() => {
+    const view = searchParams.get('view');
+    return view === 'my' ? 'my' : 'all';
+  });
+  const [selectedTutorId, setSelectedTutorId] = useState<number | null>(() => {
+    const tutor = searchParams.get('tutor');
+    return tutor ? parseInt(tutor) : null;
+  });
 
   // School autocomplete state
   const [allSchools, setAllSchools] = useState<string[]>([]);
@@ -157,15 +169,21 @@ export default function StudentsPage() {
   // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
-    if (searchTerm) params.set('search', searchTerm);
-    if (gradeFilter) params.set('grade', gradeFilter);
-    if (schoolFilter) params.set('school', schoolFilter);
-    if (sortOption !== 'id_desc') params.set('sort', sortOption);
-    if (currentPage > 1) params.set('page', currentPage.toString());
+    if (viewMode === 'my') {
+      params.set('view', 'my');
+      if (selectedTutorId) params.set('tutor', selectedTutorId.toString());
+    } else {
+      // Only include filters for "all" view
+      if (searchTerm) params.set('search', searchTerm);
+      if (gradeFilter) params.set('grade', gradeFilter);
+      if (schoolFilter) params.set('school', schoolFilter);
+      if (sortOption !== 'id_desc') params.set('sort', sortOption);
+      if (currentPage > 1) params.set('page', currentPage.toString());
+    }
 
     const query = params.toString();
     router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
-  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, router]);
+  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, router]);
 
   // Restore scroll position
   useEffect(() => {
@@ -253,8 +271,16 @@ export default function StudentsPage() {
 
   return (
     <DeskSurface fullHeight>
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+      <div ref={scrollContainerRef} className={cn(
+        "flex-1",
+        viewMode === 'my'
+          ? "flex flex-col overflow-hidden"
+          : "overflow-y-auto"
+      )}>
+        <div className={cn(
+          "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
+          viewMode === 'my' && "flex-1 min-h-0"
+        )}>
           {/* Compact Toolbar */}
           <div className={toolbarClasses}>
             {/* Title */}
@@ -265,7 +291,45 @@ export default function StudentsPage() {
 
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-            {/* Search Input */}
+            {/* View Toggle */}
+            <div className="flex items-center gap-0.5 bg-gray-200 dark:bg-gray-700 rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode('all')}
+                className={cn(
+                  "px-2 py-1 text-xs rounded-md transition-colors",
+                  viewMode === 'all'
+                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-gray-100"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                )}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setViewMode('my')}
+                className={cn(
+                  "px-2 py-1 text-xs rounded-md transition-colors",
+                  viewMode === 'my'
+                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-gray-100"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                )}
+              >
+                My Students
+              </button>
+            </div>
+
+            {/* Tutor Selector - only in "My Students" view */}
+            {viewMode === 'my' && (
+              <TutorSelector
+                value={selectedTutorId}
+                onChange={setSelectedTutorId}
+                location={selectedLocation}
+              />
+            )}
+
+            {/* Filters - only in "All" view */}
+            {viewMode === 'all' && (
+              <>
+                {/* Search Input */}
             <div className="relative flex-1 min-w-[140px] max-w-xs">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
@@ -388,99 +452,119 @@ export default function StudentsPage() {
               <option value="name_desc">Name Z-A</option>
               <option value="school_asc">School A-Z</option>
             </select>
+              </>
+            )}
 
             <div className="flex-1" />
 
-            {/* Student count */}
-            <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
-              {totalCount !== null ? `${totalCount} students` : `${students.length}+ students`}
-            </span>
+            {/* Student count - only in "All" view */}
+            {viewMode === 'all' && (
+              <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
+                {totalCount !== null ? `${totalCount} students` : `${students.length}+ students`}
+              </span>
+            )}
           </div>
 
-          {/* Student Cards */}
-          {students.length === 0 ? (
-            <div className="flex justify-center py-12">
-              <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
-                <div className="text-center">
-                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No students found</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    Try adjusting your search or filters
-                  </p>
+          {/* All Students View */}
+          {viewMode === 'all' && (
+            <>
+              {/* Student Cards */}
+              {students.length === 0 ? (
+                <div className="flex justify-center py-12">
+                  <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
+                    <div className="text-center">
+                      <Users className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No students found</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Try adjusting your search or filters
+                      </p>
+                    </div>
+                  </StickyNote>
                 </div>
-              </StickyNote>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {students.map((student, index) => (
-                <StudentCard
-                  key={student.id}
-                  student={student}
-                  index={index}
+              ) : (
+                <div className="space-y-2">
+                  {students.map((student, index) => (
+                    <StudentCard
+                      key={student.id}
+                      student={student}
+                      index={index}
+                      isMobile={isMobile}
+                      isSelected={popoverStudent?.id === student.id}
+                      saveScrollPosition={saveScrollPosition}
+                      onClick={(e) => {
+                        setPopoverClickPosition({ x: e.clientX, y: e.clientY });
+                        setPopoverStudent(student);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Student Detail Popover (rendered at page level for correct positioning) */}
+              {popoverStudent && (
+                <StudentDetailPopover
+                  student={popoverStudent}
+                  isOpen={!!popoverStudent}
+                  onClose={() => setPopoverStudent(null)}
+                  clickPosition={popoverClickPosition}
                   isMobile={isMobile}
-                  isSelected={popoverStudent?.id === student.id}
                   saveScrollPosition={saveScrollPosition}
-                  onClick={(e) => {
-                    setPopoverClickPosition({ x: e.clientX, y: e.clientY });
-                    setPopoverStudent(student);
-                  }}
                 />
-              ))}
+              )}
+
+              {/* Pagination */}
+              {(currentPage > 1 || hasMorePages) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                  className="flex items-center justify-center gap-4 py-4"
+                >
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className={cn(
+                      "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                      currentPage === 1
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                    )}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Page {currentPage}
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={!hasMorePages}
+                    className={cn(
+                      "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                      !hasMorePages
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
+                    )}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              )}
+            </>
+          )}
+
+          {/* My Students View */}
+          {viewMode === 'my' && (
+            <div className="flex-1 min-h-0 flex flex-col">
+              <MyStudentsView
+                tutorId={selectedTutorId}
+                location={selectedLocation}
+                isMobile={isMobile}
+              />
             </div>
-          )}
-
-          {/* Student Detail Popover (rendered at page level for correct positioning) */}
-          {popoverStudent && (
-            <StudentDetailPopover
-              student={popoverStudent}
-              isOpen={!!popoverStudent}
-              onClose={() => setPopoverStudent(null)}
-              clickPosition={popoverClickPosition}
-              isMobile={isMobile}
-              saveScrollPosition={saveScrollPosition}
-            />
-          )}
-
-          {/* Pagination */}
-          {(currentPage > 1 || hasMorePages) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.3 }}
-              className="flex items-center justify-center gap-4 py-4"
-            >
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  currentPage === 1
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                    : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
-                )}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </button>
-
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage}
-              </span>
-
-              <button
-                onClick={() => setCurrentPage(p => p + 1)}
-                disabled={!hasMorePages}
-                className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  !hasMorePages
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                    : "bg-[#a0704b] text-white hover:bg-[#8b6140]"
-                )}
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </motion.div>
           )}
         </div>
       </div>
