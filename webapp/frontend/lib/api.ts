@@ -100,6 +100,15 @@ export const enrollmentsAPI = {
       body: JSON.stringify(data),
     });
   },
+
+  getMyStudents: (tutorId: number, location?: string) => {
+    const params = new URLSearchParams();
+    params.append("tutor_id", tutorId.toString());
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    return fetchAPI<Enrollment[]>(`/enrollments/my-students?${params.toString()}`);
+  },
 };
 
 // Sessions API

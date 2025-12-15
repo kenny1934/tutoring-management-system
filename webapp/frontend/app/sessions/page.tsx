@@ -134,6 +134,9 @@ export default function SessionsPage() {
   // Scroll container ref for position restoration
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Track time slots that have been rendered (to skip stagger animation on re-expand)
+  const seenSlotsRef = useRef<Set<string>>(new Set());
+
   // Track toolbar height changes (for responsive wrapping)
   useLayoutEffect(() => {
     // Only track when in list view and element is mounted
@@ -383,6 +386,17 @@ export default function SessionsPage() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+
+  // Mark visible time slots as "seen" after initial render (to skip stagger on re-expand)
+  useEffect(() => {
+    if (viewMode === "list" && !loading) {
+      groupedSessions.forEach(([timeSlot]) => {
+        if (!collapsedSlots.has(timeSlot)) {
+          seenSlotsRef.current.add(timeSlot);
+        }
+      });
+    }
+  }, [viewMode, loading, groupedSessions, collapsedSlots]);
 
   if (loading) {
     return (
@@ -902,7 +916,8 @@ export default function SessionsPage() {
                                 x: 0
                               }}
                               transition={{
-                                delay: isMobile ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
+                                // Skip stagger delay on re-expand (only animate on first render)
+                                delay: isMobile || seenSlotsRef.current.has(timeSlot) ? 0 : 0.7 + groupIndex * 0.1 + sessionIndex * 0.05,
                                 duration: 0.35,
                                 ease: [0.38, 1.21, 0.22, 1.00]
                               }}

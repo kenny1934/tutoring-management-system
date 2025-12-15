@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
-from datetime import date
+from datetime import date, timedelta
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
 from schemas import EnrollmentResponse, EnrollmentUpdate
@@ -83,6 +83,7 @@ async def get_enrollments(
         enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
         enrollment_data.grade = enrollment.student.grade if enrollment.student else None
         enrollment_data.school = enrollment.student.school if enrollment.student else None
+        enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         result.append(enrollment_data)
 
@@ -150,6 +151,96 @@ async def get_active_enrollments(
         enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
         enrollment_data.grade = enrollment.student.grade if enrollment.student else None
         enrollment_data.school = enrollment.student.school if enrollment.student else None
+        enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
+        enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+        result.append(enrollment_data)
+
+    return result
+
+
+@router.get("/enrollments/my-students", response_model=List[EnrollmentResponse])
+async def get_my_students(
+    tutor_id: int = Query(..., description="Filter by tutor ID (required)"),
+    location: Optional[str] = Query(None, description="Filter by location"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get "My Students" - active enrollments for a specific tutor.
+
+    Returns the latest active enrollment per student for the given tutor.
+    Filters applied:
+    - tutor_id = specified tutor (required)
+    - payment_status != "Cancelled"
+    - Only latest enrollment per student (by first_lesson_date)
+    - effective_end_date >= today (enrollment still active)
+
+    effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
+    """
+    today = date.today()
+
+    # Query enrollments for this tutor
+    query = (
+        db.query(Enrollment)
+        .options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.tutor),
+            joinedload(Enrollment.discount)
+        )
+        .filter(
+            Enrollment.tutor_id == tutor_id,
+            Enrollment.payment_status != "Cancelled",
+            Enrollment.student_id.isnot(None)
+        )
+    )
+
+    # Apply location filter if provided
+    if location:
+        query = query.filter(Enrollment.location == location)
+
+    all_enrollments = query.all()
+
+    # Group by student_id and keep only the latest enrollment per student
+    from collections import defaultdict
+    student_enrollments = defaultdict(list)
+    for enrollment in all_enrollments:
+        student_enrollments[enrollment.student_id].append(enrollment)
+
+    # Keep only the most recent enrollment per student that is still active
+    active_enrollments = []
+    for student_id, enrollments_list in student_enrollments.items():
+        # Sort by first_lesson_date descending and take the first one
+        latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
+
+        # Calculate effective_end_date
+        if latest.first_lesson_date:
+            weeks_paid = latest.lessons_paid or 0
+            extension = latest.deadline_extension_weeks or 0
+            total_weeks = weeks_paid + extension
+            effective_end_date = latest.first_lesson_date + timedelta(weeks=total_weeks)
+
+            # Only include if still active
+            if effective_end_date >= today:
+                active_enrollments.append(latest)
+        else:
+            # No first_lesson_date - include it (enrollment hasn't started yet)
+            active_enrollments.append(latest)
+
+    # Sort by student name for easier viewing
+    active_enrollments = sorted(
+        active_enrollments,
+        key=lambda e: e.student.student_name if e.student else ""
+    )
+
+    # Build response with related data
+    result = []
+    for enrollment in active_enrollments:
+        enrollment_data = EnrollmentResponse.model_validate(enrollment)
+        enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
+        enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+        enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
+        enrollment_data.grade = enrollment.student.grade if enrollment.student else None
+        enrollment_data.school = enrollment.student.school if enrollment.student else None
+        enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         result.append(enrollment_data)
 
@@ -181,6 +272,7 @@ async def get_enrollment_detail(
     enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
     enrollment_data.grade = enrollment.student.grade if enrollment.student else None
     enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
 
     return enrollment_data
@@ -221,6 +313,7 @@ async def update_enrollment(
     enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
     enrollment_data.grade = enrollment.student.grade if enrollment.student else None
     enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
 
     return enrollment_data

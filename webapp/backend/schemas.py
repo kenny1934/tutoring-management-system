@@ -107,6 +107,7 @@ class EnrollmentResponse(EnrollmentBase):
     discount_name: Optional[str] = Field(None, max_length=100)
     grade: Optional[str] = Field(None, max_length=20)
     school: Optional[str] = Field(None, max_length=200)
+    school_student_id: Optional[str] = Field(None, max_length=100)
     lang_stream: Optional[str] = Field(None, max_length=50)
     deadline_extension_weeks: Optional[int] = Field(0, ge=0)
     last_modified_time: Optional[datetime] = None
