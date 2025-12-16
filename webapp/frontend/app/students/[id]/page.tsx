@@ -47,22 +47,6 @@ const TABS: Tab[] = [
   { id: "notes", label: "Notes", icon: FileText },
 ];
 
-// School colors
-const SCHOOL_COLORS: Record<string, string> = {
-  "TIS": "#c2dfce",
-  "RCHK": "#cedaf5",
-  "CIS": "#fbf2d0",
-  "HKIS": "#f0a19e",
-  "ISF": "#e2b1cc",
-  "VSA": "#ebb26e",
-  "SIS": "#7dc347",
-  "CDNIS": "#a590e6",
-};
-
-const getSchoolColor = (school: string | undefined): string => {
-  if (!school) return "#e5e7eb";
-  return SCHOOL_COLORS[school] || "#e5e7eb";
-};
 
 // Helper to format date
 function formatDate(dateStr: string): string {
@@ -378,10 +362,7 @@ export default function StudentDetailPage() {
 
             {/* School Badge */}
             {student.school && (
-              <span
-                className="text-xs px-2 py-0.5 rounded text-gray-800 hidden sm:inline"
-                style={{ backgroundColor: getSchoolColor(student.school) }}
-              >
+              <span className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200 hidden sm:inline">
                 {student.school}
               </span>
             )}

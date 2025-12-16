@@ -25,23 +25,7 @@ import { studentsAPI } from "@/lib/api";
 import type { Session, Enrollment, CalendarEvent } from "@/types";
 import { TutorSelector } from "@/components/selectors/TutorSelector";
 import { MyStudentsView } from "@/components/students/MyStudentsView";
-
-// School colors for visual distinction
-const SCHOOL_COLORS: Record<string, string> = {
-  "TIS": "#c2dfce",
-  "RCHK": "#cedaf5",
-  "CIS": "#fbf2d0",
-  "HKIS": "#f0a19e",
-  "ISF": "#e2b1cc",
-  "VSA": "#ebb26e",
-  "SIS": "#7dc347",
-  "CDNIS": "#a590e6",
-};
-
-const getSchoolColor = (school: string | undefined): string => {
-  if (!school) return "#e5e7eb";
-  return SCHOOL_COLORS[school] || "#e5e7eb";
-};
+import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -75,6 +59,20 @@ export default function StudentsPage() {
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(() => {
     const tutor = searchParams.get('tutor');
     return tutor ? parseInt(tutor) : null;
+  });
+
+  // My Students view state (persisted to URL)
+  const [myMobileTab, setMyMobileTab] = useState<'list' | 'calendar'>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'calendar' ? 'calendar' : 'list';
+  });
+  const [myGroups, setMyGroups] = useState<string[]>(() => {
+    const groups = searchParams.get('groups');
+    return groups ? groups.split(',').filter(Boolean) : [];
+  });
+  const [mySort, setMySort] = useState<'student_id' | 'name'>(() => {
+    const sort = searchParams.get('mysort');
+    return sort === 'name' ? 'name' : 'student_id';
   });
 
   // School autocomplete state
@@ -172,6 +170,9 @@ export default function StudentsPage() {
     if (viewMode === 'my') {
       params.set('view', 'my');
       if (selectedTutorId) params.set('tutor', selectedTutorId.toString());
+      if (myMobileTab === 'calendar') params.set('tab', 'calendar');
+      if (myGroups.length > 0) params.set('groups', myGroups.join(','));
+      if (mySort !== 'student_id') params.set('mysort', mySort);
     } else {
       // Only include filters for "all" view
       if (searchTerm) params.set('search', searchTerm);
@@ -183,7 +184,7 @@ export default function StudentsPage() {
 
     const query = params.toString();
     router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
-  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, router]);
+  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, myMobileTab, myGroups, mySort, router]);
 
   // Restore scroll position
   useEffect(() => {
@@ -323,6 +324,7 @@ export default function StudentsPage() {
                 value={selectedTutorId}
                 onChange={setSelectedTutorId}
                 location={selectedLocation}
+                allowClear
               />
             )}
 
@@ -563,6 +565,12 @@ export default function StudentsPage() {
                 tutorId={selectedTutorId}
                 location={selectedLocation}
                 isMobile={isMobile}
+                mobileTab={myMobileTab}
+                onMobileTabChange={setMyMobileTab}
+                activeGroups={myGroups as ('payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot')[]}
+                onGroupsChange={setMyGroups}
+                sortOption={mySort}
+                onSortChange={setMySort}
               />
             </div>
           )}
@@ -587,19 +595,7 @@ function getDaysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// Helper to get display payment status (shows "Overdue" if pending and past start date)
-function getDisplayPaymentStatus(enrollment: Enrollment): string {
-  if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
-    const startDate = new Date(enrollment.first_lesson_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    if (today >= startDate) {
-      return 'Overdue';
-    }
-  }
-  return enrollment.payment_status || '';
-}
+// getDisplayPaymentStatus is now imported from @/lib/enrollment-utils
 
 // Rich popover content component
 function RichPopoverContent({
@@ -684,10 +680,7 @@ function RichPopoverContent({
         {/* School & Grade Badges */}
         <div className="flex items-center gap-2 flex-wrap">
           {student.school && (
-            <span
-              className="text-xs px-2 py-0.5 rounded text-gray-800"
-              style={{ backgroundColor: getSchoolColor(student.school) }}
-            >
+            <span className="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200">
               {student.school}
             </span>
           )}
@@ -936,10 +929,7 @@ function StudentCard({
           )}
           {/* School Badge */}
           {student.school && (
-            <span
-              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline"
-              style={{ backgroundColor: getSchoolColor(student.school) }}
-            >
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200 whitespace-nowrap hidden sm:inline">
               {student.school}
             </span>
           )}

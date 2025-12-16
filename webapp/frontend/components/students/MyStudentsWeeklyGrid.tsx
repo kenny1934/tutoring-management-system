@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { HandCoins, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { HandCoins, Eye, EyeOff, AlertTriangle, CalendarOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MoreEnrollmentsPopover } from "@/components/enrollments/MoreEnrollmentsPopover";
 import type { Enrollment } from "@/types";
@@ -13,37 +13,7 @@ import {
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
-
-// Day names for the static weekly view
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-// Map day names to day index (Sunday = 0)
-const DAY_NAME_TO_INDEX: Record<string, number> = {
-  'Sun': 0, 'Sunday': 0,
-  'Mon': 1, 'Monday': 1,
-  'Tue': 2, 'Tuesday': 2,
-  'Wed': 3, 'Wednesday': 3,
-  'Thu': 4, 'Thursday': 4,
-  'Fri': 5, 'Friday': 5,
-  'Sat': 6, 'Saturday': 6,
-};
-
-// Grade tag colors
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
+import { DAY_NAMES, DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 
 
 interface MyStudentsWeeklyGridProps {
@@ -167,8 +137,13 @@ export function MyStudentsWeeklyGrid({
   const emptyDaysCount = 7 - daysWithEnrollments.size;
   const hours = Array.from({ length: 10 }, (_, i) => i + 10); // 10 AM to 7 PM
 
+  // Count unscheduled enrollments (missing day or time)
+  const unscheduledCount = useMemo(() => {
+    return enrollments.filter(e => !e.assigned_day || !e.assigned_time).length;
+  }, [enrollments]);
+
   return (
-    <div ref={containerRef} className={cn("flex flex-col", !fillHeight && "space-y-1", fillHeight && "flex-1 min-h-0 overflow-hidden")}>
+    <div ref={containerRef} className={cn("flex flex-col relative", !fillHeight && "space-y-1", fillHeight && "flex-1 min-h-0 overflow-hidden")}>
       {/* Header - hidden when fillHeight to maximize calendar space */}
       {!fillHeight && (
         <div className="flex items-center justify-between gap-2 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 py-1.5 paper-texture">
@@ -176,18 +151,43 @@ export function MyStudentsWeeklyGrid({
             Weekly Schedule
           </span>
 
-          {emptyDaysCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowAllDays(!showAllDays)}
-              className="flex items-center gap-1 h-7 px-2 text-xs text-gray-600 dark:text-gray-400"
-              title={showAllDays ? "Hide empty days" : "Show all days"}
-            >
-              {showAllDays ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{showAllDays ? "Hide empty" : `+${emptyDaysCount} empty`}</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {unscheduledCount > 0 && (
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-xs"
+                title={`${unscheduledCount} student${unscheduledCount !== 1 ? 's' : ''} without scheduled time`}
+              >
+                <CalendarOff className="h-3 w-3" aria-hidden="true" />
+                <span>{unscheduledCount} unscheduled</span>
+              </span>
+            )}
+
+            {emptyDaysCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllDays(!showAllDays)}
+                className="flex items-center gap-1 h-7 px-2 text-xs text-gray-600 dark:text-gray-400"
+                title={showAllDays ? "Hide empty days" : "Show all days"}
+              >
+                {showAllDays ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">{showAllDays ? "Hide empty" : `+${emptyDaysCount} empty`}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Unscheduled indicator when fillHeight (compact mode) */}
+      {fillHeight && unscheduledCount > 0 && (
+        <div className="absolute top-1 right-1 z-20">
+          <span
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 text-[10px] shadow-sm"
+            title={`${unscheduledCount} student${unscheduledCount !== 1 ? 's' : ''} without scheduled time`}
+          >
+            <CalendarOff className="h-2.5 w-2.5" aria-hidden="true" />
+            <span>{unscheduledCount}</span>
+          </span>
         </div>
       )}
 
@@ -206,15 +206,22 @@ export function MyStudentsWeeklyGrid({
               {DAY_NAMES.map((dayName, index) => {
                 const isCollapsed = isDayCollapsed(index);
                 const hasNoEnrollments = !daysWithEnrollments.has(index);
+
+                // Use button for interactive empty days, div for non-interactive days with enrollments
+                const Element = hasNoEnrollments ? 'button' : 'div';
+
                 return (
-                  <div
+                  <Element
                     key={index}
+                    type={hasNoEnrollments ? "button" : undefined}
                     onClick={hasNoEnrollments ? () => toggleDayExpand(index) : undefined}
+                    aria-expanded={hasNoEnrollments ? !isCollapsed : undefined}
+                    aria-label={hasNoEnrollments ? `${isCollapsed ? 'Expand' : 'Collapse'} ${dayName} column` : undefined}
                     className={cn(
                       "border-r last:border-r-0 border-[#e8d4b8] dark:border-[#6b5a4a] transition-all",
                       isCollapsed ? "py-1 px-0.5" : "py-1 px-1.5",
                       "bg-[#fef9f3] dark:bg-[#2d2618]",
-                      hasNoEnrollments && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      hasNoEnrollments && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]"
                     )}
                   >
                     {isCollapsed ? (
@@ -222,9 +229,11 @@ export function MyStudentsWeeklyGrid({
                         <span
                           className="text-[9px] font-bold whitespace-nowrap text-gray-400 dark:text-gray-500"
                           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                          aria-hidden="true"
                         >
                           {dayName}
                         </span>
+                        <span className="sr-only">{dayName}</span>
                       </div>
                     ) : (
                       <div className="text-center">
@@ -233,7 +242,7 @@ export function MyStudentsWeeklyGrid({
                         </p>
                       </div>
                     )}
-                  </div>
+                  </Element>
                 );
               })}
             </div>
@@ -384,10 +393,16 @@ export function MyStudentsWeeklyGrid({
                                         <span className="flex items-center gap-0.5 truncate">
                                           {enrollment.school_student_id || "N/A"}
                                           {isOverdue && (
-                                            <AlertTriangle className="h-2.5 w-2.5 text-red-500 flex-shrink-0" />
+                                            <>
+                                              <AlertTriangle className="h-2.5 w-2.5 text-red-500 flex-shrink-0" aria-hidden="true" />
+                                              <span className="sr-only">Overdue payment</span>
+                                            </>
                                           )}
                                           {isPending && !isOverdue && (
-                                            <HandCoins className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" />
+                                            <>
+                                              <HandCoins className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" aria-hidden="true" />
+                                              <span className="sr-only">Pending payment</span>
+                                            </>
                                           )}
                                         </span>
                                       </p>

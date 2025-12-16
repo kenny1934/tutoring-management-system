@@ -15,24 +15,8 @@ import { X, HandCoins, AlertTriangle } from "lucide-react";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
+import { getGradeColor } from "@/lib/constants";
 import type { Enrollment } from "@/types";
-
-// Grade tag colors
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 interface MoreEnrollmentsPopoverProps {
   enrollments: Enrollment[];
@@ -95,7 +79,7 @@ export function MoreEnrollmentsPopover({
             "bg-[#fef9f3] dark:bg-[#2d2618]",
             "border-2 border-[#d4a574] dark:border-[#8b6f47]",
             "rounded-lg shadow-lg",
-            "p-4 w-[280px] max-h-[400px]",
+            "p-4 w-[min(280px,90vw)] max-h-[400px]",
             "paper-texture overflow-y-auto"
           )}
         >

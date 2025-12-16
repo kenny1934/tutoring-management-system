@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
+import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
 import Link from "next/link";
 import {
   useFloating,
@@ -12,26 +13,26 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getGradeColor } from "@/lib/constants";
 import type { Enrollment } from "@/types";
 
-// Grade tag colors
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
+// Day options (short form)
+const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
+// Time options based on day type
+const WEEKDAY_TIMES = ["16:45 - 18:15", "18:25 - 19:55"];
+const WEEKEND_TIMES = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"];
+
+// Check if day is weekend
+const isWeekend = (day: string) => day === "Sat" || day === "Sun" || day === "Saturday" || day === "Sunday";
+
+// Get time options based on selected day
+const getTimeOptions = (day: string) => isWeekend(day) ? WEEKEND_TIMES : WEEKDAY_TIMES;
+
+// Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
+const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 interface EnrollmentDetailPopoverProps {
   enrollment: Enrollment | null;
@@ -95,9 +96,127 @@ export function EnrollmentDetailPopover({
   const dismiss = useDismiss(context);
   const { getFloatingProps } = useInteractions([dismiss]);
 
+  // Fetch locations and tutors for editing
+  const { data: allLocations = [] } = useLocations();
+  const { data: allTutors = [] } = useTutors();
+
+  // Filter locations (exclude "Various" placeholder)
+  const locations = useMemo(() =>
+    allLocations.filter(loc => loc !== "Various"),
+  [allLocations]);
+
+  // Dummy action states
+  const [markedAsPaid, setMarkedAsPaid] = useState(false);
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [editedDay, setEditedDay] = useState('');
+  const [editedTime, setEditedTime] = useState('');
+  const [editedLocation, setEditedLocation] = useState('');
+  const [editedTutorId, setEditedTutorId] = useState<number | null>(null);
+  const [isCustomTime, setIsCustomTime] = useState(false);
+  const [scheduleSaved, setScheduleSaved] = useState(false);
+
+  // Filter tutors by selected location
+  const filteredTutors = useMemo(() => {
+    if (!editedLocation) return [];
+    return allTutors
+      .filter(t => t.default_location === editedLocation)
+      .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
+  }, [allTutors, editedLocation]);
+
+  // Get time options based on current day
+  const timeOptions = useMemo(() => getTimeOptions(editedDay), [editedDay]);
+
+  // Reset states when enrollment changes
+  useEffect(() => {
+    setMarkedAsPaid(false);
+    setIsEditingSchedule(false);
+    setScheduleSaved(false);
+    setIsCustomTime(false);
+    if (enrollment) {
+      setEditedDay(enrollment.assigned_day || '');
+      setEditedTime(enrollment.assigned_time || '');
+      setEditedLocation(enrollment.location || '');
+      setEditedTutorId(enrollment.tutor_id || null);
+      // Check if current time is custom (not in predefined options)
+      if (enrollment.assigned_time) {
+        const options = getTimeOptions(enrollment.assigned_day || '');
+        if (!options.includes(enrollment.assigned_time)) {
+          setIsCustomTime(true);
+        }
+      }
+    }
+  }, [enrollment?.id]);
+
+  // Fetch sessions for this enrollment
+  const { data: sessions = [], isLoading: sessionsLoading } = useEnrollmentSessions(enrollment?.id);
+
+  // Get upcoming sessions (today or future, limit to 2)
+  const upcomingSessions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return sessions
+      .filter(s => {
+        const sessionDate = new Date(s.session_date);
+        sessionDate.setHours(0, 0, 0, 0);
+        return sessionDate >= today && s.session_status !== 'Cancelled';
+      })
+      .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime())
+      .slice(0, 2);
+  }, [sessions]);
+
   if (!isOpen || !enrollment) return null;
 
   const isPending = enrollment.payment_status === 'Pending Payment';
+  const showMarkAsPaid = isPending && !markedAsPaid;
+
+  // Format date relative to today
+  const formatSessionDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const handleMarkAsPaid = () => {
+    console.log(`[Demo Mode] Mark as Paid clicked for enrollment #${enrollment.id} - ${enrollment.student_name}`);
+    setMarkedAsPaid(true);
+    // In real implementation, this would call the API
+  };
+
+  const handleSaveSchedule = () => {
+    const selectedTutor = allTutors.find(t => t.id === editedTutorId);
+    console.log(`[Demo Mode] Save Schedule clicked for enrollment #${enrollment.id}:`, {
+      day: editedDay,
+      time: editedTime,
+      location: editedLocation,
+      tutor_id: editedTutorId,
+      tutor_name: selectedTutor?.tutor_name,
+    });
+    setScheduleSaved(true);
+    setIsEditingSchedule(false);
+    // In real implementation, this would call the API
+  };
+
+  // Handle location change - reset tutor when location changes
+  const handleLocationChange = (newLocation: string) => {
+    setEditedLocation(newLocation);
+    setEditedTutorId(null); // Reset tutor when location changes
+  };
+
+  // Handle day change - reset time if current time is not in new options
+  const handleDayChange = (newDay: string) => {
+    setEditedDay(newDay);
+    const newOptions = getTimeOptions(newDay);
+    if (!isCustomTime && editedTime && !newOptions.includes(editedTime)) {
+      setEditedTime('');
+    }
+  };
 
   return (
     <FloatingPortal>
@@ -110,7 +229,7 @@ export function EnrollmentDetailPopover({
           "bg-[#fef9f3] dark:bg-[#2d2618]",
           "border-2 border-[#d4a574] dark:border-[#8b6f47]",
           "rounded-lg shadow-lg",
-          "p-4 w-[280px]",
+          "p-4 w-[min(280px,90vw)]",
           "paper-texture"
         )}
       >
@@ -167,30 +286,159 @@ export function EnrollmentDetailPopover({
             </div>
           )}
 
-          {/* Schedule */}
-          {enrollment.assigned_day && enrollment.assigned_time && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                Schedule:
-              </span>
-              <span className="text-gray-900 dark:text-gray-100 font-medium">
-                {enrollment.assigned_day} {enrollment.assigned_time}
-              </span>
-            </div>
-          )}
+          {/* Schedule - with inline edit option */}
+          {isEditingSchedule ? (
+            <div className="space-y-2 p-2 bg-[#fef9f3] dark:bg-[#2d2618] rounded-md border border-[#d4a574] dark:border-[#6b5a4a]">
+              {/* Day selector */}
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Day:</label>
+                <select
+                  value={editedDay}
+                  onChange={(e) => handleDayChange(e.target.value)}
+                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">Unscheduled</option>
+                  {DAY_OPTIONS.map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
 
-          {/* Location */}
-          {enrollment.location && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                Location:
-              </span>
-              <span className="text-gray-900 dark:text-gray-100">
-                {enrollment.location}
-              </span>
+              {/* Time selector - shows dropdown or custom input */}
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Time:</label>
+                {isCustomTime ? (
+                  <div className="flex-1 flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={editedTime}
+                      onChange={(e) => setEditedTime(e.target.value)}
+                      placeholder="e.g., 10:00 - 11:30"
+                      className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCustomTime(false);
+                        setEditedTime('');
+                      }}
+                      className="text-[9px] text-[#a0704b] dark:text-[#cd853f] hover:underline whitespace-nowrap"
+                    >
+                      Back
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={editedTime}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomTime(true);
+                        setEditedTime('');
+                      } else {
+                        setEditedTime(e.target.value);
+                      }
+                    }}
+                    className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Select time...</option>
+                    {timeOptions.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                    <option value="__custom__">Other (custom)...</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Location selector from API */}
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Loc:</label>
+                <select
+                  value={editedLocation}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">None</option>
+                  {locations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Tutor selector - filtered by location */}
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-gray-500 dark:text-gray-400 w-12">Tutor:</label>
+                <select
+                  value={editedTutorId || ''}
+                  onChange={(e) => setEditedTutorId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 disabled:opacity-50"
+                  disabled={!editedLocation}
+                >
+                  <option value="">{editedLocation ? 'Select tutor...' : 'Select location first'}</option>
+                  {filteredTutors.map(tutor => (
+                    <option key={tutor.id} value={tutor.id}>{tutor.tutor_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingSchedule(false);
+                  }}
+                  className="flex-1 text-xs px-2 py-1 rounded border border-[#d4a574] dark:border-[#6b5a4a] text-[#8b6914] dark:text-[#cd853f] hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSaveSchedule();
+                  }}
+                  className="flex-1 text-xs px-2 py-1 rounded bg-[#a0704b] text-white hover:bg-[#8b5e3c]"
+                >
+                  Save (Demo)
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Schedule display */}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  Schedule:
+                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-900 dark:text-gray-100 font-medium">
+                    {scheduleSaved ? `${editedDay} ${editedTime}` : (enrollment.assigned_day && enrollment.assigned_time ? `${enrollment.assigned_day} ${enrollment.assigned_time}` : 'Unscheduled')}
+                    {scheduleSaved && <span className="text-green-600 text-[10px] ml-1">✓</span>}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditingSchedule(true);
+                    }}
+                    className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                    title="Edit schedule"
+                  >
+                    <Edit2 className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Location display */}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Location:
+                </span>
+                <span className="text-gray-900 dark:text-gray-100">
+                  {scheduleSaved ? (editedLocation || 'None') : (enrollment.location || 'None')}
+                </span>
+              </div>
+            </>
           )}
 
           {/* Payment Status */}
@@ -201,11 +449,13 @@ export function EnrollmentDetailPopover({
             </span>
             <span className={cn(
               "px-2 py-0.5 rounded text-xs font-medium",
-              isPending
-                ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+              markedAsPaid
+                ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                : isPending
+                  ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                  : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
             )}>
-              {enrollment.payment_status}
+              {markedAsPaid ? "Marked as Paid ✓" : enrollment.payment_status}
             </span>
           </div>
 
@@ -246,8 +496,65 @@ export function EnrollmentDetailPopover({
           )}
         </div>
 
-        {/* Action link */}
-        <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+        {/* Upcoming Sessions Preview */}
+        <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-1 mb-2">
+            <CalendarDays className="h-3.5 w-3.5 text-gray-500" />
+            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Upcoming Sessions
+            </span>
+          </div>
+          {sessionsLoading ? (
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Loading...</span>
+            </div>
+          ) : upcomingSessions.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">No upcoming sessions</p>
+          ) : (
+            <div className="space-y-1">
+              {upcomingSessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="flex items-center justify-between text-xs p-1.5 rounded bg-gray-50 dark:bg-gray-800"
+                >
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {formatSessionDate(session.session_date)}
+                  </span>
+                  <span className={cn(
+                    "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                    session.session_status === 'Scheduled'
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                  )}>
+                    {session.session_status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+          {/* Mark as Paid button - only shown for pending payments */}
+          {showMarkAsPaid && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMarkAsPaid();
+              }}
+              className={cn(
+                "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
+                "bg-green-600 hover:bg-green-700 text-white transition-colors"
+              )}
+            >
+              <Check className="h-3.5 w-3.5" />
+              Mark as Paid (Demo)
+            </button>
+          )}
+
+          {/* View Details link */}
           <Link
             href={`/enrollments/${enrollment.id}`}
             onClick={(e) => {

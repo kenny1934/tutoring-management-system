@@ -14,27 +14,59 @@ interface MyStudentsViewProps {
   tutorId: number | null;
   location: string;
   isMobile: boolean;
+  // Optional controlled props for URL persistence
+  mobileTab?: 'list' | 'calendar';
+  onMobileTabChange?: (tab: 'list' | 'calendar') => void;
+  activeGroups?: GroupOption[];
+  onGroupsChange?: (groups: GroupOption[]) => void;
+  sortOption?: SortOption;
+  onSortChange?: (sort: SortOption) => void;
 }
 
 export function MyStudentsView({
   tutorId,
   location,
   isMobile,
+  mobileTab: controlledMobileTab,
+  onMobileTabChange,
+  activeGroups: controlledActiveGroups,
+  onGroupsChange,
+  sortOption: controlledSortOption,
+  onSortChange,
 }: MyStudentsViewProps) {
   const { data: enrollments = [], isLoading, error } = useMyStudents(tutorId, location);
   const [highlightedStudentIds, setHighlightedStudentIds] = useState<number[]>([]);
-  const [activeGroups, setActiveGroups] = useState<GroupOption[]>([]);
-  const [sortOption, setSortOption] = useState<SortOption>('student_id');
-  const [mobileTab, setMobileTab] = useState<'list' | 'calendar'>('list');
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+
+  // Use controlled props if provided, otherwise local state
+  const [localActiveGroups, setLocalActiveGroups] = useState<GroupOption[]>([]);
+  const [localSortOption, setLocalSortOption] = useState<SortOption>('student_id');
+  const [localMobileTab, setLocalMobileTab] = useState<'list' | 'calendar'>('list');
+
+  const activeGroups = controlledActiveGroups ?? localActiveGroups;
+  const setActiveGroups = onGroupsChange ?? setLocalActiveGroups;
+  const sortOption = controlledSortOption ?? localSortOption;
+  const setSortOption = onSortChange ?? setLocalSortOption;
+  const mobileTab = controlledMobileTab ?? localMobileTab;
+  const setMobileTab = onMobileTabChange ?? setLocalMobileTab;
 
   // Handle individual student selection
   const handleStudentSelect = (studentId: number | null) => {
     setHighlightedStudentIds(studentId ? [studentId] : []);
+    setSelectedGroupKey(null); // Clear group selection when selecting individual student
   };
 
-  // Handle group header click - highlight all students in group
-  const handleGroupHeaderClick = (studentIds: number[]) => {
-    setHighlightedStudentIds(studentIds);
+  // Handle group header click - toggle highlight all students in group
+  const handleGroupHeaderClick = (groupKey: string, studentIds: number[]) => {
+    if (selectedGroupKey === groupKey) {
+      // Toggle off - same group clicked
+      setHighlightedStudentIds([]);
+      setSelectedGroupKey(null);
+    } else {
+      // Select new group
+      setHighlightedStudentIds(studentIds);
+      setSelectedGroupKey(groupKey);
+    }
   };
 
   // Popover state
@@ -115,11 +147,19 @@ export function MyStudentsView({
     <div className="h-full flex flex-col min-h-0">
       {/* Mobile Tab Buttons */}
       {isMobile && (
-        <div className="flex border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] mb-2 rounded-t-lg overflow-hidden">
+        <div
+          role="tablist"
+          aria-label="View selection"
+          className="flex border-b-2 border-[#e8d4b8] dark:border-[#6b5a4a] mb-2 rounded-t-lg overflow-hidden"
+        >
           <button
+            role="tab"
+            aria-selected={mobileTab === 'list'}
+            aria-controls="students-list-panel"
+            id="students-list-tab"
             onClick={() => setMobileTab('list')}
             className={cn(
-              "flex-1 py-2 text-sm font-semibold transition-colors",
+              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]",
               mobileTab === 'list'
                 ? "bg-[#a0704b] text-white"
                 : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
@@ -128,9 +168,13 @@ export function MyStudentsView({
             Students
           </button>
           <button
+            role="tab"
+            aria-selected={mobileTab === 'calendar'}
+            aria-controls="calendar-panel"
+            id="calendar-tab"
             onClick={() => setMobileTab('calendar')}
             className={cn(
-              "flex-1 py-2 text-sm font-semibold transition-colors",
+              "flex-1 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]",
               mobileTab === 'calendar'
                 ? "bg-[#a0704b] text-white"
                 : "bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300"
@@ -145,13 +189,20 @@ export function MyStudentsView({
       <div className="flex gap-2 flex-1 min-h-0">
         {/* List - show on desktop OR when list tab active on mobile */}
         {(!isMobile || mobileTab === 'list') && (
-          <div className={cn(
-            "flex-shrink-0 flex flex-col bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
-            isMobile ? "w-full" : "w-[280px]"
-          )}>
+          <div
+            id={isMobile ? "students-list-panel" : undefined}
+            role={isMobile ? "tabpanel" : undefined}
+            aria-labelledby={isMobile ? "students-list-tab" : undefined}
+            className={cn(
+              "flex-shrink-0 flex flex-col bg-white dark:bg-[#1a1a1a] border-2 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden",
+              isMobile ? "w-full" : "w-[280px]"
+            )}
+          >
             <MyStudentsList
               enrollments={enrollments}
               selectedStudentId={highlightedStudentIds.length === 1 ? highlightedStudentIds[0] : null}
+              highlightStudentIds={highlightedStudentIds}
+              selectedGroupKey={selectedGroupKey}
               onStudentSelect={handleStudentSelect}
               onEnrollmentClick={handleEnrollmentClick}
               activeGroups={activeGroups}
@@ -166,10 +217,15 @@ export function MyStudentsView({
 
         {/* Calendar - show on desktop OR when calendar tab active on mobile */}
         {(!isMobile || mobileTab === 'calendar') && (
-          <div className={cn(
-            "flex flex-col",
-            isMobile ? "w-full" : "flex-1 min-w-0 overflow-hidden"
-          )}>
+          <div
+            id={isMobile ? "calendar-panel" : undefined}
+            role={isMobile ? "tabpanel" : undefined}
+            aria-labelledby={isMobile ? "calendar-tab" : undefined}
+            className={cn(
+              "flex flex-col",
+              isMobile ? "w-full" : "flex-1 min-w-0 overflow-hidden"
+            )}
+          >
             <MyStudentsWeeklyGrid
               enrollments={enrollments}
               onEnrollmentClick={handleEnrollmentClick}

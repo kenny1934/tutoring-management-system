@@ -12,7 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
-import { ChevronDown, User } from "lucide-react";
+import { ChevronDown, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
 import type { Tutor } from "@/types";
@@ -26,6 +26,7 @@ interface TutorSelectorProps {
   location?: string; // Filter tutors by default_location
   className?: string;
   placeholder?: string;
+  allowClear?: boolean; // Show clear option in dropdown
 }
 
 export function TutorSelector({
@@ -34,6 +35,7 @@ export function TutorSelector({
   location,
   className,
   placeholder = "Select tutor...",
+  allowClear = false,
 }: TutorSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: allTutors = [] } = useTutors();
@@ -69,22 +71,22 @@ export function TutorSelector({
     );
   }, [allTutors, location]);
 
-  // Auto-select first tutor if none selected and tutors are loaded
+  // Auto-select first tutor if none selected and tutors are loaded (unless allowClear)
   useEffect(() => {
-    if (value === null && filteredTutors.length > 0) {
+    if (!allowClear && value === null && filteredTutors.length > 0) {
       onChange(filteredTutors[0].id);
     }
-  }, [value, filteredTutors, onChange]);
+  }, [value, filteredTutors, onChange, allowClear]);
 
-  // If current selection is no longer in filtered list, reset to first
+  // If current selection is no longer in filtered list, reset to first (or null if allowClear)
   useEffect(() => {
     if (value !== null && filteredTutors.length > 0) {
       const stillValid = filteredTutors.some(t => t.id === value);
       if (!stillValid) {
-        onChange(filteredTutors[0].id);
+        onChange(allowClear ? null : filteredTutors[0].id);
       }
     }
-  }, [value, filteredTutors, onChange]);
+  }, [value, filteredTutors, onChange, allowClear]);
 
   const selectedTutor = filteredTutors.find(t => t.id === value);
 
@@ -126,6 +128,27 @@ export function TutorSelector({
               "py-1 min-w-[180px] max-h-[300px] overflow-y-auto"
             )}
           >
+            {/* Clear option when allowClear is true and a tutor is selected */}
+            {allowClear && value !== null && (
+              <>
+                <button
+                  onClick={() => {
+                    onChange(null);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800",
+                    "text-gray-500 dark:text-gray-400"
+                  )}
+                >
+                  <X className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>Clear selection</span>
+                </button>
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+              </>
+            )}
+
             {filteredTutors.length === 0 ? (
               <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                 No tutors available
