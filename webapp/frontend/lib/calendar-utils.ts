@@ -82,20 +82,34 @@ export function getMonthCalendarDates(date: Date): Date[] {
 
 /**
  * Parse time from time slot string (e.g., "09:00 - 10:00" -> { start: "09:00", end: "10:00" })
- * Handles formats: "HH:MM - HH:MM" or "HH:MM-HH:MM"
+ * Handles various formats:
+ * - "09:00 - 10:00" (with spaces)
+ * - "09:00-10:00" (no spaces)
+ * - "9:30 - 10:30" (single-digit hours)
+ * - "9:30-10:30" (single-digit, no spaces)
  */
 export function parseTimeSlot(timeSlot: string): { start: string; end: string } | null {
   if (!timeSlot || timeSlot === "Unscheduled") {
     return null;
   }
 
-  // Match HH:MM - HH:MM or HH:MM-HH:MM format
+  // Match H:MM or HH:MM with optional spaces around dash
+  // Handles: "9:30-10:30", "09:00 - 10:00", "9:30 - 10:30"
   const match = timeSlot.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
   if (!match) {
     return null;
   }
 
-  return { start: match[1], end: match[2] };
+  // Normalize to HH:MM format (add leading zero if needed)
+  const normalizeTime = (time: string): string => {
+    const [hours, minutes] = time.split(':');
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  };
+
+  return {
+    start: normalizeTime(match[1]),
+    end: normalizeTime(match[2])
+  };
 }
 
 /**

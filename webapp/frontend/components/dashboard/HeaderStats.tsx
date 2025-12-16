@@ -31,22 +31,6 @@ interface StudentBasic {
   school: string | null;
 }
 
-// School colors for visual distinction
-const SCHOOL_COLORS: Record<string, string> = {
-  "TIS": "#c2dfce",
-  "RCHK": "#cedaf5",
-  "CIS": "#fbf2d0",
-  "HKIS": "#f0a19e",
-  "ISF": "#e2b1cc",
-  "VSA": "#ebb26e",
-  "SIS": "#7dc347",
-  "CDNIS": "#a590e6",
-};
-
-const getSchoolColor = (school: string | undefined | null): string => {
-  if (!school) return "#e5e7eb";
-  return SCHOOL_COLORS[school] || "#e5e7eb";
-};
 
 export function HeaderStats({ stats }: HeaderStatsProps) {
   const { selectedLocation } = useLocation();
@@ -217,10 +201,7 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
                             </span>
                           )}
                           {student.school && (
-                            <span
-                              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
-                              style={{ backgroundColor: getSchoolColor(student.school) }}
-                            >
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200 whitespace-nowrap flex-shrink-0">
                               {student.school}
                             </span>
                           )}

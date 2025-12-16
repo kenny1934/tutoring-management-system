@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { List, RowComponentProps } from "react-window";
 import { HandCoins, Clock, AlertTriangle, GraduationCap, Building2, Calendar } from "lucide-react";
 import type { Enrollment } from "@/types";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
+import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 
 // Group options - can be combined
 export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot';
@@ -26,34 +28,6 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'student_id', label: 'Student ID' },
   { value: 'name', label: 'Name' },
 ];
-
-// Map day names to day index for schedule sorting
-const DAY_NAME_TO_INDEX: Record<string, number> = {
-  'Sun': 0, 'Sunday': 0,
-  'Mon': 1, 'Monday': 1,
-  'Tue': 2, 'Tuesday': 2,
-  'Wed': 3, 'Wednesday': 3,
-  'Thu': 4, 'Thursday': 4,
-  'Fri': 5, 'Friday': 5,
-  'Sat': 6, 'Saturday': 6,
-};
-
-// Grade tag colors
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 // Group sorting priority
 const GROUP_SORT_ORDER: Record<string, Record<string, number>> = {
@@ -135,19 +109,126 @@ const compareGroupKeys = (keyA: string, keyB: string, activeGroups: GroupOption[
 interface MyStudentsListProps {
   enrollments: Enrollment[];
   selectedStudentId: number | null;
+  highlightStudentIds?: number[];
+  selectedGroupKey?: string | null;
   onStudentSelect: (studentId: number | null) => void;
   onEnrollmentClick?: (enrollment: Enrollment, event: React.MouseEvent) => void;
   activeGroups: GroupOption[];
   onGroupsChange: (groups: GroupOption[]) => void;
   sortOption: SortOption;
   onSortChange: (sort: SortOption) => void;
-  onGroupHeaderClick?: (studentIds: number[]) => void;
+  onGroupHeaderClick?: (groupKey: string, studentIds: number[]) => void;
   isMobile?: boolean;
+}
+
+// Threshold for enabling virtualization
+const VIRTUALIZATION_THRESHOLD = 50;
+// Estimated row height for virtualized list
+const ROW_HEIGHT = 72;
+
+// Custom props passed to row component via rowProps (react-window v2)
+interface EnrollmentRowProps {
+  enrollments: Enrollment[];
+  selectedStudentId: number | null;
+  highlightStudentIds?: number[];
+  onStudentSelect: (studentId: number | null) => void;
+  onEnrollmentClick?: (enrollment: Enrollment, event: React.MouseEvent) => void;
+}
+
+// Row component for virtualized list (react-window v2 API)
+function EnrollmentRow({
+  index,
+  style,
+  enrollments,
+  selectedStudentId,
+  highlightStudentIds,
+  onStudentSelect,
+  onEnrollmentClick,
+}: RowComponentProps<EnrollmentRowProps>) {
+  const enrollment = enrollments[index];
+  const isSelected = selectedStudentId === enrollment.student_id;
+  const isHighlighted = highlightStudentIds?.includes(enrollment.student_id) ?? false;
+  const displayStatus = getDisplayPaymentStatus(enrollment);
+  const isOverdue = displayStatus === 'Overdue';
+  const isPending = displayStatus === 'Pending Payment';
+
+  return (
+    <div style={{ ...style, paddingRight: 8, paddingBottom: 8 }}>
+      <div
+        onClick={(e) => {
+          onStudentSelect(isSelected ? null : enrollment.student_id);
+          onEnrollmentClick?.(enrollment, e);
+        }}
+        className={cn(
+          "p-2 rounded-lg cursor-pointer transition-all h-full",
+          "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+          "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
+          (isSelected || isHighlighted) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618]",
+          isOverdue && "border-l-4 border-l-red-500",
+          isPending && !isOverdue && "border-l-4 border-l-amber-500"
+        )}
+      >
+        {/* Header: Student ID, Name, Grade, School */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+            {enrollment.school_student_id && (
+              <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px] flex-shrink-0">
+                {enrollment.school_student_id}
+              </span>
+            )}
+            <span className={cn(
+              "font-semibold text-sm truncate",
+              isOverdue ? "text-red-600 dark:text-red-400" :
+              isPending ? "text-amber-700 dark:text-amber-400" :
+              "text-gray-900 dark:text-gray-100"
+            )}>
+              {enrollment.student_name || "Unknown"}
+            </span>
+            {enrollment.grade && (
+              <span
+                className="text-[10px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap flex-shrink-0"
+                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
+              >
+                {enrollment.grade}{enrollment.lang_stream || ''}
+              </span>
+            )}
+            {enrollment.school && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
+                {enrollment.school}
+              </span>
+            )}
+          </div>
+          {isOverdue && (
+            <span className="flex items-center gap-0.5 flex-shrink-0">
+              <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-red-500 uppercase">Overdue</span>
+            </span>
+          )}
+          {isPending && !isOverdue && (
+            <span className="flex items-center gap-0.5 flex-shrink-0">
+              <HandCoins className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-amber-500 uppercase">Pending</span>
+            </span>
+          )}
+        </div>
+
+        {/* Details: Schedule only */}
+        {enrollment.assigned_day && enrollment.assigned_time && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+            <Clock className="h-3 w-3" />
+            {enrollment.assigned_day} {enrollment.assigned_time}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function MyStudentsList({
   enrollments,
   selectedStudentId,
+  highlightStudentIds,
+  selectedGroupKey,
   onStudentSelect,
   onEnrollmentClick,
   activeGroups,
@@ -157,6 +238,25 @@ export function MyStudentsList({
   onGroupHeaderClick,
   isMobile = false,
 }: MyStudentsListProps) {
+  // Container ref for measuring available height
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(400);
+
+  // Measure container height for virtualization
+  useEffect(() => {
+    const container = listContainerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setListHeight(Math.max(200, entry.contentRect.height));
+      }
+    });
+
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, []);
+
   // Toggle a group option
   const toggleGroup = (group: GroupOption) => {
     if (activeGroups.includes(group)) {
@@ -211,15 +311,20 @@ export function MyStudentsList({
     }).length;
   }, [enrollments]);
 
-  const renderEnrollmentCard = (enrollment: Enrollment) => {
+  // Determine if we should use virtualization
+  // Only virtualize when: no grouping AND count exceeds threshold
+  const shouldVirtualize = activeGroups.length === 0 && enrollments.length > VIRTUALIZATION_THRESHOLD;
+
+  const renderEnrollmentCard = useCallback((enrollment: Enrollment, style?: React.CSSProperties) => {
     const isSelected = selectedStudentId === enrollment.student_id;
+    const isHighlighted = highlightStudentIds?.includes(enrollment.student_id) ?? false;
     const displayStatus = getDisplayPaymentStatus(enrollment);
     const isOverdue = displayStatus === 'Overdue';
     const isPending = displayStatus === 'Pending Payment';
 
-    return (
+    // For virtualized lists, we wrap with a div that has the positioning style
+    const cardContent = (
       <div
-        key={enrollment.id}
         onClick={(e) => {
           onStudentSelect(isSelected ? null : enrollment.student_id);
           onEnrollmentClick?.(enrollment, e);
@@ -228,14 +333,14 @@ export function MyStudentsList({
           "p-2 rounded-lg cursor-pointer transition-all",
           "border border-[#e8d4b8] dark:border-[#6b5a4a]",
           "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
-          isSelected && "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618]",
+          (isSelected || isHighlighted) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f] bg-[#fef9f3] dark:bg-[#2d2618]",
           isOverdue && "border-l-4 border-l-red-500",
           isPending && !isOverdue && "border-l-4 border-l-amber-500"
         )}
       >
         {/* Header: Student ID, Name, Grade, School */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+          <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
             {enrollment.school_student_id && (
               <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px] flex-shrink-0">
                 {enrollment.school_student_id}
@@ -264,10 +369,16 @@ export function MyStudentsList({
             )}
           </div>
           {isOverdue && (
-            <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+            <span className="flex items-center gap-0.5 flex-shrink-0">
+              <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-red-500 uppercase">Overdue</span>
+            </span>
           )}
           {isPending && !isOverdue && (
-            <HandCoins className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <span className="flex items-center gap-0.5 flex-shrink-0">
+              <HandCoins className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              <span className="text-[9px] font-bold text-amber-500 uppercase">Pending</span>
+            </span>
           )}
         </div>
 
@@ -280,7 +391,19 @@ export function MyStudentsList({
         )}
       </div>
     );
-  };
+
+    // If style is provided (from virtualized list), wrap with positioning div
+    if (style) {
+      return (
+        <div style={{ ...style, paddingRight: 8, paddingBottom: 8 }} key={enrollment.id}>
+          {cardContent}
+        </div>
+      );
+    }
+
+    // Otherwise return card with key directly
+    return <div key={enrollment.id}>{cardContent}</div>;
+  }, [selectedStudentId, highlightStudentIds, onStudentSelect, onEnrollmentClick]);
 
   if (enrollments.length === 0) {
     return (
@@ -304,8 +427,8 @@ export function MyStudentsList({
           </span>
           {unpaidCount > 0 && (
             <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-              <HandCoins className="h-3 w-3" />
-              {unpaidCount}
+              <HandCoins className="h-3 w-3" aria-hidden="true" />
+              <span>{unpaidCount} unpaid</span>
             </span>
           )}
         </div>
@@ -317,8 +440,10 @@ export function MyStudentsList({
             <button
               key={value}
               onClick={() => toggleGroup(value)}
+              aria-pressed={activeGroups.includes(value)}
+              aria-label={`Group by ${label}`}
               className={cn(
-                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors",
+                "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:ring-offset-1",
                 activeGroups.includes(value)
                   ? "bg-[#a0704b] text-white"
                   : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -356,29 +481,68 @@ export function MyStudentsList({
       </div>
 
       {/* Scrollable list */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
-        {Array.from(groupedEnrollments.entries()).map(([groupKey, groupEnrollments]) => (
-          <div key={groupKey}>
-            {/* Group header (only if grouping is active) */}
-            {activeGroups.length > 0 && groupKey !== 'all' && (
-              <div
-                onClick={() => onGroupHeaderClick?.(groupEnrollments.map(e => e.student_id))}
-                className="sticky top-0 z-10 -mx-2 px-2 py-1 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574] dark:border-[#6b5a4a] mb-2 cursor-pointer hover:bg-[#ebe0d4] dark:hover:bg-[#4d4638] transition-colors"
-              >
-                <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase">
-                  {getGroupLabel(groupKey, activeGroups)}
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                  ({groupEnrollments.length})
-                </span>
+      <div ref={listContainerRef} className="flex-1 min-h-0 overflow-hidden">
+        {shouldVirtualize ? (
+          // Virtualized list for large flat lists (no grouping) - react-window v2 API
+          <List<EnrollmentRowProps>
+            rowCount={sortedEnrollments.length}
+            rowHeight={ROW_HEIGHT}
+            rowComponent={EnrollmentRow}
+            rowProps={{
+              enrollments: sortedEnrollments,
+              selectedStudentId,
+              highlightStudentIds,
+              onStudentSelect,
+              onEnrollmentClick,
+            }}
+            defaultHeight={listHeight}
+            className="p-2"
+          />
+        ) : (
+          // Regular list for smaller lists or grouped views
+          <div className="h-full overflow-y-auto p-2 space-y-2">
+            {Array.from(groupedEnrollments.entries()).map(([groupKey, groupEnrollments]) => (
+              <div key={groupKey}>
+                {/* Group header (only if grouping is active) */}
+                {activeGroups.length > 0 && groupKey !== 'all' && (() => {
+                  const isGroupSelected = selectedGroupKey === groupKey;
+                  return (
+                    <div
+                      onClick={() => onGroupHeaderClick?.(groupKey, groupEnrollments.map(e => e.student_id))}
+                      className={cn(
+                        "sticky top-0 z-10 -mx-2 px-2 py-1 border-b mb-2 cursor-pointer transition-colors",
+                        isGroupSelected
+                          ? "bg-[#a0704b]/20 dark:bg-[#cd853f]/20 border-[#a0704b] dark:border-[#cd853f]"
+                          : "bg-[#f5ede3] dark:bg-[#3d3628] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#ebe0d4] dark:hover:bg-[#4d4638]"
+                      )}
+                    >
+                      <span className={cn(
+                        "text-xs font-bold uppercase",
+                        isGroupSelected
+                          ? "text-[#a0704b] dark:text-[#cd853f]"
+                          : "text-gray-700 dark:text-gray-300"
+                      )}>
+                        {getGroupLabel(groupKey, activeGroups)}
+                      </span>
+                      <span className={cn(
+                        "text-xs ml-2",
+                        isGroupSelected
+                          ? "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                          : "text-gray-500 dark:text-gray-400"
+                      )}>
+                        ({groupEnrollments.length})
+                      </span>
+                    </div>
+                  );
+                })()}
+                {/* Enrollments in this group */}
+                <div className="space-y-2">
+                  {groupEnrollments.map((e) => renderEnrollmentCard(e))}
+                </div>
               </div>
-            )}
-            {/* Enrollments in this group */}
-            <div className="space-y-2">
-              {groupEnrollments.map(renderEnrollmentCard)}
-            </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
