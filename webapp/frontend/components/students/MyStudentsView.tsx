@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMyStudents } from "@/lib/hooks";
-import { MyStudentsList, type SortOption, type GroupOption } from "./MyStudentsList";
+import { useMyStudents, useAllStudents } from "@/lib/hooks";
+import { ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
+import { MyStudentsList, type SortOption, type SortDirection, type GroupOption } from "./MyStudentsList";
 import { MyStudentsWeeklyGrid } from "./MyStudentsWeeklyGrid";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { StickyNote } from "@/lib/design-system";
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils";
 import type { Enrollment } from "@/types";
 
 interface MyStudentsViewProps {
-  tutorId: number | null;
+  tutorId: TutorValue;
   location: string;
   isMobile: boolean;
   // Optional controlled props for URL persistence
@@ -21,6 +22,8 @@ interface MyStudentsViewProps {
   onGroupsChange?: (groups: GroupOption[]) => void;
   sortOption?: SortOption;
   onSortChange?: (sort: SortOption) => void;
+  sortDirection?: SortDirection;
+  onSortDirectionChange?: (direction: SortDirection) => void;
 }
 
 export function MyStudentsView({
@@ -33,20 +36,34 @@ export function MyStudentsView({
   onGroupsChange,
   sortOption: controlledSortOption,
   onSortChange,
+  sortDirection: controlledSortDirection,
+  onSortDirectionChange,
 }: MyStudentsViewProps) {
-  const { data: enrollments = [], isLoading, error } = useMyStudents(tutorId, location);
+  const isAllTutors = tutorId === ALL_TUTORS;
+  const numericTutorId = typeof tutorId === 'number' ? tutorId : null;
+
+  // Conditionally fetch based on mode
+  const myStudentsResult = useMyStudents(isAllTutors ? null : numericTutorId, location);
+  const allStudentsResult = useAllStudents(isAllTutors ? location : undefined);
+
+  // Use the appropriate result based on mode
+  const { data: enrollments = [], isLoading, error } = isAllTutors ? allStudentsResult : myStudentsResult;
+
   const [highlightedStudentIds, setHighlightedStudentIds] = useState<number[]>([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
 
   // Use controlled props if provided, otherwise local state
   const [localActiveGroups, setLocalActiveGroups] = useState<GroupOption[]>([]);
   const [localSortOption, setLocalSortOption] = useState<SortOption>('student_id');
+  const [localSortDirection, setLocalSortDirection] = useState<SortDirection>('asc');
   const [localMobileTab, setLocalMobileTab] = useState<'list' | 'calendar'>('list');
 
   const activeGroups = controlledActiveGroups ?? localActiveGroups;
   const setActiveGroups = onGroupsChange ?? setLocalActiveGroups;
   const sortOption = controlledSortOption ?? localSortOption;
   const setSortOption = onSortChange ?? setLocalSortOption;
+  const sortDirection = controlledSortDirection ?? localSortDirection;
+  const setSortDirection = onSortDirectionChange ?? setLocalSortDirection;
   const mobileTab = controlledMobileTab ?? localMobileTab;
   const setMobileTab = onMobileTabChange ?? setLocalMobileTab;
 
@@ -93,7 +110,7 @@ export function MyStudentsView({
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
             <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Select a Tutor</p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              Choose a tutor from the dropdown above to see their students
+              Choose a tutor or &quot;All Tutors&quot; from the dropdown above
             </p>
           </div>
         </StickyNote>
@@ -135,7 +152,9 @@ export function MyStudentsView({
             <Users className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
             <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No Students Found</p>
             <p className="text-sm text-gray-700 dark:text-gray-300">
-              This tutor doesn't have any active students in the selected location
+              {isAllTutors
+                ? "No active students in the selected location"
+                : "This tutor doesn't have any active students in the selected location"}
             </p>
           </div>
         </StickyNote>
@@ -209,8 +228,11 @@ export function MyStudentsView({
               onGroupsChange={setActiveGroups}
               sortOption={sortOption}
               onSortChange={setSortOption}
+              sortDirection={sortDirection}
+              onSortDirectionChange={setSortDirection}
               onGroupHeaderClick={handleGroupHeaderClick}
               isMobile={isMobile}
+              isAllTutors={isAllTutors}
             />
           </div>
         )}
@@ -232,6 +254,12 @@ export function MyStudentsView({
               highlightStudentIds={highlightedStudentIds}
               isMobile={isMobile}
               fillHeight
+              isAllTutors={isAllTutors}
+              // Calendar-list sync props
+              activeGroups={activeGroups}
+              sortOption={sortOption}
+              sortDirection={sortDirection}
+              selectedGroupKey={selectedGroupKey}
             />
           </div>
         )}

@@ -12,7 +12,7 @@ import {
   FloatingPortal,
   useClick,
 } from "@floating-ui/react";
-import { ChevronDown, User, X } from "lucide-react";
+import { ChevronDown, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
 import type { Tutor } from "@/types";
@@ -20,13 +20,18 @@ import type { Tutor } from "@/types";
 // Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
 const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
+// Special value for "All Tutors" mode
+export const ALL_TUTORS = 'all' as const;
+export type TutorValue = number | typeof ALL_TUTORS | null;
+
 interface TutorSelectorProps {
-  value: number | null;
-  onChange: (tutorId: number | null) => void;
+  value: TutorValue;
+  onChange: (tutorId: TutorValue) => void;
   location?: string; // Filter tutors by default_location
   className?: string;
   placeholder?: string;
   allowClear?: boolean; // Show clear option in dropdown
+  showAllTutors?: boolean; // Show "All Tutors" option
 }
 
 export function TutorSelector({
@@ -36,6 +41,7 @@ export function TutorSelector({
   className,
   placeholder = "Select tutor...",
   allowClear = false,
+  showAllTutors = false,
 }: TutorSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { data: allTutors = [] } = useTutors();
@@ -71,24 +77,26 @@ export function TutorSelector({
     );
   }, [allTutors, location]);
 
-  // Auto-select first tutor if none selected and tutors are loaded (unless allowClear)
+  // Auto-select first tutor if none selected and tutors are loaded (unless allowClear or showAllTutors)
   useEffect(() => {
-    if (!allowClear && value === null && filteredTutors.length > 0) {
+    if (!allowClear && !showAllTutors && value === null && filteredTutors.length > 0) {
       onChange(filteredTutors[0].id);
     }
-  }, [value, filteredTutors, onChange, allowClear]);
+  }, [value, filteredTutors, onChange, allowClear, showAllTutors]);
 
   // If current selection is no longer in filtered list, reset to first (or null if allowClear)
+  // Skip this check for 'all' value since it's always valid
   useEffect(() => {
-    if (value !== null && filteredTutors.length > 0) {
+    if (value !== null && value !== ALL_TUTORS && filteredTutors.length > 0) {
       const stillValid = filteredTutors.some(t => t.id === value);
       if (!stillValid) {
-        onChange(allowClear ? null : filteredTutors[0].id);
+        onChange(allowClear || showAllTutors ? null : filteredTutors[0].id);
       }
     }
-  }, [value, filteredTutors, onChange, allowClear]);
+  }, [value, filteredTutors, onChange, allowClear, showAllTutors]);
 
-  const selectedTutor = filteredTutors.find(t => t.id === value);
+  const isAllTutorsSelected = value === ALL_TUTORS;
+  const selectedTutor = typeof value === 'number' ? filteredTutors.find(t => t.id === value) : null;
 
   return (
     <>
@@ -106,9 +114,13 @@ export function TutorSelector({
           className
         )}
       >
-        <User className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+        {isAllTutorsSelected ? (
+          <Users className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+        ) : (
+          <User className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+        )}
         <span className="truncate max-w-[150px]">
-          {selectedTutor?.tutor_name || placeholder}
+          {isAllTutorsSelected ? "All Tutors" : (selectedTutor?.tutor_name || placeholder)}
         </span>
         <ChevronDown className={cn("h-3.5 w-3.5 text-[#a0704b] transition-transform", isOpen && "rotate-180")} />
       </button>
@@ -144,6 +156,35 @@ export function TutorSelector({
                 >
                   <X className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>Clear selection</span>
+                </button>
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+              </>
+            )}
+
+            {/* All Tutors option */}
+            {showAllTutors && (
+              <>
+                <button
+                  onClick={() => {
+                    onChange(ALL_TUTORS);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left",
+                    "hover:bg-gray-100 dark:hover:bg-gray-800",
+                    isAllTutorsSelected && "bg-gray-100 dark:bg-gray-800"
+                  )}
+                >
+                  <Users className={cn(
+                    "h-3.5 w-3.5 flex-shrink-0",
+                    isAllTutorsSelected ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500"
+                  )} />
+                  <span className={cn(
+                    "text-gray-900 dark:text-gray-100",
+                    isAllTutorsSelected && "font-medium"
+                  )}>
+                    All Tutors
+                  </span>
                 </button>
                 <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
               </>

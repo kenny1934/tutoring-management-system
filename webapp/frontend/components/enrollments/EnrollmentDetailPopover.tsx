@@ -16,6 +16,8 @@ import {
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { getDisplayStatus } from "@/lib/session-status";
 import type { Enrollment } from "@/types";
 
 // Day options (short form)
@@ -497,10 +499,10 @@ export function EnrollmentDetailPopover({
         </div>
 
         {/* Upcoming Sessions Preview */}
-        <div className="py-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
           <div className="flex items-center gap-1 mb-2">
-            <CalendarDays className="h-3.5 w-3.5 text-gray-500" />
-            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            <CalendarDays className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+            <span className="text-[10px] font-bold text-[#a0704b] dark:text-[#cd853f] uppercase tracking-wider">
               Upcoming Sessions
             </span>
           </div>
@@ -514,29 +516,35 @@ export function EnrollmentDetailPopover({
           ) : (
             <div className="space-y-1">
               {upcomingSessions.map((session) => (
-                <div
+                <Link
                   key={session.id}
-                  className="flex items-center justify-between text-xs p-1.5 rounded bg-gray-50 dark:bg-gray-800"
+                  href={`/sessions/${session.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate?.();
+                    onClose();
+                  }}
+                  className="flex items-center justify-between text-xs p-1.5 rounded bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#efe5d7] dark:hover:bg-[#4d4638] transition-colors cursor-pointer"
                 >
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {formatSessionDate(session.session_date)}
-                  </span>
-                  <span className={cn(
-                    "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                    session.session_status === 'Scheduled'
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                      : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-                  )}>
-                    {session.session_status}
-                  </span>
-                </div>
+                  <div className="flex flex-col">
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {formatSessionDate(session.session_date)}
+                    </span>
+                    {session.tutor_name && (
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        {session.tutor_name}
+                      </span>
+                    )}
+                  </div>
+                  <SessionStatusTag status={getDisplayStatus(session)} size="sm" iconOnly />
+                </Link>
               ))}
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        <div className="pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
           {/* Mark as Paid button - only shown for pending payments */}
           {showMarkAsPaid && (
             <button

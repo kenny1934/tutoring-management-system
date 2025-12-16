@@ -14,6 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { DAY_NAMES, DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
+import type { GroupOption, SortOption, SortDirection } from "./MyStudentsList";
+import { getGroupKey, compareGroupKeys } from "./MyStudentsList";
 
 
 interface MyStudentsWeeklyGridProps {
@@ -22,6 +24,27 @@ interface MyStudentsWeeklyGridProps {
   highlightStudentIds?: number[];
   isMobile?: boolean;
   fillHeight?: boolean;
+  isAllTutors?: boolean;
+  // Calendar-list sync props
+  activeGroups?: GroupOption[];
+  sortOption?: SortOption;
+  sortDirection?: SortDirection;
+  selectedGroupKey?: string | null;
+}
+
+// Get tutor first name, stripping title prefix
+const getTutorFirstName = (name: string): string => {
+  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+  return cleaned.split(' ')[0] || cleaned;
+};
+
+// For overlap detection and column assignment
+interface TimeGroupInfo {
+  key: string;
+  top: number;
+  bottom: number;
+  column: number;
+  totalColumns: number;
 }
 
 export function MyStudentsWeeklyGrid({
@@ -30,6 +53,12 @@ export function MyStudentsWeeklyGrid({
   highlightStudentIds = [],
   isMobile = false,
   fillHeight = false,
+  isAllTutors = false,
+  // Calendar-list sync props
+  activeGroups = [],
+  sortOption = 'name',
+  sortDirection = 'asc',
+  selectedGroupKey = null,
 }: MyStudentsWeeklyGridProps) {
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
   const [expandedEmptyDays, setExpandedEmptyDays] = useState<Set<number>>(new Set());
@@ -324,21 +353,88 @@ export function MyStudentsWeeklyGrid({
                         timeGroups.get(key)!.push(enrollment);
                       });
 
-                      // Sort enrollments within each group by payment status (pending first) then name
-                      timeGroups.forEach((groupEnrollments) => {
-                        groupEnrollments.sort((a, b) => {
-                          // Pending payments first
-                          if (a.payment_status === 'Pending Payment' && b.payment_status !== 'Pending Payment') return -1;
-                          if (a.payment_status !== 'Pending Payment' && b.payment_status === 'Pending Payment') return 1;
-                          // Then by name
-                          return (a.student_name || '').localeCompare(b.student_name || '');
+                      // Sort enrollments within each time slot:
+                      // 1) First by group key (so F1 students cluster together, then F2, etc.)
+                      // 2) Then by sortOption within each group
+                      const sortMultiplier = sortDirection === 'asc' ? 1 : -1;
+                      timeGroups.forEach((slotEnrollments) => {
+                        slotEnrollments.sort((a, b) => {
+                          // First, sort by group key to cluster similar items
+                          if (activeGroups.length > 0) {
+                            const aGroupKey = getGroupKey(a, activeGroups);
+                            const bGroupKey = getGroupKey(b, activeGroups);
+                            const groupCmp = compareGroupKeys(aGroupKey, bGroupKey, activeGroups);
+                            if (groupCmp !== 0) return groupCmp;
+                          }
+
+                          // Then sort within group by sortOption
+                          let cmp: number;
+                          switch (sortOption) {
+                            case 'student_id':
+                              cmp = (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                              break;
+                            case 'name':
+                            default:
+                              cmp = (a.student_name || '').localeCompare(b.student_name || '');
+                              break;
+                          }
+                          return cmp * sortMultiplier;
                         });
                       });
+
+                      // Overlap detection and column assignment
+                      const groupInfos: TimeGroupInfo[] = Array.from(timeGroups.keys()).map(key => {
+                        const parts = key.split('-');
+                        const height = parseFloat(parts[parts.length - 1]);
+                        const top = parseFloat(parts[parts.length - 2]);
+                        return { key, top, bottom: top + height, column: 0, totalColumns: 1 };
+                      });
+
+                      // Sort by start time for greedy algorithm
+                      groupInfos.sort((a, b) => a.top - b.top);
+
+                      // Assign columns using greedy algorithm
+                      const columns: TimeGroupInfo[][] = [];
+                      for (const group of groupInfos) {
+                        let placed = false;
+                        for (let col = 0; col < columns.length; col++) {
+                          const lastInCol = columns[col][columns[col].length - 1];
+                          if (lastInCol.bottom <= group.top) {
+                            // No overlap - can reuse this column
+                            columns[col].push(group);
+                            group.column = col;
+                            placed = true;
+                            break;
+                          }
+                        }
+                        if (!placed) {
+                          // Need new column
+                          group.column = columns.length;
+                          columns.push([group]);
+                        }
+                      }
+
+                      // Calculate total columns for each group based on overlapping groups
+                      for (const group of groupInfos) {
+                        const overlapping = groupInfos.filter(g =>
+                          !(g.bottom <= group.top || g.top >= group.bottom)
+                        );
+                        const maxCol = Math.max(...overlapping.map(g => g.column));
+                        overlapping.forEach(g => g.totalColumns = Math.max(g.totalColumns, maxCol + 1));
+                      }
+
+                      // Create lookup map
+                      const groupInfoMap = new Map(groupInfos.map(g => [g.key, g]));
 
                       return Array.from(timeGroups.entries()).map(([key, groupEnrollments]) => {
                         const firstEnrollment = groupEnrollments[0];
                         const top = calculateSessionPosition(firstEnrollment.assigned_time || "", pixelsPerMinute);
                         const height = calculateSessionHeight(firstEnrollment.assigned_time || "", pixelsPerMinute);
+
+                        // Get column positioning for this time group
+                        const info = groupInfoMap.get(key);
+                        const widthPercent = 100 / (info?.totalColumns || 1);
+                        const leftPercent = (info?.column || 0) * widthPercent;
 
                         // Calculate how many enrollments can fit vertically
                         const maxDisplayedEnrollments = Math.max(1, Math.floor((height - 4) / 32)); // ~32px per item (card ~30px + gap)
@@ -354,8 +450,8 @@ export function MyStudentsWeeklyGrid({
                             style={{
                               top: `${top}px`,
                               height: `${height}px`,
-                              left: "2px",
-                              right: "2px",
+                              left: `calc(${leftPercent}% + 1px)`,
+                              width: `calc(${widthPercent}% - 2px)`,
                             }}
                           >
                             <div className="flex flex-col gap-0.5 p-0.5 h-full overflow-hidden">
@@ -365,6 +461,12 @@ export function MyStudentsWeeklyGrid({
                                 const isHighlighted = highlightStudentIds.includes(enrollment.student_id);
                                 const isOverdue = displayStatus === 'Overdue';
                                 const isPending = displayStatus === 'Pending Payment';
+
+                                // Group filter: check if enrollment matches selected group
+                                const enrollmentGroupKey = activeGroups.length > 0
+                                  ? getGroupKey(enrollment, activeGroups)
+                                  : null;
+                                const isInSelectedGroup = !selectedGroupKey || enrollmentGroupKey === selectedGroupKey;
 
                                 return (
                                   <motion.div
@@ -382,9 +484,10 @@ export function MyStudentsWeeklyGrid({
                                       onEnrollmentClick?.(enrollment, e);
                                     }}
                                     className={cn(
-                                      "cursor-pointer rounded overflow-hidden shadow-sm flex-shrink-0 flex",
+                                      "cursor-pointer rounded overflow-hidden shadow-sm flex-shrink-0 flex transition-opacity",
                                       statusConfig.bgTint,
-                                      isHighlighted && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      isHighlighted && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      !isInSelectedGroup && "opacity-30 pointer-events-none"
                                     )}
                                     style={{ minHeight: "22px" }}
                                   >
@@ -405,6 +508,11 @@ export function MyStudentsWeeklyGrid({
                                             </>
                                           )}
                                         </span>
+                                        {isAllTutors && enrollment.tutor_name && (
+                                          <span className="text-[8px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+                                            {getTutorFirstName(enrollment.tutor_name)}
+                                          </span>
+                                        )}
                                       </p>
                                       <p className={cn(
                                         "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
@@ -413,7 +521,7 @@ export function MyStudentsWeeklyGrid({
                                         "text-gray-900 dark:text-gray-100"
                                       )}>
                                         <span className="truncate">{enrollment.student_name || "Unknown"}</span>
-                                        {!isMobile && enrollment.grade && (
+                                        {!isMobile && widthPercent >= 50 && enrollment.grade && (
                                           <span
                                             className="text-[7px] px-1 py-px rounded text-gray-800 whitespace-nowrap flex-shrink-0"
                                             style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
@@ -421,7 +529,7 @@ export function MyStudentsWeeklyGrid({
                                             {enrollment.grade}{enrollment.lang_stream || ''}
                                           </span>
                                         )}
-                                        {!isMobile && enrollment.school && (
+                                        {!isMobile && widthPercent > 50 && enrollment.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
                                             {enrollment.school}
                                           </span>
@@ -438,6 +546,11 @@ export function MyStudentsWeeklyGrid({
                                 const hasHighlightedHidden = hiddenEnrollments.some(e =>
                                   highlightStudentIds.includes(e.student_id)
                                 );
+                                // Check if any hidden enrollments match the selected group
+                                const hasMatchingHidden = !selectedGroupKey || hiddenEnrollments.some(e => {
+                                  const eGroupKey = activeGroups.length > 0 ? getGroupKey(e, activeGroups) : null;
+                                  return eGroupKey === selectedGroupKey;
+                                });
 
                                 return (
                                   <div
@@ -449,11 +562,12 @@ export function MyStudentsWeeklyGrid({
                                       setOpenMoreGroup(key);
                                     }}
                                     className={cn(
-                                      "cursor-pointer rounded px-1.5 py-0.5 text-center",
+                                      "cursor-pointer rounded px-1.5 py-0.5 text-center transition-opacity",
                                       hasHighlightedHidden
                                         ? "bg-[#a0704b] border-2 border-[#8b6140] ring-2 ring-[#a0704b]/50"
                                         : "bg-amber-100 dark:bg-amber-900/50 border border-amber-400 dark:border-amber-600",
-                                      "shadow-sm hover:shadow-md transition-all flex-shrink-0"
+                                      "shadow-sm hover:shadow-md transition-all flex-shrink-0",
+                                      !hasMatchingHidden && "opacity-30"
                                     )}
                                     style={{ minHeight: "20px" }}
                                   >
@@ -505,22 +619,19 @@ export function MyStudentsWeeklyGrid({
           timeGroups.get(key)!.push(enrollment);
         });
 
-        // Sort enrollments within group
-        const groupEnrollments = timeGroups.get(openMoreGroup) || [];
-        groupEnrollments.sort((a, b) => {
-          // Pending payments first
-          if (a.payment_status === 'Pending Payment' && b.payment_status !== 'Pending Payment') return -1;
-          if (a.payment_status !== 'Pending Payment' && b.payment_status === 'Pending Payment') return 1;
-          // Then by name
-          return (a.student_name || '').localeCompare(b.student_name || '');
-        });
+        // Get enrollments for this time group (sorting will be done in popover)
+        const popoverEnrollments = timeGroups.get(openMoreGroup) || [];
 
         return (
           <MoreEnrollmentsPopover
-            enrollments={groupEnrollments}
+            enrollments={popoverEnrollments}
             triggerRef={{ current: ref }}
             onClose={() => setOpenMoreGroup(null)}
             highlightStudentIds={highlightStudentIds}
+            activeGroups={activeGroups}
+            sortOption={sortOption}
+            sortDirection={sortDirection}
+            selectedGroupKey={selectedGroupKey}
           />
         );
       })()}

@@ -23,7 +23,7 @@ import {
 } from "@floating-ui/react";
 import { studentsAPI } from "@/lib/api";
 import type { Session, Enrollment, CalendarEvent } from "@/types";
-import { TutorSelector } from "@/components/selectors/TutorSelector";
+import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
 import { MyStudentsView } from "@/components/students/MyStudentsView";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 
@@ -49,15 +49,15 @@ export default function StudentsPage() {
     return page ? parseInt(page) : 1;
   });
   const [isMobile, setIsMobile] = useState(false);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
 
   // View mode state: 'all' (default student list) or 'my' (tutor's students)
   const [viewMode, setViewMode] = useState<'all' | 'my'>(() => {
     const view = searchParams.get('view');
     return view === 'my' ? 'my' : 'all';
   });
-  const [selectedTutorId, setSelectedTutorId] = useState<number | null>(() => {
+  const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(() => {
     const tutor = searchParams.get('tutor');
+    if (tutor === 'all') return ALL_TUTORS;
     return tutor ? parseInt(tutor) : null;
   });
 
@@ -73,6 +73,10 @@ export default function StudentsPage() {
   const [mySort, setMySort] = useState<'student_id' | 'name'>(() => {
     const sort = searchParams.get('mysort');
     return sort === 'name' ? 'name' : 'student_id';
+  });
+  const [mySortDirection, setMySortDirection] = useState<'asc' | 'desc'>(() => {
+    const dir = searchParams.get('mydir');
+    return dir === 'desc' ? 'desc' : 'asc';
   });
 
   // School autocomplete state
@@ -144,35 +148,23 @@ export default function StudentsPage() {
   // SWR hook for data fetching
   const { data: students = [], error, isLoading: loading } = useStudents(filters);
 
-  // Fetch total count (without pagination)
-  useEffect(() => {
-    const fetchTotalCount = async () => {
-      try {
-        const countFilters = {
-          search: searchTerm || undefined,
-          grade: gradeFilter || undefined,
-          school: schoolFilter || undefined,
-          location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
-          limit: 500, // Get max to count
-        };
-        const allStudents = await studentsAPI.getAll(countFilters);
-        setTotalCount(allStudents.length);
-      } catch {
-        setTotalCount(null);
-      }
-    };
-    fetchTotalCount();
-  }, [searchTerm, gradeFilter, schoolFilter, selectedLocation]);
+  // Note: Total count fetching removed for performance
+  // The display now shows "X+ students" when on a paginated page
 
   // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (viewMode === 'my') {
       params.set('view', 'my');
-      if (selectedTutorId) params.set('tutor', selectedTutorId.toString());
+      if (selectedTutorId === ALL_TUTORS) {
+        params.set('tutor', 'all');
+      } else if (selectedTutorId) {
+        params.set('tutor', selectedTutorId.toString());
+      }
       if (myMobileTab === 'calendar') params.set('tab', 'calendar');
       if (myGroups.length > 0) params.set('groups', myGroups.join(','));
       if (mySort !== 'student_id') params.set('mysort', mySort);
+      if (mySortDirection !== 'asc') params.set('mydir', mySortDirection);
     } else {
       // Only include filters for "all" view
       if (searchTerm) params.set('search', searchTerm);
@@ -184,7 +176,7 @@ export default function StudentsPage() {
 
     const query = params.toString();
     router.replace(`/students${query ? `?${query}` : ''}`, { scroll: false });
-  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, myMobileTab, myGroups, mySort, router]);
+  }, [searchTerm, gradeFilter, schoolFilter, sortOption, currentPage, viewMode, selectedTutorId, myMobileTab, myGroups, mySort, mySortDirection, router]);
 
   // Restore scroll position
   useEffect(() => {
@@ -325,6 +317,7 @@ export default function StudentsPage() {
                 onChange={setSelectedTutorId}
                 location={selectedLocation}
                 allowClear
+                showAllTutors
               />
             )}
 
@@ -458,13 +451,6 @@ export default function StudentsPage() {
             )}
 
             <div className="flex-1" />
-
-            {/* Student count - only in "All" view */}
-            {viewMode === 'all' && (
-              <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
-                {totalCount !== null ? `${totalCount} students` : `${students.length}+ students`}
-              </span>
-            )}
           </div>
 
           {/* All Students View */}
@@ -571,6 +557,8 @@ export default function StudentsPage() {
                 onGroupsChange={setMyGroups}
                 sortOption={mySort}
                 onSortChange={setMySort}
+                sortDirection={mySortDirection}
+                onSortDirectionChange={setMySortDirection}
               />
             </div>
           )}

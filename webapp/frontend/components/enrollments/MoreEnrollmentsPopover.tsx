@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useMemo } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -17,12 +17,19 @@ import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import type { Enrollment } from "@/types";
+import type { GroupOption, SortOption, SortDirection } from "@/components/students/MyStudentsList";
+import { getGroupKey, compareGroupKeys, getGroupLabel } from "@/components/students/MyStudentsList";
 
 interface MoreEnrollmentsPopoverProps {
   enrollments: Enrollment[];
   triggerRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
   highlightStudentIds?: number[];
+  // Grouping props
+  activeGroups?: GroupOption[];
+  sortOption?: SortOption;
+  sortDirection?: SortDirection;
+  selectedGroupKey?: string | null;
 }
 
 export function MoreEnrollmentsPopover({
@@ -30,6 +37,10 @@ export function MoreEnrollmentsPopover({
   triggerRef,
   onClose,
   highlightStudentIds = [],
+  activeGroups = [],
+  sortOption = 'name',
+  sortDirection = 'asc',
+  selectedGroupKey = null,
 }: MoreEnrollmentsPopoverProps) {
   const [enrollmentToShow, setEnrollmentToShow] = useState<Enrollment | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
@@ -65,6 +76,51 @@ export function MoreEnrollmentsPopover({
   });
   const { getFloatingProps } = useInteractions([dismiss]);
 
+  // Group and sort enrollments
+  const groupedEnrollments = useMemo(() => {
+    const sortMultiplier = sortDirection === 'asc' ? 1 : -1;
+
+    // Sort enrollments: group key first, then sortOption
+    const sorted = [...enrollments].sort((a, b) => {
+      // First, sort by group key to cluster similar items
+      if (activeGroups.length > 0) {
+        const aGroupKey = getGroupKey(a, activeGroups);
+        const bGroupKey = getGroupKey(b, activeGroups);
+        const groupCmp = compareGroupKeys(aGroupKey, bGroupKey, activeGroups);
+        if (groupCmp !== 0) return groupCmp;
+      }
+
+      // Then sort within group by sortOption
+      let cmp: number;
+      switch (sortOption) {
+        case 'student_id':
+          cmp = (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          break;
+        case 'name':
+        default:
+          cmp = (a.student_name || '').localeCompare(b.student_name || '');
+          break;
+      }
+      return cmp * sortMultiplier;
+    });
+
+    // Group into Map for rendering with headers
+    if (activeGroups.length === 0) {
+      return new Map([['all', sorted]]);
+    }
+
+    const groups = new Map<string, Enrollment[]>();
+    sorted.forEach(enrollment => {
+      const key = getGroupKey(enrollment, activeGroups);
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(enrollment);
+    });
+
+    return groups;
+  }, [enrollments, activeGroups, sortOption, sortDirection]);
+
   if (!triggerRef.current) return null;
 
   return (
@@ -96,68 +152,89 @@ export function MoreEnrollmentsPopover({
             </button>
           </div>
 
-          <div className="space-y-1.5">
-            {enrollments.map((enrollment) => {
-              const displayStatus = getDisplayPaymentStatus(enrollment);
-              const statusConfig = getPaymentStatusConfig(displayStatus);
-              const isOverdue = displayStatus === 'Overdue';
-              const isPending = displayStatus === 'Pending Payment';
-              const isHighlighted = highlightStudentIds.includes(enrollment.student_id);
-              return (
-                <div
-                  key={enrollment.id}
-                  onClick={(e) => {
-                    setClickPosition({ x: e.clientX, y: e.clientY });
-                    setEnrollmentToShow(enrollment);
-                  }}
-                  className={cn(
-                    "cursor-pointer rounded overflow-hidden flex",
-                    "shadow-sm hover:shadow-md transition-all",
-                    "hover:scale-[1.01] hover:-translate-y-0.5",
-                    statusConfig.bgTint,
-                    isHighlighted && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
-                  )}
-                >
-                  <div className="flex-1 min-w-0 px-2.5 py-2">
-                    <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex justify-between items-center">
-                      <span className="flex items-center gap-1">
-                        {enrollment.school_student_id || "N/A"}
-                        {isOverdue && (
-                          <AlertTriangle className="h-3 w-3 text-red-500" />
-                        )}
-                        {isPending && !isOverdue && (
-                          <HandCoins className="h-3 w-3 text-amber-500" />
-                        )}
-                      </span>
-                      {enrollment.assigned_time && (
-                        <span>{enrollment.assigned_time}</span>
-                      )}
-                    </p>
-                    <p className={cn(
-                      "text-sm font-semibold flex items-center gap-1 overflow-hidden",
-                      isOverdue ? "text-red-600 dark:text-red-400" :
-                      isPending ? "text-amber-700 dark:text-amber-400" :
-                      "text-gray-900 dark:text-gray-100"
-                    )}>
-                      <span className="truncate">{enrollment.student_name || "Unknown"}</span>
-                      {enrollment.grade && (
-                        <span
-                          className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
-                          style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
-                        >{enrollment.grade}{enrollment.lang_stream || ''}</span>
-                      )}
-                      {enrollment.school && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{enrollment.school}</span>
-                      )}
-                    </p>
+          <div className="space-y-1">
+            {Array.from(groupedEnrollments.entries()).map(([groupKey, groupEnrollments]) => (
+              <div key={groupKey}>
+                {/* Mini group header */}
+                {activeGroups.length > 0 && groupKey !== 'all' && (
+                  <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 mt-3 first:mt-0 border-b border-gray-200 dark:border-gray-700 pb-1">
+                    {getGroupLabel(groupKey)}
                   </div>
-                  <div className={cn("w-6 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
-                    {isOverdue && <AlertTriangle className="h-3.5 w-3.5 text-white" />}
-                    {isPending && !isOverdue && <HandCoins className="h-3.5 w-3.5 text-white" />}
-                  </div>
+                )}
+                <div className="space-y-1.5">
+                  {groupEnrollments.map((enrollment) => {
+                    const displayStatus = getDisplayPaymentStatus(enrollment);
+                    const statusConfig = getPaymentStatusConfig(displayStatus);
+                    const isOverdue = displayStatus === 'Overdue';
+                    const isPending = displayStatus === 'Pending Payment';
+                    const isHighlighted = highlightStudentIds.includes(enrollment.student_id);
+
+                    // Check if enrollment matches selected group filter
+                    const enrollmentGroupKey = activeGroups.length > 0
+                      ? getGroupKey(enrollment, activeGroups)
+                      : null;
+                    const isInSelectedGroup = !selectedGroupKey || enrollmentGroupKey === selectedGroupKey;
+
+                    return (
+                      <div
+                        key={enrollment.id}
+                        onClick={(e) => {
+                          if (!isInSelectedGroup) return; // Prevent click when faded
+                          setClickPosition({ x: e.clientX, y: e.clientY });
+                          setEnrollmentToShow(enrollment);
+                        }}
+                        className={cn(
+                          "cursor-pointer rounded overflow-hidden flex",
+                          "shadow-sm hover:shadow-md transition-all",
+                          "hover:scale-[1.01] hover:-translate-y-0.5",
+                          statusConfig.bgTint,
+                          isHighlighted && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]",
+                          !isInSelectedGroup && "opacity-30 pointer-events-none"
+                        )}
+                      >
+                        <div className="flex-1 min-w-0 px-2.5 py-2">
+                          <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex justify-between items-center">
+                            <span className="flex items-center gap-1">
+                              {enrollment.school_student_id || "N/A"}
+                              {isOverdue && (
+                                <AlertTriangle className="h-3 w-3 text-red-500" />
+                              )}
+                              {isPending && !isOverdue && (
+                                <HandCoins className="h-3 w-3 text-amber-500" />
+                              )}
+                            </span>
+                            {enrollment.assigned_time && (
+                              <span>{enrollment.assigned_time}</span>
+                            )}
+                          </p>
+                          <p className={cn(
+                            "text-sm font-semibold flex items-center gap-1 overflow-hidden",
+                            isOverdue ? "text-red-600 dark:text-red-400" :
+                            isPending ? "text-amber-700 dark:text-amber-400" :
+                            "text-gray-900 dark:text-gray-100"
+                          )}>
+                            <span className="truncate">{enrollment.student_name || "Unknown"}</span>
+                            {enrollment.grade && (
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
+                                style={{ backgroundColor: getGradeColor(enrollment.grade, enrollment.lang_stream) }}
+                              >{enrollment.grade}{enrollment.lang_stream || ''}</span>
+                            )}
+                            {enrollment.school && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{enrollment.school}</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className={cn("w-6 rounded-r flex items-center justify-center", statusConfig.bgClass)}>
+                          {isOverdue && <AlertTriangle className="h-3.5 w-3.5 text-white" />}
+                          {isPending && !isOverdue && <HandCoins className="h-3.5 w-3.5 text-white" />}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </FloatingPortal>
