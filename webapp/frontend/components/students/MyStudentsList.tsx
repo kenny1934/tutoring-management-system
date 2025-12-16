@@ -2,17 +2,66 @@
 
 import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { List, RowComponentProps } from "react-window";
-import { HandCoins, Clock, AlertTriangle, GraduationCap, Building2, Calendar } from "lucide-react";
+import { HandCoins, Clock, AlertTriangle, GraduationCap, Building2, Calendar, Search, ArrowUp, ArrowDown, User } from "lucide-react";
 import type { Enrollment } from "@/types";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 
 // Group options - can be combined
-export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot';
+export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot' | 'tutor';
 
 // Sort options - mutually exclusive
 export type SortOption = 'name' | 'student_id';
+export type SortDirection = 'asc' | 'desc';
+
+// Helper to escape special regex characters
+const escapeRegex = (str: string): string => {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+// Multi-term AND search with quoted phrase support
+// - Unquoted terms: partial match (e.g., "IS" matches "TIS", "Iris")
+// - Quoted terms: exact word match (e.g., "IS" only matches "IS")
+const matchesSearch = (enrollment: Enrollment, searchTerm: string): boolean => {
+  if (!searchTerm.trim()) return true;
+
+  // Parse search term: extract quoted phrases and unquoted terms
+  // Regex captures: "double quoted" | 'single quoted' | unquoted-word
+  const tokenRegex = /"([^"]+)"|'([^']+)'|(\S+)/g;
+  const terms: { text: string; exact: boolean }[] = [];
+
+  let match;
+  while ((match = tokenRegex.exec(searchTerm)) !== null) {
+    const text = (match[1] || match[2] || match[3]).toLowerCase();
+    const exact = !!(match[1] || match[2]); // true if quoted
+    terms.push({ text, exact });
+  }
+
+  if (terms.length === 0) return true;
+
+  // Build searchable text from all fields
+  const searchableText = [
+    enrollment.student_name,
+    enrollment.school_student_id,
+    enrollment.school,
+    `${enrollment.grade || ''}${enrollment.lang_stream || ''}`,
+    enrollment.assigned_day,
+    enrollment.assigned_time,
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  // ALL terms must match
+  return terms.every(({ text, exact }) => {
+    if (exact) {
+      // Word boundary match: \b ensures whole word
+      const regex = new RegExp(`\\b${escapeRegex(text)}\\b`, 'i');
+      return regex.test(searchableText);
+    } else {
+      // Partial match (current behavior)
+      return searchableText.includes(text);
+    }
+  });
+};
 
 // Group option configuration
 const GROUP_OPTIONS: { value: GroupOption; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -21,6 +70,7 @@ const GROUP_OPTIONS: { value: GroupOption; label: string; icon: React.ComponentT
   { value: 'school', label: 'School', icon: Building2 },
   { value: 'day', label: 'Day', icon: Calendar },
   { value: 'time_slot', label: 'Time', icon: Clock },
+  { value: 'tutor', label: 'Tutor', icon: User },
 ];
 
 // Sort option configuration
@@ -44,7 +94,8 @@ const GROUP_SORT_ORDER: Record<string, Record<string, number>> = {
 };
 
 // Generate group key for an enrollment based on active groups
-const getGroupKey = (enrollment: Enrollment, activeGroups: GroupOption[]): string => {
+// Exported for use in MyStudentsWeeklyGrid for group filtering
+export const getGroupKey = (enrollment: Enrollment, activeGroups: GroupOption[]): string => {
   const parts: string[] = [];
 
   for (const group of activeGroups) {
@@ -70,6 +121,9 @@ const getGroupKey = (enrollment: Enrollment, activeGroups: GroupOption[]): strin
       case 'time_slot':
         parts.push(enrollment.assigned_time || 'Unscheduled');
         break;
+      case 'tutor':
+        parts.push(enrollment.tutor_name || 'Unknown');
+        break;
     }
   }
 
@@ -77,13 +131,14 @@ const getGroupKey = (enrollment: Enrollment, activeGroups: GroupOption[]): strin
 };
 
 // Generate display label for a group
-const getGroupLabel = (groupKey: string, activeGroups: GroupOption[]): string => {
+export const getGroupLabel = (groupKey: string): string => {
+  if (groupKey === 'all' || !groupKey) return '';
   const parts = groupKey.split('|');
   return parts.join(' › ');
 };
 
 // Compare group keys for sorting
-const compareGroupKeys = (keyA: string, keyB: string, activeGroups: GroupOption[]): number => {
+export const compareGroupKeys = (keyA: string, keyB: string, activeGroups: GroupOption[]): number => {
   const partsA = keyA.split('|');
   const partsB = keyB.split('|');
 
@@ -117,9 +172,19 @@ interface MyStudentsListProps {
   onGroupsChange: (groups: GroupOption[]) => void;
   sortOption: SortOption;
   onSortChange: (sort: SortOption) => void;
+  // Optional controlled sort direction (if not provided, uses local state)
+  sortDirection?: SortDirection;
+  onSortDirectionChange?: (direction: SortDirection) => void;
   onGroupHeaderClick?: (groupKey: string, studentIds: number[]) => void;
   isMobile?: boolean;
+  isAllTutors?: boolean;
 }
+
+// Get tutor first name, stripping title prefix
+const getTutorFirstName = (name: string): string => {
+  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+  return cleaned.split(' ')[0] || cleaned;
+};
 
 // Threshold for enabling virtualization
 const VIRTUALIZATION_THRESHOLD = 50;
@@ -133,6 +198,7 @@ interface EnrollmentRowProps {
   highlightStudentIds?: number[];
   onStudentSelect: (studentId: number | null) => void;
   onEnrollmentClick?: (enrollment: Enrollment, event: React.MouseEvent) => void;
+  isAllTutors?: boolean;
 }
 
 // Row component for virtualized list (react-window v2 API)
@@ -144,6 +210,7 @@ function EnrollmentRow({
   highlightStudentIds,
   onStudentSelect,
   onEnrollmentClick,
+  isAllTutors,
 }: RowComponentProps<EnrollmentRowProps>) {
   const enrollment = enrollments[index];
   const isSelected = selectedStudentId === enrollment.student_id;
@@ -198,6 +265,11 @@ function EnrollmentRow({
               </span>
             )}
           </div>
+          {isAllTutors && enrollment.tutor_name && (
+            <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+              {getTutorFirstName(enrollment.tutor_name)}
+            </span>
+          )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
@@ -235,12 +307,23 @@ export function MyStudentsList({
   onGroupsChange,
   sortOption,
   onSortChange,
+  sortDirection: controlledSortDirection,
+  onSortDirectionChange,
   onGroupHeaderClick,
   isMobile = false,
+  isAllTutors = false,
 }: MyStudentsListProps) {
   // Container ref for measuring available height
   const listContainerRef = useRef<HTMLDivElement>(null);
   const [listHeight, setListHeight] = useState(400);
+
+  // Search state (local to component)
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Sort direction: use controlled props if provided, otherwise local state
+  const [localSortDirection, setLocalSortDirection] = useState<SortDirection>('asc');
+  const sortDirection = controlledSortDirection ?? localSortDirection;
+  const setSortDirection = onSortDirectionChange ?? setLocalSortDirection;
 
   // Measure container height for virtualization
   useEffect(() => {
@@ -266,18 +349,29 @@ export function MyStudentsList({
     }
   };
 
-  // Sort enrollments based on selected sort option
+  // Filter enrollments by search term
+  const filteredEnrollments = useMemo(() => {
+    if (!searchTerm.trim()) return enrollments;
+    return enrollments.filter(e => matchesSearch(e, searchTerm));
+  }, [enrollments, searchTerm]);
+
+  // Sort enrollments based on selected sort option and direction
   const sortedEnrollments = useMemo(() => {
-    return [...enrollments].sort((a, b) => {
+    const multiplier = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredEnrollments].sort((a, b) => {
+      let cmp: number;
       switch (sortOption) {
         case 'student_id':
-          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          cmp = (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          break;
         case 'name':
         default:
-          return (a.student_name || '').localeCompare(b.student_name || '');
+          cmp = (a.student_name || '').localeCompare(b.student_name || '');
+          break;
       }
+      return cmp * multiplier;
     });
-  }, [enrollments, sortOption]);
+  }, [filteredEnrollments, sortOption, sortDirection]);
 
   // Group enrollments based on active groups
   const groupedEnrollments = useMemo(() => {
@@ -303,17 +397,29 @@ export function MyStudentsList({
     );
   }, [sortedEnrollments, activeGroups]);
 
-  // Count unpaid/overdue for summary display
+  // Count unpaid/overdue for summary display (from filtered results)
   const unpaidCount = useMemo(() => {
-    return enrollments.filter(e => {
+    return filteredEnrollments.filter(e => {
       const status = getDisplayPaymentStatus(e);
       return status === 'Pending Payment' || status === 'Overdue';
     }).length;
-  }, [enrollments]);
+  }, [filteredEnrollments]);
 
   // Determine if we should use virtualization
   // Only virtualize when: no grouping AND count exceeds threshold
-  const shouldVirtualize = activeGroups.length === 0 && enrollments.length > VIRTUALIZATION_THRESHOLD;
+  const shouldVirtualize = activeGroups.length === 0 && filteredEnrollments.length > VIRTUALIZATION_THRESHOLD;
+
+  // Handle sort option click - toggle direction if same option, or change option
+  const handleSortClick = (option: SortOption) => {
+    if (sortOption === option) {
+      // Toggle direction
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Change sort option, reset to asc
+      onSortChange(option);
+      setSortDirection('asc');
+    }
+  };
 
   const renderEnrollmentCard = useCallback((enrollment: Enrollment, style?: React.CSSProperties) => {
     const isSelected = selectedStudentId === enrollment.student_id;
@@ -368,6 +474,11 @@ export function MyStudentsList({
               </span>
             )}
           </div>
+          {isAllTutors && enrollment.tutor_name && (
+            <span className="text-[9px] text-gray-400 dark:text-gray-500 flex-shrink-0">
+              {getTutorFirstName(enrollment.tutor_name)}
+            </span>
+          )}
           {isOverdue && (
             <span className="flex items-center gap-0.5 flex-shrink-0">
               <AlertTriangle className="h-4 w-4 text-red-500" aria-hidden="true" />
@@ -403,7 +514,7 @@ export function MyStudentsList({
 
     // Otherwise return card with key directly
     return <div key={enrollment.id}>{cardContent}</div>;
-  }, [selectedStudentId, highlightStudentIds, onStudentSelect, onEnrollmentClick]);
+  }, [selectedStudentId, highlightStudentIds, onStudentSelect, onEnrollmentClick, isAllTutors]);
 
   if (enrollments.length === 0) {
     return (
@@ -420,10 +531,26 @@ export function MyStudentsList({
     <div className="flex flex-col h-full min-h-0">
       {/* Summary & Controls */}
       <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+        {/* Search input */}
+        <div className="relative mb-2">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search name, ID, school, grade..."
+            className="w-full pl-7 pr-2 py-1.5 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:border-transparent"
+          />
+        </div>
+
         {/* Student count and unpaid indicator */}
         <div className="flex items-center justify-between gap-2 text-xs mb-2">
           <span className="font-medium text-gray-700 dark:text-gray-300">
-            {enrollments.length} student{enrollments.length !== 1 ? 's' : ''}
+            {searchTerm.trim() ? (
+              <>{filteredEnrollments.length} of {enrollments.length} student{enrollments.length !== 1 ? 's' : ''}</>
+            ) : (
+              <>{enrollments.length} student{enrollments.length !== 1 ? 's' : ''}</>
+            )}
           </span>
           {unpaidCount > 0 && (
             <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
@@ -436,7 +563,9 @@ export function MyStudentsList({
         {/* Group by chips */}
         <div className="flex flex-wrap items-center gap-1 mb-2">
           <span className="text-[10px] text-gray-500 dark:text-gray-400 mr-0.5">Group:</span>
-          {GROUP_OPTIONS.map(({ value, label, icon: Icon }) => (
+          {GROUP_OPTIONS
+            .filter(opt => opt.value !== 'tutor' || isAllTutors)
+            .map(({ value, label, icon: Icon }) => (
             <button
               key={value}
               onClick={() => toggleGroup(value)}
@@ -455,34 +584,44 @@ export function MyStudentsList({
           ))}
         </div>
 
-        {/* Sort by radio */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">Sort:</span>
-          {SORT_OPTIONS.map(({ value, label }) => (
-            <label key={value} className="flex items-center gap-1 text-[10px] cursor-pointer">
-              <input
-                type="radio"
-                name="sort"
-                value={value}
-                checked={sortOption === value}
-                onChange={() => onSortChange(value)}
-                className="w-2.5 h-2.5 accent-[#a0704b]"
-              />
-              <span className={cn(
-                sortOption === value
-                  ? "text-gray-900 dark:text-gray-100 font-medium"
-                  : "text-gray-600 dark:text-gray-400"
-              )}>
+        {/* Sort by buttons with direction toggle */}
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 mr-0.5">Sort:</span>
+          {SORT_OPTIONS.map(({ value, label }) => {
+            const isActive = sortOption === value;
+            const DirectionIcon = sortDirection === 'asc' ? ArrowUp : ArrowDown;
+            return (
+              <button
+                key={value}
+                onClick={() => handleSortClick(value)}
+                className={cn(
+                  "flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b] focus:ring-offset-1",
+                  isActive
+                    ? "bg-[#a0704b] text-white"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                )}
+              >
                 {label}
-              </span>
-            </label>
-          ))}
+                {isActive && <DirectionIcon className="h-2.5 w-2.5" />}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Scrollable list */}
       <div ref={listContainerRef} className="flex-1 min-h-0 overflow-hidden">
-        {shouldVirtualize ? (
+        {/* No results message */}
+        {filteredEnrollments.length === 0 && searchTerm.trim() && (
+          <div className="flex items-center justify-center h-full p-4">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm font-medium">No matches found</p>
+              <p className="text-xs mt-1">Try different search terms</p>
+            </div>
+          </div>
+        )}
+        {filteredEnrollments.length > 0 && shouldVirtualize ? (
           // Virtualized list for large flat lists (no grouping) - react-window v2 API
           <List<EnrollmentRowProps>
             rowCount={sortedEnrollments.length}
@@ -494,11 +633,12 @@ export function MyStudentsList({
               highlightStudentIds,
               onStudentSelect,
               onEnrollmentClick,
+              isAllTutors,
             }}
             defaultHeight={listHeight}
             className="p-2"
           />
-        ) : (
+        ) : filteredEnrollments.length > 0 ? (
           // Regular list for smaller lists or grouped views
           <div className="h-full overflow-y-auto p-2 space-y-2">
             {Array.from(groupedEnrollments.entries()).map(([groupKey, groupEnrollments]) => (
@@ -522,7 +662,7 @@ export function MyStudentsList({
                           ? "text-[#a0704b] dark:text-[#cd853f]"
                           : "text-gray-700 dark:text-gray-300"
                       )}>
-                        {getGroupLabel(groupKey, activeGroups)}
+                        {getGroupLabel(groupKey)}
                       </span>
                       <span className={cn(
                         "text-xs ml-2",
@@ -542,7 +682,7 @@ export function MyStudentsList({
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

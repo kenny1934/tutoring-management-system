@@ -1,17 +1,10 @@
 import { useEffect } from 'react';
-import useSWR, { SWRConfiguration } from 'swr';
+import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent } from '@/types';
 
-// SWR configuration for optimal caching behavior
-// - revalidateOnFocus: Auto-refresh when tutor tabs back (important during lessons)
-// - revalidateOnReconnect: Don't refetch on network reconnect (reduces unnecessary calls)
-// - dedupingInterval: Prevent duplicate calls within 5 seconds
-const swrConfig: SWRConfiguration = {
-  revalidateOnFocus: true,
-  revalidateOnReconnect: false,
-  dedupingInterval: 5000,
-};
+// SWR configuration is now global in Providers.tsx
+// Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
 
 /**
  * Hook for fetching sessions list with filters
@@ -23,8 +16,7 @@ export function useSessions(filters?: SessionFilters) {
 
   return useSWR<Session[]>(
     key,
-    () => sessionsAPI.getAll(filters),
-    swrConfig
+    () => sessionsAPI.getAll(filters)
   );
 }
 
@@ -35,8 +27,7 @@ export function useSessions(filters?: SessionFilters) {
 export function useSession(id: number | null | undefined) {
   return useSWR<Session>(
     id ? ['session', id] : null,
-    () => sessionsAPI.getById(id!),
-    swrConfig
+    () => sessionsAPI.getById(id!)
   );
 }
 
@@ -46,8 +37,7 @@ export function useSession(id: number | null | undefined) {
 export function useTutors() {
   return useSWR<Tutor[]>(
     'tutors',
-    () => tutorsAPI.getAll(),
-    swrConfig
+    () => tutorsAPI.getAll()
   );
 }
 
@@ -57,9 +47,7 @@ export function useTutors() {
 export function useLocations() {
   return useSWR<string[]>(
     'locations',
-    () => api.stats.getLocations(),
-    swrConfig
-  );
+    () => api.stats.getLocations()  );
 }
 
 /**
@@ -69,9 +57,7 @@ export function useLocations() {
 export function useCalendarEvents(daysAhead: number = 30) {
   return useSWR<CalendarEvent[]>(
     ['calendar-events', daysAhead],
-    () => calendarAPI.getEvents(daysAhead),
-    swrConfig
-  );
+    () => calendarAPI.getEvents(daysAhead)  );
 }
 
 /**
@@ -82,9 +68,7 @@ export function useStudents(filters?: StudentFilters) {
   const key = filters ? ['students', JSON.stringify(filters)] : ['students'];
   return useSWR<Student[]>(
     key,
-    () => studentsAPI.getAll(filters),
-    swrConfig
-  );
+    () => studentsAPI.getAll(filters)  );
 }
 
 /**
@@ -94,9 +78,7 @@ export function useStudents(filters?: StudentFilters) {
 export function useStudent(id: number | null | undefined) {
   return useSWR<Student>(
     id ? ['student', id] : null,
-    () => studentsAPI.getById(id!),
-    swrConfig
-  );
+    () => studentsAPI.getById(id!)  );
 }
 
 /**
@@ -106,9 +88,7 @@ export function useStudent(id: number | null | undefined) {
 export function useStudentEnrollments(studentId: number | null | undefined) {
   return useSWR<Enrollment[]>(
     studentId ? ['enrollments', studentId] : null,
-    () => enrollmentsAPI.getAll(studentId!),
-    swrConfig
-  );
+    () => enrollmentsAPI.getAll(studentId!)  );
 }
 
 /**
@@ -118,9 +98,17 @@ export function useStudentEnrollments(studentId: number | null | undefined) {
 export function useMyStudents(tutorId: number | null | undefined, location?: string) {
   return useSWR<Enrollment[]>(
     tutorId ? ['my-students', tutorId, location || 'all'] : null,
-    () => enrollmentsAPI.getMyStudents(tutorId!, location),
-    swrConfig
-  );
+    () => enrollmentsAPI.getMyStudents(tutorId!, location)  );
+}
+
+/**
+ * Hook for fetching all active enrollments in a location (no tutor filter)
+ * Used for "All Tutors" mode in My Students view
+ */
+export function useAllStudents(location?: string) {
+  return useSWR<Enrollment[]>(
+    ['all-students', location || 'all'],
+    () => enrollmentsAPI.getActive(location)  );
 }
 
 /**
@@ -130,9 +118,7 @@ export function useMyStudents(tutorId: number | null | undefined, location?: str
 export function useStudentSessions(studentId: number | null | undefined, limit: number = 100) {
   return useSWR<Session[]>(
     studentId ? ['student-sessions', studentId, limit] : null,
-    () => sessionsAPI.getAll({ student_id: studentId!, limit }),
-    swrConfig
-  );
+    () => sessionsAPI.getAll({ student_id: studentId!, limit })  );
 }
 
 /**
@@ -142,9 +128,7 @@ export function useStudentSessions(studentId: number | null | undefined, limit: 
 export function useEnrollment(id: number | null | undefined) {
   return useSWR<Enrollment>(
     id ? ['enrollment', id] : null,
-    () => enrollmentsAPI.getById(id!),
-    swrConfig
-  );
+    () => enrollmentsAPI.getById(id!)  );
 }
 
 /**
@@ -154,9 +138,7 @@ export function useEnrollment(id: number | null | undefined) {
 export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
   return useSWR<Session[]>(
     enrollmentId ? ['enrollment-sessions', enrollmentId] : null,
-    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 }),
-    swrConfig
-  );
+    () => sessionsAPI.getAll({ enrollment_id: enrollmentId!, limit: 500 })  );
 }
 
 /**
@@ -170,9 +152,7 @@ export function useDashboardStats(location?: string) {
 
   return useSWR<DashboardStats>(
     key,
-    () => api.stats.getDashboard(location),
-    swrConfig
-  );
+    () => api.stats.getDashboard(location)  );
 }
 
 /**
@@ -186,9 +166,7 @@ export function useActivityFeed(location?: string) {
 
   return useSWR<ActivityEvent[]>(
     key,
-    () => api.stats.getActivityFeed(location),
-    swrConfig
-  );
+    () => api.stats.getActivityFeed(location)  );
 }
 
 /**

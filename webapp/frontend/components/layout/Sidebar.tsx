@@ -153,6 +153,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             >
               <Link
                 href={item.href}
+                prefetch={true}
                 onClick={handleNavClick}
                 style={{
                   transition: `all ${isActive ? '350ms' : '200ms'} cubic-bezier(0.38, 1.21, 0.22, 1.00)`

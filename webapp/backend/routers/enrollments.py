@@ -114,6 +114,7 @@ async def get_active_enrollments(
         )
         .filter(
             Enrollment.payment_status != "Cancelled",
+            Enrollment.enrollment_type == "Regular",
             Enrollment.student_id.isnot(None),
             Enrollment.tutor_id.isnot(None)
         )
@@ -189,6 +190,7 @@ async def get_my_students(
         .filter(
             Enrollment.tutor_id == tutor_id,
             Enrollment.payment_status != "Cancelled",
+            Enrollment.enrollment_type == "Regular",
             Enrollment.student_id.isnot(None)
         )
     )
