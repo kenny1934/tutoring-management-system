@@ -10,6 +10,8 @@ import type {
   UpcomingTestAlert,
   CalendarEvent,
   ActivityEvent,
+  MonthlyRevenueSummary,
+  SessionRevenueDetail,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -217,6 +219,25 @@ export const statsAPI = {
   },
 };
 
+// Revenue API
+export const revenueAPI = {
+  getMonthlySummary: (tutorId: number, period: string) => {
+    const params = new URLSearchParams({
+      tutor_id: tutorId.toString(),
+      period,
+    });
+    return fetchAPI<MonthlyRevenueSummary>(`/revenue/monthly-summary?${params}`);
+  },
+
+  getSessionDetails: (tutorId: number, period: string) => {
+    const params = new URLSearchParams({
+      tutor_id: tutorId.toString(),
+      period,
+    });
+    return fetchAPI<SessionRevenueDetail[]>(`/revenue/session-details?${params}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -225,4 +246,5 @@ export const api = {
   sessions: sessionsAPI,
   calendar: calendarAPI,
   stats: statsAPI,
+  revenue: revenueAPI,
 };

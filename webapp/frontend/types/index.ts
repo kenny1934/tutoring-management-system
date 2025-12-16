@@ -250,3 +250,27 @@ export interface CalendarEvent {
   updated_at: string;
   last_synced_at: string;
 }
+
+// Revenue types
+export interface MonthlyRevenueSummary {
+  tutor_id: number;
+  tutor_name: string;
+  period: string;
+  basic_salary: number;
+  session_revenue: number;
+  monthly_bonus: number;
+  total_salary: number;
+  sessions_count: number;
+  avg_revenue_per_session?: number | null;
+}
+
+export interface SessionRevenueDetail {
+  session_id: number;
+  session_date: string;
+  time_slot?: string;
+  student_id: number;
+  student_name: string;
+  session_status: string;
+  cost_per_session: number;
+  enrollment_id: number;
+}

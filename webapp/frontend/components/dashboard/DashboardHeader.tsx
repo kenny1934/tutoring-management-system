@@ -37,7 +37,7 @@ const greetingEmojis = ["🎯","🌟","✨","🎉","🚀","💫","🔥","⚡","�
 const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
   { id: 'parents', label: 'Parent Contacts', icon: Users, href: '#' }, // Placeholder
-  { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '#' }, // Placeholder
+  { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: '#' }, // Placeholder
 ];
 
