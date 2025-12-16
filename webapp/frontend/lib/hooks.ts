@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -179,4 +179,26 @@ export function usePageTitle(title?: string) {
   useEffect(() => {
     document.title = title ? `${BASE_TITLE} - ${title}` : BASE_TITLE;
   }, [title]);
+}
+
+/**
+ * Hook for fetching monthly revenue summary for a tutor
+ * Returns null key when tutorId or period is falsy to skip fetching
+ */
+export function useMonthlyRevenueSummary(tutorId: number | null | undefined, period: string | null | undefined) {
+  return useSWR<MonthlyRevenueSummary>(
+    tutorId && period ? ['revenue-summary', tutorId, period] : null,
+    () => revenueAPI.getMonthlySummary(tutorId!, period!)
+  );
+}
+
+/**
+ * Hook for fetching session revenue details for a tutor
+ * Returns null key when tutorId or period is falsy to skip fetching
+ */
+export function useSessionRevenueDetails(tutorId: number | null | undefined, period: string | null | undefined) {
+  return useSWR<SessionRevenueDetail[]>(
+    tutorId && period ? ['revenue-details', tutorId, period] : null,
+    () => revenueAPI.getSessionDetails(tutorId!, period!)
+  );
 }

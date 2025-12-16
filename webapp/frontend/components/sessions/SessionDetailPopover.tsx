@@ -136,8 +136,9 @@ function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string
 }
 
 interface SessionDetailPopoverProps {
-  session: Session;
+  session: Session | null;
   isOpen: boolean;
+  isLoading?: boolean;
   onClose: () => void;
   clickPosition: { x: number; y: number } | null;
   tutorFilter?: string;
@@ -147,6 +148,7 @@ interface SessionDetailPopoverProps {
 export function SessionDetailPopover({
   session,
   isOpen,
+  isLoading = false,
   onClose,
   clickPosition,
   tutorFilter = "",
@@ -200,6 +202,62 @@ export function SessionDetailPopover({
   const { getFloatingProps } = useInteractions([dismiss]);
 
   if (!isOpen) return null;
+
+  // Loading skeleton
+  if (isLoading || !session) {
+    return (
+      <FloatingPortal>
+        <div
+          ref={refs.setFloating}
+          style={floatingStyles}
+          {...getFloatingProps()}
+          className={cn(
+            "z-[9999]",
+            "bg-[#fef9f3] dark:bg-[#2d2618]",
+            "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+            "rounded-lg shadow-lg",
+            "p-4 w-[280px]",
+            "paper-texture"
+          )}
+        >
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          </button>
+          <div className="animate-pulse space-y-3">
+            <div className="h-3 w-16 bg-gray-300 dark:bg-gray-600 rounded" />
+            <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded" />
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between">
+                <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+              <div className="flex justify-between">
+                <div className="h-3 w-10 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+              <div className="flex justify-between">
+                <div className="h-3 w-8 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+              <div className="flex justify-between">
+                <div className="h-3 w-10 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+              <div className="flex justify-between">
+                <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-5 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            </div>
+            <div className="h-8 w-full bg-gray-200 dark:bg-gray-700 rounded mt-4" />
+          </div>
+        </div>
+      </FloatingPortal>
+    );
+  }
 
   const parsed = parseTimeSlot(session.time_slot);
 
