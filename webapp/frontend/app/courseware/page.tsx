@@ -29,11 +29,23 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
-// Medal icons for top 3 - using lucide icons for consistent cross-browser rendering
+// Medal icons for top 3 - using lucide icons with glow effects
 const MEDAL_CONFIG = [
-  { icon: Trophy, color: "text-amber-500" },      // Gold
-  { icon: Medal, color: "text-gray-400" },        // Silver
-  { icon: Award, color: "text-amber-700" },       // Bronze
+  { icon: Trophy, color: "text-amber-500", glow: "drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" },      // Gold
+  { icon: Medal, color: "text-gray-400", glow: "drop-shadow-[0_0_6px_rgba(156,163,175,0.5)]" },        // Silver
+  { icon: Award, color: "text-amber-700", glow: "drop-shadow-[0_0_6px_rgba(180,83,9,0.5)]" },          // Bronze
+];
+
+// Fun rotating titles for the ranking header
+const FUN_TITLES = [
+  "This Week's Champions!",
+  "Most Wanted Materials",
+  "Hall of Fame",
+  "Hot Off the Printer",
+  "Courseware Royalty",
+  "Top Picks",
+  "Tutor Favourites",
+  "Greatest Hits",
 ];
 
 // Grade options for filter
@@ -59,6 +71,36 @@ function formatShortDate(dateStr: string | null): string {
     month: "short",
     day: "numeric",
   });
+}
+
+// Animated counter hook
+function useAnimatedCounter(target: number, duration: number = 1000) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (target === 0) return;
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out quad
+      const eased = 1 - (1 - progress) * (1 - progress);
+      setCount(Math.floor(eased * target));
+      if (progress >= 1) clearInterval(timer);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+
+  return count;
+}
+
+// Hot badge for trending items
+function HotBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
+      🔥 HOT
+    </span>
+  );
 }
 
 // Copy path button with dropdown for multiple paths
@@ -304,6 +346,80 @@ function SchoolAutocomplete({
   );
 }
 
+// Podium display for top 3
+function Podium({
+  top3,
+  onSelect,
+}: {
+  top3: CoursewarePopularity[];
+  onSelect: (filename: string) => void;
+}) {
+  if (top3.length < 3) return null;
+
+  // Reorder for podium: [Silver(2nd), Gold(1st), Bronze(3rd)]
+  const podiumOrder = [top3[1], top3[0], top3[2]];
+  const heights = ["h-20", "h-28", "h-16"]; // Silver, Gold, Bronze
+  const positions = [1, 0, 2]; // Original rank positions
+
+  return (
+    <div className="mb-4 p-4 bg-gradient-to-b from-[#fef9f3] to-white dark:from-[#2d2618] dark:to-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+      <div className="flex items-end justify-center gap-2 sm:gap-4">
+        {podiumOrder.map((item, i) => {
+          const rank = positions[i];
+          const config = MEDAL_CONFIG[rank];
+          const Icon = config.icon;
+
+          return (
+            <button
+              key={item.filename}
+              onClick={() => onSelect(item.filename)}
+              className={cn(
+                "flex flex-col items-center transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded-lg p-2",
+                i === 1 ? "order-first sm:order-none" : "" // Gold first on mobile
+              )}
+            >
+              {/* Medal icon */}
+              <div className={cn(
+                "mb-2 p-2 rounded-full bg-white dark:bg-[#1a1a1a] shadow-lg",
+                config.glow
+              )}>
+                <Icon className={cn("h-6 w-6 sm:h-8 sm:w-8", config.color)} />
+              </div>
+
+              {/* Filename */}
+              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 text-center max-w-[80px] sm:max-w-[120px] truncate" title={item.filename}>
+                {item.filename}
+              </div>
+
+              {/* Stats */}
+              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {item.assignment_count} uses
+              </div>
+
+              {/* Platform */}
+              <div
+                className={cn(
+                  "w-20 sm:w-28 mt-2 rounded-t-lg flex items-end justify-center",
+                  heights[i],
+                  rank === 0
+                    ? "bg-gradient-to-t from-amber-400 to-amber-300 dark:from-amber-600 dark:to-amber-500"
+                    : rank === 1
+                    ? "bg-gradient-to-t from-gray-300 to-gray-200 dark:from-gray-500 dark:to-gray-400"
+                    : "bg-gradient-to-t from-amber-700 to-amber-600 dark:from-amber-800 dark:to-amber-700"
+                )}
+              >
+                <span className="text-white font-bold text-lg sm:text-2xl mb-2 drop-shadow-md">
+                  #{rank + 1}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Ranking row component
 function RankingRow({
   item,
@@ -311,23 +427,28 @@ function RankingRow({
   isExpanded,
   onToggle,
   timeRange,
+  maxCount,
 }: {
   item: CoursewarePopularity;
   rank: number;
   isExpanded: boolean;
   onToggle: () => void;
   timeRange: "recent" | "all-time";
+  maxCount: number;
 }) {
   // Get medal config for top 3
   const medalConfig = rank <= 3 ? MEDAL_CONFIG[rank - 1] : null;
+  // Calculate progress percentage
+  const progressPercent = maxCount > 0 ? Math.round((item.assignment_count / maxCount) * 100) : 0;
 
   return (
     <div
       className={cn(
-        "border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 transition-colors",
+        "group border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
+        "transition-all duration-200",
         isExpanded
           ? "bg-[#fef9f3] dark:bg-[#2d2618]"
-          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30"
+          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:scale-[1.005] hover:shadow-sm"
       )}
     >
       <button
@@ -338,7 +459,14 @@ function RankingRow({
         {/* Rank */}
         <div className="w-10 text-center flex-shrink-0">
           {medalConfig ? (
-            <medalConfig.icon className={cn("h-5 w-5 mx-auto", medalConfig.color)} />
+            <medalConfig.icon
+              className={cn(
+                "h-6 w-6 mx-auto transition-transform duration-300",
+                medalConfig.color,
+                medalConfig.glow,
+                "group-hover:scale-110"
+              )}
+            />
           ) : (
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
               #{rank}
@@ -357,6 +485,8 @@ function RankingRow({
             >
               {item.filename}
             </span>
+            {/* Hot badge for top 5 with high usage */}
+            {rank <= 5 && item.assignment_count >= 10 && <HotBadge />}
           </div>
 
           {/* Stats row */}
@@ -377,6 +507,23 @@ function RankingRow({
                 {item.used_by}
               </span>
             )}
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-700 ease-out",
+                rank === 1
+                  ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                  : rank === 2
+                  ? "bg-gradient-to-r from-gray-300 to-gray-400"
+                  : rank === 3
+                  ? "bg-gradient-to-r from-amber-600 to-amber-700"
+                  : "bg-gradient-to-r from-[#a0704b] to-[#c4956a]"
+              )}
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
 
@@ -572,6 +719,9 @@ export default function CoursewarePage() {
   const [expandedFilename, setExpandedFilename] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [schools, setSchools] = useState<string[]>([]);
+  const [funTitle, setFunTitle] = useState(() =>
+    FUN_TITLES[Math.floor(Math.random() * FUN_TITLES.length)]
+  );
 
   // Fetch schools list
   useEffect(() => {
@@ -797,6 +947,14 @@ export default function CoursewarePage() {
             </div>
           )}
 
+          {/* Podium for top 3 */}
+          {!isLoading && !error && rankings.length >= 3 && (
+            <Podium
+              top3={rankings.slice(0, 3)}
+              onSelect={(filename) => setExpandedFilename(filename)}
+            />
+          )}
+
           {/* Ranking list */}
           {!isLoading && !error && rankings.length > 0 && (
             <div
@@ -808,10 +966,12 @@ export default function CoursewarePage() {
             >
               {/* Header */}
               <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                  {timeRange === "recent"
-                    ? "Most Used (Last 14 Days)"
-                    : "Most Used (All Time)"}
+                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
+                  <span className="animate-pulse">🏆</span>
+                  {funTitle}
+                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400 lowercase">
+                    ({timeRange === "recent" ? "14 days" : "all time"})
+                  </span>
                 </h2>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {rankings.length} items
@@ -828,6 +988,7 @@ export default function CoursewarePage() {
                     isExpanded={expandedFilename === item.filename}
                     onToggle={() => handleToggleExpand(item.filename)}
                     timeRange={timeRange}
+                    maxCount={rankings[0]?.assignment_count || 0}
                   />
                 ))}
               </div>
@@ -837,19 +998,22 @@ export default function CoursewarePage() {
           {/* Empty state */}
           {!isLoading && !error && rankings.length === 0 && (
             <div className="flex justify-center py-12">
-              <StickyNote variant="blue" size="lg" showTape>
+              <StickyNote variant="yellow" size="lg" showTape rotation={-1}>
                 <div className="text-center">
-                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-[#a0704b] dark:text-[#cd853f]" />
                   <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    No Courseware Found
+                    {timeRange === "recent" ? "The stage is empty!" : "No champions yet!"}
                   </p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                     {timeRange === "recent"
-                      ? "No courseware assigned in the last 14 days"
-                      : "No courseware assignments found"}
-                    {(exerciseType !== "All" || grade !== "All") &&
-                      " with the current filters"}
+                      ? "No courseware has been assigned in the last 14 days."
+                      : "No courseware assignments found in the records."}
                   </p>
+                  {(exerciseType !== "All" || grade !== "All" || school) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                      Try adjusting your filters to discover hidden gems!
+                    </p>
+                  )}
                 </div>
               </StickyNote>
             </div>
