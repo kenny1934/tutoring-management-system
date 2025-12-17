@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
 import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
@@ -554,13 +555,7 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
         {/* Right: Status + Tutor */}
         <div className="flex-shrink-0 flex items-center gap-2">
           {/* Status badge */}
-          <span className={cn(
-            "text-[10px] font-semibold px-1.5 py-0.5 rounded",
-            config.bgClass,
-            "text-white"
-          )}>
-            {displayStatus.split(' ')[0]}
-          </span>
+          <SessionStatusTag status={displayStatus} iconOnly size="sm" />
 
           {/* Tutor */}
           {session.tutor_name && (

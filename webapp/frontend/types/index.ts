@@ -298,6 +298,7 @@ export interface CoursewareUsageDetail {
   session_date: string | null;
   location: string;
   student_id: number;
+  school_student_id: string | null;
   student_name: string;
   grade: string;
   lang_stream: string;

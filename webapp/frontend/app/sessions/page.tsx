@@ -21,6 +21,7 @@ import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
 
 // Grade tag colors
@@ -1061,6 +1062,8 @@ export default function SessionsPage() {
               </>
             )}
           </div>
+
+          <ScrollToTopButton />
         </div>
 
         {/* Session Detail Popover */}

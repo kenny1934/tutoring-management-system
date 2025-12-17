@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
+import { useLocation } from "@/contexts/LocationContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import {
@@ -27,6 +29,7 @@ import {
 import { studentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
 // Medal icons for top 3 - using lucide icons with glow effects
@@ -94,12 +97,117 @@ function useAnimatedCounter(target: number, duration: number = 1000) {
   return count;
 }
 
-// Hot badge for trending items
+// Hot badge for trending items - compact on mobile
 function HotBadge() {
   return (
-    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
-      🔥 HOT
+    <span className="inline-flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full animate-pulse">
+      🔥<span className="hidden sm:inline"> HOT</span>
     </span>
+  );
+}
+
+// Sparkle effect for top 3 medals
+const SPARKLE_POSITIONS = [
+  { top: "10%", left: "50%" },
+  { top: "50%", left: "90%" },
+  { top: "90%", left: "50%" },
+  { top: "50%", left: "10%" },
+];
+
+function Sparkles({ color }: { color: string }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-visible">
+      {SPARKLE_POSITIONS.map((pos, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1.5 h-1.5 rounded-full"
+          style={{
+            background: color,
+            top: pos.top,
+            left: pos.left,
+            transform: "translate(-50%, -50%)",
+          }}
+          animate={{
+            scale: [0, 1.2, 0],
+            opacity: [0, 0.8, 0],
+          }}
+          transition={{
+            duration: 1.8,
+            repeat: Infinity,
+            delay: i * 0.45,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Confetti burst effect
+const CONFETTI_COLORS = ["#fbbf24", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#ec4899"];
+
+function ConfettiBurst({
+  trigger,
+  origin,
+  onComplete
+}: {
+  trigger: boolean;
+  origin: { x: number; y: number };
+  onComplete: () => void;
+}) {
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; color: string; rotation: number; shape: string }>>([]);
+
+  useEffect(() => {
+    if (trigger) {
+      // Generate confetti particles
+      const newParticles = Array.from({ length: 30 }, (_, i) => ({
+        id: i,
+        x: (Math.random() - 0.5) * 200,
+        y: -(Math.random() * 150 + 50),
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        rotation: Math.random() * 360,
+        shape: Math.random() > 0.5 ? "50%" : "0",
+      }));
+      setParticles(newParticles);
+
+      // Clear after animation
+      const timer = setTimeout(() => {
+        setParticles([]);
+        onComplete();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [trigger, onComplete]);
+
+  if (particles.length === 0) return null;
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute w-2 h-2"
+          style={{
+            left: origin.x,
+            top: origin.y,
+            background: p.color,
+            borderRadius: p.shape,
+          }}
+          initial={{ x: 0, y: 0, scale: 1, opacity: 1, rotate: 0 }}
+          animate={{
+            x: p.x,
+            y: [0, p.y, p.y + 300],
+            scale: [1, 1.2, 0.5],
+            opacity: [1, 1, 0],
+            rotate: p.rotation,
+          }}
+          transition={{
+            duration: 1,
+            ease: [0.25, 0.46, 0.45, 0.94],
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -354,6 +462,21 @@ function Podium({
   top3: CoursewarePopularity[];
   onSelect: (filename: string) => void;
 }) {
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [confettiOrigin, setConfettiOrigin] = useState({ x: 0, y: 0 });
+
+  const handleClick = (e: React.MouseEvent | React.KeyboardEvent, filename: string) => {
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    setConfettiOrigin({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 3 });
+    setShowConfetti(true);
+    onSelect(filename);
+  };
+
+  const handleConfettiComplete = React.useCallback(() => {
+    setShowConfetti(false);
+  }, []);
+
   if (top3.length < 3) return null;
 
   // Reorder for podium: [Silver(2nd), Gold(1st), Bronze(3rd)]
@@ -362,28 +485,41 @@ function Podium({
   const positions = [1, 0, 2]; // Original rank positions
 
   return (
-    <div className="mb-4 p-4 bg-gradient-to-b from-[#fef9f3] to-white dark:from-[#2d2618] dark:to-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
-      <div className="flex items-end justify-center gap-2 sm:gap-4">
-        {podiumOrder.map((item, i) => {
-          const rank = positions[i];
-          const config = MEDAL_CONFIG[rank];
-          const Icon = config.icon;
+    <>
+      <ConfettiBurst trigger={showConfetti} origin={confettiOrigin} onComplete={handleConfettiComplete} />
+      <div className="mb-4 p-4 bg-gradient-to-b from-[#fef9f3] to-white dark:from-[#2d2618] dark:to-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+        <div className="flex items-end justify-center gap-2 sm:gap-4">
+          {podiumOrder.map((item, i) => {
+            const rank = positions[i];
+            const config = MEDAL_CONFIG[rank];
+            const Icon = config.icon;
 
-          return (
-            <button
-              key={item.filename}
-              onClick={() => onSelect(item.filename)}
+            return (
+              <motion.div
+                key={item.filename}
+                role="button"
+                tabIndex={0}
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{
+                  delay: 0.1 + i * 0.12,
+                  duration: 0.45,
+                  ease: [0.16, 1, 0.3, 1]
+                }}
+                onClick={(e) => handleClick(e, item.filename)}
+                onKeyDown={(e) => e.key === 'Enter' && handleClick(e, item.filename)}
               className={cn(
-                "flex flex-col items-center transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded-lg p-2",
+                "flex flex-col items-center transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded-lg p-2 cursor-pointer",
                 i === 1 ? "order-first sm:order-none" : "" // Gold first on mobile
               )}
             >
-              {/* Medal icon */}
+              {/* Medal icon with sparkles */}
               <div className={cn(
-                "mb-2 p-2 rounded-full bg-white dark:bg-[#1a1a1a] shadow-lg",
+                "relative mb-2 p-2 rounded-full bg-white dark:bg-[#1a1a1a] shadow-lg",
                 config.glow
               )}>
-                <Icon className={cn("h-6 w-6 sm:h-8 sm:w-8", config.color)} />
+                <Sparkles color={rank === 0 ? "#fbbf24" : rank === 1 ? "#9ca3af" : "#b45309"} />
+                <Icon className={cn("h-6 w-6 sm:h-8 sm:w-8 relative z-10", config.color)} />
               </div>
 
               {/* Filename */}
@@ -412,11 +548,12 @@ function Podium({
                   #{rank + 1}
                 </span>
               </div>
-            </button>
+            </motion.div>
           );
         })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -448,7 +585,7 @@ function RankingRow({
         "transition-all duration-200",
         isExpanded
           ? "bg-[#fef9f3] dark:bg-[#2d2618]"
-          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:scale-[1.005] hover:shadow-sm"
+          : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(160,112,75,0.12)]"
       )}
     >
       <button
@@ -557,6 +694,7 @@ function UsageDetailPanel({
   filename: string;
   timeRange: "recent" | "all-time";
 }) {
+  const { selectedLocation } = useLocation();
   const [displayCount, setDisplayCount] = useState(10);
   // Request one extra to detect if there are more
   const { data: rawDetails = [], isLoading } = useCoursewareUsageDetail(
@@ -598,7 +736,12 @@ function UsageDetailPanel({
           </p>
         </div>
         <div className="divide-y divide-[#e8d4b8]/30 dark:divide-[#6b5a4a]/30 max-h-64 overflow-y-auto">
-          {details.map((detail, idx) => (
+          {details.map((detail, idx) => {
+            // Check if user has access to this student's location
+            const canAccessLocation = selectedLocation === "All Locations" || selectedLocation === detail.location;
+            const displayId = detail.school_student_id ? `${detail.location}-${detail.school_student_id}` : detail.location;
+
+            return (
             <div
               key={`${detail.exercise_id}-${idx}`}
               className="px-3 py-2 flex items-center gap-2 sm:gap-3 text-sm hover:bg-[#f5ede3]/50 dark:hover:bg-[#2d2618]/50"
@@ -610,13 +753,21 @@ function UsageDetailPanel({
 
               {/* Student */}
               <div className="flex-1 min-w-0">
-                <Link
-                  href={`/students/${detail.student_id}`}
-                  className="text-[#a0704b] dark:text-[#cd853f] hover:underline font-medium truncate block focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded"
-                  title={detail.student_name}
-                >
-                  {detail.student_name}
-                </Link>
+                {canAccessLocation ? (
+                  <Link
+                    href={`/students/${detail.student_id}`}
+                    className="group text-[#a0704b] dark:text-[#cd853f] font-medium truncate block focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50 rounded"
+                    title={detail.student_name}
+                  >
+                    <span className="text-gray-500 dark:text-gray-400 mr-1">{displayId}</span>
+                    <span className="group-hover:underline">{detail.student_name}</span>
+                  </Link>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400 truncate block" title={detail.student_name}>
+                    <span className="mr-1">{displayId}</span>
+                    {detail.student_name}
+                  </span>
+                )}
                 <div className="text-xs text-gray-600 dark:text-gray-400" title={`${detail.school} ${detail.grade}${detail.lang_stream}`}>
                   {detail.school} {detail.grade}
                   {detail.lang_stream}
@@ -669,17 +820,24 @@ function UsageDetailPanel({
                 </div>
               )}
 
-              {/* Session link */}
-              <Link
-                href={`/sessions/${detail.session_id}`}
-                className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
-                title="Go to session"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-[#a0704b]" />
-              </Link>
+              {/* Session link - only if user has access to this location */}
+              {canAccessLocation ? (
+                <Link
+                  href={`/sessions/${detail.session_id}`}
+                  className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                  title="Go to session"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 hover:text-[#a0704b]" />
+                </Link>
+              ) : (
+                <div className="p-2 flex-shrink-0" title="Access restricted">
+                  <ExternalLink className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* See more button */}
@@ -981,15 +1139,25 @@ export default function CoursewarePage() {
               {/* List */}
               <div>
                 {rankings.map((item, index) => (
-                  <RankingRow
+                  <motion.div
                     key={item.filename}
-                    item={item}
-                    rank={index + 1}
-                    isExpanded={expandedFilename === item.filename}
-                    onToggle={() => handleToggleExpand(item.filename)}
-                    timeRange={timeRange}
-                    maxCount={rankings[0]?.assignment_count || 0}
-                  />
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      delay: index * 0.03,
+                      duration: 0.35,
+                      ease: [0.16, 1, 0.3, 1]
+                    }}
+                  >
+                    <RankingRow
+                      item={item}
+                      rank={index + 1}
+                      isExpanded={expandedFilename === item.filename}
+                      onToggle={() => handleToggleExpand(item.filename)}
+                      timeRange={timeRange}
+                      maxCount={rankings[0]?.assignment_count || 0}
+                    />
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -1019,6 +1187,8 @@ export default function CoursewarePage() {
             </div>
           )}
         </div>
+
+        <ScrollToTopButton />
       </PageTransition>
     </DeskSurface>
   );
