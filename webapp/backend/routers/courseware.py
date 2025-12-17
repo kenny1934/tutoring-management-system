@@ -136,6 +136,7 @@ async def get_courseware_usage_detail(
             cud.session_date,
             cud.location,
             cud.student_id,
+            s.school_student_id,
             cud.student_name,
             cud.grade,
             cud.lang_stream,
@@ -144,6 +145,7 @@ async def get_courseware_usage_detail(
             cud.tutor_name
         FROM courseware_usage_detail cud
         JOIN session_exercises se ON cud.exercise_id = se.id
+        JOIN students s ON cud.student_id = s.id
         WHERE {where_sql}
         ORDER BY cud.session_date DESC, cud.student_name
         LIMIT :limit OFFSET :offset
@@ -164,6 +166,7 @@ async def get_courseware_usage_detail(
             "session_date": row.session_date.isoformat() if row.session_date else None,
             "location": row.location,
             "student_id": row.student_id,
+            "school_student_id": row.school_student_id,
             "student_name": row.student_name,
             "grade": row.grade,
             "lang_stream": row.lang_stream,

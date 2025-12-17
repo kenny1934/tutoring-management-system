@@ -14,6 +14,7 @@ import { sessionsAPI } from "@/lib/api";
 import { DollarSign, Calendar, ChevronLeft, ChevronRight, User, Loader2, TrendingUp, CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { Session } from "@/types";
 
 // Helper to get current month in YYYY-MM format
@@ -441,6 +442,8 @@ export default function RevenuePage() {
             </div>
           )}
         </div>
+
+        <ScrollToTopButton />
       </PageTransition>
 
       {/* Session Detail Popover */}
