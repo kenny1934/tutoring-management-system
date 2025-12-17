@@ -351,7 +351,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       <div
         className={cn(
           "fixed inset-y-0 left-0 w-72 flex flex-col backdrop-blur-md border-r border-white/10 dark:border-white/5 z-50 md:hidden",
-          "bg-[rgba(255,255,255,0.95)] dark:bg-[rgba(17,17,17,0.95)]",
+          "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
           "transition-transform duration-300 ease-out",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}

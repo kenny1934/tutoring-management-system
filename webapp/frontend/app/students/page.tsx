@@ -26,6 +26,7 @@ import type { Session, Enrollment, CalendarEvent } from "@/types";
 import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selectors/TutorSelector";
 import { MyStudentsView } from "@/components/students/MyStudentsView";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
+import { getGradeColor } from "@/lib/constants";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -285,14 +286,14 @@ export default function StudentsPage() {
             <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
             {/* View Toggle */}
-            <div className="flex items-center gap-0.5 bg-gray-200 dark:bg-gray-700 rounded-lg p-0.5">
+            <div className="flex items-center gap-1 bg-foreground/5 border border-border/30 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('all')}
                 className={cn(
-                  "px-2 py-1 text-xs rounded-md transition-colors",
+                  "px-2 py-1 text-xs rounded-lg transition-colors",
                   viewMode === 'all'
-                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-gray-100"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                    : "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
                 All
@@ -300,10 +301,10 @@ export default function StudentsPage() {
               <button
                 onClick={() => setViewMode('my')}
                 className={cn(
-                  "px-2 py-1 text-xs rounded-md transition-colors",
+                  "px-2 py-1 text-xs rounded-lg transition-colors",
                   viewMode === 'my'
-                    ? "bg-white dark:bg-gray-800 shadow-sm font-medium text-gray-900 dark:text-gray-100"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                    : "text-foreground/70 hover:bg-foreground/8"
                 )}
               >
                 My Students
@@ -673,7 +674,10 @@ function RichPopoverContent({
             </span>
           )}
           {student.grade && (
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+            <span
+              className="text-xs px-2 py-0.5 rounded text-gray-800"
+              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+            >
               {student.grade}{student.lang_stream || ''}
             </span>
           )}
@@ -911,7 +915,10 @@ function StudentCard({
           </span>
           {/* Grade Badge */}
           {student.grade && (
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 whitespace-nowrap">
+            <span
+              className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
+              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+            >
               {student.grade}{student.lang_stream || ''}
             </span>
           )}
