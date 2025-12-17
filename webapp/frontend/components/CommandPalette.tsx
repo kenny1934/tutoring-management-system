@@ -35,7 +35,7 @@ const PAGES = [
   { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home },
   { id: "page-students", title: "Students", href: "/students", icon: User },
   { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar },
-  { id: "page-reports", title: "Reports", href: "/reports", icon: BarChart3 },
+  { id: "page-courseware", title: "Courseware", href: "/courseware", icon: BookOpen },
 ];
 
 // Quick actions (session-focused)

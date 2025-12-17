@@ -12,6 +12,8 @@ import type {
   ActivityEvent,
   MonthlyRevenueSummary,
   SessionRevenueDetail,
+  CoursewarePopularity,
+  CoursewareUsageDetail,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -238,6 +240,36 @@ export const revenueAPI = {
   },
 };
 
+// Courseware API
+export const coursewareAPI = {
+  getPopularity: (
+    timeRange: 'recent' | 'all-time',
+    exerciseType?: string,
+    grade?: string,
+    school?: string,
+    limit?: number,
+    offset?: number
+  ) => {
+    const params = new URLSearchParams({ time_range: timeRange });
+    if (exerciseType) params.append('exercise_type', exerciseType);
+    if (grade) params.append('grade', grade);
+    if (school) params.append('school', school);
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    return fetchAPI<CoursewarePopularity[]>(`/courseware/popularity?${params}`);
+  },
+
+  getUsageDetail: (filename: string, timeRange: 'recent' | 'all-time', limit?: number, offset?: number) => {
+    const params = new URLSearchParams({
+      filename,
+      time_range: timeRange,
+    });
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    return fetchAPI<CoursewareUsageDetail[]>(`/courseware/usage-detail?${params}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -247,4 +279,5 @@ export const api = {
   calendar: calendarAPI,
   stats: statsAPI,
   revenue: revenueAPI,
+  courseware: coursewareAPI,
 };
