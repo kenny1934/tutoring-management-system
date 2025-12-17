@@ -274,3 +274,34 @@ export interface SessionRevenueDetail {
   cost_per_session: number;
   enrollment_id: number;
 }
+
+// Courseware types
+export interface CoursewarePopularity {
+  filename: string;
+  normalized_paths: string;
+  used_by: string;
+  assignment_count: number;
+  unique_student_count: number;
+  earliest_use: string | null;
+  latest_use: string | null;
+}
+
+export interface CoursewareUsageDetail {
+  exercise_id: number;
+  session_id: number;
+  filename: string;
+  normalized_path: string;
+  original_pdf_name: string;
+  exercise_type: string;
+  page_start: number | null;
+  page_end: number | null;
+  session_date: string | null;
+  location: string;
+  student_id: number;
+  student_name: string;
+  grade: string;
+  lang_stream: string;
+  school: string;
+  tutor_id: number;
+  tutor_name: string;
+}

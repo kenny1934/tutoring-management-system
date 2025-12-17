@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -200,5 +200,38 @@ export function useSessionRevenueDetails(tutorId: number | null | undefined, per
   return useSWR<SessionRevenueDetail[]>(
     tutorId && period ? ['revenue-details', tutorId, period] : null,
     () => revenueAPI.getSessionDetails(tutorId!, period!)
+  );
+}
+
+/**
+ * Hook for fetching courseware popularity rankings
+ * Returns list of courseware sorted by assignment count
+ */
+export function useCoursewarePopularity(
+  timeRange: 'recent' | 'all-time',
+  exerciseType?: string,
+  grade?: string,
+  school?: string
+) {
+  const key = ['courseware-popularity', timeRange, exerciseType || '', grade || '', school || ''];
+  return useSWR<CoursewarePopularity[]>(
+    key,
+    () => coursewareAPI.getPopularity(timeRange, exerciseType, grade, school)
+  );
+}
+
+/**
+ * Hook for fetching detailed usage for a specific courseware file
+ * Returns null key when filename is falsy to skip fetching
+ * Supports pagination with limit parameter
+ */
+export function useCoursewareUsageDetail(
+  filename: string | null | undefined,
+  timeRange: 'recent' | 'all-time',
+  limit?: number
+) {
+  return useSWR<CoursewareUsageDetail[]>(
+    filename ? ['courseware-detail', filename, timeRange, limit] : null,
+    () => coursewareAPI.getUsageDetail(filename!, timeRange, limit)
   );
 }

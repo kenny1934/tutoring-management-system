@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar, BarChart3, MapPin, Eye, X } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, MapPin, Eye, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -16,7 +16,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
-  { name: "Reports", href: "/reports", icon: BarChart3, color: "bg-orange-500" },
+  { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
 ];
 
 interface SidebarProps {
