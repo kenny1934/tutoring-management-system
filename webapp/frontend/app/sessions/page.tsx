@@ -6,7 +6,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, PenTool, Home } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, PenTool, Home, RefreshCw } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -48,6 +48,13 @@ const canBeMarked = (session: Session): boolean =>
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
 
+// Pending make-up statuses for special filter
+const PENDING_MAKEUP_STATUSES = [
+  "Rescheduled - Pending Make-up",
+  "Sick Leave - Pending Make-up",
+  "Weather Cancelled - Pending Make-up",
+];
+
 export default function SessionsPage() {
   usePageTitle("Sessions");
 
@@ -66,6 +73,10 @@ export default function SessionsPage() {
   const [tutorFilter, setTutorFilter] = useState(() => {
     return searchParams.get('tutor') || "";
   });
+  // Special filter modes (e.g., "pending-makeups")
+  const [specialFilter, setSpecialFilter] = useState(() => {
+    return searchParams.get('filter') || "";
+  });
   const [isMobile, setIsMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const param = searchParams.get('view');
@@ -81,7 +92,15 @@ export default function SessionsPage() {
       limit: viewMode === "monthly" ? 2000 : 500,
     };
 
-    if (viewMode === "list" || viewMode === "daily") {
+    // Special filter: pending-makeups overrides date and status
+    if (specialFilter === "pending-makeups") {
+      // 60 days ago, no upper bound
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      filters.from_date = toDateString(sixtyDaysAgo);
+      filters.status = PENDING_MAKEUP_STATUSES.join(",");
+      filters.limit = 500;
+    } else if (viewMode === "list" || viewMode === "daily") {
       filters.date = toDateString(selectedDate);
     } else if (viewMode === "weekly") {
       const { start, end } = getWeekBounds(selectedDate);
@@ -94,7 +113,7 @@ export default function SessionsPage() {
     }
 
     return filters;
-  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
 
   // SWR hooks for data fetching with caching
   const { data: sessions = [], error, isLoading: loading } = useSessions(sessionFilters);
@@ -198,12 +217,17 @@ export default function SessionsPage() {
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('view', viewMode);
-    params.set('date', toDateString(selectedDate));
-    if (statusFilter) params.set('status', statusFilter);
+    // Special filters override normal date/status params
+    if (specialFilter) {
+      params.set('filter', specialFilter);
+    } else {
+      params.set('date', toDateString(selectedDate));
+      if (statusFilter) params.set('status', statusFilter);
+    }
     if (tutorFilter) params.set('tutor', tutorFilter);
 
     router.replace(`/sessions?${params.toString()}`, { scroll: false });
-  }, [viewMode, selectedDate, statusFilter, tutorFilter, router]);
+  }, [viewMode, selectedDate, statusFilter, tutorFilter, specialFilter, router]);
 
   // Restore scroll position when returning to list view (after data loads)
   useEffect(() => {
@@ -326,6 +350,32 @@ export default function SessionsPage() {
     });
   }, [sessions]);
 
+  // Group sessions by student for pending-makeups view
+  const groupedByStudent = useMemo(() => {
+    if (specialFilter !== "pending-makeups") return null;
+
+    const groups: Record<string, Session[]> = {};
+    sessions.forEach(session => {
+      const key = `${session.student_id}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(session);
+    });
+
+    // Sort sessions within each student by date ascending
+    Object.values(groups).forEach(studentSessions => {
+      studentSessions.sort((a, b) =>
+        new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
+      );
+    });
+
+    // Sort groups by school_student_id
+    return Object.entries(groups).sort(([, a], [, b]) => {
+      const idA = a[0]?.school_student_id || '';
+      const idB = b[0]?.school_student_id || '';
+      return idA.localeCompare(idB);
+    });
+  }, [sessions, specialFilter]);
+
   // Filter and sort tutors by selected location
   const filteredTutors = useMemo(() => {
     const filtered = selectedLocation === "All Locations"
@@ -398,6 +448,18 @@ export default function SessionsPage() {
       });
     }
   }, [viewMode, loading, groupedSessions, collapsedSlots]);
+
+  // Mark visible student groups as "seen" for pending-makeups view
+  useEffect(() => {
+    if (groupedByStudent && !loading) {
+      groupedByStudent.forEach(([studentId]) => {
+        const studentKey = `student-${studentId}`;
+        if (!collapsedSlots.has(studentKey)) {
+          seenSlotsRef.current.add(studentKey);
+        }
+      });
+    }
+  }, [groupedByStudent, loading, collapsedSlots]);
 
   if (loading) {
     return (
@@ -759,6 +821,24 @@ export default function SessionsPage() {
               </div>
             </div>
 
+            {/* Special Filter Banner */}
+            {specialFilter === "pending-makeups" && (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+                  <RefreshCw className="h-4 w-4" />
+                  <span className="font-medium">Pending Make-ups</span>
+                  <span className="text-amber-600 dark:text-amber-400">(last 60 days)</span>
+                </div>
+                <button
+                  onClick={() => setSpecialFilter("")}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* Bulk Action Bar - appears when selections exist */}
             {hasSelection && (
               <div ref={setBulkActionBarElement} className="sticky z-25 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg px-3 sm:px-4 py-2" style={{ top: toolbarHeight }}>
@@ -839,19 +919,209 @@ export default function SessionsPage() {
             )}
 
             {/* List view content */}
-            {groupedSessions.length === 0 ? (
+            {(groupedByStudent ? groupedByStudent.length === 0 : groupedSessions.length === 0) ? (
               <div className="flex justify-center py-12">
                 <StickyNote variant="yellow" size="lg" showTape={true} className="desk-shadow-medium">
                   <div className="text-center">
                     <Clock className="h-12 w-12 mx-auto mb-4 text-gray-700 dark:text-gray-300" />
                     <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No sessions found</p>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      Try selecting a different date or adjusting your filters
+                      {specialFilter === "pending-makeups"
+                        ? "No pending make-ups in the last 60 days"
+                        : "Try selecting a different date or adjusting your filters"}
                     </p>
                   </div>
                 </StickyNote>
               </div>
+            ) : groupedByStudent ? (
+              /* Pending Make-ups View: Grouped by Student */
+              <>
+                {groupedByStudent.map(([studentId, studentSessions], groupIndex) => {
+                  const firstSession = studentSessions[0];
+                  const studentKey = `student-${studentId}`;
+                  const isCollapsed = collapsedSlots.has(studentKey);
+                  return (
+                    <React.Fragment key={studentKey}>
+                      {/* Student Header */}
+                      <div className="sticky z-20 mb-4" style={{ top: timeSlotStickyTop }}>
+                        <div
+                          onClick={() => toggleSlot(studentKey)}
+                          className={cn(
+                            "bg-[#fef9f3] dark:bg-[#2d2618] border-l-4 border-[#a0704b] dark:border-[#cd853f] rounded-lg p-4 desk-shadow-low cursor-pointer hover:bg-[#fdf5eb] dark:hover:bg-[#352f20] transition-colors",
+                            !isMobile && "paper-texture"
+                          )}
+                          style={{ transform: isMobile ? 'none' : 'rotate(-0.1deg)' }}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                              <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
+                                {selectedLocation === "All Locations" && firstSession.location && `${firstSession.location}-`}{firstSession.school_student_id}
+                              </span>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 truncate">
+                                {firstSession.student_name}
+                              </h3>
+                              {firstSession.grade && (
+                                <span
+                                  className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline flex-shrink-0"
+                                  style={{ backgroundColor: getGradeColor(firstSession.grade, firstSession.lang_stream) }}
+                                >{firstSession.grade}{firstSession.lang_stream || ''}</span>
+                              )}
+                              {firstSession.school && (
+                                <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline flex-shrink-0">{firstSession.school}</span>
+                              )}
+                              <motion.div
+                                animate={{ rotate: isCollapsed ? -90 : 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex-shrink-0"
+                              >
+                                <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                              </motion.div>
+                            </div>
+                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm flex-shrink-0">
+                              {studentSessions.length} pending
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Session Cards for this student */}
+                      <AnimatePresence initial={false}>
+                        {!isCollapsed && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-3 ml-0 sm:ml-4">
+                              {studentSessions.map((session, sessionIndex) => {
+                                const displayStatus = getDisplayStatus(session);
+                                const statusConfig = getSessionStatusConfig(displayStatus);
+                                const StatusIcon = statusConfig.Icon;
+                                const sessionDate = new Date(session.session_date + 'T00:00:00');
+                                const dateStr = sessionDate.toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric'
+                                });
+                                return (
+                                  <motion.div
+                                    key={session.id}
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{
+                                      // Skip stagger delay on re-expand
+                                      delay: isMobile || seenSlotsRef.current.has(studentKey) ? 0 : groupIndex * 0.05 + sessionIndex * 0.03,
+                                      duration: 0.35,
+                                      ease: [0.38, 1.21, 0.22, 1.00]
+                                    }}
+                                    whileHover={!isMobile ? {
+                                      scale: 1.02,
+                                      y: -4,
+                                      transition: { duration: 0.2 }
+                                    } : {}}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={(e) => handleCardClick(session, e)}
+                                    title="Click for quick view"
+                                    className={cn(
+                                      "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
+                                      statusConfig.bgTint,
+                                      !isMobile && "paper-texture",
+                                      selectedIds.has(session.id) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
+                                    )}
+                                    style={{
+                                      transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
+                                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                                    }}
+                                  >
+                                    {/* Checkbox for bulk selection */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
+                                      className="flex-shrink-0 p-2 sm:p-3 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                      {selectedIds.has(session.id) ? (
+                                        <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                                      ) : (
+                                        <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
+                                      )}
+                                    </button>
+
+                                    {/* Main content */}
+                                    <div className="flex-1 p-3 sm:p-4 min-w-0">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="space-y-1.5 flex-1 min-w-0">
+                                          {/* Date + Time Slot */}
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-sm font-semibold text-[#a0704b] dark:text-[#cd853f]">
+                                              {dateStr}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                              {session.time_slot}
+                                            </span>
+                                          </div>
+
+                                          {/* Notes */}
+                                          {session.notes && (
+                                            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
+                                              {session.notes}
+                                            </p>
+                                          )}
+
+                                          {/* Action buttons */}
+                                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap transition-colors"
+                                              title="Schedule Make-up (coming soon)"
+                                            >
+                                              <CalendarPlus className="h-3.5 w-3.5" />
+                                              <span className="hidden sm:inline">Make-up</span>
+                                            </button>
+                                            <Link
+                                              href={`/sessions/${session.id}`}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                saveScrollPosition();
+                                              }}
+                                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] font-medium whitespace-nowrap transition-colors"
+                                            >
+                                              <span className="hidden sm:inline">View</span>
+                                              <ExternalLink className="h-3.5 w-3.5" />
+                                            </Link>
+                                          </div>
+                                        </div>
+
+                                        {/* Right side - Status + Tutor */}
+                                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
+                                          <p className={cn("text-sm font-medium truncate max-w-[80px] sm:max-w-none", statusConfig.textClass)}>
+                                            {displayStatus}
+                                          </p>
+                                          {session.tutor_name && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                              {session.tutor_name}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Status color strip with icon */}
+                                    <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
+                                      <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </React.Fragment>
+                  );
+                })}
+              </>
             ) : (
+              /* Normal View: Grouped by Time Slot */
               <>
                 {groupedSessions.map(([timeSlot, sessionsInSlot], groupIndex) => (
                   <React.Fragment key={timeSlot}>

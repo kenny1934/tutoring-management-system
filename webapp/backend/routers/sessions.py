@@ -46,7 +46,7 @@ async def get_sessions(
     - **tutor_id**: Filter by specific tutor
     - **enrollment_id**: Filter by specific enrollment
     - **location**: Filter by location
-    - **session_status**: Filter by session status (Scheduled, Completed, Cancelled, etc.)
+    - **session_status**: Filter by session status (supports comma-separated for multiple statuses)
     - **financial_status**: Filter by financial status (Paid, Unpaid, Waived)
     - **from_date**: Filter sessions from this date
     - **to_date**: Filter sessions up to this date
@@ -73,7 +73,12 @@ async def get_sessions(
         query = query.filter(SessionLog.location == location)
 
     if session_status:
-        query = query.filter(SessionLog.session_status == session_status)
+        # Support comma-separated multiple statuses
+        statuses = [s.strip() for s in session_status.split(',')]
+        if len(statuses) == 1:
+            query = query.filter(SessionLog.session_status == statuses[0])
+        else:
+            query = query.filter(SessionLog.session_status.in_(statuses))
 
     if financial_status:
         query = query.filter(SessionLog.financial_status == financial_status)

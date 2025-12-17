@@ -42,7 +42,7 @@ const PAGES = [
 const QUICK_ACTIONS = [
   { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar },
   { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3 },
-  { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=makeup", icon: RefreshCw },
+  { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=pending-makeups", icon: RefreshCw },
 ];
 
 // Type badge colors
