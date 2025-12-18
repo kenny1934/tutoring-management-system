@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home } from "lucide-react";
@@ -51,14 +51,16 @@ export function ExerciseModal({
   onClose,
   onSave,
 }: ExerciseModalProps) {
-  const [isSaving, setIsSaving] = useState(false);
-
   // Filter existing exercises to only show the relevant type
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
 
-  // Reset form when modal opens
+  // Track if form has been initialized for this modal open
+  const initializedRef = useRef(false);
+
+  // Reset form only when modal first opens, not on session changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !initializedRef.current) {
+      initializedRef.current = true;
       const filteredExercises = (session.exercises || [])
         .filter((ex) => {
           const type = ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type;
@@ -74,41 +76,68 @@ export function ExerciseModal({
         }));
       setExercises(filteredExercises);
     }
+    if (!isOpen) {
+      initializedRef.current = false;
+    }
   }, [isOpen, session, exerciseType]);
 
   const handleSave = async () => {
-    setIsSaving(true);
+    const sessionId = session.id;
+    const currentExercises = [...exercises];
 
+    // Build API format
+    const apiExercises = currentExercises.map((ex) => ({
+      exercise_type: ex.exercise_type,
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+      page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+      remarks: ex.remarks || null,
+    }));
+
+    // Build optimistic session state
+    // Keep exercises of OTHER type, replace exercises of THIS type
+    const otherExercises = (session.exercises || []).filter((ex) => {
+      const type = ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type;
+      return type !== exerciseType;
+    });
+
+    const newExercises = apiExercises.map((ex, idx) => ({
+      id: currentExercises[idx]?.id || Date.now() + idx, // temp ID for new ones
+      session_id: sessionId,
+      exercise_type: ex.exercise_type,
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_start,
+      page_end: ex.page_end,
+      remarks: ex.remarks,
+    }));
+
+    const optimisticSession = {
+      ...session,
+      exercises: [...otherExercises, ...newExercises],
+    };
+
+    // Update cache IMMEDIATELY (optimistic)
+    updateSessionInCache(optimisticSession);
+
+    // Close modal
+    onClose();
+
+    // Save in background - will update cache again with server state
     try {
-      // Convert form data to API format
-      const apiExercises = exercises.map((ex) => ({
-        exercise_type: ex.exercise_type,
-        pdf_name: ex.pdf_name,
-        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-        remarks: ex.remarks || null,
-      }));
-
-      // Call API
       const updatedSession = await sessionsAPI.saveExercises(
-        session.id,
+        sessionId,
         exerciseType,
         apiExercises
       );
-
-      // Update cache
       updateSessionInCache(updatedSession);
 
       // Notify parent
       if (onSave) {
-        onSave(session.id, exercises);
+        onSave(sessionId, currentExercises);
       }
-
-      onClose();
     } catch (error) {
       console.error("Failed to save exercises:", error);
-    } finally {
-      setIsSaving(false);
+      // Could rollback cache or show toast here
     }
   };
 
@@ -167,11 +196,11 @@ export function ExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave}>
+            Save Changes
           </Button>
         </div>
       }

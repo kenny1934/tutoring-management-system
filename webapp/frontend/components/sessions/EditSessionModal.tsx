@@ -103,9 +103,11 @@ export function EditSessionModal({
 }: EditSessionModalProps) {
   const { data: tutors } = useTutors();
   const { data: locations } = useLocations();
-  const [isSaving, setIsSaving] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Track if form has been initialized for this modal open
+  const initializedRef = useRef(false);
 
   // Close status dropdown on click outside
   useEffect(() => {
@@ -143,9 +145,10 @@ export function EditSessionModal({
     };
   });
 
-  // Reset form when session changes
+  // Reset form only when modal first opens, not on session changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !initializedRef.current) {
+      initializedRef.current = true;
       const times = parseTimeSlot(session.time_slot || "");
       setForm({
         session_date: session.session_date,
@@ -166,6 +169,9 @@ export function EditSessionModal({
         })),
       });
     }
+    if (!isOpen) {
+      initializedRef.current = false;
+    }
   }, [isOpen, session]);
 
   // Helper to get tutor name without Mr/Ms prefix for sorting (same as sessions toolbar)
@@ -183,63 +189,92 @@ export function EditSessionModal({
   }, [tutors, form.location]);
 
   const handleSave = async () => {
-    setIsSaving(true);
+    const sessionId = session.id;
+    const currentForm = { ...form };
 
+    // Build updates object for session fields
+    const updates = {
+      session_date: currentForm.session_date,
+      time_slot: formatTimeSlot(currentForm.time_slot_start, currentForm.time_slot_end),
+      location: currentForm.location || undefined,
+      tutor_id: currentForm.tutor_id || undefined,
+      session_status: currentForm.session_status,
+      performance_rating: currentForm.performance_rating > 0 ? ratingToEmoji(currentForm.performance_rating) : undefined,
+      notes: currentForm.notes || undefined,
+    };
+
+    // Build exercises for optimistic update
+    const optimisticExercises = currentForm.exercises.map((ex, idx) => ({
+      id: ex.id || Date.now() + idx,
+      session_id: sessionId,
+      exercise_type: ex.exercise_type,
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+      page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+      remarks: ex.remarks || null,
+    }));
+
+    // Build optimistic session state
+    const optimisticSession = {
+      ...session,
+      session_date: currentForm.session_date,
+      time_slot: formatTimeSlot(currentForm.time_slot_start, currentForm.time_slot_end),
+      location: currentForm.location || null,
+      tutor_id: currentForm.tutor_id,
+      session_status: currentForm.session_status,
+      performance_rating: currentForm.performance_rating > 0 ? ratingToEmoji(currentForm.performance_rating) : null,
+      notes: currentForm.notes || null,
+      exercises: optimisticExercises,
+    };
+
+    // Update cache IMMEDIATELY (optimistic)
+    updateSessionInCache(optimisticSession);
+
+    // Close modal
+    onClose();
+
+    // Save exercises - split by type for API
+    const cwExercises = currentForm.exercises
+      .filter((ex) => ex.exercise_type === "CW")
+      .map((ex) => ({
+        exercise_type: ex.exercise_type,
+        pdf_name: ex.pdf_name,
+        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+        remarks: ex.remarks || null,
+      }));
+
+    const hwExercises = currentForm.exercises
+      .filter((ex) => ex.exercise_type === "HW")
+      .map((ex) => ({
+        exercise_type: ex.exercise_type,
+        pdf_name: ex.pdf_name,
+        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+        remarks: ex.remarks || null,
+      }));
+
+    // Save in background - will update cache again with server state
     try {
-      // Build updates object for session fields
-      const updates = {
-        session_date: form.session_date,
-        time_slot: formatTimeSlot(form.time_slot_start, form.time_slot_end),
-        location: form.location || undefined,
-        tutor_id: form.tutor_id || undefined,
-        session_status: form.session_status,
-        performance_rating: form.performance_rating > 0 ? ratingToEmoji(form.performance_rating) : undefined,
-        notes: form.notes || undefined,
-      };
-
       // Update session fields
-      let updatedSession = await sessionsAPI.updateSession(session.id, updates);
-
-      // Save exercises - split by type
-      const cwExercises = form.exercises
-        .filter((ex) => ex.exercise_type === "CW")
-        .map((ex) => ({
-          exercise_type: ex.exercise_type,
-          pdf_name: ex.pdf_name,
-          page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-          page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-          remarks: ex.remarks || null,
-        }));
-
-      const hwExercises = form.exercises
-        .filter((ex) => ex.exercise_type === "HW")
-        .map((ex) => ({
-          exercise_type: ex.exercise_type,
-          pdf_name: ex.pdf_name,
-          page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-          page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-          remarks: ex.remarks || null,
-        }));
+      let updatedSession = await sessionsAPI.updateSession(sessionId, updates);
 
       // Save CW exercises (even if empty - to clear existing)
-      updatedSession = await sessionsAPI.saveExercises(session.id, "CW", cwExercises);
+      updatedSession = await sessionsAPI.saveExercises(sessionId, "CW", cwExercises);
 
       // Save HW exercises (even if empty - to clear existing)
-      updatedSession = await sessionsAPI.saveExercises(session.id, "HW", hwExercises);
+      updatedSession = await sessionsAPI.saveExercises(sessionId, "HW", hwExercises);
 
-      // Update cache with final session state
+      // Update cache with final server state
       updateSessionInCache(updatedSession);
 
       // Notify parent
       if (onSave) {
-        onSave(session.id, updates);
+        onSave(sessionId, updates);
       }
-
-      onClose();
     } catch (error) {
       console.error("Failed to save session:", error);
-    } finally {
-      setIsSaving(false);
+      // Could rollback cache or show toast here
     }
   };
 
@@ -299,11 +334,11 @@ export function EditSessionModal({
       size="lg"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave}>
+            Save Changes
           </Button>
         </div>
       }
