@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
 import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
@@ -136,6 +137,7 @@ export function SessionActionButtons({
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   // Filter actions by visibility and optionally by role
   const visibleActions = sessionActions.filter((action) => {
@@ -193,9 +195,11 @@ export function SessionActionButtons({
       try {
         const updatedSession = await sessionsAPI.markAttended(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as attended", "success");
         onAction?.("attended", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as attended:", error);
+        showToast("Failed to mark as attended", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -208,9 +212,11 @@ export function SessionActionButtons({
       try {
         const updatedSession = await sessionsAPI.markNoShow(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as no show", "success");
         onAction?.("no-show", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as no show:", error);
+        showToast("Failed to mark as no show", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -223,9 +229,11 @@ export function SessionActionButtons({
       try {
         const updatedSession = await sessionsAPI.markRescheduled(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as rescheduled", "success");
         onAction?.("reschedule", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as rescheduled:", error);
+        showToast("Failed to mark as rescheduled", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -238,9 +246,11 @@ export function SessionActionButtons({
       try {
         const updatedSession = await sessionsAPI.markSickLeave(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as sick leave", "success");
         onAction?.("sick-leave", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as sick leave:", error);
+        showToast("Failed to mark as sick leave", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -253,9 +263,11 @@ export function SessionActionButtons({
       try {
         const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as weather cancelled", "success");
         onAction?.("weather-cancelled", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as weather cancelled:", error);
+        showToast("Failed to mark as weather cancelled", "error");
       } finally {
         setLoadingAction(null);
       }

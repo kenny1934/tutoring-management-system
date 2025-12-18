@@ -18,6 +18,7 @@ import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
 import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -171,6 +172,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
+  const { showToast } = useToast();
 
   // Get visible actions for this session
   const visibleActions = sessionActions.filter((action) => action.isVisible(session));
@@ -218,9 +220,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
       try {
         const updatedSession = await sessionsAPI.markAttended(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as attended", "success");
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as attended:", error);
+        showToast("Failed to mark as attended", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -233,9 +237,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
       try {
         const updatedSession = await sessionsAPI.markNoShow(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as no show", "success");
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as no show:", error);
+        showToast("Failed to mark as no show", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -248,9 +254,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
       try {
         const updatedSession = await sessionsAPI.markRescheduled(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as rescheduled", "success");
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as rescheduled:", error);
+        showToast("Failed to mark as rescheduled", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -263,9 +271,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
       try {
         const updatedSession = await sessionsAPI.markSickLeave(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as sick leave", "success");
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as sick leave:", error);
+        showToast("Failed to mark as sick leave", "error");
       } finally {
         setLoadingAction(null);
       }
@@ -278,9 +288,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
       try {
         const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
         updateSessionInCache(updatedSession);
+        showToast("Session marked as weather cancelled", "success");
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as weather cancelled:", error);
+        showToast("Failed to mark as weather cancelled", "error");
       } finally {
         setLoadingAction(null);
       }
