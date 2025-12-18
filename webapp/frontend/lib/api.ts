@@ -159,6 +159,30 @@ export const sessionsAPI = {
       method: 'PATCH',
     });
   },
+
+  markNoShow: (id: number) => {
+    return fetchAPI<Session>(`/sessions/${id}/no-show`, {
+      method: 'PATCH',
+    });
+  },
+
+  markRescheduled: (id: number) => {
+    return fetchAPI<Session>(`/sessions/${id}/reschedule`, {
+      method: 'PATCH',
+    });
+  },
+
+  markSickLeave: (id: number) => {
+    return fetchAPI<Session>(`/sessions/${id}/sick-leave`, {
+      method: 'PATCH',
+    });
+  },
+
+  markWeatherCancelled: (id: number) => {
+    return fetchAPI<Session>(`/sessions/${id}/weather-cancelled`, {
+      method: 'PATCH',
+    });
+  },
 };
 
 // Calendar API

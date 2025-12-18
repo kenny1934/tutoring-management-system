@@ -40,6 +40,7 @@ const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   "schedule-makeup": "green",
   "no-show": "red",
   "sick-leave": "orange",
+  "weather-cancelled": "orange",
   cw: "yellow",
   hw: "yellow",
   rate: "yellow",
@@ -219,7 +220,66 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
         onAction?.(action.id, action);
       } catch (error) {
         console.error("Failed to mark session as attended:", error);
-        // TODO: show error toast
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "no-show" action with API call
+    if (action.id === 'no-show') {
+      setLoadingAction('no-show');
+      try {
+        const updatedSession = await sessionsAPI.markNoShow(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.(action.id, action);
+      } catch (error) {
+        console.error("Failed to mark session as no show:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "reschedule" action with API call
+    if (action.id === 'reschedule') {
+      setLoadingAction('reschedule');
+      try {
+        const updatedSession = await sessionsAPI.markRescheduled(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.(action.id, action);
+      } catch (error) {
+        console.error("Failed to mark session as rescheduled:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "sick-leave" action with API call
+    if (action.id === 'sick-leave') {
+      setLoadingAction('sick-leave');
+      try {
+        const updatedSession = await sessionsAPI.markSickLeave(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.(action.id, action);
+      } catch (error) {
+        console.error("Failed to mark session as sick leave:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "weather-cancelled" action with API call
+    if (action.id === 'weather-cancelled') {
+      setLoadingAction('weather-cancelled');
+      try {
+        const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.(action.id, action);
+      } catch (error) {
+        console.error("Failed to mark session as weather cancelled:", error);
       } finally {
         setLoadingAction(null);
       }
@@ -340,7 +400,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate', 'attended'].includes(action.id) && !action.api.enabled}
+              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(action.id) && !action.api.enabled}
               loading={loadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : undefined}
