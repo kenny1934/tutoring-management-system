@@ -161,6 +161,9 @@ export default function SessionsPage() {
   // Keyboard shortcut hints panel visibility
   const [showShortcutHints, setShowShortcutHints] = useState(false);
 
+  // Track if scrolled past threshold (to move ? button above scroll-to-top)
+  const [isScrolledPastThreshold, setIsScrolledPastThreshold] = useState(false);
+
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
 
@@ -278,6 +281,19 @@ export default function SessionsPage() {
       });
     }
   }, [viewMode, loading]);
+
+  // Track scroll position to move ? button above scroll-to-top when needed
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      setIsScrolledPastThreshold(container.scrollTop > 300);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Save scroll position before navigating to session detail
   const saveScrollPosition = () => {
@@ -1869,10 +1885,13 @@ export default function SessionsPage() {
         {!showShortcutHints && (
           <button
             onClick={() => setShowShortcutHints(true)}
-            className="fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
-              bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]
-              text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200
-              shadow-md flex items-center justify-center"
+            className={cn(
+              "fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
+              "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",
+              "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
+              "shadow-md flex items-center justify-center",
+              isScrolledPastThreshold ? "bottom-20" : "bottom-4"
+            )}
             title="Keyboard shortcuts (?)"
           >
             <span className="text-sm font-mono">?</span>
