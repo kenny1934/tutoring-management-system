@@ -20,6 +20,9 @@ import { MonthlyCalendarView } from "@/components/sessions/MonthlyCalendarView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { RateSessionModal } from "@/components/sessions/RateSessionModal";
+import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
@@ -147,6 +150,13 @@ export default function SessionsPage() {
   const [focusedSessionId, setFocusedSessionId] = useState<number | null>(null);
   // Use a Map to store refs for all cards (avoids conditional ref timing issues)
   const cardRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Quick action state (for keyboard shortcuts on focused card)
+  const [quickActionSession, setQuickActionSession] = useState<Session | null>(null);
+  const [quickActionType, setQuickActionType] = useState<'CW' | 'HW' | 'Rate' | 'Edit' | null>(null);
+
+  // Loading state for keyboard-triggered A/N actions (Set to support multiple concurrent loads)
+  const [loadingSessionIds, setLoadingSessionIds] = useState<Set<number>>(new Set());
 
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
@@ -530,7 +540,7 @@ export default function SessionsPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if typing in an input, modal open, or command palette open
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (popoverSession || bulkExerciseType || isCommandPaletteOpen) return;
+      if (popoverSession || bulkExerciseType || quickActionSession || isCommandPaletteOpen) return;
 
       const key = e.key.toLowerCase();
 
@@ -566,11 +576,75 @@ export default function SessionsPage() {
       } else if (key === 'escape') {
         setFocusedSessionId(null);
       }
+      // Action shortcuts on focused card (A/N/C/H/R/E)
+      else if (focusedSessionId) {
+        const session = sessions.find(s => s.id === focusedSessionId);
+        if (!session) return;
+
+        switch (key) {
+          case 'a': // Mark Attended
+            if (canBeMarked(session)) {
+              e.preventDefault();
+              setLoadingSessionIds(prev => new Set(prev).add(session.id));
+              sessionsAPI.markAttended(session.id).then(updated => {
+                updateSessionInCache(updated);
+                showToast(`${session.student_name} marked as attended`);
+              }).catch(() => {
+                showToast('Failed to mark attended', 'error');
+              }).finally(() => {
+                setLoadingSessionIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(session.id);
+                  return next;
+                });
+              });
+            }
+            break;
+          case 'n': // Mark No Show
+            if (canBeMarked(session)) {
+              e.preventDefault();
+              setLoadingSessionIds(prev => new Set(prev).add(session.id));
+              sessionsAPI.markNoShow(session.id).then(updated => {
+                updateSessionInCache(updated);
+                showToast(`${session.student_name} marked as no show`);
+              }).catch(() => {
+                showToast('Failed to mark no show', 'error');
+              }).finally(() => {
+                setLoadingSessionIds(prev => {
+                  const next = new Set(prev);
+                  next.delete(session.id);
+                  return next;
+                });
+              });
+            }
+            break;
+          case 'c': // Open CW modal
+            e.preventDefault();
+            setQuickActionSession(session);
+            setQuickActionType('CW');
+            break;
+          case 'h': // Open HW modal
+            e.preventDefault();
+            setQuickActionSession(session);
+            setQuickActionType('HW');
+            break;
+          case 'r': // Open Rate modal
+            e.preventDefault();
+            setQuickActionSession(session);
+            setQuickActionType('Rate');
+            break;
+          case 'e': // Open Edit modal
+            e.preventDefault();
+            setQuickActionSession(session);
+            setQuickActionType('Edit');
+            break;
+        }
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, isCommandPaletteOpen, sessions]);
+  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, sessions, showToast]);
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1207,6 +1281,12 @@ export default function SessionsPage() {
                                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                     }}
                                   >
+                                    {/* Loading overlay for keyboard shortcuts */}
+                                    {loadingSessionIds.has(session.id) && (
+                                      <div className="absolute inset-0 bg-white/50 dark:bg-black/30 flex items-center justify-center z-10 rounded-lg">
+                                        <div className="w-5 h-5 border-2 border-[#a0704b] border-t-transparent rounded-full animate-spin" />
+                                      </div>
+                                    )}
                                     {/* Checkbox for bulk selection */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
@@ -1388,6 +1468,12 @@ export default function SessionsPage() {
                                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                               }}
                             >
+                              {/* Loading overlay for keyboard shortcuts */}
+                              {loadingSessionIds.has(session.id) && (
+                                <div className="absolute inset-0 bg-white/50 dark:bg-black/30 flex items-center justify-center z-10 rounded-lg">
+                                  <div className="w-5 h-5 border-2 border-[#a0704b] border-t-transparent rounded-full animate-spin" />
+                                </div>
+                              )}
                               {/* Checkbox for bulk selection */}
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
@@ -1532,6 +1618,38 @@ export default function SessionsPage() {
             exerciseType={bulkExerciseType}
             isOpen={true}
             onClose={() => setBulkExerciseType(null)}
+          />
+        )}
+
+        {/* Quick action modals (triggered by keyboard shortcuts on focused card) */}
+        {quickActionSession && quickActionType === 'CW' && (
+          <ExerciseModal
+            session={quickActionSession}
+            exerciseType="CW"
+            isOpen={true}
+            onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
+          />
+        )}
+        {quickActionSession && quickActionType === 'HW' && (
+          <ExerciseModal
+            session={quickActionSession}
+            exerciseType="HW"
+            isOpen={true}
+            onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
+          />
+        )}
+        {quickActionSession && quickActionType === 'Rate' && (
+          <RateSessionModal
+            session={quickActionSession}
+            isOpen={true}
+            onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
+          />
+        )}
+        {quickActionSession && quickActionType === 'Edit' && (
+          <EditSessionModal
+            session={quickActionSession}
+            isOpen={true}
+            onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
           />
         )}
       </DeskSurface>
