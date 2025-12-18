@@ -345,6 +345,222 @@ async def mark_session_attended(
     return session_data
 
 
+@router.patch("/sessions/{session_id}/no-show", response_model=SessionResponse)
+async def mark_session_no_show(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a session as No Show.
+
+    Updates session status to 'No Show' from valid starting statuses.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate current status
+    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    if session.session_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot mark no show: current status is '{session.session_status}'"
+        )
+
+    # Store previous status and update
+    session.previous_session_status = session.session_status
+    session.session_status = "No Show"
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}/reschedule", response_model=SessionResponse)
+async def mark_session_rescheduled(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a session as Rescheduled - Pending Make-up.
+
+    Updates session status to indicate it needs a make-up class scheduled.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate current status
+    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    if session.session_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot reschedule: current status is '{session.session_status}'"
+        )
+
+    # Store previous status and update
+    session.previous_session_status = session.session_status
+    session.session_status = "Rescheduled - Pending Make-up"
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}/sick-leave", response_model=SessionResponse)
+async def mark_session_sick_leave(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a session as Sick Leave - Pending Make-up.
+
+    Updates session status to indicate student was sick and needs make-up.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate current status
+    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    if session.session_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot mark sick leave: current status is '{session.session_status}'"
+        )
+
+    # Store previous status and update
+    session.previous_session_status = session.session_status
+    session.session_status = "Sick Leave - Pending Make-up"
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}/weather-cancelled", response_model=SessionResponse)
+async def mark_session_weather_cancelled(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a session as Weather Cancelled - Pending Make-up.
+
+    Updates session status to indicate class was cancelled due to weather.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate current status
+    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    if session.session_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot mark weather cancelled: current status is '{session.session_status}'"
+        )
+
+    # Store previous status and update
+    session.previous_session_status = session.session_status
+    session.session_status = "Weather Cancelled - Pending Make-up"
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
 @router.get("/sessions/{session_id}/curriculum-suggestions", response_model=CurriculumSuggestionResponse)
 async def get_curriculum_suggestions(
     session_id: int,

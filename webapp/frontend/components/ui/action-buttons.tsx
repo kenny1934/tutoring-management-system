@@ -190,15 +190,71 @@ export function SessionActionButtons({
     if (action.id === "attended") {
       setLoadingAction("attended");
       try {
-        // Call API and get updated session back
         const updatedSession = await sessionsAPI.markAttended(session.id);
-        // Optimistic update across all caches (instant, no refetch)
         updateSessionInCache(updatedSession);
-        // Notify parent with updated session
         onAction?.("attended", updatedSession);
       } catch (error) {
         console.error("Failed to mark session as attended:", error);
-        // TODO: show error toast
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "no-show" action with API call
+    if (action.id === "no-show") {
+      setLoadingAction("no-show");
+      try {
+        const updatedSession = await sessionsAPI.markNoShow(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.("no-show", updatedSession);
+      } catch (error) {
+        console.error("Failed to mark session as no show:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "reschedule" action with API call
+    if (action.id === "reschedule") {
+      setLoadingAction("reschedule");
+      try {
+        const updatedSession = await sessionsAPI.markRescheduled(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.("reschedule", updatedSession);
+      } catch (error) {
+        console.error("Failed to mark session as rescheduled:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "sick-leave" action with API call
+    if (action.id === "sick-leave") {
+      setLoadingAction("sick-leave");
+      try {
+        const updatedSession = await sessionsAPI.markSickLeave(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.("sick-leave", updatedSession);
+      } catch (error) {
+        console.error("Failed to mark session as sick leave:", error);
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
+    // Handle "weather-cancelled" action with API call
+    if (action.id === "weather-cancelled") {
+      setLoadingAction("weather-cancelled");
+      try {
+        const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.("weather-cancelled", updatedSession);
+      } catch (error) {
+        console.error("Failed to mark session as weather cancelled:", error);
       } finally {
         setLoadingAction(null);
       }
