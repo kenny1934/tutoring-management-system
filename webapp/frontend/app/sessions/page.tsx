@@ -23,6 +23,10 @@ import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
+import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 
 // Grade tag colors
 const GRADE_COLORS: Record<string, string> = {
@@ -61,6 +65,8 @@ export default function SessionsPage() {
   const { selectedLocation } = useLocation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
+  const { isOpen: isCommandPaletteOpen } = useCommandPalette();
 
   // Initialize state from URL query params (with fallbacks)
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
@@ -123,9 +129,24 @@ export default function SessionsPage() {
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Sync popover session with updated data from SWR (e.g., after marking attended)
+  useEffect(() => {
+    if (popoverSession && sessions) {
+      const updatedSession = sessions.find((s) => s.id === popoverSession.id);
+      if (updatedSession && updatedSession !== popoverSession) {
+        setPopoverSession(updatedSession);
+      }
+    }
+  }, [sessions, popoverSession]);
+
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+
+  // Keyboard navigation state (J/K to move, Enter to open popover)
+  const [focusedSessionId, setFocusedSessionId] = useState<number | null>(null);
+  // Use a Map to store refs for all cards (avoids conditional ref timing issues)
+  const cardRefsMap = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
@@ -386,8 +407,15 @@ export default function SessionsPage() {
     );
   }, [tutors, selectedLocation]);
 
-  // Bulk selection computations
-  const allSessionIds = useMemo(() => sessions.map(s => s.id), [sessions]);
+  // Bulk selection computations - use grouped order to match visual display
+  const allSessionIds = useMemo(() => {
+    // For pending-makeups view, use groupedByStudent order
+    if (groupedByStudent) {
+      return groupedByStudent.flatMap(([_, studentSessions]) => studentSessions.map(s => s.id));
+    }
+    // For normal view, use groupedSessions order (by time slot)
+    return groupedSessions.flatMap(([_, sessionsInSlot]) => sessionsInSlot.map(s => s.id));
+  }, [groupedSessions, groupedByStudent]);
 
   const selectedSessions = useMemo(() =>
     sessions.filter(s => selectedIds.has(s.id)),
@@ -427,6 +455,63 @@ export default function SessionsPage() {
     setSelectedIds(new Set());
   }, []);
 
+  // Bulk attendance action handlers
+  const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
+
+  const handleBulkAttended = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('attended');
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markAttended(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as attended:`, error);
+        failCount++;
+      }
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as attended`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkNoShow = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('no-show');
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markNoShow(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as no show:`, error);
+        failCount++;
+      }
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as no show`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
   const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
   const hasSelection = selectedIds.size > 0;
 
@@ -437,6 +522,80 @@ export default function SessionsPage() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+
+  // J/K keyboard navigation for sessions list
+  useEffect(() => {
+    if (viewMode !== "list") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if typing in an input, modal open, or command palette open
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (popoverSession || bulkExerciseType || isCommandPaletteOpen) return;
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'j' || key === 'k') {
+        // Guard against empty list
+        if (allSessionIds.length === 0) return;
+
+        e.preventDefault();
+        const currentIndex = focusedSessionId ? allSessionIds.indexOf(focusedSessionId) : -1;
+
+        if (key === 'j') {
+          // Move down
+          const nextIndex = currentIndex < allSessionIds.length - 1 ? currentIndex + 1 : 0;
+          setFocusedSessionId(allSessionIds[nextIndex]);
+        } else {
+          // Move up
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : allSessionIds.length - 1;
+          setFocusedSessionId(allSessionIds[prevIndex]);
+        }
+      } else if (key === 'enter' && focusedSessionId) {
+        e.preventDefault();
+        // Open popover for focused session
+        const session = sessions.find(s => s.id === focusedSessionId);
+        if (session) {
+          setPopoverSession(session);
+          // Use card position if available, otherwise center of screen
+          const card = cardRefsMap.current.get(focusedSessionId);
+          if (card) {
+            const rect = card.getBoundingClientRect();
+            setPopoverClickPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+          }
+        }
+      } else if (key === 'escape') {
+        setFocusedSessionId(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, isCommandPaletteOpen, sessions]);
+
+  // Scroll focused card into view
+  useEffect(() => {
+    if (!focusedSessionId || !scrollContainerRef.current) return;
+
+    const card = cardRefsMap.current.get(focusedSessionId);
+    if (!card) return;
+
+    const container = scrollContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+
+    // Card position relative to container's scroll position
+    const cardTopInContainer = cardRect.top - containerRect.top + container.scrollTop;
+
+    // Target: center the card in the container
+    const targetScroll = cardTopInContainer - (containerRect.height / 2) + (cardRect.height / 2);
+
+    container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+  }, [focusedSessionId]);
+
+  // Clear focus when filters change
+  useEffect(() => {
+    setFocusedSessionId(null);
+  }, [selectedDate, statusFilter, tutorFilter, selectedLocation]);
 
   // Mark visible time slots as "seen" after initial render (to skip stagger on re-expand)
   useEffect(() => {
@@ -850,22 +1009,30 @@ export default function SessionsPage() {
                     {/* Attendance actions - conditional based on selected sessions */}
                     {bulkActionsAvailable.attended && (
                       <button
-                        disabled
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
-                        title="Coming soon"
+                        onClick={handleBulkAttended}
+                        disabled={bulkActionLoading !== null}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                          bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
+                        )}
+                        title="Mark all as attended"
                       >
-                        <CheckCheck className="h-3 w-3" />
-                        <span className="hidden xs:inline">Attended</span>
+                        <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
+                        <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
                       </button>
                     )}
                     {bulkActionsAvailable.noShow && (
                       <button
-                        disabled
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
-                        title="Coming soon"
+                        onClick={handleBulkNoShow}
+                        disabled={bulkActionLoading !== null}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                          bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
+                        )}
+                        title="Mark all as no show"
                       >
-                        <UserX className="h-3 w-3" />
-                        <span className="hidden xs:inline">No Show</span>
+                        <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
+                        <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
                       </button>
                     )}
                     {bulkActionsAvailable.reschedule && (
@@ -1024,11 +1191,16 @@ export default function SessionsPage() {
                                     whileTap={{ scale: 0.98 }}
                                     onClick={(e) => handleCardClick(session, e)}
                                     title="Click for quick view"
+                                    ref={(el) => {
+                                      if (el) cardRefsMap.current.set(session.id, el);
+                                      else cardRefsMap.current.delete(session.id);
+                                    }}
                                     className={cn(
                                       "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                       statusConfig.bgTint,
                                       !isMobile && "paper-texture",
-                                      selectedIds.has(session.id) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
+                                      selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
@@ -1200,11 +1372,16 @@ export default function SessionsPage() {
                               whileTap={{ scale: 0.98 }}
                               onClick={(e) => handleCardClick(session, e)}
                               title="Click for quick view"
+                              ref={(el) => {
+                                      if (el) cardRefsMap.current.set(session.id, el);
+                                      else cardRefsMap.current.delete(session.id);
+                                    }}
                               className={cn(
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
                                 !isMobile && "paper-texture",
-                                selectedIds.has(session.id) && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
+                                selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
                               )}
                               style={{
                                 transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,

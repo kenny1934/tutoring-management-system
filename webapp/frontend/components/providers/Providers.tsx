@@ -6,6 +6,7 @@ import { ThemeProvider } from "next-themes";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { CommandPaletteProvider } from "@/contexts/CommandPaletteContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import { CommandPalette } from "@/components/CommandPalette";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -22,8 +23,10 @@ export function Providers({ children }: { children: ReactNode }) {
         <LocationProvider>
           <RoleProvider>
             <CommandPaletteProvider>
-              {children}
-              <CommandPalette />
+              <ToastProvider>
+                {children}
+                <CommandPalette />
+              </ToastProvider>
             </CommandPaletteProvider>
           </RoleProvider>
         </LocationProvider>

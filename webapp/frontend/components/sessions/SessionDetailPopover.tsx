@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   useFloating,
@@ -21,6 +21,12 @@ import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
+import { ExerciseModal } from "./ExerciseModal";
+import { RateSessionModal } from "./RateSessionModal";
+import { EditSessionModal } from "./EditSessionModal";
 
 // Grade tag colors
 const GRADE_COLORS: Record<string, string> = {
@@ -154,6 +160,86 @@ export function SessionDetailPopover({
   tutorFilter = "",
   onNavigate,
 }: SessionDetailPopoverProps) {
+  const { showToast } = useToast();
+
+  // Modal state for keyboard shortcuts
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Check if session can be marked (not already attended/completed)
+  const canBeMarked = useCallback((s: Session | null) => {
+    if (!s) return false;
+    return ['Scheduled', 'Trial Class', 'Make-up Class'].includes(s.session_status);
+  }, []);
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    if (!isOpen || !session) return;
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Skip if typing in an input or if a modal is open
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (exerciseModalType || isRateModalOpen || isEditModalOpen) return;
+
+      const key = e.key.toLowerCase();
+
+      switch (key) {
+        case 'a':
+          // Mark Attended
+          if (canBeMarked(session)) {
+            e.preventDefault();
+            try {
+              const updatedSession = await sessionsAPI.markAttended(session.id);
+              updateSessionInCache(updatedSession);
+              showToast("Session marked as attended", "success");
+            } catch (error) {
+              console.error("Failed to mark as attended:", error);
+              showToast("Failed to mark as attended", "error");
+            }
+          }
+          break;
+        case 'n':
+          // Mark No Show
+          if (canBeMarked(session)) {
+            e.preventDefault();
+            try {
+              const updatedSession = await sessionsAPI.markNoShow(session.id);
+              updateSessionInCache(updatedSession);
+              showToast("Session marked as no show", "success");
+            } catch (error) {
+              console.error("Failed to mark as no show:", error);
+              showToast("Failed to mark as no show", "error");
+            }
+          }
+          break;
+        case 'c':
+          // Open CW modal
+          e.preventDefault();
+          setExerciseModalType("CW");
+          break;
+        case 'h':
+          // Open HW modal
+          e.preventDefault();
+          setExerciseModalType("HW");
+          break;
+        case 'r':
+          // Open Rate modal
+          e.preventDefault();
+          setIsRateModalOpen(true);
+          break;
+        case 'e':
+          // Open Edit modal
+          e.preventDefault();
+          setIsEditModalOpen(true);
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canBeMarked, showToast]);
+
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
     if (!clickPosition) return null;
@@ -491,7 +577,38 @@ export function SessionDetailPopover({
           View Details
           <ExternalLink className="h-4 w-4" />
         </Link>
+
+        {/* Keyboard shortcut hint */}
+        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-[10px] text-gray-400 dark:text-gray-500 text-center">
+          <span className="font-mono">A</span>=Attended <span className="font-mono">N</span>=No Show <span className="font-mono">C</span>=CW <span className="font-mono">H</span>=HW <span className="font-mono">R</span>=Rate <span className="font-mono">E</span>=Edit
+        </div>
       </div>
+
+      {/* Modals triggered by keyboard shortcuts */}
+      {exerciseModalType && session && (
+        <ExerciseModal
+          session={session}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
+
+      {isRateModalOpen && session && (
+        <RateSessionModal
+          session={session}
+          isOpen={true}
+          onClose={() => setIsRateModalOpen(false)}
+        />
+      )}
+
+      {isEditModalOpen && session && (
+        <EditSessionModal
+          session={session}
+          isOpen={true}
+          onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
     </FloatingPortal>
   );
 }
