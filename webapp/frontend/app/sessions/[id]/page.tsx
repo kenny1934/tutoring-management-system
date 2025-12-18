@@ -8,7 +8,7 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import { useSession, usePageTitle } from "@/lib/hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Session, CurriculumSuggestion, UpcomingTestAlert } from "@/types";
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
   Home,
   Calendar,
   PenTool,
+  X,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
 import { BookmarkTab } from "@/components/session/BookmarkTab";
@@ -66,6 +67,7 @@ export default function SessionDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -109,6 +111,13 @@ export default function SessionDetailPage() {
       // Skip if typing in input or modal open
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (isEditModalOpen || exerciseModalType) return;
+
+      // ? - Toggle shortcut hints
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcutHints(prev => !prev);
+        return;
+      }
 
       const key = e.key.toLowerCase();
 
@@ -552,6 +561,63 @@ export default function SessionDetailPage() {
           onClose={() => setExerciseModalType(null)}
         />
       )}
+
+      {/* Keyboard shortcut hint button (shows when panel is hidden) */}
+      {!showShortcutHints && (
+        <button
+          onClick={() => setShowShortcutHints(true)}
+          className="hidden sm:flex fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
+            bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]
+            text-[#5c4033] dark:text-[#d4a574] font-mono text-sm
+            items-center justify-center hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]
+            shadow-md"
+        >
+          ?
+        </button>
+      )}
+
+      {/* Keyboard Shortcut Hints Panel */}
+      <AnimatePresence>
+        {showShortcutHints && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
+              bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+              text-sm w-56"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
+                Keyboard Shortcuts
+              </span>
+              <button
+                onClick={() => setShowShortcutHints(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">A/N</kbd>
+                <span>Attended / No Show</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">C/H</kbd>
+                <span>CW / HW</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">E</kbd>
+                <span>Edit session</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+              Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </DeskSurface>
   );
 }
