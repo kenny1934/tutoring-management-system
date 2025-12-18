@@ -32,6 +32,9 @@ export interface ActionConfig<T = any> {
   /** Tailwind classes for button styling (e.g., "bg-green-100 text-green-600") */
   colorClass: string;
 
+  /** Optional override for icon color (e.g., for CW/HW colored icons) */
+  iconColorClass?: string;
+
   // ============================================
   // Visibility & Permissions
   // ============================================

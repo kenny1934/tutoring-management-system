@@ -9,7 +9,7 @@ from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 router = APIRouter()
 
@@ -268,6 +268,79 @@ async def get_session_detail(
         ).filter(SessionLog.id == session.make_up_for_id).first()
         if linked:
             session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}/attended", response_model=SessionResponse)
+async def mark_session_attended(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a session as attended.
+
+    Updates session status based on current status:
+    - Scheduled -> Attended
+    - Trial Class -> Attended
+    - Make-up Class -> Attended (Make-up)
+
+    Also sets attendance tracking fields and audit columns.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate current status allows marking as attended
+    valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
+    if session.session_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot mark attended: current status is '{session.session_status}'"
+        )
+
+    # Determine new status based on current status
+    status_mapping = {
+        "Scheduled": "Attended",
+        "Trial Class": "Attended",
+        "Make-up Class": "Attended (Make-up)"
+    }
+    new_status = status_mapping.get(session.session_status, session.session_status)
+
+    # Store previous status for undo functionality
+    session.previous_session_status = session.session_status
+
+    # Update session status
+    session.session_status = new_status
+
+    # Set attendance tracking fields
+    session.attendance_marked_by = "system@csmpro.app"  # TODO: get from auth when available
+    session.attendance_mark_time = datetime.now()
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"  # TODO: get from auth when available
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response with related data
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
 
     return session_data
 

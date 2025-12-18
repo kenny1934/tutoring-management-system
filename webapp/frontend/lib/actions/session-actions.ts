@@ -63,10 +63,9 @@ export const sessionActions: ActionConfig<Session>[] = [
     isVisible: isNotAttended,
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {
-      enabled: false, // Set to true when API is ready
+      enabled: true,
       method: 'PATCH',
-      endpoint: '/api/sessions/{id}/status',
-      getPayload: () => ({ status: 'Attended' }),
+      endpoint: '/api/sessions/{id}/attended',
     },
     successMessage: 'Session marked as attended',
   },
@@ -95,7 +94,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Request Reschedule',
     shortLabel: 'Reschedule',
     icon: CalendarClock,
-    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {
@@ -110,7 +109,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Request Sick Leave',
     shortLabel: 'Sick',
     icon: Ambulance,
-    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {
@@ -146,7 +145,8 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Add Classwork',
     shortLabel: 'CW',
     icon: PenTool,
-    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    iconColorClass: 'text-red-500 dark:text-red-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {
@@ -161,7 +161,8 @@ export const sessionActions: ActionConfig<Session>[] = [
     label: 'Add Homework',
     shortLabel: 'HW',
     icon: Home,
-    colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+    colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    iconColorClass: 'text-blue-500 dark:text-blue-400',
     isVisible: (s) => !hideCwHw(s),
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {

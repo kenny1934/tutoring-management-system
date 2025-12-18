@@ -18,6 +18,7 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
+import { getGradeColor } from "@/lib/constants";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import {
   useFloating,
@@ -117,6 +118,16 @@ export default function StudentDetailPage() {
   }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
   const { data: calendarEvents = [] } = useCalendarEvents(60);
+
+  // Sync popover session with updated data from SWR (e.g., after marking attended)
+  useEffect(() => {
+    if (popoverSession && sessions) {
+      const updatedSession = sessions.find((s) => s.id === popoverSession.id);
+      if (updatedSession && updatedSession !== popoverSession) {
+        setPopoverSession(updatedSession);
+      }
+    }
+  }, [sessions, popoverSession]);
 
   // Detect mobile device
   useEffect(() => {
@@ -355,7 +366,10 @@ export default function StudentDetailPage() {
 
             {/* Grade Badge */}
             {student.grade && (
-              <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+              <span
+                className="text-xs px-2 py-0.5 rounded text-gray-800"
+                style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+              >
                 {student.grade}{student.lang_stream || ''}
               </span>
             )}
@@ -403,7 +417,7 @@ export default function StudentDetailPage() {
                   {tab.id === "sessions" && sortedSessions.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-[#a0704b]/10 text-[#a0704b]"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {sortedSessions.length}
                     </span>
@@ -411,7 +425,7 @@ export default function StudentDetailPage() {
                   {tab.id === "courseware" && coursewareHistory.length > 0 && (
                     <span className={cn(
                       "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
-                      isActive ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-600"
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
                     )}>
                       {coursewareHistory.length}
                     </span>

@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { useLocation } from "@/contexts/LocationContext";
 
 // Helper to format date
 function formatDate(dateStr: string): string {
@@ -54,6 +55,7 @@ export default function EnrollmentDetailPage() {
   const enrollmentId = params.id ? parseInt(params.id as string) : null;
 
   const [isMobile, setIsMobile] = useState(false);
+  const { selectedLocation } = useLocation();
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -178,6 +180,16 @@ export default function EnrollmentDetailPage() {
   // Fetch sessions for this enrollment
   const { data: enrollmentSessions = [], isLoading: sessionsLoading } = useEnrollmentSessions(enrollmentId);
 
+  // Sync popover session with updated data from SWR (e.g., after marking attended)
+  useEffect(() => {
+    if (popoverSession && enrollmentSessions) {
+      const updatedSession = enrollmentSessions.find((s) => s.id === popoverSession.id);
+      if (updatedSession && updatedSession !== popoverSession) {
+        setPopoverSession(updatedSession);
+      }
+    }
+  }, [enrollmentSessions, popoverSession]);
+
   // Sort sessions by date (most recent first)
   const sortedSessions = useMemo(() => {
     return [...enrollmentSessions].sort((a, b) =>
@@ -282,6 +294,20 @@ export default function EnrollmentDetailPage() {
             <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
               #{enrollment.id}
             </span>
+
+            {/* Location (only when All Locations selected) */}
+            {selectedLocation === "All Locations" && enrollment.location && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {enrollment.location}
+              </span>
+            )}
+
+            {/* Student ID */}
+            {enrollment.school_student_id && (
+              <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+                {enrollment.school_student_id}
+              </span>
+            )}
 
             {/* Student Name Link */}
             <Link

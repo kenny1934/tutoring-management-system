@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
@@ -74,6 +74,16 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
     location: selectedLocation === "All Locations" ? undefined : selectedLocation,
     limit: 500,  // Ensure all daily sessions are fetched (default is 100)
   });
+
+  // Sync popover session with updated data from SWR (e.g., after marking attended)
+  useEffect(() => {
+    if (popoverSession && sessions) {
+      const updatedSession = sessions.find((s) => s.id === popoverSession.id);
+      if (updatedSession && updatedSession !== popoverSession) {
+        setPopoverSession(updatedSession);
+      }
+    }
+  }, [sessions, popoverSession]);
 
   // Group and sort sessions (same logic as main sessions page)
   const { groupedSessions, stats, allSessionIds } = useMemo(() => {
