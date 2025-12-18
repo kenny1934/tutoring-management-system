@@ -155,8 +155,8 @@ export default function SessionsPage() {
   const [quickActionSession, setQuickActionSession] = useState<Session | null>(null);
   const [quickActionType, setQuickActionType] = useState<'CW' | 'HW' | 'Rate' | 'Edit' | null>(null);
 
-  // Loading state for keyboard-triggered A/N actions (Set to support multiple concurrent loads)
-  const [loadingSessionIds, setLoadingSessionIds] = useState<Set<number>>(new Set());
+  // Loading state for keyboard-triggered A/N actions (Map to track which action per session)
+  const [loadingSessionActions, setLoadingSessionActions] = useState<Map<number, string>>(new Map());
 
   // Keyboard shortcut hints panel visibility
   const [showShortcutHints, setShowShortcutHints] = useState(false);
@@ -468,12 +468,37 @@ export default function SessionsPage() {
     setSelectedIds(new Set());
   }, []);
 
+  // Handler for action buttons to update loading state
+  // Note: This is called by SessionActionButtons which manages its own loadingAction internally.
+  // We just track that something is loading for that session (for status strip spinner).
+  const handleActionLoadingChange = useCallback((sessionId: number, isLoading: boolean, actionId?: string) => {
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      if (isLoading && actionId) {
+        next.set(sessionId, actionId);
+      } else {
+        next.delete(sessionId);
+      }
+      return next;
+    });
+  }, []);
+
   // Bulk attendance action handlers
   const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
 
   const handleBulkAttended = useCallback(async () => {
     if (selectedSessions.length === 0) return;
     setBulkActionLoading('attended');
+
+    // Add all session IDs to loading state upfront with action ID
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of selectedSessions) {
+        next.set(s.id, 'attended');
+      }
+      return next;
+    });
+
     let successCount = 0;
     let failCount = 0;
 
@@ -486,6 +511,12 @@ export default function SessionsPage() {
         console.error(`Failed to mark session ${session.id} as attended:`, error);
         failCount++;
       }
+      // Remove this session from loading state
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
     }
 
     setBulkActionLoading(null);
@@ -501,6 +532,16 @@ export default function SessionsPage() {
   const handleBulkNoShow = useCallback(async () => {
     if (selectedSessions.length === 0) return;
     setBulkActionLoading('no-show');
+
+    // Add all session IDs to loading state upfront with action ID
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of selectedSessions) {
+        next.set(s.id, 'no-show');
+      }
+      return next;
+    });
+
     let successCount = 0;
     let failCount = 0;
 
@@ -513,6 +554,12 @@ export default function SessionsPage() {
         console.error(`Failed to mark session ${session.id} as no show:`, error);
         failCount++;
       }
+      // Remove this session from loading state
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
     }
 
     setBulkActionLoading(null);
@@ -528,10 +575,21 @@ export default function SessionsPage() {
   const handleBulkReschedule = useCallback(async () => {
     if (selectedSessions.length === 0) return;
     setBulkActionLoading('reschedule');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    // Add all markable session IDs to loading state upfront with action ID
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'reschedule');
+      }
+      return next;
+    });
+
     let successCount = 0;
     let failCount = 0;
 
-    for (const session of selectedSessions.filter(canBeMarked)) {
+    for (const session of markableSessions) {
       try {
         const updatedSession = await sessionsAPI.markRescheduled(session.id);
         updateSessionInCache(updatedSession);
@@ -540,6 +598,12 @@ export default function SessionsPage() {
         console.error(`Failed to mark session ${session.id} as rescheduled:`, error);
         failCount++;
       }
+      // Remove this session from loading state
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
     }
 
     setBulkActionLoading(null);
@@ -555,10 +619,21 @@ export default function SessionsPage() {
   const handleBulkSickLeave = useCallback(async () => {
     if (selectedSessions.length === 0) return;
     setBulkActionLoading('sick-leave');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    // Add all markable session IDs to loading state upfront with action ID
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'sick-leave');
+      }
+      return next;
+    });
+
     let successCount = 0;
     let failCount = 0;
 
-    for (const session of selectedSessions.filter(canBeMarked)) {
+    for (const session of markableSessions) {
       try {
         const updatedSession = await sessionsAPI.markSickLeave(session.id);
         updateSessionInCache(updatedSession);
@@ -567,6 +642,12 @@ export default function SessionsPage() {
         console.error(`Failed to mark session ${session.id} as sick leave:`, error);
         failCount++;
       }
+      // Remove this session from loading state
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
     }
 
     setBulkActionLoading(null);
@@ -708,15 +789,15 @@ export default function SessionsPage() {
           case 'a': // Mark Attended
             if (canBeMarked(session)) {
               e.preventDefault();
-              setLoadingSessionIds(prev => new Set(prev).add(session.id));
+              setLoadingSessionActions(prev => new Map(prev).set(session.id, 'attended'));
               sessionsAPI.markAttended(session.id).then(updated => {
                 updateSessionInCache(updated);
                 showToast(`${session.student_name} marked as attended`);
               }).catch(() => {
                 showToast('Failed to mark attended', 'error');
               }).finally(() => {
-                setLoadingSessionIds(prev => {
-                  const next = new Set(prev);
+                setLoadingSessionActions(prev => {
+                  const next = new Map(prev);
                   next.delete(session.id);
                   return next;
                 });
@@ -726,15 +807,15 @@ export default function SessionsPage() {
           case 'n': // Mark No Show
             if (canBeMarked(session)) {
               e.preventDefault();
-              setLoadingSessionIds(prev => new Set(prev).add(session.id));
+              setLoadingSessionActions(prev => new Map(prev).set(session.id, 'no-show'));
               sessionsAPI.markNoShow(session.id).then(updated => {
                 updateSessionInCache(updated);
                 showToast(`${session.student_name} marked as no show`);
               }).catch(() => {
                 showToast('Failed to mark no show', 'error');
               }).finally(() => {
-                setLoadingSessionIds(prev => {
-                  const next = new Set(prev);
+                setLoadingSessionActions(prev => {
+                  const next = new Map(prev);
                   next.delete(session.id);
                   return next;
                 });
@@ -1366,7 +1447,7 @@ export default function SessionsPage() {
                             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                             className="overflow-hidden"
                           >
-                            <div className="space-y-3 ml-0 sm:ml-4">
+                            <div className="space-y-3 ml-0 sm:ml-4 p-1">
                               {studentSessions.map((session, sessionIndex) => {
                                 const displayStatus = getDisplayStatus(session);
                                 const statusConfig = getSessionStatusConfig(displayStatus);
@@ -1404,21 +1485,15 @@ export default function SessionsPage() {
                                       "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                       statusConfig.bgTint,
                                       !isMobile && "paper-texture",
-                                      selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
                                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                     }}
                                   >
-                                    {/* Loading overlay for keyboard shortcuts */}
-                                    {loadingSessionIds.has(session.id) && (
-                                      <div className="absolute inset-0 bg-white/50 dark:bg-black/30 flex items-center justify-center z-10 rounded-lg">
-                                        <div className="w-5 h-5 border-2 border-[#a0704b] border-t-transparent rounded-full animate-spin" />
-                                      </div>
-                                    )}
                                     {/* Checkbox for bulk selection */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
@@ -1491,7 +1566,11 @@ export default function SessionsPage() {
 
                                     {/* Status color strip with icon */}
                                     <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
-                                      <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                      {loadingSessionActions.has(session.id) ? (
+                                        <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                      )}
                                     </div>
                                   </motion.div>
                                 );
@@ -1552,7 +1631,7 @@ export default function SessionsPage() {
                           transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                           className="overflow-hidden"
                         >
-                          <div className="space-y-3 ml-0 sm:ml-4">
+                          <div className="space-y-3 ml-0 sm:ml-4 p-1">
                             {sessionsInSlot.map((session, sessionIndex) => {
                         const displayStatus = getDisplayStatus(session);
                         const statusConfig = getSessionStatusConfig(displayStatus);
@@ -1592,21 +1671,15 @@ export default function SessionsPage() {
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
                                 !isMobile && "paper-texture",
-                                selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-[#a0704b] dark:outline-[#cd853f]"
                               )}
                               style={{
                                 transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
                                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                               }}
                             >
-                              {/* Loading overlay for keyboard shortcuts */}
-                              {loadingSessionIds.has(session.id) && (
-                                <div className="absolute inset-0 bg-white/50 dark:bg-black/30 flex items-center justify-center z-10 rounded-lg">
-                                  <div className="w-5 h-5 border-2 border-[#a0704b] border-t-transparent rounded-full animate-spin" />
-                                </div>
-                              )}
                               {/* Checkbox for bulk selection */}
                               <button
                                 onClick={(e) => { e.stopPropagation(); toggleSelect(session.id); }}
@@ -1707,13 +1780,19 @@ export default function SessionsPage() {
                                   session={session}
                                   size="md"
                                   showLabels
+                                  onLoadingChange={handleActionLoadingChange}
+                                  loadingActionId={loadingSessionActions.get(session.id) || null}
                                   className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"
                                 />
                               </div>
 
                               {/* Status color strip with icon - RIGHT side */}
                               <div className={cn("w-10 sm:w-12 flex-shrink-0 flex items-center justify-center rounded-r-lg", statusConfig.bgClass)}>
-                                <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                {loadingSessionActions.has(session.id) ? (
+                                  <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <StatusIcon className={cn("h-5 w-5 sm:h-6 sm:w-6 text-white", statusConfig.iconClass)} />
+                                )}
                               </div>
                             </motion.div>
                           </div>
@@ -1784,6 +1863,20 @@ export default function SessionsPage() {
             isOpen={true}
             onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
           />
+        )}
+
+        {/* Keyboard shortcut hint button (shows when panel is hidden) */}
+        {!showShortcutHints && (
+          <button
+            onClick={() => setShowShortcutHints(true)}
+            className="fixed bottom-4 right-4 z-40 w-8 h-8 rounded-full
+              bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]
+              text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200
+              shadow-md flex items-center justify-center"
+            title="Keyboard shortcuts (?)"
+          >
+            <span className="text-sm font-mono">?</span>
+          </button>
         )}
 
         {/* Keyboard Shortcut Hints Panel */}

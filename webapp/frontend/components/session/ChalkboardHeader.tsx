@@ -160,9 +160,10 @@ interface ChalkboardHeaderProps {
   session: Session;
   onEdit?: () => void;
   onAction?: (actionId: string, action: ActionConfig<Session>) => void;
+  loadingActionId?: string | null;
 }
 
-export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeaderProps) {
+export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }: ChalkboardHeaderProps) {
   const displayStatus = getDisplayStatus(session);
   const statusConfig = getSessionStatusConfig(displayStatus);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
@@ -173,6 +174,10 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
+
+  // Combine external loadingActionId with internal loadingAction
+  const effectiveLoadingAction = loadingActionId || loadingAction;
+  const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(effectiveLoadingAction || '');
 
   // Get visible actions for this session
   const visibleActions = sessionActions.filter((action) => action.isVisible(session));
@@ -414,7 +419,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
               disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(action.id) && !action.api.enabled}
-              loading={loadingAction === action.id}
+              loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
               iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
@@ -710,7 +715,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
                 )}
                 aria-label={`Status: ${displayStatus}`}
               >
-                <statusConfig.Icon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
+                {isAnyStatusLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <statusConfig.Icon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
+                )}
               </button>
 
               <AnimatePresence>
@@ -753,7 +762,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
                     letterSpacing: '0.02em',
                   }}
                 >
-                  <statusConfig.Icon className={cn("h-4 w-4", statusConfig.iconClass)} />
+                  {isAnyStatusLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <statusConfig.Icon className={cn("h-4 w-4", statusConfig.iconClass)} />
+                  )}
                   {displayStatus}
                 </div>
               </div>

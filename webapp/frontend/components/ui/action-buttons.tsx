@@ -122,6 +122,8 @@ interface SessionActionButtonsProps {
   showLabels?: boolean;
   userRole?: "tutor" | "admin" | "super_admin";
   onAction?: (actionId: string, session: Session) => void;
+  onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
+  loadingActionId?: string | null;  // External loading state from parent (keyboard shortcuts)
   className?: string;
 }
 
@@ -131,6 +133,8 @@ export function SessionActionButtons({
   showLabels = false,
   userRole,
   onAction,
+  onLoadingChange,
+  loadingActionId,
   className,
 }: SessionActionButtonsProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -138,6 +142,9 @@ export function SessionActionButtons({
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  // Combine internal loadingAction with external loadingActionId
+  const effectiveLoadingAction = loadingActionId || loadingAction;
 
   // Filter actions by visibility and optionally by role
   const visibleActions = sessionActions.filter((action) => {
@@ -192,6 +199,7 @@ export function SessionActionButtons({
     // Handle "attended" action with API call
     if (action.id === "attended") {
       setLoadingAction("attended");
+      onLoadingChange?.(session.id, true, "attended");
       try {
         const updatedSession = await sessionsAPI.markAttended(session.id);
         updateSessionInCache(updatedSession);
@@ -202,6 +210,7 @@ export function SessionActionButtons({
         showToast("Failed to mark as attended", "error");
       } finally {
         setLoadingAction(null);
+        onLoadingChange?.(session.id, false);
       }
       return;
     }
@@ -209,6 +218,7 @@ export function SessionActionButtons({
     // Handle "no-show" action with API call
     if (action.id === "no-show") {
       setLoadingAction("no-show");
+      onLoadingChange?.(session.id, true, "no-show");
       try {
         const updatedSession = await sessionsAPI.markNoShow(session.id);
         updateSessionInCache(updatedSession);
@@ -219,6 +229,7 @@ export function SessionActionButtons({
         showToast("Failed to mark as no show", "error");
       } finally {
         setLoadingAction(null);
+        onLoadingChange?.(session.id, false);
       }
       return;
     }
@@ -226,6 +237,7 @@ export function SessionActionButtons({
     // Handle "reschedule" action with API call
     if (action.id === "reschedule") {
       setLoadingAction("reschedule");
+      onLoadingChange?.(session.id, true, "reschedule");
       try {
         const updatedSession = await sessionsAPI.markRescheduled(session.id);
         updateSessionInCache(updatedSession);
@@ -236,6 +248,7 @@ export function SessionActionButtons({
         showToast("Failed to mark as rescheduled", "error");
       } finally {
         setLoadingAction(null);
+        onLoadingChange?.(session.id, false);
       }
       return;
     }
@@ -243,6 +256,7 @@ export function SessionActionButtons({
     // Handle "sick-leave" action with API call
     if (action.id === "sick-leave") {
       setLoadingAction("sick-leave");
+      onLoadingChange?.(session.id, true, "sick-leave");
       try {
         const updatedSession = await sessionsAPI.markSickLeave(session.id);
         updateSessionInCache(updatedSession);
@@ -253,6 +267,7 @@ export function SessionActionButtons({
         showToast("Failed to mark as sick leave", "error");
       } finally {
         setLoadingAction(null);
+        onLoadingChange?.(session.id, false);
       }
       return;
     }
@@ -260,6 +275,7 @@ export function SessionActionButtons({
     // Handle "weather-cancelled" action with API call
     if (action.id === "weather-cancelled") {
       setLoadingAction("weather-cancelled");
+      onLoadingChange?.(session.id, true, "weather-cancelled");
       try {
         const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
         updateSessionInCache(updatedSession);
@@ -270,6 +286,7 @@ export function SessionActionButtons({
         showToast("Failed to mark as weather cancelled", "error");
       } finally {
         setLoadingAction(null);
+        onLoadingChange?.(session.id, false);
       }
       return;
     }
@@ -290,7 +307,7 @@ export function SessionActionButtons({
           const Icon = action.icon;
           // Edit, CW, HW, Rate actions are always enabled (open modals)
           const isEnabled = ["edit", "cw", "hw", "rate"].includes(action.id) || action.api.enabled;
-          const isLoading = loadingAction === action.id;
+          const isLoading = effectiveLoadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
             : undefined;
