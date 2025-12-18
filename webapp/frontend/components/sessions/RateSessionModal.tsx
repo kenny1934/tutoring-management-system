@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -45,45 +45,59 @@ export function RateSessionModal({
   onClose,
   onSave,
 }: RateSessionModalProps) {
-  const [isSaving, setIsSaving] = useState(false);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
 
-  // Reset form when modal opens
+  // Track if form has been initialized for this modal open
+  const initializedRef = useRef(false);
+
+  // Reset form only when modal first opens, not on session changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !initializedRef.current) {
+      initializedRef.current = true;
       setRating(parseStarRating(session.performance_rating));
       setNotes(session.notes || "");
+    }
+    if (!isOpen) {
+      initializedRef.current = false;
     }
   }, [isOpen, session]);
 
   const handleSave = async () => {
-    setIsSaving(true);
+    const sessionId = session.id;
+    const currentRating = rating;
+    const currentNotes = notes;
+    const ratingEmoji = currentRating > 0 ? ratingToEmoji(currentRating) : null;
 
+    // Build optimistic session state
+    const optimisticSession = {
+      ...session,
+      performance_rating: ratingEmoji,
+      notes: currentNotes || null,
+    };
+
+    // Update cache IMMEDIATELY (optimistic)
+    updateSessionInCache(optimisticSession);
+
+    // Close modal
+    onClose();
+
+    // Save in background - will update cache again with server state
     try {
-      // Convert rating to emoji stars
-      const ratingEmoji = rating > 0 ? ratingToEmoji(rating) : null;
-
-      // Call API
       const updatedSession = await sessionsAPI.rateSession(
-        session.id,
+        sessionId,
         ratingEmoji,
-        notes || null
+        currentNotes || null
       );
-
-      // Update cache
       updateSessionInCache(updatedSession);
 
       // Notify parent
       if (onSave) {
-        onSave(session.id, rating, notes);
+        onSave(sessionId, currentRating, currentNotes);
       }
-
-      onClose();
     } catch (error) {
       console.error("Failed to save rating:", error);
-    } finally {
-      setIsSaving(false);
+      // Could rollback cache or show toast here
     }
   };
 
@@ -111,11 +125,11 @@ export function RateSessionModal({
       size="md"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave}>
+            Save Changes
           </Button>
         </div>
       }
