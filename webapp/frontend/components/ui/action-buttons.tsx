@@ -151,6 +151,7 @@ export function SessionActionButtons({
   const hasHW = session.exercises?.some(
     (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
   ) ?? false;
+  const hasRating = !!(session.performance_rating || session.notes);
 
   if (visibleActions.length === 0) return null;
 
@@ -281,8 +282,8 @@ export function SessionActionButtons({
           const label = showLabels
             ? action.shortLabel || action.label
             : undefined;
-          // Check if this action has active content (CW/HW assigned)
-          const isActive = action.id === "cw" ? hasCW : action.id === "hw" ? hasHW : false;
+          // Check if this action has active content (CW/HW assigned, or rating/notes)
+          const isActive = action.id === "cw" ? hasCW : action.id === "hw" ? hasHW : action.id === "rate" ? hasRating : false;
 
           return (
             <button

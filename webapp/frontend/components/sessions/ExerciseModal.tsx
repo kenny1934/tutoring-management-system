@@ -5,6 +5,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 
 // Grade tag colors (matches EditSessionModal)
@@ -77,15 +79,37 @@ export function ExerciseModal({
   const handleSave = async () => {
     setIsSaving(true);
 
-    // For now, just log and close (API not implemented)
-    console.log("Saving exercises:", { sessionId: session.id, exerciseType, exercises });
+    try {
+      // Convert form data to API format
+      const apiExercises = exercises.map((ex) => ({
+        exercise_type: ex.exercise_type,
+        pdf_name: ex.pdf_name,
+        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+        remarks: ex.remarks || null,
+      }));
 
-    if (onSave) {
-      onSave(session.id, exercises);
+      // Call API
+      const updatedSession = await sessionsAPI.saveExercises(
+        session.id,
+        exerciseType,
+        apiExercises
+      );
+
+      // Update cache
+      updateSessionInCache(updatedSession);
+
+      // Notify parent
+      if (onSave) {
+        onSave(session.id, exercises);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error("Failed to save exercises:", error);
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onClose();
   };
 
   const addExercise = () => {

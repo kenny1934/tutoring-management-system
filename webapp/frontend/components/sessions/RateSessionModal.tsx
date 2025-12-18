@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 
 // Grade tag colors (matches EditSessionModal)
@@ -58,20 +60,31 @@ export function RateSessionModal({
   const handleSave = async () => {
     setIsSaving(true);
 
-    // For now, just log and close (API not implemented)
-    console.log("Saving rating:", {
-      sessionId: session.id,
-      rating,
-      ratingEmoji: ratingToEmoji(rating),
-      notes,
-    });
+    try {
+      // Convert rating to emoji stars
+      const ratingEmoji = rating > 0 ? ratingToEmoji(rating) : null;
 
-    if (onSave) {
-      onSave(session.id, rating, notes);
+      // Call API
+      const updatedSession = await sessionsAPI.rateSession(
+        session.id,
+        ratingEmoji,
+        notes || null
+      );
+
+      // Update cache
+      updateSessionInCache(updatedSession);
+
+      // Notify parent
+      if (onSave) {
+        onSave(session.id, rating, notes);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error("Failed to save rating:", error);
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onClose();
   };
 
   const inputClass = cn(

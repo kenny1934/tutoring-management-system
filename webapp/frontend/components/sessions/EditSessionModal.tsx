@@ -8,6 +8,8 @@ import { useTutors, useLocations } from "@/lib/hooks";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 
 // Available session statuses
@@ -183,27 +185,62 @@ export function EditSessionModal({
   const handleSave = async () => {
     setIsSaving(true);
 
-    // Build updates object
-    const updates: Partial<Session> = {
-      session_date: form.session_date,
-      time_slot: formatTimeSlot(form.time_slot_start, form.time_slot_end),
-      location: form.location || undefined,
-      tutor_id: form.tutor_id || undefined,
-      session_status: form.session_status,
-      performance_rating: form.performance_rating > 0 ? ratingToEmoji(form.performance_rating) : undefined,
-      notes: form.notes || undefined,
-      // exercises would need special handling in the API
-    };
+    try {
+      // Build updates object for session fields
+      const updates = {
+        session_date: form.session_date,
+        time_slot: formatTimeSlot(form.time_slot_start, form.time_slot_end),
+        location: form.location || undefined,
+        tutor_id: form.tutor_id || undefined,
+        session_status: form.session_status,
+        performance_rating: form.performance_rating > 0 ? ratingToEmoji(form.performance_rating) : undefined,
+        notes: form.notes || undefined,
+      };
 
-    // For now, just log and close (API not implemented)
-    console.log("Saving session updates:", { sessionId: session.id, updates, exercises: form.exercises });
+      // Update session fields
+      let updatedSession = await sessionsAPI.updateSession(session.id, updates);
 
-    if (onSave) {
-      onSave(session.id, updates);
+      // Save exercises - split by type
+      const cwExercises = form.exercises
+        .filter((ex) => ex.exercise_type === "CW")
+        .map((ex) => ({
+          exercise_type: ex.exercise_type,
+          pdf_name: ex.pdf_name,
+          page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+          page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+          remarks: ex.remarks || null,
+        }));
+
+      const hwExercises = form.exercises
+        .filter((ex) => ex.exercise_type === "HW")
+        .map((ex) => ({
+          exercise_type: ex.exercise_type,
+          pdf_name: ex.pdf_name,
+          page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
+          page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
+          remarks: ex.remarks || null,
+        }));
+
+      // Save CW exercises (even if empty - to clear existing)
+      updatedSession = await sessionsAPI.saveExercises(session.id, "CW", cwExercises);
+
+      // Save HW exercises (even if empty - to clear existing)
+      updatedSession = await sessionsAPI.saveExercises(session.id, "HW", hwExercises);
+
+      // Update cache with final session state
+      updateSessionInCache(updatedSession);
+
+      // Notify parent
+      if (onSave) {
+        onSave(session.id, updates);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error("Failed to save session:", error);
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onClose();
   };
 
   const updateField = <K extends keyof EditFormState>(

@@ -175,13 +175,14 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
   // Get visible actions for this session
   const visibleActions = sessionActions.filter((action) => action.isVisible(session));
 
-  // Check if session has CW/HW exercises (for active state on chalk buttons)
+  // Check if session has CW/HW exercises or rating (for active state on chalk buttons)
   const hasCW = session.exercises?.some(
     (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
   ) ?? false;
   const hasHW = session.exercises?.some(
     (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
   ) ?? false;
+  const hasRating = !!(session.performance_rating || session.notes);
 
   const getChalkColor = (actionId: string) => {
     const colorKey = ACTION_TO_COLOR[actionId] || "white";
@@ -403,7 +404,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
               disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(action.id) && !action.api.enabled}
               loading={loadingAction === action.id}
               index={index}
-              active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : undefined}
+              active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
               iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
             />
           ))}
@@ -481,7 +482,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
                                   <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">Grade</th>
                                 )}
                                 {session.lang_stream && (
-                                  <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">Stream</th>
+                                  <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">Lang</th>
                                 )}
                                 {session.school && (
                                   <th className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400">School</th>
