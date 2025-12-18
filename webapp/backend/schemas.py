@@ -196,6 +196,38 @@ class SessionExerciseResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ExerciseCreateRequest(BaseModel):
+    """Request schema for creating/updating a session exercise"""
+    exercise_type: str = Field(..., pattern="^(CW|HW|Classwork|Homework)$")
+    pdf_name: str = Field(..., min_length=1, max_length=500)
+    page_start: Optional[int] = Field(None, gt=0)
+    page_end: Optional[int] = Field(None, gt=0)
+    remarks: Optional[str] = Field(None, max_length=1000)
+
+
+class ExerciseSaveRequest(BaseModel):
+    """Request schema for saving all exercises of a type for a session"""
+    exercise_type: str = Field(..., pattern="^(CW|HW)$")
+    exercises: List[ExerciseCreateRequest] = []
+
+
+class RateSessionRequest(BaseModel):
+    """Request schema for rating a session"""
+    performance_rating: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=2000)
+
+
+class SessionUpdate(BaseModel):
+    """Schema for updating session fields"""
+    session_date: Optional[date] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=200)
+    tutor_id: Optional[int] = Field(None, gt=0)
+    session_status: Optional[str] = Field(None, max_length=50)
+    performance_rating: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=2000)
+
+
 class HomeworkCompletionResponse(BaseModel):
     """Homework completion tracking response"""
     id: int = Field(..., gt=0)

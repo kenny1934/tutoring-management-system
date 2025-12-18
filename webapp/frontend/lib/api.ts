@@ -183,6 +183,54 @@ export const sessionsAPI = {
       method: 'PATCH',
     });
   },
+
+  saveExercises: (
+    sessionId: number,
+    exerciseType: 'CW' | 'HW',
+    exercises: Array<{
+      exercise_type: string;
+      pdf_name: string;
+      page_start?: number | null;
+      page_end?: number | null;
+      remarks?: string | null;
+    }>
+  ) => {
+    return fetchAPI<Session>(`/sessions/${sessionId}/exercises`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        exercise_type: exerciseType,
+        exercises,
+      }),
+    });
+  },
+
+  rateSession: (sessionId: number, performanceRating: string | null, notes: string | null) => {
+    return fetchAPI<Session>(`/sessions/${sessionId}/rate`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        performance_rating: performanceRating,
+        notes,
+      }),
+    });
+  },
+
+  updateSession: (
+    sessionId: number,
+    updates: {
+      session_date?: string;
+      time_slot?: string;
+      location?: string;
+      tutor_id?: number;
+      session_status?: string;
+      performance_rating?: string;
+      notes?: string;
+    }
+  ) => {
+    return fetchAPI<Session>(`/sessions/${sessionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+  },
 };
 
 // Calendar API

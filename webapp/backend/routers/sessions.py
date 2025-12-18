@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate
 from datetime import date, timedelta, datetime
 
 router = APIRouter()
@@ -537,6 +537,206 @@ async def mark_session_weather_cancelled(
     # Store previous status and update
     session.previous_session_status = session.session_status
     session.session_status = "Weather Cancelled - Pending Make-up"
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
+@router.put("/sessions/{session_id}/exercises", response_model=SessionResponse)
+async def save_session_exercises(
+    session_id: int,
+    request: ExerciseSaveRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Save exercises (CW or HW) for a session.
+
+    Replaces all exercises of the specified type with the new list.
+
+    - **session_id**: The session's database ID
+    - **exercise_type**: Type of exercises ("CW" or "HW")
+    - **exercises**: List of exercises to save
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Delete existing exercises of this type
+    db.query(SessionExercise).filter(
+        SessionExercise.session_id == session_id,
+        SessionExercise.exercise_type == request.exercise_type
+    ).delete(synchronize_session=False)
+
+    # Insert new exercises using short form (CW/HW)
+    for ex in request.exercises:
+        new_exercise = SessionExercise(
+            session_id=session_id,
+            exercise_type=request.exercise_type,  # Use CW or HW
+            pdf_name=ex.pdf_name,
+            page_start=ex.page_start,
+            page_end=ex.page_end,
+            remarks=ex.remarks,
+            created_by="system@csmpro.app",  # TODO: get from auth when available
+            created_at=datetime.now()
+        )
+        db.add(new_exercise)
+
+    # Update audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Reload exercises
+    exercises = db.query(SessionExercise).filter(
+        SessionExercise.session_id == session_id
+    ).all()
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in exercises
+    ]
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}/rate", response_model=SessionResponse)
+async def rate_session(
+    session_id: int,
+    request: RateSessionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Rate a session and add notes.
+
+    Updates the performance_rating (emoji stars) and notes fields.
+
+    - **session_id**: The session's database ID
+    - **performance_rating**: Rating as emoji stars (e.g., "⭐⭐⭐")
+    - **notes**: Optional notes/comments
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Update rating and notes
+    session.performance_rating = request.performance_rating
+    session.notes = request.notes
+
+    # Update audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    # Build response
+    session_data = SessionResponse.model_validate(session)
+    session_data.student_name = session.student.student_name if session.student else None
+    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    session_data.school_student_id = session.student.school_student_id if session.student else None
+    session_data.grade = session.student.grade if session.student else None
+    session_data.lang_stream = session.student.lang_stream if session.student else None
+    session_data.school = session.student.school if session.student else None
+    session_data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+
+    return session_data
+
+
+@router.patch("/sessions/{session_id}", response_model=SessionResponse)
+async def update_session(
+    session_id: int,
+    request: SessionUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update session fields.
+
+    Updates any provided fields (non-None values).
+    Tracks previous status if session_status changes.
+
+    - **session_id**: The session's database ID
+    - **session_date**: New session date
+    - **time_slot**: New time slot (e.g., "16:45 - 18:15")
+    - **location**: New location
+    - **tutor_id**: New tutor ID
+    - **session_status**: New status
+    - **performance_rating**: Rating as emoji stars
+    - **notes**: Session notes/comments
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Update fields that are provided (not None)
+    if request.session_date is not None:
+        session.session_date = request.session_date
+
+    if request.time_slot is not None:
+        session.time_slot = request.time_slot
+
+    if request.location is not None:
+        session.location = request.location
+
+    if request.tutor_id is not None:
+        session.tutor_id = request.tutor_id
+
+    if request.session_status is not None and request.session_status != session.session_status:
+        # Track previous status for undo functionality
+        session.previous_session_status = session.session_status
+        session.session_status = request.session_status
+
+    if request.performance_rating is not None:
+        session.performance_rating = request.performance_rating
+
+    if request.notes is not None:
+        session.notes = request.notes
 
     # Set audit columns
     session.last_modified_by = "system@csmpro.app"
