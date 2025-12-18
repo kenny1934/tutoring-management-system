@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { updateSessionInCache } from "@/lib/session-cache";
 import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
+import { sessionsAPI } from "@/lib/api";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
@@ -133,6 +135,7 @@ export function SessionActionButtons({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
   // Filter actions by visibility and optionally by role
   const visibleActions = sessionActions.filter((action) => {
@@ -151,7 +154,7 @@ export function SessionActionButtons({
 
   if (visibleActions.length === 0) return null;
 
-  const handleClick = (
+  const handleClick = async (
     e: React.MouseEvent,
     action: ActionConfig<Session>
   ) => {
@@ -183,6 +186,25 @@ export function SessionActionButtons({
       return;
     }
 
+    // Handle "attended" action with API call
+    if (action.id === "attended") {
+      setLoadingAction("attended");
+      try {
+        // Call API and get updated session back
+        const updatedSession = await sessionsAPI.markAttended(session.id);
+        // Optimistic update across all caches (instant, no refetch)
+        updateSessionInCache(updatedSession);
+        // Notify parent with updated session
+        onAction?.("attended", updatedSession);
+      } catch (error) {
+        console.error("Failed to mark session as attended:", error);
+        // TODO: show error toast
+      } finally {
+        setLoadingAction(null);
+      }
+      return;
+    }
+
     onAction?.(action.id, session);
   };
 
@@ -199,6 +221,7 @@ export function SessionActionButtons({
           const Icon = action.icon;
           // Edit, CW, HW, Rate actions are always enabled (open modals)
           const isEnabled = ["edit", "cw", "hw", "rate"].includes(action.id) || action.api.enabled;
+          const isLoading = loadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
             : undefined;
@@ -208,20 +231,20 @@ export function SessionActionButtons({
           return (
             <button
               key={action.id}
-              disabled={!isEnabled}
+              disabled={!isEnabled || isLoading}
               onClick={(e) => handleClick(e, action)}
               className={cn(
                 "flex items-center gap-1 rounded font-medium transition-all",
                 sizeClasses[size],
-                isEnabled
+                isEnabled && !isLoading
                   ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
                   : cn(action.colorClass, "cursor-not-allowed opacity-50"),
                 isActive && "ring-1 ring-green-400 ring-offset-1"
               )}
-              title={isEnabled ? action.label : "Coming soon"}
+              title={isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
             >
-              <Icon className={iconSizeClasses[size]} />
-              {label && <span>{label}</span>}
+              <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
+              {label && <span>{isLoading ? "..." : label}</span>}
             </button>
           );
         })}

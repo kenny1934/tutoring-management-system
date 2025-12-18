@@ -16,6 +16,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -27,6 +29,7 @@ const CHALK_PALETTE = {
   green: { base: "#9cb89c", highlight: "#b8d4b8", shadow: "#7a9a7a" },
   red: { base: "#d4a0a0", highlight: "#ecc8c8", shadow: "#b87878" },
   yellow: { base: "#dcc890", highlight: "#f0e0b0", shadow: "#c4a868" },
+  orange: { base: "#d4a878", highlight: "#ecc8a0", shadow: "#b88850" },
   blue: { base: "#a0b8d0", highlight: "#c0d4e8", shadow: "#7898b8" },
 };
 
@@ -36,11 +39,11 @@ const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   attended: "green",
   "schedule-makeup": "green",
   "no-show": "red",
-  "sick-leave": "red",
+  "sick-leave": "orange",
   cw: "yellow",
   hw: "yellow",
   rate: "yellow",
-  reschedule: "blue",
+  reschedule: "orange",
   undo: "blue",
 };
 
@@ -54,9 +57,12 @@ interface ChalkStubProps {
   disabled?: boolean;
   index: number;
   active?: boolean;  // Indicates content exists (e.g., CW/HW assigned)
+  loading?: boolean; // Shows processing animation
+  iconColor?: string; // Optional override for icon color (e.g., red for CW, blue for HW)
 }
 
-function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disabled, index, active }: ChalkStubProps) {
+function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disabled, index, active, loading, iconColor }: ChalkStubProps) {
+  const isDisabled = disabled || loading;
   return (
     <motion.button
       initial={{ opacity: 0, y: 5 }}
@@ -66,29 +72,30 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
         duration: 0.25,
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
-      whileHover={!disabled ? {
+      whileHover={!isDisabled ? {
         y: -3,
         scale: 1.08,
         transition: { duration: 0.15 },
       } : undefined}
-      whileTap={!disabled ? {
+      whileTap={!isDisabled ? {
         scale: 0.95,
         y: 0,
         transition: { duration: 0.08 },
       } : undefined}
       onClick={onClick}
-      disabled={disabled}
+      disabled={isDisabled}
       className={cn(
         "relative flex-shrink-0 flex flex-col items-center px-1 pt-1 pb-0",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1",
-        disabled && "opacity-40 cursor-not-allowed"
+        isDisabled && !loading && "opacity-40 cursor-not-allowed",
+        loading && "cursor-wait"
       )}
-      title={label}
-      aria-label={label}
+      title={loading ? "Processing..." : label}
+      aria-label={loading ? "Processing..." : label}
     >
       {/* Chalk stub - top-down view (pill shape lying flat) */}
       <div
-        className="relative w-9 h-4 sm:w-11 sm:h-5"
+        className={cn("relative w-9 h-4 sm:w-11 sm:h-5", loading && "animate-pulse")}
         style={{
           borderRadius: "8px",
           background: `linear-gradient(
@@ -99,7 +106,9 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
             ${colors.base} 55%,
             ${colors.shadow} 100%
           )`,
-          boxShadow: active
+          boxShadow: loading
+            ? `0 0 10px 3px rgba(251, 191, 36, 0.7), 0 0 16px 6px rgba(251, 191, 36, 0.4), 0 2px 3px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.5)`
+            : active
             ? `0 0 8px 2px rgba(134, 239, 172, 0.6), 0 0 12px 4px rgba(134, 239, 172, 0.3), 0 2px 3px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.5)`
             : `0 2px 3px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.5)`,
         }}
@@ -113,13 +122,15 @@ function ChalkStub({ id, label, shortLabel, icon: Icon, colors, onClick, disable
           }}
         />
 
-        {/* Icon embossed on chalk surface - dark for visibility */}
+        {/* Icon embossed on chalk surface - dark for visibility, or colored for CW/HW */}
         <div className="absolute inset-0 flex items-center justify-center">
           <Icon
             className="h-3 w-3 sm:h-4 sm:w-4"
             style={{
-              color: 'rgba(0,0,0,0.55)',
-              filter: 'drop-shadow(0 1px 0 rgba(255,255,255,0.35))',
+              color: iconColor || 'rgba(0,0,0,0.55)',
+              filter: iconColor
+                ? 'drop-shadow(0 1px 0 rgba(255,255,255,0.5))'
+                : 'drop-shadow(0 1px 0 rgba(255,255,255,0.35))',
             }}
           />
         </div>
@@ -157,6 +168,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
 
   // Get visible actions for this session
@@ -175,7 +187,7 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
     return CHALK_PALETTE[colorKey];
   };
 
-  const handleActionClick = (action: ActionConfig<Session>) => {
+  const handleActionClick = async (action: ActionConfig<Session>) => {
     // Special handling for edit action
     if (action.id === 'edit') {
       onEdit?.();
@@ -195,6 +207,22 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
     // Special handling for rate action - open rate modal
     if (action.id === 'rate') {
       setIsRateModalOpen(true);
+      return;
+    }
+
+    // Handle "attended" action with API call
+    if (action.id === 'attended') {
+      setLoadingAction('attended');
+      try {
+        const updatedSession = await sessionsAPI.markAttended(session.id);
+        updateSessionInCache(updatedSession);
+        onAction?.(action.id, action);
+      } catch (error) {
+        console.error("Failed to mark session as attended:", error);
+        // TODO: show error toast
+      } finally {
+        setLoadingAction(null);
+      }
       return;
     }
 
@@ -312,9 +340,11 @@ export function ChalkboardHeader({ session, onEdit, onAction }: ChalkboardHeader
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate'].includes(action.id) && !action.api.enabled}
+              disabled={!['edit', 'cw', 'hw', 'rate', 'attended'].includes(action.id) && !action.api.enabled}
+              loading={loadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : undefined}
+              iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
             />
           ))}
         </div>

@@ -153,6 +153,12 @@ export const sessionsAPI = {
   getUpcomingTests: (sessionId: number) => {
     return fetchAPI<UpcomingTestAlert[]>(`/sessions/${sessionId}/upcoming-tests`);
   },
+
+  markAttended: (id: number) => {
+    return fetchAPI<Session>(`/sessions/${id}/attended`, {
+      method: 'PATCH',
+    });
+  },
 };
 
 // Calendar API
