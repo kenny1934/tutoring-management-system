@@ -158,6 +158,9 @@ export default function SessionsPage() {
   // Loading state for keyboard-triggered A/N actions (Set to support multiple concurrent loads)
   const [loadingSessionIds, setLoadingSessionIds] = useState<Set<number>>(new Set());
 
+  // Keyboard shortcut hints panel visibility
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
+
   // Collapse state for time slot groups
   const [collapsedSlots, setCollapsedSlots] = useState<Set<string>>(new Set());
 
@@ -522,6 +525,60 @@ export default function SessionsPage() {
     }
   }, [selectedSessions, clearSelection, showToast]);
 
+  const handleBulkReschedule = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('reschedule');
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions.filter(canBeMarked)) {
+      try {
+        const updatedSession = await sessionsAPI.markRescheduled(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as rescheduled:`, error);
+        failCount++;
+      }
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as rescheduled`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkSickLeave = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('sick-leave');
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions.filter(canBeMarked)) {
+      try {
+        const updatedSession = await sessionsAPI.markSickLeave(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as sick leave:`, error);
+        failCount++;
+      }
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as sick leave`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
   const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
   const hasSelection = selectedIds.size > 0;
 
@@ -542,7 +599,43 @@ export default function SessionsPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (popoverSession || bulkExerciseType || quickActionSession || isCommandPaletteOpen) return;
 
+      // Cmd/Ctrl+Shift+A - Select only markable sessions (must check before Cmd+A)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        const markableIds = sessions.filter(canBeMarked).map(s => s.id);
+        setSelectedIds(new Set(markableIds));
+        return;
+      }
+
+      // Cmd/Ctrl+A - Select all visible sessions
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault();
+        setSelectedIds(new Set(allSessionIds));
+        return;
+      }
+
+      // ? - Toggle shortcut hints
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcutHints(prev => !prev);
+        return;
+      }
+
       const key = e.key.toLowerCase();
+
+      // Escape - close hints panel, clear selection, or clear focus
+      if (key === 'escape') {
+        if (showShortcutHints) {
+          setShowShortcutHints(false);
+          return;
+        }
+        if (selectedIds.size > 0) {
+          clearSelection();
+          return;
+        }
+        setFocusedSessionId(null);
+        return;
+      }
 
       if (key === 'j' || key === 'k') {
         // Guard against empty list
@@ -573,8 +666,38 @@ export default function SessionsPage() {
             setPopoverClickPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
           }
         }
-      } else if (key === 'escape') {
-        setFocusedSessionId(null);
+      }
+      // Space - toggle selection on focused card
+      else if (key === ' ' && focusedSessionId) {
+        e.preventDefault();
+        toggleSelect(focusedSessionId);
+        return;
+      }
+      // Bulk action shortcuts (when sessions are selected)
+      else if (selectedIds.size > 0) {
+        switch (key) {
+          case 'a':
+            if (bulkActionsAvailable.attended) {
+              e.preventDefault();
+              handleBulkAttended();
+            }
+            break;
+          case 'n':
+            if (bulkActionsAvailable.noShow) {
+              e.preventDefault();
+              handleBulkNoShow();
+            }
+            break;
+          case 'c':
+            e.preventDefault();
+            setBulkExerciseType('CW');
+            break;
+          case 'h':
+            e.preventDefault();
+            setBulkExerciseType('HW');
+            break;
+        }
+        return;
       }
       // Action shortcuts on focused card (A/N/C/H/R/E)
       else if (focusedSessionId) {
@@ -644,7 +767,7 @@ export default function SessionsPage() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, sessions, showToast]);
+  }, [viewMode, allSessionIds, focusedSessionId, popoverSession, bulkExerciseType, quickActionSession, isCommandPaletteOpen, sessions, showToast, showShortcutHints, selectedIds, bulkActionsAvailable, handleBulkAttended, handleBulkNoShow, clearSelection, toggleSelect]);
 
   // Scroll focused card into view
   useEffect(() => {
@@ -1111,22 +1234,30 @@ export default function SessionsPage() {
                     )}
                     {bulkActionsAvailable.reschedule && (
                       <button
-                        disabled
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                        title="Coming soon"
+                        onClick={handleBulkReschedule}
+                        disabled={bulkActionLoading !== null}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                        )}
+                        title="Mark all as rescheduled"
                       >
-                        <CalendarClock className="h-3 w-3" />
-                        <span className="hidden xs:inline">Reschedule</span>
+                        <CalendarClock className={cn("h-3 w-3", bulkActionLoading === 'reschedule' && "animate-pulse")} />
+                        <span className="hidden xs:inline">{bulkActionLoading === 'reschedule' ? '...' : 'Reschedule'}</span>
                       </button>
                     )}
                     {bulkActionsAvailable.sickLeave && (
                       <button
-                        disabled
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                        title="Coming soon"
+                        onClick={handleBulkSickLeave}
+                        disabled={bulkActionLoading !== null}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                        )}
+                        title="Mark all as sick leave"
                       >
-                        <Ambulance className="h-3 w-3" />
-                        <span className="hidden xs:inline">Sick</span>
+                        <Ambulance className={cn("h-3 w-3", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
+                        <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
                       </button>
                     )}
                     {/* Exercise actions - always visible */}
@@ -1273,8 +1404,9 @@ export default function SessionsPage() {
                                       "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                       statusConfig.bgTint,
                                       !isMobile && "paper-texture",
-                                      selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                      selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                      focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
                                     )}
                                     style={{
                                       transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
@@ -1460,8 +1592,9 @@ export default function SessionsPage() {
                                 "relative rounded-lg cursor-pointer transition-all duration-200 overflow-hidden flex",
                                 statusConfig.bgTint,
                                 !isMobile && "paper-texture",
-                                selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
-                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
+                                selectedIds.has(session.id) && focusedSessionId !== session.id && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                focusedSessionId === session.id && !selectedIds.has(session.id) && "outline outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]",
+                                focusedSessionId === session.id && selectedIds.has(session.id) && "outline outline-dashed outline-2 outline-offset-2 outline-[#a0704b] dark:outline-[#cd853f]"
                               )}
                               style={{
                                 transform: isMobile ? 'none' : `rotate(${sessionIndex % 2 === 0 ? -0.3 : 0.3}deg)`,
@@ -1652,6 +1785,69 @@ export default function SessionsPage() {
             onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
           />
         )}
+
+        {/* Keyboard Shortcut Hints Panel */}
+        <AnimatePresence>
+          {showShortcutHints && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
+                bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+                text-sm w-64"
+            >
+              <div className="flex justify-between items-center mb-3">
+                <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
+                  Keyboard Shortcuts
+                </span>
+                <button
+                  onClick={() => setShowShortcutHints(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">J/K</kbd>
+                  <span>Navigate sessions</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Space</kbd>
+                  <span>Toggle selection</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Enter</kbd>
+                  <span>Open details</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">A/N</kbd>
+                  <span>Attended / No Show</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">C/H</kbd>
+                  <span>CW / HW</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">⌘+A</kbd>
+                  <span>Select all</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">⌘+⇧+A</kbd>
+                  <span>Select markable</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                  <span>Deselect / Clear</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+                Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </DeskSurface>
     );
   }
