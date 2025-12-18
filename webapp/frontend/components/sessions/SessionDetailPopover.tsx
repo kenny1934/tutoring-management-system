@@ -166,6 +166,7 @@ export function SessionDetailPopover({
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
   // Check if session can be marked (not already attended/completed)
   const canBeMarked = useCallback((s: Session | null) => {
@@ -189,6 +190,7 @@ export function SessionDetailPopover({
           // Mark Attended
           if (canBeMarked(session)) {
             e.preventDefault();
+            setLoadingActionId('attended');
             try {
               const updatedSession = await sessionsAPI.markAttended(session.id);
               updateSessionInCache(updatedSession);
@@ -196,6 +198,8 @@ export function SessionDetailPopover({
             } catch (error) {
               console.error("Failed to mark as attended:", error);
               showToast("Failed to mark as attended", "error");
+            } finally {
+              setLoadingActionId(null);
             }
           }
           break;
@@ -203,6 +207,7 @@ export function SessionDetailPopover({
           // Mark No Show
           if (canBeMarked(session)) {
             e.preventDefault();
+            setLoadingActionId('no-show');
             try {
               const updatedSession = await sessionsAPI.markNoShow(session.id);
               updateSessionInCache(updatedSession);
@@ -210,6 +215,8 @@ export function SessionDetailPopover({
             } catch (error) {
               console.error("Failed to mark as no show:", error);
               showToast("Failed to mark as no show", "error");
+            } finally {
+              setLoadingActionId(null);
             }
           }
           break;
@@ -472,7 +479,14 @@ export function SessionDetailPopover({
 
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Status:</span>
-            <SessionStatusTag status={getDisplayStatus(session)} size="sm" className="max-w-[140px] min-w-0" />
+            {loadingActionId ? (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-gray-500">Updating...</span>
+              </div>
+            ) : (
+              <SessionStatusTag status={getDisplayStatus(session)} size="sm" className="max-w-[140px] min-w-0" />
+            )}
           </div>
 
           {/* Session Linking */}
@@ -562,6 +576,7 @@ export function SessionDetailPopover({
           session={session}
           size="md"
           showLabels
+          loadingActionId={loadingActionId}
           className="mb-3 pt-3 border-t border-gray-200 dark:border-gray-700"
         />
 

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { api, sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import { useSession, usePageTitle } from "@/lib/hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
@@ -25,6 +26,7 @@ import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
+import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 
@@ -62,6 +64,8 @@ export default function SessionDetailPage() {
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
+  const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -92,6 +96,77 @@ export default function SessionDetailPage() {
 
     fetchUpcomingTests();
   }, [sessionId]);
+
+  // Helper to check if session can be marked
+  const canBeMarked = (s: Session) =>
+    ['Scheduled', 'Trial Class', 'Make-up Class'].includes(s.session_status);
+
+  // Keyboard shortcuts for session actions
+  useEffect(() => {
+    if (!session) return;
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Skip if typing in input or modal open
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (isEditModalOpen || exerciseModalType) return;
+
+      const key = e.key.toLowerCase();
+
+      // A - Mark as Attended (only for markable sessions)
+      if (key === 'a' && canBeMarked(session)) {
+        e.preventDefault();
+        setLoadingActionId('attended');
+        try {
+          const updatedSession = await sessionsAPI.markAttended(session.id);
+          updateSessionInCache(updatedSession);
+        } catch (error) {
+          console.error("Failed to mark attended:", error);
+        } finally {
+          setLoadingActionId(null);
+        }
+        return;
+      }
+
+      // N - Mark as No Show (only for markable sessions)
+      if (key === 'n' && canBeMarked(session)) {
+        e.preventDefault();
+        setLoadingActionId('no-show');
+        try {
+          const updatedSession = await sessionsAPI.markNoShow(session.id);
+          updateSessionInCache(updatedSession);
+        } catch (error) {
+          console.error("Failed to mark no show:", error);
+        } finally {
+          setLoadingActionId(null);
+        }
+        return;
+      }
+
+      // C - Open CW modal
+      if (key === 'c') {
+        e.preventDefault();
+        setExerciseModalType('CW');
+        return;
+      }
+
+      // H - Open HW modal
+      if (key === 'h') {
+        e.preventDefault();
+        setExerciseModalType('HW');
+        return;
+      }
+
+      // E - Open Edit modal
+      if (key === 'e') {
+        e.preventDefault();
+        setIsEditModalOpen(true);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [session, isEditModalOpen, exerciseModalType]);
 
   if (loading) {
     return (
@@ -232,13 +307,13 @@ export default function SessionDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} />
+            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} loadingActionId={loadingActionId} />
           </div>
         </div>
 
         {/* Mobile: Full-width chalkboard */}
         <div className="sm:hidden">
-          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} />
+          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} loadingActionId={loadingActionId} />
         </div>
       </div>
 
@@ -467,6 +542,16 @@ export default function SessionDetailPage() {
           setIsEditModalOpen(false);
         }}
       />
+
+      {/* Exercise Modal for CW/HW */}
+      {exerciseModalType && (
+        <ExerciseModal
+          session={session}
+          exerciseType={exerciseModalType}
+          isOpen={true}
+          onClose={() => setExerciseModalType(null)}
+        />
+      )}
     </DeskSurface>
   );
 }

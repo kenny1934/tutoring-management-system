@@ -68,6 +68,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+  const [loadingSessionActions, setLoadingSessionActions] = useState<Map<number, string>>(new Map());
 
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
@@ -247,6 +248,19 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
     setSelectedIds(new Set());
   }, []);
 
+  // Handler for action buttons to update loading state
+  const handleActionLoadingChange = useCallback((sessionId: number, isLoading: boolean, actionId?: string) => {
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      if (isLoading && actionId) {
+        next.set(sessionId, actionId);
+      } else {
+        next.delete(sessionId);
+      }
+      return next;
+    });
+  }, []);
+
   const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
   const hasSelection = selectedIds.size > 0;
 
@@ -346,6 +360,9 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                         setClickPosition({ x: e.clientX, y: e.clientY });
                         setPopoverSession(session);
                       }}
+                      isLoading={loadingSessionActions.has(session.id)}
+                      loadingActionId={loadingSessionActions.get(session.id) || null}
+                      onLoadingChange={handleActionLoadingChange}
                     />
                   ))}
                 </div>
@@ -489,9 +506,12 @@ interface SessionRowProps {
   isSelected: boolean;
   onToggleSelect: () => void;
   onRowClick: (e: React.MouseEvent) => void;
+  isLoading?: boolean;
+  loadingActionId?: string | null;
+  onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
 }
 
-function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick }: SessionRowProps) {
+function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
   const gradeColor = getGradeColor(session.grade, session.lang_stream);
@@ -565,7 +585,11 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
         {/* Right: Status + Tutor */}
         <div className="flex-shrink-0 flex items-center gap-2">
           {/* Status badge */}
-          <SessionStatusTag status={displayStatus} iconOnly size="sm" />
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <SessionStatusTag status={displayStatus} iconOnly size="sm" />
+          )}
 
           {/* Tutor */}
           {session.tutor_name && (
@@ -581,6 +605,8 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
         session={session}
         size="md"
         showLabels
+        onLoadingChange={onLoadingChange}
+        loadingActionId={loadingActionId}
         className="mt-1.5 ml-6"
       />
     </div>
