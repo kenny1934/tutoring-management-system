@@ -20,6 +20,11 @@ import type { Enrollment } from "@/types";
 import type { GroupOption, SortOption, SortDirection } from "@/components/students/MyStudentsList";
 import { getGroupKey, compareGroupKeys, getGroupLabel } from "@/components/students/MyStudentsList";
 
+const getTutorFirstName = (name: string): string => {
+  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+  return cleaned.split(' ')[0] || cleaned;
+};
+
 interface MoreEnrollmentsPopoverProps {
   enrollments: Enrollment[];
   triggerRef: React.RefObject<HTMLElement | null>;
@@ -203,8 +208,8 @@ export function MoreEnrollmentsPopover({
                                 <HandCoins className="h-3 w-3 text-amber-500" />
                               )}
                             </span>
-                            {enrollment.assigned_time && (
-                              <span>{enrollment.assigned_time}</span>
+                            {enrollment.tutor_name && (
+                              <span>{getTutorFirstName(enrollment.tutor_name)}</span>
                             )}
                           </p>
                           <p className={cn(
