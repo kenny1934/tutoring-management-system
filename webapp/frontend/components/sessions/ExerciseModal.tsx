@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
+import { isFileSystemAccessSupported, openFileFromPath, printFileFromPath } from "@/lib/file-system";
+import { FolderPickerModal } from "@/components/ui/folder-picker-modal";
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -54,6 +56,15 @@ export function ExerciseModal({
   // Filter existing exercises to only show the relevant type
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+  const [canBrowseFiles, setCanBrowseFiles] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
+  const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
+
+  // Check for File System Access API support on mount
+  useEffect(() => {
+    setCanBrowseFiles(isFileSystemAccessSupported());
+  }, []);
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -208,6 +219,48 @@ export function ExerciseModal({
     );
   };
 
+  // Handle file browse for PDF selection
+  const handleBrowseFile = useCallback((index: number) => {
+    setBrowsingForIndex(index);
+    setFolderPickerOpen(true);
+  }, []);
+
+  // Handle file selected from folder picker
+  const handleFileSelected = useCallback((path: string) => {
+    if (browsingForIndex !== null) {
+      updateExercise(browsingForIndex, "pdf_name", path);
+      setBrowsingForIndex(null);
+    }
+  }, [browsingForIndex]);
+
+  // Handle open file in new tab
+  const handleOpenFile = useCallback(async (index: number, path: string) => {
+    if (!path || fileActionState[index]?.open === 'loading') return;
+    setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'loading' } }));
+    const error = await openFileFromPath(path);
+    if (error) {
+      console.warn('Failed to open file:', error);
+      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } })), 2000);
+    } else {
+      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
+    }
+  }, [fileActionState]);
+
+  // Handle print file
+  const handlePrintFile = useCallback(async (index: number, path: string) => {
+    if (!path || fileActionState[index]?.print === 'loading') return;
+    setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'loading' } }));
+    const error = await printFileFromPath(path);
+    if (error) {
+      console.warn('Failed to print file:', error);
+      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } })), 2000);
+    } else {
+      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
+    }
+  }, [fileActionState]);
+
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
   const Icon = isCW ? PenTool : Home;
@@ -329,83 +382,141 @@ export function ExerciseModal({
                     : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800"
                 )}
               >
-                <div className="flex items-start gap-3">
-                  {/* Type badge */}
-                  <div
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium shrink-0",
-                      isCW
-                        ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
-                        : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
+                <div className="space-y-2">
+                  {/* Row 1: Type badge, PDF path, action buttons, delete */}
+                  <div className="flex items-center gap-2">
+                    {/* Fixed-width badge container for alignment */}
+                    <div className="w-12 shrink-0 flex justify-center">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
+                          isCW
+                            ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
+                            : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
+                        )}
+                      >
+                        <Icon className="h-3 w-3" />
+                        {exerciseType}
+                      </div>
+                    </div>
+
+                    {/* PDF path input */}
+                    <input
+                      ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
+                      type="text"
+                      value={exercise.pdf_name}
+                      onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
+                      onFocus={() => setFocusedRowIndex(index)}
+                      placeholder="PDF name or path"
+                      className={cn(inputClass, "text-xs py-1.5 flex-1 min-w-0")}
+                    />
+
+                    {/* File action buttons */}
+                    {canBrowseFiles && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleBrowseFile(index)}
+                          className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                          title="Browse files"
+                        >
+                          <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                        </button>
+                        {exercise.pdf_name && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenFile(index, exercise.pdf_name)}
+                              disabled={fileActionState[index]?.open === 'loading'}
+                              className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                              title="Open PDF"
+                            >
+                              {fileActionState[index]?.open === 'loading' ? (
+                                <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
+                              ) : fileActionState[index]?.open === 'error' ? (
+                                <XCircle className="h-3.5 w-3.5 text-red-500" />
+                              ) : (
+                                <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePrintFile(index, exercise.pdf_name)}
+                              disabled={fileActionState[index]?.print === 'loading'}
+                              className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                              title="Print PDF"
+                            >
+                              {fileActionState[index]?.print === 'loading' ? (
+                                <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
+                              ) : fileActionState[index]?.print === 'error' ? (
+                                <XCircle className="h-3.5 w-3.5 text-red-500" />
+                              ) : (
+                                <Printer className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-green-500" />
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </>
                     )}
-                  >
-                    <Icon className="h-3 w-3" />
-                    {exerciseType}
+
+                    {/* Delete button */}
+                    <button
+                      type="button"
+                      onClick={() => removeExercise(index)}
+                      className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
+                      title="Remove exercise"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
 
-                  {/* Fields */}
-                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
-                    <div className="sm:col-span-2">
-                      <input
-                        ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
-                        type="text"
-                        value={exercise.pdf_name}
-                        onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
-                        onFocus={() => setFocusedRowIndex(index)}
-                        placeholder="PDF name or path"
-                        className={cn(inputClass, "text-xs py-1.5")}
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="number"
-                        value={exercise.page_start}
-                        onChange={(e) => updateExercise(index, "page_start", e.target.value)}
-                        onFocus={() => setFocusedRowIndex(index)}
-                        placeholder="Start page"
-                        min="1"
-                        className={cn(inputClass, "text-xs py-1.5")}
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="number"
-                        value={exercise.page_end}
-                        onChange={(e) => updateExercise(index, "page_end", e.target.value)}
-                        onFocus={() => setFocusedRowIndex(index)}
-                        placeholder="End page"
-                        min="1"
-                        className={cn(inputClass, "text-xs py-1.5")}
-                      />
-                    </div>
-                    {/* Remarks - spans full grid width */}
-                    <div className="sm:col-span-4">
-                      <input
-                        type="text"
-                        value={exercise.remarks}
-                        onChange={(e) => updateExercise(index, "remarks", e.target.value)}
-                        onFocus={() => setFocusedRowIndex(index)}
-                        placeholder="Remarks (optional)"
-                        className={cn(inputClass, "text-xs py-1.5")}
-                      />
-                    </div>
+                  {/* Row 2: Start page, End page, Remarks */}
+                  <div className="flex gap-2">
+                    {/* Spacer matching row 1 badge container width */}
+                    <div className="w-12 shrink-0" />
+                    <input
+                      type="number"
+                      value={exercise.page_start}
+                      onChange={(e) => updateExercise(index, "page_start", e.target.value)}
+                      onFocus={() => setFocusedRowIndex(index)}
+                      placeholder="Start page"
+                      min="1"
+                      className={cn(inputClass, "text-xs py-1.5 w-24")}
+                    />
+                    <input
+                      type="number"
+                      value={exercise.page_end}
+                      onChange={(e) => updateExercise(index, "page_end", e.target.value)}
+                      onFocus={() => setFocusedRowIndex(index)}
+                      placeholder="End page"
+                      min="1"
+                      className={cn(inputClass, "text-xs py-1.5 w-24")}
+                    />
+                    <input
+                      type="text"
+                      value={exercise.remarks}
+                      onChange={(e) => updateExercise(index, "remarks", e.target.value)}
+                      onFocus={() => setFocusedRowIndex(index)}
+                      placeholder="Remarks (optional)"
+                      className={cn(inputClass, "text-xs py-1.5 flex-1")}
+                    />
                   </div>
-
-                  {/* Delete button */}
-                  <button
-                    type="button"
-                    onClick={() => removeExercise(index)}
-                    className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
-                    title="Remove exercise"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Folder Picker Modal */}
+      <FolderPickerModal
+        isOpen={folderPickerOpen}
+        onClose={() => {
+          setFolderPickerOpen(false);
+          setBrowsingForIndex(null);
+        }}
+        onFileSelected={handleFileSelected}
+      />
     </Modal>
   );
 }

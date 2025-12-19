@@ -1347,23 +1347,23 @@ export default function SessionsPage() {
             </button>
           </div>
           {showSelectDropdown && (
-            <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 z-50 py-1 min-w-[160px]">
+            <div className="absolute top-full right-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-50 py-1 min-w-[160px]">
               <button
                 onClick={() => { toggleSelectAll(); setShowSelectDropdown(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
               >
                 Select All
               </button>
               <button
                 onClick={() => { selectMarkableOnly(); setShowSelectDropdown(false); }}
-                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
               >
                 Select Markable Only
               </button>
               {hasSelection && (
                 <button
                   onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-red-600 dark:text-red-400"
                 >
                   Clear Selection
                 </button>
@@ -1733,7 +1733,7 @@ export default function SessionsPage() {
                   <React.Fragment key={timeSlot}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div className="sticky z-20 mb-4" style={{ top: timeSlotStickyTop }}>
+                    <div className={cn("sticky mb-4", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
@@ -1766,16 +1766,16 @@ export default function SessionsPage() {
                                 <ChevronDown className="h-3 w-3" />
                               </button>
                               {slotDropdownOpen === timeSlot && (
-                                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 z-50 py-1 min-w-[160px]">
+                                <div className="absolute top-full left-0 mt-1 bg-[#fef9f3] dark:bg-[#2d2618] shadow-lg rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] z-[100] py-1 min-w-[160px]">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
                                   >
                                     Select All in Slot
                                   </button>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#3d3520] text-gray-700 dark:text-gray-300"
                                   >
                                     Select Markable Only
                                   </button>
@@ -2087,7 +2087,7 @@ export default function SessionsPage() {
               </div>
               <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">J/K</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">J↓ K↑</kbd>
                   <span>Navigate sessions</span>
                 </div>
                 <div className="flex justify-between gap-4">

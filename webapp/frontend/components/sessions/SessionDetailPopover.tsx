@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2 } from "lucide-react";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -27,6 +27,11 @@ import { useToast } from "@/contexts/ToastContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
 import { EditSessionModal } from "./EditSessionModal";
+import {
+  isFileSystemAccessSupported,
+  openFileFromPath,
+  printFileFromPath,
+} from "@/lib/file-system";
 
 // Grade tag colors
 const GRADE_COLORS: Record<string, string> = {
@@ -54,9 +59,12 @@ const getDisplayName = (pdfName: string): string => {
   return filename.replace(/\.[^.]+$/, '');
 };
 
-// Exercise item with copy functionality
+// Exercise item with copy, open, and print functionality
 function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
+  const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   const handleCopy = async () => {
     try {
@@ -68,6 +76,32 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
       console.warn('Clipboard not available:', err);
       setCopyState('failed');
       setTimeout(() => setCopyState('idle'), 1500);
+    }
+  };
+
+  const handleOpen = async () => {
+    if (openState === 'loading') return;
+    setOpenState('loading');
+    const error = await openFileFromPath(exercise.pdf_name);
+    if (error) {
+      console.warn('Failed to open file:', error);
+      setOpenState('error');
+      setTimeout(() => setOpenState('idle'), 2000);
+    } else {
+      setOpenState('idle');
+    }
+  };
+
+  const handlePrint = async () => {
+    if (printState === 'loading') return;
+    setPrintState('loading');
+    const error = await printFileFromPath(exercise.pdf_name);
+    if (error) {
+      console.warn('Failed to print file:', error);
+      setPrintState('error');
+      setTimeout(() => setPrintState('idle'), 2000);
+    } else {
+      setPrintState('idle');
     }
   };
 
@@ -96,6 +130,38 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
           <Copy className="h-3 w-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
         )}
       </button>
+      {canBrowseFiles && (
+        <>
+          <button
+            onClick={handleOpen}
+            disabled={openState === 'loading'}
+            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
+            title="Open PDF in new tab"
+          >
+            {openState === 'loading' ? (
+              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+            ) : openState === 'error' ? (
+              <XCircle className="h-3 w-3 text-red-500" />
+            ) : (
+              <ExternalLink className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+            )}
+          </button>
+          <button
+            onClick={handlePrint}
+            disabled={printState === 'loading'}
+            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
+            title="Print PDF"
+          >
+            {printState === 'loading' ? (
+              <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+            ) : printState === 'error' ? (
+              <XCircle className="h-3 w-3 text-red-500" />
+            ) : (
+              <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+            )}
+          </button>
+        </>
+      )}
     </div>
   );
 }
