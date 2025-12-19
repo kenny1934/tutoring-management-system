@@ -6,7 +6,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, PenTool, Home, RefreshCw } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, PenTool, Home, RefreshCw } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -145,6 +145,8 @@ export default function SessionsPage() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+  const [showSelectDropdown, setShowSelectDropdown] = useState(false);
+  const [slotDropdownOpen, setSlotDropdownOpen] = useState<string | null>(null);
 
   // Keyboard navigation state (J/K to move, Enter to open popover)
   const [focusedSessionId, setFocusedSessionId] = useState<number | null>(null);
@@ -480,6 +482,47 @@ export default function SessionsPage() {
     });
   }, [allSessionIds]);
 
+  // Get selection state for a timeslot (none, partial, all)
+  const getSlotSelectionState = useCallback((sessionsInSlot: Session[]): 'none' | 'partial' | 'all' => {
+    if (sessionsInSlot.length === 0) return 'none';
+    const selectedCount = sessionsInSlot.filter(s => selectedIds.has(s.id)).length;
+    if (selectedCount === 0) return 'none';
+    if (selectedCount === sessionsInSlot.length) return 'all';
+    return 'partial';
+  }, [selectedIds]);
+
+  // Toggle selection for all sessions in a timeslot
+  const toggleSlotSelection = useCallback((sessionsInSlot: Session[], e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger collapse
+    const slotIds = sessionsInSlot.map(s => s.id);
+    setSelectedIds(prev => {
+      const allSelected = slotIds.every(id => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        slotIds.forEach(id => next.delete(id));
+      } else {
+        slotIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, []);
+
+  // Select only markable sessions (Scheduled, Trial Class, Make-up Class)
+  const selectMarkableOnly = useCallback(() => {
+    const markableIds = sessions.filter(canBeMarked).map(s => s.id);
+    setSelectedIds(new Set(markableIds));
+  }, [sessions]);
+
+  // Select only markable sessions within a specific timeslot
+  const selectMarkableInSlot = useCallback((sessionsInSlot: Session[]) => {
+    const markableIds = sessionsInSlot.filter(canBeMarked).map(s => s.id);
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      markableIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
@@ -676,7 +719,15 @@ export default function SessionsPage() {
     }
   }, [selectedSessions, clearSelection, showToast]);
 
-  const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
+  // Global selection state (none, partial, all)
+  const getGlobalSelectionState = useMemo((): 'none' | 'partial' | 'all' => {
+    if (allSessionIds.length === 0) return 'none';
+    if (selectedIds.size === 0) return 'none';
+    if (selectedIds.size === allSessionIds.length) return 'all';
+    return 'partial';
+  }, [selectedIds, allSessionIds]);
+
+  const isAllSelected = getGlobalSelectionState === 'all';
   const hasSelection = selectedIds.size > 0;
 
   // Calculate sticky top for time slot headers (accounts for bulk action bar when visible)
@@ -686,6 +737,23 @@ export default function SessionsPage() {
   useEffect(() => {
     setSelectedIds(new Set());
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode]);
+
+  // Close select dropdowns on outside click
+  useEffect(() => {
+    if (!showSelectDropdown && !slotDropdownOpen) return;
+    const handleClick = () => {
+      setShowSelectDropdown(false);
+      setSlotDropdownOpen(null);
+    };
+    // Delay to avoid closing immediately on the click that opened it
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClick);
+    };
+  }, [showSelectDropdown, slotDropdownOpen]);
 
   // J/K keyboard navigation for sessions list
   useEffect(() => {
@@ -697,8 +765,19 @@ export default function SessionsPage() {
       if (popoverSession || bulkExerciseType || quickActionSession || isCommandPaletteOpen) return;
 
       // Cmd/Ctrl+Shift+A - Select only markable sessions (must check before Cmd+A)
+      // If a session is focused, select markable in that timeslot only
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
+        if (focusedSessionId) {
+          const focusedSession = sessions.find(s => s.id === focusedSessionId);
+          if (focusedSession) {
+            const slotSessions = sessions.filter(s => s.time_slot === focusedSession.time_slot);
+            const markableIds = slotSessions.filter(canBeMarked).map(s => s.id);
+            setSelectedIds(new Set(markableIds));
+            return;
+          }
+        }
+        // Fallback: select all markable on page
         const markableIds = sessions.filter(canBeMarked).map(s => s.id);
         setSelectedIds(new Set(markableIds));
         return;
@@ -719,8 +798,10 @@ export default function SessionsPage() {
       }
 
       const key = e.key.toLowerCase();
+      // For single-letter shortcuts, require no modifiers (Ctrl/Cmd+A, Ctrl+Shift+A handled above)
+      const hasModifier = e.shiftKey || e.altKey || e.metaKey || e.ctrlKey;
 
-      // Escape - close hints panel, clear selection, or clear focus
+      // Escape - close hints panel, clear selection, or clear focus (works with modifiers)
       if (key === 'escape') {
         if (showShortcutHints) {
           setShowShortcutHints(false);
@@ -734,7 +815,7 @@ export default function SessionsPage() {
         return;
       }
 
-      if (key === 'j' || key === 'k') {
+      if (!hasModifier && (key === 'j' || key === 'k')) {
         // Guard against empty list
         if (allSessionIds.length === 0) return;
 
@@ -770,8 +851,8 @@ export default function SessionsPage() {
         toggleSelect(focusedSessionId);
         return;
       }
-      // Bulk action shortcuts (when sessions are selected)
-      else if (selectedIds.size > 0) {
+      // Bulk action shortcuts (when sessions are selected, no modifiers)
+      else if (!hasModifier && selectedIds.size > 0) {
         switch (key) {
           case 'a':
             if (bulkActionsAvailable.attended) {
@@ -796,8 +877,8 @@ export default function SessionsPage() {
         }
         return;
       }
-      // Action shortcuts on focused card (A/N/C/H/R/E)
-      else if (focusedSessionId) {
+      // Action shortcuts on focused card (A/N/C/H/R/E, no modifiers)
+      else if (!hasModifier && focusedSessionId) {
         const session = sessions.find(s => s.id === focusedSessionId);
         if (!session) return;
 
@@ -1202,6 +1283,15 @@ export default function SessionsPage() {
                 }}
                 className="px-2 py-1 text-sm bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-900 dark:text-gray-100 font-medium"
               />
+              {/* Today button - only show when not on today */}
+              {toDateString(selectedDate) !== toDateString(new Date()) && (
+                <button
+                  onClick={() => setSelectedDate(new Date())}
+                  className="px-2 py-1 text-xs font-medium rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/70 transition-colors"
+                >
+                  Today
+                </button>
+              )}
             </div>
           )}
 
@@ -1231,19 +1321,56 @@ export default function SessionsPage() {
 
       <div className="flex-1" />
 
-      {/* Select All checkbox (only in list view) */}
+      {/* Select All checkbox with dropdown (only in list view) */}
       {viewMode === "list" && sessions.length > 0 && (
-        <button
-          onClick={toggleSelectAll}
-          className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-        >
-          {isAllSelected ? (
-            <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
-          ) : (
-            <Square className="h-3.5 w-3.5" />
+        <div className="relative">
+          <div className="flex items-center">
+            <button
+              onClick={toggleSelectAll}
+              className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            >
+              {getGlobalSelectionState === 'all' ? (
+                <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+              ) : getGlobalSelectionState === 'partial' ? (
+                <MinusSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden sm:inline">Select</span>
+            </button>
+            <button
+              onClick={() => setShowSelectDropdown(!showSelectDropdown)}
+              className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              title="Selection options (⌘A all, ⌘⇧A markable)"
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </div>
+          {showSelectDropdown && (
+            <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 z-50 py-1 min-w-[160px]">
+              <button
+                onClick={() => { toggleSelectAll(); setShowSelectDropdown(false); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => { selectMarkableOnly(); setShowSelectDropdown(false); }}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+              >
+                Select Markable Only
+              </button>
+              {hasSelection && (
+                <button
+                  onClick={() => { clearSelection(); setShowSelectDropdown(false); }}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
+                >
+                  Clear Selection
+                </button>
+              )}
+            </div>
           )}
-          <span className="hidden sm:inline">Select All</span>
-        </button>
+        </div>
       )}
 
       {/* Session count */}
@@ -1617,6 +1744,44 @@ export default function SessionsPage() {
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-3">
+                            {/* Slot selection checkbox with dropdown */}
+                            <div className="relative flex items-center">
+                              <button
+                                onClick={(e) => toggleSlotSelection(sessionsInSlot, e)}
+                                className="p-1 hover:bg-[#a0704b]/10 rounded transition-colors"
+                                title={`Select all sessions in ${timeSlot}`}
+                              >
+                                {(() => {
+                                  const state = getSlotSelectionState(sessionsInSlot);
+                                  if (state === 'all') return <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
+                                  if (state === 'partial') return <MinusSquare className="h-4 w-4 sm:h-5 sm:w-5 text-[#a0704b] dark:text-[#cd853f]" />;
+                                  return <Square className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 dark:text-gray-500" />;
+                                })()}
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
+                                className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                title="Selection options (⌘⇧A markable when focused)"
+                              >
+                                <ChevronDown className="h-3 w-3" />
+                              </button>
+                              {slotDropdownOpen === timeSlot && (
+                                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 z-50 py-1 min-w-[160px]">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); toggleSlotSelection(sessionsInSlot, e); setSlotDropdownOpen(null); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                  >
+                                    Select All in Slot
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); selectMarkableInSlot(sessionsInSlot); setSlotDropdownOpen(null); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                  >
+                                    Select Markable Only
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <div className="bg-[#a0704b] dark:bg-[#cd853f] p-2 rounded-full">
                               <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                             </div>

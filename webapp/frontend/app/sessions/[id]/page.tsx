@@ -120,6 +120,9 @@ export default function SessionDetailPage() {
       }
 
       const key = e.key.toLowerCase();
+      // For single-letter shortcuts, require no modifiers
+      const hasModifier = e.shiftKey || e.altKey || e.metaKey || e.ctrlKey;
+      if (hasModifier) return;
 
       // A - Mark as Attended (only for markable sessions)
       if (key === 'a' && canBeMarked(session)) {

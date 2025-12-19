@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home } from "lucide-react";
@@ -50,8 +50,13 @@ export function BulkExerciseModal({
 }: BulkExerciseModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
 
-  const handleSave = async () => {
+  // Ref for focusing newly added exercise input
+  const newExerciseInputRef = useRef<HTMLInputElement>(null);
+  const shouldFocusNewRef = useRef(false);
+
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
 
     const sessionIds = sessions.map((s) => s.id);
@@ -66,19 +71,20 @@ export function BulkExerciseModal({
     setIsSaving(false);
     setExercises([]); // Reset for next use
     onClose();
-  };
+  }, [sessions, exerciseType, exercises, onSave, onClose]);
 
   const handleClose = () => {
     setExercises([]); // Reset on close
     onClose();
   };
 
-  const addExercise = () => {
+  const addExercise = useCallback(() => {
     setExercises((prev) => [
       ...prev,
       { exercise_type: exerciseType, pdf_name: "", page_start: "", page_end: "", remarks: "" },
     ]);
-  };
+    shouldFocusNewRef.current = true;
+  }, [exerciseType]);
 
   const updateExercise = (
     index: number,
@@ -90,9 +96,51 @@ export function BulkExerciseModal({
     );
   };
 
-  const removeExercise = (index: number) => {
+  const removeExercise = useCallback((index: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
+
+  // Focus new exercise input after render
+  useEffect(() => {
+    if (shouldFocusNewRef.current && newExerciseInputRef.current) {
+      newExerciseInputRef.current.focus();
+      shouldFocusNewRef.current = false;
+    }
+  }, [exercises.length]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl+Enter - Save
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (exercises.length > 0 && !isSaving) {
+          handleSave();
+        }
+        return;
+      }
+
+      // Alt/Option+N - Add new exercise
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        addExercise();
+        return;
+      }
+
+      // Alt/Option+Backspace - Delete focused row
+      if (e.altKey && e.key === 'Backspace' && focusedRowIndex !== null) {
+        e.preventDefault();
+        removeExercise(focusedRowIndex);
+        setFocusedRowIndex(null);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleSave, addExercise, focusedRowIndex, removeExercise, exercises.length, isSaving]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -127,13 +175,25 @@ export function BulkExerciseModal({
       }
       size="lg"
       footer={
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={handleClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving || exercises.length === 0}>
-            {isSaving ? "Saving..." : `Assign to ${sessions.length} Session${sessions.length > 1 ? 's' : ''}`}
-          </Button>
+        <div className="flex justify-between items-center gap-3">
+          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌥N</kbd>
+            <span>add</span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌥⌫</kbd>
+            <span>delete</span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌘↵</kbd>
+            <span>save</span>
+          </span>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleClose} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving || exercises.length === 0}>
+              {isSaving ? "Saving..." : `Assign to ${sessions.length} Session${sessions.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </div>
       }
     >
@@ -223,9 +283,11 @@ export function BulkExerciseModal({
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
                     <div className="sm:col-span-2">
                       <input
+                        ref={index === exercises.length - 1 ? newExerciseInputRef : undefined}
                         type="text"
                         value={exercise.pdf_name}
                         onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
+                        onFocus={() => setFocusedRowIndex(index)}
                         placeholder="PDF name or path"
                         className={cn(inputClass, "text-xs py-1.5")}
                       />
@@ -235,6 +297,7 @@ export function BulkExerciseModal({
                         type="number"
                         value={exercise.page_start}
                         onChange={(e) => updateExercise(index, "page_start", e.target.value)}
+                        onFocus={() => setFocusedRowIndex(index)}
                         placeholder="Start page"
                         min="1"
                         className={cn(inputClass, "text-xs py-1.5")}
@@ -245,6 +308,7 @@ export function BulkExerciseModal({
                         type="number"
                         value={exercise.page_end}
                         onChange={(e) => updateExercise(index, "page_end", e.target.value)}
+                        onFocus={() => setFocusedRowIndex(index)}
                         placeholder="End page"
                         min="1"
                         className={cn(inputClass, "text-xs py-1.5")}
@@ -256,6 +320,7 @@ export function BulkExerciseModal({
                         type="text"
                         value={exercise.remarks}
                         onChange={(e) => updateExercise(index, "remarks", e.target.value)}
+                        onFocus={() => setFocusedRowIndex(index)}
                         placeholder="Remarks (optional)"
                         className={cn(inputClass, "text-xs py-1.5")}
                       />
