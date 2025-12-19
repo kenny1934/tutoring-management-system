@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, MapPin, Eye, X } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -30,6 +30,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingPayments, setPendingPayments] = useState(0);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
@@ -294,28 +295,126 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
       )}
 
-      {/* User info */}
-      <div className="border-t border-white/10 dark:border-white/5 p-4">
-        <div
-          className={cn(
-            "flex items-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
-            "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-            (isMobile || !isCollapsed) ? "gap-3 p-4" : "justify-center p-2"
-          )}
-          style={{
-            transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-          }}
-        >
-          <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
-            <span className="text-base font-bold text-primary-foreground">KC</span>
+      {/* User info with dropdown menu (expanded or collapsed) */}
+      <div className="border-t border-white/10 dark:border-white/5 p-4 relative">
+        {/* Collapsed state: Avatar with compact dropdown */}
+        {!isMobile && isCollapsed ? (
+          <div className="relative">
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className={cn(
+                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                isUserMenuOpen && "ring-2 ring-primary/30"
+              )}
+              style={{
+                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+              }}
+              title="User menu"
+            >
+              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                <span className="text-sm font-bold text-primary-foreground">KC</span>
+              </div>
+            </button>
+
+            {/* Compact popup to the right - icon only */}
+            {isUserMenuOpen && (
+              <div
+                className={cn(
+                  "absolute left-full top-1/2 ml-3 rounded-full shadow-lg border backdrop-blur-md",
+                  "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
+                  "border-white/20 dark:border-white/10"
+                )}
+                style={{
+                  animation: 'slideInRight 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards',
+                }}
+              >
+                <Link
+                  href="/settings"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    handleNavClick();
+                  }}
+                  className="flex items-center justify-center w-10 h-10 text-foreground/70 hover:text-foreground hover:bg-foreground/10 transition-colors rounded-full"
+                  title="Settings"
+                >
+                  <Settings className="h-5 w-5" />
+                </Link>
+
+                {/* Caret pointing left to avatar */}
+                <div
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 rotate-45",
+                    "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
+                    "border-l border-b border-white/20 dark:border-white/10"
+                  )}
+                />
+              </div>
+            )}
           </div>
-          {(isMobile || !isCollapsed) && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
-              <p className="text-xs font-medium text-foreground/60">Admin</p>
-            </div>
-          )}
-        </div>
+        ) : (
+          /* Expanded state: Avatar with dropdown to the right */
+          <div className="relative">
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className={cn(
+                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                isUserMenuOpen && "ring-2 ring-primary/30"
+              )}
+              style={{
+                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+              }}
+            >
+              <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+                <span className="text-base font-bold text-primary-foreground">KC</span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
+                <p className="text-xs font-medium text-foreground/60">Admin</p>
+              </div>
+              <ChevronRight className={cn(
+                "h-4 w-4 text-foreground/50 transition-transform",
+                isUserMenuOpen && "rotate-180"
+              )} />
+            </button>
+
+            {/* User dropdown menu - positioned to the RIGHT of sidebar */}
+            {isUserMenuOpen && (
+              <div
+                className={cn(
+                  "absolute left-full top-1/2 ml-3 py-2 px-1 rounded-xl shadow-lg border backdrop-blur-md min-w-[140px]",
+                  "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
+                  "border-white/20 dark:border-white/10"
+                )}
+                style={{
+                  animation: 'slideInRight 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards',
+                }}
+              >
+                <Link
+                  href="/settings"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    if (onMobileClose) onMobileClose();
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg"
+                >
+                  <Settings className="h-4 w-4 text-foreground/60" />
+                  Settings
+                </Link>
+
+                {/* Caret pointing left to avatar */}
+                <div
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 rotate-45",
+                    "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
+                    "border-l border-b border-white/20 dark:border-white/10"
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

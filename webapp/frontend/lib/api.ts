@@ -348,6 +348,32 @@ export const coursewareAPI = {
   },
 };
 
+// Path Aliases API
+export interface PathAliasDefinition {
+  id: number;
+  alias: string;
+  description: string | null;
+}
+
+export const pathAliasesAPI = {
+  getAll: () => {
+    return fetchAPI<PathAliasDefinition[]>("/path-aliases");
+  },
+
+  create: (alias: string, description?: string) => {
+    return fetchAPI<PathAliasDefinition>("/path-aliases", {
+      method: "POST",
+      body: JSON.stringify({ alias, description }),
+    });
+  },
+
+  delete: (id: number) => {
+    return fetchAPI<{ message: string }>(`/path-aliases/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -358,4 +384,5 @@ export const api = {
   stats: statsAPI,
   revenue: revenueAPI,
   courseware: coursewareAPI,
+  pathAliases: pathAliasesAPI,
 };
