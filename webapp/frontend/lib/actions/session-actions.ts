@@ -57,7 +57,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'attended',
-    label: 'Mark Attended',
+    label: 'Mark Attended (A)',
     shortLabel: 'Attended',
     icon: CheckCircle2,
     colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
@@ -72,7 +72,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'no-show',
-    label: 'Mark No Show',
+    label: 'Mark No Show (N)',
     shortLabel: 'No Show',
     icon: UserX,
     colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
@@ -158,7 +158,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'cw',
-    label: 'Add Classwork',
+    label: 'Add Classwork (C)',
     shortLabel: 'CW',
     icon: PenTool,
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
@@ -174,7 +174,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   },
   {
     id: 'hw',
-    label: 'Add Homework',
+    label: 'Add Homework (H)',
     shortLabel: 'HW',
     icon: Home,
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
@@ -194,7 +194,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'rate',
-    label: 'Rate & Comment',
+    label: 'Rate & Comment (R)',
     shortLabel: 'Rate',
     icon: MessageSquarePlus,
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
@@ -231,7 +231,7 @@ export const sessionActions: ActionConfig<Session>[] = [
   // ----------------------------------------
   {
     id: 'edit',
-    label: 'Edit Session',
+    label: 'Edit Session (E)',
     shortLabel: 'Edit',
     icon: Pencil,
     colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
