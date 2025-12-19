@@ -588,8 +588,11 @@ function RankingRow({
           : "hover:bg-[#f5ede3] dark:hover:bg-gray-800/30 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(160,112,75,0.12)]"
       )}
     >
-      <button
+      <div
         onClick={onToggle}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+        role="button"
+        tabIndex={0}
         className="w-full px-3 sm:px-4 py-3 flex items-center gap-3 cursor-pointer text-left min-h-[52px] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/50"
         aria-expanded={isExpanded}
       >
@@ -676,7 +679,7 @@ function RankingRow({
             )}
           />
         </div>
-      </button>
+      </div>
 
       {/* Expanded detail panel */}
       {isExpanded && (
