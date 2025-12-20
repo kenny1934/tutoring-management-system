@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPath, printFileFromPath } from "@/lib/file-system";
 import { FolderPickerModal } from "@/components/ui/folder-picker-modal";
+import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -57,6 +58,8 @@ export function BulkExerciseModal({
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
   const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
+  const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
+  const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
 
   // Check for File System Access API support on mount
   useEffect(() => {
@@ -120,6 +123,20 @@ export function BulkExerciseModal({
       setBrowsingForIndex(null);
     }
   }, [browsingForIndex]);
+
+  // Handle Paperless search
+  const handlePaperlessSearch = useCallback((index: number) => {
+    setSearchingForIndex(index);
+    setPaperlessSearchOpen(true);
+  }, []);
+
+  // Handle file selected from Paperless search
+  const handlePaperlessSelected = useCallback((path: string) => {
+    if (searchingForIndex !== null) {
+      updateExercise(searchingForIndex, "pdf_name", path);
+      setSearchingForIndex(null);
+    }
+  }, [searchingForIndex]);
 
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
@@ -348,6 +365,15 @@ export function BulkExerciseModal({
                     />
 
                     {/* File action buttons */}
+                    {/* Paperless search button - always show */}
+                    <button
+                      type="button"
+                      onClick={() => handlePaperlessSearch(index)}
+                      className="px-2 py-1.5 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors shrink-0"
+                      title="Search Shelv"
+                    >
+                      <Search className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    </button>
                     {canBrowseFiles && (
                       <>
                         <button
@@ -452,6 +478,16 @@ export function BulkExerciseModal({
           setBrowsingForIndex(null);
         }}
         onFileSelected={handleFileSelected}
+      />
+
+      {/* Paperless Search Modal */}
+      <PaperlessSearchModal
+        isOpen={paperlessSearchOpen}
+        onClose={() => {
+          setPaperlessSearchOpen(false);
+          setSearchingForIndex(null);
+        }}
+        onSelect={handlePaperlessSelected}
       />
     </Modal>
   );
