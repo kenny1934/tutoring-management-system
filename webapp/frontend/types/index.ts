@@ -306,3 +306,10 @@ export interface CoursewareUsageDetail {
   tutor_id: number;
   tutor_name: string;
 }
+
+// Holiday types
+export interface Holiday {
+  id: number;
+  holiday_date: string;  // ISO format (YYYY-MM-DD)
+  holiday_name?: string;
+}
