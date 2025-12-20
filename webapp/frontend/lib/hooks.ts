@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -233,5 +233,17 @@ export function useCoursewareUsageDetail(
   return useSWR<CoursewareUsageDetail[]>(
     filename ? ['courseware-detail', filename, timeRange, limit] : null,
     () => coursewareAPI.getUsageDetail(filename!, timeRange, limit)
+  );
+}
+
+/**
+ * Hook for fetching holidays within a date range
+ * Returns holidays filtered by from_date and to_date
+ */
+export function useHolidays(from_date?: string, to_date?: string) {
+  const key = ['holidays', from_date, to_date].filter(Boolean);
+  return useSWR<Holiday[]>(
+    key,
+    () => holidaysAPI.getHolidays(from_date, to_date)
   );
 }

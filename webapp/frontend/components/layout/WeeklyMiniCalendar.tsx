@@ -3,7 +3,9 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { useHolidays } from "@/lib/hooks";
+import type { Holiday } from "@/types";
 
 // Format date to YYYY-MM-DD
 const toDateString = (date: Date): string => {
@@ -60,6 +62,23 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const today = toDateString(new Date());
 
+  // Fetch holidays for the current week
+  const firstDay = weekDays[0];
+  const lastDay = weekDays[6];
+  const { data: holidays = [] } = useHolidays(
+    toDateString(firstDay),
+    toDateString(lastDay)
+  );
+
+  // Create holiday lookup map for O(1) access
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, Holiday>();
+    holidays.forEach(holiday => {
+      map.set(holiday.holiday_date, holiday);
+    });
+    return map;
+  }, [holidays]);
+
   const goToPrevWeek = () => setWeekOffset(prev => prev - 1);
   const goToNextWeek = () => setWeekOffset(prev => prev + 1);
   const goToThisWeek = () => setWeekOffset(0);
@@ -100,6 +119,14 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
         {weekDays.map((day, i) => {
           const dateStr = toDateString(day);
           const isToday = dateStr === today;
+          const holiday = holidayMap.get(dateStr);
+          const isHoliday = !!holiday;
+
+          // Build tooltip text
+          const baseTooltip = day.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const tooltipText = isHoliday && holiday?.holiday_name
+            ? `${baseTooltip} • ${holiday.holiday_name}`
+            : baseTooltip;
 
           return (
             <Link
@@ -108,25 +135,34 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
               className={cn(
                 "flex-1 flex flex-col items-center py-1.5 px-0.5 rounded-lg transition-all",
                 "hover:bg-foreground/10 hover:scale-105 active:scale-95",
-                isToday && "bg-primary/10 ring-1 ring-primary/30"
+                isToday && "bg-primary/10 ring-1 ring-primary/30",
+                isHoliday && "bg-rose-500/15 ring-1 ring-rose-500/40"
               )}
-              title={day.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              title={tooltipText}
             >
               {/* Day label */}
               <span className={cn(
                 "text-[10px] font-semibold",
-                isToday ? "text-primary" : "text-foreground/60"
+                isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/60"
               )}>
                 {DAY_LABELS[i]}
               </span>
 
-              {/* Date number */}
-              <span className={cn(
-                "text-xs font-bold mt-0.5",
-                isToday ? "text-primary" : "text-foreground/80"
-              )}>
-                {day.getDate()}
-              </span>
+              {/* Date number with optional holiday icon */}
+              <div className="flex items-center gap-0.5">
+                <span className={cn(
+                  "text-xs font-bold",
+                  isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/80"
+                )}>
+                  {day.getDate()}
+                </span>
+                {isHoliday && (
+                  <CalendarDays className={cn(
+                    "h-2.5 w-2.5",
+                    isToday ? "text-primary" : "text-rose-500"
+                  )} />
+                )}
+              </div>
             </Link>
           );
         })}

@@ -402,6 +402,19 @@ class UpcomingTestAlert(BaseModel):
     days_until: int = Field(..., ge=0)  # Number of days until the test
 
 
+# ============================================
+# Holiday Schemas
+# ============================================
+
+class HolidayResponse(BaseModel):
+    """Holiday response schema"""
+    id: int = Field(..., gt=0)
+    holiday_date: date
+    holiday_name: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

@@ -14,6 +14,7 @@ import type {
   SessionRevenueDetail,
   CoursewarePopularity,
   CoursewareUsageDetail,
+  Holiday,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -449,6 +450,17 @@ export const pathAliasesAPI = {
   },
 };
 
+// Holidays API
+export const holidaysAPI = {
+  getHolidays: (from_date?: string, to_date?: string) => {
+    const params = new URLSearchParams();
+    if (from_date) params.append("from_date", from_date);
+    if (to_date) params.append("to_date", to_date);
+    const queryString = params.toString();
+    return fetchAPI<Holiday[]>(`/holidays${queryString ? `?${queryString}` : ''}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -461,4 +473,5 @@ export const api = {
   courseware: coursewareAPI,
   paperless: paperlessAPI,
   pathAliases: pathAliasesAPI,
+  holidays: holidaysAPI,
 };
