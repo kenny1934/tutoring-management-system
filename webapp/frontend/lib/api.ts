@@ -348,6 +348,81 @@ export const coursewareAPI = {
   },
 };
 
+// Paperless-ngx API
+export interface PaperlessDocument {
+  id: number;
+  title: string;
+  original_path: string | null;
+  converted_path: string | null;
+  tags: string[];
+  created: string | null;
+  correspondent: string | null;
+}
+
+export interface PaperlessSearchResponse {
+  results: PaperlessDocument[];
+  count: number;
+  has_more: boolean;
+}
+
+export interface PaperlessStatus {
+  configured: boolean;
+  reachable: boolean;
+  url?: string;
+  error?: string;
+}
+
+export type PaperlessSearchMode = "all" | "title" | "content" | "advanced";
+export type PaperlessTagMatchMode = "all" | "any";
+
+export interface PaperlessTag {
+  id: number;
+  name: string;
+}
+
+export interface PaperlessTagsResponse {
+  tags: PaperlessTag[];
+}
+
+export const paperlessAPI = {
+  search: (
+    query: string,
+    limit: number = 20,
+    searchMode: PaperlessSearchMode = "all",
+    tagIds?: number[],
+    tagMatchMode: PaperlessTagMatchMode = "all",
+    offset: number = 0
+  ) => {
+    const params = new URLSearchParams({
+      query,
+      limit: limit.toString(),
+      search_mode: searchMode,
+      offset: offset.toString(),
+    });
+    if (tagIds && tagIds.length > 0) {
+      params.append("tag_ids", tagIds.join(","));
+      params.append("tag_match_mode", tagMatchMode);
+    }
+    return fetchAPI<PaperlessSearchResponse>(`/paperless/search?${params}`);
+  },
+
+  getTags: () => {
+    return fetchAPI<PaperlessTagsResponse>("/paperless/tags");
+  },
+
+  getThumbnailUrl: (documentId: number) => {
+    return `${API_BASE_URL}/paperless/thumbnail/${documentId}`;
+  },
+
+  getPreviewUrl: (documentId: number) => {
+    return `${API_BASE_URL}/paperless/preview/${documentId}`;
+  },
+
+  getStatus: () => {
+    return fetchAPI<PaperlessStatus>("/paperless/status");
+  },
+};
+
 // Path Aliases API
 export interface PathAliasDefinition {
   id: number;
@@ -384,5 +459,6 @@ export const api = {
   stats: statsAPI,
   revenue: revenueAPI,
   courseware: coursewareAPI,
+  paperless: paperlessAPI,
   pathAliases: pathAliasesAPI,
 };
