@@ -3,21 +3,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
+import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
 
 interface PaperlessSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (path: string) => void;
+  multiSelect?: boolean;
+  onMultiSelect?: (paths: string[]) => void;
 }
 
 export function PaperlessSearchModal({
   isOpen,
   onClose,
   onSelect,
+  multiSelect = false,
+  onMultiSelect,
 }: PaperlessSearchModalProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PaperlessDocument[]>([]);
@@ -36,6 +41,14 @@ export function PaperlessSearchModal({
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+  // New state for power-user features
+  const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
+  const [selectedDocs, setSelectedDocs] = useState<PaperlessDocument[]>([]);
+  const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
+
+  // Computed: show recent docs when query empty, search results when typing
+  const showingRecent = !query.trim();
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -51,6 +64,9 @@ export function PaperlessSearchModal({
   // Check if Paperless is configured and fetch tags on mount
   useEffect(() => {
     if (isOpen) {
+      // Load recent documents from localStorage
+      setRecentDocs(getRecentDocuments());
+
       api.paperless.getStatus()
         .then((status) => {
           setIsConfigured(status.configured && status.reachable);
@@ -93,6 +109,7 @@ export function PaperlessSearchModal({
       setHintsExpanded(false);
       setHasMore(false);
       setIsLoadingMore(false);
+      setSelectedDocs([]);
     }
   }, [isOpen]);
 
@@ -180,6 +197,7 @@ export function PaperlessSearchModal({
   // Handle search input change with debounce
   const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
+    setHasNavigated(false); // Reset navigation state when typing
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -235,56 +253,193 @@ export function PaperlessSearchModal({
   }, [handleTagToggle]);
 
   // Handle document selection
-  const handleSelect = (doc: PaperlessDocument) => {
+  const handleSelect = useCallback((doc: PaperlessDocument) => {
     const path = doc.converted_path || doc.original_path;
-    if (path) {
+    if (!path) return;
+
+    // Save to recent documents
+    addRecentDocument({
+      id: doc.id,
+      title: doc.title,
+      path,
+      tags: doc.tags,
+    });
+
+    if (multiSelect) {
+      // Toggle selection in multi-select mode
+      setSelectedDocs((prev) => {
+        const exists = prev.some((d) => d.id === doc.id);
+        if (exists) {
+          return prev.filter((d) => d.id !== doc.id);
+        }
+        return [...prev, doc];
+      });
+    } else {
+      // Single select: close modal
       setSelectedId(doc.id);
-      // Brief visual feedback before closing
       setTimeout(() => {
         onSelect(path);
         onClose();
       }, 150);
     }
-  };
+  }, [multiSelect, onSelect, onClose]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (results.length === 0) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setFocusedIndex((prev) => {
-        const next = prev < results.length - 1 ? prev + 1 : prev;
-        // Scroll focused item into view
-        setTimeout(() => {
-          const items = resultsRef.current?.querySelectorAll("[data-result-item]");
-          items?.[next]?.scrollIntoView({ block: "nearest" });
-        }, 0);
-        return next;
+  // Handle selecting from recent documents
+  const handleSelectRecent = useCallback((recent: RecentDocument) => {
+    if (multiSelect) {
+      // In multi-select, we need a full doc object - create a minimal one
+      const doc: PaperlessDocument = {
+        id: recent.id,
+        title: recent.title,
+        original_path: recent.path,
+        converted_path: recent.path,
+        tags: recent.tags,
+        created: null,
+        correspondent: null,
+      };
+      setSelectedDocs((prev) => {
+        const exists = prev.some((d) => d.id === doc.id);
+        if (exists) {
+          return prev.filter((d) => d.id !== doc.id);
+        }
+        return [...prev, doc];
       });
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setFocusedIndex((prev) => {
-        const next = prev > 0 ? prev - 1 : 0;
-        setTimeout(() => {
-          const items = resultsRef.current?.querySelectorAll("[data-result-item]");
-          items?.[next]?.scrollIntoView({ block: "nearest" });
-        }, 0);
-        return next;
-      });
-    } else if (e.key === "Enter") {
-      const targetIndex = focusedIndex >= 0 ? focusedIndex : 0;
-      const doc = results[targetIndex];
-      if (doc && (doc.converted_path || doc.original_path)) {
-        handleSelect(doc);
-      }
+    } else {
+      // Single select: close modal
+      addRecentDocument(recent); // Move to top of recent
+      setTimeout(() => {
+        onSelect(recent.path);
+        onClose();
+      }, 150);
     }
-  };
+  }, [multiSelect, onSelect, onClose]);
 
-  // Reset focused index when results change
+  // Handle adding all selected docs
+  const handleAddSelected = useCallback(() => {
+    if (selectedDocs.length === 0) return;
+
+    const paths = selectedDocs
+      .map((d) => d.converted_path || d.original_path)
+      .filter((p): p is string => !!p);
+
+    if (onMultiSelect) {
+      onMultiSelect(paths);
+    }
+    onClose();
+  }, [selectedDocs, onMultiSelect, onClose]);
+
+  // Clear recent documents
+  const handleClearRecent = useCallback(() => {
+    clearRecentDocuments();
+    setRecentDocs([]);
+  }, []);
+
+  // Get current display list (recent when empty, results when searching)
+  const displayList = showingRecent ? recentDocs : results;
+
+  // Global keyboard handler - works regardless of focus
+  // Use capture phase to intercept events before Modal's handlers
   useEffect(() => {
-    setFocusedIndex(results.length > 0 ? 0 : -1);
-  }, [results]);
+    if (!isOpen) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Escape - close preview first, or reset navigation mode, then let modal handle close
+      if (e.key === "Escape") {
+        if (previewDoc) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation(); // Stop other handlers at same level
+          setPreviewDoc(null);
+          return;
+        }
+        // If navigating, reset to typing mode (so Space types again)
+        if (hasNavigated) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          setHasNavigated(false);
+          return; // Don't let modal close - user can press Esc again to close
+        }
+        // Let modal's default escape handling close the modal
+        return;
+      }
+
+      // Cmd/Ctrl+Enter - Add all selected (multi-select mode)
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && multiSelect && selectedDocs.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation(); // Prevent parent modal from also handling
+        handleAddSelected();
+        return;
+      }
+
+      // Check if user is typing in an input
+      const isTyping = document.activeElement?.tagName === "INPUT";
+
+      // Arrow navigation - works even when typing (autocomplete pattern)
+      if (e.key === "ArrowDown" && displayList.length > 0) {
+        e.preventDefault();
+        setHasNavigated(true); // Mark that user is navigating
+        setFocusedIndex((prev) => {
+          const next = prev < displayList.length - 1 ? prev + 1 : prev;
+          setTimeout(() => {
+            const items = resultsRef.current?.querySelectorAll("[data-result-item]");
+            items?.[next]?.scrollIntoView({ block: "nearest" });
+          }, 0);
+          return next;
+        });
+      } else if (e.key === "ArrowUp" && displayList.length > 0) {
+        e.preventDefault();
+        setHasNavigated(true); // Mark that user is navigating
+        setFocusedIndex((prev) => {
+          const next = prev > 0 ? prev - 1 : 0;
+          setTimeout(() => {
+            const items = resultsRef.current?.querySelectorAll("[data-result-item]");
+            items?.[next]?.scrollIntoView({ block: "nearest" });
+          }, 0);
+          return next;
+        });
+      } else if (e.key === " " && hasNavigated && focusedIndex >= 0 && !previewDoc) {
+        // Space - preview focused item (only after arrow navigation)
+        e.preventDefault();
+        if (!showingRecent && results[focusedIndex]) {
+          setPreviewDoc(results[focusedIndex]);
+        } else if (showingRecent && recentDocs[focusedIndex]) {
+          // Create a minimal doc object for preview from recent
+          const recent = recentDocs[focusedIndex];
+          setPreviewDoc({
+            id: recent.id,
+            title: recent.title,
+            original_path: recent.path,
+            converted_path: recent.path,
+            tags: recent.tags,
+            created: null,
+            correspondent: null,
+          });
+        }
+      } else if (e.key === "Enter" && hasNavigated && focusedIndex >= 0) {
+        // Enter - select focused item (only after navigating with arrows)
+        e.preventDefault();
+        const targetIndex = focusedIndex;
+        if (showingRecent && recentDocs[targetIndex]) {
+          handleSelectRecent(recentDocs[targetIndex]);
+        } else if (!showingRecent && results[targetIndex]) {
+          const doc = results[targetIndex];
+          if (doc.converted_path || doc.original_path) {
+            handleSelect(doc);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown, { capture: true });
+  }, [isOpen, previewDoc, multiSelect, selectedDocs, displayList, focusedIndex, showingRecent, results, recentDocs, handleAddSelected, handleSelectRecent, handleSelect, hasNavigated]);
+
+  // Reset focused index when display list changes
+  useEffect(() => {
+    setFocusedIndex(displayList.length > 0 ? 0 : -1);
+  }, [displayList]);
 
   return (
     <Modal
@@ -294,28 +449,28 @@ export function PaperlessSearchModal({
       size="lg"
     >
       <div className="space-y-4">
-        {/* Search Mode Tabs - scrollable on mobile */}
-        <div className="overflow-x-auto -mx-1 px-1">
-          <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 min-w-max sm:min-w-0">
-            {searchModeOptions.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleSearchModeChange(option.value)}
-                className={cn(
-                  "flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap",
-                  searchMode === option.value
-                    ? "bg-white dark:bg-[#2a2a2a] text-amber-700 dark:text-amber-400 shadow-sm"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                )}
-                disabled={isConfigured === false}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+            {/* Search Mode Tabs - scrollable on mobile */}
+            <div className="overflow-x-auto -mx-1 px-1">
+              <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 min-w-max sm:min-w-0">
+                {searchModeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleSearchModeChange(option.value)}
+                    className={cn(
+                      "flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap",
+                      searchMode === option.value
+                        ? "bg-white dark:bg-[#2a2a2a] text-amber-700 dark:text-amber-400 shadow-sm"
+                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                    )}
+                    disabled={isConfigured === false}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Search Input */}
+            {/* Search Input */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -323,7 +478,6 @@ export function PaperlessSearchModal({
             type="text"
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
-            onKeyDown={handleKeyDown}
             placeholder="Search for documents..."
             aria-label="Search documents"
             className={cn(
@@ -489,147 +643,311 @@ export function PaperlessSearchModal({
           </div>
         )}
 
-        {/* Results area with stable height to prevent modal jumping */}
+        {/* Results/Recent area with stable height */}
         <div className="min-h-[350px]">
-          {results.length > 0 && (
-            <div ref={resultsRef} className="space-y-2 max-h-[350px] overflow-y-auto" role="listbox">
-            {results.map((doc, index) => {
-              const path = doc.converted_path || doc.original_path;
-              const isSelected = selectedId === doc.id;
-              const isFocused = focusedIndex === index;
-
-              return (
-                <div
-                  key={doc.id}
-                  data-result-item
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => path && handleSelect(doc)}
-                  className={cn(
-                    "flex gap-3 p-3 rounded-lg border cursor-pointer transition-all",
-                    "hover:shadow-md hover:-translate-y-0.5",
-                    isSelected
-                      ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
-                      : isFocused
-                        ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
-                        : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700",
-                    !path && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {/* Thumbnail */}
-                  <div className="w-12 h-16 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
-                    <img
-                      src={api.paperless.getThumbnailUrl(doc.id)}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        // Replace with icon on error
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                    <FileText className="h-6 w-6 text-gray-400 hidden" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {doc.title}
-                    </h4>
-                    {path ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 truncate">
-                        {path}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-red-500 dark:text-red-400 mt-1">
-                        No path available
-                      </p>
-                    )}
-                    {doc.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1.5">
-                        {doc.tags.slice(0, 5).map((tag, i) => (
-                          <span
-                            key={i}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        {doc.tags.length > 5 && (
-                          <span className="text-[10px] text-gray-400">
-                            +{doc.tags.length - 5} more
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {/* Preview button */}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPreviewDoc(doc);
-                      }}
-                      title="Preview PDF"
+          {/* Recent Documents - shown when query is empty */}
+          {showingRecent && (
+            <>
+              {recentDocs.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Recently used documents
+                    </span>
+                    <button
+                      onClick={handleClearRecent}
+                      className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1"
                     >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {/* Select indicator */}
-                    {isSelected ? (
-                      <Check className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                      Clear
+                    </button>
+                  </div>
+                  <div ref={resultsRef} className="space-y-2 max-h-[320px] overflow-y-auto" role="listbox">
+                    {recentDocs.map((recent, index) => {
+                      const isChecked = selectedDocs.some((d) => d.id === recent.id);
+                      const isFocused = hasNavigated && focusedIndex === index;
+
+                      return (
+                        <div
+                          key={recent.id}
+                          data-result-item
+                          role="option"
+                          aria-selected={isChecked}
+                          onClick={() => handleSelectRecent(recent)}
+                          className={cn(
+                            "flex gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+                            "hover:shadow-md hover:-translate-y-0.5",
+                            isChecked
+                              ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
+                              : isFocused
+                                ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
+                                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700"
+                          )}
+                        >
+                          {/* Thumbnail */}
+                          <div className="w-12 h-16 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
+                            <img
+                              src={api.paperless.getThumbnailUrl(recent.id)}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <FileText className="h-6 w-6 text-gray-400 hidden" />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {recent.title}
+                            </h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 truncate">
+                              {recent.path}
+                            </p>
+                            {recent.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {recent.tags.slice(0, 5).map((tag, i) => (
+                                  <span
+                                    key={i}
+                                    className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2">
+                            {/* Preview button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewDoc({
+                                  id: recent.id,
+                                  title: recent.title,
+                                  original_path: recent.path,
+                                  converted_path: recent.path,
+                                  tags: recent.tags,
+                                  created: null,
+                                  correspondent: null,
+                                });
+                              }}
+                              title="Preview PDF"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {multiSelect ? (
+                              isChecked ? (
+                                <CheckSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                              ) : (
+                                <Square className="h-5 w-5 text-gray-400" />
+                              )
+                            ) : (
+                              <Button size="sm" variant="outline" className="text-xs">
+                                Use
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Type to search for documents</p>
+                  <p className="text-xs mt-1 text-gray-400">
+                    Recent selections will appear here
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Search Results - shown when query has text */}
+          {!showingRecent && results.length > 0 && (
+            <div ref={resultsRef} className="space-y-2 max-h-[350px] overflow-y-auto" role="listbox">
+              {results.map((doc, index) => {
+                const path = doc.converted_path || doc.original_path;
+                const isChecked = selectedDocs.some((d) => d.id === doc.id);
+                const isSelected = selectedId === doc.id;
+                const isFocused = hasNavigated && focusedIndex === index;
+
+                return (
+                  <div
+                    key={doc.id}
+                    data-result-item
+                    role="option"
+                    aria-selected={isChecked || isSelected}
+                    onClick={() => path && handleSelect(doc)}
+                    className={cn(
+                      "flex gap-3 p-3 rounded-lg border cursor-pointer transition-all",
+                      "hover:shadow-md hover:-translate-y-0.5",
+                      isChecked || isSelected
+                        ? "bg-amber-100 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600"
+                        : isFocused
+                          ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50"
+                          : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-amber-300 dark:hover:border-amber-700",
+                      !path && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-12 h-16 bg-gray-100 dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
+                      <img
+                        src={api.paperless.getThumbnailUrl(doc.id)}
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <FileText className="h-6 w-6 text-gray-400 hidden" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {doc.title}
+                      </h4>
+                      {path ? (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1 truncate">
+                          {path}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+                          No path available
+                        </p>
+                      )}
+                      {doc.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {doc.tags.slice(0, 5).map((tag, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {doc.tags.length > 5 && (
+                            <span className="text-[10px] text-gray-400">
+                              +{doc.tags.length - 5} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      {/* Preview button */}
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="text-xs"
-                        disabled={!path}
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewDoc(doc);
+                        }}
+                        title="Preview PDF"
                       >
-                        Use
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    )}
+                      {/* Select indicator */}
+                      {multiSelect ? (
+                        isChecked ? (
+                          <CheckSquare className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <Square className="h-5 w-5 text-gray-400" />
+                        )
+                      ) : isSelected ? (
+                        <Check className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs" disabled={!path}>
+                          Use
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
 
-            {/* Load more button */}
-            {hasMore && !isLoading && (
-              <Button
-                variant="outline"
-                className="w-full mt-2"
-                onClick={handleLoadMore}
-                disabled={isLoadingMore}
-              >
-                {isLoadingMore && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Load more results
-              </Button>
-            )}
-          </div>
-        )}
-
-          {/* Empty state */}
-          {!isLoading && !error && query && results.length === 0 && (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Start typing to search documents</p>
+              {/* Load more button */}
+              {hasMore && !isLoading && (
+                <Button
+                  variant="outline"
+                  className="w-full mt-2"
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Load more results
+                </Button>
+              )}
             </div>
           )}
 
-          {/* Initial state */}
-          {!query && !isLoading && isConfigured !== false && (
+          {/* No results found */}
+          {!showingRecent && !isLoading && !error && results.length === 0 && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              <FileText className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Search for courseware</p>
-              <p className="text-xs mt-1 text-gray-400">
-                Results will show the file path to use
-              </p>
+              <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No documents found</p>
             </div>
+          )}
+        </div>
+
+        {/* Multi-select selection tray */}
+        {multiSelect && selectedDocs.length > 0 && (
+          <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-3 mt-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {selectedDocs.length} document{selectedDocs.length > 1 ? 's' : ''} selected
+              </span>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDocs([])}>
+                  Clear
+                </Button>
+                <Button size="sm" onClick={handleAddSelected}>
+                  Add All
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Keyboard hints */}
+        <div className="text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-100 dark:border-gray-800">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
+            navigate
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Enter</kbd>
+            select
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Space</kbd>
+            preview
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Esc</kbd>
+            close
+          </span>
+          {multiSelect && selectedDocs.length > 0 && (
+            <span className="flex items-center gap-1">
+              <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Ctrl+Enter</kbd>
+              add all
+            </span>
           )}
         </div>
       </div>
@@ -640,6 +958,10 @@ export function PaperlessSearchModal({
         onClose={() => setPreviewDoc(null)}
         documentId={previewDoc?.id ?? null}
         documentTitle={previewDoc?.title}
+        onSelect={previewDoc ? () => {
+          handleSelect(previewDoc);
+          setPreviewDoc(null);
+        } : undefined}
       />
     </Modal>
   );

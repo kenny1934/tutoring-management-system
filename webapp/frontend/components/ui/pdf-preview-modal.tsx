@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { Loader2, ExternalLink, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -12,6 +12,7 @@ interface PdfPreviewModalProps {
   onClose: () => void;
   documentId: number | null;
   documentTitle?: string;
+  onSelect?: () => void;
 }
 
 export function PdfPreviewModal({
@@ -19,6 +20,7 @@ export function PdfPreviewModal({
   onClose,
   documentId,
   documentTitle,
+  onSelect,
 }: PdfPreviewModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,26 @@ export function PdfPreviewModal({
       setZoom(100);
     }
   }, [isOpen, documentId]);
+
+  // Keyboard shortcuts for preview modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && onSelect) {
+        e.preventDefault();
+        onSelect();
+      } else if (e.key === "o" || e.key === "O") {
+        e.preventDefault();
+        if (documentId) {
+          window.open(api.paperless.getPreviewUrl(documentId), "_blank");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onSelect, documentId]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -95,15 +117,31 @@ export function PdfPreviewModal({
               <ZoomIn className="h-4 w-4" />
             </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenInNewTab}
-            className="gap-1"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Open in new tab
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Keyboard hints */}
+            <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline">
+              {onSelect && "Enter to use · "}O to open in tab
+            </span>
+            {onSelect && (
+              <Button
+                size="sm"
+                onClick={onSelect}
+                className="gap-1"
+              >
+                <Check className="h-4 w-4" />
+                Use
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenInNewTab}
+              className="gap-1"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in new tab
+            </Button>
+          </div>
         </div>
 
         {/* PDF Viewer */}
