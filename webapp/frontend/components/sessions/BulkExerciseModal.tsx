@@ -130,13 +130,42 @@ export function BulkExerciseModal({
     setPaperlessSearchOpen(true);
   }, []);
 
-  // Handle file selected from Paperless search
+  // Handle file selected from Paperless search (single select)
   const handlePaperlessSelected = useCallback((path: string) => {
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
       setSearchingForIndex(null);
     }
   }, [searchingForIndex]);
+
+  // Handle multiple files selected from Paperless search
+  const handlePaperlessMultiSelect = useCallback((paths: string[]) => {
+    if (paths.length === 0) return;
+
+    if (searchingForIndex !== null) {
+      // First path goes to the current row
+      updateExercise(searchingForIndex, "pdf_name", paths[0]);
+
+      // Additional paths create new rows
+      if (paths.length > 1) {
+        setExercises((prev) => {
+          const newExercises = paths.slice(1).map((path) => ({
+            exercise_type: exerciseType,
+            pdf_name: path,
+            page_start: "",
+            page_end: "",
+            remarks: "",
+          }));
+          // Insert after the current index
+          const before = prev.slice(0, searchingForIndex + 1);
+          const after = prev.slice(searchingForIndex + 1);
+          return [...before, ...newExercises, ...after];
+        });
+      }
+
+      setSearchingForIndex(null);
+    }
+  }, [searchingForIndex, exerciseType]);
 
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
@@ -247,13 +276,13 @@ export function BulkExerciseModal({
       footer={
         <div className="flex justify-between items-center gap-3">
           <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌥N</kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+N</kbd>
             <span>add</span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌥⌫</kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+Del</kbd>
             <span>delete</span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">⌘↵</kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
             <span>save</span>
           </span>
           <div className="flex gap-3">
@@ -488,6 +517,8 @@ export function BulkExerciseModal({
           setSearchingForIndex(null);
         }}
         onSelect={handlePaperlessSelected}
+        multiSelect
+        onMultiSelect={handlePaperlessMultiSelect}
       />
     </Modal>
   );

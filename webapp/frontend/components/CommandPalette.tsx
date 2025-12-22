@@ -421,7 +421,7 @@ export function CommandPalette() {
           )}
           <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 max-sm:hidden">
             <kbd className="px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#3d3628]">
-              <Command className="h-3 w-3 inline" />K
+              Ctrl+K
             </kbd>
           </div>
           <button

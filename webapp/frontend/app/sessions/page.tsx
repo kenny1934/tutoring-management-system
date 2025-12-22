@@ -1341,7 +1341,7 @@ export default function SessionsPage() {
             <button
               onClick={() => setShowSelectDropdown(!showSelectDropdown)}
               className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Selection options (⌘A all, ⌘⇧A markable)"
+              title="Selection options (Ctrl+A all, Ctrl+Shift+A markable)"
             >
               <ChevronDown className="h-3 w-3" />
             </button>
@@ -1761,7 +1761,7 @@ export default function SessionsPage() {
                               <button
                                 onClick={(e) => { e.stopPropagation(); setSlotDropdownOpen(slotDropdownOpen === timeSlot ? null : timeSlot); }}
                                 className="p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                title="Selection options (⌘⇧A markable when focused)"
+                                title="Selection options (Ctrl+Shift+A markable when focused)"
                               >
                                 <ChevronDown className="h-3 w-3" />
                               </button>
@@ -2107,11 +2107,11 @@ export default function SessionsPage() {
                   <span>CW / HW</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">⌘+A</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+A</kbd>
                   <span>Select all</span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">⌘+⇧+A</kbd>
+                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Ctrl+Shift+A</kbd>
                   <span>Select markable</span>
                 </div>
                 <div className="flex justify-between gap-4">

@@ -96,7 +96,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               <Search className="h-3.5 w-3.5" />
               <span className="hidden sm:inline text-sm">Search</span>
               <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[10px] font-medium">
-                <Command className="h-2.5 w-2.5" />K
+                Ctrl+K
               </kbd>
             </button>
 
