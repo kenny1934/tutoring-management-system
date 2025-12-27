@@ -5,8 +5,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Session } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPath, printFileFromPath } from "@/lib/file-system";
+import type { Session, PageSelection } from "@/types";
+import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages } from "@/lib/file-system";
 import { FolderPickerModal } from "@/components/ui/folder-picker-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 
@@ -31,8 +31,10 @@ const getGradeColor = (grade: string | undefined, langStream: string | undefined
 export interface ExerciseFormItem {
   exercise_type: "CW" | "HW";
   pdf_name: string;
-  page_start: string;
-  page_end: string;
+  page_mode: 'simple' | 'custom';  // Tracks which page input mode is active
+  page_start: string;              // For simple mode
+  page_end: string;                // For simple mode
+  complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
 }
 
@@ -95,7 +97,7 @@ export function BulkExerciseModal({
   const addExercise = useCallback(() => {
     setExercises((prev) => [
       ...prev,
-      { exercise_type: exerciseType, pdf_name: "", page_start: "", page_end: "", remarks: "" },
+      { exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
     ]);
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
@@ -131,29 +133,61 @@ export function BulkExerciseModal({
   }, []);
 
   // Handle file selected from Paperless search (single select)
-  const handlePaperlessSelected = useCallback((path: string) => {
+  const handlePaperlessSelected = useCallback((path: string, pageSelection?: PageSelection) => {
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
+
+      // Auto-populate page fields based on selection and switch mode accordingly
+      if (pageSelection?.complexRange) {
+        // Complex range: set custom mode, clear simple range fields, set complex_pages
+        updateExercise(searchingForIndex, "page_mode", "custom");
+        updateExercise(searchingForIndex, "page_start", "");
+        updateExercise(searchingForIndex, "page_end", "");
+        updateExercise(searchingForIndex, "complex_pages", pageSelection.complexRange);
+      } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
+        // Simple range: set simple mode, set page fields, clear complex_pages
+        updateExercise(searchingForIndex, "page_mode", "simple");
+        updateExercise(searchingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
+        updateExercise(searchingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
+        updateExercise(searchingForIndex, "complex_pages", "");
+      }
+
       setSearchingForIndex(null);
     }
   }, [searchingForIndex]);
 
   // Handle multiple files selected from Paperless search
-  const handlePaperlessMultiSelect = useCallback((paths: string[]) => {
-    if (paths.length === 0) return;
+  const handlePaperlessMultiSelect = useCallback((selections: Array<{ path: string; pageSelection?: PageSelection }>) => {
+    if (selections.length === 0) return;
 
     if (searchingForIndex !== null) {
-      // First path goes to the current row
-      updateExercise(searchingForIndex, "pdf_name", paths[0]);
+      const first = selections[0];
+      // First selection goes to the current row
+      updateExercise(searchingForIndex, "pdf_name", first.path);
 
-      // Additional paths create new rows
-      if (paths.length > 1) {
+      // Apply page selection for the first item with mode switching
+      if (first.pageSelection?.complexRange) {
+        updateExercise(searchingForIndex, "page_mode", "custom");
+        updateExercise(searchingForIndex, "page_start", "");
+        updateExercise(searchingForIndex, "page_end", "");
+        updateExercise(searchingForIndex, "complex_pages", first.pageSelection.complexRange);
+      } else if (first.pageSelection?.pageStart !== undefined || first.pageSelection?.pageEnd !== undefined) {
+        updateExercise(searchingForIndex, "page_mode", "simple");
+        updateExercise(searchingForIndex, "page_start", first.pageSelection.pageStart?.toString() || "");
+        updateExercise(searchingForIndex, "page_end", first.pageSelection.pageEnd?.toString() || "");
+        updateExercise(searchingForIndex, "complex_pages", "");
+      }
+
+      // Additional selections create new rows
+      if (selections.length > 1) {
         setExercises((prev) => {
-          const newExercises = paths.slice(1).map((path) => ({
+          const newExercises = selections.slice(1).map(({ path, pageSelection }) => ({
             exercise_type: exerciseType,
             pdf_name: path,
-            page_start: "",
-            page_end: "",
+            page_mode: pageSelection?.complexRange ? 'custom' as const : 'simple' as const,
+            page_start: pageSelection?.complexRange ? "" : (pageSelection?.pageStart?.toString() || ""),
+            page_end: pageSelection?.complexRange ? "" : (pageSelection?.pageEnd?.toString() || ""),
+            complex_pages: pageSelection?.complexRange || "",
             remarks: "",
           }));
           // Insert after the current index
@@ -181,11 +215,20 @@ export function BulkExerciseModal({
     }
   }, [fileActionState]);
 
-  // Handle print file
-  const handlePrintFile = useCallback(async (index: number, path: string) => {
+  // Handle print file with page range support
+  const handlePrintFile = useCallback(async (index: number, exercise: ExerciseFormItem) => {
+    const path = exercise.pdf_name;
     if (!path || fileActionState[index]?.print === 'loading') return;
+
+    // Extract page range info
+    const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
+    const pageEnd = exercise.page_end ? parseInt(exercise.page_end, 10) : undefined;
+
+    // Use complex_pages directly (no more parsing from remarks)
+    const complexRange = exercise.complex_pages?.trim() || undefined;
+
     setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'loading' } }));
-    const error = await printFileFromPath(path);
+    const error = await printFileFromPathWithPages(path, pageStart, pageEnd, complexRange);
     if (error) {
       console.warn('Failed to print file:', error);
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'error' } }));
@@ -432,10 +475,10 @@ export function BulkExerciseModal({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handlePrintFile(index, exercise.pdf_name)}
+                              onClick={() => handlePrintFile(index, exercise)}
                               disabled={fileActionState[index]?.print === 'loading'}
                               className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                              title="Print PDF"
+                              title="Print PDF (with page range if specified)"
                             >
                               {fileActionState[index]?.print === 'loading' ? (
                                 <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
@@ -461,36 +504,131 @@ export function BulkExerciseModal({
                     </button>
                   </div>
 
-                  {/* Row 2: Start page, End page, Remarks */}
-                  <div className="flex gap-2">
+                  {/* Row 2: Page Range Mode Selection */}
+                  <div className="flex gap-2 items-start">
                     {/* Spacer matching row 1 badge container width */}
                     <div className="w-12 shrink-0" />
-                    <input
-                      type="number"
-                      value={exercise.page_start}
-                      onChange={(e) => updateExercise(index, "page_start", e.target.value)}
-                      onFocus={() => setFocusedRowIndex(index)}
-                      placeholder="Start page"
-                      min="1"
-                      className={cn(inputClass, "text-xs py-1.5 w-24")}
-                    />
-                    <input
-                      type="number"
-                      value={exercise.page_end}
-                      onChange={(e) => updateExercise(index, "page_end", e.target.value)}
-                      onFocus={() => setFocusedRowIndex(index)}
-                      placeholder="End page"
-                      min="1"
-                      className={cn(inputClass, "text-xs py-1.5 w-24")}
-                    />
-                    <input
-                      type="text"
-                      value={exercise.remarks}
-                      onChange={(e) => updateExercise(index, "remarks", e.target.value)}
-                      onFocus={() => setFocusedRowIndex(index)}
-                      placeholder="Remarks (optional)"
-                      className={cn(inputClass, "text-xs py-1.5 flex-1")}
-                    />
+
+                    {/* Page Range Section with Radio Toggle */}
+                    <div className="flex-1 space-y-1">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {/* Simple Range Mode */}
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 cursor-pointer transition-opacity",
+                            exercise.page_mode !== 'simple' && "opacity-50"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={`page-mode-${index}`}
+                            checked={exercise.page_mode === 'simple'}
+                            onChange={() => {
+                              updateExercise(index, "page_mode", "simple");
+                              updateExercise(index, "complex_pages", ""); // Clear custom field
+                            }}
+                            className="text-amber-500 focus:ring-amber-400"
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
+                          <input
+                            type="number"
+                            value={exercise.page_start}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'simple') {
+                                updateExercise(index, "page_mode", "simple");
+                                updateExercise(index, "complex_pages", "");
+                              }
+                              updateExercise(index, "page_start", e.target.value);
+                            }}
+                            onFocus={() => setFocusedRowIndex(index)}
+                            placeholder="From"
+                            min="1"
+                            disabled={exercise.page_mode !== 'simple'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 w-16",
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                            )}
+                          />
+                          <span className="text-xs text-gray-400">–</span>
+                          <input
+                            type="number"
+                            value={exercise.page_end}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'simple') {
+                                updateExercise(index, "page_mode", "simple");
+                                updateExercise(index, "complex_pages", "");
+                              }
+                              updateExercise(index, "page_end", e.target.value);
+                            }}
+                            onFocus={() => setFocusedRowIndex(index)}
+                            placeholder="To"
+                            min="1"
+                            disabled={exercise.page_mode !== 'simple'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 w-16",
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                            )}
+                          />
+                        </label>
+
+                        {/* Custom Range Mode */}
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 cursor-pointer transition-opacity flex-1 min-w-[180px]",
+                            exercise.page_mode !== 'custom' && "opacity-50"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={`page-mode-${index}`}
+                            checked={exercise.page_mode === 'custom'}
+                            onChange={() => {
+                              updateExercise(index, "page_mode", "custom");
+                              updateExercise(index, "page_start", ""); // Clear simple fields
+                              updateExercise(index, "page_end", "");
+                            }}
+                            className="text-amber-500 focus:ring-amber-400"
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
+                          <input
+                            type="text"
+                            value={exercise.complex_pages}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'custom') {
+                                updateExercise(index, "page_mode", "custom");
+                                updateExercise(index, "page_start", "");
+                                updateExercise(index, "page_end", "");
+                              }
+                              updateExercise(index, "complex_pages", e.target.value);
+                            }}
+                            onFocus={() => setFocusedRowIndex(index)}
+                            placeholder="e.g. 1,3,5-7"
+                            disabled={exercise.page_mode !== 'custom'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 flex-1",
+                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed"
+                            )}
+                            title="Custom page range (e.g., 1,3,5-7)"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Remarks row */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 w-14 shrink-0">Remarks:</span>
+                        <input
+                          type="text"
+                          value={exercise.remarks}
+                          onChange={(e) => updateExercise(index, "remarks", e.target.value)}
+                          onFocus={() => setFocusedRowIndex(index)}
+                          placeholder="Optional notes"
+                          className={cn(inputClass, "text-xs py-1 flex-1")}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

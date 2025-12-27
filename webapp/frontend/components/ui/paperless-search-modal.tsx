@@ -8,13 +8,14 @@ import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
+import type { PageSelection } from "@/types";
 
 interface PaperlessSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (path: string) => void;
+  onSelect: (path: string, pageSelection?: PageSelection) => void;
   multiSelect?: boolean;
-  onMultiSelect?: (paths: string[]) => void;
+  onMultiSelect?: (selections: Array<{ path: string; pageSelection?: PageSelection }>) => void;
 }
 
 export function PaperlessSearchModal({
@@ -43,8 +44,9 @@ export function PaperlessSearchModal({
 
   // New state for power-user features
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
-  const [selectedDocs, setSelectedDocs] = useState<PaperlessDocument[]>([]);
+  const [selectedDocs, setSelectedDocs] = useState<Array<{ doc: PaperlessDocument; pageSelection?: PageSelection }>>([]);
   const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
+  const [previewPageSelection, setPreviewPageSelection] = useState<PageSelection | undefined>(undefined);
 
   // Computed: show recent docs when query empty, search results when typing
   const showingRecent = !query.trim();
@@ -253,7 +255,7 @@ export function PaperlessSearchModal({
   }, [handleTagToggle]);
 
   // Handle document selection
-  const handleSelect = useCallback((doc: PaperlessDocument) => {
+  const handleSelect = useCallback((doc: PaperlessDocument, pageSelection?: PageSelection) => {
     const path = doc.converted_path || doc.original_path;
     if (!path) return;
 
@@ -268,17 +270,17 @@ export function PaperlessSearchModal({
     if (multiSelect) {
       // Toggle selection in multi-select mode
       setSelectedDocs((prev) => {
-        const exists = prev.some((d) => d.id === doc.id);
+        const exists = prev.some((d) => d.doc.id === doc.id);
         if (exists) {
-          return prev.filter((d) => d.id !== doc.id);
+          return prev.filter((d) => d.doc.id !== doc.id);
         }
-        return [...prev, doc];
+        return [...prev, { doc, pageSelection }];
       });
     } else {
       // Single select: close modal
       setSelectedId(doc.id);
       setTimeout(() => {
-        onSelect(path);
+        onSelect(path, pageSelection);
         onClose();
       }, 150);
     }
@@ -298,11 +300,11 @@ export function PaperlessSearchModal({
         correspondent: null,
       };
       setSelectedDocs((prev) => {
-        const exists = prev.some((d) => d.id === doc.id);
+        const exists = prev.some((d) => d.doc.id === doc.id);
         if (exists) {
-          return prev.filter((d) => d.id !== doc.id);
+          return prev.filter((d) => d.doc.id !== doc.id);
         }
-        return [...prev, doc];
+        return [...prev, { doc, pageSelection: undefined }];
       });
     } else {
       // Single select: close modal
@@ -318,12 +320,15 @@ export function PaperlessSearchModal({
   const handleAddSelected = useCallback(() => {
     if (selectedDocs.length === 0) return;
 
-    const paths = selectedDocs
-      .map((d) => d.converted_path || d.original_path)
-      .filter((p): p is string => !!p);
+    const selections = selectedDocs
+      .map(({ doc, pageSelection }) => ({
+        path: doc.converted_path || doc.original_path,
+        pageSelection,
+      }))
+      .filter((s): s is { path: string; pageSelection?: PageSelection } => !!s.path);
 
     if (onMultiSelect) {
-      onMultiSelect(paths);
+      onMultiSelect(selections);
     }
     onClose();
   }, [selectedDocs, onMultiSelect, onClose]);
@@ -664,7 +669,7 @@ export function PaperlessSearchModal({
                   </div>
                   <div ref={resultsRef} className="space-y-2 max-h-[320px] overflow-y-auto" role="listbox">
                     {recentDocs.map((recent, index) => {
-                      const isChecked = selectedDocs.some((d) => d.id === recent.id);
+                      const isChecked = selectedDocs.some((d) => d.doc.id === recent.id);
                       const isFocused = hasNavigated && focusedIndex === index;
 
                       return (
@@ -778,7 +783,7 @@ export function PaperlessSearchModal({
             <div ref={resultsRef} className="space-y-2 max-h-[350px] overflow-y-auto" role="listbox">
               {results.map((doc, index) => {
                 const path = doc.converted_path || doc.original_path;
-                const isChecked = selectedDocs.some((d) => d.id === doc.id);
+                const isChecked = selectedDocs.some((d) => d.doc.id === doc.id);
                 const isSelected = selectedId === doc.id;
                 const isFocused = hasNavigated && focusedIndex === index;
 
@@ -955,12 +960,17 @@ export function PaperlessSearchModal({
       {/* PDF Preview Modal */}
       <PdfPreviewModal
         isOpen={!!previewDoc}
-        onClose={() => setPreviewDoc(null)}
+        onClose={() => {
+          setPreviewDoc(null);
+          setPreviewPageSelection(undefined);
+        }}
         documentId={previewDoc?.id ?? null}
         documentTitle={previewDoc?.title}
-        onSelect={previewDoc ? () => {
-          handleSelect(previewDoc);
+        enablePageSelection={true}
+        onSelect={previewDoc ? (selection) => {
+          handleSelect(previewDoc, selection);
           setPreviewDoc(null);
+          setPreviewPageSelection(undefined);
         } : undefined}
       />
     </Modal>

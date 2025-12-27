@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ZoomIn, ZoomOut, RotateCw, Check } from "lucide-react";
+import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { validatePageRange } from "@/lib/pdf-utils";
+import type { PageSelection } from "@/types";
 
 interface PdfPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   documentId: number | null;
   documentTitle?: string;
-  onSelect?: () => void;
+  onSelect?: (selection?: PageSelection) => void;
+  enablePageSelection?: boolean;
 }
 
 export function PdfPreviewModal({
@@ -21,10 +24,18 @@ export function PdfPreviewModal({
   documentId,
   documentTitle,
   onSelect,
+  enablePageSelection = false,
 }: PdfPreviewModalProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+
+  // Page selection state
+  const [pageStart, setPageStart] = useState<string>("");
+  const [pageEnd, setPageEnd] = useState<string>("");
+  const [complexRange, setComplexRange] = useState<string>("");
+  const [useComplexRange, setUseComplexRange] = useState(false);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -32,17 +43,79 @@ export function PdfPreviewModal({
       setIsLoading(true);
       setError(null);
       setZoom(100);
+      // Reset page selection
+      setPageStart("");
+      setPageEnd("");
+      setComplexRange("");
+      setUseComplexRange(false);
+      setRangeError(null);
     }
   }, [isOpen, documentId]);
+
+  // Validate page range on change
+  useEffect(() => {
+    if (useComplexRange && complexRange) {
+      if (!validatePageRange(complexRange)) {
+        setRangeError("Invalid format. Use: 1,3,5-7");
+      } else {
+        setRangeError(null);
+      }
+    } else {
+      setRangeError(null);
+    }
+  }, [complexRange, useComplexRange]);
+
+  // Build PageSelection from current state
+  const buildPageSelection = useCallback((): PageSelection | undefined => {
+    if (!enablePageSelection) return undefined;
+
+    if (useComplexRange && complexRange.trim()) {
+      return { complexRange: complexRange.trim() };
+    }
+
+    const start = pageStart ? parseInt(pageStart, 10) : undefined;
+    const end = pageEnd ? parseInt(pageEnd, 10) : undefined;
+
+    if (start || end) {
+      return {
+        pageStart: start,
+        pageEnd: end || start, // If only start, use it as end too
+      };
+    }
+
+    return undefined;
+  }, [enablePageSelection, useComplexRange, complexRange, pageStart, pageEnd]);
+
+  // Handle select action
+  const handleSelect = useCallback(() => {
+    if (!onSelect) return;
+    if (rangeError) return; // Don't allow selection with invalid range
+
+    const selection = buildPageSelection();
+    onSelect(selection);
+  }, [onSelect, buildPageSelection, rangeError]);
 
   // Keyboard shortcuts for preview modal
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        // Allow Enter to submit from input fields
+        if (e.key === "Enter" && onSelect) {
+          e.preventDefault();
+          handleSelect();
+        }
+        return;
+      }
+
       if (e.key === "Enter" && onSelect) {
         e.preventDefault();
-        onSelect();
+        handleSelect();
       } else if (e.key === "o" || e.key === "O") {
         e.preventDefault();
         if (documentId) {
@@ -53,7 +126,7 @@ export function PdfPreviewModal({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onSelect, documentId]);
+  }, [isOpen, onSelect, documentId, handleSelect]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -81,6 +154,10 @@ export function PdfPreviewModal({
   if (!documentId) return null;
 
   const previewUrl = api.paperless.getPreviewUrl(documentId);
+  const hasPageSelection = enablePageSelection && (
+    (useComplexRange && complexRange.trim()) ||
+    (!useComplexRange && (pageStart || pageEnd))
+  );
 
   return (
     <Modal
@@ -125,11 +202,12 @@ export function PdfPreviewModal({
             {onSelect && (
               <Button
                 size="sm"
-                onClick={onSelect}
+                onClick={handleSelect}
+                disabled={!!rangeError}
                 className="gap-1"
               >
                 <Check className="h-4 w-4" />
-                Use
+                {hasPageSelection ? "Use with Pages" : "Use"}
               </Button>
             )}
             <Button
@@ -143,6 +221,107 @@ export function PdfPreviewModal({
             </Button>
           </div>
         </div>
+
+        {/* Page Selection UI */}
+        {enablePageSelection && (
+          <div className="py-3 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                Page Range:
+              </span>
+
+              {/* Mode toggle */}
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="rangeMode"
+                    checked={!useComplexRange}
+                    onChange={() => setUseComplexRange(false)}
+                    className="w-3.5 h-3.5 accent-amber-600"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Simple</span>
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="rangeMode"
+                    checked={useComplexRange}
+                    onChange={() => setUseComplexRange(true)}
+                    className="w-3.5 h-3.5 accent-amber-600"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Complex</span>
+                </label>
+              </div>
+
+              {/* Simple range inputs */}
+              {!useComplexRange && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Start"
+                    value={pageStart}
+                    onChange={(e) => setPageStart(e.target.value)}
+                    className={cn(
+                      "w-20 px-2 py-1.5 text-sm rounded-md border",
+                      "bg-white dark:bg-[#3d3427]",
+                      "border-[#d4c4a8] dark:border-[#5a4d3a]",
+                      "focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    )}
+                  />
+                  <span className="text-gray-400">to</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="End"
+                    value={pageEnd}
+                    onChange={(e) => setPageEnd(e.target.value)}
+                    className={cn(
+                      "w-20 px-2 py-1.5 text-sm rounded-md border",
+                      "bg-white dark:bg-[#3d3427]",
+                      "border-[#d4c4a8] dark:border-[#5a4d3a]",
+                      "focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Complex range input */}
+              {useComplexRange && (
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    placeholder="1,3,5-7,10"
+                    value={complexRange}
+                    onChange={(e) => setComplexRange(e.target.value)}
+                    className={cn(
+                      "w-full px-2 py-1.5 text-sm rounded-md border",
+                      "bg-white dark:bg-[#3d3427]",
+                      rangeError
+                        ? "border-red-400 dark:border-red-500"
+                        : "border-[#d4c4a8] dark:border-[#5a4d3a]",
+                      "focus:outline-none focus:ring-2",
+                      rangeError
+                        ? "focus:ring-red-500/50"
+                        : "focus:ring-amber-500/50"
+                    )}
+                  />
+                  {rangeError && (
+                    <p className="text-xs text-red-500 mt-1">{rangeError}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Optional helper text */}
+              <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline">
+                {useComplexRange
+                  ? "Commas for individual, hyphens for ranges"
+                  : "Leave empty to use all pages"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* PDF Viewer */}
         <div className="flex-1 relative overflow-auto bg-gray-100 dark:bg-gray-900 rounded-lg mt-3">

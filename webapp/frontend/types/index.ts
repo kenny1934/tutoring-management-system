@@ -313,3 +313,10 @@ export interface Holiday {
   holiday_date: string;  // ISO format (YYYY-MM-DD)
   holiday_name?: string;
 }
+
+// Page selection types (for PDF page range selection)
+export interface PageSelection {
+  pageStart?: number;
+  pageEnd?: number;
+  complexRange?: string;  // For non-consecutive pages: "1,3,5-7"
+}

@@ -62,9 +62,49 @@ interface ExerciseFormItem {
   id?: number;
   exercise_type: "CW" | "HW";
   pdf_name: string;
-  page_start: string;
-  page_end: string;
+  page_mode: 'simple' | 'custom';  // Tracks which page input mode is active
+  page_start: string;              // For simple mode
+  page_end: string;                // For simple mode
+  complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
+}
+
+// Parse DB remarks into separate complex_pages and remarks fields
+function parseExerciseRemarks(dbRemarks: string | null | undefined): { complexPages: string; remarks: string } {
+  if (!dbRemarks) return { complexPages: '', remarks: '' };
+
+  if (dbRemarks.startsWith('Pages: ')) {
+    const delimiterIdx = dbRemarks.indexOf(' || ');
+    if (delimiterIdx > 0) {
+      return {
+        complexPages: dbRemarks.substring(7, delimiterIdx),
+        remarks: dbRemarks.substring(delimiterIdx + 4)
+      };
+    }
+    // No remarks, just pages
+    return { complexPages: dbRemarks.substring(7), remarks: '' };
+  }
+
+  // No pages, just remarks
+  return { complexPages: '', remarks: dbRemarks };
+}
+
+// Detect page mode based on which fields have values
+function detectPageMode(pageStart: string | number | null | undefined, pageEnd: string | number | null | undefined, complexPages: string): 'simple' | 'custom' {
+  // If complex pages has content, use custom mode
+  if (complexPages && complexPages.trim()) return 'custom';
+  // If simple range has content, use simple mode
+  if ((pageStart && String(pageStart).trim()) || (pageEnd && String(pageEnd).trim())) return 'simple';
+  // Default to simple mode
+  return 'simple';
+}
+
+// Combine complex_pages and remarks for DB storage
+function combineExerciseRemarks(complexPages: string, remarks: string): string {
+  const parts: string[] = [];
+  if (complexPages.trim()) parts.push(`Pages: ${complexPages.trim()}`);
+  if (remarks.trim()) parts.push(remarks.trim());
+  return parts.join(' || ');
 }
 
 // Parse time_slot "16:45 - 18:15" (24-hour format) to { start: "16:45", end: "18:15" }
@@ -134,14 +174,20 @@ export function EditSessionModal({
       session_status: session.session_status,
       performance_rating: parseStarRating(session.performance_rating),
       notes: session.notes || "",
-      exercises: (session.exercises || []).map((ex) => ({
-        id: ex.id,
-        exercise_type: ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type as "CW" | "HW",
-        pdf_name: ex.pdf_name,
-        page_start: ex.page_start?.toString() || "",
-        page_end: ex.page_end?.toString() || "",
-        remarks: ex.remarks || "",
-      })),
+      exercises: (session.exercises || []).map((ex) => {
+        const { complexPages, remarks } = parseExerciseRemarks(ex.remarks);
+        const pageMode = detectPageMode(ex.page_start, ex.page_end, complexPages);
+        return {
+          id: ex.id,
+          exercise_type: ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type as "CW" | "HW",
+          pdf_name: ex.pdf_name,
+          page_mode: pageMode,
+          page_start: ex.page_start?.toString() || "",
+          page_end: ex.page_end?.toString() || "",
+          complex_pages: complexPages,
+          remarks: remarks,
+        };
+      }),
     };
   });
 
@@ -159,14 +205,20 @@ export function EditSessionModal({
         session_status: session.session_status,
         performance_rating: parseStarRating(session.performance_rating),
         notes: session.notes || "",
-        exercises: (session.exercises || []).map((ex) => ({
-          id: ex.id,
-          exercise_type: ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type as "CW" | "HW",
-          pdf_name: ex.pdf_name,
-          page_start: ex.page_start?.toString() || "",
-          page_end: ex.page_end?.toString() || "",
-          remarks: ex.remarks || "",
-        })),
+        exercises: (session.exercises || []).map((ex) => {
+          const { complexPages, remarks } = parseExerciseRemarks(ex.remarks);
+          const pageMode = detectPageMode(ex.page_start, ex.page_end, complexPages);
+          return {
+            id: ex.id,
+            exercise_type: ex.exercise_type === "Classwork" ? "CW" : ex.exercise_type === "Homework" ? "HW" : ex.exercise_type as "CW" | "HW",
+            pdf_name: ex.pdf_name,
+            page_mode: pageMode,
+            page_start: ex.page_start?.toString() || "",
+            page_end: ex.page_end?.toString() || "",
+            complex_pages: complexPages,
+            remarks: remarks,
+          };
+        }),
       });
     }
     if (!isOpen) {
@@ -203,15 +255,15 @@ export function EditSessionModal({
       notes: currentForm.notes || undefined,
     };
 
-    // Build exercises for optimistic update
+    // Build exercises for optimistic update - mode-aware
     const optimisticExercises = currentForm.exercises.map((ex, idx) => ({
       id: ex.id || Date.now() + idx,
       session_id: sessionId,
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name,
-      page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-      page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-      remarks: ex.remarks || null,
+      page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
+      page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
+      remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
     }));
 
     // Build optimistic session state
@@ -233,15 +285,15 @@ export function EditSessionModal({
     // Close modal
     onClose();
 
-    // Save exercises - split by type for API
+    // Save exercises - split by type for API, mode-aware
     const cwExercises = currentForm.exercises
       .filter((ex) => ex.exercise_type === "CW")
       .map((ex) => ({
         exercise_type: ex.exercise_type,
         pdf_name: ex.pdf_name,
-        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-        remarks: ex.remarks || null,
+        page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
+        page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
+        remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
       }));
 
     const hwExercises = currentForm.exercises
@@ -249,9 +301,9 @@ export function EditSessionModal({
       .map((ex) => ({
         exercise_type: ex.exercise_type,
         pdf_name: ex.pdf_name,
-        page_start: ex.page_start ? parseInt(ex.page_start, 10) : null,
-        page_end: ex.page_end ? parseInt(ex.page_end, 10) : null,
-        remarks: ex.remarks || null,
+        page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
+        page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
+        remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
       }));
 
     // Save in background - will update cache again with server state
@@ -290,7 +342,7 @@ export function EditSessionModal({
       ...prev,
       exercises: [
         ...prev.exercises,
-        { exercise_type: type, pdf_name: "", page_start: "", page_end: "", remarks: "" },
+        { exercise_type: type, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
       ],
     }));
   };
@@ -595,50 +647,130 @@ export function EditSessionModal({
                     </div>
 
                     {/* Fields */}
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <div className="sm:col-span-2">
-                        <input
-                          type="text"
-                          value={exercise.pdf_name}
-                          onChange={(e) =>
-                            updateExercise(index, "pdf_name", e.target.value)
-                          }
-                          placeholder="PDF name or path"
-                          className={cn(inputClass, "text-xs py-1.5")}
-                        />
+                    <div className="flex-1 space-y-2">
+                      {/* PDF Name */}
+                      <input
+                        type="text"
+                        value={exercise.pdf_name}
+                        onChange={(e) =>
+                          updateExercise(index, "pdf_name", e.target.value)
+                        }
+                        placeholder="PDF name or path"
+                        className={cn(inputClass, "text-xs py-1.5")}
+                      />
+
+                      {/* Page Range Mode Selection */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1">
+                        {/* Simple Range Mode */}
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 cursor-pointer transition-opacity",
+                            exercise.page_mode !== 'simple' && "opacity-50"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={`page-mode-edit-${index}`}
+                            checked={exercise.page_mode === 'simple'}
+                            onChange={() => {
+                              updateExercise(index, "page_mode", "simple");
+                              updateExercise(index, "complex_pages", "");
+                            }}
+                            className="text-amber-500 focus:ring-amber-400"
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
+                          <input
+                            type="number"
+                            value={exercise.page_start}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'simple') {
+                                updateExercise(index, "page_mode", "simple");
+                                updateExercise(index, "complex_pages", "");
+                              }
+                              updateExercise(index, "page_start", e.target.value);
+                            }}
+                            placeholder="From"
+                            min="1"
+                            disabled={exercise.page_mode !== 'simple'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 w-16",
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                            )}
+                          />
+                          <span className="text-xs text-gray-400">–</span>
+                          <input
+                            type="number"
+                            value={exercise.page_end}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'simple') {
+                                updateExercise(index, "page_mode", "simple");
+                                updateExercise(index, "complex_pages", "");
+                              }
+                              updateExercise(index, "page_end", e.target.value);
+                            }}
+                            placeholder="To"
+                            min="1"
+                            disabled={exercise.page_mode !== 'simple'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 w-16",
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                            )}
+                          />
+                        </label>
+
+                        {/* Custom Range Mode */}
+                        <label
+                          className={cn(
+                            "flex items-center gap-2 cursor-pointer transition-opacity flex-1 min-w-[180px]",
+                            exercise.page_mode !== 'custom' && "opacity-50"
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name={`page-mode-edit-${index}`}
+                            checked={exercise.page_mode === 'custom'}
+                            onChange={() => {
+                              updateExercise(index, "page_mode", "custom");
+                              updateExercise(index, "page_start", "");
+                              updateExercise(index, "page_end", "");
+                            }}
+                            className="text-amber-500 focus:ring-amber-400"
+                          />
+                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
+                          <input
+                            type="text"
+                            value={exercise.complex_pages}
+                            onChange={(e) => {
+                              if (exercise.page_mode !== 'custom') {
+                                updateExercise(index, "page_mode", "custom");
+                                updateExercise(index, "page_start", "");
+                                updateExercise(index, "page_end", "");
+                              }
+                              updateExercise(index, "complex_pages", e.target.value);
+                            }}
+                            placeholder="e.g. 1,3,5-7"
+                            disabled={exercise.page_mode !== 'custom'}
+                            className={cn(
+                              inputClass,
+                              "text-xs py-1 flex-1",
+                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed"
+                            )}
+                            title="Custom page range (e.g., 1,3,5-7)"
+                          />
+                        </label>
                       </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={exercise.page_start}
-                          onChange={(e) =>
-                            updateExercise(index, "page_start", e.target.value)
-                          }
-                          placeholder="Start page"
-                          min="1"
-                          className={cn(inputClass, "text-xs py-1.5")}
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          value={exercise.page_end}
-                          onChange={(e) =>
-                            updateExercise(index, "page_end", e.target.value)
-                          }
-                          placeholder="End page"
-                          min="1"
-                          className={cn(inputClass, "text-xs py-1.5")}
-                        />
-                      </div>
-                      {/* Remarks - spans full grid width */}
-                      <div className="sm:col-span-4">
+
+                      {/* Remarks */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400 w-14 shrink-0">Remarks:</span>
                         <input
                           type="text"
                           value={exercise.remarks}
                           onChange={(e) => updateExercise(index, "remarks", e.target.value)}
-                          placeholder="Remarks"
-                          className={cn(inputClass, "text-xs py-1.5")}
+                          placeholder="Optional notes"
+                          className={cn(inputClass, "text-xs py-1 flex-1")}
                         />
                       </div>
                     </div>
