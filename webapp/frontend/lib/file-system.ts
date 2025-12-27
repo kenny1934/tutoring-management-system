@@ -4,6 +4,10 @@
  * Only works in Chrome/Edge - check isFileSystemAccessSupported() before use.
  */
 
+import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, PrintStampInfo, BulkPrintItem } from './pdf-utils';
+
+export type { PrintStampInfo, BulkPrintItem } from './pdf-utils';
+
 const DB_NAME = 'file-system-access';
 const DB_VERSION = 3; // Bumped for path mappings
 const FOLDERS_STORE = 'folders';
@@ -435,6 +439,100 @@ export async function printFile(handle: FileSystemFileHandle): Promise<boolean> 
 }
 
 /**
+ * Print specific pages from a PDF file using PDF.js extraction.
+ * Falls back to printing entire file if page extraction fails.
+ *
+ * @param handle - File handle to the PDF
+ * @param pageStart - Start page (1-indexed)
+ * @param pageEnd - End page (1-indexed)
+ * @param complexRange - Complex range string like "1,3,5-7"
+ * @param stamp - Optional stamp info to display on each page
+ */
+export async function printFilePages(
+  handle: FileSystemFileHandle,
+  pageStart?: number,
+  pageEnd?: number,
+  complexRange?: string,
+  stamp?: PrintStampInfo
+): Promise<boolean> {
+  // If no page specification, print entire file
+  if (!pageStart && !pageEnd && !complexRange) {
+    console.log('[Print] No page range specified, printing entire file');
+    return printFile(handle);
+  }
+
+  console.log('[Print] Page range requested:', { pageStart, pageEnd, complexRange });
+
+  try {
+    const file = await handle.getFile();
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Determine which pages to extract
+    let pageNumbers: number[];
+
+    if (complexRange) {
+      // Parse complex range (from pdf-utils)
+      pageNumbers = parsePageRange(complexRange);
+      console.log('[Print] Complex range parsed:', pageNumbers);
+    } else if (pageStart !== undefined) {
+      // Simple range (pageEnd defaults to pageStart if not specified)
+      const start = pageStart;
+      const end = pageEnd !== undefined ? pageEnd : pageStart;
+      pageNumbers = Array.from(
+        { length: end - start + 1 },
+        (_, i) => start + i
+      );
+      console.log('[Print] Simple range:', pageNumbers);
+    } else {
+      // Shouldn't happen, but fallback
+      console.log('[Print] Unexpected state, printing entire file');
+      return printFile(handle);
+    }
+
+    if (pageNumbers.length === 0) {
+      console.log('[Print] No pages to extract, printing entire file');
+      return printFile(handle);
+    }
+
+    console.log('[Print] Extracting pages:', pageNumbers);
+
+    // Extract pages using pdf-utils (with optional stamp)
+    const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
+    console.log('[Print] Extraction successful, blob size:', extractedBlob.size);
+
+    // Create URL and print
+    const url = URL.createObjectURL(extractedBlob);
+    const printWindow = window.open(url, '_blank', 'width=800,height=600');
+
+    if (!printWindow) {
+      console.error('[Print] Popup blocked');
+      URL.revokeObjectURL(url);
+      return false;
+    }
+
+    // Wait for the window to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+
+    // Clean up after printing
+    printWindow.onafterprint = () => {
+      printWindow.close();
+      URL.revokeObjectURL(url);
+    };
+
+    return true;
+  } catch (err) {
+    console.error('[Print] Failed to extract pages:', err);
+    console.error('[Print] Falling back to printing entire file');
+    // Fallback to printing entire file
+    return printFile(handle);
+  }
+}
+
+/**
  * Convenience function to open a file from a path string.
  */
 export async function openFileFromPath(path: string): Promise<FileOperationResult['error'] | null> {
@@ -455,6 +553,31 @@ export async function printFileFromPath(path: string): Promise<FileOperationResu
     return result.error;
   }
   const printed = await printFile(result.handle);
+  return printed ? null : 'file_not_found';
+}
+
+/**
+ * Convenience function to print specific pages from a PDF file using a path string.
+ * Uses PDF.js to extract and print only the specified pages.
+ *
+ * @param path - File path string
+ * @param pageStart - Start page (1-indexed)
+ * @param pageEnd - End page (1-indexed)
+ * @param complexRange - Complex range string like "1,3,5-7"
+ * @param stamp - Optional stamp info to display on each page
+ */
+export async function printFileFromPathWithPages(
+  path: string,
+  pageStart?: number,
+  pageEnd?: number,
+  complexRange?: string,
+  stamp?: PrintStampInfo
+): Promise<FileOperationResult['error'] | null> {
+  const result = await getFileHandleFromPath(path);
+  if (!result.success) {
+    return result.error;
+  }
+  const printed = await printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp);
   return printed ? null : 'file_not_found';
 }
 
@@ -611,4 +734,138 @@ export async function hasAliasPrefix(path: string): Promise<boolean> {
 export function extractDriveLetter(path: string): string | null {
   const match = path.match(/^([A-Za-z]:)/);
   return match ? match[1].toUpperCase() : null;
+}
+
+// ============================================================================
+// Bulk Print Functions
+// ============================================================================
+
+/**
+ * Exercise info for bulk printing
+ */
+export interface BulkPrintExercise {
+  pdf_name: string;
+  page_start?: string | number;
+  page_end?: string | number;
+  complex_pages?: string;  // e.g., "1,3,5-7"
+  remarks?: string;  // For reference only, not used for page parsing
+}
+
+/**
+ * Print multiple PDFs in a single print job.
+ * Combines all specified pages from all PDFs into one printable document.
+ *
+ * @param exercises - Array of exercises with PDF paths and page ranges
+ * @param stamp - Optional stamp info to display on each page
+ * @returns null on success, error string on failure
+ */
+export async function printBulkFiles(
+  exercises: BulkPrintExercise[],
+  stamp?: PrintStampInfo
+): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
+  if (!isFileSystemAccessSupported()) {
+    return 'not_supported';
+  }
+
+  // Filter exercises that have valid PDF paths
+  const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+  if (validExercises.length === 0) {
+    return 'no_valid_files';
+  }
+
+  console.log('[BulkPrint] Processing', validExercises.length, 'exercises');
+
+  const bulkItems: BulkPrintItem[] = [];
+
+  for (const exercise of validExercises) {
+    // Get file handle
+    const result = await getFileHandleFromPath(exercise.pdf_name);
+    if (!result.success) {
+      console.warn('[BulkPrint] Failed to get file handle for:', exercise.pdf_name, result.error);
+      continue;
+    }
+
+    try {
+      const file = await result.handle.getFile();
+      const arrayBuffer = await file.arrayBuffer();
+
+      // Determine which pages to extract
+      let pageNumbers: number[];
+
+      // Use complex_pages directly (no more parsing from remarks)
+      const complexRange = exercise.complex_pages?.trim();
+
+      if (complexRange) {
+        pageNumbers = parsePageRange(complexRange);
+        console.log('[BulkPrint] Complex range for', exercise.pdf_name, ':', pageNumbers);
+      } else {
+        const pageStart = exercise.page_start
+          ? (typeof exercise.page_start === 'string' ? parseInt(exercise.page_start, 10) : exercise.page_start)
+          : undefined;
+        const pageEnd = exercise.page_end
+          ? (typeof exercise.page_end === 'string' ? parseInt(exercise.page_end, 10) : exercise.page_end)
+          : undefined;
+
+        if (pageStart !== undefined && !isNaN(pageStart)) {
+          const end = pageEnd !== undefined && !isNaN(pageEnd) ? pageEnd : pageStart;
+          pageNumbers = Array.from({ length: end - pageStart + 1 }, (_, i) => pageStart + i);
+          console.log('[BulkPrint] Simple range for', exercise.pdf_name, ':', pageNumbers);
+        } else {
+          // No page range specified - will use all pages
+          // We pass an empty array and let extractBulkPagesForPrint handle getting all pages
+          pageNumbers = [];
+          console.log('[BulkPrint] All pages (to be determined) for', exercise.pdf_name);
+        }
+      }
+
+      // pageNumbers.length === 0 means "all pages" - let extractBulkPagesForPrint handle it
+      bulkItems.push({
+        pdfData: arrayBuffer,
+        pageNumbers,
+        label: exercise.pdf_name,
+      });
+    } catch (err) {
+      console.warn('[BulkPrint] Failed to process file:', exercise.pdf_name, err);
+    }
+  }
+
+  if (bulkItems.length === 0) {
+    return 'no_valid_files';
+  }
+
+  console.log('[BulkPrint] Extracting pages from', bulkItems.length, 'PDFs');
+
+  try {
+    // Extract and combine all pages
+    const combinedBlob = await extractBulkPagesForPrint(bulkItems, stamp);
+    console.log('[BulkPrint] Combined blob size:', combinedBlob.size);
+
+    // Create URL and print
+    const url = URL.createObjectURL(combinedBlob);
+    const printWindow = window.open(url, '_blank', 'width=800,height=600');
+
+    if (!printWindow) {
+      console.error('[BulkPrint] Popup blocked');
+      URL.revokeObjectURL(url);
+      return 'print_failed';
+    }
+
+    // Wait for the window to load, then print
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+
+    // Clean up after printing
+    printWindow.onafterprint = () => {
+      printWindow.close();
+      URL.revokeObjectURL(url);
+    };
+
+    return null;
+  } catch (err) {
+    console.error('[BulkPrint] Failed to create combined print:', err);
+    return 'print_failed';
+  }
 }
