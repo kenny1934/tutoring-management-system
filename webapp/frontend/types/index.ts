@@ -18,6 +18,7 @@ export interface Student {
   home_location?: string;
   academic_stream?: string;
   enrollment_count?: number;
+  enrollments?: Enrollment[];
 }
 
 // Enrollment types
@@ -39,6 +40,7 @@ export interface Enrollment {
   grade?: string;
   school?: string;
   lang_stream?: string;
+  school_student_id?: string;
   deadline_extension_weeks?: number;
   last_modified_time?: string;
   student?: Student;
@@ -135,7 +137,7 @@ export interface Session {
   id: number;
   enrollment_id: number;
   student_id: number;
-  tutor_id: number;
+  tutor_id: number | null;
   session_date: string;
   time_slot: string;
   location?: string;

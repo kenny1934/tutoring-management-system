@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const { viewMode } = useRole();
   const [activeSection, setActiveSection] = useState<SettingsSection>(null);
 
-  const isAdmin = viewMode === "admin";
+  const isAdmin = viewMode === "center-view";
 
   const settingsItems = [
     {

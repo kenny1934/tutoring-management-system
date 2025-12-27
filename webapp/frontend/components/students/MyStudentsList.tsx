@@ -413,7 +413,7 @@ export function MyStudentsList({
   const handleSortClick = (option: SortOption) => {
     if (sortOption === option) {
       // Toggle direction
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       // Change sort option, reset to asc
       onSortChange(option);
