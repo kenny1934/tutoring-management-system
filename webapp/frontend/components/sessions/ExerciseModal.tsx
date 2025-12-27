@@ -170,9 +170,10 @@ export function ExerciseModal({
       session_id: sessionId,
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name,
-      page_start: ex.page_start,
-      page_end: ex.page_end,
-      remarks: ex.remarks,
+      page_start: ex.page_start ?? undefined,
+      page_end: ex.page_end ?? undefined,
+      remarks: ex.remarks ?? undefined,
+      created_by: session.tutor_name || 'user', // for optimistic update
     }));
 
     const optimisticSession = {

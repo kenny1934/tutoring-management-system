@@ -261,9 +261,10 @@ export function EditSessionModal({
       session_id: sessionId,
       exercise_type: ex.exercise_type,
       pdf_name: ex.pdf_name,
-      page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
-      page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
-      remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
+      page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : undefined,
+      page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : undefined,
+      remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || undefined,
+      created_by: session.tutor_name || 'user', // for optimistic update
     }));
 
     // Build optimistic session state
@@ -271,11 +272,11 @@ export function EditSessionModal({
       ...session,
       session_date: currentForm.session_date,
       time_slot: formatTimeSlot(currentForm.time_slot_start, currentForm.time_slot_end),
-      location: currentForm.location || null,
+      location: currentForm.location || undefined,
       tutor_id: currentForm.tutor_id,
       session_status: currentForm.session_status,
-      performance_rating: currentForm.performance_rating > 0 ? ratingToEmoji(currentForm.performance_rating) : null,
-      notes: currentForm.notes || null,
+      performance_rating: currentForm.performance_rating > 0 ? ratingToEmoji(currentForm.performance_rating) : undefined,
+      notes: currentForm.notes || undefined,
       exercises: optimisticExercises,
     };
 

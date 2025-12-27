@@ -11,7 +11,14 @@ export type StatusType =
 interface StatusBadgeProps {
   status: string;
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
+
+const sizeClasses = {
+  sm: 'text-[10px] px-1.5 py-0.5',
+  md: 'text-xs px-2.5 py-0.5',
+  lg: 'text-sm px-3 py-1',
+};
 
 /**
  * StatusBadge component with CSM Pro color scheme
@@ -22,13 +29,14 @@ interface StatusBadgeProps {
  * Red (#EF5350): Cancelled, Urgent, Overdue
  * Gray: Inactive, Unknown, Default
  */
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, className, size = 'md' }: StatusBadgeProps) {
   const statusType = getStatusType(status);
   const variant = getStatusVariant(statusType);
   const colorClass = getStatusColorClass(statusType);
+  const sizeClass = sizeClasses[size];
 
   return (
-    <Badge variant={variant} className={cn(colorClass, className)}>
+    <Badge variant={variant} className={cn(colorClass, sizeClass, className)}>
       {status}
     </Badge>
   );

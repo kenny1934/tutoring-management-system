@@ -72,8 +72,8 @@ export function RateSessionModal({
     // Build optimistic session state
     const optimisticSession = {
       ...session,
-      performance_rating: ratingEmoji,
-      notes: currentNotes || null,
+      performance_rating: ratingEmoji || undefined,
+      notes: currentNotes || undefined,
     };
 
     // Update cache IMMEDIATELY (optimistic)

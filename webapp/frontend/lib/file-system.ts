@@ -8,6 +8,16 @@ import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, PrintSt
 
 export type { PrintStampInfo, BulkPrintItem } from './pdf-utils';
 
+// Extend FileSystemDirectoryHandle with methods not in default TypeScript lib.dom.d.ts
+declare global {
+  interface FileSystemDirectoryHandle {
+    queryPermission(options?: { mode: 'read' | 'readwrite' }): Promise<PermissionState>;
+    requestPermission(options?: { mode: 'read' | 'readwrite' }): Promise<PermissionState>;
+    entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+    resolve(possibleDescendant: FileSystemHandle): Promise<string[] | null>;
+  }
+}
+
 const DB_NAME = 'file-system-access';
 const DB_VERSION = 3; // Bumped for path mappings
 const FOLDERS_STORE = 'folders';
@@ -237,7 +247,6 @@ async function getRelativePath(
 ): Promise<string | null> {
   // First try the native resolve method (Chrome 122+)
   try {
-    // @ts-expect-error - resolve exists in newer Chrome
     const pathParts = await rootHandle.resolve(fileHandle);
     if (pathParts) {
       return pathParts.join('\\');
@@ -326,11 +335,16 @@ export async function clearAllFolders(): Promise<void> {
 }
 
 /**
+ * Error type for file operations.
+ */
+export type FileOperationError = 'not_supported' | 'folder_not_found' | 'file_not_found' | 'permission_denied';
+
+/**
  * Result type for file operations.
  */
 export type FileOperationResult =
   | { success: true; handle: FileSystemFileHandle }
-  | { success: false; error: 'not_supported' | 'folder_not_found' | 'file_not_found' | 'permission_denied' };
+  | { success: false; error: FileOperationError };
 
 /**
  * Get a file handle from a saved path string.
@@ -535,7 +549,7 @@ export async function printFilePages(
 /**
  * Convenience function to open a file from a path string.
  */
-export async function openFileFromPath(path: string): Promise<FileOperationResult['error'] | null> {
+export async function openFileFromPath(path: string): Promise<FileOperationError | null> {
   const result = await getFileHandleFromPath(path);
   if (!result.success) {
     return result.error;
@@ -547,7 +561,7 @@ export async function openFileFromPath(path: string): Promise<FileOperationResul
 /**
  * Convenience function to print a file from a path string.
  */
-export async function printFileFromPath(path: string): Promise<FileOperationResult['error'] | null> {
+export async function printFileFromPath(path: string): Promise<FileOperationError | null> {
   const result = await getFileHandleFromPath(path);
   if (!result.success) {
     return result.error;
@@ -572,7 +586,7 @@ export async function printFileFromPathWithPages(
   pageEnd?: number,
   complexRange?: string,
   stamp?: PrintStampInfo
-): Promise<FileOperationResult['error'] | null> {
+): Promise<FileOperationError | null> {
   const result = await getFileHandleFromPath(path);
   if (!result.success) {
     return result.error;

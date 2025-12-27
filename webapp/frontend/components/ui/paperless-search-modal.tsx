@@ -325,7 +325,7 @@ export function PaperlessSearchModal({
         path: doc.converted_path || doc.original_path,
         pageSelection,
       }))
-      .filter((s): s is { path: string; pageSelection?: PageSelection } => !!s.path);
+      .filter((s): s is { path: string; pageSelection: PageSelection | undefined } => !!s.path);
 
     if (onMultiSelect) {
       onMultiSelect(selections);
