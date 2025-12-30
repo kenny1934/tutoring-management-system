@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
-import type { PageSelection } from "@/types";
+import { useCoursewarePopularity } from "@/lib/hooks";
+import type { PageSelection, CoursewarePopularity } from "@/types";
 
 interface PaperlessSearchModalProps {
   isOpen: boolean;
@@ -16,6 +17,10 @@ interface PaperlessSearchModalProps {
   onSelect: (path: string, pageSelection?: PageSelection) => void;
   multiSelect?: boolean;
   onMultiSelect?: (selections: Array<{ path: string; pageSelection?: PageSelection }>) => void;
+  // Optional context for trending suggestions
+  exerciseType?: 'CW' | 'HW';
+  studentGrade?: string;
+  school?: string;
 }
 
 export function PaperlessSearchModal({
@@ -24,6 +29,9 @@ export function PaperlessSearchModal({
   onSelect,
   multiSelect = false,
   onMultiSelect,
+  exerciseType,
+  studentGrade,
+  school,
 }: PaperlessSearchModalProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PaperlessDocument[]>([]);
@@ -50,6 +58,15 @@ export function PaperlessSearchModal({
 
   // Computed: show recent docs when query empty, search results when typing
   const showingRecent = !query.trim();
+
+  // Fetch trending courseware when context is provided
+  const { data: trendingData } = useCoursewarePopularity(
+    'recent',
+    exerciseType,  // Pass directly - API expects 'CW' or 'HW', not 'Classwork'/'Homework'
+    studentGrade,
+    school
+  );
+  const topTrending = trendingData?.slice(0, 10) || [];
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -315,6 +332,16 @@ export function PaperlessSearchModal({
       }, 150);
     }
   }, [multiSelect, onSelect, onClose]);
+
+  // Handle selecting from trending courseware
+  const handleSelectTrending = useCallback((item: CoursewarePopularity) => {
+    // Get first path from comma-separated list
+    const path = item.normalized_paths.split(',')[0]?.trim();
+    if (path) {
+      onSelect(path);
+      onClose();
+    }
+  }, [onSelect, onClose]);
 
   // Handle adding all selected docs
   const handleAddSelected = useCallback(() => {
@@ -650,9 +677,43 @@ export function PaperlessSearchModal({
 
         {/* Results/Recent area with stable height */}
         <div className="min-h-[350px]">
-          {/* Recent Documents - shown when query is empty */}
+          {/* Trending + Recent - shown when query is empty */}
           {showingRecent && (
             <>
+              {/* Trending section */}
+              {topTrending.length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                    <TrendingUp className="h-3 w-3" />
+                    <span>
+                      Trending
+                      {studentGrade && ` for ${studentGrade}`}
+                      {school && ` @ ${school}`}
+                    </span>
+                    <span className="text-gray-400 dark:text-gray-500">(Last 14 days)</span>
+                  </div>
+                  <div className="space-y-1">
+                    {topTrending.map((item, index) => (
+                      <button
+                        key={item.filename}
+                        onClick={() => handleSelectTrending(item)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg border transition-all",
+                          "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
+                          "hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-sm",
+                          "flex items-center gap-2"
+                        )}
+                      >
+                        {index < 3 && <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+                        <span className="flex-1 truncate text-sm text-gray-900 dark:text-gray-100">{item.filename}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{item.assignment_count}×</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Documents */}
               {recentDocs.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between mb-2">
