@@ -831,6 +831,10 @@ export function ExerciseModal({
         onSelect={handlePaperlessSelected}
         multiSelect
         onMultiSelect={handlePaperlessMultiSelect}
+        // Pass session context for filtered trending suggestions
+        exerciseType={exerciseType}
+        studentGrade={session.grade}
+        school={session.school}
       />
     </Modal>
   );
