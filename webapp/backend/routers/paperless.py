@@ -25,9 +25,9 @@ _tag_cache: Dict[int, str] = {}
 _tag_cache_expiry: float = 0
 TAG_CACHE_TTL = 3600  # 1 hour
 
-# Rate limiting: 30 requests per minute per endpoint
+# Rate limiting: 100 requests per minute per endpoint
 _request_counts: Dict[str, List[float]] = defaultdict(list)
-RATE_LIMIT = 30
+RATE_LIMIT = 100
 RATE_WINDOW = 60  # seconds
 
 

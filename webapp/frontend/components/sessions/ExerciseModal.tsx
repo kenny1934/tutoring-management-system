@@ -835,6 +835,7 @@ export function ExerciseModal({
         exerciseType={exerciseType}
         studentGrade={session.grade}
         school={session.school}
+        location={session.location}
       />
     </Modal>
   );

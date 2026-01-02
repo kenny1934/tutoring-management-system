@@ -107,6 +107,9 @@ async def get_courseware_popularity(
 async def get_courseware_usage_detail(
     filename: str = Query(..., description="Filename to get details for"),
     time_range: str = Query("recent", description="Time range: 'recent' (14 days) or 'all-time'"),
+    exercise_type: Optional[str] = Query(None, description="Filter by exercise type: 'CW' or 'HW'"),
+    grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
+    school: Optional[str] = Query(None, description="Filter by school"),
     limit: int = Query(10, ge=1, le=100, description="Number of results to return"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     db: Session = Depends(get_db)
@@ -115,11 +118,25 @@ async def get_courseware_usage_detail(
     Get detailed usage information for a specific courseware file.
 
     Returns all assignments of this courseware showing students, tutors, dates.
+    Optional filters for exercise_type, grade, and school to match trending context.
     """
     where_clauses = ["cud.filename = :filename"]
+    params = {"filename": filename, "limit": limit, "offset": offset}
 
     if time_range == "recent":
         where_clauses.append("cud.session_date >= CURDATE() - INTERVAL 14 DAY")
+
+    if exercise_type:
+        where_clauses.append("cud.exercise_type = :exercise_type")
+        params["exercise_type"] = exercise_type
+
+    if grade:
+        where_clauses.append("cud.grade LIKE :grade")
+        params["grade"] = f"{grade}%"
+
+    if school:
+        where_clauses.append("cud.school = :school")
+        params["school"] = school
 
     where_sql = " AND ".join(where_clauses)
 
@@ -151,7 +168,7 @@ async def get_courseware_usage_detail(
         LIMIT :limit OFFSET :offset
     """)
 
-    results = db.execute(query, {"filename": filename, "limit": limit, "offset": offset}).fetchall()
+    results = db.execute(query, params).fetchall()
 
     return [
         {
