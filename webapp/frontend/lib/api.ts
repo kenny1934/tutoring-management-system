@@ -338,13 +338,24 @@ export const coursewareAPI = {
     return fetchAPI<CoursewarePopularity[]>(`/courseware/popularity?${params}`);
   },
 
-  getUsageDetail: (filename: string, timeRange: 'recent' | 'all-time', limit?: number, offset?: number) => {
+  getUsageDetail: (
+    filename: string,
+    timeRange: 'recent' | 'all-time',
+    limit?: number,
+    offset?: number,
+    exerciseType?: string,
+    grade?: string,
+    school?: string
+  ) => {
     const params = new URLSearchParams({
       filename,
       time_range: timeRange,
     });
     if (limit) params.append('limit', limit.toString());
     if (offset) params.append('offset', offset.toString());
+    if (exerciseType) params.append('exercise_type', exerciseType);
+    if (grade) params.append('grade', grade);
+    if (school) params.append('school', school);
     return fetchAPI<CoursewareUsageDetail[]>(`/courseware/usage-detail?${params}`);
   },
 };

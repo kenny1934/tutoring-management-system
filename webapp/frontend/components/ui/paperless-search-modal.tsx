@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
-import { useCoursewarePopularity } from "@/lib/hooks";
-import type { PageSelection, CoursewarePopularity } from "@/types";
+import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
+import type { PageSelection, CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
 interface PaperlessSearchModalProps {
   isOpen: boolean;
@@ -21,6 +22,7 @@ interface PaperlessSearchModalProps {
   exerciseType?: 'CW' | 'HW';
   studentGrade?: string;
   school?: string;
+  location?: string;  // For location-based access control on links
 }
 
 export function PaperlessSearchModal({
@@ -32,6 +34,7 @@ export function PaperlessSearchModal({
   exerciseType,
   studentGrade,
   school,
+  location,
 }: PaperlessSearchModalProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PaperlessDocument[]>([]);
@@ -56,17 +59,34 @@ export function PaperlessSearchModal({
   const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
   const [previewPageSelection, setPreviewPageSelection] = useState<PageSelection | undefined>(undefined);
 
+  // State to track which trending items are previewable in Shelv
+  const [previewableTrending, setPreviewableTrending] = useState<Map<string, PaperlessDocument>>(new Map());
+
+  // State for expanded usage details
+  const [detailItem, setDetailItem] = useState<CoursewarePopularity | null>(null);
+
   // Computed: show recent docs when query empty, search results when typing
   const showingRecent = !query.trim();
 
   // Fetch trending courseware when context is provided
-  const { data: trendingData } = useCoursewarePopularity(
+  // Don't filter by exerciseType - show all courseware popular for this grade/school
+  const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity(
     'recent',
-    exerciseType,  // Pass directly - API expects 'CW' or 'HW', not 'Classwork'/'Homework'
+    undefined,  // Don't filter by exercise type - show all courseware
     studentGrade,
     school
   );
-  const topTrending = trendingData?.slice(0, 10) || [];
+  const topTrending = useMemo(() => trendingData?.slice(0, 10) || [], [trendingData]);
+
+  // Fetch usage details for expanded item (filtered by grade/school only)
+  const { data: usageDetails, isLoading: usageDetailsLoading } = useCoursewareUsageDetail(
+    detailItem?.filename ?? null,
+    'recent',
+    10,
+    undefined,     // Don't filter by exercise type - show both CW and HW
+    studentGrade,  // Filter by current grade
+    school         // Filter by current school
+  );
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -129,8 +149,37 @@ export function PaperlessSearchModal({
       setHasMore(false);
       setIsLoadingMore(false);
       setSelectedDocs([]);
+      setPreviewableTrending(new Map());
+      setDetailItem(null);
     }
   }, [isOpen]);
+
+  // Check which trending items are previewable in Shelv
+  useEffect(() => {
+    if (!isOpen || trendingLoading || topTrending.length === 0) return;
+
+    const checkPreviewability = async () => {
+      const previewMap = new Map<string, PaperlessDocument>();
+
+      for (const item of topTrending) {
+        try {
+          const path = item.normalized_paths.split(',')[0]?.trim();
+          if (!path) continue;
+          // Search by path, use first result if any exist (lenient matching)
+          const response = await api.paperless.search(path, 3, 'all');
+          if (response.results.length > 0) {
+            previewMap.set(item.filename, response.results[0]);
+          }
+        } catch {
+          // Ignore errors - just means this item won't be previewable
+        }
+      }
+
+      setPreviewableTrending(previewMap);
+    };
+
+    checkPreviewability();
+  }, [isOpen, trendingLoading, topTrending]);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -335,13 +384,40 @@ export function PaperlessSearchModal({
 
   // Handle selecting from trending courseware
   const handleSelectTrending = useCallback((item: CoursewarePopularity) => {
-    // Get first path from comma-separated list
     const path = item.normalized_paths.split(',')[0]?.trim();
-    if (path) {
+    if (!path) return;
+
+    if (multiSelect) {
+      // Create a minimal PaperlessDocument for tracking
+      const doc: PaperlessDocument = {
+        id: Date.now() + Math.random(), // Unique ID for trending items
+        title: item.filename,
+        original_path: path,
+        converted_path: path,
+        tags: [],
+        created: null,
+        correspondent: null,
+      };
+      setSelectedDocs((prev) => {
+        const exists = prev.some((d) => d.doc.original_path === path);
+        if (exists) {
+          return prev.filter((d) => d.doc.original_path !== path);
+        }
+        return [...prev, { doc, pageSelection: undefined }];
+      });
+    } else {
       onSelect(path);
       onClose();
     }
-  }, [onSelect, onClose]);
+  }, [multiSelect, onSelect, onClose]);
+
+  // Handle previewing a trending item (only if previewable)
+  const handlePreviewTrending = useCallback((item: CoursewarePopularity) => {
+    const doc = previewableTrending.get(item.filename);
+    if (doc) {
+      setPreviewDoc(doc);
+    }
+  }, [previewableTrending]);
 
   // Handle adding all selected docs
   const handleAddSelected = useCallback(() => {
@@ -365,6 +441,12 @@ export function PaperlessSearchModal({
     clearRecentDocuments();
     setRecentDocs([]);
   }, []);
+
+  // Compute navigation list length (includes trending when showing recent)
+  const trendingCount = showingRecent && !trendingLoading ? topTrending.length : 0;
+  const totalNavigableItems = showingRecent
+    ? trendingCount + recentDocs.length
+    : results.length;
 
   // Get current display list (recent when empty, results when searching)
   const displayList = showingRecent ? recentDocs : results;
@@ -409,18 +491,18 @@ export function PaperlessSearchModal({
       const isTyping = document.activeElement?.tagName === "INPUT";
 
       // Arrow navigation - works even when typing (autocomplete pattern)
-      if (e.key === "ArrowDown" && displayList.length > 0) {
+      if (e.key === "ArrowDown" && totalNavigableItems > 0) {
         e.preventDefault();
         setHasNavigated(true); // Mark that user is navigating
         setFocusedIndex((prev) => {
-          const next = prev < displayList.length - 1 ? prev + 1 : prev;
+          const next = prev < totalNavigableItems - 1 ? prev + 1 : prev;
           setTimeout(() => {
             const items = resultsRef.current?.querySelectorAll("[data-result-item]");
             items?.[next]?.scrollIntoView({ block: "nearest" });
           }, 0);
           return next;
         });
-      } else if (e.key === "ArrowUp" && displayList.length > 0) {
+      } else if (e.key === "ArrowUp" && totalNavigableItems > 0) {
         e.preventDefault();
         setHasNavigated(true); // Mark that user is navigating
         setFocusedIndex((prev) => {
@@ -436,27 +518,43 @@ export function PaperlessSearchModal({
         e.preventDefault();
         if (!showingRecent && results[focusedIndex]) {
           setPreviewDoc(results[focusedIndex]);
-        } else if (showingRecent && recentDocs[focusedIndex]) {
-          // Create a minimal doc object for preview from recent
-          const recent = recentDocs[focusedIndex];
-          setPreviewDoc({
-            id: recent.id,
-            title: recent.title,
-            original_path: recent.path,
-            converted_path: recent.path,
-            tags: recent.tags,
-            created: null,
-            correspondent: null,
-          });
+        } else if (showingRecent) {
+          // Check if it's a trending item or recent item
+          if (focusedIndex < trendingCount && topTrending[focusedIndex]) {
+            // Preview trending item if it's previewable
+            handlePreviewTrending(topTrending[focusedIndex]);
+          } else {
+            // It's a recent item
+            const recentIndex = focusedIndex - trendingCount;
+            const recent = recentDocs[recentIndex];
+            if (recent) {
+              setPreviewDoc({
+                id: recent.id,
+                title: recent.title,
+                original_path: recent.path,
+                converted_path: recent.path,
+                tags: recent.tags,
+                created: null,
+                correspondent: null,
+              });
+            }
+          }
         }
       } else if (e.key === "Enter" && hasNavigated && focusedIndex >= 0) {
         // Enter - select focused item (only after navigating with arrows)
         e.preventDefault();
-        const targetIndex = focusedIndex;
-        if (showingRecent && recentDocs[targetIndex]) {
-          handleSelectRecent(recentDocs[targetIndex]);
-        } else if (!showingRecent && results[targetIndex]) {
-          const doc = results[targetIndex];
+        if (showingRecent) {
+          // Check if it's a trending item or recent item
+          if (focusedIndex < trendingCount && topTrending[focusedIndex]) {
+            handleSelectTrending(topTrending[focusedIndex]);
+          } else {
+            const recentIndex = focusedIndex - trendingCount;
+            if (recentDocs[recentIndex]) {
+              handleSelectRecent(recentDocs[recentIndex]);
+            }
+          }
+        } else if (results[focusedIndex]) {
+          const doc = results[focusedIndex];
           if (doc.converted_path || doc.original_path) {
             handleSelect(doc);
           }
@@ -466,12 +564,12 @@ export function PaperlessSearchModal({
 
     window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleGlobalKeyDown, { capture: true });
-  }, [isOpen, previewDoc, multiSelect, selectedDocs, displayList, focusedIndex, showingRecent, results, recentDocs, handleAddSelected, handleSelectRecent, handleSelect, hasNavigated]);
+  }, [isOpen, previewDoc, multiSelect, selectedDocs, totalNavigableItems, trendingCount, topTrending, focusedIndex, showingRecent, results, recentDocs, handleAddSelected, handleSelectRecent, handleSelect, handleSelectTrending, handlePreviewTrending, hasNavigated]);
 
-  // Reset focused index when display list changes
+  // Reset focused index when navigable items change
   useEffect(() => {
-    setFocusedIndex(displayList.length > 0 ? 0 : -1);
-  }, [displayList]);
+    setFocusedIndex(totalNavigableItems > 0 ? 0 : -1);
+  }, [totalNavigableItems]);
 
   return (
     <Modal
@@ -679,9 +777,26 @@ export function PaperlessSearchModal({
         <div className="min-h-[350px]">
           {/* Trending + Recent - shown when query is empty */}
           {showingRecent && (
-            <>
+            <div ref={resultsRef} className="max-h-[350px] overflow-y-auto">
+              {/* Trending section - loading skeleton */}
+              {trendingLoading && (exerciseType || studentGrade || school) && (
+                <div className="mb-4 space-y-2">
+                  <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+                  ))}
+                </div>
+              )}
+
+              {/* Trending section - empty fallback */}
+              {!trendingLoading && topTrending.length === 0 && (studentGrade || school) && (
+                <div className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                  No trending for {studentGrade}{school && ` @ ${school}`}
+                </div>
+              )}
+
               {/* Trending section */}
-              {topTrending.length > 0 && (
+              {!trendingLoading && topTrending.length > 0 && (
                 <div className="mb-4">
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
                     <TrendingUp className="h-3 w-3" />
@@ -693,22 +808,180 @@ export function PaperlessSearchModal({
                     <span className="text-gray-400 dark:text-gray-500">(Last 14 days)</span>
                   </div>
                   <div className="space-y-1">
-                    {topTrending.map((item, index) => (
-                      <button
-                        key={item.filename}
-                        onClick={() => handleSelectTrending(item)}
-                        className={cn(
-                          "w-full text-left px-3 py-2 rounded-lg border transition-all",
-                          "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
-                          "hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-sm",
-                          "flex items-center gap-2"
-                        )}
-                      >
-                        {index < 3 && <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
-                        <span className="flex-1 truncate text-sm text-gray-900 dark:text-gray-100">{item.filename}</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{item.assignment_count}×</span>
-                      </button>
-                    ))}
+                    {topTrending.map((item, index) => {
+                      const path = item.normalized_paths.split(',')[0]?.trim();
+                      const isChecked = selectedDocs.some((d) => d.doc.original_path === path);
+                      const isFocused = hasNavigated && focusedIndex === index;
+                      const isExpanded = detailItem?.filename === item.filename;
+
+                      return (
+                        <div key={item.filename}>
+                          <div
+                            data-result-item
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleSelectTrending(item)}
+                            onKeyDown={(e) => {
+                              // Allow Enter/Space to select (but not when focus is on inner buttons)
+                              if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+                                e.preventDefault();
+                                handleSelectTrending(item);
+                              }
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-lg border transition-all cursor-pointer",
+                              "border-[#e8d4b8] dark:border-[#6b5a4a]",
+                              "hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-sm",
+                              "flex items-center gap-2",
+                              // Gradient background for top 3 (when not focused/checked)
+                              !isFocused && !isChecked && index < 3
+                                ? "bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]"
+                                : !isFocused && !isChecked ? "bg-white dark:bg-[#1a1a1a]" : "",
+                              // Focus styling
+                              isFocused && "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50",
+                              // Highlight if selected in multi-select mode
+                              isChecked && "border-amber-400 dark:border-amber-600 bg-amber-100 dark:bg-amber-900/30",
+                              // Bottom border radius when expanded
+                              isExpanded && "rounded-b-none border-b-0"
+                            )}
+                          >
+                            {index < 3 && <Flame className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+                            <span className="flex-1 truncate text-sm text-gray-900 dark:text-gray-100">{item.filename}</span>
+                            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0 flex items-center gap-1.5">
+                              {item.assignment_count}×
+                              <span className="flex items-center gap-0.5">
+                                <User className="h-3 w-3" />
+                                {item.unique_student_count}
+                              </span>
+                            </span>
+                            {/* Preview button - only show if previewable in Shelv */}
+                            {previewableTrending.has(item.filename) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePreviewTrending(item);
+                                }}
+                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0"
+                                title="Preview PDF"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            )}
+                            {/* Info/details button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailItem(isExpanded ? null : item);
+                              }}
+                              className={cn(
+                                "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0",
+                                isExpanded
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                              )}
+                              title={isExpanded ? "Hide usage details" : "Show usage details"}
+                            >
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+                            </button>
+                            {/* Multi-select checkbox */}
+                            {multiSelect && (
+                              isChecked ? (
+                                <CheckSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                              ) : (
+                                <Square className="h-4 w-4 text-gray-400 shrink-0" />
+                              )
+                            )}
+                          </div>
+
+                          {/* Expandable usage details section */}
+                          {isExpanded && (
+                            <div className="px-3 py-2 border border-t-0 border-[#e8d4b8] dark:border-[#6b5a4a] rounded-b-lg bg-gray-50 dark:bg-[#1a1a1a]/50">
+                              {usageDetailsLoading ? (
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Loading usage details...
+                                </div>
+                              ) : usageDetails && usageDetails.length > 0 ? (
+                                <div className="space-y-1">
+                                  <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                                    Recent sessions using this file:
+                                  </div>
+                                  <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
+                                    {usageDetails.map((detail, i) => {
+                                      const displayId = detail.school_student_id
+                                        ? `${detail.location}-${detail.school_student_id}`
+                                        : detail.location;
+                                      // Check if user has access to this detail's location
+                                      const canAccessLocation = !location || location === detail.location;
+                                      return (
+                                        <div
+                                          key={`${detail.session_id}-${detail.exercise_id}-${i}`}
+                                          className="flex items-center gap-2 text-gray-600 dark:text-gray-400"
+                                        >
+                                          <span className="text-gray-400 dark:text-gray-500 w-20 shrink-0">
+                                            {detail.session_date
+                                              ? new Date(detail.session_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                                              : '-'}
+                                          </span>
+                                          {canAccessLocation ? (
+                                            <Link
+                                              href={`/students/${detail.student_id}`}
+                                              target="_blank"
+                                              className="group truncate flex-1 text-[#a0704b] dark:text-[#cd853f]"
+                                              title={`${displayId} ${detail.student_name}`}
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <span className="text-gray-400 dark:text-gray-500 mr-1">{displayId}</span>
+                                              <span className="group-hover:underline">{detail.student_name}</span>
+                                            </Link>
+                                          ) : (
+                                            <span className="truncate flex-1 text-gray-500 dark:text-gray-400" title={detail.student_name}>
+                                              <span className="mr-1">{displayId}</span>
+                                              <span>{detail.student_name}</span>
+                                            </span>
+                                          )}
+                                          <span className="shrink-0 text-gray-400 dark:text-gray-500">
+                                            {detail.grade}{detail.lang_stream}
+                                          </span>
+                                          <span className={cn(
+                                            "shrink-0 px-1 py-0.5 rounded text-[10px]",
+                                            detail.exercise_type === 'CW'
+                                              ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                                              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                                          )}>
+                                            {detail.exercise_type}
+                                          </span>
+                                          <span className="shrink-0 text-gray-400 dark:text-gray-500 truncate max-w-[60px]" title={detail.tutor_name}>
+                                            {detail.tutor_name}
+                                          </span>
+                                          {canAccessLocation ? (
+                                            <Link
+                                              href={`/sessions/${detail.session_id}`}
+                                              target="_blank"
+                                              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0"
+                                              title="Go to session"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <ExternalLink className="h-3 w-3 text-gray-400 hover:text-[#a0704b]" />
+                                            </Link>
+                                          ) : (
+                                            <div className="p-1 shrink-0 w-5" />
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-500">
+                                  No usage details available
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -728,10 +1001,11 @@ export function PaperlessSearchModal({
                       Clear
                     </button>
                   </div>
-                  <div ref={resultsRef} className="space-y-2 max-h-[320px] overflow-y-auto" role="listbox">
+                  <div className="space-y-2 max-h-[320px] overflow-y-auto" role="listbox">
                     {recentDocs.map((recent, index) => {
                       const isChecked = selectedDocs.some((d) => d.doc.id === recent.id);
-                      const isFocused = hasNavigated && focusedIndex === index;
+                      // Account for trending items when calculating focus index
+                      const isFocused = hasNavigated && focusedIndex === index + trendingCount;
 
                       return (
                         <div
@@ -836,7 +1110,7 @@ export function PaperlessSearchModal({
                   </p>
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Search Results - shown when query has text */}

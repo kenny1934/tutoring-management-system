@@ -228,11 +228,14 @@ export function useCoursewarePopularity(
 export function useCoursewareUsageDetail(
   filename: string | null | undefined,
   timeRange: 'recent' | 'all-time',
-  limit?: number
+  limit?: number,
+  exerciseType?: string,
+  grade?: string,
+  school?: string
 ) {
   return useSWR<CoursewareUsageDetail[]>(
-    filename ? ['courseware-detail', filename, timeRange, limit] : null,
-    () => coursewareAPI.getUsageDetail(filename!, timeRange, limit)
+    filename ? ['courseware-detail', filename, timeRange, limit, exerciseType, grade, school] : null,
+    () => coursewareAPI.getUsageDetail(filename!, timeRange, limit, undefined, exerciseType, grade, school)
   );
 }
 
