@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, EyeOff, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
@@ -59,8 +59,16 @@ export function PaperlessSearchModal({
   const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
   const [previewPageSelection, setPreviewPageSelection] = useState<PageSelection | undefined>(undefined);
 
-  // State to track which trending items are previewable in Shelv
+  // State to track which trending items are previewable in Shelv (cache for found docs)
   const [previewableTrending, setPreviewableTrending] = useState<Map<string, PaperlessDocument>>(new Map());
+  // Track items that failed the check (not in Shelv)
+  const [unavailableTrending, setUnavailableTrending] = useState<Set<string>>(new Set());
+  // Track items currently being checked
+  const [checkingPreview, setCheckingPreview] = useState<Set<string>>(new Set());
+
+  // State to track selected trending items by filename (stable key for checkbox)
+  const [selectedTrendingFilenames, setSelectedTrendingFilenames] = useState<Set<string>>(new Set());
+  const [previewingTrendingFilename, setPreviewingTrendingFilename] = useState<string | null>(null);
 
   // State for expanded usage details
   const [detailItem, setDetailItem] = useState<CoursewarePopularity | null>(null);
@@ -150,36 +158,13 @@ export function PaperlessSearchModal({
       setIsLoadingMore(false);
       setSelectedDocs([]);
       setPreviewableTrending(new Map());
+      setUnavailableTrending(new Set());
+      setCheckingPreview(new Set());
+      setSelectedTrendingFilenames(new Set());
+      setPreviewingTrendingFilename(null);
       setDetailItem(null);
     }
   }, [isOpen]);
-
-  // Check which trending items are previewable in Shelv
-  useEffect(() => {
-    if (!isOpen || trendingLoading || topTrending.length === 0) return;
-
-    const checkPreviewability = async () => {
-      const previewMap = new Map<string, PaperlessDocument>();
-
-      for (const item of topTrending) {
-        try {
-          const path = item.normalized_paths.split(',')[0]?.trim();
-          if (!path) continue;
-          // Search by path, use first result if any exist (lenient matching)
-          const response = await api.paperless.search(path, 3, 'all');
-          if (response.results.length > 0) {
-            previewMap.set(item.filename, response.results[0]);
-          }
-        } catch {
-          // Ignore errors - just means this item won't be previewable
-        }
-      }
-
-      setPreviewableTrending(previewMap);
-    };
-
-    checkPreviewability();
-  }, [isOpen, trendingLoading, topTrending]);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -388,36 +373,85 @@ export function PaperlessSearchModal({
     if (!path) return;
 
     if (multiSelect) {
-      // Create a minimal PaperlessDocument for tracking
-      const doc: PaperlessDocument = {
-        id: Date.now() + Math.random(), // Unique ID for trending items
-        title: item.filename,
-        original_path: path,
-        converted_path: path,
-        tags: [],
-        created: null,
-        correspondent: null,
-      };
-      setSelectedDocs((prev) => {
-        const exists = prev.some((d) => d.doc.original_path === path);
-        if (exists) {
-          return prev.filter((d) => d.doc.original_path !== path);
-        }
-        return [...prev, { doc, pageSelection: undefined }];
-      });
+      // Check if already selected
+      const isCurrentlySelected = selectedTrendingFilenames.has(item.filename);
+
+      if (isCurrentlySelected) {
+        // Deselecting - remove from both selectedDocs and tracking set
+        setSelectedDocs((prev) => prev.filter((d) => d.doc.original_path !== path));
+        setSelectedTrendingFilenames(prev => {
+          const next = new Set(prev);
+          next.delete(item.filename);
+          return next;
+        });
+      } else {
+        // Selecting - add to both selectedDocs and tracking set
+        const doc: PaperlessDocument = {
+          id: Date.now() + Math.random(), // Unique ID for trending items
+          title: item.filename,
+          original_path: path,
+          converted_path: path,
+          tags: [],
+          created: null,
+          correspondent: null,
+        };
+        setSelectedDocs((prev) => [...prev, { doc, pageSelection: undefined }]);
+        setSelectedTrendingFilenames(prev => new Set([...prev, item.filename]));
+      }
     } else {
       onSelect(path);
       onClose();
     }
-  }, [multiSelect, onSelect, onClose]);
+  }, [multiSelect, onSelect, onClose, selectedTrendingFilenames]);
 
-  // Handle previewing a trending item (only if previewable)
-  const handlePreviewTrending = useCallback((item: CoursewarePopularity) => {
-    const doc = previewableTrending.get(item.filename);
-    if (doc) {
-      setPreviewDoc(doc);
+  // Handle previewing a trending item (on-demand check)
+  const handlePreviewTrending = useCallback(async (item: CoursewarePopularity) => {
+    // If already cached, open immediately
+    const cachedDoc = previewableTrending.get(item.filename);
+    if (cachedDoc) {
+      setPreviewDoc(cachedDoc);
+      setPreviewingTrendingFilename(item.filename);
+      return;
     }
-  }, [previewableTrending]);
+
+    // If already known to be unavailable, do nothing (button shows EyeOff)
+    if (unavailableTrending.has(item.filename)) return;
+
+    // If already checking, ignore
+    if (checkingPreview.has(item.filename)) return;
+
+    // Start checking
+    setCheckingPreview(prev => new Set([...prev, item.filename]));
+
+    try {
+      const path = item.normalized_paths.split(',')[0]?.trim();
+      if (!path) {
+        setUnavailableTrending(prev => new Set([...prev, item.filename]));
+        return;
+      }
+
+      const response = await api.paperless.search(path, 3, 'all');
+      if (response.results.length > 0) {
+        // Found - cache and open preview
+        const doc = response.results[0];
+        setPreviewableTrending(prev => new Map(prev).set(item.filename, doc));
+        setPreviewDoc(doc);
+        setPreviewingTrendingFilename(item.filename);
+      } else {
+        // Not found - mark as unavailable (button will show EyeOff)
+        setUnavailableTrending(prev => new Set([...prev, item.filename]));
+      }
+    } catch {
+      // On error, mark as unavailable
+      setUnavailableTrending(prev => new Set([...prev, item.filename]));
+    } finally {
+      setCheckingPreview(prev => {
+        const next = new Set(prev);
+        next.delete(item.filename);
+        return next;
+      });
+    }
+  }, [previewableTrending, unavailableTrending, checkingPreview]);
 
   // Handle adding all selected docs
   const handleAddSelected = useCallback(() => {
@@ -810,7 +844,8 @@ export function PaperlessSearchModal({
                   <div className="space-y-1">
                     {topTrending.map((item, index) => {
                       const path = item.normalized_paths.split(',')[0]?.trim();
-                      const isChecked = selectedDocs.some((d) => d.doc.original_path === path);
+                      // Use the tracked set for reliable checkbox state
+                      const isChecked = selectedTrendingFilenames.has(item.filename);
                       const isFocused = hasNavigated && focusedIndex === index;
                       const isExpanded = detailItem?.filename === item.filename;
 
@@ -854,17 +889,26 @@ export function PaperlessSearchModal({
                                 {item.unique_student_count}
                               </span>
                             </span>
-                            {/* Preview button - only show if previewable in Shelv */}
-                            {previewableTrending.has(item.filename) && (
+                            {/* Preview button - always show, checks on-demand */}
+                            {unavailableTrending.has(item.filename) ? (
+                              <div className="p-1 shrink-0" title="Not available in Shelv">
+                                <EyeOff className="h-4 w-4 text-gray-300 dark:text-gray-600" />
+                              </div>
+                            ) : (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handlePreviewTrending(item);
                                 }}
-                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0"
-                                title="Preview PDF"
+                                disabled={checkingPreview.has(item.filename)}
+                                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
+                                title={checkingPreview.has(item.filename) ? 'Checking...' : 'Preview PDF'}
                               >
-                                <Eye className="h-4 w-4" />
+                                {checkingPreview.has(item.filename) ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
                               </button>
                             )}
                             {/* Info/details button */}
@@ -1298,14 +1342,20 @@ export function PaperlessSearchModal({
         onClose={() => {
           setPreviewDoc(null);
           setPreviewPageSelection(undefined);
+          setPreviewingTrendingFilename(null);
         }}
         documentId={previewDoc?.id ?? null}
         documentTitle={previewDoc?.title}
         enablePageSelection={true}
         onSelect={previewDoc ? (selection) => {
           handleSelect(previewDoc, selection);
+          // If this was a trending preview, track the filename
+          if (previewingTrendingFilename) {
+            setSelectedTrendingFilenames(prev => new Set([...prev, previewingTrendingFilename]));
+          }
           setPreviewDoc(null);
           setPreviewPageSelection(undefined);
+          setPreviewingTrendingFilename(null);
         } : undefined}
       />
     </Modal>
