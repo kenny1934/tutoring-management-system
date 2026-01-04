@@ -12,6 +12,13 @@ import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type Recen
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import type { PageSelection, CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
+// Constants
+const DEBOUNCE_MS = 300;
+const RESULTS_PER_PAGE = 30;
+const MAX_TRENDING = 10;
+const SELECTION_ANIMATION_MS = 150;
+const FOCUS_DELAY_MS = 100;
+
 interface PaperlessSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -57,7 +64,6 @@ export function PaperlessSearchModal({
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Array<{ doc: PaperlessDocument; pageSelection?: PageSelection }>>([]);
   const [hasNavigated, setHasNavigated] = useState(false); // Track if user used arrow keys
-  const [previewPageSelection, setPreviewPageSelection] = useState<PageSelection | undefined>(undefined);
 
   // State to track which trending items are previewable in Shelv (cache for found docs)
   const [previewableTrending, setPreviewableTrending] = useState<Map<string, PaperlessDocument>>(new Map());
@@ -84,7 +90,16 @@ export function PaperlessSearchModal({
     studentGrade,
     school
   );
-  const topTrending = useMemo(() => trendingData?.slice(0, 10) || [], [trendingData]);
+  // Memoize trending items with pre-computed path and stable ID
+  const topTrending = useMemo(() =>
+    (trendingData?.slice(0, MAX_TRENDING) || []).map(item => ({
+      ...item,
+      // Pre-compute path and stable ID once to avoid repeated parsing
+      path: item.normalized_paths.split(',')[0]?.trim() || '',
+      stableId: -Math.abs(item.filename.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0))
+    })),
+    [trendingData]
+  );
 
   // Fetch usage details for expanded item (filtered by grade/school only)
   const { data: usageDetails, isLoading: usageDetailsLoading } = useCoursewareUsageDetail(
@@ -136,7 +151,7 @@ export function PaperlessSearchModal({
   // Focus search input when modal opens
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      setTimeout(() => searchInputRef.current?.focus(), FOCUS_DELAY_MS);
     }
   }, [isOpen]);
 
@@ -214,7 +229,7 @@ export function PaperlessSearchModal({
     try {
       const response = await api.paperless.search(
         searchQuery,
-        30,
+        RESULTS_PER_PAGE,
         mode,
         tagIds.length > 0 ? tagIds : undefined,
         matchMode,
@@ -258,7 +273,7 @@ export function PaperlessSearchModal({
 
     debounceRef.current = setTimeout(() => {
       performSearch(value, searchMode, selectedTagIds, tagMatchMode);
-    }, 300);
+    }, DEBOUNCE_MS);
   }, [performSearch, searchMode, selectedTagIds, tagMatchMode]);
 
   // Re-search when search mode changes
@@ -333,7 +348,7 @@ export function PaperlessSearchModal({
       setTimeout(() => {
         onSelect(path, pageSelection);
         onClose();
-      }, 150);
+      }, SELECTION_ANIMATION_MS);
     }
   }, [multiSelect, onSelect, onClose]);
 
@@ -363,22 +378,20 @@ export function PaperlessSearchModal({
       setTimeout(() => {
         onSelect(recent.path);
         onClose();
-      }, 150);
+      }, SELECTION_ANIMATION_MS);
     }
   }, [multiSelect, onSelect, onClose]);
 
-  // Handle selecting from trending courseware
-  const handleSelectTrending = useCallback((item: CoursewarePopularity) => {
-    const path = item.normalized_paths.split(',')[0]?.trim();
-    if (!path) return;
+  // Handle selecting from trending courseware (uses pre-computed path/stableId from topTrending)
+  const handleSelectTrending = useCallback((item: CoursewarePopularity & { path: string; stableId: number }) => {
+    if (!item.path) return;
 
     if (multiSelect) {
-      // Check if already selected
       const isCurrentlySelected = selectedTrendingFilenames.has(item.filename);
 
       if (isCurrentlySelected) {
         // Deselecting - remove from both selectedDocs and tracking set
-        setSelectedDocs((prev) => prev.filter((d) => d.doc.original_path !== path));
+        setSelectedDocs((prev) => prev.filter((d) => d.doc.id !== item.stableId));
         setSelectedTrendingFilenames(prev => {
           const next = new Set(prev);
           next.delete(item.filename);
@@ -387,25 +400,25 @@ export function PaperlessSearchModal({
       } else {
         // Selecting - add to both selectedDocs and tracking set
         const doc: PaperlessDocument = {
-          id: Date.now() + Math.random(), // Unique ID for trending items
+          id: item.stableId,
           title: item.filename,
-          original_path: path,
-          converted_path: path,
+          original_path: item.path,
+          converted_path: item.path,
           tags: [],
           created: null,
           correspondent: null,
         };
         setSelectedDocs((prev) => [...prev, { doc, pageSelection: undefined }]);
-        setSelectedTrendingFilenames(prev => new Set([...prev, item.filename]));
+        setSelectedTrendingFilenames(prev => { const next = new Set(prev); next.add(item.filename); return next; });
       }
     } else {
-      onSelect(path);
+      onSelect(item.path);
       onClose();
     }
   }, [multiSelect, onSelect, onClose, selectedTrendingFilenames]);
 
-  // Handle previewing a trending item (on-demand check)
-  const handlePreviewTrending = useCallback(async (item: CoursewarePopularity) => {
+  // Handle previewing a trending item (on-demand check, uses pre-computed path from topTrending)
+  const handlePreviewTrending = useCallback(async (item: CoursewarePopularity & { path: string; stableId: number }) => {
     // If already cached, open immediately
     const cachedDoc = previewableTrending.get(item.filename);
     if (cachedDoc) {
@@ -421,16 +434,15 @@ export function PaperlessSearchModal({
     if (checkingPreview.has(item.filename)) return;
 
     // Start checking
-    setCheckingPreview(prev => new Set([...prev, item.filename]));
+    setCheckingPreview(prev => { const next = new Set(prev); next.add(item.filename); return next; });
 
     try {
-      const path = item.normalized_paths.split(',')[0]?.trim();
-      if (!path) {
-        setUnavailableTrending(prev => new Set([...prev, item.filename]));
+      if (!item.path) {
+        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
         return;
       }
 
-      const response = await api.paperless.search(path, 3, 'all');
+      const response = await api.paperless.search(item.path, 3, 'all');
       if (response.results.length > 0) {
         // Found - cache and open preview
         const doc = response.results[0];
@@ -439,11 +451,11 @@ export function PaperlessSearchModal({
         setPreviewingTrendingFilename(item.filename);
       } else {
         // Not found - mark as unavailable (button will show EyeOff)
-        setUnavailableTrending(prev => new Set([...prev, item.filename]));
+        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
       }
     } catch {
       // On error, mark as unavailable
-      setUnavailableTrending(prev => new Set([...prev, item.filename]));
+      setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
     } finally {
       setCheckingPreview(prev => {
         const next = new Set(prev);
@@ -482,9 +494,6 @@ export function PaperlessSearchModal({
     ? trendingCount + recentDocs.length
     : results.length;
 
-  // Get current display list (recent when empty, results when searching)
-  const displayList = showingRecent ? recentDocs : results;
-
   // Global keyboard handler - works regardless of focus
   // Use capture phase to intercept events before Modal's handlers
   useEffect(() => {
@@ -520,9 +529,6 @@ export function PaperlessSearchModal({
         handleAddSelected();
         return;
       }
-
-      // Check if user is typing in an input
-      const isTyping = document.activeElement?.tagName === "INPUT";
 
       // Arrow navigation - works even when typing (autocomplete pattern)
       if (e.key === "ArrowDown" && totalNavigableItems > 0) {
@@ -843,8 +849,7 @@ export function PaperlessSearchModal({
                   </div>
                   <div className="space-y-1">
                     {topTrending.map((item, index) => {
-                      const path = item.normalized_paths.split(',')[0]?.trim();
-                      // Use the tracked set for reliable checkbox state
+                      // item.path and item.stableId are pre-computed in topTrending memo
                       const isChecked = selectedTrendingFilenames.has(item.filename);
                       const isFocused = hasNavigated && focusedIndex === index;
                       const isExpanded = detailItem?.filename === item.filename;
@@ -855,6 +860,7 @@ export function PaperlessSearchModal({
                             data-result-item
                             role="button"
                             tabIndex={0}
+                            aria-label={`${isChecked ? 'Deselect' : 'Select'} ${item.filename}`}
                             onClick={() => handleSelectTrending(item)}
                             onKeyDown={(e) => {
                               // Allow Enter/Space to select (but not when focus is on inner buttons)
@@ -903,6 +909,7 @@ export function PaperlessSearchModal({
                                 disabled={checkingPreview.has(item.filename)}
                                 className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
                                 title={checkingPreview.has(item.filename) ? 'Checking...' : 'Preview PDF'}
+                                aria-label={`Preview ${item.filename}`}
                               >
                                 {checkingPreview.has(item.filename) ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -924,6 +931,8 @@ export function PaperlessSearchModal({
                                   : "text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
                               )}
                               title={isExpanded ? "Hide usage details" : "Show usage details"}
+                              aria-label={isExpanded ? `Hide usage details for ${item.filename}` : `Show usage details for ${item.filename}`}
+                              aria-expanded={isExpanded}
                             >
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <Info className="h-4 w-4" />}
                             </button>
@@ -1341,7 +1350,6 @@ export function PaperlessSearchModal({
         isOpen={!!previewDoc}
         onClose={() => {
           setPreviewDoc(null);
-          setPreviewPageSelection(undefined);
           setPreviewingTrendingFilename(null);
         }}
         documentId={previewDoc?.id ?? null}
@@ -1351,10 +1359,9 @@ export function PaperlessSearchModal({
           handleSelect(previewDoc, selection);
           // If this was a trending preview, track the filename
           if (previewingTrendingFilename) {
-            setSelectedTrendingFilenames(prev => new Set([...prev, previewingTrendingFilename]));
+            setSelectedTrendingFilenames(prev => { const next = new Set(prev); next.add(previewingTrendingFilename); return next; });
           }
           setPreviewDoc(null);
-          setPreviewPageSelection(undefined);
           setPreviewingTrendingFilename(null);
         } : undefined}
       />
