@@ -7,7 +7,9 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { CommandPaletteProvider } from "@/contexts/CommandPaletteContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import { ZenProvider } from "@/contexts/ZenContext";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ZenActivator } from "@/components/zen";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -22,12 +24,15 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <LocationProvider>
           <RoleProvider>
-            <CommandPaletteProvider>
-              <ToastProvider>
-                {children}
-                <CommandPalette />
-              </ToastProvider>
-            </CommandPaletteProvider>
+            <ZenProvider>
+              <CommandPaletteProvider>
+                <ToastProvider>
+                  {children}
+                  <CommandPalette />
+                  <ZenActivator />
+                </ToastProvider>
+              </CommandPaletteProvider>
+            </ZenProvider>
           </RoleProvider>
         </LocationProvider>
       </ThemeProvider>
