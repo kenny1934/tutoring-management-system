@@ -116,6 +116,23 @@ export function PaperlessSearchModal({
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
+  // Ref to hold state values for keyboard handler (avoids re-registering on every state change)
+  const stateRef = useRef({
+    previewDoc: null as PaperlessDocument | null,
+    selectedDocs: [] as Array<{ doc: PaperlessDocument; pageSelection?: PageSelection }>,
+    totalNavigableItems: 0,
+    trendingCount: 0,
+    topTrending: [] as (CoursewarePopularity & { path: string; stableId: number })[],
+    focusedIndex: -1,
+    showingRecent: true,
+    results: [] as PaperlessDocument[],
+    recentDocs: [] as RecentDocument[],
+    hasNavigated: false,
+  });
+
+  // Cached DOM elements for arrow navigation (avoids querying on every keypress)
+  const cachedItemsRef = useRef<Element[]>([]);
+
   const searchModeOptions: { value: PaperlessSearchMode; label: string }[] = [
     { value: "all", label: "All" },
     { value: "title", label: "Title" },
@@ -494,79 +511,102 @@ export function PaperlessSearchModal({
     ? trendingCount + recentDocs.length
     : results.length;
 
+  // Sync stateRef with current values (for keyboard handler to read without re-registering)
+  useEffect(() => {
+    stateRef.current = {
+      previewDoc,
+      selectedDocs,
+      totalNavigableItems,
+      trendingCount,
+      topTrending,
+      focusedIndex,
+      showingRecent,
+      results,
+      recentDocs,
+      hasNavigated,
+    };
+  });
+
+  // Cache DOM elements when list structure changes (for arrow navigation)
+  useEffect(() => {
+    // Small delay to ensure DOM is rendered
+    const timer = setTimeout(() => {
+      if (resultsRef.current) {
+        cachedItemsRef.current = Array.from(resultsRef.current.querySelectorAll("[data-result-item]"));
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [totalNavigableItems, showingRecent]);
+
   // Global keyboard handler - works regardless of focus
   // Use capture phase to intercept events before Modal's handlers
+  // Reads from stateRef to avoid re-registering on every state change
   useEffect(() => {
     if (!isOpen) return;
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const state = stateRef.current;
+
       // Escape - close preview first, or reset navigation mode, then let modal handle close
       if (e.key === "Escape") {
-        if (previewDoc) {
+        if (state.previewDoc) {
           e.preventDefault();
           e.stopPropagation();
-          e.stopImmediatePropagation(); // Stop other handlers at same level
+          e.stopImmediatePropagation();
           setPreviewDoc(null);
           return;
         }
-        // If navigating, reset to typing mode (so Space types again)
-        if (hasNavigated) {
+        if (state.hasNavigated) {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
           setHasNavigated(false);
-          return; // Don't let modal close - user can press Esc again to close
+          return;
         }
-        // Let modal's default escape handling close the modal
         return;
       }
 
       // Cmd/Ctrl+Enter - Add all selected (multi-select mode)
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && multiSelect && selectedDocs.length > 0) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && multiSelect && state.selectedDocs.length > 0) {
         e.preventDefault();
         e.stopPropagation();
-        e.stopImmediatePropagation(); // Prevent parent modal from also handling
+        e.stopImmediatePropagation();
         handleAddSelected();
         return;
       }
 
       // Arrow navigation - works even when typing (autocomplete pattern)
-      if (e.key === "ArrowDown" && totalNavigableItems > 0) {
+      if (e.key === "ArrowDown" && state.totalNavigableItems > 0) {
         e.preventDefault();
-        setHasNavigated(true); // Mark that user is navigating
+        setHasNavigated(true);
         setFocusedIndex((prev) => {
-          const next = prev < totalNavigableItems - 1 ? prev + 1 : prev;
+          const next = prev < state.totalNavigableItems - 1 ? prev + 1 : prev;
           setTimeout(() => {
-            const items = resultsRef.current?.querySelectorAll("[data-result-item]");
-            items?.[next]?.scrollIntoView({ block: "nearest" });
+            cachedItemsRef.current[next]?.scrollIntoView({ block: "nearest" });
           }, 0);
           return next;
         });
-      } else if (e.key === "ArrowUp" && totalNavigableItems > 0) {
+      } else if (e.key === "ArrowUp" && state.totalNavigableItems > 0) {
         e.preventDefault();
-        setHasNavigated(true); // Mark that user is navigating
+        setHasNavigated(true);
         setFocusedIndex((prev) => {
           const next = prev > 0 ? prev - 1 : 0;
           setTimeout(() => {
-            const items = resultsRef.current?.querySelectorAll("[data-result-item]");
-            items?.[next]?.scrollIntoView({ block: "nearest" });
+            cachedItemsRef.current[next]?.scrollIntoView({ block: "nearest" });
           }, 0);
           return next;
         });
-      } else if (e.key === " " && hasNavigated && focusedIndex >= 0 && !previewDoc) {
+      } else if (e.key === " " && state.hasNavigated && state.focusedIndex >= 0 && !state.previewDoc) {
         // Space - preview focused item (only after arrow navigation)
         e.preventDefault();
-        if (!showingRecent && results[focusedIndex]) {
-          setPreviewDoc(results[focusedIndex]);
-        } else if (showingRecent) {
-          // Check if it's a trending item or recent item
-          if (focusedIndex < trendingCount && topTrending[focusedIndex]) {
-            // Preview trending item if it's previewable
-            handlePreviewTrending(topTrending[focusedIndex]);
+        if (!state.showingRecent && state.results[state.focusedIndex]) {
+          setPreviewDoc(state.results[state.focusedIndex]);
+        } else if (state.showingRecent) {
+          if (state.focusedIndex < state.trendingCount && state.topTrending[state.focusedIndex]) {
+            handlePreviewTrending(state.topTrending[state.focusedIndex]);
           } else {
-            // It's a recent item
-            const recentIndex = focusedIndex - trendingCount;
-            const recent = recentDocs[recentIndex];
+            const recentIndex = state.focusedIndex - state.trendingCount;
+            const recent = state.recentDocs[recentIndex];
             if (recent) {
               setPreviewDoc({
                 id: recent.id,
@@ -580,21 +620,20 @@ export function PaperlessSearchModal({
             }
           }
         }
-      } else if (e.key === "Enter" && hasNavigated && focusedIndex >= 0) {
+      } else if (e.key === "Enter" && state.hasNavigated && state.focusedIndex >= 0) {
         // Enter - select focused item (only after navigating with arrows)
         e.preventDefault();
-        if (showingRecent) {
-          // Check if it's a trending item or recent item
-          if (focusedIndex < trendingCount && topTrending[focusedIndex]) {
-            handleSelectTrending(topTrending[focusedIndex]);
+        if (state.showingRecent) {
+          if (state.focusedIndex < state.trendingCount && state.topTrending[state.focusedIndex]) {
+            handleSelectTrending(state.topTrending[state.focusedIndex]);
           } else {
-            const recentIndex = focusedIndex - trendingCount;
-            if (recentDocs[recentIndex]) {
-              handleSelectRecent(recentDocs[recentIndex]);
+            const recentIndex = state.focusedIndex - state.trendingCount;
+            if (state.recentDocs[recentIndex]) {
+              handleSelectRecent(state.recentDocs[recentIndex]);
             }
           }
-        } else if (results[focusedIndex]) {
-          const doc = results[focusedIndex];
+        } else if (state.results[state.focusedIndex]) {
+          const doc = state.results[state.focusedIndex];
           if (doc.converted_path || doc.original_path) {
             handleSelect(doc);
           }
@@ -604,7 +643,7 @@ export function PaperlessSearchModal({
 
     window.addEventListener("keydown", handleGlobalKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleGlobalKeyDown, { capture: true });
-  }, [isOpen, previewDoc, multiSelect, selectedDocs, totalNavigableItems, trendingCount, topTrending, focusedIndex, showingRecent, results, recentDocs, handleAddSelected, handleSelectRecent, handleSelect, handleSelectTrending, handlePreviewTrending, hasNavigated]);
+  }, [isOpen, multiSelect, handleAddSelected, handleSelectRecent, handleSelect, handleSelectTrending, handlePreviewTrending]);
 
   // Reset focused index when navigable items change
   useEffect(() => {
