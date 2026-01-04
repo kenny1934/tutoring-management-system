@@ -565,6 +565,8 @@ function RankingRow({
   onToggle,
   timeRange,
   maxCount,
+  grade,
+  school,
 }: {
   item: CoursewarePopularity;
   rank: number;
@@ -572,6 +574,8 @@ function RankingRow({
   onToggle: () => void;
   timeRange: "recent" | "all-time";
   maxCount: number;
+  grade?: string;
+  school?: string;
 }) {
   // Get medal config for top 3
   const medalConfig = rank <= 3 ? MEDAL_CONFIG[rank - 1] : null;
@@ -683,7 +687,7 @@ function RankingRow({
 
       {/* Expanded detail panel */}
       {isExpanded && (
-        <UsageDetailPanel filename={item.filename} timeRange={timeRange} />
+        <UsageDetailPanel filename={item.filename} timeRange={timeRange} grade={grade} school={school} />
       )}
     </div>
   );
@@ -693,9 +697,13 @@ function RankingRow({
 function UsageDetailPanel({
   filename,
   timeRange,
+  grade,
+  school,
 }: {
   filename: string;
   timeRange: "recent" | "all-time";
+  grade?: string;
+  school?: string;
 }) {
   const { selectedLocation } = useLocation();
   const [displayCount, setDisplayCount] = useState(10);
@@ -703,7 +711,10 @@ function UsageDetailPanel({
   const { data: rawDetails = [], isLoading } = useCoursewareUsageDetail(
     filename,
     timeRange,
-    displayCount + 1
+    displayCount + 1,
+    undefined,  // exerciseType - show both CW and HW
+    grade,
+    school
   );
 
   // Check if there are more results by seeing if we got the extra item
@@ -1159,6 +1170,8 @@ export default function CoursewarePage() {
                       onToggle={() => handleToggleExpand(item.filename)}
                       timeRange={timeRange}
                       maxCount={rankings[0]?.assignment_count || 0}
+                      grade={gradeFilter}
+                      school={schoolFilter}
                     />
                   </motion.div>
                 ))}
