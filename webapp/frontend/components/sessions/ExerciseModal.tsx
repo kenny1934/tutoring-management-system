@@ -8,9 +8,10 @@ import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages, printBulkFiles, PrintStampInfo } from "@/lib/file-system";
-import { FolderPickerModal } from "@/components/ui/folder-picker-modal";
+import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages, printBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
+import { FolderTreeModal } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
+import { FileSearchModal } from "@/components/ui/file-search-modal";
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -98,12 +99,22 @@ export function ExerciseModal({
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
   const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
   const [canBrowseFiles, setCanBrowseFiles] = useState(false);
-  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const [folderTreeOpen, setFolderTreeOpen] = useState(false);
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
   const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  // Drag-drop file search state
+  const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
+  const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [searchFilename, setSearchFilename] = useState("");
+  const [searchForIndex, setSearchForIndex] = useState<number | null>(null);
+
+  // Multi-file drag-drop batch search state
+  const [batchSearchOpen, setBatchSearchOpen] = useState(false);
+  const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
 
   // Check for File System Access API support on mount
   useEffect(() => {
@@ -272,10 +283,116 @@ export function ExerciseModal({
     );
   };
 
+  // Handle paste - auto-convert Windows drive paths to alias paths
+  const handlePasteConvert = useCallback(async (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    const pastedText = e.clipboardData.getData('text');
+
+    // Check if Windows path with drive letter (e.g., "Z:\path" or Z:\path)
+    const driveMatch = pastedText.match(/^["']?([A-Za-z]):[\\\/]/);
+    if (!driveMatch) return; // Let default paste happen
+
+    e.preventDefault();
+
+    // Clean quotes and normalize separators (forward slashes to backslashes)
+    const cleanPath = pastedText.replace(/^["']|["']$/g, '').replace(/\//g, '\\');
+
+    // Convert to alias path if mapping exists
+    const convertedPath = await convertToAliasPath(cleanPath);
+    updateExercise(index, "pdf_name", convertedPath);
+  }, []);
+
+  // Handle drag-drop for file search
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLInputElement>, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(index);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLInputElement>, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(null);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Filter to only PDF files
+    const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfFiles.length === 0) return;
+
+    if (pdfFiles.length === 1) {
+      // Single file: existing search behavior
+      setSearchFilename(pdfFiles[0].name);
+      setSearchForIndex(index);
+      setFileSearchOpen(true);
+    } else {
+      // Multiple files: batch search
+      setSearchFilenames(pdfFiles.map(f => f.name));
+      setSearchForIndex(index);
+      setBatchSearchOpen(true);
+    }
+  }, []);
+
+  // Handle file selected from search modal (single file)
+  const handleSearchFileSelected = useCallback((path: string) => {
+    if (searchForIndex !== null) {
+      updateExercise(searchForIndex, "pdf_name", path);
+      setSearchForIndex(null);
+    }
+    setFileSearchOpen(false);
+    setSearchFilename("");
+  }, [searchForIndex]);
+
+  // Handle files selected from batch search modal (multiple files)
+  const handleBatchSearchFilesSelected = useCallback((paths: string[]) => {
+    if (paths.length === 0 || searchForIndex === null) {
+      setBatchSearchOpen(false);
+      setSearchFilenames([]);
+      setSearchForIndex(null);
+      return;
+    }
+
+    // First path fills the drop target row
+    updateExercise(searchForIndex, "pdf_name", paths[0]);
+
+    // Remaining paths create new exercise rows after drop target
+    if (paths.length > 1) {
+      const newExercises = paths.slice(1).map((path) => ({
+        exercise_type: exerciseType,
+        pdf_name: path,
+        page_mode: 'simple' as const,
+        page_start: "",
+        page_end: "",
+        complex_pages: "",
+        remarks: "",
+      }));
+
+      setExercises((prev) => {
+        // Insert after the drop target index
+        const before = prev.slice(0, searchForIndex + 1);
+        const after = prev.slice(searchForIndex + 1);
+        return [...before, ...newExercises, ...after];
+      });
+    }
+
+    setBatchSearchOpen(false);
+    setSearchFilenames([]);
+    setSearchForIndex(null);
+  }, [searchForIndex, exerciseType]);
+
   // Handle file browse for PDF selection
   const handleBrowseFile = useCallback((index: number) => {
     setBrowsingForIndex(index);
-    setFolderPickerOpen(true);
+    setFolderTreeOpen(true);
   }, []);
 
   // Handle file selected from folder picker
@@ -285,6 +402,44 @@ export function ExerciseModal({
       setBrowsingForIndex(null);
     }
   }, [browsingForIndex]);
+
+  // Handle batch add from folder picker (multi-select mode)
+  const handleBatchAddFromBrowse = useCallback((paths: string[]) => {
+    if (paths.length === 0) return;
+
+    // If we were browsing for a specific index, fill that first
+    let startIndex = 0;
+    if (browsingForIndex !== null && paths.length > 0) {
+      updateExercise(browsingForIndex, "pdf_name", paths[0]);
+      startIndex = 1;
+    }
+
+    // Create new exercise rows for remaining files
+    if (paths.length > startIndex) {
+      const newExercises = paths.slice(startIndex).map((path) => ({
+        exercise_type: exerciseType,
+        pdf_name: path,
+        page_mode: 'simple' as const,
+        page_start: "",
+        page_end: "",
+        complex_pages: "",
+        remarks: "",
+      }));
+
+      setExercises((prev) => {
+        if (browsingForIndex !== null) {
+          // Insert after the browsing index
+          const before = prev.slice(0, browsingForIndex + 1);
+          const after = prev.slice(browsingForIndex + 1);
+          return [...before, ...newExercises, ...after];
+        }
+        // Or append at end
+        return [...prev, ...newExercises];
+      });
+    }
+
+    setBrowsingForIndex(null);
+  }, [browsingForIndex, exerciseType]);
 
   // Handle Paperless search
   const handlePaperlessSearch = useCallback((index: number) => {
@@ -573,12 +728,16 @@ export function ExerciseModal({
             {exercises.map((exercise, index) => (
               <div
                 key={index}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
                 className={cn(
                   "p-3 rounded-lg border transition-all",
                   isCW
                     ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
                     : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
-                  focusedRowIndex === index && "ring-2 ring-amber-400/70 ring-offset-1"
+                  focusedRowIndex === index && "ring-2 ring-amber-400/70 ring-offset-1",
+                  isDraggingOver === index && "ring-2 ring-amber-400 bg-amber-50/50 dark:bg-amber-900/30"
                 )}
               >
                 <div className="space-y-2">
@@ -605,9 +764,14 @@ export function ExerciseModal({
                       type="text"
                       value={exercise.pdf_name}
                       onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
+                      onPaste={(e) => handlePasteConvert(e, index)}
                       onFocus={() => setFocusedRowIndex(index)}
-                      placeholder="PDF name or path"
-                      className={cn(inputClass, "text-xs py-1.5 flex-1 min-w-0")}
+                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF name or path (drag & drop supported)"}
+                      className={cn(
+                        inputClass,
+                        "text-xs py-1.5 flex-1 min-w-0 transition-all",
+                        isDraggingOver === index && "border-amber-400"
+                      )}
                     />
 
                     {/* File action buttons */}
@@ -811,14 +975,17 @@ export function ExerciseModal({
         )}
       </div>
 
-      {/* Folder Picker Modal */}
-      <FolderPickerModal
-        isOpen={folderPickerOpen}
+      {/* Folder Tree Browser Modal */}
+      <FolderTreeModal
+        isOpen={folderTreeOpen}
         onClose={() => {
-          setFolderPickerOpen(false);
+          setFolderTreeOpen(false);
           setBrowsingForIndex(null);
         }}
         onFileSelected={handleFileSelected}
+        onFilesSelected={handleBatchAddFromBrowse}
+        allowMultiSelect
+        initialPath={browsingForIndex !== null ? exercises[browsingForIndex]?.pdf_name : undefined}
       />
 
       {/* Paperless Search Modal */}
@@ -836,6 +1003,30 @@ export function ExerciseModal({
         studentGrade={session.grade}
         school={session.school}
         location={session.location}
+      />
+
+      {/* File Search Modal (for single file drag-drop) */}
+      <FileSearchModal
+        isOpen={fileSearchOpen}
+        onClose={() => {
+          setFileSearchOpen(false);
+          setSearchFilename("");
+          setSearchForIndex(null);
+        }}
+        filename={searchFilename}
+        onFileSelected={handleSearchFileSelected}
+      />
+
+      {/* Batch File Search Modal (for multi-file drag-drop) */}
+      <FileSearchModal
+        isOpen={batchSearchOpen}
+        onClose={() => {
+          setBatchSearchOpen(false);
+          setSearchFilenames([]);
+          setSearchForIndex(null);
+        }}
+        filenames={searchFilenames}
+        onFilesSelected={handleBatchSearchFilesSelected}
       />
     </Modal>
   );

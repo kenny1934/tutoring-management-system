@@ -11,6 +11,7 @@ const sizeClasses = {
   md: "w-full max-w-lg",
   lg: "w-full max-w-2xl",
   xl: "w-full max-w-4xl",
+  "2xl": "w-full max-w-7xl",
 } as const;
 
 export interface ModalProps {
@@ -100,7 +101,7 @@ export function Modal({
             transition={{ duration: 0.2, ease: "easeOut" }}
             style={{
               width: "100%",
-              maxWidth: size === "sm" ? "28rem" : size === "md" ? "32rem" : size === "lg" ? "42rem" : "56rem",
+              maxWidth: size === "sm" ? "28rem" : size === "md" ? "32rem" : size === "lg" ? "42rem" : size === "xl" ? "56rem" : size === "2xl" ? "80rem" : "56rem",
             }}
             className={cn(
               "relative",
