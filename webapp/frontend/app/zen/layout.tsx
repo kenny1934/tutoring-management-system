@@ -1,10 +1,13 @@
 import { ReactNode } from "react";
 import { ZenGuard, ZenLayout } from "@/components/zen";
+import { ZenSessionProvider } from "@/contexts/ZenSessionContext";
 
 export default function ZenRootLayout({ children }: { children: ReactNode }) {
   return (
     <ZenGuard>
-      <ZenLayout>{children}</ZenLayout>
+      <ZenSessionProvider>
+        <ZenLayout>{children}</ZenLayout>
+      </ZenSessionProvider>
     </ZenGuard>
   );
 }
