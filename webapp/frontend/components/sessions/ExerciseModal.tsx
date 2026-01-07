@@ -9,7 +9,7 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages, printBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
-import { FolderTreeModal } from "@/components/ui/folder-tree-modal";
+import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
 
@@ -78,6 +78,27 @@ function combineExerciseRemarks(complexPages: string, remarks: string): string {
   if (complexPages.trim()) parts.push(`Pages: ${complexPages.trim()}`);
   if (remarks.trim()) parts.push(remarks.trim());
   return parts.join(' || ');
+}
+
+// Parse page input string into PageSelection
+// Accepts: "5", "1-5", "1~5", "1,3,5-7"
+function parsePageInput(input: string): PageSelection | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  // Normalize common "to" separators: - ~ – — −
+  const normalized = trimmed.replace(/[~–—−]/g, '-');
+
+  // Simple range pattern: "5" or "1-5"
+  const match = normalized.match(/^(\d+)(?:-(\d+))?$/);
+  if (match) {
+    const start = parseInt(match[1], 10);
+    const end = match[2] ? parseInt(match[2], 10) : start;
+    return { pageStart: start, pageEnd: end };
+  }
+
+  // Everything else → complex mode (pass normalized string)
+  return { complexRange: normalized };
 }
 
 interface ExerciseModalProps {
@@ -396,35 +417,73 @@ export function ExerciseModal({
   }, []);
 
   // Handle file selected from folder picker
-  const handleFileSelected = useCallback((path: string) => {
+  const handleFileSelected = useCallback((path: string, pages?: string) => {
     if (browsingForIndex !== null) {
       updateExercise(browsingForIndex, "pdf_name", path);
+
+      // Apply page selection if provided
+      if (pages) {
+        const pageSelection = parsePageInput(pages);
+        if (pageSelection?.complexRange) {
+          updateExercise(browsingForIndex, "page_mode", "custom");
+          updateExercise(browsingForIndex, "complex_pages", pageSelection.complexRange);
+          updateExercise(browsingForIndex, "page_start", "");
+          updateExercise(browsingForIndex, "page_end", "");
+        } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
+          updateExercise(browsingForIndex, "page_mode", "simple");
+          updateExercise(browsingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
+          updateExercise(browsingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
+          updateExercise(browsingForIndex, "complex_pages", "");
+        }
+      }
+
       setBrowsingForIndex(null);
     }
   }, [browsingForIndex]);
 
   // Handle batch add from folder picker (multi-select mode)
-  const handleBatchAddFromBrowse = useCallback((paths: string[]) => {
-    if (paths.length === 0) return;
+  const handleBatchAddFromBrowse = useCallback((selections: FileSelection[]) => {
+    if (selections.length === 0) return;
+
+    // Helper to create exercise from FileSelection
+    const createExerciseFromSelection = (sel: FileSelection): ExerciseFormItem => {
+      const pageSelection = parsePageInput(sel.pages);
+      return {
+        exercise_type: exerciseType,
+        pdf_name: sel.path,
+        page_mode: pageSelection?.complexRange ? 'custom' : 'simple',
+        page_start: pageSelection?.complexRange ? "" : (pageSelection?.pageStart?.toString() || ""),
+        page_end: pageSelection?.complexRange ? "" : (pageSelection?.pageEnd?.toString() || ""),
+        complex_pages: pageSelection?.complexRange || "",
+        remarks: "",
+      };
+    };
 
     // If we were browsing for a specific index, fill that first
     let startIndex = 0;
-    if (browsingForIndex !== null && paths.length > 0) {
-      updateExercise(browsingForIndex, "pdf_name", paths[0]);
+    if (browsingForIndex !== null && selections.length > 0) {
+      const first = selections[0];
+      const pageSelection = parsePageInput(first.pages);
+      updateExercise(browsingForIndex, "pdf_name", first.path);
+
+      if (pageSelection?.complexRange) {
+        updateExercise(browsingForIndex, "page_mode", "custom");
+        updateExercise(browsingForIndex, "complex_pages", pageSelection.complexRange);
+        updateExercise(browsingForIndex, "page_start", "");
+        updateExercise(browsingForIndex, "page_end", "");
+      } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
+        updateExercise(browsingForIndex, "page_mode", "simple");
+        updateExercise(browsingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
+        updateExercise(browsingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
+        updateExercise(browsingForIndex, "complex_pages", "");
+      }
+
       startIndex = 1;
     }
 
     // Create new exercise rows for remaining files
-    if (paths.length > startIndex) {
-      const newExercises = paths.slice(startIndex).map((path) => ({
-        exercise_type: exerciseType,
-        pdf_name: path,
-        page_mode: 'simple' as const,
-        page_start: "",
-        page_end: "",
-        complex_pages: "",
-        remarks: "",
-      }));
+    if (selections.length > startIndex) {
+      const newExercises = selections.slice(startIndex).map(createExerciseFromSelection);
 
       setExercises((prev) => {
         if (browsingForIndex !== null) {
