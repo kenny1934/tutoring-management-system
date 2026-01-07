@@ -6,7 +6,7 @@ import { useRole } from "@/contexts/RoleContext";
 
 interface StatusMessage {
   text: string;
-  type: "success" | "error" | "info";
+  type: "success" | "error" | "info" | "warning";
   timestamp: number;
 }
 
@@ -71,6 +71,8 @@ export function ZenStatusBar() {
         return "var(--zen-success)";
       case "error":
         return "var(--zen-error)";
+      case "warning":
+        return "var(--zen-warning)";
       default:
         return "var(--zen-fg)";
     }
