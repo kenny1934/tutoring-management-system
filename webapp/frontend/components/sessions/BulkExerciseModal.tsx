@@ -7,8 +7,22 @@ import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2
 import { cn } from "@/lib/utils";
 import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages } from "@/lib/file-system";
-import { FolderPickerModal } from "@/components/ui/folder-picker-modal";
+import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
+
+// Parse page input string into structured format
+function parsePageInput(input: string): { pageStart?: number; pageEnd?: number; complexRange?: string } | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/[~–—−]/g, '-');
+  const match = normalized.match(/^(\d+)(?:-(\d+))?$/);
+  if (match) {
+    const start = parseInt(match[1], 10);
+    const end = match[2] ? parseInt(match[2], 10) : start;
+    return { pageStart: start, pageEnd: end };
+  }
+  return { complexRange: normalized };
+}
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -118,13 +132,82 @@ export function BulkExerciseModal({
     setFolderPickerOpen(true);
   }, []);
 
-  // Handle file selected from folder picker
-  const handleFileSelected = useCallback((path: string) => {
+  // Handle file selected from folder picker (single file)
+  const handleFileSelected = useCallback((path: string, pages?: string) => {
     if (browsingForIndex !== null) {
       updateExercise(browsingForIndex, "pdf_name", path);
+
+      // If pages provided from preview, parse and apply
+      if (pages) {
+        const parsed = parsePageInput(pages);
+        if (parsed?.complexRange) {
+          updateExercise(browsingForIndex, "page_mode", "custom");
+          updateExercise(browsingForIndex, "page_start", "");
+          updateExercise(browsingForIndex, "page_end", "");
+          updateExercise(browsingForIndex, "complex_pages", parsed.complexRange);
+        } else if (parsed?.pageStart) {
+          updateExercise(browsingForIndex, "page_mode", "simple");
+          updateExercise(browsingForIndex, "page_start", String(parsed.pageStart));
+          updateExercise(browsingForIndex, "page_end", String(parsed.pageEnd || parsed.pageStart));
+          updateExercise(browsingForIndex, "complex_pages", "");
+        }
+      }
+
       setBrowsingForIndex(null);
     }
   }, [browsingForIndex]);
+
+  // Handle batch file selection from folder picker (multi-select)
+  const handleBatchAddFromBrowse = useCallback((selections: FileSelection[]) => {
+    if (selections.length === 0) return;
+
+    if (browsingForIndex !== null) {
+      const first = selections[0];
+      // First selection goes to the current row
+      updateExercise(browsingForIndex, "pdf_name", first.path);
+
+      // Apply page selection for the first item
+      if (first.pages) {
+        const parsed = parsePageInput(first.pages);
+        if (parsed?.complexRange) {
+          updateExercise(browsingForIndex, "page_mode", "custom");
+          updateExercise(browsingForIndex, "page_start", "");
+          updateExercise(browsingForIndex, "page_end", "");
+          updateExercise(browsingForIndex, "complex_pages", parsed.complexRange);
+        } else if (parsed?.pageStart) {
+          updateExercise(browsingForIndex, "page_mode", "simple");
+          updateExercise(browsingForIndex, "page_start", String(parsed.pageStart));
+          updateExercise(browsingForIndex, "page_end", String(parsed.pageEnd || parsed.pageStart));
+          updateExercise(browsingForIndex, "complex_pages", "");
+        }
+      }
+
+      // Additional selections create new rows
+      if (selections.length > 1) {
+        setExercises((prev) => {
+          const newExercises = selections.slice(1).map((sel) => {
+            const parsed = sel.pages ? parsePageInput(sel.pages) : null;
+            return {
+              exercise_type: exerciseType,
+              pdf_name: sel.path,
+              page_mode: parsed?.complexRange ? 'custom' as const : 'simple' as const,
+              page_start: parsed?.complexRange ? "" : (parsed?.pageStart?.toString() || ""),
+              page_end: parsed?.complexRange ? "" : (parsed?.pageEnd?.toString() || ""),
+              complex_pages: parsed?.complexRange || "",
+              remarks: "",
+            };
+          });
+          // Insert after the current index
+          const before = prev.slice(0, browsingForIndex + 1);
+          const after = prev.slice(browsingForIndex + 1);
+          return [...before, ...newExercises, ...after];
+        });
+      }
+
+      setBrowsingForIndex(null);
+    }
+    setFolderPickerOpen(false);
+  }, [browsingForIndex, exerciseType]);
 
   // Handle Paperless search
   const handlePaperlessSearch = useCallback((index: number) => {
@@ -637,14 +720,16 @@ export function BulkExerciseModal({
         )}
       </div>
 
-      {/* Folder Picker Modal */}
-      <FolderPickerModal
+      {/* Folder Tree Modal */}
+      <FolderTreeModal
         isOpen={folderPickerOpen}
         onClose={() => {
           setFolderPickerOpen(false);
           setBrowsingForIndex(null);
         }}
         onFileSelected={handleFileSelected}
+        onFilesSelected={handleBatchAddFromBrowse}
+        allowMultiSelect={true}
       />
 
       {/* Paperless Search Modal */}

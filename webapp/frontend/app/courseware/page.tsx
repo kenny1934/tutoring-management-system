@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
@@ -30,13 +30,28 @@ import {
   Search,
   BarChart3,
   Folder,
-  FolderOpen,
   FolderSync,
+  FolderPlus,
+  LayoutGrid,
+  List,
+  AlertCircle,
+  AlertTriangle,
+  RefreshCw,
+  ZoomIn,
+  ZoomOut,
+  Trash2,
+  Filter,
+  Tag,
+  Eye,
+  Flame,
+  User,
 } from "lucide-react";
-import { studentsAPI } from "@/lib/api";
+import { studentsAPI, api, type PaperlessSearchMode, type PaperlessTagMatchMode } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
+import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
+import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
 // Medal icons for top 3 - using lucide icons with glow effects
@@ -883,13 +898,49 @@ function UsageDetailPanel({
   );
 }
 
-// Browse tab - Courseware file browser with preview
+// Timeout helper for network operations
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  errorMsg: string
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(errorMsg)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+type SortOption = "name-asc" | "name-desc" | "date-desc" | "date-asc";
+type ViewMode = "grid" | "list";
+
+// Browse tab - Courseware file browser with preview (modern breadcrumb navigation)
 function CoursewareBrowserTab() {
-  const [tree, setTree] = useState<TreeNode[]>([]);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  // Root folders and navigation state
+  const [rootFolders, setRootFolders] = useState<TreeNode[]>([]);
+  const [currentPath, setCurrentPath] = useState<string[]>([]);
+  const [currentHandle, setCurrentHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [currentContents, setCurrentContents] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contentsLoading, setContentsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  // View/sort state
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [loadingDates, setLoadingDates] = useState(false);
+
+  // Pagination
+  const ITEMS_PER_PAGE = 100;
+  const [displayLimit, setDisplayLimit] = useState(ITEMS_PER_PAGE);
+
+  // Keyboard navigation
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+
+  // Network errors
+  const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
 
   // Preview state
   const [previewNode, setPreviewNode] = useState<TreeNode | null>(null);
@@ -900,15 +951,15 @@ function CoursewareBrowserTab() {
   const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
   const currentZoom = ZOOM_LEVELS[zoomIndex];
 
-  // Load folders on mount
+  // Load root folders on mount
   useEffect(() => {
-    loadFolders();
+    loadRootFolders();
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, []);
 
-  const loadFolders = async () => {
+  const loadRootFolders = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -921,15 +972,14 @@ function CoursewareBrowserTab() {
         kind: "folder",
         handle: folder.handle,
         isShared: folder.isShared,
-        children: [],
-        isLoaded: false,
       }));
       nodes.sort((a, b) => {
         if (a.isShared && !b.isShared) return -1;
         if (!a.isShared && b.isShared) return 1;
         return a.name.localeCompare(b.name);
       });
-      setTree(nodes);
+      setRootFolders(nodes);
+      setCurrentContents(nodes);
     } catch (err) {
       setError("Failed to load folders");
       console.error(err);
@@ -938,57 +988,183 @@ function CoursewareBrowserTab() {
     }
   };
 
-  const loadFolderContents = async (node: TreeNode) => {
-    if (!node.handle || node.kind !== "folder" || node.isLoaded) return;
-    setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: true }));
+  // Load contents of a directory with timeout handling
+  const loadFolderContents = useCallback(async (
+    handle: FileSystemDirectoryHandle,
+    basePath: string,
+    folderId?: string
+  ) => {
+    setContentsLoading(true);
+    setError(null);
+    const TIMEOUT_MS = 5000;
+
     try {
       const { verifyPermission } = await import("@/lib/file-system");
-      const dirHandle = node.handle as FileSystemDirectoryHandle;
-      const hasPermission = await verifyPermission(dirHandle);
+      const hasPermission = await withTimeout(
+        verifyPermission(handle),
+        TIMEOUT_MS,
+        "Connection timeout - drive may be unavailable"
+      );
+
       if (!hasPermission) {
-        setError(`Permission denied for "${node.name}"`);
-        setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: false }));
+        setError("Permission denied. Please grant access in Settings.");
+        setContentsLoading(false);
         return;
       }
-      const children: TreeNode[] = [];
-      for await (const [name, handle] of dirHandle.entries()) {
+
+      const contents: TreeNode[] = [];
+      const entriesIterator = handle.entries();
+
+      // Try first entry with timeout
+      const firstEntryResult = await withTimeout(
+        entriesIterator.next(),
+        TIMEOUT_MS,
+        "Cannot access folder - network may be unavailable"
+      );
+
+      if (!firstEntryResult.done) {
+        const [name, entryHandle] = firstEntryResult.value;
         const isPdf = name.toLowerCase().endsWith(".pdf");
-        const isFolder = handle.kind === "directory";
+        const isFolder = entryHandle.kind === "directory";
         if (isFolder || isPdf) {
-          children.push({
-            id: `${node.id}/${name}`,
+          contents.push({
+            id: `${basePath}\\${name}`,
             name,
-            path: `${node.path}\\${name}`,
-            kind: handle.kind === "directory" ? "folder" : "file",
-            handle: handle as FileSystemDirectoryHandle | FileSystemFileHandle,
-            children: handle.kind === "directory" ? [] : undefined,
-            isLoaded: false,
+            path: `${basePath}\\${name}`,
+            kind: entryHandle.kind === "directory" ? "folder" : "file",
+            handle: entryHandle as FileSystemDirectoryHandle | FileSystemFileHandle,
           });
         }
       }
-      children.sort((a, b) => {
-        if (a.kind === "folder" && b.kind !== "folder") return -1;
-        if (a.kind !== "folder" && b.kind === "folder") return 1;
-        return a.name.localeCompare(b.name);
-      });
-      setTree((prev) => updateNodeInTree(prev, node.id, { children, isLoaded: true, isLoading: false }));
+
+      // Continue with remaining entries
+      for await (const [name, entryHandle] of entriesIterator) {
+        const isPdf = name.toLowerCase().endsWith(".pdf");
+        const isFolder = entryHandle.kind === "directory";
+        if (isFolder || isPdf) {
+          contents.push({
+            id: `${basePath}\\${name}`,
+            name,
+            path: `${basePath}\\${name}`,
+            kind: entryHandle.kind === "directory" ? "folder" : "file",
+            handle: entryHandle as FileSystemDirectoryHandle | FileSystemFileHandle,
+          });
+        }
+      }
+
+      // Clear from unavailable on success
+      if (folderId) {
+        setUnavailableFolders((prev) => {
+          const next = new Set(prev);
+          next.delete(folderId);
+          return next;
+        });
+      }
+
+      setCurrentContents(contents);
+      setDisplayLimit(ITEMS_PER_PAGE);
     } catch (err) {
-      console.error(err);
-      setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: false }));
+      console.error("Failed to load folder contents:", err);
+      const message = err instanceof Error ? err.message : "Failed to load folder contents.";
+      setError(message);
+      if (folderId && (message.includes("timeout") || message.includes("unavailable"))) {
+        setUnavailableFolders((prev) => new Set(prev).add(folderId));
+      }
+    } finally {
+      setContentsLoading(false);
     }
-  };
+  }, []);
 
-  const handleToggleExpand = async (node: TreeNode) => {
-    const isExpanded = expandedNodes.has(node.id);
-    if (isExpanded) {
-      setExpandedNodes((prev) => { const next = new Set(prev); next.delete(node.id); return next; });
-    } else {
-      setExpandedNodes((prev) => new Set([...prev, node.id]));
-      if (!node.isLoaded && !node.isLoading) await loadFolderContents(node);
+  // Navigate into a folder
+  const navigateInto = useCallback(async (node: TreeNode) => {
+    if (node.kind !== "folder" || !node.handle) return;
+    const dirHandle = node.handle as FileSystemDirectoryHandle;
+    const newPath = [...currentPath, node.name];
+    setCurrentPath(newPath);
+    setCurrentHandle(dirHandle);
+    await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
+    if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
+  }, [currentPath, loadFolderContents]);
+
+  // Navigate via breadcrumb
+  const navigateTo = useCallback(async (index: number) => {
+    if (index === -1) {
+      setCurrentPath([]);
+      setCurrentHandle(null);
+      setCurrentContents(rootFolders);
+      return;
     }
-  };
 
-  const handlePreview = async (node: TreeNode) => {
+    const newPath = currentPath.slice(0, index + 1);
+    let handle: FileSystemDirectoryHandle | null = null;
+    const rootName = newPath[0];
+    const rootFolder = rootFolders.find((f) => f.name === rootName);
+    if (!rootFolder || !rootFolder.handle) return;
+
+    handle = rootFolder.handle as FileSystemDirectoryHandle;
+    for (let i = 1; i < newPath.length; i++) {
+      try {
+        handle = await handle.getDirectoryHandle(newPath[i]);
+      } catch {
+        return;
+      }
+    }
+
+    setCurrentPath(newPath);
+    setCurrentHandle(handle);
+    await loadFolderContents(handle, newPath.join("\\"));
+  }, [currentPath, rootFolders, loadFolderContents]);
+
+  // Sort nodes
+  const sortNodes = useCallback((nodes: TreeNode[]): TreeNode[] => {
+    return [...nodes].sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+      switch (sortBy) {
+        case "date-desc": return (b.lastModified || 0) - (a.lastModified || 0);
+        case "date-asc": return (a.lastModified || 0) - (b.lastModified || 0);
+        case "name-desc": return b.name.localeCompare(a.name);
+        case "name-asc":
+        default: return a.name.localeCompare(b.name);
+      }
+    });
+  }, [sortBy]);
+
+  const sortedContents = sortNodes(currentContents);
+
+  // Load file dates when sorting by date
+  useEffect(() => {
+    if (!sortBy.startsWith("date-") || loadingDates) return;
+    const filesToLoad = currentContents.filter(
+      (n) => n.kind === "file" && n.lastModified === undefined && n.handle
+    );
+    if (filesToLoad.length === 0) return;
+
+    const loadDates = async () => {
+      setLoadingDates(true);
+      try {
+        for (const node of filesToLoad) {
+          try {
+            const file = await (node.handle as FileSystemFileHandle).getFile();
+            node.lastModified = file.lastModified;
+          } catch {
+            node.lastModified = 0;
+          }
+        }
+        setCurrentContents([...currentContents]);
+      } finally {
+        setLoadingDates(false);
+      }
+    };
+    loadDates();
+  }, [sortBy, currentContents, loadingDates]);
+
+  // Pagination
+  const displayedContents = sortedContents.slice(0, displayLimit);
+  const hasMore = sortedContents.length > displayLimit;
+  const remainingCount = sortedContents.length - displayLimit;
+
+  // Handle preview
+  const handlePreview = useCallback(async (node: TreeNode) => {
     if (node.kind !== "file" || !node.handle) return;
     setPreviewLoading(true);
     setPreviewNode(node);
@@ -1004,7 +1180,23 @@ function CoursewareBrowserTab() {
     } finally {
       setPreviewLoading(false);
     }
-  };
+  }, [previewUrl]);
+
+  // Handle click - folder navigates, file previews
+  const handleClick = useCallback((node: TreeNode) => {
+    if (node.kind === "folder") {
+      navigateInto(node);
+    } else {
+      handlePreview(node);
+    }
+  }, [navigateInto, handlePreview]);
+
+  // Double click on file copies path
+  const handleDoubleClick = useCallback((node: TreeNode) => {
+    if (node.kind === "file") {
+      handleCopyPath(node.path);
+    }
+  }, []);
 
   const handleCopyPath = (path: string) => {
     navigator.clipboard.writeText(path);
@@ -1012,15 +1204,118 @@ function CoursewareBrowserTab() {
     setTimeout(() => setCopiedPath(null), 2000);
   };
 
-  const handleOpenInNewTab = async () => {
+  const handleClosePreview = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPreviewNode(null);
+  }, [previewUrl]);
+
+  const handleOpenInNewTab = useCallback(async () => {
     if (previewNode?.handle) {
       const { openFileInNewTab } = await import("@/lib/file-system");
       await openFileInNewTab(previewNode.handle as FileSystemFileHandle);
     }
-  };
+  }, [previewNode]);
 
-  const sharedFolders = tree.filter((n) => n.isShared);
-  const personalFolders = tree.filter((n) => !n.isShared);
+  // Add folder handler
+  const handleAddFolder = useCallback(async () => {
+    try {
+      const { addFolder } = await import("@/lib/file-system");
+      const newFolder = await addFolder();
+      if (newFolder) await loadRootFolders();
+    } catch (err) {
+      console.error("Failed to add folder:", err);
+      setError("Failed to add folder.");
+    }
+  }, []);
+
+  // Remove folder handler
+  const handleRemoveFolder = useCallback(async (id: string, name: string) => {
+    if (!window.confirm(`Remove "${name}" from the folder list?\n\nThis won't delete the actual folder on disk.`)) return;
+    try {
+      const { removeFolder } = await import("@/lib/file-system");
+      await removeFolder(id);
+      await loadRootFolders();
+    } catch (err) {
+      console.error("Failed to remove folder:", err);
+      setError("Failed to remove folder.");
+    }
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const totalItems = sortedContents.length;
+      const getGridColumns = () => viewMode !== "grid" ? 1 : (window.innerWidth >= 640 ? 4 : 3);
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          if (viewMode === "grid") {
+            const cols = getGridColumns();
+            setFocusedIndex((prev) => Math.min(prev + cols, totalItems - 1));
+          } else {
+            setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
+          }
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          if (viewMode === "grid") {
+            const cols = getGridColumns();
+            setFocusedIndex((prev) => Math.max(prev - cols, 0));
+          } else {
+            setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          }
+          break;
+        case "ArrowLeft":
+          if (viewMode === "grid") {
+            e.preventDefault();
+            setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          }
+          break;
+        case "ArrowRight":
+          if (viewMode === "grid") {
+            e.preventDefault();
+            setFocusedIndex((prev) => Math.min(prev + 1, totalItems - 1));
+          }
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < totalItems) {
+            const node = sortedContents[focusedIndex];
+            if (node.kind === "folder") navigateInto(node);
+            else handleDoubleClick(node);
+          }
+          break;
+        case "p":
+        case "P":
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < totalItems) {
+            const node = sortedContents[focusedIndex];
+            if (node.kind === "file") handlePreview(node);
+          }
+          break;
+        case "Backspace":
+          if (currentPath.length > 0) {
+            e.preventDefault();
+            navigateTo(currentPath.length - 2);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [focusedIndex, sortedContents, currentPath, viewMode, navigateInto, navigateTo, handlePreview, handleDoubleClick]);
+
+  // Reset focus when contents change
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [currentContents]);
+
+  const isAtRoot = currentPath.length === 0;
 
   if (loading) {
     return (
@@ -1031,16 +1326,23 @@ function CoursewareBrowserTab() {
     );
   }
 
-  if (tree.length === 0) {
+  if (rootFolders.length === 0 && !error) {
     return (
       <div className="flex justify-center py-12">
         <StickyNote variant="yellow" size="lg" showTape rotation={1}>
           <div className="text-center">
             <FolderTree className="h-12 w-12 mx-auto mb-4 text-[#a0704b]" />
             <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No folders configured</p>
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
               Set up shared drives in Settings → Path Mappings to browse files here.
             </p>
+            <button
+              onClick={handleAddFolder}
+              className="flex items-center gap-2 mx-auto px-4 py-2 rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+            >
+              <FolderPlus className="h-4 w-4" />
+              Add Folder
+            </button>
           </div>
         </StickyNote>
       </div>
@@ -1048,48 +1350,283 @@ function CoursewareBrowserTab() {
   }
 
   return (
-    <div className="flex-1 flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden min-h-[400px]">
-      {/* Tree panel */}
-      <div className={cn("p-4 overflow-y-auto", previewUrl ? "w-1/3 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
+    <div className="h-full flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+      {/* Browser panel */}
+      <div className={cn("flex flex-col", previewUrl ? "w-2/5 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
+        {/* Header: Breadcrumb + Controls */}
+        <div className="p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+          {/* Row 1: Breadcrumb + View toggle */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto">
+              <button
+                onClick={() => navigateTo(-1)}
+                className={cn(
+                  "shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
+                  isAtRoot && "text-amber-600"
+                )}
+                title="Root"
+              >
+                <Home className="h-4 w-4" />
+              </button>
+              {isAtRoot && (
+                <button
+                  onClick={handleAddFolder}
+                  className="shrink-0 ml-1 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 hover:text-amber-500"
+                  title="Add local folder"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </button>
+              )}
+              {currentPath.map((segment, i) => (
+                <Fragment key={i}>
+                  <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                  <button
+                    onClick={() => navigateTo(i)}
+                    className={cn(
+                      "hover:text-amber-500 truncate max-w-[120px] transition-colors",
+                      i === currentPath.length - 1 && "font-medium text-amber-600 dark:text-amber-400"
+                    )}
+                    title={segment}
+                  >
+                    {segment}
+                  </button>
+                </Fragment>
+              ))}
+            </div>
+
+            {/* View toggle */}
+            <div className="flex items-center gap-0.5 border border-gray-300 dark:border-gray-600 rounded-md p-0.5 shrink-0">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  viewMode === "list"
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                )}
+                title="List view"
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "p-1 rounded transition-colors",
+                  viewMode === "grid"
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+                )}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Sort + Item count */}
+          <div className="flex items-center gap-3">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-amber-400"
+            >
+              <option value="name-asc">Name A→Z</option>
+              <option value="name-desc">Name Z→A</option>
+              <option value="date-desc">Newest first</option>
+              <option value="date-asc">Oldest first</option>
+            </select>
+            {loadingDates && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />}
+            {sortedContents.length > 0 && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                {hasMore
+                  ? `${displayedContents.length} of ${sortedContents.length} items`
+                  : `${sortedContents.length} item${sortedContents.length !== 1 ? "s" : ""}`}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Error banner */}
         {error && (
-          <div className="mb-4 p-2 rounded bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
-            {error}
+          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+            <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+            <span className="flex-1 text-sm text-red-700 dark:text-red-300">{error}</span>
+            <button
+              onClick={() => {
+                setError(null);
+                if (currentPath.length > 0) navigateTo(-1);
+              }}
+              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500"
+              title="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => {
+                setError(null);
+                if (currentHandle && currentPath.length > 0) {
+                  const rootFolder = rootFolders.find(f => f.name === currentPath[0]);
+                  loadFolderContents(currentHandle, currentPath.join("\\"), rootFolder?.id);
+                } else {
+                  loadRootFolders();
+                }
+              }}
+              className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500"
+              title="Retry"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
           </div>
         )}
-        {sharedFolders.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Shared Drives</h3>
-            {sharedFolders.map((node) => (
-              <BrowserTreeNode
-                key={node.id}
-                node={node}
-                depth={0}
-                expandedNodes={expandedNodes}
-                onToggle={handleToggleExpand}
-                onPreview={handlePreview}
-                onCopy={handleCopyPath}
-                copiedPath={copiedPath}
-              />
-            ))}
-          </div>
-        )}
-        {personalFolders.length > 0 && (
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Personal Folders</h3>
-            {personalFolders.map((node) => (
-              <BrowserTreeNode
-                key={node.id}
-                node={node}
-                depth={0}
-                expandedNodes={expandedNodes}
-                onToggle={handleToggleExpand}
-                onPreview={handlePreview}
-                onCopy={handleCopyPath}
-                copiedPath={copiedPath}
-              />
-            ))}
-          </div>
-        )}
+
+        {/* Content area */}
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-3">
+          {contentsLoading ? (
+            <div className="flex items-center justify-center py-8 text-gray-500 dark:text-gray-400">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Loading...
+            </div>
+          ) : sortedContents.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No PDF files in this folder</p>
+            </div>
+          ) : viewMode === "list" ? (
+            /* LIST VIEW */
+            <div className="space-y-0.5">
+              {displayedContents.map((node, index) => {
+                const isFocused = focusedIndex === index;
+                return (
+                  <div
+                    key={node.id}
+                    ref={(el) => { itemRefs.current[index] = el; }}
+                    onClick={() => handleClick(node)}
+                    onDoubleClick={() => handleDoubleClick(node)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group",
+                      "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                      isFocused && "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-900/30"
+                    )}
+                  >
+                    {node.kind === "folder" ? (
+                      node.isShared ? <FolderSync className="h-5 w-5 text-green-500 shrink-0" /> :
+                      <Folder className="h-5 w-5 text-amber-500 shrink-0" />
+                    ) : (
+                      <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                    )}
+                    <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate" title={node.name}>
+                      {node.name}
+                    </span>
+                    {node.kind === "folder" && unavailableFolders.has(node.id) && (
+                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" title="Folder unavailable" />
+                    )}
+                    {node.kind === "folder" && <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+                    {node.kind === "file" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCopyPath(node.path); }}
+                        className={cn(
+                          "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-opacity duration-150",
+                          copiedPath === node.path || isFocused
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100"
+                        )}
+                        title="Copy path"
+                      >
+                        {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
+                      </button>
+                    )}
+                    {isAtRoot && node.kind === "folder" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        title="Remove folder"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* GRID VIEW */
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {displayedContents.map((node, index) => {
+                const isFocused = focusedIndex === index;
+                return (
+                  <div
+                    key={node.id}
+                    ref={(el) => { itemRefs.current[index] = el; }}
+                    onClick={() => handleClick(node)}
+                    onDoubleClick={() => handleDoubleClick(node)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer transition-all relative group",
+                      "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-transparent",
+                      "hover:border-amber-200 dark:hover:border-amber-700",
+                      isFocused && "ring-2 ring-amber-400/50 border-amber-200"
+                    )}
+                  >
+                    {isAtRoot && node.kind === "folder" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500"
+                        title="Remove folder"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {node.kind === "folder" && unavailableFolders.has(node.id) && (
+                      <div className="absolute top-1 left-1 p-0.5 rounded bg-amber-100 dark:bg-amber-900/50" title="Folder unavailable">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      </div>
+                    )}
+                    {node.kind === "folder" ? (
+                      node.isShared ? <FolderSync className="h-10 w-10 text-green-500" /> : <Folder className="h-10 w-10 text-amber-500" />
+                    ) : (
+                      <FileText className="h-10 w-10 text-red-500" />
+                    )}
+                    <span className="text-xs text-center text-gray-700 dark:text-gray-300 truncate w-full" title={node.name}>
+                      {node.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Show more button */}
+          {hasMore && (
+            <button
+              onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
+              className="w-full py-3 mt-2 text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              Show {Math.min(remainingCount, ITEMS_PER_PAGE)} more
+              <span className="text-gray-400">({remainingCount} remaining)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Footer: Keyboard hints */}
+        <div className="p-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[10px] text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
+              {viewMode === "grid" ? "←↑↓→" : "↑↓"}
+            </kbd>
+            <span>navigate</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">P</kbd>
+            <span>preview</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Enter</kbd>
+            <span>enter folder / copy path</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">⌫</kbd>
+            <span>back</span>
+          </span>
+        </div>
       </div>
 
       {/* Preview panel */}
@@ -1098,25 +1635,51 @@ function CoursewareBrowserTab() {
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{previewNode?.name}</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setZoomIndex((i) => Math.max(i - 1, 0))} disabled={zoomIndex === 0} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50">
-                <ChevronDown className="h-4 w-4 text-gray-500 rotate-90" />
+              <button
+                onClick={() => setZoomIndex((i) => Math.max(i - 1, 0))}
+                disabled={zoomIndex === 0}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                title="Zoom out"
+              >
+                <ZoomOut className="h-4 w-4 text-gray-500" />
               </button>
               <span className="text-xs text-gray-500 w-12 text-center">{currentZoom}%</span>
-              <button onClick={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1))} disabled={zoomIndex === ZOOM_LEVELS.length - 1} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50">
-                <ChevronDown className="h-4 w-4 text-gray-500 -rotate-90" />
+              <button
+                onClick={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1))}
+                disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                title="Zoom in"
+              >
+                <ZoomIn className="h-4 w-4 text-gray-500" />
               </button>
-              <button onClick={handleOpenInNewTab} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-2" title="Open in new tab">
+              <button
+                onClick={handleOpenInNewTab}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-2"
+                title="Open in new tab"
+              >
                 <ExternalLink className="h-4 w-4 text-gray-500" />
+              </button>
+              <button
+                onClick={handleClosePreview}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-1"
+                title="Close preview"
+              >
+                <X className="h-4 w-4 text-gray-500" />
               </button>
             </div>
           </div>
-          <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden relative">
+          <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto relative">
             {previewLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
               </div>
             ) : (
-              <iframe src={previewUrl} className="w-full h-full border-0" style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }} title="PDF Preview" />
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-0"
+                style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }}
+                title="PDF Preview"
+              />
             )}
           </div>
           <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1142,164 +1705,662 @@ interface TreeNode {
   path: string;
   kind: "folder" | "file";
   handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
-  children?: TreeNode[];
-  isLoaded?: boolean;
-  isLoading?: boolean;
   isShared?: boolean;
+  lastModified?: number;
 }
 
-function BrowserTreeNode({
-  node, depth, expandedNodes, onToggle, onPreview, onCopy, copiedPath
-}: {
-  node: TreeNode;
-  depth: number;
-  expandedNodes: Set<string>;
-  onToggle: (node: TreeNode) => void;
-  onPreview: (node: TreeNode) => void;
-  onCopy: (path: string) => void;
-  copiedPath: string | null;
-}) {
-  const isExpanded = expandedNodes.has(node.id);
-  const isFolder = node.kind === "folder";
-  const isPdf = node.name.toLowerCase().endsWith(".pdf");
 
-  return (
-    <>
-      <div
-        style={{ paddingLeft: `${8 + depth * 16}px` }}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] cursor-pointer group"
-        onClick={() => isFolder ? onToggle(node) : onPreview(node)}
-      >
-        {isFolder ? (
-          node.isLoading ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" /> :
-          isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />
-        ) : <span className="w-4" />}
-        {isFolder ? (
-          node.isShared ? <FolderSync className="h-4 w-4 text-green-500" /> :
-          isExpanded ? <FolderOpen className="h-4 w-4 text-amber-500" /> : <Folder className="h-4 w-4 text-amber-500" />
-        ) : <FileText className="h-4 w-4 text-red-500" />}
-        <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{node.name}</span>
-        {isPdf && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onCopy(node.path); }}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-            title="Copy path"
-          >
-            {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
-          </button>
-        )}
-      </div>
-      {isFolder && isExpanded && node.children && (
-        <>
-          {node.children.map((child) => (
-            <BrowserTreeNode key={child.id} node={child} depth={depth + 1} expandedNodes={expandedNodes} onToggle={onToggle} onPreview={onPreview} onCopy={onCopy} copiedPath={copiedPath} />
-          ))}
-          {node.children.length === 0 && node.isLoaded && (
-            <div style={{ paddingLeft: `${8 + (depth + 1) * 16}px` }} className="text-xs text-gray-400 py-1">
-              No PDF files
-            </div>
-          )}
-        </>
-      )}
-    </>
-  );
-}
+// Search mode options
+const SEARCH_MODE_OPTIONS: { value: PaperlessSearchMode; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "title", label: "Title" },
+  { value: "content", label: "Content" },
+  { value: "advanced", label: "Advanced" },
+];
 
-function updateNodeInTree(nodes: TreeNode[], nodeId: string, updates: Partial<TreeNode>): TreeNode[] {
-  return nodes.map((node) => {
-    if (node.id === nodeId) return { ...node, ...updates };
-    if (node.children) return { ...node, children: updateNodeInTree(node.children, nodeId, updates) };
-    return node;
-  });
-}
-
-// Search tab - Shelv search interface
+// Search tab - Shelv search interface with full features
 function CoursewareSearchTab() {
+  const { location } = useLocation();
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Search state
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Array<{ id: number; title: string; original_file_name: string; correspondent_name?: string }>>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<PaperlessSearchMode>("all");
+  const [showAdvancedHints, setShowAdvancedHints] = useState(false);
+
+  // Results state
+  const [results, setResults] = useState<Array<{
+    id: number;
+    title: string;
+    original_file_name: string;
+    correspondent_name?: string;
+    tags?: string[];
+  }>>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Tag filtering
+  const [availableTags, setAvailableTags] = useState<{ id: number; name: string }[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [tagMatchMode, setTagMatchMode] = useState<PaperlessTagMatchMode>("all");
+  const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Pagination
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const RESULTS_PER_PAGE = 30;
+
+  // Preview
+  const [previewDocId, setPreviewDocId] = useState<number | null>(null);
+  const [previewDocTitle, setPreviewDocTitle] = useState<string>("");
+
+  // Keyboard navigation
+  const [focusedIndex, setFocusedIndex] = useState(-1);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-    setLoading(true);
+  // Home view
+  const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
+
+  // Trending courseware
+  const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity({
+    days: 14,
+    limit: 10,
+    grade: undefined,
+    school: undefined,
+  });
+
+  // Load tags and recent docs on mount
+  useEffect(() => {
+    api.paperless.getTags()
+      .then((response) => setAvailableTags(response.tags))
+      .catch(() => setAvailableTags([]));
+    setRecentDocs(getRecentDocuments());
+  }, []);
+
+  // Close tag dropdown on outside click
+  useEffect(() => {
+    if (!isTagDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
+        setIsTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isTagDropdownOpen]);
+
+  // Debounce query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Search when debounced query or filters change
+  const performSearch = useCallback(async (searchQuery: string, mode: PaperlessSearchMode, tagIds: number[], matchMode: PaperlessTagMatchMode, append = false, currentOffset = 0) => {
+    if (!searchQuery.trim()) {
+      if (!append) setResults([]);
+      return;
+    }
+
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
+
     try {
-      const { paperlessAPI } = await import("@/lib/api");
-      const response = await paperlessAPI.search(query, 50, "all");
-      setResults(response.results || []);
+      const response = await api.paperless.search(
+        searchQuery,
+        RESULTS_PER_PAGE,
+        mode,
+        tagIds.length > 0 ? tagIds : undefined,
+        tagIds.length > 0 ? matchMode : undefined,
+        currentOffset
+      );
+
+      if (append) {
+        setResults(prev => [...prev, ...(response.results || [])]);
+      } else {
+        setResults(response.results || []);
+      }
+      setHasMore(response.has_more || false);
+      setOffset(currentOffset + RESULTS_PER_PAGE);
     } catch (err) {
       console.error("Search failed:", err);
+      setError("Search failed. Please try again.");
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, []);
+
+  // Auto-search on filter changes
+  useEffect(() => {
+    if (debouncedQuery.trim()) {
+      setOffset(0);
+      performSearch(debouncedQuery, searchMode, selectedTagIds, tagMatchMode);
+    }
+  }, [debouncedQuery, searchMode, selectedTagIds, tagMatchMode, performSearch]);
+
+  // Reset focused index when results change
+  useEffect(() => {
+    setFocusedIndex(-1);
+  }, [results]);
+
+  // Handle tag toggle
+  const handleTagToggle = (tagId: number) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
+  // Handle remove tag
+  const handleRemoveTag = (tagId: number) => {
+    setSelectedTagIds(prev => prev.filter(id => id !== tagId));
+  };
+
+  // Handle load more
+  const handleLoadMore = () => {
+    if (hasMore && !isLoadingMore) {
+      performSearch(debouncedQuery, searchMode, selectedTagIds, tagMatchMode, true, offset);
     }
   };
 
+  // Handle copy path
   const handleCopyPath = (filename: string) => {
     navigator.clipboard.writeText(filename);
     setCopiedPath(filename);
     setTimeout(() => setCopiedPath(null), 2000);
   };
 
-  return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
-      {/* Search input */}
-      <div className="p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Search courseware in Shelv..."
-              className={cn(
-                "w-full pl-10 pr-4 py-2 text-sm rounded-md",
-                "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a]",
-                "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
-              )}
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={loading || !query.trim()}
-            className="px-4 py-2 text-sm font-medium rounded-md bg-[#a0704b] text-white hover:bg-[#8b6340] disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
-          </button>
-        </div>
-      </div>
+  // Handle preview
+  const handlePreview = (docId: number, docTitle: string) => {
+    setPreviewDocId(docId);
+    setPreviewDocTitle(docTitle);
+  };
 
-      {/* Results */}
-      <div className="max-h-[500px] overflow-y-auto">
-        {results.length === 0 && !loading && (
-          <div className="text-center py-12 text-gray-500">
-            <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Search for courseware files in Shelv</p>
+  // Handle select from preview (adds to recent)
+  const handleSelectFromPreview = (docId: number, title: string, filename: string) => {
+    addRecentDocument({
+      id: docId,
+      title,
+      path: filename,
+      tags: [],
+    });
+    setRecentDocs(getRecentDocuments());
+    handleCopyPath(filename);
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const totalItems = results.length;
+      if (totalItems === 0) return;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedIndex(prev => (prev < totalItems - 1 ? prev + 1 : prev));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedIndex(prev => (prev > 0 ? prev - 1 : 0));
+      } else if (e.key === "Enter" && focusedIndex >= 0) {
+        e.preventDefault();
+        const doc = results[focusedIndex];
+        if (doc) {
+          handleCopyPath(doc.original_file_name || doc.title);
+        }
+      } else if (e.key === " " && focusedIndex >= 0) {
+        e.preventDefault();
+        const doc = results[focusedIndex];
+        if (doc) {
+          handlePreview(doc.id, doc.title || doc.original_file_name);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [results, focusedIndex]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (focusedIndex >= 0 && resultsContainerRef.current) {
+      const items = resultsContainerRef.current.querySelectorAll("[data-result-item]");
+      items[focusedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
+
+  // Check if showing home view (no query)
+  const showHomeView = !query.trim() && results.length === 0;
+
+  return (
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden flex flex-col h-full">
+      {/* Header with search controls */}
+      <div className="p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a] space-y-3">
+        {/* Search Mode Tabs */}
+        <div className="overflow-x-auto -mx-1 px-1">
+          <div className="flex gap-1 p-1 rounded-lg bg-gray-100 dark:bg-gray-800 min-w-max sm:min-w-0">
+            {SEARCH_MODE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setSearchMode(option.value)}
+                className={cn(
+                  "flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap",
+                  searchMode === option.value
+                    ? "bg-white dark:bg-[#2a2a2a] text-amber-700 dark:text-amber-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search courseware in Shelv..."
+            className={cn(
+              "w-full pl-10 pr-10 py-2.5 text-sm rounded-md",
+              "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a]",
+              "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+            )}
+          />
+          {loading && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 animate-spin" />
+          )}
+        </div>
+
+        {/* Advanced mode hints */}
+        {searchMode === "advanced" && (
+          <div className="-mt-1">
+            <button
+              onClick={() => setShowAdvancedHints(!showAdvancedHints)}
+              className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+            >
+              <ChevronDown className={cn("h-3 w-3 transition-transform", showAdvancedHints && "rotate-180")} />
+              {showAdvancedHints ? "Hide syntax tips" : "Show syntax tips"}
+            </button>
+            {showAdvancedHints && (
+              <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 space-y-1 pl-4">
+                <p>
+                  <span className="font-medium text-gray-600 dark:text-gray-300">Boolean:</span>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">F1 AND algebra</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">factorisation OR factorization</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">integral NOT indices</code>
+                </p>
+                <p>
+                  <span className="font-medium text-gray-600 dark:text-gray-300">Fields:</span>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">title:Exam</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">tag:SS</code>
+                </p>
+                <p>
+                  <span className="font-medium text-gray-600 dark:text-gray-300">More:</span>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">"exact phrase"</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">test*</code>{" "}
+                  <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800">created:[2024 to 2025]</code>
+                </p>
+              </div>
+            )}
           </div>
         )}
-        {results.map((doc) => (
-          <div
-            key={doc.id}
-            className="flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-          >
-            <FileText className="h-5 w-5 text-red-500 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title || doc.original_file_name}</div>
-              {doc.correspondent_name && (
-                <div className="text-xs text-gray-500">{doc.correspondent_name}</div>
+
+        {/* Tag Filter */}
+        {availableTags.length > 0 && (
+          <div className="space-y-2">
+            {/* Tag dropdown */}
+            <div className="relative" ref={tagDropdownRef}>
+              <button
+                onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all",
+                  "bg-white dark:bg-[#2d2618]",
+                  "border-[#d4a574] dark:border-[#6b5a4a]",
+                  "text-gray-700 dark:text-gray-300",
+                  "hover:border-amber-400 dark:hover:border-amber-600",
+                  selectedTagIds.length > 0 && "border-amber-400 dark:border-amber-600"
+                )}
+              >
+                <Tag className="h-4 w-4" />
+                <span>Filter by tags{selectedTagIds.length > 0 && ` (${selectedTagIds.length})`}</span>
+                <ChevronDown className={cn("h-4 w-4 ml-auto transition-transform", isTagDropdownOpen && "rotate-180")} />
+              </button>
+
+              {isTagDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg">
+                  {availableTags.map((tag) => (
+                    <label
+                      key={tag.id}
+                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTagIds.includes(tag.id)}
+                        onChange={() => handleTagToggle(tag.id)}
+                        className="rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{tag.name}</span>
+                    </label>
+                  ))}
+                </div>
               )}
             </div>
-            <button
-              onClick={() => handleCopyPath(doc.original_file_name || doc.title)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-            >
-              {copiedPath === (doc.original_file_name || doc.title) ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-              Copy
-            </button>
+
+            {/* AND/OR toggle */}
+            {selectedTagIds.length >= 2 && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Match:</span>
+                <button
+                  onClick={() => setTagMatchMode("all")}
+                  className={cn(
+                    "px-2 py-0.5 rounded transition-colors",
+                    tagMatchMode === "all"
+                      ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  )}
+                >
+                  All (AND)
+                </button>
+                <button
+                  onClick={() => setTagMatchMode("any")}
+                  className={cn(
+                    "px-2 py-0.5 rounded transition-colors",
+                    tagMatchMode === "any"
+                      ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  )}
+                >
+                  Any (OR)
+                </button>
+              </div>
+            )}
+
+            {/* Selected tags as chips */}
+            {selectedTagIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedTagIds.map((tagId) => {
+                  const tag = availableTags.find((t) => t.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <span
+                      key={tagId}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
+                    >
+                      {tag.name}
+                      <button
+                        onClick={() => handleRemoveTag(tagId)}
+                        className="hover:bg-amber-200 dark:hover:bg-amber-800 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          <AlertCircle className="h-4 w-4 text-red-500" />
+          <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+        </div>
+      )}
+
+      {/* Content area */}
+      <div ref={resultsContainerRef} className="flex-1 overflow-y-auto">
+        {/* Home View - shown when no query */}
+        {showHomeView && (
+          <div className="p-4 space-y-6">
+            {/* Trending Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Flame className="h-5 w-5 text-orange-500" />
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">Trending Courseware</h3>
+              </div>
+              {trendingLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 text-amber-500 animate-spin" />
+                </div>
+              ) : trendingData && trendingData.length > 0 ? (
+                <div className="space-y-1">
+                  {trendingData.slice(0, 10).map((item, index) => (
+                    <div
+                      key={item.stable_id || `trending-${index}`}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                        "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                        index < 3 && "bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-900/10"
+                      )}
+                      onClick={() => handleCopyPath(item.path || item.filename)}
+                    >
+                      {index < 3 && <Flame className="h-4 w-4 text-orange-500 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {item.filename}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>{item.assignment_count}× assignments</span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {item.unique_students}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleCopyPath(item.path || item.filename); }}
+                        className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                      >
+                        {copiedPath === (item.path || item.filename) ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4 text-gray-400" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 py-4 text-center">No trending data available</p>
+              )}
+            </div>
+
+            {/* Recent Documents Section */}
+            {recentDocs.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-gray-400" />
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">Recent Documents</h3>
+                  </div>
+                  <button
+                    onClick={() => { clearRecentDocuments(); setRecentDocs([]); }}
+                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {recentDocs.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                      onClick={() => handleCopyPath(doc.path)}
+                    >
+                      <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {doc.title}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">{doc.path}</div>
+                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title); }}
+                        className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                      >
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state when no recent and no trending */}
+            {recentDocs.length === 0 && (!trendingData || trendingData.length === 0) && !trendingLoading && (
+              <div className="text-center py-12 text-gray-500">
+                <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">Search for courseware files in Shelv</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search Results */}
+        {!showHomeView && (
+          <>
+            {results.length === 0 && !loading && query.trim() && (
+              <div className="text-center py-12 text-gray-500">
+                <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No documents found</p>
+              </div>
+            )}
+            {results.map((doc, index) => (
+              <div
+                key={doc.id}
+                data-result-item
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-colors cursor-pointer",
+                  "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                  focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset"
+                )}
+                onClick={() => handleCopyPath(doc.original_file_name || doc.title)}
+              >
+                <FileText className="h-5 w-5 text-red-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {doc.title || doc.original_file_name}
+                  </div>
+                  {doc.correspondent_name && (
+                    <div className="text-xs text-gray-500">{doc.correspondent_name}</div>
+                  )}
+                  {doc.tags && doc.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {doc.tags.slice(0, 3).map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-1.5 py-0.5 text-[10px] rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {doc.tags.length > 3 && (
+                        <span className="text-[10px] text-gray-400">+{doc.tags.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title || doc.original_file_name); }}
+                    className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                    title="Preview"
+                  >
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleCopyPath(doc.original_file_name || doc.title); }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                  >
+                    {copiedPath === (doc.original_file_name || doc.title) ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Load more button */}
+            {hasMore && (
+              <div className="p-4 text-center">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                  {isLoadingMore ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </span>
+                  ) : (
+                    "Load more results"
+                  )}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Keyboard hints footer */}
+      <div className="px-4 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex items-center gap-1">
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">↑↓</kbd>
+          navigate
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Enter</kbd>
+          copy
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[10px]">Space</kbd>
+          preview
+        </span>
+      </div>
+
+      {/* PDF Preview Modal */}
+      <PdfPreviewModal
+        isOpen={previewDocId !== null}
+        onClose={() => setPreviewDocId(null)}
+        documentId={previewDocId}
+        documentTitle={previewDocTitle}
+        onSelect={() => {
+          if (previewDocId) {
+            const doc = results.find(d => d.id === previewDocId) || recentDocs.find(d => d.id === previewDocId);
+            if (doc) {
+              const filename = "original_file_name" in doc ? doc.original_file_name : doc.path;
+              const title = doc.title;
+              handleSelectFromPreview(previewDocId, title, filename || title);
+            }
+          }
+          setPreviewDocId(null);
+        }}
+      />
     </div>
   );
 }
@@ -1328,6 +2389,8 @@ export default function CoursewarePage() {
   const [school, setSchool] = useState<string>(() => {
     return searchParams.get("school") || "";
   });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   const [expandedFilename, setExpandedFilename] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -1371,6 +2434,18 @@ export default function CoursewarePage() {
     const query = params.toString();
     router.replace(`/courseware${query ? `?${query}` : ""}`, { scroll: false });
   }, [activeTab, timeRange, exerciseType, grade, school, router]);
+
+  // Close filters dropdown on click outside
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [filtersOpen]);
 
   // Fetch data
   const exerciseTypeFilter =
@@ -1461,11 +2536,11 @@ export default function CoursewarePage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex flex-col gap-3 p-2 sm:p-4 flex-1 min-h-0 overflow-y-auto">
+      <PageTransition className="flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-3 p-2 sm:p-4">
           {/* Toolbar */}
           <div className={toolbarClasses}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full flex-wrap">
               {/* Title */}
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
@@ -1502,63 +2577,125 @@ export default function CoursewarePage() {
                 })}
               </div>
 
-              {activeTab === "ranking" && (
-                <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
-              )}
-
               {/* Filters - only show for ranking tab */}
               {activeTab === "ranking" && (
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <>
                   <TimeRangeToggle />
 
-                  <FilterDropdown
-                    value={exerciseType}
-                    options={EXERCISE_TYPE_OPTIONS}
-                    onChange={setExerciseType}
-                    label="Types"
-                  />
+                  {/* Collapsible filters dropdown */}
+                  <div className="relative" ref={filterRef}>
+                    {(() => {
+                      const activeCount = [
+                        exerciseType !== "All",
+                        grade !== "All",
+                        school !== "",
+                      ].filter(Boolean).length;
 
-                  <FilterDropdown
-                    value={grade}
-                    options={GRADE_OPTIONS}
-                    onChange={setGrade}
-                    label="Grades"
-                  />
+                      return (
+                        <button
+                          onClick={() => setFiltersOpen(!filtersOpen)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md min-h-[40px]",
+                            "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a]",
+                            "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800",
+                            "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50",
+                            filtersOpen && "ring-2 ring-[#a0704b]/50"
+                          )}
+                        >
+                          <Filter className="h-4 w-4" />
+                          <span>Filters</span>
+                          {activeCount > 0 && (
+                            <span className="ml-1 h-5 w-5 flex items-center justify-center text-[10px] font-bold bg-[#a0704b] text-white rounded-full">
+                              {activeCount}
+                            </span>
+                          )}
+                          <ChevronDown className={cn("h-4 w-4 transition-transform", filtersOpen && "rotate-180")} />
+                        </button>
+                      );
+                    })()}
 
-                  <SchoolAutocomplete
-                    value={school}
-                    onChange={setSchool}
-                    suggestions={schools}
-                  />
+                    {filtersOpen && (
+                      <div className="absolute top-full mt-1 right-0 z-50 bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#6b5a4a] rounded-lg shadow-lg p-4 min-w-[280px]">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Type</label>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setExerciseType("All")}
+                                className={cn(
+                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                                  exerciseType === "All"
+                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                )}
+                              >
+                                All
+                              </button>
+                              <button
+                                onClick={() => setExerciseType("CW")}
+                                className={cn(
+                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1",
+                                  exerciseType === "CW"
+                                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                )}
+                              >
+                                <PenTool className="h-3 w-3" />
+                                CW
+                              </button>
+                              <button
+                                onClick={() => setExerciseType("HW")}
+                                className={cn(
+                                  "px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1",
+                                  exerciseType === "HW"
+                                    ? "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                )}
+                              >
+                                <Home className="h-3 w-3" />
+                                HW
+                              </button>
+                            </div>
+                          </div>
 
-                  {/* Clear filters button with count badge */}
-                  {(() => {
-                    const activeCount = [
-                      exerciseType !== "All",
-                      grade !== "All",
-                      school !== "",
-                    ].filter(Boolean).length;
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Grade</label>
+                            <FilterDropdown
+                              value={grade}
+                              options={GRADE_OPTIONS}
+                              onChange={setGrade}
+                              label="Grades"
+                            />
+                          </div>
 
-                    if (activeCount === 0) return null;
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400">School</label>
+                            <SchoolAutocomplete
+                              value={school}
+                              onChange={setSchool}
+                              suggestions={schools}
+                            />
+                          </div>
 
-                    return (
-                      <button
-                        onClick={() => {
-                          setExerciseType("All");
-                          setGrade("All");
-                          setSchool("");
-                        }}
-                        className="relative p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
-                        title={`Clear ${activeCount} filter${activeCount > 1 ? "s" : ""}`}
-                      >
-                        <X className="h-4 w-4 text-gray-600" />
-                        <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center text-[10px] font-bold bg-[#a0704b] text-white rounded-full">
-                          {activeCount}
-                        </span>
-                      </button>
-                    );
-                  })()}
-                </div>
+                          {/* Clear button */}
+                          {(exerciseType !== "All" || grade !== "All" || school !== "") && (
+                            <button
+                              onClick={() => {
+                                setExerciseType("All");
+                                setGrade("All");
+                                setSchool("");
+                              }}
+                              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                              Clear filters
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -1684,14 +2821,16 @@ export default function CoursewarePage() {
 
           {/* Browse Tab Content */}
           {activeTab === "browse" && (
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="h-[calc(100vh-180px)] flex flex-col">
               <CoursewareBrowserTab />
             </div>
           )}
 
           {/* Search Tab Content */}
           {activeTab === "search" && (
-            <CoursewareSearchTab />
+            <div className="h-[calc(100vh-180px)] flex flex-col">
+              <CoursewareSearchTab />
+            </div>
           )}
         </div>
 
