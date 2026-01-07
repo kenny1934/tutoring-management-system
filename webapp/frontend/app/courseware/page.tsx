@@ -12,6 +12,7 @@ import {
   Loader2,
   Users,
   ChevronDown,
+  ChevronRight,
   Copy,
   Check,
   Clock,
@@ -25,6 +26,12 @@ import {
   Medal,
   Trophy,
   Award,
+  FolderTree,
+  Search,
+  BarChart3,
+  Folder,
+  FolderOpen,
+  FolderSync,
 } from "lucide-react";
 import { studentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -56,6 +63,14 @@ const GRADE_OPTIONS = ["All", "F1", "F2", "F3", "F4", "F5", "F6"];
 
 // Exercise type options
 const EXERCISE_TYPE_OPTIONS = ["All", "CW", "HW"];
+
+// Tab definitions
+type CoursewareTab = "ranking" | "browse" | "search";
+const TABS: { id: CoursewareTab; label: string; icon: typeof BarChart3 }[] = [
+  { id: "ranking", label: "Ranking", icon: BarChart3 },
+  { id: "browse", label: "Browse", icon: FolderTree },
+  { id: "search", label: "Search", icon: Search },
+];
 
 // Helper to format date
 function formatDate(dateStr: string | null): string {
@@ -868,11 +883,437 @@ function UsageDetailPanel({
   );
 }
 
+// Browse tab - Courseware file browser with preview
+function CoursewareBrowserTab() {
+  const [tree, setTree] = useState<TreeNode[]>([]);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  // Preview state
+  const [previewNode, setPreviewNode] = useState<TreeNode | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [zoomIndex, setZoomIndex] = useState(2);
+
+  const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
+  const currentZoom = ZOOM_LEVELS[zoomIndex];
+
+  // Load folders on mount
+  useEffect(() => {
+    loadFolders();
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, []);
+
+  const loadFolders = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { getSavedFolders } = await import("@/lib/file-system");
+      const folders = await getSavedFolders();
+      const nodes: TreeNode[] = folders.map((folder) => ({
+        id: folder.id,
+        name: folder.name,
+        path: folder.name,
+        kind: "folder",
+        handle: folder.handle,
+        isShared: folder.isShared,
+        children: [],
+        isLoaded: false,
+      }));
+      nodes.sort((a, b) => {
+        if (a.isShared && !b.isShared) return -1;
+        if (!a.isShared && b.isShared) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      setTree(nodes);
+    } catch (err) {
+      setError("Failed to load folders");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFolderContents = async (node: TreeNode) => {
+    if (!node.handle || node.kind !== "folder" || node.isLoaded) return;
+    setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: true }));
+    try {
+      const { verifyPermission } = await import("@/lib/file-system");
+      const dirHandle = node.handle as FileSystemDirectoryHandle;
+      const hasPermission = await verifyPermission(dirHandle);
+      if (!hasPermission) {
+        setError(`Permission denied for "${node.name}"`);
+        setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: false }));
+        return;
+      }
+      const children: TreeNode[] = [];
+      for await (const [name, handle] of dirHandle.entries()) {
+        const isPdf = name.toLowerCase().endsWith(".pdf");
+        const isFolder = handle.kind === "directory";
+        if (isFolder || isPdf) {
+          children.push({
+            id: `${node.id}/${name}`,
+            name,
+            path: `${node.path}\\${name}`,
+            kind: handle.kind === "directory" ? "folder" : "file",
+            handle: handle as FileSystemDirectoryHandle | FileSystemFileHandle,
+            children: handle.kind === "directory" ? [] : undefined,
+            isLoaded: false,
+          });
+        }
+      }
+      children.sort((a, b) => {
+        if (a.kind === "folder" && b.kind !== "folder") return -1;
+        if (a.kind !== "folder" && b.kind === "folder") return 1;
+        return a.name.localeCompare(b.name);
+      });
+      setTree((prev) => updateNodeInTree(prev, node.id, { children, isLoaded: true, isLoading: false }));
+    } catch (err) {
+      console.error(err);
+      setTree((prev) => updateNodeInTree(prev, node.id, { isLoading: false }));
+    }
+  };
+
+  const handleToggleExpand = async (node: TreeNode) => {
+    const isExpanded = expandedNodes.has(node.id);
+    if (isExpanded) {
+      setExpandedNodes((prev) => { const next = new Set(prev); next.delete(node.id); return next; });
+    } else {
+      setExpandedNodes((prev) => new Set([...prev, node.id]));
+      if (!node.isLoaded && !node.isLoading) await loadFolderContents(node);
+    }
+  };
+
+  const handlePreview = async (node: TreeNode) => {
+    if (node.kind !== "file" || !node.handle) return;
+    setPreviewLoading(true);
+    setPreviewNode(node);
+    try {
+      const fileHandle = node.handle as FileSystemFileHandle;
+      const file = await fileHandle.getFile();
+      const url = URL.createObjectURL(file);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path);
+    setCopiedPath(path);
+    setTimeout(() => setCopiedPath(null), 2000);
+  };
+
+  const handleOpenInNewTab = async () => {
+    if (previewNode?.handle) {
+      const { openFileInNewTab } = await import("@/lib/file-system");
+      await openFileInNewTab(previewNode.handle as FileSystemFileHandle);
+    }
+  };
+
+  const sharedFolders = tree.filter((n) => n.isShared);
+  const personalFolders = tree.filter((n) => !n.isShared);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+        <span className="ml-2 text-gray-500">Loading folders...</span>
+      </div>
+    );
+  }
+
+  if (tree.length === 0) {
+    return (
+      <div className="flex justify-center py-12">
+        <StickyNote variant="yellow" size="lg" showTape rotation={1}>
+          <div className="text-center">
+            <FolderTree className="h-12 w-12 mx-auto mb-4 text-[#a0704b]" />
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">No folders configured</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              Set up shared drives in Settings → Path Mappings to browse files here.
+            </p>
+          </div>
+        </StickyNote>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex gap-4 bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden min-h-[400px]">
+      {/* Tree panel */}
+      <div className={cn("p-4 overflow-y-auto", previewUrl ? "w-1/3 border-r border-[#e8d4b8] dark:border-[#6b5a4a]" : "w-full")}>
+        {error && (
+          <div className="mb-4 p-2 rounded bg-red-50 dark:bg-red-900/20 text-sm text-red-700 dark:text-red-300">
+            {error}
+          </div>
+        )}
+        {sharedFolders.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Shared Drives</h3>
+            {sharedFolders.map((node) => (
+              <BrowserTreeNode
+                key={node.id}
+                node={node}
+                depth={0}
+                expandedNodes={expandedNodes}
+                onToggle={handleToggleExpand}
+                onPreview={handlePreview}
+                onCopy={handleCopyPath}
+                copiedPath={copiedPath}
+              />
+            ))}
+          </div>
+        )}
+        {personalFolders.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Personal Folders</h3>
+            {personalFolders.map((node) => (
+              <BrowserTreeNode
+                key={node.id}
+                node={node}
+                depth={0}
+                expandedNodes={expandedNodes}
+                onToggle={handleToggleExpand}
+                onPreview={handlePreview}
+                onCopy={handleCopyPath}
+                copiedPath={copiedPath}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Preview panel */}
+      {previewUrl && (
+        <div className="flex-1 flex flex-col p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{previewNode?.name}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setZoomIndex((i) => Math.max(i - 1, 0))} disabled={zoomIndex === 0} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50">
+                <ChevronDown className="h-4 w-4 text-gray-500 rotate-90" />
+              </button>
+              <span className="text-xs text-gray-500 w-12 text-center">{currentZoom}%</span>
+              <button onClick={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1))} disabled={zoomIndex === ZOOM_LEVELS.length - 1} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50">
+                <ChevronDown className="h-4 w-4 text-gray-500 -rotate-90" />
+              </button>
+              <button onClick={handleOpenInNewTab} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-2" title="Open in new tab">
+                <ExternalLink className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden relative">
+            {previewLoading ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+              </div>
+            ) : (
+              <iframe src={previewUrl} className="w-full h-full border-0" style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }} title="PDF Preview" />
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <span className="text-xs text-gray-500 truncate flex-1 mr-2">{previewNode?.path}</span>
+            <button
+              onClick={() => previewNode && handleCopyPath(previewNode.path)}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+            >
+              {copiedPath === previewNode?.path ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              Copy Path
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Tree node for browser tab
+interface TreeNode {
+  id: string;
+  name: string;
+  path: string;
+  kind: "folder" | "file";
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
+  children?: TreeNode[];
+  isLoaded?: boolean;
+  isLoading?: boolean;
+  isShared?: boolean;
+}
+
+function BrowserTreeNode({
+  node, depth, expandedNodes, onToggle, onPreview, onCopy, copiedPath
+}: {
+  node: TreeNode;
+  depth: number;
+  expandedNodes: Set<string>;
+  onToggle: (node: TreeNode) => void;
+  onPreview: (node: TreeNode) => void;
+  onCopy: (path: string) => void;
+  copiedPath: string | null;
+}) {
+  const isExpanded = expandedNodes.has(node.id);
+  const isFolder = node.kind === "folder";
+  const isPdf = node.name.toLowerCase().endsWith(".pdf");
+
+  return (
+    <>
+      <div
+        style={{ paddingLeft: `${8 + depth * 16}px` }}
+        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] cursor-pointer group"
+        onClick={() => isFolder ? onToggle(node) : onPreview(node)}
+      >
+        {isFolder ? (
+          node.isLoading ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" /> :
+          isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />
+        ) : <span className="w-4" />}
+        {isFolder ? (
+          node.isShared ? <FolderSync className="h-4 w-4 text-green-500" /> :
+          isExpanded ? <FolderOpen className="h-4 w-4 text-amber-500" /> : <Folder className="h-4 w-4 text-amber-500" />
+        ) : <FileText className="h-4 w-4 text-red-500" />}
+        <span className="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{node.name}</span>
+        {isPdf && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy(node.path); }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+            title="Copy path"
+          >
+            {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
+          </button>
+        )}
+      </div>
+      {isFolder && isExpanded && node.children && (
+        <>
+          {node.children.map((child) => (
+            <BrowserTreeNode key={child.id} node={child} depth={depth + 1} expandedNodes={expandedNodes} onToggle={onToggle} onPreview={onPreview} onCopy={onCopy} copiedPath={copiedPath} />
+          ))}
+          {node.children.length === 0 && node.isLoaded && (
+            <div style={{ paddingLeft: `${8 + (depth + 1) * 16}px` }} className="text-xs text-gray-400 py-1">
+              No PDF files
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function updateNodeInTree(nodes: TreeNode[], nodeId: string, updates: Partial<TreeNode>): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.id === nodeId) return { ...node, ...updates };
+    if (node.children) return { ...node, children: updateNodeInTree(node.children, nodeId, updates) };
+    return node;
+  });
+}
+
+// Search tab - Shelv search interface
+function CoursewareSearchTab() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Array<{ id: number; title: string; original_file_name: string; correspondent_name?: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
+    try {
+      const { paperlessAPI } = await import("@/lib/api");
+      const response = await paperlessAPI.search(query, 50, "all");
+      setResults(response.results || []);
+    } catch (err) {
+      console.error("Search failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyPath = (filename: string) => {
+    navigator.clipboard.writeText(filename);
+    setCopiedPath(filename);
+    setTimeout(() => setCopiedPath(null), 2000);
+  };
+
+  return (
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden">
+      {/* Search input */}
+      <div className="p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Search courseware in Shelv..."
+              className={cn(
+                "w-full pl-10 pr-4 py-2 text-sm rounded-md",
+                "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a]",
+                "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+              )}
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            disabled={loading || !query.trim()}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-[#a0704b] text-white hover:bg-[#8b6340] disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+          </button>
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="max-h-[500px] overflow-y-auto">
+        {results.length === 0 && !loading && (
+          <div className="text-center py-12 text-gray-500">
+            <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Search for courseware files in Shelv</p>
+          </div>
+        )}
+        {results.map((doc) => (
+          <div
+            key={doc.id}
+            className="flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          >
+            <FileText className="h-5 w-5 text-red-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title || doc.original_file_name}</div>
+              {doc.correspondent_name && (
+                <div className="text-xs text-gray-500">{doc.correspondent_name}</div>
+              )}
+            </div>
+            <button
+              onClick={() => handleCopyPath(doc.original_file_name || doc.title)}
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            >
+              {copiedPath === (doc.original_file_name || doc.title) ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              Copy
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CoursewarePage() {
-  usePageTitle("Courseware Ranking");
+  usePageTitle("Courseware");
 
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<CoursewareTab>(() => {
+    return (searchParams.get("tab") as CoursewareTab) || "ranking";
+  });
 
   // State from URL params
   const [timeRange, setTimeRange] = useState<"recent" | "all-time">(() => {
@@ -922,13 +1363,14 @@ export default function CoursewarePage() {
   // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams();
+    if (activeTab !== "ranking") params.set("tab", activeTab);
     if (timeRange !== "recent") params.set("range", timeRange);
     if (exerciseType !== "All") params.set("type", exerciseType);
     if (grade !== "All") params.set("grade", grade);
     if (school) params.set("school", school);
     const query = params.toString();
     router.replace(`/courseware${query ? `?${query}` : ""}`, { scroll: false });
-  }, [timeRange, exerciseType, grade, school, router]);
+  }, [activeTab, timeRange, exerciseType, grade, school, router]);
 
   // Fetch data
   const exerciseTypeFilter =
@@ -1019,8 +1461,8 @@ export default function CoursewarePage() {
 
   return (
     <DeskSurface fullHeight>
-      <PageTransition className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-2 sm:p-4">
+      <PageTransition className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex flex-col gap-3 p-2 sm:p-4 flex-1 min-h-0 overflow-y-auto">
           {/* Toolbar */}
           <div className={toolbarClasses}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
@@ -1028,179 +1470,228 @@ export default function CoursewarePage() {
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
                 <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
-                  Courseware Ranking
+                  Courseware
                 </h1>
               </div>
 
               <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-              {/* Filters */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <TimeRangeToggle />
-
-                <FilterDropdown
-                  value={exerciseType}
-                  options={EXERCISE_TYPE_OPTIONS}
-                  onChange={setExerciseType}
-                  label="Types"
-                />
-
-                <FilterDropdown
-                  value={grade}
-                  options={GRADE_OPTIONS}
-                  onChange={setGrade}
-                  label="Grades"
-                />
-
-                <SchoolAutocomplete
-                  value={school}
-                  onChange={setSchool}
-                  suggestions={schools}
-                />
-
-                {/* Clear filters button with count badge */}
-                {(() => {
-                  const activeCount = [
-                    exerciseType !== "All",
-                    grade !== "All",
-                    school !== "",
-                  ].filter(Boolean).length;
-
-                  if (activeCount === 0) return null;
-
+              {/* Tab navigation */}
+              <div className="flex rounded-md border border-[#d4a574] dark:border-[#6b5a4a] overflow-hidden" role="tablist" aria-label="Courseware sections">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
                   return (
                     <button
-                      onClick={() => {
-                        setExerciseType("All");
-                        setGrade("All");
-                        setSchool("");
-                      }}
-                      className="relative p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
-                      title={`Clear ${activeCount} filter${activeCount > 1 ? "s" : ""}`}
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      className={cn(
+                        "px-3 py-2 text-sm font-medium transition-colors min-h-[40px] flex items-center gap-1.5",
+                        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#a0704b]/70",
+                        "border-l border-[#d4a574] dark:border-[#6b5a4a] first:border-l-0",
+                        activeTab === tab.id
+                          ? "bg-[#a0704b] text-white"
+                          : "bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      )}
                     >
-                      <X className="h-4 w-4 text-gray-600" />
-                      <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center text-[10px] font-bold bg-[#a0704b] text-white rounded-full">
-                        {activeCount}
-                      </span>
+                      <Icon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{tab.label}</span>
                     </button>
                   );
-                })()}
+                })}
               </div>
+
+              {activeTab === "ranking" && (
+                <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
+              )}
+
+              {/* Filters - only show for ranking tab */}
+              {activeTab === "ranking" && (
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <TimeRangeToggle />
+
+                  <FilterDropdown
+                    value={exerciseType}
+                    options={EXERCISE_TYPE_OPTIONS}
+                    onChange={setExerciseType}
+                    label="Types"
+                  />
+
+                  <FilterDropdown
+                    value={grade}
+                    options={GRADE_OPTIONS}
+                    onChange={setGrade}
+                    label="Grades"
+                  />
+
+                  <SchoolAutocomplete
+                    value={school}
+                    onChange={setSchool}
+                    suggestions={schools}
+                  />
+
+                  {/* Clear filters button with count badge */}
+                  {(() => {
+                    const activeCount = [
+                      exerciseType !== "All",
+                      grade !== "All",
+                      school !== "",
+                    ].filter(Boolean).length;
+
+                    if (activeCount === 0) return null;
+
+                    return (
+                      <button
+                        onClick={() => {
+                          setExerciseType("All");
+                          setGrade("All");
+                          setSchool("");
+                        }}
+                        className="relative p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                        title={`Clear ${activeCount} filter${activeCount > 1 ? "s" : ""}`}
+                      >
+                        <X className="h-4 w-4 text-gray-600" />
+                        <span className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center text-[10px] font-bold bg-[#a0704b] text-white rounded-full">
+                          {activeCount}
+                        </span>
+                      </button>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Loading state */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Loading rankings...
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Error state */}
-          {error && (
-            <div className="flex justify-center py-12">
-              <StickyNote variant="pink" size="lg" showTape>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
-                    Error
-                  </p>
-                  <p className="text-sm text-gray-900 dark:text-gray-100">
-                    {error instanceof Error
-                      ? error.message
-                      : "Failed to load rankings"}
-                  </p>
-                </div>
-              </StickyNote>
-            </div>
-          )}
-
-          {/* Podium for top 3 */}
-          {!isLoading && !error && rankings.length >= 3 && (
-            <Podium
-              top3={rankings.slice(0, 3)}
-              onSelect={(filename) => setExpandedFilename(filename)}
-            />
-          )}
-
-          {/* Ranking list */}
-          {!isLoading && !error && rankings.length > 0 && (
-            <div
-              className={cn(
-                "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
-                !isMobile && "paper-texture",
-                "animate-fade-in"
-              )}
-            >
-              {/* Header */}
-              <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
-                  <span className="animate-pulse">🏆</span>
-                  {funTitle}
-                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400 lowercase">
-                    ({timeRange === "recent" ? "14 days" : "all time"})
-                  </span>
-                </h2>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {rankings.length} items
-                </span>
-              </div>
-
-              {/* List */}
-              <div>
-                {rankings.map((item, index) => (
-                  <motion.div
-                    key={item.filename}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: index * 0.03,
-                      duration: 0.35,
-                      ease: [0.16, 1, 0.3, 1]
-                    }}
-                  >
-                    <RankingRow
-                      item={item}
-                      rank={index + 1}
-                      isExpanded={expandedFilename === item.filename}
-                      onToggle={() => handleToggleExpand(item.filename)}
-                      timeRange={timeRange}
-                      maxCount={rankings[0]?.assignment_count || 0}
-                      grade={gradeFilter}
-                      school={schoolFilter}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!isLoading && !error && rankings.length === 0 && (
-            <div className="flex justify-center py-12">
-              <StickyNote variant="yellow" size="lg" showTape rotation={-1}>
-                <div className="text-center">
-                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-[#a0704b] dark:text-[#cd853f]" />
-                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    {timeRange === "recent" ? "The stage is empty!" : "No champions yet!"}
-                  </p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                    {timeRange === "recent"
-                      ? "No courseware has been assigned in the last 14 days."
-                      : "No courseware assignments found in the records."}
-                  </p>
-                  {(exerciseType !== "All" || grade !== "All" || school) && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                      Try adjusting your filters to discover hidden gems!
+          {/* Ranking Tab Content */}
+          {activeTab === "ranking" && (
+            <>
+              {/* Loading state */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Loading rankings...
                     </p>
-                  )}
+                  </div>
                 </div>
-              </StickyNote>
+              )}
+
+              {/* Error state */}
+              {error && (
+                <div className="flex justify-center py-12">
+                  <StickyNote variant="pink" size="lg" showTape>
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">
+                        Error
+                      </p>
+                      <p className="text-sm text-gray-900 dark:text-gray-100">
+                        {error instanceof Error
+                          ? error.message
+                          : "Failed to load rankings"}
+                      </p>
+                    </div>
+                  </StickyNote>
+                </div>
+              )}
+
+              {/* Podium for top 3 */}
+              {!isLoading && !error && rankings.length >= 3 && (
+                <Podium
+                  top3={rankings.slice(0, 3)}
+                  onSelect={(filename) => setExpandedFilename(filename)}
+                />
+              )}
+
+              {/* Ranking list */}
+              {!isLoading && !error && rankings.length > 0 && (
+                <div
+                  className={cn(
+                    "bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden",
+                    !isMobile && "paper-texture",
+                    "animate-fade-in"
+                  )}
+                >
+                  {/* Header */}
+                  <div className="px-4 py-3 bg-[#f5ede3] dark:bg-[#3d3628] border-b border-[#d4a574]/30 flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
+                      <span className="animate-pulse">🏆</span>
+                      {funTitle}
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 lowercase">
+                        ({timeRange === "recent" ? "14 days" : "all time"})
+                      </span>
+                    </h2>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {rankings.length} items
+                    </span>
+                  </div>
+
+                  {/* List */}
+                  <div>
+                    {rankings.map((item, index) => (
+                      <motion.div
+                        key={item.filename}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: index * 0.03,
+                          duration: 0.35,
+                          ease: [0.16, 1, 0.3, 1]
+                        }}
+                      >
+                        <RankingRow
+                          item={item}
+                          rank={index + 1}
+                          isExpanded={expandedFilename === item.filename}
+                          onToggle={() => handleToggleExpand(item.filename)}
+                          timeRange={timeRange}
+                          maxCount={rankings[0]?.assignment_count || 0}
+                          grade={gradeFilter}
+                          school={schoolFilter}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isLoading && !error && rankings.length === 0 && (
+                <div className="flex justify-center py-12">
+                  <StickyNote variant="yellow" size="lg" showTape rotation={-1}>
+                    <div className="text-center">
+                      <BookOpen className="h-12 w-12 mx-auto mb-4 text-[#a0704b] dark:text-[#cd853f]" />
+                      <p className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        {timeRange === "recent" ? "The stage is empty!" : "No champions yet!"}
+                      </p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        {timeRange === "recent"
+                          ? "No courseware has been assigned in the last 14 days."
+                          : "No courseware assignments found in the records."}
+                      </p>
+                      {(exerciseType !== "All" || grade !== "All" || school) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                          Try adjusting your filters to discover hidden gems!
+                        </p>
+                      )}
+                    </div>
+                  </StickyNote>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Browse Tab Content */}
+          {activeTab === "browse" && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <CoursewareBrowserTab />
             </div>
+          )}
+
+          {/* Search Tab Content */}
+          {activeTab === "search" && (
+            <CoursewareSearchTab />
           )}
         </div>
 
