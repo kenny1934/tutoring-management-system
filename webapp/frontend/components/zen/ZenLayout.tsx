@@ -79,6 +79,25 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
   useEffect(() => {
     let gTimeout: NodeJS.Timeout | null = null;
 
+    // HANDLER 1: Scroll prevention only (capture phase - runs FIRST)
+    // This prevents arrow keys and space from scrolling the page
+    const scrollPreventHandler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+      const scrollPreventKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "];
+      if (scrollPreventKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+      }
+      // DO NOT stopImmediatePropagation - let other handlers run
+    };
+
+    // HANDLER 2: Main navigation (bubbling phase - can be blocked by stopImmediatePropagation)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if user is typing in an input
       const target = e.target as HTMLElement;
@@ -87,6 +106,12 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable
       ) {
+        return;
+      }
+
+      // Skip Shift+C specifically - handled by page.tsx for calendar toggle
+      // (Don't skip all Shift+letters because we need Shift+G for "go to last")
+      if ((e.key === "C" || e.key === "c") && e.shiftKey) {
         return;
       }
 
@@ -157,8 +182,8 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         return;
       }
 
-      // Navigation keys (s, n, c, r, d)
-      if (navRoutes[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Navigation keys (s, n, c, r, d) - exclude Shift to allow Shift+C for calendar
+      if (navRoutes[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         const route = navRoutes[e.key];
         if (pathname !== route) {
@@ -190,8 +215,13 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
       }
     };
 
+    // Register scroll prevention in CAPTURE phase (runs first, prevents scroll)
+    window.addEventListener("keydown", scrollPreventHandler, { capture: true });
+    // Register main handler in BUBBLING phase (can be blocked by stopImmediatePropagation)
     window.addEventListener("keydown", handleKeyDown);
+
     return () => {
+      window.removeEventListener("keydown", scrollPreventHandler, { capture: true });
       window.removeEventListener("keydown", handleKeyDown);
       if (gTimeout) clearTimeout(gTimeout);
     };

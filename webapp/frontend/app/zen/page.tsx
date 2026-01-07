@@ -4,10 +4,18 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
-import { ZenSessionList, ZenTestList, ZenActivityFeed, calculateStats } from "@/components/zen";
+import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { sessionsAPI } from "@/lib/api";
 import { mutate } from "swr";
+
+// Helper to format date as YYYY-MM-DD
+const formatDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 // ASCII progress bar component
 function ZenProgressBar({ completed, total }: { completed: number; total: number }) {
@@ -49,6 +57,7 @@ function ZenSpinner() {
 
 export default function ZenDashboardPage() {
   const { selectedLocation } = useLocation();
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Use session context for shared state
   const {
@@ -58,8 +67,65 @@ export default function ZenDashboardPage() {
     cursorIndex,
     moveCursor,
     selectedDate,
+    setSelectedDate,
     getDateLabel,
   } = useZenSession();
+
+  // Date navigation helpers
+  const navigateDate = useCallback((days: number) => {
+    const current = new Date(selectedDate + "T00:00:00");
+    current.setDate(current.getDate() + days);
+    setSelectedDate(formatDate(current));
+  }, [selectedDate, setSelectedDate]);
+
+  const goToToday = useCallback(() => {
+    setSelectedDate(formatDate(new Date()));
+  }, [setSelectedDate]);
+
+  // Keyboard shortcuts for date navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle if typing in input or command bar
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Don't handle if calendar is open (it has its own handlers)
+      if (showCalendar) return;
+
+      switch (e.key) {
+        case "[":
+          e.preventDefault();
+          navigateDate(-1);
+          setZenStatus(`← ${formatDate(new Date(new Date(selectedDate + "T00:00:00").getTime() - 86400000))}`, "info");
+          break;
+        case "]":
+          e.preventDefault();
+          navigateDate(1);
+          setZenStatus(`→ ${formatDate(new Date(new Date(selectedDate + "T00:00:00").getTime() + 86400000))}`, "info");
+          break;
+        case "t":
+          if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            goToToday();
+            setZenStatus("Jumped to today", "info");
+          }
+          break;
+        case "c":
+        case "C":
+          // Shift+C for calendar (handles both browser behaviors)
+          if (e.shiftKey) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            setShowCalendar((prev) => !prev);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showCalendar, navigateDate, goToToday, selectedDate]);
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats(
     selectedLocation === "All Locations" ? undefined : selectedLocation
@@ -184,7 +250,7 @@ export default function ZenDashboardPage() {
           </section>
 
           {/* Sessions for selected date */}
-          <section style={{ marginBottom: "32px" }}>
+          <section style={{ marginBottom: "32px", position: "relative" }}>
             <div
               style={{
                 display: "flex",
@@ -193,25 +259,120 @@ export default function ZenDashboardPage() {
                 marginBottom: "8px",
               }}
             >
-              <h2
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                  color: "var(--zen-accent)",
-                  textShadow: "var(--zen-glow)",
-                  margin: 0,
-                }}
-              >
-                {getDateLabel().toUpperCase()}&apos;S SESSIONS{" "}
-                <span style={{ color: "var(--zen-dim)", fontWeight: "normal", fontSize: "12px" }}>
-                  ({selectedDate})
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <h2
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    color: "var(--zen-accent)",
+                    textShadow: "var(--zen-glow)",
+                    margin: 0,
+                  }}
+                >
+                  SESSIONS FOR{" "}
+                  <button
+                    onClick={() => setShowCalendar((prev) => !prev)}
+                    style={{
+                      background: "none",
+                      border: "1px solid var(--zen-border)",
+                      color: "var(--zen-fg)",
+                      cursor: "pointer",
+                      padding: "2px 8px",
+                      fontFamily: "inherit",
+                      fontSize: "inherit",
+                      fontWeight: "bold",
+                    }}
+                    title="Open calendar (Shift+C)"
+                  >
+                    {getDateLabel().toUpperCase()}
+                  </button>
+                </h2>
+                {/* Date navigation hints */}
+                <span style={{ color: "var(--zen-dim)", fontSize: "11px" }}>
+                  <button
+                    onClick={() => navigateDate(-1)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--zen-dim)",
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      fontFamily: "inherit",
+                    }}
+                    title="Previous day ([)"
+                  >
+                    [
+                  </button>
+                  <button
+                    onClick={() => navigateDate(1)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--zen-dim)",
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      fontFamily: "inherit",
+                    }}
+                    title="Next day (])"
+                  >
+                    ]
+                  </button>
+                  <button
+                    onClick={goToToday}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--zen-dim)",
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      fontFamily: "inherit",
+                    }}
+                    title="Jump to today (t)"
+                  >
+                    t=today
+                  </button>
+                  <button
+                    onClick={() => setShowCalendar((prev) => !prev)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--zen-dim)",
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      fontFamily: "inherit",
+                    }}
+                    title="Toggle calendar (Shift+C)"
+                  >
+                    C=cal
+                  </button>
                 </span>
-              </h2>
+              </div>
               <ZenProgressBar
                 completed={sessionStats.completed}
                 total={sessionStats.total}
               />
             </div>
+
+            {/* Calendar overlay */}
+            {showCalendar && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "40px",
+                  left: "0",
+                  zIndex: 100,
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                }}
+              >
+                <ZenCalendar
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  onClose={() => setShowCalendar(false)}
+                  isFocused={showCalendar}
+                />
+              </div>
+            )}
+
             <div style={{ color: "var(--zen-dim)", marginBottom: "8px" }}>
               ────────────────
             </div>
@@ -283,10 +444,13 @@ export default function ZenDashboardPage() {
               fontSize: "12px",
             }}
           >
-            Press <span style={{ color: "var(--zen-fg)" }}>s</span> for students,{" "}
-            <span style={{ color: "var(--zen-fg)" }}>n</span> for sessions,{" "}
-            <span style={{ color: "var(--zen-fg)" }}>/</span> for command bar,{" "}
-            <span style={{ color: "var(--zen-fg)" }}>?</span> for help
+            <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next day{" "}
+            <span style={{ color: "var(--zen-fg)" }}>t</span>=today{" "}
+            <span style={{ color: "var(--zen-fg)" }}>C</span>=calendar |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>s</span>=students{" "}
+            <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
+            <span style={{ color: "var(--zen-fg)" }}>/</span>=cmd{" "}
+            <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>
       )}
