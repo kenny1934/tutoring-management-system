@@ -97,8 +97,8 @@ export function ZenHeader() {
         return;
       }
 
-      // Don't trigger with modifiers
-      if (event.ctrlKey || event.metaKey || event.altKey) {
+      // Don't trigger with modifiers (including Shift for Shift+C calendar toggle)
+      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
         return;
       }
 

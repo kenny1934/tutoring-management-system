@@ -14,6 +14,7 @@ export { ZenPdfPreview } from "./ZenPdfPreview";
 export { ZenHelpOverlay } from "./ZenHelpOverlay";
 export { ZenTestList } from "./ZenTestList";
 export { ZenActivityFeed } from "./ZenActivityFeed";
+export { ZenCalendar } from "./ZenCalendar";
 
 // Hooks
 export { useKonamiCode } from "./hooks/useKonamiCode";
