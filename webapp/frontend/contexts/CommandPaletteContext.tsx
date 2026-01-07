@@ -21,6 +21,15 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
   // Global keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip in Zen mode - Ctrl+J/K is used for exercise row navigation there
+      if (
+        typeof window !== "undefined" &&
+        (window.location.pathname.startsWith("/zen") ||
+          document.querySelector(".zen-layout"))
+      ) {
+        return;
+      }
+
       // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
