@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useZen } from "@/contexts/ZenContext";
 
 interface ZenBootSequenceProps {
   onComplete: () => void;
@@ -36,12 +37,21 @@ const WELCOME_TEXT = "Welcome to CSM Pro Zen Mode v1.0";
 const HELP_TEXT = "Type 'help' to get started.";
 
 export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
+  const { theme, glowEnabled, glowIntensity } = useZen();
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
   const [showLogo, setShowLogo] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
   const lines = mode === "enter" ? BOOT_LINES : EXIT_LINES;
+
+  // Calculate glow effect based on theme
+  const glowStyle = glowEnabled
+    ? `0 0 ${theme.glow.intensity * glowIntensity * 10}px ${theme.glow.color}`
+    : "none";
+  const dimGlowStyle = glowEnabled
+    ? `0 0 ${theme.glow.intensity * glowIntensity * 5}px ${theme.colors.dim}`
+    : "none";
 
   useEffect(() => {
     // Show logo first
@@ -84,9 +94,9 @@ export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "#0a0a0a",
-        color: "#00ff00",
-        fontFamily: '"IBM Plex Mono", "JetBrains Mono", monospace',
+        backgroundColor: theme.colors.background,
+        color: theme.colors.foreground,
+        fontFamily: `"${theme.font.family}", ${theme.font.fallback}`,
         fontSize: "14px",
         display: "flex",
         flexDirection: "column",
@@ -101,8 +111,8 @@ export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
       {showLogo && (
         <pre
           style={{
-            color: "#00ff00",
-            textShadow: "0 0 10px #00ff00",
+            color: theme.colors.accent,
+            textShadow: glowStyle,
             margin: 0,
             fontSize: "12px",
             lineHeight: 1.2,
@@ -126,8 +136,8 @@ export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
             key={index}
             style={{
               opacity: line ? 1 : 0,
-              color: "#008800",
-              textShadow: "0 0 5px #004400",
+              color: theme.colors.dim,
+              textShadow: dimGlowStyle,
             }}
           >
             {line}
@@ -146,14 +156,14 @@ export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
         >
           <div
             style={{
-              color: "#00ff00",
-              textShadow: "0 0 10px #00ff00",
+              color: theme.colors.accent,
+              textShadow: glowStyle,
               marginBottom: "8px",
             }}
           >
             {WELCOME_TEXT}
           </div>
-          <div style={{ color: "#008800" }}>{HELP_TEXT}</div>
+          <div style={{ color: theme.colors.dim }}>{HELP_TEXT}</div>
         </div>
       )}
 

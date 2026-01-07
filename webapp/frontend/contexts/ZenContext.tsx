@@ -83,6 +83,162 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
     },
     prompt: "λ",
   },
+  amber: {
+    id: "amber",
+    name: "Amber CRT",
+    category: "classic",
+    colors: {
+      background: "#0a0800",
+      foreground: "#ffb000",
+      dim: "#996600",
+      accent: "#ffcc00",
+      cursor: "#ffb000",
+      success: "#ffcc00",
+      error: "#ff4444",
+      warning: "#ff8800",
+      border: "#553300",
+    },
+    glow: {
+      enabled: true,
+      color: "#ffb000",
+      intensity: 0.5,
+    },
+    font: {
+      family: "IBM Plex Mono",
+      fallback: "monospace",
+    },
+    prompt: ">",
+  },
+  nord: {
+    id: "nord",
+    name: "Nord",
+    category: "modern",
+    colors: {
+      background: "#2e3440",
+      foreground: "#eceff4",
+      dim: "#4c566a",
+      accent: "#88c0d0",
+      cursor: "#d8dee9",
+      success: "#a3be8c",
+      error: "#bf616a",
+      warning: "#ebcb8b",
+      border: "#3b4252",
+    },
+    glow: {
+      enabled: true,
+      color: "#88c0d0",
+      intensity: 0.2,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "→",
+  },
+  monokai: {
+    id: "monokai",
+    name: "Monokai",
+    category: "modern",
+    colors: {
+      background: "#272822",
+      foreground: "#f8f8f2",
+      dim: "#75715e",
+      accent: "#a6e22e",
+      cursor: "#f8f8f2",
+      success: "#a6e22e",
+      error: "#f92672",
+      warning: "#e6db74",
+      border: "#3e3d32",
+    },
+    glow: {
+      enabled: true,
+      color: "#a6e22e",
+      intensity: 0.25,
+    },
+    font: {
+      family: "Fira Code",
+      fallback: "monospace",
+    },
+    prompt: "$",
+  },
+  "solarized-dark": {
+    id: "solarized-dark",
+    name: "Solarized Dark",
+    category: "modern",
+    colors: {
+      background: "#002b36",
+      foreground: "#839496",
+      dim: "#586e75",
+      accent: "#268bd2",
+      cursor: "#93a1a1",
+      success: "#859900",
+      error: "#dc322f",
+      warning: "#b58900",
+      border: "#073642",
+    },
+    glow: {
+      enabled: false,
+      color: "#268bd2",
+      intensity: 0.2,
+    },
+    font: {
+      family: "Source Code Pro",
+      fallback: "monospace",
+    },
+    prompt: "»",
+  },
+  cyberpunk: {
+    id: "cyberpunk",
+    name: "Cyberpunk",
+    category: "modern",
+    colors: {
+      background: "#0d0221",
+      foreground: "#00fff9",
+      dim: "#7b5ea7",
+      accent: "#ff00ff",
+      cursor: "#00fff9",
+      success: "#00ff00",
+      error: "#ff0055",
+      warning: "#ffcc00",
+      border: "#291e4f",
+    },
+    glow: {
+      enabled: true,
+      color: "#ff00ff",
+      intensity: 0.6,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "▶",
+  },
+  matrix: {
+    id: "matrix",
+    name: "Matrix",
+    category: "classic",
+    colors: {
+      background: "#000000",
+      foreground: "#00ff41",
+      dim: "#008f11",
+      accent: "#00ff41",
+      cursor: "#00ff41",
+      success: "#00ff41",
+      error: "#ff0000",
+      warning: "#ffff00",
+      border: "#003b00",
+    },
+    glow: {
+      enabled: true,
+      color: "#00ff41",
+      intensity: 0.7,
+    },
+    font: {
+      family: "IBM Plex Mono",
+      fallback: "monospace",
+    },
+    prompt: "⟩",
+  },
 };
 
 export const DEFAULT_THEME = "dracula";
@@ -94,6 +250,7 @@ interface ZenState {
   commandHistory: string[];
   glowEnabled: boolean;
   glowIntensity: number;
+  isExiting: boolean;
 }
 
 interface ZenContextType {
@@ -105,6 +262,7 @@ interface ZenContextType {
   glowEnabled: boolean;
   glowIntensity: number;
   mounted: boolean;
+  isExiting: boolean;
 
   // Actions
   enableZenMode: () => void;
@@ -115,6 +273,7 @@ interface ZenContextType {
   clearHistory: () => void;
   setGlowEnabled: (enabled: boolean) => void;
   setGlowIntensity: (intensity: number) => void;
+  setExiting: (value: boolean) => void;
 }
 
 const ZenContext = createContext<ZenContextType | undefined>(undefined);
@@ -151,6 +310,7 @@ export function ZenProvider({ children }: { children: ReactNode }) {
   const [glowEnabled, setGlowEnabledState] = useState(true);
   const [glowIntensity, setGlowIntensityState] = useState(0.5);
   const [mounted, setMounted] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -178,6 +338,7 @@ export function ZenProvider({ children }: { children: ReactNode }) {
   const theme = ZEN_THEMES[themeId] || ZEN_THEMES[DEFAULT_THEME];
 
   const enableZenMode = useCallback(() => {
+    setIsExiting(false); // Reset exit state when entering
     setEnabled(true);
   }, []);
 
@@ -215,6 +376,10 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     setGlowIntensityState(Math.max(0, Math.min(1, value)));
   }, []);
 
+  const setExiting = useCallback((value: boolean) => {
+    setIsExiting(value);
+  }, []);
+
   return (
     <ZenContext.Provider
       value={{
@@ -225,6 +390,7 @@ export function ZenProvider({ children }: { children: ReactNode }) {
         glowEnabled,
         glowIntensity,
         mounted,
+        isExiting,
         enableZenMode,
         disableZenMode,
         toggleZenMode,
@@ -233,6 +399,7 @@ export function ZenProvider({ children }: { children: ReactNode }) {
         clearHistory,
         setGlowEnabled,
         setGlowIntensity,
+        setExiting,
       }}
     >
       {children}

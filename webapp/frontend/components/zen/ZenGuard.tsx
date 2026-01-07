@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { useZen } from "@/contexts/ZenContext";
+import { useZen, type ZenTheme } from "@/contexts/ZenContext";
 
 interface ZenGuardProps {
   children: ReactNode;
@@ -12,7 +12,12 @@ interface ZenGuardProps {
  * This preserves the easter egg mystery.
  */
 export function ZenGuard({ children }: ZenGuardProps) {
-  const { enabled, mounted } = useZen();
+  const { enabled, mounted, isExiting, theme, glowEnabled, glowIntensity } = useZen();
+
+  // Calculate glow style
+  const glowStyle = glowEnabled
+    ? `0 0 ${theme.glow.intensity * glowIntensity * 10}px ${theme.glow.color}`
+    : "none";
 
   // Wait for hydration
   if (!mounted) {
@@ -20,7 +25,7 @@ export function ZenGuard({ children }: ZenGuardProps) {
       <div
         style={{
           minHeight: "100vh",
-          backgroundColor: "#0a0a0a",
+          backgroundColor: theme.colors.background,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -28,8 +33,8 @@ export function ZenGuard({ children }: ZenGuardProps) {
       >
         <div
           style={{
-            color: "#00ff00",
-            fontFamily: "monospace",
+            color: theme.colors.accent,
+            fontFamily: `"${theme.font.family}", ${theme.font.fallback}`,
             animation: "pulse 1s infinite",
           }}
         >
@@ -45,22 +50,27 @@ export function ZenGuard({ children }: ZenGuardProps) {
     );
   }
 
+  // If exiting, show nothing (navigation in progress)
+  if (isExiting) {
+    return null;
+  }
+
   // If zen mode is not enabled, show access denied
   if (!enabled) {
-    return <ZenAccessDenied />;
+    return <ZenAccessDenied theme={theme} glowStyle={glowStyle} />;
   }
 
   return <>{children}</>;
 }
 
-function ZenAccessDenied() {
+function ZenAccessDenied({ theme, glowStyle }: { theme: ZenTheme; glowStyle: string }) {
   return (
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#0a0a0a",
-        color: "#00ff00",
-        fontFamily: '"IBM Plex Mono", "JetBrains Mono", monospace',
+        backgroundColor: theme.colors.background,
+        color: theme.colors.foreground,
+        fontFamily: `"${theme.font.family}", ${theme.font.fallback}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -71,8 +81,8 @@ function ZenAccessDenied() {
       <div>
         <pre
           style={{
-            color: "#00ff00",
-            textShadow: "0 0 10px #00ff00",
+            color: theme.colors.accent,
+            textShadow: glowStyle,
             fontSize: "12px",
             lineHeight: 1.4,
             marginBottom: "24px",
@@ -96,7 +106,7 @@ function ZenAccessDenied() {
         </pre>
         <p
           style={{
-            color: "#004400",
+            color: theme.colors.dim,
             fontSize: "12px",
             marginTop: "24px",
           }}
