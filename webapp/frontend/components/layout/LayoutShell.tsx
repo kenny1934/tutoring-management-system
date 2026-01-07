@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
@@ -10,8 +11,14 @@ interface LayoutShellProps {
 }
 
 export function LayoutShell({ children }: LayoutShellProps) {
+  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
+
+  // In Zen mode, render children without sidebar/shell
+  if (pathname?.startsWith("/zen")) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
