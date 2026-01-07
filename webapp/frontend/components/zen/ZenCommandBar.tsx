@@ -135,7 +135,7 @@ export function ZenCommandBar() {
             setZenStatus(`Navigating to ${page}`, "info");
           } else {
             setZenStatus(
-              `Unknown page: ${page}. Try: dashboard, students, sessions, courseware, revenue`,
+              `Unknown page: ${page}. Try: dashboard, students, sessions, courseware, revenue, settings`,
               "error"
             );
           }
@@ -179,6 +179,15 @@ export function ZenCommandBar() {
         execute: () => {
           router.push("/zen/revenue");
           setZenStatus("Navigating to revenue", "info");
+        },
+      },
+      {
+        name: "settings",
+        aliases: ["options", "prefs", "preferences"],
+        description: "Go to settings (O)",
+        execute: () => {
+          router.push("/zen/settings");
+          setZenStatus("Navigating to settings", "info");
         },
       },
 
@@ -522,17 +531,27 @@ export function ZenCommandBar() {
       "go dashboard",
       "go students",
       "go sessions",
+      "go settings",
+      "settings",
       "tools",
       "puzzle",
       "theme list",
       "theme phosphor",
-      "theme dracula",
       "theme amber",
+      "theme matrix",
+      "theme dracula",
       "theme nord",
+      "theme gruvbox",
       "theme monokai",
+      "theme onedark",
+      "theme tokyo",
+      "theme catppuccin",
       "theme solarized",
       "theme cyberpunk",
-      "theme matrix",
+      "theme solarized-light",
+      "theme github",
+      "theme onelight",
+      "theme latte",
     ],
     []
   );

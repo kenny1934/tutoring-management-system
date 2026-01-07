@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 
 // Theme definitions
 export interface ZenTheme {
   id: string;
   name: string;
-  category: "classic" | "modern";
+  category: "classic" | "modern" | "light";
   colors: {
     background: string;
     foreground: string;
@@ -31,6 +31,9 @@ export interface ZenTheme {
 }
 
 export const ZEN_THEMES: Record<string, ZenTheme> = {
+  // ═══════════════════════════════════════════════════════════════
+  // CLASSIC CRT THEMES
+  // ═══════════════════════════════════════════════════════════════
   "phosphor-green": {
     id: "phosphor-green",
     name: "Phosphor Green",
@@ -56,32 +59,6 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
       fallback: "monospace",
     },
     prompt: ">",
-  },
-  dracula: {
-    id: "dracula",
-    name: "Dracula",
-    category: "modern",
-    colors: {
-      background: "#282a36",
-      foreground: "#f8f8f2",
-      dim: "#6272a4",
-      accent: "#bd93f9",
-      cursor: "#f8f8f2",
-      success: "#50fa7b",
-      error: "#ff5555",
-      warning: "#ffb86c",
-      border: "#44475a",
-    },
-    glow: {
-      enabled: true,
-      color: "#bd93f9",
-      intensity: 0.3,
-    },
-    font: {
-      family: "JetBrains Mono",
-      fallback: "monospace",
-    },
-    prompt: "λ",
   },
   amber: {
     id: "amber",
@@ -109,6 +86,62 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
     },
     prompt: ">",
   },
+  matrix: {
+    id: "matrix",
+    name: "Matrix",
+    category: "classic",
+    colors: {
+      background: "#000000",
+      foreground: "#00ff41",
+      dim: "#008f11",
+      accent: "#00ff41",
+      cursor: "#00ff41",
+      success: "#00ff41",
+      error: "#ff0000",
+      warning: "#ffff00",
+      border: "#003b00",
+    },
+    glow: {
+      enabled: true,
+      color: "#00ff41",
+      intensity: 0.7,
+    },
+    font: {
+      family: "IBM Plex Mono",
+      fallback: "monospace",
+    },
+    prompt: "⟩",
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // MODERN DARK THEMES
+  // ═══════════════════════════════════════════════════════════════
+  dracula: {
+    id: "dracula",
+    name: "Dracula",
+    category: "modern",
+    colors: {
+      background: "#282a36",
+      foreground: "#f8f8f2",
+      dim: "#6272a4",
+      accent: "#bd93f9",
+      cursor: "#f8f8f2",
+      success: "#50fa7b",
+      error: "#ff5555",
+      warning: "#ffb86c",
+      border: "#44475a",
+    },
+    glow: {
+      enabled: true,
+      color: "#bd93f9",
+      intensity: 0.3,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "λ",
+  },
   nord: {
     id: "nord",
     name: "Nord",
@@ -135,6 +168,32 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
     },
     prompt: "→",
   },
+  gruvbox: {
+    id: "gruvbox",
+    name: "Gruvbox",
+    category: "modern",
+    colors: {
+      background: "#282828",
+      foreground: "#ebdbb2",
+      dim: "#928374",
+      accent: "#fe8019",
+      cursor: "#ebdbb2",
+      success: "#b8bb26",
+      error: "#fb4934",
+      warning: "#fabd2f",
+      border: "#3c3836",
+    },
+    glow: {
+      enabled: true,
+      color: "#fe8019",
+      intensity: 0.3,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "λ",
+  },
   monokai: {
     id: "monokai",
     name: "Monokai",
@@ -160,6 +219,84 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
       fallback: "monospace",
     },
     prompt: "$",
+  },
+  "one-dark": {
+    id: "one-dark",
+    name: "One Dark",
+    category: "modern",
+    colors: {
+      background: "#282c34",
+      foreground: "#abb2bf",
+      dim: "#5c6370",
+      accent: "#c678dd",
+      cursor: "#abb2bf",
+      success: "#98c379",
+      error: "#e06c75",
+      warning: "#e5c07b",
+      border: "#3e4451",
+    },
+    glow: {
+      enabled: true,
+      color: "#c678dd",
+      intensity: 0.3,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "❯",
+  },
+  "tokyo-night": {
+    id: "tokyo-night",
+    name: "Tokyo Night",
+    category: "modern",
+    colors: {
+      background: "#1a1b26",
+      foreground: "#a9b1d6",
+      dim: "#565f89",
+      accent: "#7aa2f7",
+      cursor: "#a9b1d6",
+      success: "#9ece6a",
+      error: "#f7768e",
+      warning: "#e0af68",
+      border: "#292e42",
+    },
+    glow: {
+      enabled: true,
+      color: "#7aa2f7",
+      intensity: 0.35,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "›",
+  },
+  catppuccin: {
+    id: "catppuccin",
+    name: "Catppuccin",
+    category: "modern",
+    colors: {
+      background: "#1e1e2e",
+      foreground: "#cdd6f4",
+      dim: "#6c7086",
+      accent: "#cba6f7",
+      cursor: "#cdd6f4",
+      success: "#a6e3a1",
+      error: "#f38ba8",
+      warning: "#f9e2af",
+      border: "#313244",
+    },
+    glow: {
+      enabled: true,
+      color: "#cba6f7",
+      intensity: 0.25,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "▸",
   },
   "solarized-dark": {
     id: "solarized-dark",
@@ -213,31 +350,113 @@ export const ZEN_THEMES: Record<string, ZenTheme> = {
     },
     prompt: "▶",
   },
-  matrix: {
-    id: "matrix",
-    name: "Matrix",
-    category: "classic",
+
+  // ═══════════════════════════════════════════════════════════════
+  // LIGHT THEMES
+  // ═══════════════════════════════════════════════════════════════
+  "solarized-light": {
+    id: "solarized-light",
+    name: "Solarized Light",
+    category: "light",
     colors: {
-      background: "#000000",
-      foreground: "#00ff41",
-      dim: "#008f11",
-      accent: "#00ff41",
-      cursor: "#00ff41",
-      success: "#00ff41",
-      error: "#ff0000",
-      warning: "#ffff00",
-      border: "#003b00",
+      background: "#fdf6e3",
+      foreground: "#657b83",
+      dim: "#93a1a1",
+      accent: "#268bd2",
+      cursor: "#657b83",
+      success: "#859900",
+      error: "#dc322f",
+      warning: "#b58900",
+      border: "#eee8d5",
     },
     glow: {
-      enabled: true,
-      color: "#00ff41",
-      intensity: 0.7,
+      enabled: false,
+      color: "#268bd2",
+      intensity: 0.1,
     },
     font: {
-      family: "IBM Plex Mono",
+      family: "Source Code Pro",
       fallback: "monospace",
     },
-    prompt: "⟩",
+    prompt: "»",
+  },
+  "github-light": {
+    id: "github-light",
+    name: "GitHub Light",
+    category: "light",
+    colors: {
+      background: "#ffffff",
+      foreground: "#24292f",
+      dim: "#57606a",
+      accent: "#0969da",
+      cursor: "#24292f",
+      success: "#1a7f37",
+      error: "#cf222e",
+      warning: "#9a6700",
+      border: "#d0d7de",
+    },
+    glow: {
+      enabled: false,
+      color: "#0969da",
+      intensity: 0.1,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "$",
+  },
+  "one-light": {
+    id: "one-light",
+    name: "One Light",
+    category: "light",
+    colors: {
+      background: "#fafafa",
+      foreground: "#383a42",
+      dim: "#a0a1a7",
+      accent: "#a626a4",
+      cursor: "#383a42",
+      success: "#50a14f",
+      error: "#e45649",
+      warning: "#c18401",
+      border: "#e5e5e6",
+    },
+    glow: {
+      enabled: false,
+      color: "#a626a4",
+      intensity: 0.1,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "❯",
+  },
+  "catppuccin-latte": {
+    id: "catppuccin-latte",
+    name: "Catppuccin Latte",
+    category: "light",
+    colors: {
+      background: "#eff1f5",
+      foreground: "#4c4f69",
+      dim: "#9ca0b0",
+      accent: "#8839ef",
+      cursor: "#4c4f69",
+      success: "#40a02b",
+      error: "#d20f39",
+      warning: "#df8e1d",
+      border: "#ccd0da",
+    },
+    glow: {
+      enabled: false,
+      color: "#8839ef",
+      intensity: 0.1,
+    },
+    font: {
+      family: "JetBrains Mono",
+      fallback: "monospace",
+    },
+    prompt: "▸",
   },
 };
 
@@ -256,8 +475,10 @@ interface ZenState {
 interface ZenContextType {
   // State
   enabled: boolean;
-  theme: ZenTheme;
+  theme: ZenTheme;           // Base theme (without overrides)
+  effectiveTheme: ZenTheme;  // Theme with overrides applied
   themeId: string;
+  themeOverrides: Partial<ZenTheme["colors"]>;
   commandHistory: string[];
   glowEnabled: boolean;
   glowIntensity: number;
@@ -269,6 +490,8 @@ interface ZenContextType {
   disableZenMode: () => void;
   toggleZenMode: () => void;
   setTheme: (themeId: string) => void;
+  setThemeOverride: (key: keyof ZenTheme["colors"], value: string) => void;
+  clearThemeOverrides: () => void;
   addToHistory: (command: string) => void;
   clearHistory: () => void;
   setGlowEnabled: (enabled: boolean) => void;
@@ -306,6 +529,7 @@ function saveState(state: ZenState) {
 export function ZenProvider({ children }: { children: ReactNode }) {
   const [enabled, setEnabled] = useState(false);
   const [themeId, setThemeId] = useState(DEFAULT_THEME);
+  const [themeOverrides, setThemeOverrides] = useState<Partial<ZenTheme["colors"]>>({});
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [glowEnabled, setGlowEnabledState] = useState(true);
   const [glowIntensity, setGlowIntensityState] = useState(0.5);
@@ -317,6 +541,7 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     const saved = loadState();
     if (saved.enabled !== undefined) setEnabled(saved.enabled);
     if (saved.theme) setThemeId(saved.theme);
+    if (saved.themeOverrides) setThemeOverrides(saved.themeOverrides);
     if (saved.commandHistory) setCommandHistory(saved.commandHistory);
     if (saved.glowEnabled !== undefined) setGlowEnabledState(saved.glowEnabled);
     if (saved.glowIntensity !== undefined) setGlowIntensityState(saved.glowIntensity);
@@ -329,13 +554,29 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     saveState({
       enabled,
       theme: themeId,
+      themeOverrides,
       commandHistory,
       glowEnabled,
       glowIntensity,
+      isExiting: false, // Never persist exit state
     });
-  }, [enabled, themeId, commandHistory, glowEnabled, glowIntensity, mounted]);
+  }, [enabled, themeId, themeOverrides, commandHistory, glowEnabled, glowIntensity, mounted]);
 
   const theme = ZEN_THEMES[themeId] || ZEN_THEMES[DEFAULT_THEME];
+
+  // Compute effective theme by merging base theme with overrides
+  const effectiveTheme = useMemo((): ZenTheme => {
+    if (Object.keys(themeOverrides).length === 0) {
+      return theme;
+    }
+    return {
+      ...theme,
+      colors: {
+        ...theme.colors,
+        ...themeOverrides,
+      },
+    };
+  }, [theme, themeOverrides]);
 
   const enableZenMode = useCallback(() => {
     setIsExiting(false); // Reset exit state when entering
@@ -354,6 +595,17 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     if (ZEN_THEMES[newThemeId]) {
       setThemeId(newThemeId);
     }
+  }, []);
+
+  const setThemeOverride = useCallback((key: keyof ZenTheme["colors"], value: string) => {
+    setThemeOverrides((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }, []);
+
+  const clearThemeOverrides = useCallback(() => {
+    setThemeOverrides({});
   }, []);
 
   const addToHistory = useCallback((command: string) => {
@@ -385,7 +637,9 @@ export function ZenProvider({ children }: { children: ReactNode }) {
       value={{
         enabled,
         theme,
+        effectiveTheme,
         themeId,
+        themeOverrides,
         commandHistory,
         glowEnabled,
         glowIntensity,
@@ -395,6 +649,8 @@ export function ZenProvider({ children }: { children: ReactNode }) {
         disableZenMode,
         toggleZenMode,
         setTheme,
+        setThemeOverride,
+        clearThemeOverrides,
         addToHistory,
         clearHistory,
         setGlowEnabled,

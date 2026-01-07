@@ -28,7 +28,7 @@ export function ZenLayout({ children }: ZenLayoutProps) {
 }
 
 function ZenLayoutInner({ children }: ZenLayoutProps) {
-  const { theme, glowEnabled, glowIntensity } = useZen();
+  const { effectiveTheme, glowEnabled, glowIntensity } = useZen();
   const { moveCursor, flatSessions } = useZenSession();
   const { focusedSection, setFocusedSection } = useZenKeyboardFocus();
   const router = useRouter();
@@ -36,10 +36,10 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
   const [gPending, setGPending] = useState(false); // For vim-style gg
   const [showHelp, setShowHelp] = useState(false);
 
-  // Apply theme CSS variables
+  // Apply theme CSS variables (uses effectiveTheme which includes overrides)
   useEffect(() => {
     const root = document.documentElement;
-    const { colors, glow, font } = theme;
+    const { colors, glow, font } = effectiveTheme;
 
     // Set CSS custom properties for the theme
     root.style.setProperty("--zen-bg", colors.background);
@@ -73,7 +73,7 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
       root.style.removeProperty("--zen-font");
       root.style.removeProperty("--zen-glow");
     };
-  }, [theme, glowEnabled, glowIntensity]);
+  }, [effectiveTheme, glowEnabled, glowIntensity]);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -132,6 +132,7 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         c: "/zen/courseware",
         r: "/zen/revenue",
         d: "/zen",
+        o: "/zen/settings",
       };
 
       // Handle vim-style gg (go to first) - only when sessions focused

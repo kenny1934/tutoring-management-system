@@ -12,7 +12,7 @@ interface ZenGuardProps {
  * This preserves the easter egg mystery.
  */
 export function ZenGuard({ children }: ZenGuardProps) {
-  const { enabled, mounted, isExiting, theme, glowEnabled, glowIntensity } = useZen();
+  const { enabled, mounted, isExiting, effectiveTheme: theme, glowEnabled, glowIntensity } = useZen();
 
   // Calculate glow style
   const glowStyle = glowEnabled

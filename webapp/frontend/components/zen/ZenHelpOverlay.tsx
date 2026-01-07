@@ -132,6 +132,7 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Shortcut keys={["c"]} desc="Go to Courseware" />
             <Shortcut keys={["r"]} desc="Go to Revenue" />
             <Shortcut keys={["d"]} desc="Go to Dashboard" />
+            <Shortcut keys={["o"]} desc="Go to Settings" />
           </Section>
 
           {/* Command Bar */}
@@ -151,6 +152,7 @@ export function ZenHelpOverlay({ onClose }: ZenHelpOverlayProps) {
             <Command cmd="today" desc="Show today's sessions" />
             <Command cmd="date +N/-N" desc="Offset by N days" />
             <Command cmd="theme list" desc="List available themes" />
+            <Command cmd="settings" desc="Go to settings page" />
             <Command cmd="exit" desc="Exit Zen mode" />
           </Section>
         </div>
