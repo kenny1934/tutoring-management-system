@@ -37,7 +37,7 @@ const WELCOME_TEXT = "Welcome to CSM Pro Zen Mode v1.0";
 const HELP_TEXT = "Type 'help' to get started.";
 
 export function ZenBootSequence({ onComplete, mode }: ZenBootSequenceProps) {
-  const { theme, glowEnabled, glowIntensity } = useZen();
+  const { effectiveTheme: theme, glowEnabled, glowIntensity } = useZen();
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
   const [showLogo, setShowLogo] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);

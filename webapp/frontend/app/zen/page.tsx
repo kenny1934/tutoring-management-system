@@ -482,6 +482,7 @@ export default function ZenDashboardPage() {
             <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
             <span style={{ color: "var(--zen-fg)" }}>T</span>=tools{" "}
             <span style={{ color: "var(--zen-fg)" }}>P</span>=puzzle{" "}
+            <span style={{ color: "var(--zen-fg)" }}>o</span>=settings{" "}
             <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>
