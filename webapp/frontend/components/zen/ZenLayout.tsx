@@ -134,8 +134,12 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         d: "/zen",
       };
 
-      // Handle vim-style gg (go to first)
+      // Handle vim-style gg (go to first) - only when sessions focused
       if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Only handle for sessions section
+        if (focusedSection !== "sessions") {
+          return;
+        }
         if (gPending) {
           // Second g - go to first session
           e.preventDefault();
@@ -157,8 +161,12 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         if (gTimeout) clearTimeout(gTimeout);
       }
 
-      // G (shift+g) - go to last session
+      // G (shift+g) - go to last session - only when sessions focused
       if (e.key === "G" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Only handle for sessions section
+        if (focusedSection !== "sessions") {
+          return;
+        }
         e.preventDefault();
         if (flatSessions.length > 0) {
           moveCursor(flatSessions.length - 1);
@@ -166,15 +174,21 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
         return;
       }
 
-      // Home - go to first session
+      // Home - go to first session - only when sessions focused
       if (e.key === "Home") {
+        if (focusedSection !== "sessions") {
+          return;
+        }
         e.preventDefault();
         moveCursor(0);
         return;
       }
 
-      // End - go to last session
+      // End - go to last session - only when sessions focused
       if (e.key === "End") {
+        if (focusedSection !== "sessions") {
+          return;
+        }
         e.preventDefault();
         if (flatSessions.length > 0) {
           moveCursor(flatSessions.length - 1);

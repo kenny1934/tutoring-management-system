@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useWeather, getWeatherIcon } from "@/lib/useWeather";
 
 interface StatusMessage {
   text: string;
@@ -31,7 +32,9 @@ export function ZenStatusBar() {
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [time, setTime] = useState<string>("");
+  const [date, setDate] = useState<string>("");
   const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
+  const { data: weather } = useWeather();
 
   // Subscribe to global status messages
   useEffect(() => {
@@ -42,9 +45,9 @@ export function ZenStatusBar() {
     };
   }, []);
 
-  // Update time every minute
+  // Update date and time every minute
   useEffect(() => {
-    const updateTime = () => {
+    const updateDateTime = () => {
       const now = new Date();
       setTime(
         now.toLocaleTimeString("en-US", {
@@ -53,10 +56,17 @@ export function ZenStatusBar() {
           hour12: false,
         })
       );
+      setDate(
+        now.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        })
+      );
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 60000);
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -132,6 +142,16 @@ export function ZenStatusBar() {
 
       {/* Separator */}
       <span style={{ color: "var(--zen-border)" }}>│</span>
+
+      {/* Weather */}
+      {weather && (
+        <span style={{ color: "var(--zen-dim)" }}>
+          {getWeatherIcon(weather.weatherCode, weather.isDay)} {weather.temperature}°
+        </span>
+      )}
+
+      {/* Date */}
+      <span style={{ color: "var(--zen-dim)" }}>{date}</span>
 
       {/* Time */}
       <span style={{ color: "var(--zen-dim)" }}>{time}</span>

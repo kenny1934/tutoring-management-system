@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
-import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, calculateStats } from "@/components/zen";
+import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { sessionsAPI } from "@/lib/api";
 import { mutate } from "swr";
@@ -57,7 +58,9 @@ function ZenSpinner() {
 
 export default function ZenDashboardPage() {
   const { selectedLocation } = useLocation();
+  const { isFocused } = useZenKeyboardFocus();
   const [showCalendar, setShowCalendar] = useState(false);
+  const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
 
   // Use session context for shared state
   const {
@@ -120,12 +123,27 @@ export default function ZenDashboardPage() {
             setShowCalendar((prev) => !prev);
           }
           break;
+        // Chart navigation when distribution is focused
+        case "h":
+        case "ArrowLeft":
+          if (isFocused("distribution")) {
+            e.preventDefault();
+            setActiveChart("grade");
+          }
+          break;
+        case "l":
+        case "ArrowRight":
+          if (isFocused("distribution")) {
+            e.preventDefault();
+            setActiveChart("school");
+          }
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showCalendar, navigateDate, goToToday, selectedDate]);
+  }, [showCalendar, navigateDate, goToToday, selectedDate, isFocused]);
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats(
     selectedLocation === "All Locations" ? undefined : selectedLocation
@@ -411,6 +429,19 @@ export default function ZenDashboardPage() {
             />
           </section>
 
+          {/* Distribution Charts */}
+          <section
+            style={{
+              marginBottom: "32px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+              gap: "24px",
+            }}
+          >
+            <ZenDistributionChart type="grade" isActive={activeChart === "grade"} />
+            <ZenDistributionChart type="school" isActive={activeChart === "school"} />
+          </section>
+
           {/* Recent Activity */}
           <section style={{ marginBottom: "32px" }}>
             <h2
@@ -444,12 +475,13 @@ export default function ZenDashboardPage() {
               fontSize: "12px",
             }}
           >
-            <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next day{" "}
+            <span style={{ color: "var(--zen-fg)" }}>[</span>/<span style={{ color: "var(--zen-fg)" }}>]</span> prev/next{" "}
             <span style={{ color: "var(--zen-fg)" }}>t</span>=today{" "}
-            <span style={{ color: "var(--zen-fg)" }}>C</span>=calendar |{" "}
-            <span style={{ color: "var(--zen-fg)" }}>s</span>=students{" "}
-            <span style={{ color: "var(--zen-fg)" }}>n</span>=sessions{" "}
-            <span style={{ color: "var(--zen-fg)" }}>/</span>=cmd{" "}
+            <span style={{ color: "var(--zen-fg)" }}>C</span>=cal |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>Tab</span>: sessions→tests→charts→activity→cmd |{" "}
+            <span style={{ color: "var(--zen-fg)" }}>!</span>=alerts{" "}
+            <span style={{ color: "var(--zen-fg)" }}>T</span>=tools{" "}
+            <span style={{ color: "var(--zen-fg)" }}>P</span>=puzzle{" "}
             <span style={{ color: "var(--zen-fg)" }}>?</span>=help
           </div>
         </>

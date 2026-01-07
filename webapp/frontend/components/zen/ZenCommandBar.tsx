@@ -7,6 +7,8 @@ import { useZenSession } from "@/contexts/ZenSessionContext";
 import { sessionsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import { setZenStatus } from "./ZenStatusBar";
+import { usefulTools } from "@/config/useful-tools";
+import { useDailyPuzzle } from "@/lib/useDailyPuzzle";
 
 interface Command {
   name: string;
@@ -42,8 +44,17 @@ export function ZenCommandBar() {
   const [selectedSuggestion, setSelectedSuggestion] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [showTools, setShowTools] = useState(false);
+  const [showPuzzle, setShowPuzzle] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const {
+    question: puzzleQuestion,
+    isLoading: puzzleLoading,
+    userAnswer: puzzleAnswer,
+    isCorrect: puzzleCorrect,
+    submitAnswer: submitPuzzleAnswer,
+  } = useDailyPuzzle();
   const { theme, themeId, commandHistory, addToHistory, disableZenMode, setTheme } = useZen();
   const {
     selectedIds,
@@ -269,8 +280,8 @@ export function ZenCommandBar() {
             }
           } else {
             const navCmds = ["go", "dashboard", "students", "sessions"];
-            const actionCmds = ["mark", "select"];
-            const dateCmds = ["today", "yesterday", "tomorrow", "date"];
+            const actionCmds = ["mark", "select", "assign"];
+            const dateCmds = ["today", "yesterday", "tomorrow", "date", "calendar"];
             const utilCmds = ["help", "theme", "refresh", "exit"];
             setZenStatus(
               `Nav: ${navCmds.join(", ")} | Actions: ${actionCmds.join(", ")} | Date: ${dateCmds.join(", ")} | Utils: ${utilCmds.join(", ")}`,
@@ -407,17 +418,60 @@ export function ZenCommandBar() {
       },
       {
         name: "assign",
-        description: "Assign CW/HW to selected sessions (coming soon)",
+        description: "Assign CW/HW to selected sessions",
         execute: (args) => {
           const type = args[0]?.toLowerCase();
-          if (type === "cw" || type === "hw") {
+          const ids = Array.from(selectedIds);
+
+          if (ids.length === 0) {
             setZenStatus(
-              `Exercise assignment coming soon. Use GUI for now: assign ${type.toUpperCase()}`,
-              "info"
+              "No sessions selected. Select sessions first with Space, then use: assign cw/hw",
+              "error"
             );
-          } else {
-            setZenStatus("Usage: assign <cw|hw>", "error");
+            return;
           }
+
+          if (type === "cw" || type === "hw") {
+            const selectedSessions = getSelectedSessions();
+            if (selectedSessions.length === 1) {
+              // Single session - can use the inline detail expansion (press Enter)
+              setZenStatus(
+                `For 1 session, press Enter on it to expand, then 'c' for CW or 'h' for HW`,
+                "info"
+              );
+            } else {
+              setZenStatus(
+                `Bulk ${type.toUpperCase()} assignment: select sessions individually and use inline 'c'/'h' keys`,
+                "info"
+              );
+            }
+          } else {
+            setZenStatus("Usage: assign <cw|hw> (select sessions first with Space)", "error");
+          }
+        },
+      },
+      {
+        name: "calendar",
+        aliases: ["cal"],
+        description: "Open calendar popup (or use Shift+C)",
+        execute: () => {
+          setZenStatus("Press Shift+C to toggle the calendar popup", "info");
+        },
+      },
+      {
+        name: "tools",
+        aliases: ["links", "resources"],
+        description: "Open useful tools menu",
+        execute: () => {
+          setShowTools(true);
+        },
+      },
+      {
+        name: "puzzle",
+        aliases: ["quiz", "trivia"],
+        description: "Show daily puzzle",
+        execute: () => {
+          setShowPuzzle(true);
         },
       },
     ],
@@ -452,9 +506,13 @@ export function ZenCommandBar() {
       "mark sick",
       "mark weather",
       "mark reschedule",
+      "mark cancel",
       "select all",
       "select none",
       "select actionable",
+      "assign cw",
+      "assign hw",
+      "calendar",
       "today",
       "yesterday",
       "tomorrow",
@@ -463,6 +521,8 @@ export function ZenCommandBar() {
       "go dashboard",
       "go students",
       "go sessions",
+      "tools",
+      "puzzle",
       "theme list",
       "theme phosphor",
       "theme dracula",
@@ -597,25 +657,86 @@ export function ZenCommandBar() {
     }
   };
 
-  // Global keyboard shortcut to focus command bar
+  // Global keyboard shortcut to focus command bar and handle modals
   useEffect(() => {
     const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
-      // Focus on "/" key (but not when already focused on input)
+      // Handle puzzle modal keyboard navigation
+      if (showPuzzle) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowPuzzle(false);
+          return;
+        }
+        // Number keys 1-4 to select puzzle answer (if not already answered)
+        if (/^[1-4]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && puzzleQuestion && puzzleAnswer === null) {
+          e.preventDefault();
+          const index = parseInt(e.key) - 1;
+          if (index < puzzleQuestion.allAnswers.length) {
+            submitPuzzleAnswer(puzzleQuestion.allAnswers[index]);
+          }
+          return;
+        }
+      }
+
+      // Handle tools modal keyboard navigation
+      if (showTools) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setShowTools(false);
+          return;
+        }
+        // Number keys 1-9 and 0 (for 10th item) to open tools
+        if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          const index = e.key === "0" ? 9 : parseInt(e.key) - 1;
+          if (index < usefulTools.length) {
+            window.open(usefulTools[index].url, "_blank");
+            setShowTools(false);
+            setZenStatus(`Opened: ${usefulTools[index].name}`, "success");
+          }
+          return;
+        }
+      }
+
+      // Skip if typing in input
       if (
-        e.key === "/" &&
-        document.activeElement !== inputRef.current &&
-        !["INPUT", "TEXTAREA"].includes(
+        document.activeElement === inputRef.current ||
+        ["INPUT", "TEXTAREA"].includes(
           (document.activeElement as HTMLElement)?.tagName
         )
       ) {
+        // Only handle "/" to focus
+        if (e.key === "/") {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }
+        return;
+      }
+
+      // Focus on "/" key
+      if (e.key === "/") {
         e.preventDefault();
         inputRef.current?.focus();
+      }
+
+      // "T" key to toggle tools
+      if (e.key === "T" && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowPuzzle(false);
+        setShowTools((prev) => !prev);
+      }
+
+      // "P" key to toggle puzzle
+      if (e.key === "P" && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowTools(false);
+        setShowPuzzle((prev) => !prev);
       }
     };
 
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, []);
+  }, [showTools, showPuzzle, puzzleQuestion, puzzleAnswer, submitPuzzleAnswer]);
 
   return (
     <div
@@ -627,6 +748,220 @@ export function ZenCommandBar() {
         backgroundColor: "var(--zen-bg)",
       }}
     >
+      {/* Tools Modal */}
+      {showTools && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: "16px",
+            marginBottom: "8px",
+            backgroundColor: "var(--zen-bg)",
+            border: "1px solid var(--zen-border)",
+            minWidth: "320px",
+            maxWidth: "400px",
+            zIndex: 200,
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid var(--zen-border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontWeight: "bold", color: "var(--zen-fg)" }}>
+              USEFUL TOOLS
+            </span>
+            <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
+              1-9/0 to open • Esc to close
+            </span>
+          </div>
+
+          {/* Tools list */}
+          <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+            {usefulTools.slice(0, 10).map((tool, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  window.open(tool.url, "_blank");
+                  setShowTools(false);
+                  setZenStatus(`Opened: ${tool.name}`, "success");
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 12px",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid var(--zen-border)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "var(--zen-border)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <span style={{ color: "var(--zen-accent)", minWidth: "20px" }}>
+                  [{idx === 9 ? "0" : idx + 1}]
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: "var(--zen-fg)" }}>{tool.name}</div>
+                  {tool.description && (
+                    <div
+                      style={{
+                        color: "var(--zen-dim)",
+                        fontSize: "11px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {tool.description}
+                    </div>
+                  )}
+                </div>
+                <span style={{ color: "var(--zen-dim)" }}>↗</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Puzzle Modal */}
+      {showPuzzle && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "100%",
+            left: "16px",
+            marginBottom: "8px",
+            backgroundColor: "var(--zen-bg)",
+            border: "1px solid var(--zen-border)",
+            minWidth: "350px",
+            maxWidth: "500px",
+            zIndex: 200,
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: "8px 12px",
+              borderBottom: "1px solid var(--zen-border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontWeight: "bold", color: "var(--zen-accent)" }}>
+              DAILY PUZZLE
+            </span>
+            <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
+              {puzzleAnswer === null ? "1-4 to answer • Esc to close" : "Esc to close"}
+            </span>
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: "12px" }}>
+            {puzzleLoading ? (
+              <div style={{ color: "var(--zen-dim)" }}>Loading puzzle...</div>
+            ) : puzzleQuestion ? (
+              <>
+                {/* Question */}
+                <p
+                  style={{
+                    color: "var(--zen-fg)",
+                    marginBottom: "12px",
+                    lineHeight: "1.4",
+                  }}
+                >
+                  {puzzleQuestion.question}
+                </p>
+
+                {/* Answer choices */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {puzzleQuestion.allAnswers.map((answer, idx) => {
+                    const isSelected = puzzleAnswer === answer;
+                    const isCorrectAnswer = answer === puzzleQuestion.correctAnswer;
+                    const showAsCorrect = puzzleAnswer !== null && isCorrectAnswer;
+                    const showAsIncorrect = isSelected && !puzzleCorrect;
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          if (puzzleAnswer === null) {
+                            submitPuzzleAnswer(answer);
+                          }
+                        }}
+                        disabled={puzzleAnswer !== null}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "8px 10px",
+                          background: showAsCorrect
+                            ? "var(--zen-success)"
+                            : showAsIncorrect
+                            ? "var(--zen-error)"
+                            : "transparent",
+                          border: "1px solid var(--zen-border)",
+                          cursor: puzzleAnswer === null ? "pointer" : "default",
+                          fontFamily: "inherit",
+                          textAlign: "left",
+                          color: showAsCorrect || showAsIncorrect
+                            ? "var(--zen-bg)"
+                            : "var(--zen-fg)",
+                          opacity: puzzleAnswer !== null && !showAsCorrect && !showAsIncorrect ? 0.5 : 1,
+                        }}
+                      >
+                        <span style={{
+                          color: showAsCorrect || showAsIncorrect ? "var(--zen-bg)" : "var(--zen-accent)",
+                          minWidth: "24px"
+                        }}>
+                          [{idx + 1}]
+                        </span>
+                        <span style={{ flex: 1 }}>{answer}</span>
+                        {showAsCorrect && <span>✓</span>}
+                        {showAsIncorrect && <span>✗</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Result message */}
+                {puzzleAnswer !== null && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "8px",
+                      textAlign: "center",
+                      color: puzzleCorrect ? "var(--zen-success)" : "var(--zen-error)",
+                      borderTop: "1px solid var(--zen-border)",
+                    }}
+                  >
+                    {puzzleCorrect ? "Correct! Well done." : "Incorrect. Try again tomorrow!"}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ color: "var(--zen-dim)" }}>No puzzle available today.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Suggestions dropdown */}
       {suggestions.length > 0 && isFocused && (
         <div

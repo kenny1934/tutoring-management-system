@@ -6,10 +6,12 @@ import { createContext, useContext, useState, useCallback, ReactNode } from "rea
  * Focus sections in Zen mode
  * - sessions: Today's sessions list
  * - tests: Upcoming tests list
+ * - distribution: Distribution charts (grade/school)
+ * - activity: Recent activity feed
  * - command: Command bar input
  * - detail: Expanded detail view
  */
-export type ZenFocusSection = "sessions" | "tests" | "command" | "detail" | null;
+export type ZenFocusSection = "sessions" | "tests" | "distribution" | "activity" | "command" | "detail" | null;
 
 interface ZenKeyboardFocusContextType {
   focusedSection: ZenFocusSection;
@@ -65,7 +67,7 @@ export function useZenKeyboardFocus() {
 /**
  * Get all navigable sections in order for Tab cycling
  */
-export const NAVIGABLE_SECTIONS: ZenFocusSection[] = ["sessions", "tests", "command"];
+export const NAVIGABLE_SECTIONS: ZenFocusSection[] = ["sessions", "tests", "distribution", "activity", "command"];
 
 /**
  * Get the next section in the cycle
