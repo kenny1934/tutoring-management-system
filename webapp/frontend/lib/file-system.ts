@@ -30,6 +30,7 @@ export interface SavedFolder {
   id: string;
   name: string;
   handle: FileSystemDirectoryHandle;
+  isShared?: boolean;  // true = from path mapping (shared drive), false/undefined = personal folder
 }
 
 /**
@@ -155,6 +156,48 @@ export async function addFolder(): Promise<SavedFolder | null> {
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
       console.error('Failed to add folder:', err);
+    }
+    return null;
+  }
+}
+
+/**
+ * Prompt user to select a folder and add it as a shared drive with a specific name.
+ * Used when granting access to path-mapped drives from Settings.
+ */
+export async function addSharedFolder(name: string): Promise<SavedFolder | null> {
+  if (!isFileSystemAccessSupported()) {
+    return null;
+  }
+
+  try {
+    // @ts-expect-error - showDirectoryPicker exists in Chrome/Edge
+    const handle = await window.showDirectoryPicker({
+      mode: 'read',
+    });
+
+    const folder: SavedFolder = {
+      id: generateId(),
+      name,  // Use the provided canonical name
+      handle,
+      isShared: true,
+    };
+
+    // Save to IndexedDB
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(FOLDERS_STORE, 'readwrite');
+      const store = tx.objectStore(FOLDERS_STORE);
+      const request = store.put(folder);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+      tx.oncomplete = () => db.close();
+    });
+
+    return folder;
+  } catch (err) {
+    if ((err as Error).name !== 'AbortError') {
+      console.error('Failed to add shared folder:', err);
     }
     return null;
   }
@@ -351,6 +394,12 @@ export type FileOperationResult =
  * Path format: "FolderName\relative\path\to\file.pdf"
  */
 export async function getFileHandleFromPath(path: string): Promise<FileOperationResult> {
+  // Strip surrounding quotes (from Windows "Copy as path")
+  path = path.replace(/^["']|["']$/g, '');
+
+  // Strip brackets from Shelv/Paperless paths: [Center]\path → Center\path
+  path = path.replace(/^\[([^\]]+)\]/, '$1');
+
   if (!isFileSystemAccessSupported()) {
     return { success: false, error: 'not_supported' };
   }
@@ -369,9 +418,9 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
     return { success: false, error: 'file_not_found' };
   }
 
-  // Find the folder by name
+  // Find the folder by name (case-insensitive for cross-user compatibility)
   const folders = await getSavedFolders();
-  const folder = folders.find(f => f.name === folderName);
+  const folder = folders.find(f => f.name.toLowerCase() === folderName.toLowerCase());
 
   if (!folder) {
     return { success: false, error: 'folder_not_found' };
