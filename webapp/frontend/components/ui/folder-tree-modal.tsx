@@ -21,6 +21,9 @@ import {
   LayoutGrid,
   List,
   Trash2,
+  X,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +33,39 @@ import {
   removeFolder,
   type SavedFolder,
 } from "@/lib/file-system";
+import { getPageCount } from "@/lib/pdf-utils";
+
+// File selection with page range
+export interface FileSelection {
+  path: string;
+  pages: string; // "1-5", "1,3,5-7", or ""
+  pageCount?: number; // Loaded when selected
+  error?: string; // Validation error
+}
+
+// Validate page input against max pages
+function validatePageInput(input: string, maxPages: number): string | null {
+  if (!input.trim()) return null;
+  const normalized = input.replace(/[~–—−]/g, '-');
+  const numbers = normalized.match(/\d+/g)?.map(Number) || [];
+  for (const num of numbers) {
+    if (num < 1) return `Page must be ≥ 1`;
+    if (num > maxPages) return `Page ${num} exceeds max (${maxPages})`;
+  }
+  return null;
+}
+
+// Timeout helper for network operations
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  errorMsg: string
+): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(errorMsg)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
 
 interface TreeNode {
   id: string;
@@ -38,21 +74,22 @@ interface TreeNode {
   kind: "folder" | "file";
   handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
   isShared?: boolean;
+  lastModified?: number; // Timestamp, loaded lazily for date sorting
 }
 
 interface FolderTreeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onFileSelected: (path: string) => void;
+  onFileSelected: (path: string, pages?: string) => void;
   /** Handler for batch adding multiple files (multi-select mode) */
-  onFilesSelected?: (paths: string[]) => void;
+  onFilesSelected?: (selections: FileSelection[]) => void;
   /** Enable multi-select toggle */
   allowMultiSelect?: boolean;
   /** Initial path to navigate to (e.g., "Center\\Math\\file.pdf") */
   initialPath?: string;
 }
 
-type SortOption = "name-asc" | "name-desc";
+type SortOption = "name-asc" | "name-desc" | "date-desc" | "date-asc";
 type ViewMode = "grid" | "list";
 
 // Zoom levels for PDF preview
@@ -88,13 +125,22 @@ export function FolderTreeModal({
 
   // Sort state
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [loadingDates, setLoadingDates] = useState(false);
 
   // Pagination state for large folders
   const ITEMS_PER_PAGE = 100;
   const [displayLimit, setDisplayLimit] = useState(ITEMS_PER_PAGE);
 
   // Selection state (multi-select via checkbox hover + Ctrl/Shift+Click)
-  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [selections, setSelections] = useState<Map<string, FileSelection>>(new Map());
+
+  // Page range state for preview panel (radio button format)
+  const [previewPageCount, setPreviewPageCount] = useState<number | null>(null);
+  const [previewPageMode, setPreviewPageMode] = useState<"simple" | "custom">("simple");
+  const [previewPageStart, setPreviewPageStart] = useState("");
+  const [previewPageEnd, setPreviewPageEnd] = useState("");
+  const [previewComplexPages, setPreviewComplexPages] = useState("");
+  const [previewPagesError, setPreviewPagesError] = useState<string | null>(null);
 
   // Explorer-like UX state (hover to show checkbox, click to preview, double-click to use)
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
@@ -107,6 +153,9 @@ export function FolderTreeModal({
   // Scroll ref
   const contentScrollRef = useRef<HTMLDivElement>(null);
 
+  // Track unavailable folders (network drives that timed out)
+  const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
+
   // Load root folders when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -118,10 +167,16 @@ export function FolderTreeModal({
       }
       setPreviewUrl(null);
       setPreviewNode(null);
+      setPreviewPageCount(null);
+      setPreviewPageMode("simple");
+      setPreviewPageStart("");
+      setPreviewPageEnd("");
+      setPreviewComplexPages("");
+      setPreviewPagesError(null);
       setCurrentPath([]);
       setCurrentHandle(null);
       setCurrentContents([]);
-      setSelectedPaths(new Set());
+      setSelections(new Map());
     }
   }, [isOpen]);
 
@@ -206,13 +261,20 @@ export function FolderTreeModal({
   };
 
   // Load contents of a directory (with chunked loading for large folders)
-  const loadFolderContents = async (handle: FileSystemDirectoryHandle, basePath: string) => {
+  const loadFolderContents = async (handle: FileSystemDirectoryHandle, basePath: string, folderId?: string) => {
     setContentsLoading(true);
     setError(null);
 
+    const TIMEOUT_MS = 5000; // 5 second timeout for network operations
+
     try {
-      // Verify permission
-      const hasPermission = await verifyPermission(handle);
+      // Verify permission with timeout
+      const hasPermission = await withTimeout(
+        verifyPermission(handle),
+        TIMEOUT_MS,
+        "Connection timeout - drive may be unavailable"
+      );
+
       if (!hasPermission) {
         setError(`Permission denied. Please grant access in Settings.`);
         setContentsLoading(false);
@@ -223,7 +285,36 @@ export function FolderTreeModal({
       let count = 0;
       const CHUNK_SIZE = 100; // Yield to UI every 100 items
 
-      for await (const [name, entryHandle] of handle.entries()) {
+      // Get entries iterator
+      const entriesIterator = handle.entries();
+
+      // Try to get first entry with timeout to detect unreachable drives early
+      const firstEntryResult = await withTimeout(
+        entriesIterator.next(),
+        TIMEOUT_MS,
+        "Cannot access folder - network may be unavailable"
+      );
+
+      // Process first entry if it exists
+      if (!firstEntryResult.done) {
+        const [name, entryHandle] = firstEntryResult.value;
+        const isPdf = name.toLowerCase().endsWith(".pdf");
+        const isFolder = entryHandle.kind === "directory";
+
+        if (isFolder || isPdf) {
+          contents.push({
+            id: `${basePath}\\${name}`,
+            name,
+            path: `${basePath}\\${name}`,
+            kind: entryHandle.kind === "directory" ? "folder" : "file",
+            handle: entryHandle as FileSystemDirectoryHandle | FileSystemFileHandle,
+          });
+        }
+        count++;
+      }
+
+      // Continue with remaining entries (already connected, so less likely to timeout)
+      for await (const [name, entryHandle] of entriesIterator) {
         const isPdf = name.toLowerCase().endsWith(".pdf");
         const isFolder = entryHandle.kind === "directory";
 
@@ -245,11 +336,26 @@ export function FolderTreeModal({
         }
       }
 
+      // Clear this folder from unavailable list on success
+      if (folderId) {
+        setUnavailableFolders((prev) => {
+          const next = new Set(prev);
+          next.delete(folderId);
+          return next;
+        });
+      }
+
       setCurrentContents(contents);
       setDisplayLimit(ITEMS_PER_PAGE); // Reset pagination when folder changes
     } catch (err) {
       console.error("Failed to load folder contents:", err);
-      setError("Failed to load folder contents.");
+      const message = err instanceof Error ? err.message : "Failed to load folder contents.";
+      setError(message);
+
+      // Mark folder as unavailable if it was a timeout
+      if (folderId && (message.includes("timeout") || message.includes("unavailable"))) {
+        setUnavailableFolders((prev) => new Set(prev).add(folderId));
+      }
     } finally {
       setContentsLoading(false);
     }
@@ -264,7 +370,7 @@ export function FolderTreeModal({
 
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
-    await loadFolderContents(dirHandle, newPath.join("\\"));
+    await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
 
     // Scroll to top
     if (contentScrollRef.current) {
@@ -311,12 +417,16 @@ export function FolderTreeModal({
   // Sort nodes helper
   const sortNodes = useCallback((nodes: TreeNode[]): TreeNode[] => {
     return [...nodes].sort((a, b) => {
-      // Folders first
+      // Folders first (always)
       if (a.kind !== b.kind) {
         return a.kind === "folder" ? -1 : 1;
       }
       // Then by sort option
       switch (sortBy) {
+        case "date-desc":
+          return (b.lastModified || 0) - (a.lastModified || 0);
+        case "date-asc":
+          return (a.lastModified || 0) - (b.lastModified || 0);
         case "name-desc":
           return b.name.localeCompare(a.name);
         case "name-asc":
@@ -326,21 +436,95 @@ export function FolderTreeModal({
     });
   }, [sortBy]);
 
-  // Toggle file selection
-  const toggleSelection = useCallback((path: string) => {
-    setSelectedPaths((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) {
+  // Toggle file selection (loads page count when adding)
+  const toggleSelection = useCallback(async (node: TreeNode) => {
+    const path = node.path;
+    if (selections.has(path)) {
+      // Remove
+      setSelections((prev) => {
+        const next = new Map(prev);
         next.delete(path);
-      } else {
-        next.add(path);
+        return next;
+      });
+    } else {
+      // Add with placeholder
+      const sel: FileSelection = { path, pages: "" };
+      setSelections((prev) => new Map(prev).set(path, sel));
+
+      // Load page count async
+      if (node.handle && node.kind === "file") {
+        try {
+          const file = await (node.handle as FileSystemFileHandle).getFile();
+          const arrayBuffer = await file.arrayBuffer();
+          const pageCount = await getPageCount(arrayBuffer);
+          setSelections((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(path);
+            if (existing) next.set(path, { ...existing, pageCount });
+            return next;
+          });
+        } catch {
+          // Page count loading failed, validation will be skipped
+        }
       }
+    }
+  }, [selections]);
+
+  // Update page range for a selected file (with validation)
+  const updateSelectionPages = useCallback((path: string, pages: string) => {
+    setSelections((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(path);
+      if (existing) {
+        const error = existing.pageCount ? validatePageInput(pages, existing.pageCount) : null;
+        next.set(path, { ...existing, pages, error: error || undefined });
+      }
+      return next;
+    });
+  }, []);
+
+  // Remove file from selection (for selection panel X button)
+  const removeSelection = useCallback((path: string) => {
+    setSelections((prev) => {
+      const next = new Map(prev);
+      next.delete(path);
       return next;
     });
   }, []);
 
   // Sort current contents - needed early for click/keyboard handlers
   const sortedContents = sortNodes(currentContents);
+
+  // Load file dates lazily when sorting by date
+  useEffect(() => {
+    if (!sortBy.startsWith("date-") || loadingDates) return;
+
+    const filesToLoad = currentContents.filter(
+      (n) => n.kind === "file" && n.lastModified === undefined && n.handle
+    );
+
+    if (filesToLoad.length === 0) return;
+
+    const loadDates = async () => {
+      setLoadingDates(true);
+      try {
+        for (const node of filesToLoad) {
+          try {
+            const file = await (node.handle as FileSystemFileHandle).getFile();
+            node.lastModified = file.lastModified;
+          } catch {
+            node.lastModified = 0; // Fallback for inaccessible files
+          }
+        }
+        // Trigger re-render
+        setCurrentContents([...currentContents]);
+      } finally {
+        setLoadingDates(false);
+      }
+    };
+
+    loadDates();
+  }, [sortBy, currentContents, loadingDates]);
 
   // Pagination: only render a subset for performance with large folders
   const displayedContents = sortedContents.slice(0, displayLimit);
@@ -353,11 +537,27 @@ export function FolderTreeModal({
 
     setPreviewLoading(true);
     setPreviewNode(node);
+    setPreviewPageMode("simple");
+    setPreviewPageStart("");
+    setPreviewPageEnd("");
+    setPreviewComplexPages("");
+    setPreviewPagesError(null);
+    setPreviewPageCount(null);
 
     try {
       const fileHandle = node.handle as FileSystemFileHandle;
       const file = await fileHandle.getFile();
       const url = URL.createObjectURL(file);
+
+      // Get page count for validation
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pageCount = await getPageCount(arrayBuffer);
+        setPreviewPageCount(pageCount);
+      } catch {
+        // Page count loading failed, validation will be skipped
+        setPreviewPageCount(null);
+      }
 
       // Cleanup previous URL
       if (previewUrl) {
@@ -378,7 +578,7 @@ export function FolderTreeModal({
     // Ctrl+Click: toggle selection
     if (e.ctrlKey || e.metaKey) {
       if (node.kind === "file") {
-        toggleSelection(node.path);
+        toggleSelection(node);
         setLastClickedIndex(index);
       }
       return;
@@ -388,14 +588,38 @@ export function FolderTreeModal({
     if (e.shiftKey && lastClickedIndex !== null && node.kind === "file") {
       const start = Math.min(lastClickedIndex, index);
       const end = Math.max(lastClickedIndex, index);
-      const rangePaths = sortedContents
+      const rangeNodes = sortedContents
         .slice(start, end + 1)
-        .filter((n) => n.kind === "file")
-        .map((n) => n.path);
-      setSelectedPaths((prev) => {
-        const next = new Set(prev);
-        rangePaths.forEach((p) => next.add(p));
+        .filter((n) => n.kind === "file");
+      // Add range to selections (page counts will load async)
+      setSelections((prev) => {
+        const next = new Map(prev);
+        for (const n of rangeNodes) {
+          if (!next.has(n.path)) {
+            next.set(n.path, { path: n.path, pages: "" });
+          }
+        }
         return next;
+      });
+      // Load page counts for new selections in parallel
+      rangeNodes.forEach(async (n) => {
+        if (n.handle && !selections.has(n.path)) {
+          try {
+            const file = await (n.handle as FileSystemFileHandle).getFile();
+            const arrayBuffer = await file.arrayBuffer();
+            const pageCount = await getPageCount(arrayBuffer);
+            setSelections((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(n.path);
+              if (existing && !existing.pageCount) {
+                next.set(n.path, { ...existing, pageCount });
+              }
+              return next;
+            });
+          } catch {
+            // Page count loading failed, skip
+          }
+        }
       });
       return;
     }
@@ -416,33 +640,35 @@ export function FolderTreeModal({
   // Double click: select/use file - Explorer-like behavior
   const handleDoubleClick = useCallback((node: TreeNode) => {
     if (node.kind === "file") {
-      if (selectedPaths.size > 0 && onFilesSelected) {
+      if (selections.size > 0 && onFilesSelected) {
         // Batch add all selected + this one (if not already selected)
-        const paths = new Set(selectedPaths);
-        paths.add(node.path);
-        onFilesSelected(Array.from(paths));
+        const allSelections = new Map(selections);
+        if (!allSelections.has(node.path)) {
+          allSelections.set(node.path, { path: node.path, pages: "" });
+        }
+        onFilesSelected(Array.from(allSelections.values()));
       } else {
-        // Single file selection
+        // Single file selection (no page range on double-click)
         onFileSelected(node.path);
       }
       onClose();
     }
-  }, [selectedPaths, onFilesSelected, onFileSelected, onClose]);
+  }, [selections, onFilesSelected, onFileSelected, onClose]);
 
   // Checkbox click: toggle selection (stops propagation to prevent other click handlers)
   const handleCheckboxClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
     e.stopPropagation();
-    toggleSelection(node.path);
+    toggleSelection(node);
     setLastClickedIndex(index);
   }, [toggleSelection]);
 
   // Handle batch add
   const handleBatchAdd = useCallback(() => {
-    if (onFilesSelected && selectedPaths.size > 0) {
-      onFilesSelected(Array.from(selectedPaths));
+    if (onFilesSelected && selections.size > 0) {
+      onFilesSelected(Array.from(selections.values()));
       onClose();
     }
-  }, [onFilesSelected, selectedPaths, onClose]);
+  }, [onFilesSelected, selections, onClose]);
 
   // Close preview
   const handleClosePreview = useCallback(() => {
@@ -455,11 +681,24 @@ export function FolderTreeModal({
 
   // Use previewed file
   const handleUsePreviewedFile = useCallback(() => {
-    if (previewNode) {
-      onFileSelected(previewNode.path);
+    if (previewNode && !previewPagesError) {
+      // Construct pages string from mode
+      let pages: string | undefined;
+      if (previewPageMode === "simple") {
+        const start = previewPageStart.trim();
+        const end = previewPageEnd.trim();
+        if (start && end) {
+          pages = `${start}-${end}`;
+        } else if (start) {
+          pages = start;
+        }
+      } else {
+        pages = previewComplexPages.trim() || undefined;
+      }
+      onFileSelected(previewNode.path, pages);
       onClose();
     }
-  }, [previewNode, onFileSelected, onClose]);
+  }, [previewNode, previewPageMode, previewPageStart, previewPageEnd, previewComplexPages, previewPagesError, onFileSelected, onClose]);
 
   // Open preview in new tab
   const handleOpenInNewTab = useCallback(() => {
@@ -494,38 +733,86 @@ export function FolderTreeModal({
 
       const totalItems = sortedContents.length;
 
+      // Helper to get grid columns based on viewport and view mode
+      const getGridColumns = () => {
+        if (viewMode !== "grid") return 1;
+        const width = window.innerWidth;
+        if (width >= 640) return 4; // sm:grid-cols-4
+        return 3; // grid-cols-3
+      };
+
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setFocusedIndex((prev) => {
-            const next = prev < totalItems - 1 ? prev + 1 : totalItems - 1;
-            itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
-            return next;
-          });
+          if (viewMode === "grid") {
+            const cols = getGridColumns();
+            setFocusedIndex((prev) => {
+              const next = Math.min(prev + cols, totalItems - 1);
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
+          } else {
+            setFocusedIndex((prev) => {
+              const next = prev < totalItems - 1 ? prev + 1 : totalItems - 1;
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
+          }
           // Ctrl+Shift+Down: extend selection while navigating
           if (e.ctrlKey && e.shiftKey) {
             const nextIndex = Math.min(focusedIndex + 1, totalItems - 1);
             const node = sortedContents[nextIndex];
-            if (node?.kind === "file") {
-              setSelectedPaths((prev) => new Set(prev).add(node.path));
+            if (node?.kind === "file" && !selections.has(node.path)) {
+              toggleSelection(node);
             }
           }
           break;
 
         case "ArrowUp":
           e.preventDefault();
-          setFocusedIndex((prev) => {
-            const next = prev > 0 ? prev - 1 : 0;
-            itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
-            return next;
-          });
+          if (viewMode === "grid") {
+            const cols = getGridColumns();
+            setFocusedIndex((prev) => {
+              const next = Math.max(prev - cols, 0);
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
+          } else {
+            setFocusedIndex((prev) => {
+              const next = prev > 0 ? prev - 1 : 0;
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
+          }
           // Ctrl+Shift+Up: extend selection while navigating
           if (e.ctrlKey && e.shiftKey) {
             const nextIndex = Math.max(focusedIndex - 1, 0);
             const node = sortedContents[nextIndex];
-            if (node?.kind === "file") {
-              setSelectedPaths((prev) => new Set(prev).add(node.path));
+            if (node?.kind === "file" && !selections.has(node.path)) {
+              toggleSelection(node);
             }
+          }
+          break;
+
+        case "ArrowLeft":
+          if (viewMode === "grid") {
+            e.preventDefault();
+            setFocusedIndex((prev) => {
+              const next = Math.max(prev - 1, 0);
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
+          }
+          break;
+
+        case "ArrowRight":
+          if (viewMode === "grid") {
+            e.preventDefault();
+            setFocusedIndex((prev) => {
+              const next = Math.min(prev + 1, totalItems - 1);
+              itemRefs.current[next]?.scrollIntoView({ block: "nearest" });
+              return next;
+            });
           }
           break;
 
@@ -547,7 +834,19 @@ export function FolderTreeModal({
           if (focusedIndex >= 0 && focusedIndex < totalItems) {
             const node = sortedContents[focusedIndex];
             if (node.kind === "file") {
-              toggleSelection(node.path);
+              toggleSelection(node);
+            }
+          }
+          break;
+
+        case "p":
+        case "P":
+          // Preview focused file
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < totalItems) {
+            const node = sortedContents[focusedIndex];
+            if (node.kind === "file") {
+              handlePreview(node);
             }
           }
           break;
@@ -556,19 +855,20 @@ export function FolderTreeModal({
           // Ctrl+A: Select all files
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            const allFilePaths = sortedContents
+            const allFileSelections = new Map<string, FileSelection>();
+            sortedContents
               .filter((n) => n.kind === "file")
-              .map((n) => n.path);
-            setSelectedPaths(new Set(allFilePaths));
+              .forEach((n) => allFileSelections.set(n.path, { path: n.path, pages: "" }));
+            setSelections(allFileSelections);
           }
           break;
 
         case "Escape":
           // If items are selected, clear selection first (Esc to deselect all)
-          if (selectedPaths.size > 0) {
+          if (selections.size > 0) {
             e.preventDefault();
             e.stopImmediatePropagation(); // Prevents Modal's Escape handler from firing
-            setSelectedPaths(new Set());
+            setSelections(new Map());
           }
           // Otherwise let modal handle close
           break;
@@ -586,7 +886,7 @@ export function FolderTreeModal({
     // Use capture phase to intercept Escape BEFORE Modal's document-level handler fires
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [isOpen, focusedIndex, sortedContents, selectedPaths, currentPath, navigateInto, navigateTo, toggleSelection, handleDoubleClick]);
+  }, [isOpen, focusedIndex, sortedContents, selections, currentPath, navigateInto, navigateTo, toggleSelection, handleDoubleClick, handlePreview, viewMode]);
 
   // Reset focus when folder contents change
   useEffect(() => {
@@ -644,12 +944,7 @@ export function FolderTreeModal({
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
               Loading folders...
             </div>
-          ) : error ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              {error}
-            </div>
-          ) : rootFolders.length === 0 ? (
+          ) : rootFolders.length === 0 && !error ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
               <Folder className="h-10 w-10 mb-3 text-gray-400 opacity-50" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -670,6 +965,43 @@ export function FolderTreeModal({
             </div>
           ) : (
             <>
+              {/* Dismissible error banner */}
+              {error && (
+                <div className="flex items-center gap-2 p-3 mb-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                  <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  <span className="flex-1 text-sm text-red-700 dark:text-red-300">{error}</span>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      // Navigate back to root if we're in a failed folder
+                      if (currentPath.length > 0) {
+                        navigateTo(-1);
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500 hover:text-red-700 transition-colors shrink-0"
+                    title="Dismiss and go to root"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      // Retry loading current folder
+                      if (currentHandle && currentPath.length > 0) {
+                        const rootFolder = rootFolders.find(f => f.name === currentPath[0]);
+                        loadFolderContents(currentHandle, currentPath.join("\\"), rootFolder?.id);
+                      } else {
+                        loadRootFolders();
+                      }
+                    }}
+                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-800 text-red-500 hover:text-red-700 transition-colors shrink-0"
+                    title="Retry"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
               {/* HEADER: Breadcrumb + View Toggle + Sort + Multi-select */}
               <div className="flex-shrink-0 pb-3 mb-3 border-b border-gray-200 dark:border-gray-700 bg-[#fef9f3] dark:bg-[#2d2618] space-y-2">
                 {/* Row 1: Breadcrumb + Add Folder + View toggle */}
@@ -752,7 +1084,12 @@ export function FolderTreeModal({
                   >
                     <option value="name-asc">Name A→Z</option>
                     <option value="name-desc">Name Z→A</option>
+                    <option value="date-desc">Newest first</option>
+                    <option value="date-asc">Oldest first</option>
                   </select>
+                  {loadingDates && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+                  )}
                   {sortedContents.length > 0 && (
                     <span className="text-xs text-gray-400 dark:text-gray-500">
                       {hasMore
@@ -762,19 +1099,56 @@ export function FolderTreeModal({
                   )}
                 </div>
 
-                {/* Selection banner - always shows when files selected */}
-                {selectedPaths.size > 0 && (
-                  <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                      {selectedPaths.size} file{selectedPaths.size !== 1 ? "s" : ""} selected
-                      <span className="text-xs font-normal ml-2 opacity-70">(Esc to clear)</span>
-                    </span>
-                    <button
-                      onClick={() => setSelectedPaths(new Set())}
-                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
-                    >
-                      Clear
-                    </button>
+                {/* Selection panel - shows when files selected with page range inputs */}
+                {selections.size > 0 && (
+                  <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                        {selections.size} file{selections.size !== 1 ? "s" : ""} selected
+                        <span className="font-normal ml-1 opacity-70">(Esc to clear)</span>
+                      </span>
+                      <button
+                        onClick={() => setSelections(new Map())}
+                        className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {Array.from(selections.values()).map((sel) => (
+                        <div key={sel.path} className="space-y-0.5">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="flex-1 truncate text-gray-700 dark:text-gray-300" title={sel.path}>
+                              {sel.path.split("\\").pop()}
+                            </span>
+                            <input
+                              type="text"
+                              value={sel.pages}
+                              onChange={(e) => updateSelectionPages(sel.path, e.target.value)}
+                              placeholder={sel.pageCount ? `1-${sel.pageCount}` : "Pages"}
+                              className={cn(
+                                "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
+                                sel.error
+                                  ? "border-red-400 focus:ring-red-400"
+                                  : "border-gray-300 dark:border-gray-600 focus:ring-amber-400"
+                              )}
+                            />
+                            {sel.pageCount && (
+                              <span className="text-gray-400 shrink-0">/{sel.pageCount}</span>
+                            )}
+                            <button
+                              onClick={() => removeSelection(sel.path)}
+                              className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                          {sel.error && (
+                            <p className="text-[10px] text-red-500 pl-1">{sel.error}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -798,7 +1172,7 @@ export function FolderTreeModal({
                   /* LIST VIEW - Explorer-like: click=preview, double-click=use, checkbox on hover */
                   <div className="space-y-0.5">
                     {displayedContents.map((node, index) => {
-                      const isSelected = selectedPaths.has(node.path);
+                      const isSelected = selections.has(node.path);
                       const isHovered = hoveredPath === node.path;
                       const showCheckbox = node.kind === "file" && (isHovered || isSelected);
 
@@ -856,6 +1230,14 @@ export function FolderTreeModal({
                             {node.name}
                           </span>
 
+                          {/* Warning icon for unavailable folders */}
+                          {node.kind === "folder" && unavailableFolders.has(node.id) && (
+                            <AlertTriangle
+                              className="h-4 w-4 text-amber-500 shrink-0"
+                              title="Folder unavailable - network may be disconnected"
+                            />
+                          )}
+
                           {/* Folder arrow */}
                           {node.kind === "folder" && (
                             <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
@@ -879,7 +1261,7 @@ export function FolderTreeModal({
                   /* GRID VIEW - Explorer-like: click=preview, double-click=use, checkbox on hover */
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-1">
                     {displayedContents.map((node, index) => {
-                      const isSelected = selectedPaths.has(node.path);
+                      const isSelected = selections.has(node.path);
                       const isHovered = hoveredPath === node.path;
                       const showCheckbox = node.kind === "file" && (isHovered || isSelected);
                       const isFocused = focusedIndex === index;
@@ -927,6 +1309,16 @@ export function FolderTreeModal({
                             </button>
                           )}
 
+                          {/* Warning icon for unavailable folders */}
+                          {node.kind === "folder" && unavailableFolders.has(node.id) && (
+                            <div
+                              className="absolute top-1 left-1 p-0.5 rounded bg-amber-100 dark:bg-amber-900/50"
+                              title="Folder unavailable - network may be disconnected"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                            </div>
+                          )}
+
                           {/* Icon */}
                           {node.kind === "folder" ? (
                             node.isShared ? (
@@ -970,20 +1362,26 @@ export function FolderTreeModal({
                 {/* Help text */}
                 <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-2">
                   <Info className="h-3.5 w-3.5 shrink-0" />
-                  {selectedPaths.size > 0
-                    ? `${selectedPaths.size} selected. Double-click or use button below to add.`
+                  {selections.size > 0
+                    ? `${selections.size} selected. Double-click or use button below to add.`
                     : "Click to preview • Double-click to use • Checkbox to multi-select"}
                 </div>
 
                 {/* Keyboard shortcuts hint */}
                 <div className="text-[10px] text-gray-400 dark:text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">↑↓</kbd>
+                    <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">
+                      {viewMode === "grid" ? "←↑↓→" : "↑↓"}
+                    </kbd>
                     <span>navigate</span>
                   </span>
                   <span className="flex items-center gap-1">
+                    <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">P</kbd>
+                    <span>preview</span>
+                  </span>
+                  <span className="flex items-center gap-1">
                     <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Enter</kbd>
-                    <span>select</span>
+                    <span>use</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Space</kbd>
@@ -991,14 +1389,18 @@ export function FolderTreeModal({
                   </span>
                   <span className="flex items-center gap-1">
                     <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Ctrl+A</kbd>
-                    <span>select all</span>
+                    <span>all</span>
                   </span>
                 </div>
 
                 {/* Batch add button - shows when files are selected */}
-                {selectedPaths.size > 0 && onFilesSelected && (
-                  <Button onClick={handleBatchAdd} className="w-full">
-                    Add {selectedPaths.size} Exercise{selectedPaths.size !== 1 ? "s" : ""}
+                {selections.size > 0 && onFilesSelected && (
+                  <Button
+                    onClick={handleBatchAdd}
+                    className="w-full"
+                    disabled={Array.from(selections.values()).some((s) => s.error)}
+                  >
+                    Add {selections.size} Exercise{selections.size !== 1 ? "s" : ""}
                   </Button>
                 )}
               </div>
@@ -1060,17 +1462,121 @@ export function FolderTreeModal({
               </div>
 
               {/* Preview footer */}
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 mr-2">
-                  {previewNode?.path}
+              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                {/* Page range inputs - radio button format */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={previewPageMode === "simple"}
+                        onChange={() => setPreviewPageMode("simple")}
+                        className="text-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">Range</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={previewPageMode === "custom"}
+                        onChange={() => setPreviewPageMode("custom")}
+                        className="text-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300">Custom</span>
+                    </label>
+                    {previewPageCount && (
+                      <span className="text-xs text-gray-400 ml-auto">({previewPageCount} pages)</span>
+                    )}
+                  </div>
+
+                  {previewPageMode === "simple" ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={previewPageCount || undefined}
+                        value={previewPageStart}
+                        onChange={(e) => {
+                          setPreviewPageStart(e.target.value);
+                          if (previewPageCount) {
+                            const val = parseInt(e.target.value);
+                            if (val && (val < 1 || val > previewPageCount)) {
+                              setPreviewPagesError(`Page must be 1-${previewPageCount}`);
+                            } else {
+                              setPreviewPagesError(null);
+                            }
+                          }
+                        }}
+                        placeholder="From"
+                        className={cn(
+                          "w-16 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
+                          previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                        )}
+                      />
+                      <span className="text-gray-400 text-sm">to</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={previewPageCount || undefined}
+                        value={previewPageEnd}
+                        onChange={(e) => {
+                          setPreviewPageEnd(e.target.value);
+                          if (previewPageCount) {
+                            const val = parseInt(e.target.value);
+                            if (val && (val < 1 || val > previewPageCount)) {
+                              setPreviewPagesError(`Page must be 1-${previewPageCount}`);
+                            } else {
+                              setPreviewPagesError(null);
+                            }
+                          }
+                        }}
+                        placeholder="To"
+                        className={cn(
+                          "w-16 px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
+                          previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                        )}
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={previewComplexPages}
+                      onChange={(e) => {
+                        setPreviewComplexPages(e.target.value);
+                        if (previewPageCount) {
+                          setPreviewPagesError(validatePageInput(e.target.value, previewPageCount));
+                        }
+                      }}
+                      placeholder="e.g., 1,3,5-7"
+                      className={cn(
+                        "w-full px-2 py-1 text-sm border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
+                        previewPagesError ? "border-red-400" : "border-gray-300 dark:border-gray-600"
+                      )}
+                    />
+                  )}
+
+                  {previewPagesError && (
+                    <p className="text-xs text-red-500">{previewPagesError}</p>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleClosePreview}>
-                    Close
-                  </Button>
-                  <Button size="sm" onClick={handleUsePreviewedFile}>
-                    Use This File
-                  </Button>
+
+                {/* Path and buttons */}
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 mr-2">
+                    {previewNode?.path}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleClosePreview}>
+                      Close
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleUsePreviewedFile}
+                      disabled={!!previewPagesError}
+                    >
+                      Use This File
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>

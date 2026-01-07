@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { validatePageRange } from "@/lib/pdf-utils";
+import { validatePageRange, getPageCount } from "@/lib/pdf-utils";
 import type { PageSelection } from "@/types";
 
 interface PdfPreviewModalProps {
@@ -29,6 +29,7 @@ export function PdfPreviewModal({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [totalPages, setTotalPages] = useState<number | null>(null);
 
   // Page selection state
   const [pageStart, setPageStart] = useState<string>("");
@@ -43,6 +44,7 @@ export function PdfPreviewModal({
       setIsLoading(true);
       setError(null);
       setZoom(100);
+      setTotalPages(null);
       // Reset page selection
       setPageStart("");
       setPageEnd("");
@@ -52,18 +54,58 @@ export function PdfPreviewModal({
     }
   }, [isOpen, documentId]);
 
+  // Load page count when document changes
+  useEffect(() => {
+    if (!isOpen || !documentId || !enablePageSelection) return;
+
+    const loadPageCount = async () => {
+      try {
+        const previewUrl = api.paperless.getPreviewUrl(documentId);
+        const response = await fetch(previewUrl);
+        if (!response.ok) return;
+        const blob = await response.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const count = await getPageCount(arrayBuffer);
+        setTotalPages(count);
+      } catch {
+        // Page count loading failed, validation will be skipped
+      }
+    };
+
+    loadPageCount();
+  }, [isOpen, documentId, enablePageSelection]);
+
   // Validate page range on change
   useEffect(() => {
     if (useComplexRange && complexRange) {
-      if (!validatePageRange(complexRange)) {
-        setRangeError("Invalid format. Use: 1,3,5-7");
+      if (!validatePageRange(complexRange, totalPages || undefined)) {
+        if (totalPages) {
+          setRangeError(`Invalid range. Max page is ${totalPages}`);
+        } else {
+          setRangeError("Invalid format. Use: 1,3,5-7");
+        }
+      } else {
+        setRangeError(null);
+      }
+    } else if (!useComplexRange) {
+      // Validate simple mode
+      const start = pageStart ? parseInt(pageStart, 10) : null;
+      const end = pageEnd ? parseInt(pageEnd, 10) : null;
+      if (totalPages) {
+        if ((start && start > totalPages) || (end && end > totalPages)) {
+          setRangeError(`Max page is ${totalPages}`);
+        } else if ((start && start < 1) || (end && end < 1)) {
+          setRangeError("Page must be at least 1");
+        } else {
+          setRangeError(null);
+        }
       } else {
         setRangeError(null);
       }
     } else {
       setRangeError(null);
     }
-  }, [complexRange, useComplexRange]);
+  }, [complexRange, useComplexRange, pageStart, pageEnd, totalPages]);
 
   // Build PageSelection from current state
   const buildPageSelection = useCallback((): PageSelection | undefined => {
@@ -254,36 +296,54 @@ export function PdfPreviewModal({
                 </label>
               </div>
 
+              {/* Page count display */}
+              {totalPages && (
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  ({totalPages} pages)
+                </span>
+              )}
+
               {/* Simple range inputs */}
               {!useComplexRange && (
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     min="1"
-                    placeholder="Start"
+                    max={totalPages || undefined}
+                    placeholder={totalPages ? `1` : "Start"}
                     value={pageStart}
                     onChange={(e) => setPageStart(e.target.value)}
                     className={cn(
                       "w-20 px-2 py-1.5 text-sm rounded-md border",
                       "bg-white dark:bg-[#3d3427]",
-                      "border-[#d4c4a8] dark:border-[#5a4d3a]",
-                      "focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      rangeError
+                        ? "border-red-400 dark:border-red-500"
+                        : "border-[#d4c4a8] dark:border-[#5a4d3a]",
+                      "focus:outline-none focus:ring-2",
+                      rangeError ? "focus:ring-red-500/50" : "focus:ring-amber-500/50"
                     )}
                   />
                   <span className="text-gray-400">to</span>
                   <input
                     type="number"
                     min="1"
-                    placeholder="End"
+                    max={totalPages || undefined}
+                    placeholder={totalPages ? `${totalPages}` : "End"}
                     value={pageEnd}
                     onChange={(e) => setPageEnd(e.target.value)}
                     className={cn(
                       "w-20 px-2 py-1.5 text-sm rounded-md border",
                       "bg-white dark:bg-[#3d3427]",
-                      "border-[#d4c4a8] dark:border-[#5a4d3a]",
-                      "focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      rangeError
+                        ? "border-red-400 dark:border-red-500"
+                        : "border-[#d4c4a8] dark:border-[#5a4d3a]",
+                      "focus:outline-none focus:ring-2",
+                      rangeError ? "focus:ring-red-500/50" : "focus:ring-amber-500/50"
                     )}
                   />
+                  {rangeError && (
+                    <p className="text-xs text-red-500">{rangeError}</p>
+                  )}
                 </div>
               )}
 
@@ -292,7 +352,7 @@ export function PdfPreviewModal({
                 <div className="flex-1 min-w-[200px]">
                   <input
                     type="text"
-                    placeholder="1,3,5-7,10"
+                    placeholder={totalPages ? `1-${totalPages}` : "1,3,5-7,10"}
                     value={complexRange}
                     onChange={(e) => setComplexRange(e.target.value)}
                     className={cn(
