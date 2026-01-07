@@ -55,7 +55,7 @@ export function ZenCommandBar() {
     isCorrect: puzzleCorrect,
     submitAnswer: submitPuzzleAnswer,
   } = useDailyPuzzle();
-  const { theme, themeId, commandHistory, addToHistory, disableZenMode, setTheme } = useZen();
+  const { theme, themeId, commandHistory, addToHistory, disableZenMode, setTheme, setExiting } = useZen();
   const {
     selectedIds,
     selectAll,
@@ -259,6 +259,7 @@ export function ZenCommandBar() {
         aliases: ["gui", "quit"],
         description: "Exit Zen mode and return to GUI",
         execute: () => {
+          setExiting(true); // Prevent ACCESS DENIED flash during exit
           disableZenMode();
           router.push("/");
           setZenStatus("Exiting Zen mode...", "info");
@@ -300,7 +301,7 @@ export function ZenCommandBar() {
       },
       {
         name: "theme",
-        description: "Show current theme or switch (theme list, theme phosphor, theme dracula)",
+        description: "Show current theme or switch (theme list, theme <name>)",
         execute: (args) => {
           const arg = args[0]?.toLowerCase();
 
@@ -526,6 +527,12 @@ export function ZenCommandBar() {
       "theme list",
       "theme phosphor",
       "theme dracula",
+      "theme amber",
+      "theme nord",
+      "theme monokai",
+      "theme solarized",
+      "theme cyberpunk",
+      "theme matrix",
     ],
     []
   );

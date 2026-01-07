@@ -13,7 +13,7 @@ import { ZenBootSequence } from "./ZenBootSequence";
 export function ZenActivator() {
   const router = useRouter();
   const pathname = usePathname();
-  const { enabled, enableZenMode, disableZenMode } = useZen();
+  const { enabled, enableZenMode, disableZenMode, setExiting } = useZen();
   const [showBootSequence, setShowBootSequence] = useState(false);
   const [bootMode, setBootMode] = useState<"enter" | "exit">("enter");
 
@@ -22,6 +22,7 @@ export function ZenActivator() {
   const handleKonamiActivation = useCallback(() => {
     if (enabled || isInZenMode) {
       // Already in zen mode - toggle off
+      setExiting(true); // Prevent ACCESS DENIED flash during exit
       setBootMode("exit");
       setShowBootSequence(true);
     } else {
@@ -29,7 +30,7 @@ export function ZenActivator() {
       setBootMode("enter");
       setShowBootSequence(true);
     }
-  }, [enabled, isInZenMode]);
+  }, [enabled, isInZenMode, setExiting]);
 
   const handleBootComplete = useCallback(() => {
     setShowBootSequence(false);
