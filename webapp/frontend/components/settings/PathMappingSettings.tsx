@@ -2,14 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, AlertCircle, FolderSync, Info } from "lucide-react";
+import { Plus, Trash2, AlertCircle, FolderSync, Info, FolderCheck, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, PathAliasDefinition } from "@/lib/api";
 import {
   getPathMappings,
   addPathMapping,
   removePathMapping,
+  getSavedFolders,
+  addSharedFolder,
+  removeFolder,
   type PathMapping,
+  type SavedFolder,
 } from "@/lib/file-system";
 
 interface PathMappingSettingsProps {
@@ -19,8 +23,10 @@ interface PathMappingSettingsProps {
 export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
   const [aliases, setAliases] = useState<PathAliasDefinition[]>([]);
   const [mappings, setMappings] = useState<PathMapping[]>([]);
+  const [folders, setFolders] = useState<SavedFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [grantingAccess, setGrantingAccess] = useState<string | null>(null);
 
   // Form state for adding new mapping
   const [selectedAlias, setSelectedAlias] = useState("");
@@ -35,13 +41,15 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
     setLoading(true);
     setError(null);
     try {
-      // Load aliases from backend and mappings from IndexedDB
-      const [aliasesData, mappingsData] = await Promise.all([
+      // Load aliases from backend, mappings and folders from IndexedDB
+      const [aliasesData, mappingsData, foldersData] = await Promise.all([
         api.pathAliases.getAll(),
         getPathMappings(),
+        getSavedFolders(),
       ]);
       setAliases(aliasesData);
       setMappings(mappingsData);
+      setFolders(foldersData);
     } catch (err) {
       setError("Failed to load data. Please try again.");
       console.error("Failed to load path mapping data:", err);
@@ -49,6 +57,44 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       setLoading(false);
     }
   };
+
+  // Check if a mapping has folder access granted (case-insensitive)
+  const hasFolderAccess = useCallback((alias: string) => {
+    return folders.some(f => f.name.toLowerCase() === alias.toLowerCase());
+  }, [folders]);
+
+  // Get the folder for a mapping
+  const getFolderForAlias = useCallback((alias: string) => {
+    return folders.find(f => f.name.toLowerCase() === alias.toLowerCase());
+  }, [folders]);
+
+  // Grant folder access for a mapping
+  const handleGrantAccess = useCallback(async (alias: string, drivePath: string) => {
+    setGrantingAccess(alias);
+    setError(null);
+
+    try {
+      // Prompt user to select the drive folder
+      const folder = await addSharedFolder(alias);
+      if (folder) {
+        setFolders([...folders, folder]);
+      }
+    } catch (err) {
+      setError(`Failed to grant access for "${alias}". Please try again.`);
+      console.error("Failed to grant folder access:", err);
+    } finally {
+      setGrantingAccess(null);
+    }
+  }, [folders]);
+
+  // Revoke folder access for a mapping
+  const handleRevokeAccess = useCallback(async (alias: string) => {
+    const folder = getFolderForAlias(alias);
+    if (folder) {
+      await removeFolder(folder.id);
+      setFolders(folders.filter(f => f.id !== folder.id));
+    }
+  }, [folders, getFolderForAlias]);
 
   const handleAddMapping = useCallback(async () => {
     if (!selectedAlias || !drivePath) return;
@@ -63,16 +109,37 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
     }
 
     await addPathMapping({ alias: selectedAlias, drivePath: normalizedDrive });
-    setMappings([...mappings, { alias: selectedAlias, drivePath: normalizedDrive }]);
+    const newMappings = [...mappings, { alias: selectedAlias, drivePath: normalizedDrive }];
+    setMappings(newMappings);
+
+    const aliasToGrant = selectedAlias;
+    const driveToGrant = normalizedDrive;
+
     setSelectedAlias("");
     setDrivePath("");
     setError(null);
-  }, [selectedAlias, drivePath, mappings]);
+
+    // Prompt to grant folder access
+    const shouldGrant = window.confirm(
+      `Would you like to grant browser access to ${driveToGrant}\\ now?\n\n` +
+      `This allows you to browse and open files from this drive in the exercise modal.`
+    );
+
+    if (shouldGrant) {
+      await handleGrantAccess(aliasToGrant, driveToGrant);
+    }
+  }, [selectedAlias, drivePath, mappings, handleGrantAccess]);
 
   const handleRemoveMapping = useCallback(async (alias: string) => {
+    // Also remove folder access if granted
+    const folder = getFolderForAlias(alias);
+    if (folder) {
+      await removeFolder(folder.id);
+      setFolders(folders.filter(f => f.id !== folder.id));
+    }
     await removePathMapping(alias);
     setMappings(mappings.filter(m => m.alias !== alias));
-  }, [mappings]);
+  }, [mappings, folders, getFolderForAlias]);
 
   // Get unmapped aliases (aliases that don't have a mapping yet)
   const unmappedAliases = aliases.filter(
@@ -93,12 +160,14 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       <div className="flex gap-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
         <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
         <div className="text-sm text-amber-800 dark:text-amber-200">
-          <p className="font-medium mb-1">How path mapping works:</p>
-          <p className="text-amber-700 dark:text-amber-300">
-            Map shared drive aliases to your local drive letters. For example, if the
-            &quot;Center&quot; drive is mounted as <code className="bg-amber-100 dark:bg-amber-800/50 px-1 rounded">Z:</code> on
-            your computer, map &quot;Center&quot; to &quot;Z:&quot;. This allows you to open files
-            that others have shared using different drive letters.
+          <p className="font-medium mb-1">Setting up shared drives:</p>
+          <ol className="text-amber-700 dark:text-amber-300 list-decimal list-inside space-y-1">
+            <li>Add a mapping below (e.g., &quot;Center&quot; → &quot;Z:&quot;)</li>
+            <li>Click &quot;Grant Access&quot; and select your drive folder</li>
+            <li>The drive will now appear in file browser dialogs</li>
+          </ol>
+          <p className="text-amber-700/80 dark:text-amber-300/80 text-xs mt-2">
+            This lets you open files shared by others who may use different drive letters.
           </p>
         </div>
       </div>
@@ -125,6 +194,8 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
           <div className="space-y-2">
             {mappings.map((mapping) => {
               const aliasInfo = aliases.find(a => a.alias === mapping.alias);
+              const hasAccess = hasFolderAccess(mapping.alias);
+              const isGranting = grantingAccess === mapping.alias;
               return (
                 <div
                   key={mapping.alias}
@@ -148,6 +219,29 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
                       <p className="text-xs text-foreground/60 mt-1">
                         {aliasInfo.description}
                       </p>
+                    )}
+                  </div>
+                  {/* Access status and button */}
+                  <div className="flex items-center gap-2">
+                    {hasAccess ? (
+                      <button
+                        onClick={() => handleRevokeAccess(mapping.alias)}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                        title="Click to revoke browser access"
+                      >
+                        <FolderCheck className="h-3.5 w-3.5" />
+                        <span>Access granted</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleGrantAccess(mapping.alias, mapping.drivePath)}
+                        disabled={isGranting}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors disabled:opacity-50"
+                        title={`Grant browser access to ${mapping.drivePath}`}
+                      >
+                        <FolderPlus className="h-3.5 w-3.5" />
+                        <span>{isGranting ? "Waiting..." : "Grant Access"}</span>
+                      </button>
                     )}
                   </div>
                   <button
