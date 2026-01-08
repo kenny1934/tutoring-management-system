@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Session, CoursewarePopularity } from "@/types";
-import { paperlessAPI, type PaperlessDocument, type PaperlessTag } from "@/lib/api";
+import { paperlessAPI, api, type PaperlessDocument, type PaperlessTag } from "@/lib/api";
 import { sessionsAPI } from "@/lib/api";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { updateSessionInCache } from "@/lib/session-cache";
 import {
-  openFileFromPath,
-  printFileFromPathWithPages,
+  openFileFromPathWithFallback,
+  printFileFromPathWithFallback,
   printBulkFiles,
   getSavedFolders,
   pickFileFromFolder,
@@ -705,17 +705,30 @@ export function ZenExerciseAssign({
     }
   }, [exercises, session.id, exerciseType, onAssigned, onClose]);
 
+  // Paperless search callback for fallback when local file access fails
+  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
+    try {
+      const response = await api.paperless.search(searchPath, 1, 'all');
+      if (response.results.length > 0) {
+        return response.results[0].id;
+      }
+    } catch (error) {
+      console.warn('Paperless search failed:', error);
+    }
+    return null;
+  }, []);
+
   // Handle open file
   const handleOpenFile = useCallback(async (path?: string) => {
     const filePath = path || exercises[activeExerciseIndex]?.pdf_name;
     if (!filePath) return;
-    const error = await openFileFromPath(filePath);
+    const error = await openFileFromPathWithFallback(filePath, searchPaperlessByPath);
     if (error) {
       setStatusMessage(`Failed to open: ${error}`);
     } else {
       setStatusMessage("Opening PDF...");
     }
-  }, [exercises, activeExerciseIndex]);
+  }, [exercises, activeExerciseIndex, searchPaperlessByPath]);
 
   // Handle print single file
   const handlePrintFile = useCallback(async (path?: string) => {
@@ -726,13 +739,13 @@ export function ZenExerciseAssign({
     const end = ex.page_mode === "simple" && ex.page_end ? parseInt(ex.page_end, 10) : undefined;
     const complex = ex.page_mode === "custom" ? ex.custom_pages : undefined;
 
-    const error = await printFileFromPathWithPages(ex.pdf_name, start, end, complex, stamp);
+    const error = await printFileFromPathWithFallback(ex.pdf_name, start, end, complex, stamp, searchPaperlessByPath);
     if (error) {
       setStatusMessage(`Failed to print: ${error}`);
     } else {
       setStatusMessage("Printing...");
     }
-  }, [exercises, activeExerciseIndex, buildStampInfo]);
+  }, [exercises, activeExerciseIndex, buildStampInfo, searchPaperlessByPath]);
 
   // Handle batch print all
   const handleBatchPrint = useCallback(async () => {
@@ -750,13 +763,13 @@ export function ZenExerciseAssign({
     }));
 
     setStatusMessage(`Printing ${exercises.length} files...`);
-    const error = await printBulkFiles(items, stamp);
+    const error = await printBulkFiles(items, stamp, searchPaperlessByPath);
     if (error) {
       setStatusMessage(`Batch print failed: ${error}`);
     } else {
       setStatusMessage("Batch print sent!");
     }
-  }, [exercises, buildStampInfo]);
+  }, [exercises, buildStampInfo, searchPaperlessByPath]);
 
   // Preview trending item - checks Shelv for file existence first
   const handlePreviewTrending = useCallback(async (item: { filename: string; path: string }) => {

@@ -21,7 +21,7 @@ import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
-import { sessionsAPI } from "@/lib/api";
+import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { ExerciseModal } from "./ExerciseModal";
@@ -29,8 +29,8 @@ import { RateSessionModal } from "./RateSessionModal";
 import { EditSessionModal } from "./EditSessionModal";
 import {
   isFileSystemAccessSupported,
-  openFileFromPath,
-  printFileFromPath,
+  openFileFromPathWithFallback,
+  printFileFromPathWithFallback,
 } from "@/lib/file-system";
 
 // Grade tag colors
@@ -66,6 +66,19 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
+  // Paperless search callback for fallback when local file access fails
+  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
+    try {
+      const response = await api.paperless.search(searchPath, 1, 'all');
+      if (response.results.length > 0) {
+        return response.results[0].id;
+      }
+    } catch (error) {
+      console.warn('Paperless search failed:', error);
+    }
+    return null;
+  }, []);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(exercise.pdf_name);
@@ -82,7 +95,7 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
   const handleOpen = async () => {
     if (openState === 'loading') return;
     setOpenState('loading');
-    const error = await openFileFromPath(exercise.pdf_name);
+    const error = await openFileFromPathWithFallback(exercise.pdf_name, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to open file:', error);
       setOpenState('error');
@@ -95,7 +108,14 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
   const handlePrint = async () => {
     if (printState === 'loading') return;
     setPrintState('loading');
-    const error = await printFileFromPath(exercise.pdf_name);
+    const error = await printFileFromPathWithFallback(
+      exercise.pdf_name,
+      exercise.page_start,
+      exercise.page_end,
+      undefined,
+      undefined,
+      searchPaperlessByPath
+    );
     if (error) {
       console.warn('Failed to print file:', error);
       setPrintState('error');
@@ -115,8 +135,13 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
   return (
     <div className="flex items-center gap-1.5 text-xs">
       <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
-        {displayName}{pageInfo}
+        {displayName}
       </span>
+      {pageInfo && (
+        <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">
+          {pageInfo}
+        </span>
+      )}
       <button
         onClick={handleCopy}
         className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
