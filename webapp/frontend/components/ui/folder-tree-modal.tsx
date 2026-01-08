@@ -46,7 +46,7 @@ export interface FileSelection {
 }
 
 // Validate page input against max pages
-function validatePageInput(input: string, maxPages: number): string | null {
+export function validatePageInput(input: string, maxPages: number): string | null {
   if (!input.trim()) return null;
   const normalized = input.replace(/[~–—−]/g, '-');
   const numbers = normalized.match(/\d+/g)?.map(Number) || [];
