@@ -13,6 +13,7 @@ import {
   getSavedFolders,
   pickFileFromFolder,
   addFolder,
+  removeFolder,
   verifyPermission,
   type PrintStampInfo,
   type BulkPrintExercise,
@@ -161,6 +162,7 @@ export function ZenExerciseAssign({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
+  const browseContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch trending courseware for student's grade/school
   const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity(
@@ -435,6 +437,27 @@ export function ZenExerciseAssign({
     setPreviewPageCount(null);
     setPreviewPageError(null);
   }, [browsePreviewUrl]);
+
+  // Delete a folder from browse mode (only at root level)
+  const handleBrowseDeleteFolder = useCallback(async (node: BrowseNode) => {
+    if (node.kind !== "folder") return;
+    if (!window.confirm(`Remove "${node.name}" from the folder list?\n\nThis won't delete the actual folder on disk.`)) {
+      return;
+    }
+    // Find folder by name to get ID
+    const folder = savedFolders.find(f => f.name === node.name);
+    if (folder) {
+      await removeFolder(folder.id);
+      setSavedFolders(prev => prev.filter(f => f.id !== folder.id));
+      // Refresh browse contents
+      setBrowseContents(prev => prev.filter(n => n.name !== node.name));
+      // Adjust cursor if needed
+      if (browseIndex >= browseContents.length - 1) {
+        setBrowseIndex(Math.max(0, browseContents.length - 2));
+      }
+      setStatusMessage(`Removed folder: ${node.name}`);
+    }
+  }, [savedFolders, browseIndex, browseContents.length]);
 
   // Validate preview page inputs
   useEffect(() => {
@@ -1032,6 +1055,15 @@ export function ZenExerciseAssign({
           }
           return;
         }
+        // Delete folder at root level: x or Delete
+        if ((e.key === "x" || e.key === "Delete") && browsePath.length === 0) {
+          e.preventDefault();
+          const node = browseContents[browseIndex];
+          if (node?.kind === "folder") {
+            handleBrowseDeleteFolder(node);
+          }
+          return;
+        }
         // Don't process other keys in browse mode
         return;
       }
@@ -1262,8 +1294,8 @@ export function ZenExerciseAssign({
     onClose, handleSelectFile, handleAddSelectedFiles, handleDeleteExercise, handleOpenFile,
     handlePrintFile, handleBatchPrint, handleAssign, handlePickFromFolder, handleAddNewFolder,
     handlePreviewTrending, handleLoadMore, hasMoreResults,
-    browseMode, browseContents, browseIndex, enterBrowseMode, exitBrowseMode, browseUp, browseIntoFolder, browseSelectFile,
-    browsePreviewUrl, browsePreviewNode, handleBrowsePreview, closeBrowsePreview,
+    browseMode, browseContents, browseIndex, browsePath, enterBrowseMode, exitBrowseMode, browseUp, browseIntoFolder, browseSelectFile,
+    browsePreviewUrl, browsePreviewNode, handleBrowsePreview, closeBrowsePreview, handleBrowseDeleteFolder,
     previewPageStart, previewPageEnd, previewPageError,
   ]);
 
@@ -1287,6 +1319,18 @@ export function ZenExerciseAssign({
       selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, [selectedIndex]);
+
+  // Auto-scroll browse item into view when navigating with j/k
+  useEffect(() => {
+    if (!browseMode) return;
+    const container = browseContainerRef.current;
+    if (!container) return;
+
+    const selectedElement = container.querySelector('[data-browse-selected="true"]');
+    if (selectedElement) {
+      selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [browseIndex, browseMode]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "CLASSWORK" : "HOMEWORK";
@@ -1787,6 +1831,7 @@ export function ZenExerciseAssign({
       {/* Browse Mode */}
       {browseMode && (
         <div
+          ref={browseContainerRef}
           onClick={() => setFocusArea("browse")}
           style={{
             border: `1px solid ${focusArea === "browse" ? "var(--zen-accent)" : "var(--zen-border)"}`,
@@ -1868,7 +1913,7 @@ export function ZenExerciseAssign({
               color: "var(--zen-dim)",
             }}
           >
-            j/k nav · Enter/Space add · l→ folder · h← back · P preview · Esc exit
+            j/k nav · Enter/Space add · l→ folder · h← back · P preview{browsePath.length === 0 ? " · x delete" : ""} · Esc exit
           </div>
 
           {/* Loading State */}
@@ -1904,7 +1949,7 @@ export function ZenExerciseAssign({
                   browseSelectFile(node);
                 }
               }}
-              data-selected={idx === browseIndex}
+              data-browse-selected={idx === browseIndex}
               style={{
                 padding: "6px 8px",
                 display: "flex",
