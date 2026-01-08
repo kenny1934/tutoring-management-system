@@ -2821,14 +2821,14 @@ export default function CoursewarePage() {
 
           {/* Browse Tab Content */}
           {activeTab === "browse" && (
-            <div className="h-[calc(100vh-180px)] flex flex-col">
+            <div className="h-[calc(100vh-140px)] flex flex-col">
               <CoursewareBrowserTab />
             </div>
           )}
 
           {/* Search Tab Content */}
           {activeTab === "search" && (
-            <div className="h-[calc(100vh-180px)] flex flex-col">
+            <div className="h-[calc(100vh-140px)] flex flex-col">
               <CoursewareSearchTab />
             </div>
           )}
