@@ -83,7 +83,7 @@ export function ZenEditSession({
   const notesRef = useRef<HTMLInputElement>(null);
 
   // Field order for Tab navigation
-  const fieldOrder: FieldName[] = ["date", "timeStart", "timeEnd", "location", "tutor", "status", "rating", "notes"];
+  const fieldOrder: FieldName[] = ["date", "status", "timeStart", "timeEnd", "rating", "location", "tutor", "notes"];
 
   // Focus management
   useEffect(() => {
@@ -204,6 +204,7 @@ export function ZenEditSession({
       // Rating with number keys
       if (focusedField === "rating" && e.key >= "0" && e.key <= "5") {
         e.preventDefault();
+        e.stopImmediatePropagation();
         setFormData((prev) => ({ ...prev, rating: parseInt(e.key) }));
         return;
       }
@@ -232,7 +233,7 @@ export function ZenEditSession({
 
   const focusedStyle = {
     ...inputStyle,
-    borderColor: "var(--zen-accent)",
+    border: "1px solid var(--zen-accent)",
     boxShadow: "0 0 5px var(--zen-accent)",
   };
 

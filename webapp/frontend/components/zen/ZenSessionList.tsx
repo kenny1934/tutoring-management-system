@@ -22,6 +22,7 @@ interface ZenSessionListProps {
   onCursorMove: (newIndex: number) => void;
   onAction?: (action: string, sessionIds: number[]) => void;
   onQuickMark?: (sessionId: number, status: string) => void;
+  markingSessionId?: number | null;
   showStats?: boolean;
 }
 
@@ -48,6 +49,7 @@ export function ZenSessionList({
   onCursorMove,
   onAction,
   onQuickMark,
+  markingSessionId,
   showStats = true,
 }: ZenSessionListProps) {
   // Track which session has detail view expanded
@@ -408,25 +410,32 @@ export function ZenSessionList({
                   style={{
                     minWidth: "20px",
                     textAlign: "center",
-                    color: `var(--zen-${statusColor})`,
+                    color: markingSessionId === session.id
+                      ? "var(--zen-dim)"
+                      : `var(--zen-${statusColor})`,
                     textShadow:
-                      statusColor === "success" || statusColor === "accent"
+                      markingSessionId !== session.id &&
+                      (statusColor === "success" || statusColor === "accent")
                         ? "var(--zen-glow)"
                         : "none",
                   }}
                 >
-                  {statusChar}
+                  {markingSessionId === session.id ? "○" : statusChar}
                 </span>
 
                 {/* Status text */}
                 <span
                   style={{
-                    color: `var(--zen-${statusColor})`,
+                    color: markingSessionId === session.id
+                      ? "var(--zen-dim)"
+                      : `var(--zen-${statusColor})`,
                     fontSize: "11px",
                     minWidth: "80px",
                   }}
                 >
-                  {getShortStatus(session.session_status)}
+                  {markingSessionId === session.id
+                    ? "..."
+                    : getShortStatus(session.session_status)}
                 </span>
 
                 {/* Tutor name - only show for first session of each tutor */}
