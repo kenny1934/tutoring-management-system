@@ -5,8 +5,9 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 
@@ -284,11 +285,24 @@ export function BulkExerciseModal({
     }
   }, [searchingForIndex, exerciseType]);
 
+  // Paperless search callback for fallback when local file access fails
+  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
+    try {
+      const response = await api.paperless.search(searchPath, 1, 'all');
+      if (response.results.length > 0) {
+        return response.results[0].id;
+      }
+    } catch (error) {
+      console.warn('Paperless search failed:', error);
+    }
+    return null;
+  }, []);
+
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
     if (!path || fileActionState[index]?.open === 'loading') return;
     setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'loading' } }));
-    const error = await openFileFromPath(path);
+    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to open file:', error);
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'error' } }));
@@ -296,7 +310,7 @@ export function BulkExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
     }
-  }, [fileActionState]);
+  }, [fileActionState, searchPaperlessByPath]);
 
   // Handle print file with page range support
   const handlePrintFile = useCallback(async (index: number, exercise: ExerciseFormItem) => {
@@ -311,7 +325,7 @@ export function BulkExerciseModal({
     const complexRange = exercise.complex_pages?.trim() || undefined;
 
     setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'loading' } }));
-    const error = await printFileFromPathWithPages(path, pageStart, pageEnd, complexRange);
+    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, undefined, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to print file:', error);
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'error' } }));
@@ -319,7 +333,7 @@ export function BulkExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
     }
-  }, [fileActionState]);
+  }, [fileActionState, searchPaperlessByPath]);
 
   const removeExercise = useCallback((index: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== index));
