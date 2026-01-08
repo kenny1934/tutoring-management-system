@@ -17,6 +17,9 @@ interface ZenKeyboardFocusContextType {
   focusedSection: ZenFocusSection;
   setFocusedSection: (section: ZenFocusSection) => void;
   isFocused: (section: ZenFocusSection) => boolean;
+  // Allow pages to opt-out of Tab section cycling
+  disableSectionCycling: boolean;
+  setDisableSectionCycling: (disabled: boolean) => void;
 }
 
 const ZenKeyboardFocusContext = createContext<ZenKeyboardFocusContextType | null>(null);
@@ -31,6 +34,7 @@ export function ZenKeyboardFocusProvider({
   defaultSection = "sessions",
 }: ZenKeyboardFocusProviderProps) {
   const [focusedSection, setFocusedSectionState] = useState<ZenFocusSection>(defaultSection);
+  const [disableSectionCycling, setDisableSectionCycling] = useState(false);
 
   const setFocusedSection = useCallback((section: ZenFocusSection) => {
     setFocusedSectionState(section);
@@ -47,6 +51,8 @@ export function ZenKeyboardFocusProvider({
         focusedSection,
         setFocusedSection,
         isFocused,
+        disableSectionCycling,
+        setDisableSectionCycling,
       }}
     >
       {children}

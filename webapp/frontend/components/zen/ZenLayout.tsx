@@ -30,7 +30,7 @@ export function ZenLayout({ children }: ZenLayoutProps) {
 function ZenLayoutInner({ children }: ZenLayoutProps) {
   const { effectiveTheme, glowEnabled, glowIntensity } = useZen();
   const { moveCursor, flatSessions } = useZenSession();
-  const { focusedSection, setFocusedSection } = useZenKeyboardFocus();
+  const { focusedSection, setFocusedSection, disableSectionCycling } = useZenKeyboardFocus();
   const router = useRouter();
   const pathname = usePathname();
   const [gPending, setGPending] = useState(false); // For vim-style gg
@@ -219,7 +219,11 @@ function ZenLayoutInner({ children }: ZenLayoutProps) {
       // Tab - cycle focus between sections
       // Note: When focusedSection === "detail", we return early at line 95-102,
       // so Tab is not intercepted and ZenExerciseAssign can handle it internally
+      // Pages can opt-out via disableSectionCycling context flag
       if (e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (disableSectionCycling) {
+          return; // Let page handle Tab naturally
+        }
         e.preventDefault();
         const nextSection = e.shiftKey
           ? getPrevSection(focusedSection)
