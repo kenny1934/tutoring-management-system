@@ -10,6 +10,7 @@ import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTa
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
+import { setPaperlessPathCache } from "@/lib/file-system";
 import type { PageSelection, CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
 // Constants
@@ -350,6 +351,9 @@ export function PaperlessSearchModal({
       tags: doc.tags,
     });
 
+    // Cache path → documentId for Paperless fallback when opening files
+    setPaperlessPathCache(path, doc.id);
+
     if (multiSelect) {
       // Toggle selection in multi-select mode
       setSelectedDocs((prev) => {
@@ -371,6 +375,9 @@ export function PaperlessSearchModal({
 
   // Handle selecting from recent documents
   const handleSelectRecent = useCallback((recent: RecentDocument) => {
+    // Cache path → documentId for Paperless fallback when opening files
+    setPaperlessPathCache(recent.path, recent.id);
+
     if (multiSelect) {
       // In multi-select, we need a full doc object - create a minimal one
       const doc: PaperlessDocument = {

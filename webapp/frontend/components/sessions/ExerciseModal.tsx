@@ -5,10 +5,10 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sessionsAPI } from "@/lib/api";
+import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPath, printFileFromPathWithPages, printBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
@@ -575,11 +575,24 @@ export function ExerciseModal({
     }
   }, [searchingForIndex, exerciseType]);
 
+  // Paperless search callback for fallback when local file access fails
+  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
+    try {
+      const response = await api.paperless.search(searchPath, 1, 'all');
+      if (response.results.length > 0) {
+        return response.results[0].id;
+      }
+    } catch (error) {
+      console.warn('Paperless search failed:', error);
+    }
+    return null;
+  }, []);
+
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
     if (!path || fileActionState[index]?.open === 'loading') return;
     setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'loading' } }));
-    const error = await openFileFromPath(path);
+    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to open file:', error);
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'error' } }));
@@ -587,7 +600,7 @@ export function ExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
     }
-  }, [fileActionState]);
+  }, [fileActionState, searchPaperlessByPath]);
 
   // Build print stamp info from session data
   const buildStampInfo = useCallback((): PrintStampInfo => {
@@ -617,7 +630,7 @@ export function ExerciseModal({
     const stamp = buildStampInfo();
 
     setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'loading' } }));
-    const error = await printFileFromPathWithPages(path, pageStart, pageEnd, complexRange, stamp);
+    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to print file:', error);
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'error' } }));
@@ -625,7 +638,7 @@ export function ExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
     }
-  }, [fileActionState, buildStampInfo]);
+  }, [fileActionState, buildStampInfo, searchPaperlessByPath]);
 
   // Handle print all exercises in one batch
   const handlePrintAll = useCallback(async () => {
@@ -638,7 +651,7 @@ export function ExerciseModal({
     setPrintAllState('loading');
     const stamp = buildStampInfo();
 
-    const error = await printBulkFiles(exercisesWithPdfs, stamp);
+    const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to print all files:', error);
       setPrintAllState('error');
@@ -646,7 +659,7 @@ export function ExerciseModal({
     } else {
       setPrintAllState('idle');
     }
-  }, [exercises, printAllState, buildStampInfo]);
+  }, [exercises, printAllState, buildStampInfo, searchPaperlessByPath]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";

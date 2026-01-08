@@ -391,7 +391,12 @@ export type FileOperationResult =
 
 /**
  * Get a file handle from a saved path string.
- * Path format: "FolderName\relative\path\to\file.pdf"
+ * Path format: "FolderName\relative\path\to\file.pdf" or "[Alias]\relative\path\file.pdf"
+ *
+ * Supports:
+ * - Direct folder name: "MyFolder\path\file.pdf" (looks up saved folder "MyFolder")
+ * - Path alias with brackets: "[MSA Staff]\path\file.pdf" (uses path mapping to translate alias)
+ * - Path alias without brackets: "MSA Staff\path\file.pdf" (uses path mapping if alias exists)
  */
 export async function getFileHandleFromPath(path: string): Promise<FileOperationResult> {
   // Strip surrounding quotes (from Windows "Copy as path")
@@ -410,17 +415,54 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
     return { success: false, error: 'file_not_found' };
   }
 
-  const folderName = parts[0];
+  const potentialAlias = parts[0];
   const relativeParts = parts.slice(1);
-  const fileName = relativeParts.pop();
+  const fileName = relativeParts[relativeParts.length - 1];
 
   if (!fileName) {
     return { success: false, error: 'file_not_found' };
   }
 
-  // Find the folder by name (case-insensitive for cross-user compatibility)
   const folders = await getSavedFolders();
-  const folder = folders.find(f => f.name.toLowerCase() === folderName.toLowerCase());
+
+  // Strategy 1: Check if potentialAlias is a path mapping (e.g., "MSA Staff" → "V:")
+  const mapping = await getPathMapping(potentialAlias);
+  if (mapping) {
+    // Translate alias to drive path: "MSA Staff\scan\file.pdf" → "V:\scan\file.pdf"
+    const driveLetter = mapping.drivePath.toUpperCase();
+
+    // Find saved folder that matches the drive (e.g., folder named "V:" or just "V")
+    const driveFolder = folders.find(f => {
+      const name = f.name.toUpperCase();
+      return name === driveLetter || name === driveLetter.replace(':', '') || name === driveLetter + ':';
+    });
+
+    if (driveFolder) {
+      const hasPermission = await verifyPermission(driveFolder.handle);
+      if (!hasPermission) {
+        return { success: false, error: 'permission_denied' };
+      }
+
+      try {
+        // Navigate using the relative path (skip the alias, use rest of path)
+        const pathParts = [...relativeParts];
+        const file = pathParts.pop()!;
+        let currentHandle = driveFolder.handle;
+
+        for (const dirName of pathParts) {
+          currentHandle = await currentHandle.getDirectoryHandle(dirName);
+        }
+
+        const fileHandle = await currentHandle.getFileHandle(file);
+        return { success: true, handle: fileHandle };
+      } catch {
+        return { success: false, error: 'file_not_found' };
+      }
+    }
+  }
+
+  // Strategy 2: Direct folder name lookup (original behavior)
+  const folder = folders.find(f => f.name.toLowerCase() === potentialAlias.toLowerCase());
 
   if (!folder) {
     return { success: false, error: 'folder_not_found' };
@@ -434,13 +476,16 @@ export async function getFileHandleFromPath(path: string): Promise<FileOperation
 
   try {
     // Navigate to the file's parent directory
+    const pathParts = [...relativeParts];
+    const file = pathParts.pop()!;
     let currentHandle = folder.handle;
-    for (const dirName of relativeParts) {
+
+    for (const dirName of pathParts) {
       currentHandle = await currentHandle.getDirectoryHandle(dirName);
     }
 
     // Get the file handle
-    const fileHandle = await currentHandle.getFileHandle(fileName);
+    const fileHandle = await currentHandle.getFileHandle(file);
     return { success: true, handle: fileHandle };
   } catch {
     return { success: false, error: 'file_not_found' };
@@ -800,6 +845,230 @@ export function extractDriveLetter(path: string): string | null {
 }
 
 // ============================================================================
+// Paperless Path Cache (for fallback when local file access fails)
+// ============================================================================
+
+const PAPERLESS_PATH_CACHE_KEY = 'paperless-path-cache';
+const PAPERLESS_CACHE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+interface PaperlessPathCacheEntry {
+  documentId: number;
+  timestamp: number;
+}
+
+interface PaperlessPathCache {
+  [path: string]: PaperlessPathCacheEntry;
+}
+
+/**
+ * Get the Paperless path cache from localStorage
+ */
+export function getPaperlessPathCache(): PaperlessPathCache {
+  if (typeof window === 'undefined') return {};
+  try {
+    const cached = localStorage.getItem(PAPERLESS_PATH_CACHE_KEY);
+    if (!cached) return {};
+    const cache = JSON.parse(cached) as PaperlessPathCache;
+
+    // Clean up expired entries
+    const now = Date.now();
+    const cleaned: PaperlessPathCache = {};
+    for (const [path, entry] of Object.entries(cache)) {
+      if (now - entry.timestamp < PAPERLESS_CACHE_MAX_AGE) {
+        cleaned[path] = entry;
+      }
+    }
+
+    return cleaned;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Cache a Paperless document ID for a path
+ */
+export function setPaperlessPathCache(path: string, documentId: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const cache = getPaperlessPathCache();
+    cache[path] = { documentId, timestamp: Date.now() };
+    localStorage.setItem(PAPERLESS_PATH_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+/**
+ * Get cached Paperless document ID for a path
+ */
+export function getCachedPaperlessDocumentId(path: string): number | null {
+  const cache = getPaperlessPathCache();
+  return cache[path]?.documentId ?? null;
+}
+
+/**
+ * Open a file with Paperless fallback when local access fails.
+ *
+ * @param path - The file path (alias format or folder-relative)
+ * @param paperlessSearch - Optional callback to search Paperless by path when cache misses
+ * @returns null on success, error string on failure
+ */
+export async function openFileFromPathWithFallback(
+  path: string,
+  paperlessSearch?: (searchPath: string) => Promise<number | null>
+): Promise<string | null> {
+  // 1. Try local file access (with path mapping support)
+  const result = await getFileHandleFromPath(path);
+  if (result.success) {
+    const opened = await openFileInNewTab(result.handle);
+    return opened ? null : 'open_failed';
+  }
+
+  // 2. Local access failed - try Paperless fallback
+  if (!paperlessSearch) {
+    return result.error;
+  }
+
+  // 2a. Check localStorage cache first
+  let documentId = getCachedPaperlessDocumentId(path);
+
+  // 2b. Cache miss - search Paperless by full path
+  if (!documentId) {
+    try {
+      documentId = await paperlessSearch(path);
+      if (documentId) {
+        setPaperlessPathCache(path, documentId);
+      }
+    } catch {
+      // Search failed, return original error
+      return result.error;
+    }
+  }
+
+  // 2c. Open via Paperless API
+  if (documentId) {
+    window.open(`/api/paperless/preview/${documentId}`, '_blank');
+    return null;
+  }
+
+  return 'file_not_found';
+}
+
+/**
+ * Print a file with Paperless fallback when local access fails.
+ *
+ * @param path - The file path
+ * @param pageStart - Start page (optional)
+ * @param pageEnd - End page (optional)
+ * @param complexRange - Complex page range string (optional)
+ * @param stamp - Stamp info (optional)
+ * @param paperlessSearch - Optional callback to search Paperless
+ * @returns null on success, error string on failure
+ */
+export async function printFileFromPathWithFallback(
+  path: string,
+  pageStart?: number,
+  pageEnd?: number,
+  complexRange?: string,
+  stamp?: PrintStampInfo,
+  paperlessSearch?: (searchPath: string) => Promise<number | null>
+): Promise<string | null> {
+  // 1. Try local file access
+  const result = await getFileHandleFromPath(path);
+  if (result.success) {
+    return printFilePages(result.handle, pageStart, pageEnd, complexRange, stamp);
+  }
+
+  // 2. Local access failed - try Paperless fallback
+  if (!paperlessSearch) {
+    return result.error;
+  }
+
+  let documentId = getCachedPaperlessDocumentId(path);
+
+  if (!documentId) {
+    try {
+      documentId = await paperlessSearch(path);
+      if (documentId) {
+        setPaperlessPathCache(path, documentId);
+      }
+    } catch {
+      return result.error;
+    }
+  }
+
+  if (!documentId) {
+    return 'file_not_found';
+  }
+
+  // 3. Fetch PDF from Paperless and print with page extraction
+  try {
+    const response = await fetch(`/api/paperless/preview/${documentId}`);
+    if (!response.ok) {
+      return 'fetch_failed';
+    }
+
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+
+    // If no page range specified, print entire file
+    if (!pageStart && !pageEnd && !complexRange) {
+      const printBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(printBlob);
+      const printWindow = window.open(url, '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        URL.revokeObjectURL(url);
+        return 'popup_blocked';
+      }
+      printWindow.onload = () => {
+        setTimeout(() => printWindow.print(), 500);
+      };
+      printWindow.onafterprint = () => {
+        printWindow.close();
+        URL.revokeObjectURL(url);
+      };
+      return null;
+    }
+
+    // Build page numbers array
+    let pageNumbers: number[] = [];
+    if (complexRange) {
+      pageNumbers = parsePageRange(complexRange);
+    } else if (pageStart !== undefined) {
+      const end = pageEnd ?? pageStart;
+      for (let i = pageStart; i <= end; i++) {
+        pageNumbers.push(i);
+      }
+    }
+
+    if (pageNumbers.length === 0) {
+      return 'invalid_page_range';
+    }
+
+    // Extract pages and print (matching local print behavior)
+    const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
+    const url = URL.createObjectURL(extractedBlob);
+    const printWindow = window.open(url, '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      URL.revokeObjectURL(url);
+      return 'popup_blocked';
+    }
+    printWindow.onload = () => {
+      setTimeout(() => printWindow.print(), 500);
+    };
+    printWindow.onafterprint = () => {
+      printWindow.close();
+      URL.revokeObjectURL(url);
+    };
+    return null;
+  } catch (error) {
+    console.warn('Paperless print failed:', error);
+    return 'print_failed';
+  }
+}
+
+// ============================================================================
 // Bulk Print Functions
 // ============================================================================
 
@@ -820,13 +1089,18 @@ export interface BulkPrintExercise {
  *
  * @param exercises - Array of exercises with PDF paths and page ranges
  * @param stamp - Optional stamp info to display on each page
+ * @param paperlessSearch - Optional callback to search Paperless when local access fails
  * @returns null on success, error string on failure
  */
 export async function printBulkFiles(
   exercises: BulkPrintExercise[],
-  stamp?: PrintStampInfo
+  stamp?: PrintStampInfo,
+  paperlessSearch?: (path: string) => Promise<number | null>
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
-  if (!isFileSystemAccessSupported()) {
+  const fsSupported = isFileSystemAccessSupported();
+
+  // If no File System API and no Paperless fallback, can't proceed
+  if (!fsSupported && !paperlessSearch) {
     return 'not_supported';
   }
 
@@ -840,55 +1114,90 @@ export async function printBulkFiles(
 
   const bulkItems: BulkPrintItem[] = [];
 
-  for (const exercise of validExercises) {
-    // Get file handle
-    const result = await getFileHandleFromPath(exercise.pdf_name);
-    if (!result.success) {
-      console.warn('[BulkPrint] Failed to get file handle for:', exercise.pdf_name, result.error);
-      continue;
+  // Helper to determine page numbers from exercise
+  const getPageNumbers = (exercise: BulkPrintExercise): number[] => {
+    const complexRange = exercise.complex_pages?.trim();
+
+    if (complexRange) {
+      const pageNumbers = parsePageRange(complexRange);
+      console.log('[BulkPrint] Complex range for', exercise.pdf_name, ':', pageNumbers);
+      return pageNumbers;
     }
 
-    try {
-      const file = await result.handle.getFile();
-      const arrayBuffer = await file.arrayBuffer();
+    const pageStart = exercise.page_start
+      ? (typeof exercise.page_start === 'string' ? parseInt(exercise.page_start, 10) : exercise.page_start)
+      : undefined;
+    const pageEnd = exercise.page_end
+      ? (typeof exercise.page_end === 'string' ? parseInt(exercise.page_end, 10) : exercise.page_end)
+      : undefined;
 
-      // Determine which pages to extract
-      let pageNumbers: number[];
+    if (pageStart !== undefined && !isNaN(pageStart)) {
+      const end = pageEnd !== undefined && !isNaN(pageEnd) ? pageEnd : pageStart;
+      const pageNumbers = Array.from({ length: end - pageStart + 1 }, (_, i) => pageStart + i);
+      console.log('[BulkPrint] Simple range for', exercise.pdf_name, ':', pageNumbers);
+      return pageNumbers;
+    }
 
-      // Use complex_pages directly (no more parsing from remarks)
-      const complexRange = exercise.complex_pages?.trim();
+    // No page range specified - will use all pages
+    console.log('[BulkPrint] All pages (to be determined) for', exercise.pdf_name);
+    return [];
+  };
 
-      if (complexRange) {
-        pageNumbers = parsePageRange(complexRange);
-        console.log('[BulkPrint] Complex range for', exercise.pdf_name, ':', pageNumbers);
-      } else {
-        const pageStart = exercise.page_start
-          ? (typeof exercise.page_start === 'string' ? parseInt(exercise.page_start, 10) : exercise.page_start)
-          : undefined;
-        const pageEnd = exercise.page_end
-          ? (typeof exercise.page_end === 'string' ? parseInt(exercise.page_end, 10) : exercise.page_end)
-          : undefined;
+  for (const exercise of validExercises) {
+    let arrayBuffer: ArrayBuffer | null = null;
 
-        if (pageStart !== undefined && !isNaN(pageStart)) {
-          const end = pageEnd !== undefined && !isNaN(pageEnd) ? pageEnd : pageStart;
-          pageNumbers = Array.from({ length: end - pageStart + 1 }, (_, i) => pageStart + i);
-          console.log('[BulkPrint] Simple range for', exercise.pdf_name, ':', pageNumbers);
-        } else {
-          // No page range specified - will use all pages
-          // We pass an empty array and let extractBulkPagesForPrint handle getting all pages
-          pageNumbers = [];
-          console.log('[BulkPrint] All pages (to be determined) for', exercise.pdf_name);
+    // Try local file access first (if supported)
+    if (fsSupported) {
+      const result = await getFileHandleFromPath(exercise.pdf_name);
+      if (result.success) {
+        try {
+          const file = await result.handle.getFile();
+          arrayBuffer = await file.arrayBuffer();
+        } catch (err) {
+          console.warn('[BulkPrint] Failed to read local file:', exercise.pdf_name, err);
         }
+      } else {
+        console.log('[BulkPrint] Local file access failed for:', exercise.pdf_name, result.error);
       }
+    }
 
-      // pageNumbers.length === 0 means "all pages" - let extractBulkPagesForPrint handle it
+    // Try Paperless fallback if local failed and callback provided
+    if (!arrayBuffer && paperlessSearch) {
+      try {
+        // Check cache first
+        let documentId = getCachedPaperlessDocumentId(exercise.pdf_name);
+
+        // If not cached, search Paperless
+        if (!documentId) {
+          documentId = await paperlessSearch(exercise.pdf_name);
+          if (documentId) {
+            setPaperlessPathCache(exercise.pdf_name, documentId);
+          }
+        }
+
+        if (documentId) {
+          console.log('[BulkPrint] Fetching from Paperless:', exercise.pdf_name, 'documentId:', documentId);
+          const response = await fetch(`/api/paperless/preview/${documentId}`);
+          if (response.ok) {
+            const blob = await response.blob();
+            arrayBuffer = await blob.arrayBuffer();
+          }
+        }
+      } catch (err) {
+        console.warn('[BulkPrint] Paperless fallback failed for:', exercise.pdf_name, err);
+      }
+    }
+
+    // If we got the file data, add to bulk items
+    if (arrayBuffer) {
+      const pageNumbers = getPageNumbers(exercise);
       bulkItems.push({
         pdfData: arrayBuffer,
         pageNumbers,
         label: exercise.pdf_name,
       });
-    } catch (err) {
-      console.warn('[BulkPrint] Failed to process file:', exercise.pdf_name, err);
+    } else {
+      console.warn('[BulkPrint] Could not get file data for:', exercise.pdf_name);
     }
   }
 
