@@ -124,6 +124,9 @@ export function SessionSelectorModal({
     total: number;
   } | null>(null);
 
+  // Confirmation step
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   // Build sessions lookup by date
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, Session[]>();
@@ -381,62 +384,159 @@ export function SessionSelectorModal({
       persistent={isSaving}
       footer={
         <div className="flex items-center justify-between w-full">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAssign}
-            disabled={isSaving || selections.size === 0}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Assigning... ({saveProgress?.current}/{saveProgress?.total})
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                Assign to {selections.size} Session
-                {selections.size !== 1 ? "s" : ""}
-              </>
-            )}
-          </Button>
+          {showConfirmation ? (
+            <>
+              <Button variant="outline" onClick={() => setShowConfirmation(false)} disabled={isSaving}>
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+              <Button
+                onClick={handleAssign}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Assigning... ({saveProgress?.current}/{saveProgress?.total})
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Confirm Assignment
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => setShowConfirmation(true)}
+                disabled={selections.size === 0}
+              >
+                <ChevronRight className="h-4 w-4 mr-2" />
+                Review ({selections.size})
+              </Button>
+            </>
+          )}
         </div>
       }
     >
-      <div className="space-y-4">
-        {/* Files to assign */}
-        <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
-          <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
-            FILES TO ASSIGN ({files.length})
+      {showConfirmation ? (
+        /* Confirmation View */
+        <div className="space-y-4">
+          <div className="text-center py-2">
+            <div className="text-lg font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+              Confirm Assignment
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Please review before confirming
+            </div>
           </div>
-          <div className="space-y-1 max-h-24 overflow-y-auto">
-            {files.map((file, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-              >
-                <FileText className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
-                <span className="truncate">{formatFileName(file.path)}</span>
-                {file.pages && (
-                  <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628] px-1.5 py-0.5 rounded">
-                    p.{file.pages}
-                  </span>
-                )}
-              </div>
-            ))}
+
+          {/* Files summary */}
+          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
+              {files.length} FILE{files.length !== 1 ? "S" : ""} TO ASSIGN
+            </div>
+            <div className="space-y-1 max-h-28 overflow-y-auto">
+              {files.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <FileText className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                  <span className="truncate">{formatFileName(file.path)}</span>
+                  {file.pages && (
+                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628] px-1.5 py-0.5 rounded">
+                      p.{file.pages}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sessions summary grouped by type */}
+          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
+              TO {selections.size} SESSION{selections.size !== 1 ? "S" : ""}
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {/* CW sessions */}
+              {cwCount > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-red-600 dark:text-red-400 mb-1">
+                    Classwork ({cwCount})
+                  </div>
+                  <div className="space-y-0.5 pl-2">
+                    {selectionsList
+                      .filter((s) => s.exerciseType === "CW")
+                      .map((sel) => (
+                        <div key={sel.sessionId} className="text-sm text-gray-700 dark:text-gray-300">
+                          {sel.session.session_date} · {sel.session.time_slot?.split("-")[0]?.trim()} · {sel.session.student_name}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {/* HW sessions */}
+              {hwCount > 0 && (
+                <div>
+                  <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">
+                    Homework ({hwCount})
+                  </div>
+                  <div className="space-y-0.5 pl-2">
+                    {selectionsList
+                      .filter((s) => s.exerciseType === "HW")
+                      .map((sel) => (
+                        <div key={sel.sessionId} className="text-sm text-gray-700 dark:text-gray-300">
+                          {sel.session.session_date} · {sel.session.time_slot?.split("-")[0]?.trim()} · {sel.session.student_name}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      ) : (
+        /* Calendar Selection View */
+        <div className="space-y-4">
+          {/* Files to assign */}
+          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-3">
+            <div className="text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-2">
+              FILES TO ASSIGN ({files.length})
+            </div>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {files.map((file, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <FileText className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+                  <span className="truncate">{formatFileName(file.path)}</span>
+                  {file.pages && (
+                    <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628] px-1.5 py-0.5 rounded">
+                      p.{file.pages}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Location indicator */}
-        <div className="text-xs text-[#8b6f47] dark:text-[#cd853f]">
-          Location:{" "}
-          <span className="font-medium text-gray-700 dark:text-gray-300">
-            {selectedLocation || "All Locations"}
-          </span>
-        </div>
+          {/* Location indicator */}
+          <div className="text-xs text-[#8b6f47] dark:text-[#cd853f]">
+            Location:{" "}
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {selectedLocation || "All Locations"}
+            </span>
+          </div>
 
-        {/* Calendar */}
+          {/* Calendar */}
         <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
           {/* Month navigation */}
           <div className="flex items-center justify-between px-3 py-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -630,20 +730,21 @@ export function SessionSelectorModal({
           </div>
         )}
 
-        {/* Day session picker popover */}
-        {selectedDayDate && (
-          <SessionDayPicker
-            date={selectedDayDate}
-            sessions={sortedSelectedDaySessions}
-            selections={selections}
-            onToggle={toggleSession}
-            onUpdateType={updateExerciseType}
-            onSelectAll={selectAllForDay}
-            onClearAll={clearSelectionsForDay}
-            onClose={() => setSelectedDayDate(null)}
-          />
-        )}
-      </div>
+          {/* Day session picker popover */}
+          {selectedDayDate && (
+            <SessionDayPicker
+              date={selectedDayDate}
+              sessions={sortedSelectedDaySessions}
+              selections={selections}
+              onToggle={toggleSession}
+              onUpdateType={updateExerciseType}
+              onSelectAll={selectAllForDay}
+              onClearAll={clearSelectionsForDay}
+              onClose={() => setSelectedDayDate(null)}
+            />
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
