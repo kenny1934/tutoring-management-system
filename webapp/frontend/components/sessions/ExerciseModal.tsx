@@ -137,6 +137,9 @@ export function ExerciseModal({
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
 
+  // Delete confirmation state
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+
   // Check for File System Access API support on mount
   useEffect(() => {
     setCanBrowseFiles(isFileSystemAccessSupported());
@@ -258,6 +261,24 @@ export function ExerciseModal({
     }
   }, [exercises.length]);
 
+  // Delete confirmation handlers
+  const requestDelete = useCallback((index: number) => {
+    setPendingDeleteIndex(index);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (pendingDeleteIndex !== null) {
+      setExercises((prev) => prev.filter((_, i) => i !== pendingDeleteIndex));
+      setPendingDeleteIndex(null);
+      setFocusedRowIndex(null);
+    }
+  }, [pendingDeleteIndex]);
+
+  const cancelDelete = useCallback(() => {
+    setPendingDeleteIndex(null);
+  }, []);
+
+  // Legacy removeExercise for backward compatibility (direct delete without confirmation)
   const removeExercise = useCallback((index: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== index));
   }, []);
@@ -267,6 +288,22 @@ export function ExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle confirmation with Enter/Escape when pending - MUST be at TOP to intercept before modal's handlers
+      if (pendingDeleteIndex !== null) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          confirmDelete();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelDelete();
+          return;
+        }
+      }
+
       // Cmd/Ctrl+Enter - Save
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
@@ -281,18 +318,24 @@ export function ExerciseModal({
         return;
       }
 
-      // Alt/Option+Backspace - Delete focused row
+      // Alt/Option+Backspace - Delete focused row (with confirmation)
       if (e.altKey && e.key === 'Backspace' && focusedRowIndex !== null) {
         e.preventDefault();
-        removeExercise(focusedRowIndex);
-        setFocusedRowIndex(null);
+        if (pendingDeleteIndex === focusedRowIndex) {
+          // Already pending confirmation, confirm it
+          confirmDelete();
+        } else {
+          // First press, request confirmation
+          requestDelete(focusedRowIndex);
+        }
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, removeExercise]);
+    // Use capture phase to intercept before modal's handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete]);
 
   const updateExercise = (
     index: number,
@@ -903,15 +946,35 @@ export function ExerciseModal({
                       </>
                     )}
 
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => removeExercise(index)}
-                      className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
-                      title="Remove exercise"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {/* Delete button with confirmation */}
+                    {pendingDeleteIndex === index ? (
+                      <div className="flex items-center gap-1 text-xs shrink-0">
+                        <span className="text-red-500">Delete?</span>
+                        <button
+                          type="button"
+                          onClick={confirmDelete}
+                          className="px-1.5 py-0.5 text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelDelete}
+                          className="px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => requestDelete(index)}
+                        className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
+                        title="Remove exercise (Alt+Backspace)"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Row 2: Page Range Mode Selection */}
