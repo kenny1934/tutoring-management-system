@@ -34,6 +34,8 @@ import {
   type SavedFolder,
 } from "@/lib/file-system";
 import { getPageCount } from "@/lib/pdf-utils";
+import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
+import { CalendarPlus } from "lucide-react";
 
 // File selection with page range
 export interface FileSelection {
@@ -87,6 +89,10 @@ interface FolderTreeModalProps {
   allowMultiSelect?: boolean;
   /** Initial path to navigate to (e.g., "Center\\Math\\file.pdf") */
   initialPath?: string;
+  /** Enable "Assign To Sessions" functionality */
+  allowAssignTo?: boolean;
+  /** Callback when assignment completes successfully */
+  onAssignComplete?: () => void;
 }
 
 type SortOption = "name-asc" | "name-desc" | "date-desc" | "date-asc";
@@ -102,6 +108,8 @@ export function FolderTreeModal({
   onFilesSelected,
   allowMultiSelect = false,
   initialPath,
+  allowAssignTo = false,
+  onAssignComplete,
 }: FolderTreeModalProps) {
   // Root folders (from saved folder handles)
   const [rootFolders, setRootFolders] = useState<TreeNode[]>([]);
@@ -155,6 +163,9 @@ export function FolderTreeModal({
 
   // Track unavailable folders (network drives that timed out)
   const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
+
+  // Session selector modal state
+  const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
 
   // Load root folders when modal opens
   useEffect(() => {
@@ -925,6 +936,7 @@ export function FolderTreeModal({
   }, []);
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -1403,6 +1415,19 @@ export function FolderTreeModal({
                     Add {selections.size} Exercise{selections.size !== 1 ? "s" : ""}
                   </Button>
                 )}
+
+                {/* Assign to sessions button - shows when files are selected and allowAssignTo is true */}
+                {selections.size > 0 && allowAssignTo && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSessionSelectorOpen(true)}
+                    className="w-full"
+                    disabled={Array.from(selections.values()).some((s) => s.error)}
+                  >
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Assign to Sessions...
+                  </Button>
+                )}
               </div>
             </>
           )}
@@ -1595,5 +1620,19 @@ export function FolderTreeModal({
         </div>
       </div>
     </Modal>
+
+      {/* Session Selector Modal for assigning files to sessions */}
+      {allowAssignTo && (
+        <SessionSelectorModal
+          isOpen={sessionSelectorOpen}
+          onClose={() => setSessionSelectorOpen(false)}
+          files={Array.from(selections.values())}
+          onAssignComplete={() => {
+            setSessionSelectorOpen(false);
+            onAssignComplete?.();
+          }}
+        />
+      )}
+    </>
   );
 }

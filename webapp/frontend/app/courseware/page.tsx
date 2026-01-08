@@ -52,6 +52,9 @@ import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
+import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
+import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
+import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
 // Medal icons for top 3 - using lucide icons with glow effects
@@ -942,6 +945,14 @@ function CoursewareBrowserTab() {
   // Network errors
   const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
 
+  // Multi-select state (replicated from FolderTreeModal)
+  const [selections, setSelections] = useState<Map<string, FileSelection>>(new Map());
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
+
+  // Session selector modal
+  const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
+
   // Preview state
   const [previewNode, setPreviewNode] = useState<TreeNode | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1182,14 +1193,70 @@ function CoursewareBrowserTab() {
     }
   }, [previewUrl]);
 
-  // Handle click - folder navigates, file previews
-  const handleClick = useCallback((node: TreeNode) => {
+  // Toggle file selection (replicated from FolderTreeModal)
+  const toggleSelection = useCallback((node: TreeNode) => {
+    const path = node.path;
+    if (selections.has(path)) {
+      setSelections((prev) => {
+        const next = new Map(prev);
+        next.delete(path);
+        return next;
+      });
+    } else {
+      const sel: FileSelection = { path, pages: "" };
+      setSelections((prev) => new Map(prev).set(path, sel));
+    }
+  }, [selections]);
+
+  // Handle click with multi-select support (replicated from FolderTreeModal)
+  const handleSingleClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
+    // Ctrl+Click: toggle selection
+    if (e.ctrlKey || e.metaKey) {
+      if (node.kind === "file") {
+        toggleSelection(node);
+        setLastClickedIndex(index);
+      }
+      return;
+    }
+
+    // Shift+Click: range selection
+    if (e.shiftKey && lastClickedIndex !== null && node.kind === "file") {
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      const rangeNodes = sortedContents
+        .slice(start, end + 1)
+        .filter((n) => n.kind === "file");
+      setSelections((prev) => {
+        const next = new Map(prev);
+        for (const n of rangeNodes) {
+          if (!next.has(n.path)) {
+            next.set(n.path, { path: n.path, pages: "" });
+          }
+        }
+        return next;
+      });
+      return;
+    }
+
+    // Regular click on folder: navigate
     if (node.kind === "folder") {
       navigateInto(node);
-    } else {
+      return;
+    }
+
+    // Regular click on file: preview
+    if (node.kind === "file") {
+      setLastClickedIndex(index);
       handlePreview(node);
     }
-  }, [navigateInto, handlePreview]);
+  }, [lastClickedIndex, sortedContents, toggleSelection, navigateInto, handlePreview]);
+
+  // Checkbox click handler
+  const handleCheckboxClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
+    e.stopPropagation();
+    toggleSelection(node);
+    setLastClickedIndex(index);
+  }, [toggleSelection]);
 
   // Double click on file copies path
   const handleDoubleClick = useCallback((node: TreeNode) => {
@@ -1289,6 +1356,31 @@ function CoursewareBrowserTab() {
             else handleDoubleClick(node);
           }
           break;
+        case " ": // Space - toggle selection
+          e.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < totalItems) {
+            const node = sortedContents[focusedIndex];
+            if (node.kind === "file") {
+              toggleSelection(node);
+            }
+          }
+          break;
+        case "a": // Ctrl+A - select all files
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const allFileSelections = new Map<string, FileSelection>();
+            sortedContents
+              .filter((n) => n.kind === "file")
+              .forEach((n) => allFileSelections.set(n.path, { path: n.path, pages: "" }));
+            setSelections(allFileSelections);
+          }
+          break;
+        case "Escape": // Clear selection
+          if (selections.size > 0) {
+            e.preventDefault();
+            setSelections(new Map());
+          }
+          break;
         case "p":
         case "P":
           e.preventDefault();
@@ -1308,7 +1400,7 @@ function CoursewareBrowserTab() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [focusedIndex, sortedContents, currentPath, viewMode, navigateInto, navigateTo, handlePreview, handleDoubleClick]);
+  }, [focusedIndex, sortedContents, currentPath, viewMode, navigateInto, navigateTo, handlePreview, handleDoubleClick, toggleSelection, selections]);
 
   // Reset focus when contents change
   useEffect(() => {
@@ -1423,7 +1515,7 @@ function CoursewareBrowserTab() {
             </div>
           </div>
 
-          {/* Row 2: Sort + Item count */}
+          {/* Row 2: Sort + Item count + Assign Button */}
           <div className="flex items-center gap-3">
             <select
               value={sortBy}
@@ -1479,6 +1571,33 @@ function CoursewareBrowserTab() {
           </div>
         )}
 
+        {/* Selection panel - shows when files are selected */}
+        {selections.size > 0 && (
+          <div className="p-2 mx-3 mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {selections.size} file{selections.size !== 1 ? "s" : ""} selected
+                <span className="font-normal ml-1 opacity-70">(Esc to clear)</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSessionSelectorOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
+                >
+                  <CalendarPlus className="h-3.5 w-3.5" />
+                  Assign to Sessions
+                </button>
+                <button
+                  onClick={() => setSelections(new Map())}
+                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:underline"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content area */}
         <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-3">
           {contentsLoading ? (
@@ -1496,31 +1615,63 @@ function CoursewareBrowserTab() {
             <div className="space-y-0.5">
               {displayedContents.map((node, index) => {
                 const isFocused = focusedIndex === index;
+                const isSelected = selections.has(node.path);
+                const isHovered = hoveredPath === node.path;
+                const showCheckbox = node.kind === "file" && (isHovered || isSelected);
+
                 return (
                   <div
                     key={node.id}
                     ref={(el) => { itemRefs.current[index] = el; }}
-                    onClick={() => handleClick(node)}
+                    onClick={(e) => handleSingleClick(e, node, index)}
                     onDoubleClick={() => handleDoubleClick(node)}
+                    onMouseEnter={() => setHoveredPath(node.path)}
+                    onMouseLeave={() => setHoveredPath(null)}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all group",
                       "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
-                      isFocused && "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-900/30"
+                      isSelected && "bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-300 dark:ring-amber-700",
+                      isFocused && !isSelected && "ring-2 ring-amber-400/50 bg-amber-50/50 dark:bg-amber-900/30"
                     )}
                   >
+                    {/* Checkbox - visible on hover or when selected */}
+                    {node.kind === "file" && (
+                      <div className={cn(
+                        "transition-opacity duration-100",
+                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none"
+                      )}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          onClick={(e) => handleCheckboxClick(e, node, index)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
+                    {/* Spacer for folders to maintain alignment */}
+                    {node.kind === "folder" && <div className="w-3.5" />}
+
+                    {/* Icon */}
                     {node.kind === "folder" ? (
                       node.isShared ? <FolderSync className="h-5 w-5 text-green-500 shrink-0" /> :
                       <Folder className="h-5 w-5 text-amber-500 shrink-0" />
                     ) : (
                       <FileText className="h-5 w-5 text-red-500 shrink-0" />
                     )}
+
+                    {/* Name */}
                     <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate" title={node.name}>
                       {node.name}
                     </span>
+
+                    {/* Warning for unavailable folders */}
                     {node.kind === "folder" && unavailableFolders.has(node.id) && (
                       <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" title="Folder unavailable" />
                     )}
                     {node.kind === "folder" && <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
+
+                    {/* Copy path button for files */}
                     {node.kind === "file" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleCopyPath(node.path); }}
@@ -1535,6 +1686,8 @@ function CoursewareBrowserTab() {
                         {copiedPath === node.path ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
                       </button>
                     )}
+
+                    {/* Remove folder button at root */}
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
@@ -1553,19 +1706,43 @@ function CoursewareBrowserTab() {
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {displayedContents.map((node, index) => {
                 const isFocused = focusedIndex === index;
+                const isSelected = selections.has(node.path);
+                const isHovered = hoveredPath === node.path;
+                const showCheckbox = node.kind === "file" && (isHovered || isSelected);
+
                 return (
                   <div
                     key={node.id}
                     ref={(el) => { itemRefs.current[index] = el; }}
-                    onClick={() => handleClick(node)}
+                    onClick={(e) => handleSingleClick(e, node, index)}
                     onDoubleClick={() => handleDoubleClick(node)}
+                    onMouseEnter={() => setHoveredPath(node.path)}
+                    onMouseLeave={() => setHoveredPath(null)}
                     className={cn(
                       "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer transition-all relative group",
                       "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-transparent",
                       "hover:border-amber-200 dark:hover:border-amber-700",
-                      isFocused && "ring-2 ring-amber-400/50 border-amber-200"
+                      isSelected && "bg-amber-100 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700",
+                      isFocused && !isSelected && "ring-2 ring-amber-400/50 border-amber-200"
                     )}
                   >
+                    {/* Checkbox overlay - visible on hover or when selected */}
+                    {node.kind === "file" && (
+                      <div className={cn(
+                        "absolute top-1 left-1 transition-opacity duration-100",
+                        showCheckbox ? "opacity-100" : "opacity-0 pointer-events-none"
+                      )}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          onClick={(e) => handleCheckboxClick(e, node, index)}
+                          className="w-3.5 h-3.5 rounded border-gray-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                        />
+                      </div>
+                    )}
+
+                    {/* Remove folder button at root */}
                     {isAtRoot && node.kind === "folder" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveFolder(node.id, node.name); }}
@@ -1575,16 +1752,22 @@ function CoursewareBrowserTab() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     )}
+
+                    {/* Warning for unavailable folders */}
                     {node.kind === "folder" && unavailableFolders.has(node.id) && (
                       <div className="absolute top-1 left-1 p-0.5 rounded bg-amber-100 dark:bg-amber-900/50" title="Folder unavailable">
                         <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                       </div>
                     )}
+
+                    {/* Icon */}
                     {node.kind === "folder" ? (
                       node.isShared ? <FolderSync className="h-10 w-10 text-green-500" /> : <Folder className="h-10 w-10 text-amber-500" />
                     ) : (
                       <FileText className="h-10 w-10 text-red-500" />
                     )}
+
+                    {/* Name */}
                     <span className="text-xs text-center text-gray-700 dark:text-gray-300 truncate w-full" title={node.name}>
                       {node.name}
                     </span>
@@ -1615,12 +1798,20 @@ function CoursewareBrowserTab() {
             <span>navigate</span>
           </span>
           <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Space</kbd>
+            <span>select</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Ctrl+A</kbd>
+            <span>all</span>
+          </span>
+          <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">P</kbd>
             <span>preview</span>
           </span>
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">Enter</kbd>
-            <span>enter folder / copy path</span>
+            <span>open / copy</span>
           </span>
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded font-mono">⌫</kbd>
@@ -1631,7 +1822,7 @@ function CoursewareBrowserTab() {
 
       {/* Preview panel */}
       {previewUrl && (
-        <div className="flex-1 flex flex-col p-4">
+        <div className="flex-1 flex flex-col p-4 min-w-0">
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{previewNode?.name}</span>
             <div className="flex items-center gap-1">
@@ -1682,18 +1873,43 @@ function CoursewareBrowserTab() {
               />
             )}
           </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-            <span className="text-xs text-gray-500 truncate flex-1 mr-2">{previewNode?.path}</span>
-            <button
-              onClick={() => previewNode && handleCopyPath(previewNode.path)}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
-            >
-              {copiedPath === previewNode?.path ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              Copy Path
-            </button>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
+            <span className="text-xs text-gray-500 truncate flex-1 min-w-0 mr-2">{previewNode?.path}</span>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (previewNode) {
+                    setSelections(new Map([[previewNode.path, { path: previewNode.path, pages: "" }]]));
+                    setSessionSelectorOpen(true);
+                  }
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a]"
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Assign
+              </button>
+              <button
+                onClick={() => previewNode && handleCopyPath(previewNode.path)}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
+              >
+                {copiedPath === previewNode?.path ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                Copy Path
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Session Selector Modal */}
+      <SessionSelectorModal
+        isOpen={sessionSelectorOpen}
+        onClose={() => setSessionSelectorOpen(false)}
+        files={Array.from(selections.values())}
+        onAssignComplete={() => {
+          setSessionSelectorOpen(false);
+          setSelections(new Map());
+        }}
+      />
     </div>
   );
 }
