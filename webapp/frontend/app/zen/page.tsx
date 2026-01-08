@@ -8,6 +8,7 @@ import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
 import { ZenSessionList, ZenTestList, ZenActivityFeed, ZenCalendar, ZenDistributionChart, calculateStats } from "@/components/zen";
 import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import { mutate } from "swr";
 
 // Helper to format date as YYYY-MM-DD
@@ -61,6 +62,7 @@ export default function ZenDashboardPage() {
   const { isFocused } = useZenKeyboardFocus();
   const [showCalendar, setShowCalendar] = useState(false);
   const [activeChart, setActiveChart] = useState<"grade" | "school">("grade");
+  const [markingSessionId, setMarkingSessionId] = useState<number | null>(null);
 
   // Use session context for shared state
   const {
@@ -189,13 +191,35 @@ export default function ZenDashboardPage() {
 
   // Quick mark handler for single session
   const handleQuickMark = useCallback(async (sessionId: number, status: string) => {
+    setMarkingSessionId(sessionId);
     setZenStatus(`Marking session as ${status}...`, "info");
     try {
-      await sessionsAPI.updateSession(sessionId, { session_status: status });
-      mutate((key) => typeof key === "string" && key.includes("/sessions"));
+      let updatedSession;
+      switch (status) {
+        case "Attended":
+          updatedSession = await sessionsAPI.markAttended(sessionId);
+          break;
+        case "No Show":
+          updatedSession = await sessionsAPI.markNoShow(sessionId);
+          break;
+        case "Rescheduled - Pending Make-up":
+          updatedSession = await sessionsAPI.markRescheduled(sessionId);
+          break;
+        case "Sick Leave - Pending Make-up":
+          updatedSession = await sessionsAPI.markSickLeave(sessionId);
+          break;
+        case "Weather Cancelled - Pending Make-up":
+          updatedSession = await sessionsAPI.markWeatherCancelled(sessionId);
+          break;
+        default:
+          updatedSession = await sessionsAPI.updateSession(sessionId, { session_status: status });
+      }
+      updateSessionInCache(updatedSession);
       setZenStatus(`✓ Marked as ${status}`, "success");
     } catch (error) {
       setZenStatus(`Failed to mark session: ${error}`, "error");
+    } finally {
+      setMarkingSessionId(null);
     }
   }, []);
 
@@ -402,6 +426,7 @@ export default function ZenDashboardPage() {
               onCursorMove={moveCursor}
               onAction={handleAction}
               onQuickMark={handleQuickMark}
+              markingSessionId={markingSessionId}
               showStats={true}
             />
           </section>

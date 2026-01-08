@@ -13,6 +13,7 @@ import {
   getSavedFolders,
   pickFileFromFolder,
   addFolder,
+  verifyPermission,
   type PrintStampInfo,
   type BulkPrintExercise,
   type SavedFolder,
@@ -24,6 +25,7 @@ import {
   type RecentDocument,
 } from "@/lib/shelv-storage";
 import { ZenPdfPreview } from "./ZenPdfPreview";
+import { getPageCount } from "@/lib/pdf-utils";
 
 interface ZenExerciseAssignProps {
   session: Session;
@@ -32,8 +34,16 @@ interface ZenExerciseAssignProps {
   onAssigned?: () => void;
 }
 
-type FocusArea = "search" | "results" | "exercises" | "pages";
-type SearchMode = "all" | "title" | "content";
+type FocusArea = "search" | "results" | "exercises" | "pages" | "browse";
+type SearchMode = "all" | "title" | "content" | "advanced";
+
+// Browser node type
+interface BrowseNode {
+  name: string;
+  path: string;
+  kind: "folder" | "file";
+  handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
+}
 
 interface ZenExerciseItem {
   id: string; // Unique client-side ID for React keys
@@ -82,6 +92,10 @@ export function ZenExerciseAssign({
   const [results, setResults] = useState<PaperlessDocument[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchOffset, setSearchOffset] = useState(0);
+  const [hasMoreResults, setHasMoreResults] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showSearchHints, setShowSearchHints] = useState(false);
 
   // Tags state
   const [availableTags, setAvailableTags] = useState<PaperlessTag[]>([]);
@@ -120,6 +134,24 @@ export function ZenExerciseAssign({
   const [savedFolders, setSavedFolders] = useState<SavedFolder[]>([]);
   const [showFoldersDropdown, setShowFoldersDropdown] = useState(false);
   const [folderCursorIndex, setFolderCursorIndex] = useState(0);
+
+  // Browse mode state
+  const [browseMode, setBrowseMode] = useState(false);
+  const [browsePath, setBrowsePath] = useState<string[]>([]); // ["RootFolder", "SubFolder"]
+  const [browseHandle, setBrowseHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [browseContents, setBrowseContents] = useState<BrowseNode[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseIndex, setBrowseIndex] = useState(0);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  // Browse preview state
+  const [browsePreviewUrl, setBrowsePreviewUrl] = useState<string | null>(null);
+  const [browsePreviewName, setBrowsePreviewName] = useState<string | null>(null);
+  const [browsePreviewNode, setBrowsePreviewNode] = useState<BrowseNode | null>(null);
+  // Browse preview page selection
+  const [previewPageStart, setPreviewPageStart] = useState("");
+  const [previewPageEnd, setPreviewPageEnd] = useState("");
+  const [previewPageCount, setPreviewPageCount] = useState<number | null>(null);
+  const [previewPageError, setPreviewPageError] = useState<string | null>(null);
 
   // Status
   const [isAssigning, setIsAssigning] = useState(false);
@@ -221,6 +253,207 @@ export function ZenExerciseAssign({
     }
   }, []);
 
+  // Enter browse mode - show root folders
+  const enterBrowseMode = useCallback(async () => {
+    setBrowseMode(true);
+    setFocusArea("browse");
+    setBrowsePath([]);
+    setBrowseHandle(null);
+    setBrowseIndex(0);
+    setBrowseError(null);
+
+    // Convert saved folders to browse nodes
+    const nodes: BrowseNode[] = savedFolders.map((folder) => ({
+      name: folder.name,
+      path: folder.name,
+      kind: "folder" as const,
+      handle: folder.handle,
+    }));
+    setBrowseContents(nodes);
+  }, [savedFolders]);
+
+  // Exit browse mode
+  const exitBrowseMode = useCallback(() => {
+    setBrowseMode(false);
+    setFocusArea("results");
+    setBrowsePath([]);
+    setBrowseHandle(null);
+    setBrowseContents([]);
+    setBrowseIndex(0);
+  }, []);
+
+  // Load folder contents
+  const loadBrowseFolder = useCallback(async (handle: FileSystemDirectoryHandle, newPath: string[]) => {
+    setBrowseLoading(true);
+    setBrowseError(null);
+
+    try {
+      const hasPermission = await verifyPermission(handle);
+      if (!hasPermission) {
+        setBrowseError("Permission denied");
+        setBrowseLoading(false);
+        return;
+      }
+
+      const contents: BrowseNode[] = [];
+      const basePath = newPath.join("\\");
+
+      for await (const [name, entryHandle] of handle.entries()) {
+        const isPdf = name.toLowerCase().endsWith(".pdf");
+        const isFolder = entryHandle.kind === "directory";
+
+        if (isFolder || isPdf) {
+          contents.push({
+            name,
+            path: `${basePath}\\${name}`,
+            kind: isFolder ? "folder" : "file",
+            handle: entryHandle as FileSystemDirectoryHandle | FileSystemFileHandle,
+          });
+        }
+      }
+
+      // Sort: folders first, then alphabetical
+      contents.sort((a, b) => {
+        if (a.kind === "folder" && b.kind !== "folder") return -1;
+        if (a.kind !== "folder" && b.kind === "folder") return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setBrowseContents(contents);
+      setBrowsePath(newPath);
+      setBrowseHandle(handle);
+      setBrowseIndex(0);
+    } catch (err) {
+      setBrowseError("Failed to load folder");
+      console.error("Browse error:", err);
+    } finally {
+      setBrowseLoading(false);
+    }
+  }, []);
+
+  // Navigate into a folder
+  const browseIntoFolder = useCallback(async (node: BrowseNode) => {
+    if (node.kind !== "folder" || !node.handle) return;
+    const newPath = browsePath.length === 0 ? [node.name] : [...browsePath, node.name];
+    await loadBrowseFolder(node.handle as FileSystemDirectoryHandle, newPath);
+  }, [browsePath, loadBrowseFolder]);
+
+  // Navigate up one level
+  const browseUp = useCallback(async () => {
+    if (browsePath.length === 0) {
+      // Already at root - exit browse mode
+      exitBrowseMode();
+      return;
+    }
+
+    if (browsePath.length === 1) {
+      // Go back to root folders list
+      const nodes: BrowseNode[] = savedFolders.map((folder) => ({
+        name: folder.name,
+        path: folder.name,
+        kind: "folder" as const,
+        handle: folder.handle,
+      }));
+      setBrowseContents(nodes);
+      setBrowsePath([]);
+      setBrowseHandle(null);
+      setBrowseIndex(0);
+      return;
+    }
+
+    // Navigate to parent folder
+    const parentPath = browsePath.slice(0, -1);
+    const rootFolder = savedFolders.find((f) => f.name === parentPath[0]);
+    if (!rootFolder?.handle) return;
+
+    // Navigate through path to get parent handle
+    let currentDir = rootFolder.handle;
+    for (let i = 1; i < parentPath.length; i++) {
+      try {
+        currentDir = await currentDir.getDirectoryHandle(parentPath[i]);
+      } catch {
+        setBrowseError("Cannot navigate to parent folder");
+        return;
+      }
+    }
+
+    await loadBrowseFolder(currentDir, parentPath);
+  }, [browsePath, savedFolders, loadBrowseFolder, exitBrowseMode]);
+
+  // Select a file from browse mode
+  const browseSelectFile = useCallback((node: BrowseNode) => {
+    if (node.kind !== "file") return;
+
+    const newExercise: ZenExerciseItem = {
+      id: generateId(),
+      pdf_name: node.path,
+      page_mode: "simple",
+      page_start: "",
+      page_end: "",
+      custom_pages: "",
+    };
+    setExercises((prev) => [...prev, newExercise]);
+    setActiveExerciseIndex(exercises.length);
+    setStatusMessage(`Added: ${node.name}`);
+
+    // Stay in browse mode for easy multiple selection
+  }, [exercises.length]);
+
+  // Preview a file in browse mode
+  const handleBrowsePreview = useCallback(async (node: BrowseNode) => {
+    if (node.kind !== "file" || !node.handle) return;
+    try {
+      const file = await (node.handle as FileSystemFileHandle).getFile();
+      const url = URL.createObjectURL(file);
+      setBrowsePreviewUrl(url);
+      setBrowsePreviewName(node.name);
+      setBrowsePreviewNode(node);
+      // Get page count for validation
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const count = await getPageCount(arrayBuffer);
+        setPreviewPageCount(count);
+      } catch {
+        setPreviewPageCount(null); // Page count detection failed, validation will be skipped
+      }
+    } catch {
+      setStatusMessage("Failed to load preview");
+    }
+  }, []);
+
+  // Close browse preview
+  const closeBrowsePreview = useCallback(() => {
+    if (browsePreviewUrl) {
+      URL.revokeObjectURL(browsePreviewUrl);
+    }
+    setBrowsePreviewUrl(null);
+    setBrowsePreviewName(null);
+    setBrowsePreviewNode(null);
+    // Reset page inputs and validation
+    setPreviewPageStart("");
+    setPreviewPageEnd("");
+    setPreviewPageCount(null);
+    setPreviewPageError(null);
+  }, [browsePreviewUrl]);
+
+  // Validate preview page inputs
+  useEffect(() => {
+    if (!previewPageCount) {
+      setPreviewPageError(null);
+      return;
+    }
+    const start = previewPageStart ? parseInt(previewPageStart, 10) : null;
+    const end = previewPageEnd ? parseInt(previewPageEnd, 10) : null;
+    if ((start && (isNaN(start) || start < 1 || start > previewPageCount)) ||
+        (end && (isNaN(end) || end < 1 || end > previewPageCount))) {
+      setPreviewPageError(`Max page is ${previewPageCount}`);
+    } else if (start && end && start > end) {
+      setPreviewPageError("Start must be ≤ end");
+    } else {
+      setPreviewPageError(null);
+    }
+  }, [previewPageStart, previewPageEnd, previewPageCount]);
+
   // Focus search input on mount
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -235,6 +468,8 @@ export function ZenExerciseAssign({
     if (!query.trim()) {
       setResults([]);
       setSelectedIndex(0);
+      setHasMoreResults(false);
+      setSearchOffset(0);
       return;
     }
 
@@ -249,9 +484,10 @@ export function ZenExerciseAssign({
         } else if (searchMode === "content") {
           searchQuery = `content:${query}`;
         }
+        // Advanced mode: use raw query as-is, skip automatic tag filters
 
-        // Add tag filters to query
-        if (selectedTagIds.length > 0) {
+        // Add tag filters to query (except in advanced mode where user has full control)
+        if (searchMode !== "advanced" && selectedTagIds.length > 0) {
           const tagQueries = selectedTagIds.map((id) => `tag:${id}`);
           if (tagMatchMode === "all") {
             // All tags must match: AND them together
@@ -262,8 +498,10 @@ export function ZenExerciseAssign({
           }
         }
 
-        const response = await paperlessAPI.search(searchQuery, 15);
+        const response = await paperlessAPI.search(searchQuery, 30);
         setResults(response.results);
+        setHasMoreResults(response.has_more);
+        setSearchOffset(30);
         setSelectedIndex(0);
         setSelectedResults(new Set());
       } catch (error) {
@@ -278,6 +516,42 @@ export function ZenExerciseAssign({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query, searchMode, selectedTagIds, tagMatchMode]);
+
+  // Load more search results
+  const handleLoadMore = useCallback(async () => {
+    if (!hasMoreResults || isLoadingMore || !query.trim()) return;
+
+    setIsLoadingMore(true);
+    try {
+      // Build search query based on mode (same as initial search)
+      let searchQuery = query;
+      if (searchMode === "title") {
+        searchQuery = `title:${query}`;
+      } else if (searchMode === "content") {
+        searchQuery = `content:${query}`;
+      }
+      // Advanced mode: use raw query as-is
+
+      // Add tag filters to query (except in advanced mode)
+      if (searchMode !== "advanced" && selectedTagIds.length > 0) {
+        const tagQueries = selectedTagIds.map((id) => `tag:${id}`);
+        if (tagMatchMode === "all") {
+          searchQuery = `${searchQuery} ${tagQueries.join(" ")}`;
+        } else {
+          searchQuery = `${searchQuery} (${tagQueries.join(" OR ")})`;
+        }
+      }
+
+      const response = await paperlessAPI.search(searchQuery, 30, "all", undefined, "all", searchOffset);
+      setResults(prev => [...prev, ...response.results]);
+      setHasMoreResults(response.has_more);
+      setSearchOffset(prev => prev + 30);
+    } catch (error) {
+      setSearchError("Failed to load more results");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMoreResults, isLoadingMore, query, searchMode, selectedTagIds, tagMatchMode, searchOffset]);
 
   // Generate unique ID for exercise items
   const generateId = () => `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -505,7 +779,7 @@ export function ZenExerciseAssign({
       // Must be at the top to catch keys before any conditional returns
       // NOTE: We ALWAYS block these keys, even when typing in input.
       // stopImmediatePropagation only blocks other listeners, NOT the character being typed.
-      const navigationKeys = ['j', 'k', 'c', 's', 'n', 'r', 'd', 'ArrowUp', 'ArrowDown'];
+      const navigationKeys = ['j', 'k', 'c', 's', 'n', 'r', 'd', 'o', 'Enter', 'ArrowUp', 'ArrowDown'];
       if (navigationKeys.includes(e.key)) {
         e.stopImmediatePropagation();
         // Don't return - let the handler below process the key
@@ -514,10 +788,15 @@ export function ZenExerciseAssign({
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopImmediatePropagation();
-        if (showTagDropdown) {
+        // Check browse preview FIRST (most inner modal)
+        if (browsePreviewUrl) {
+          closeBrowsePreview();
+        } else if (showTagDropdown) {
           setShowTagDropdown(false);
         } else if (showFoldersDropdown) {
           setShowFoldersDropdown(false);
+        } else if (browseMode) {
+          exitBrowseMode();
         } else if (previewDoc) {
           setPreviewDoc(null);
         } else {
@@ -529,8 +808,11 @@ export function ZenExerciseAssign({
       if (e.key === "Tab" && !e.ctrlKey) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        const areas: FocusArea[] = ["search", "results", "exercises", "pages"];
-        const validAreas = exercises.length > 0 ? areas : areas.filter((a) => a !== "exercises" && a !== "pages");
+        // Remove "pages" - page inputs are accessed within exercises
+        const areas: FocusArea[] = browseMode
+          ? ["search", "browse", "exercises"]
+          : ["search", "results", "exercises"];
+        const validAreas = exercises.length > 0 ? areas : areas.filter((a) => a !== "exercises");
         const currentIdx = validAreas.indexOf(focusArea);
         if (e.shiftKey) {
           setFocusArea(validAreas[(currentIdx - 1 + validAreas.length) % validAreas.length]);
@@ -574,6 +856,17 @@ export function ZenExerciseAssign({
           setActiveExerciseIndex((prev) => Math.max(prev - 1, 0));
         }
         setFocusArea("exercises");
+        return;
+      }
+
+      // Plain j/k in exercises section - navigate between rows
+      if ((e.key === "j" || e.key === "k") && !isInInput && focusArea === "exercises" && exercises.length > 0) {
+        e.preventDefault();
+        if (e.key === "j") {
+          setActiveExerciseIndex((prev) => Math.min(prev + 1, exercises.length - 1));
+        } else {
+          setActiveExerciseIndex((prev) => Math.max(prev - 1, 0));
+        }
         return;
       }
 
@@ -621,6 +914,13 @@ export function ZenExerciseAssign({
           setStatusMessage("Search mode: Content only");
           return;
         }
+        if (e.key === "4") {
+          e.preventDefault();
+          setSearchMode("advanced");
+          setShowSearchHints(true);
+          setStatusMessage("Search mode: Advanced (raw query)");
+          return;
+        }
       }
 
       // Toggle tag dropdown: t
@@ -628,6 +928,13 @@ export function ZenExerciseAssign({
         e.preventDefault();
         setShowTagDropdown((prev) => !prev);
         setTagCursorIndex(0);
+        return;
+      }
+
+      // Toggle search hints: ?
+      if (e.key === "?" && !isInInput) {
+        e.preventDefault();
+        setShowSearchHints((prev) => !prev);
         return;
       }
 
@@ -668,12 +975,105 @@ export function ZenExerciseAssign({
         }
       }
 
-      // Toggle local folders dropdown: b
+      // Toggle browse mode: b
       if (e.key === "b" && !isInInput && !e.ctrlKey && !showTagDropdown) {
         e.preventDefault();
-        setShowFoldersDropdown((prev) => !prev);
-        setFolderCursorIndex(0);
+        if (browseMode) {
+          exitBrowseMode();
+        } else {
+          enterBrowseMode();
+        }
         return;
+      }
+
+      // Browse mode navigation - must check focusArea to not interfere with exercises
+      if (browseMode && focusArea === "browse" && !isInInput) {
+        if (e.key === "ArrowDown" || e.key === "j") {
+          e.preventDefault();
+          setBrowseIndex((prev) => Math.min(prev + 1, browseContents.length - 1));
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "k") {
+          e.preventDefault();
+          setBrowseIndex((prev) => Math.max(prev - 1, 0));
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "h" || e.key === "Backspace") {
+          e.preventDefault();
+          browseUp();
+          return;
+        }
+        if (e.key === "ArrowRight" || e.key === "l" || e.key === "Enter") {
+          e.preventDefault();
+          const node = browseContents[browseIndex];
+          if (node) {
+            if (node.kind === "folder") {
+              browseIntoFolder(node);
+            } else {
+              browseSelectFile(node);
+            }
+          }
+          return;
+        }
+        if (e.key === " ") {
+          e.preventDefault();
+          const node = browseContents[browseIndex];
+          if (node?.kind === "file") {
+            browseSelectFile(node);
+          }
+          return;
+        }
+        // Preview focused file: p
+        if (e.key === "p" || e.key === "P") {
+          e.preventDefault();
+          const node = browseContents[browseIndex];
+          if (node?.kind === "file") {
+            handleBrowsePreview(node);
+          }
+          return;
+        }
+        // Don't process other keys in browse mode
+        return;
+      }
+
+      // Catch-all: If browseMode is true but focusArea isn't "browse", block Enter from doing other things
+      if (browseMode && e.key === "Enter" && focusArea !== "browse") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        // Set focus back to browse area
+        setFocusArea("browse");
+        return;
+      }
+
+      // Browse preview keyboard handling
+      if (browsePreviewUrl) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          closeBrowsePreview();
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          // Don't add if there's a page validation error
+          if (browsePreviewNode && !previewPageError) {
+            // Create exercise with page values from preview inputs
+            const newExercise: ZenExerciseItem = {
+              id: generateId(),
+              pdf_name: browsePreviewNode.path,
+              page_mode: "simple",
+              page_start: previewPageStart,
+              page_end: previewPageEnd,
+              custom_pages: "",
+            };
+            setExercises((prev) => [...prev, newExercise]);
+            setActiveExerciseIndex(exercises.length);
+            setStatusMessage(`Added: ${browsePreviewNode.name}`);
+            closeBrowsePreview();
+          }
+          return;
+        }
+        // Block other keys while preview is open (except typing in inputs)
+        if (!isInInput) return;
       }
 
       // Local folders dropdown navigation when open
@@ -744,6 +1144,11 @@ export function ZenExerciseAssign({
           return;
         }
         if (e.key === "Enter" && focusArea === "results") {
+          // Don't process results Enter when in browse mode
+          if (browseMode) {
+            e.stopImmediatePropagation();
+            return;
+          }
           e.preventDefault();
           if (multiSelectMode && selectedResults.size > 0) {
             handleAddSelectedFiles();
@@ -799,6 +1204,13 @@ export function ZenExerciseAssign({
         }
       }
 
+      // Load more results: l in results area when there are more
+      if (e.key === "l" && !isInInput && focusArea === "results" && query.trim() && hasMoreResults) {
+        e.preventDefault();
+        handleLoadMore();
+        return;
+      }
+
       // Clear recent: c in results area when showing recent
       if (e.key === "c" && !isInInput && focusArea === "results" && !query.trim() && recentDocs.length > 0) {
         e.preventDefault();
@@ -827,6 +1239,11 @@ export function ZenExerciseAssign({
           return;
         }
         if ((e.key === "Enter" && focusArea === "pages") || (e.metaKey && e.key === "Enter")) {
+          // Don't trigger assign if in browse mode
+          if (browseMode) {
+            e.stopImmediatePropagation();
+            return;
+          }
           e.preventDefault();
           handleAssign();
           return;
@@ -844,7 +1261,10 @@ export function ZenExerciseAssign({
     showFoldersDropdown, savedFolders, folderCursorIndex,
     onClose, handleSelectFile, handleAddSelectedFiles, handleDeleteExercise, handleOpenFile,
     handlePrintFile, handleBatchPrint, handleAssign, handlePickFromFolder, handleAddNewFolder,
-    handlePreviewTrending,
+    handlePreviewTrending, handleLoadMore, hasMoreResults,
+    browseMode, browseContents, browseIndex, enterBrowseMode, exitBrowseMode, browseUp, browseIntoFolder, browseSelectFile,
+    browsePreviewUrl, browsePreviewNode, handleBrowsePreview, closeBrowsePreview,
+    previewPageStart, previewPageEnd, previewPageError,
   ]);
 
   // Focus management
@@ -937,10 +1357,13 @@ export function ZenExerciseAssign({
         <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
           Mode:
         </span>
-        {(["all", "title", "content"] as SearchMode[]).map((mode, i) => (
+        {(["all", "title", "content", "advanced"] as SearchMode[]).map((mode, i) => (
           <button
             key={mode}
-            onClick={() => setSearchMode(mode)}
+            onClick={() => {
+              setSearchMode(mode);
+              if (mode === "advanced") setShowSearchHints(true);
+            }}
             style={{
               padding: "2px 6px",
               backgroundColor: searchMode === mode ? "var(--zen-accent)" : "transparent",
@@ -952,9 +1375,25 @@ export function ZenExerciseAssign({
             }}
             title={`Ctrl+${i + 1}`}
           >
-            {mode.charAt(0).toUpperCase()}
+            {mode === "advanced" ? "Adv" : mode.charAt(0).toUpperCase()}
           </button>
         ))}
+        {/* Search hints toggle */}
+        <button
+          onClick={() => setShowSearchHints((prev) => !prev)}
+          style={{
+            padding: "2px 6px",
+            backgroundColor: showSearchHints ? "var(--zen-accent)" : "transparent",
+            border: `1px solid ${showSearchHints ? "var(--zen-accent)" : "var(--zen-border)"}`,
+            color: showSearchHints ? "var(--zen-bg)" : "var(--zen-dim)",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "10px",
+          }}
+          title="[?] Toggle search hints"
+        >
+          ?
+        </button>
         {isSearching && (
           <span style={{ color: "var(--zen-dim)", fontSize: "11px" }}>...</span>
         )}
@@ -977,7 +1416,89 @@ export function ZenExerciseAssign({
         >
           {selectedTagIds.length > 0 ? `T(${selectedTagIds.length})` : "T"}
         </button>
+        {/* Browse button */}
+        <button
+          onClick={() => {
+            if (browseMode) {
+              exitBrowseMode();
+            } else {
+              enterBrowseMode();
+            }
+          }}
+          style={{
+            padding: "2px 6px",
+            backgroundColor: browseMode ? "var(--zen-accent)" : "transparent",
+            border: `1px solid ${browseMode ? "var(--zen-accent)" : "var(--zen-border)"}`,
+            color: browseMode ? "var(--zen-bg)" : "var(--zen-dim)",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            fontSize: "10px",
+          }}
+          title="[B]rowse folders"
+        >
+          B
+        </button>
       </div>
+
+      {/* Search Hints Panel */}
+      {showSearchHints && (
+        <div
+          style={{
+            marginBottom: "8px",
+            padding: "8px",
+            border: "1px solid var(--zen-border)",
+            backgroundColor: "var(--zen-selection)",
+            fontSize: "10px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "6px",
+              paddingBottom: "4px",
+              borderBottom: "1px solid var(--zen-border)",
+            }}
+          >
+            <span style={{ color: "var(--zen-accent)", fontWeight: "bold" }}>
+              SEARCH SYNTAX
+            </span>
+            <button
+              onClick={() => setShowSearchHints(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--zen-dim)",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: "10px",
+              }}
+            >
+              [×] close
+            </button>
+          </div>
+          <div style={{ color: "var(--zen-fg)", lineHeight: 1.5 }}>
+            <div>
+              <span style={{ color: "var(--zen-accent)" }}>Boolean:</span>{" "}
+              <span style={{ color: "var(--zen-dim)" }}>F1 AND algebra, factorisation OR factorization, integral NOT indices</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--zen-accent)" }}>Fields:</span>{" "}
+              <span style={{ color: "var(--zen-dim)" }}>title:Exam, tag:SS, content:polynomial</span>
+            </div>
+            <div>
+              <span style={{ color: "var(--zen-accent)" }}>Phrases:</span>{" "}
+              <span style={{ color: "var(--zen-dim)" }}>&quot;exact phrase&quot;, test*, created:[2024 to 2025]</span>
+            </div>
+            {searchMode === "advanced" && (
+              <div style={{ marginTop: "4px", color: "var(--zen-dim)", fontStyle: "italic" }}>
+                In Advanced mode, query is sent raw (no auto-prefixes or tag filters)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tag Dropdown */}
       {showTagDropdown && (
@@ -1099,6 +1620,75 @@ export function ZenExerciseAssign({
         </div>
       )}
 
+      {/* Selected Tag Chips */}
+      {selectedTagIds.length > 0 && !showTagDropdown && (
+        <div
+          style={{
+            marginBottom: "8px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "4px",
+            alignItems: "center",
+          }}
+        >
+          <span style={{ color: "var(--zen-dim)", fontSize: "10px", marginRight: "4px" }}>
+            Tags ({tagMatchMode === "all" ? "ALL" : "ANY"}):
+          </span>
+          {selectedTagIds.map((tagId) => {
+            const tag = availableTags.find((t) => t.id === tagId);
+            if (!tag) return null;
+            return (
+              <span
+                key={tagId}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "1px 6px",
+                  fontSize: "10px",
+                  backgroundColor: "var(--zen-selection)",
+                  border: "1px solid var(--zen-accent)",
+                  color: "var(--zen-accent)",
+                }}
+              >
+                {tag.name}
+                <button
+                  onClick={() => setSelectedTagIds((prev) => prev.filter((id) => id !== tagId))}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--zen-error)",
+                    cursor: "pointer",
+                    padding: "0",
+                    fontSize: "10px",
+                    lineHeight: 1,
+                    fontFamily: "inherit",
+                  }}
+                  title="Remove tag"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+          <button
+            onClick={() => setSelectedTagIds([])}
+            style={{
+              background: "none",
+              border: "1px solid var(--zen-error)",
+              color: "var(--zen-error)",
+              cursor: "pointer",
+              padding: "1px 4px",
+              fontSize: "9px",
+              fontFamily: "inherit",
+            }}
+            title="Clear all tags"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Local Folders Dropdown */}
       {showFoldersDropdown && (
         <div
@@ -1194,12 +1784,301 @@ export function ZenExerciseAssign({
         </div>
       )}
 
+      {/* Browse Mode */}
+      {browseMode && (
+        <div
+          onClick={() => setFocusArea("browse")}
+          style={{
+            border: `1px solid ${focusArea === "browse" ? "var(--zen-accent)" : "var(--zen-border)"}`,
+            borderRadius: "2px",
+            maxHeight: "220px",
+            overflowY: "auto",
+            marginBottom: "12px",
+          }}
+        >
+          {/* Breadcrumb Navigation */}
+          <div
+            style={{
+              padding: "4px 8px",
+              backgroundColor: "var(--zen-selection)",
+              borderBottom: "1px solid var(--zen-border)",
+              fontSize: "11px",
+              color: "var(--zen-dim)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); browseUp(); }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--zen-accent)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "11px",
+                  padding: "0 4px",
+                }}
+                title="Back (Backspace/h)"
+              >
+                ←
+              </button>
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Go to root
+                  const nodes: BrowseNode[] = savedFolders.map((folder) => ({
+                    name: folder.name,
+                    path: folder.name,
+                    kind: "folder" as const,
+                    handle: folder.handle,
+                  }));
+                  setBrowseContents(nodes);
+                  setBrowsePath([]);
+                  setBrowseHandle(null);
+                  setBrowseIndex(0);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                Home
+              </span>
+              {browsePath.map((part, idx) => (
+                <span key={idx} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ color: "var(--zen-dim)" }}>/</span>
+                  <span style={{ color: idx === browsePath.length - 1 ? "var(--zen-fg)" : "var(--zen-dim)" }}>
+                    {part}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <span style={{ color: "var(--zen-dim)", fontSize: "10px" }}>
+              {browseContents.length} items
+            </span>
+          </div>
+
+          {/* Browse Keyboard Hints */}
+          <div
+            style={{
+              padding: "2px 8px",
+              backgroundColor: "var(--zen-bg)",
+              borderBottom: "1px solid var(--zen-border)",
+              fontSize: "10px",
+              color: "var(--zen-dim)",
+            }}
+          >
+            j/k nav · Enter/Space add · l→ folder · h← back · P preview · Esc exit
+          </div>
+
+          {/* Loading State */}
+          {browseLoading && (
+            <div style={{ padding: "12px", color: "var(--zen-dim)", fontSize: "12px", textAlign: "center" }}>
+              Loading...
+            </div>
+          )}
+
+          {/* Error State */}
+          {browseError && (
+            <div style={{ padding: "8px", color: "var(--zen-error)", fontSize: "12px" }}>
+              {browseError}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!browseLoading && !browseError && browseContents.length === 0 && (
+            <div style={{ padding: "12px", color: "var(--zen-dim)", fontSize: "12px", textAlign: "center" }}>
+              {browsePath.length === 0 ? "No saved folders. Add folders in Settings." : "Folder is empty"}
+            </div>
+          )}
+
+          {/* File/Folder List */}
+          {!browseLoading && !browseError && browseContents.map((node, idx) => (
+            <div
+              key={node.path}
+              onClick={() => {
+                setBrowseIndex(idx);
+                if (node.kind === "folder") {
+                  browseIntoFolder(node);
+                } else {
+                  browseSelectFile(node);
+                }
+              }}
+              data-selected={idx === browseIndex}
+              style={{
+                padding: "6px 8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+                backgroundColor: idx === browseIndex ? "var(--zen-selection)" : "transparent",
+                borderLeft: idx === browseIndex ? "2px solid var(--zen-accent)" : "2px solid transparent",
+              }}
+            >
+              <span style={{ color: node.kind === "folder" ? "var(--zen-accent)" : "var(--zen-dim)", fontSize: "12px" }}>
+                {node.kind === "folder" ? "📁" : "📄"}
+              </span>
+              <span
+                style={{
+                  color: idx === browseIndex ? "var(--zen-fg)" : "var(--zen-dim)",
+                  fontSize: "12px",
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {node.name}
+              </span>
+              {node.kind === "folder" && (
+                <span style={{ color: "var(--zen-dim)", fontSize: "11px" }}>→</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Browse Preview Overlay */}
+      {browsePreviewUrl && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.9)",
+            zIndex: 100,
+            display: "flex",
+            flexDirection: "column",
+            padding: "20px",
+          }}
+        >
+          {/* Preview Header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "12px",
+              paddingBottom: "8px",
+              borderBottom: "1px solid var(--zen-border)",
+            }}
+          >
+            <span style={{ color: "var(--zen-fg)", fontSize: "14px" }}>
+              {browsePreviewName}
+            </span>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              {/* Page Range Inputs */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ color: "var(--zen-dim)", fontSize: "12px" }}>
+                  Pages{previewPageCount ? ` (of ${previewPageCount})` : ""}:
+                </span>
+                <input
+                  type="text"
+                  value={previewPageStart}
+                  onChange={(e) => setPreviewPageStart(e.target.value)}
+                  placeholder="from"
+                  style={{
+                    width: "50px",
+                    backgroundColor: "var(--zen-bg)",
+                    border: previewPageError ? "1px solid var(--zen-error, #f87171)" : "1px solid var(--zen-border)",
+                    color: "var(--zen-fg)",
+                    padding: "4px 6px",
+                    fontFamily: "inherit",
+                    fontSize: "12px",
+                    borderRadius: "2px",
+                  }}
+                />
+                <span style={{ color: "var(--zen-dim)", fontSize: "12px" }}>to</span>
+                <input
+                  type="text"
+                  value={previewPageEnd}
+                  onChange={(e) => setPreviewPageEnd(e.target.value)}
+                  placeholder="to"
+                  style={{
+                    width: "50px",
+                    backgroundColor: "var(--zen-bg)",
+                    border: previewPageError ? "1px solid var(--zen-error, #f87171)" : "1px solid var(--zen-border)",
+                    color: "var(--zen-fg)",
+                    padding: "4px 6px",
+                    fontFamily: "inherit",
+                    fontSize: "12px",
+                    borderRadius: "2px",
+                  }}
+                />
+                {previewPageError && (
+                  <span style={{ color: "var(--zen-error, #f87171)", fontSize: "11px" }}>
+                    {previewPageError}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (browsePreviewNode && !previewPageError) {
+                    // Create exercise with page values
+                    const newExercise: ZenExerciseItem = {
+                      id: generateId(),
+                      pdf_name: browsePreviewNode.path,
+                      page_mode: "simple",
+                      page_start: previewPageStart,
+                      page_end: previewPageEnd,
+                      custom_pages: "",
+                    };
+                    setExercises((prev) => [...prev, newExercise]);
+                    setActiveExerciseIndex(exercises.length);
+                    setStatusMessage(`Added: ${browsePreviewNode.name}`);
+                    closeBrowsePreview();
+                  }
+                }}
+                disabled={!!previewPageError}
+                style={{
+                  background: "none",
+                  border: previewPageError ? "1px solid var(--zen-dim)" : "1px solid var(--zen-accent)",
+                  color: previewPageError ? "var(--zen-dim)" : "var(--zen-accent)",
+                  padding: "4px 12px",
+                  cursor: previewPageError ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "12px",
+                  opacity: previewPageError ? 0.5 : 1,
+                }}
+              >
+                [Enter] Use{previewPageStart || previewPageEnd ? ` (p${previewPageStart || "?"}–${previewPageEnd || "?"})` : ""}
+              </button>
+              <button
+                onClick={closeBrowsePreview}
+                style={{
+                  background: "none",
+                  border: "1px solid var(--zen-border)",
+                  color: "var(--zen-dim)",
+                  padding: "4px 12px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "12px",
+                }}
+              >
+                [Esc] Close
+              </button>
+            </div>
+          </div>
+          {/* PDF Iframe */}
+          <iframe
+            src={browsePreviewUrl}
+            style={{
+              flex: 1,
+              border: "1px solid var(--zen-border)",
+              borderRadius: "4px",
+              backgroundColor: "#fff",
+            }}
+            title="PDF Preview"
+          />
+        </div>
+      )}
+
       {/* Results / Recent / Trending */}
-      <div
-        ref={resultsContainerRef}
-        onClick={() => setFocusArea("results")}
-        style={{
-          border: `1px solid ${focusArea === "results" ? "var(--zen-accent)" : "var(--zen-border)"}`,
+      {!browseMode && (
+        <div
+          ref={resultsContainerRef}
+          onClick={() => setFocusArea("results")}
+          style={{
+            border: `1px solid ${focusArea === "results" ? "var(--zen-accent)" : "var(--zen-border)"}`,
           borderRadius: "2px",
           maxHeight: "180px",
           overflowY: "auto",
@@ -1257,6 +2136,32 @@ export function ZenExerciseAssign({
                 }}
               />
             ))}
+            {/* Load more button */}
+            {hasMoreResults && (
+              <div
+                style={{
+                  padding: "8px",
+                  textAlign: "center",
+                  borderTop: "1px solid var(--zen-border)",
+                }}
+              >
+                <button
+                  onClick={handleLoadMore}
+                  disabled={isLoadingMore}
+                  style={{
+                    background: "none",
+                    border: "1px solid var(--zen-border)",
+                    color: "var(--zen-accent)",
+                    padding: "4px 12px",
+                    fontSize: "12px",
+                    cursor: isLoadingMore ? "wait" : "pointer",
+                    borderRadius: "4px",
+                  }}
+                >
+                  {isLoadingMore ? "Loading..." : "[L] Load more results"}
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -1367,7 +2272,8 @@ export function ZenExerciseAssign({
             })}
           </>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Exercises Table */}
       {exercises.length > 0 && (
@@ -1390,7 +2296,7 @@ export function ZenExerciseAssign({
             }}
           >
             <span>EXERCISES ({exercises.length})</span>
-            <span>[A]dd [D]elete • Ctrl+j/k navigate</span>
+            <span>[A]dd [D]elete • j/k navigate</span>
           </div>
           {exercises.map((ex, idx) => (
             <ExerciseRow
