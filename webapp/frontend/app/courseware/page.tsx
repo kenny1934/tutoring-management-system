@@ -52,7 +52,8 @@ import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
-import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
+import { FolderTreeModal, type FileSelection, validatePageInput } from "@/components/ui/folder-tree-modal";
+import { getPageCount } from "@/lib/pdf-utils";
 import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
 import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
@@ -1194,7 +1195,7 @@ function CoursewareBrowserTab() {
   }, [previewUrl]);
 
   // Toggle file selection (replicated from FolderTreeModal)
-  const toggleSelection = useCallback((node: TreeNode) => {
+  const toggleSelection = useCallback(async (node: TreeNode) => {
     const path = node.path;
     if (selections.has(path)) {
       setSelections((prev) => {
@@ -1205,8 +1206,46 @@ function CoursewareBrowserTab() {
     } else {
       const sel: FileSelection = { path, pages: "" };
       setSelections((prev) => new Map(prev).set(path, sel));
+      // Load page count async
+      if (node.handle && node.kind === "file") {
+        try {
+          const file = await (node.handle as FileSystemFileHandle).getFile();
+          const arrayBuffer = await file.arrayBuffer();
+          const pageCount = await getPageCount(arrayBuffer);
+          setSelections((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(path);
+            if (existing) next.set(path, { ...existing, pageCount });
+            return next;
+          });
+        } catch (err) {
+          console.warn("Failed to get page count:", err);
+        }
+      }
     }
   }, [selections]);
+
+  // Update page input for a selection
+  const updateSelectionPages = useCallback((path: string, pages: string) => {
+    setSelections((prev) => {
+      const next = new Map(prev);
+      const sel = next.get(path);
+      if (sel) {
+        const error = sel.pageCount ? validatePageInput(pages, sel.pageCount) : null;
+        next.set(path, { ...sel, pages, error: error || undefined });
+      }
+      return next;
+    });
+  }, []);
+
+  // Remove a single selection
+  const removeSelection = useCallback((path: string) => {
+    setSelections((prev) => {
+      const next = new Map(prev);
+      next.delete(path);
+      return next;
+    });
+  }, []);
 
   // Handle click with multi-select support (replicated from FolderTreeModal)
   const handleSingleClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
@@ -1225,16 +1264,37 @@ function CoursewareBrowserTab() {
       const end = Math.max(lastClickedIndex, index);
       const rangeNodes = sortedContents
         .slice(start, end + 1)
-        .filter((n) => n.kind === "file");
+        .filter((n) => n.kind === "file") as TreeNode[];
+      // Add selections first
+      const newPaths: string[] = [];
       setSelections((prev) => {
         const next = new Map(prev);
         for (const n of rangeNodes) {
           if (!next.has(n.path)) {
             next.set(n.path, { path: n.path, pages: "" });
+            newPaths.push(n.path);
           }
         }
         return next;
       });
+      // Load page counts async for newly added files
+      rangeNodes
+        .filter((n) => newPaths.includes(n.path) && n.handle)
+        .forEach(async (n) => {
+          try {
+            const file = await (n.handle as FileSystemFileHandle).getFile();
+            const arrayBuffer = await file.arrayBuffer();
+            const pageCount = await getPageCount(arrayBuffer);
+            setSelections((prev) => {
+              const next = new Map(prev);
+              const existing = next.get(n.path);
+              if (existing) next.set(n.path, { ...existing, pageCount });
+              return next;
+            });
+          } catch (err) {
+            console.warn("Failed to get page count:", err);
+          }
+        });
       return;
     }
 
@@ -1369,10 +1429,27 @@ function CoursewareBrowserTab() {
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             const allFileSelections = new Map<string, FileSelection>();
-            sortedContents
-              .filter((n) => n.kind === "file")
-              .forEach((n) => allFileSelections.set(n.path, { path: n.path, pages: "" }));
+            const fileNodes = sortedContents.filter((n) => n.kind === "file") as TreeNode[];
+            fileNodes.forEach((n) => allFileSelections.set(n.path, { path: n.path, pages: "" }));
             setSelections(allFileSelections);
+            // Load page counts async for all files
+            fileNodes
+              .filter((n) => n.handle)
+              .forEach(async (n) => {
+                try {
+                  const file = await (n.handle as FileSystemFileHandle).getFile();
+                  const arrayBuffer = await file.arrayBuffer();
+                  const pageCount = await getPageCount(arrayBuffer);
+                  setSelections((prev) => {
+                    const next = new Map(prev);
+                    const existing = next.get(n.path);
+                    if (existing) next.set(n.path, { ...existing, pageCount });
+                    return next;
+                  });
+                } catch (err) {
+                  console.warn("Failed to get page count:", err);
+                }
+              });
           }
           break;
         case "Escape": // Clear selection
@@ -1571,29 +1648,64 @@ function CoursewareBrowserTab() {
           </div>
         )}
 
-        {/* Selection panel - shows when files are selected */}
+        {/* Selection panel - shows when files are selected with page range inputs */}
         {selections.size > 0 && (
-          <div className="p-2 mx-3 mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="p-2 mx-3 mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 space-y-1.5">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
                 {selections.size} file{selections.size !== 1 ? "s" : ""} selected
                 <span className="font-normal ml-1 opacity-70">(Esc to clear)</span>
               </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSessionSelectorOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
-                >
-                  <CalendarPlus className="h-3.5 w-3.5" />
-                  Assign to Sessions
-                </button>
-                <button
-                  onClick={() => setSelections(new Map())}
-                  className="text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:underline"
-                >
-                  Clear
-                </button>
-              </div>
+              <button
+                onClick={() => setSelections(new Map())}
+                className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+              >
+                Clear all
+              </button>
+            </div>
+            <div className="max-h-32 overflow-y-auto space-y-1">
+              {Array.from(selections.values()).map((sel) => (
+                <div key={sel.path} className="space-y-0.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="flex-1 truncate text-gray-700 dark:text-gray-300" title={sel.path}>
+                      {sel.path.split("\\").pop()}
+                    </span>
+                    <input
+                      type="text"
+                      value={sel.pages}
+                      onChange={(e) => updateSelectionPages(sel.path, e.target.value)}
+                      placeholder={sel.pageCount ? `1-${sel.pageCount}` : "Pages"}
+                      className={cn(
+                        "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
+                        sel.error
+                          ? "border-red-400 focus:ring-red-400"
+                          : "border-gray-300 dark:border-gray-600 focus:ring-amber-400"
+                      )}
+                    />
+                    {sel.pageCount && (
+                      <span className="text-gray-400 shrink-0">/{sel.pageCount}</span>
+                    )}
+                    <button
+                      onClick={() => removeSelection(sel.path)}
+                      className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {sel.error && (
+                    <p className="text-[10px] text-red-500 pl-1">{sel.error}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setSessionSelectorOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" />
+                Assign to Sessions
+              </button>
             </div>
           </div>
         )}
