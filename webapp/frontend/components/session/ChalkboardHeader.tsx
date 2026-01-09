@@ -23,6 +23,7 @@ import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
 
 // Muted dusty chalk palette (top-down view colors)
 const CHALK_PALETTE = {
@@ -569,12 +570,13 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                                 <span className="font-mono">#{session.rescheduled_to.id}</span>
                               </Link>
                             </div>
-                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 space-y-0.5">
-                              <div>{new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                              <div className="flex items-center gap-2">
-                                {session.rescheduled_to.tutor_name && <span>{session.rescheduled_to.tutor_name}</span>}
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{session.rescheduled_to.session_status}</span>
-                              </div>
+                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 flex items-center justify-between gap-2">
+                              <span className="whitespace-nowrap">
+                                {new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                {session.rescheduled_to.time_slot && ` · ${session.rescheduled_to.time_slot}`}
+                                {session.rescheduled_to.tutor_name && ` · ${session.rescheduled_to.tutor_name}`}
+                              </span>
+                              <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px] shrink-0" />
                             </div>
                           </div>
                         )}
@@ -592,12 +594,13 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                                 <span className="font-mono">#{session.make_up_for.id}</span>
                               </Link>
                             </div>
-                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 space-y-0.5">
-                              <div>{new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                              <div className="flex items-center gap-2">
-                                {session.make_up_for.tutor_name && <span>{session.make_up_for.tutor_name}</span>}
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">{session.make_up_for.session_status}</span>
-                              </div>
+                            <div className="text-xs text-gray-700 dark:text-gray-300 pl-2 flex items-center justify-between gap-2">
+                              <span className="whitespace-nowrap">
+                                {new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                {session.make_up_for.time_slot && ` · ${session.make_up_for.time_slot}`}
+                                {session.make_up_for.tutor_name && ` · ${session.make_up_for.tutor_name}`}
+                              </span>
+                              <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px] shrink-0" />
                             </div>
                           </div>
                         )}
