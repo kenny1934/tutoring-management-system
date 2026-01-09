@@ -473,7 +473,7 @@ export function ZenSessionDetail({
             <div style={{ fontSize: "12px", marginBottom: "4px" }}>
               <span style={{ color: "var(--zen-dim)" }}>Original: </span>
               <span style={{ color: "var(--zen-fg)" }}>
-                #{session.make_up_for.id} ({session.make_up_for.session_date})
+                #{session.make_up_for.id} ({session.make_up_for.session_date}{session.make_up_for.time_slot ? ` ${session.make_up_for.time_slot}` : ''})
               </span>
               <span style={{ color: "var(--zen-dim)", marginLeft: "8px" }}>
                 {session.make_up_for.session_status}
@@ -484,7 +484,7 @@ export function ZenSessionDetail({
             <div style={{ fontSize: "12px", marginBottom: "4px" }}>
               <span style={{ color: "var(--zen-dim)" }}>Make-up: </span>
               <span style={{ color: "var(--zen-fg)" }}>
-                #{session.rescheduled_to.id} ({session.rescheduled_to.session_date})
+                #{session.rescheduled_to.id} ({session.rescheduled_to.session_date}{session.rescheduled_to.time_slot ? ` ${session.rescheduled_to.time_slot}` : ''})
               </span>
               <span style={{ color: "var(--zen-dim)", marginLeft: "8px" }}>
                 {session.rescheduled_to.session_status}

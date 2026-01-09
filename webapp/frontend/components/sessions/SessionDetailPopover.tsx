@@ -599,11 +599,14 @@ export function SessionDetailPopover({
                 </Link>
               </div>
               <div className="text-xs text-gray-700 dark:text-gray-300 space-y-0.5 pl-2">
-                <div>{new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                <div className="flex items-center gap-2">
-                  {session.rescheduled_to.tutor_name && <span>{session.rescheduled_to.tutor_name}</span>}
-                  <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[10px] px-1 py-0" />
+                <div className="flex items-center justify-between">
+                  <span>
+                    {new Date(session.rescheduled_to.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {session.rescheduled_to.time_slot && ` · ${session.rescheduled_to.time_slot}`}
+                  </span>
+                  <SessionStatusTag status={session.rescheduled_to.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px]" />
                 </div>
+                {session.rescheduled_to.tutor_name && <div>{session.rescheduled_to.tutor_name}</div>}
               </div>
             </div>
           )}
@@ -626,11 +629,14 @@ export function SessionDetailPopover({
                 </Link>
               </div>
               <div className="text-xs text-gray-700 dark:text-gray-300 space-y-0.5 pl-2">
-                <div>{new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                <div className="flex items-center gap-2">
-                  {session.make_up_for.tutor_name && <span>{session.make_up_for.tutor_name}</span>}
-                  <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[10px] px-1 py-0" />
+                <div className="flex items-center justify-between">
+                  <span>
+                    {new Date(session.make_up_for.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {session.make_up_for.time_slot && ` · ${session.make_up_for.time_slot}`}
+                  </span>
+                  <SessionStatusTag status={session.make_up_for.session_status} size="sm" className="text-[10px] px-1 py-0 truncate max-w-[60px]" />
                 </div>
+                {session.make_up_for.tutor_name && <div>{session.make_up_for.tutor_name}</div>}
               </div>
             </div>
           )}
