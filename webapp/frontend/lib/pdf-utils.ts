@@ -230,7 +230,7 @@ html,body{margin:0;padding:0}
 .page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
 .page+.page{page-break-before:always;break-before:page}
 .page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:8px;right:8px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
+.stamp{position:absolute;top:40px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
 </style></head><body>${pageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
 
     return new Blob([htmlContent], { type: 'text/html' });
@@ -318,10 +318,74 @@ html,body{margin:0;padding:0}
 .page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
 .page+.page{page-break-before:always;break-before:page}
 .page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:8px;right:8px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
+.stamp{position:absolute;top:40px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
 </style></head><body>${allPageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
 
   return new Blob([htmlContent], { type: 'text/html' });
+}
+
+/**
+ * Extract and combine pages from multiple PDFs into a single PDF file for download.
+ * Unlike extractBulkPagesForPrint which creates HTML, this creates an actual PDF.
+ *
+ * @param items - Array of PDFs with their page ranges
+ * @param stamp - Optional stamp info (currently not implemented for PDF output)
+ * @returns Blob containing the combined PDF
+ */
+export async function extractBulkPagesForDownload(
+  items: BulkPrintItem[],
+  stamp?: PrintStampInfo
+): Promise<Blob> {
+  // Dynamically import pdf-lib to avoid bundling issues
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+
+  const pdfDoc = await PDFDocument.create();
+
+  for (const item of items) {
+    try {
+      // Load source PDF
+      const srcDoc = await PDFDocument.load(item.pdfData, { ignoreEncryption: true });
+
+      // Determine pages to copy (convert from 1-indexed to 0-indexed)
+      const pageIndices = item.pageNumbers.length > 0
+        ? item.pageNumbers.map(n => n - 1).filter(i => i >= 0 && i < srcDoc.getPageCount())
+        : Array.from({ length: srcDoc.getPageCount() }, (_, i) => i);
+
+      if (pageIndices.length === 0) continue;
+
+      // Copy pages to destination
+      const copiedPages = await pdfDoc.copyPages(srcDoc, pageIndices);
+      copiedPages.forEach(page => pdfDoc.addPage(page));
+    } catch (err) {
+      console.warn('[extractBulkPagesForDownload] Failed to process PDF:', item.label, err);
+      // Continue with other PDFs even if one fails
+    }
+  }
+
+  // Add stamp overlay to each page if provided
+  if (stamp) {
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontSize = 8;
+    const stampText = formatStamp(stamp);
+    const pages = pdfDoc.getPages();
+
+    for (const page of pages) {
+      const { width, height } = page.getSize();
+      const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+
+      // Draw stamp in top-right corner (with margin for print safety)
+      page.drawText(stampText, {
+        x: width - textWidth - 40,  // 40px from right
+        y: height - 40,              // 40px from top
+        size: fontSize,
+        font,
+        color: rgb(0.2, 0.2, 0.2),  // Dark gray
+      });
+    }
+  }
+
+  const pdfBytes = await pdfDoc.save();
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 /**

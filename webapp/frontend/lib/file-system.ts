@@ -4,7 +4,7 @@
  * Only works in Chrome/Edge - check isFileSystemAccessSupported() before use.
  */
 
-import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, PrintStampInfo, BulkPrintItem } from './pdf-utils';
+import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, extractBulkPagesForDownload, PrintStampInfo, BulkPrintItem } from './pdf-utils';
 
 export type { PrintStampInfo, BulkPrintItem } from './pdf-utils';
 
@@ -1090,12 +1090,14 @@ export interface BulkPrintExercise {
  * @param exercises - Array of exercises with PDF paths and page ranges
  * @param stamp - Optional stamp info to display on each page
  * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @param title - Optional title for print dialog (displayed as filename)
  * @returns null on success, error string on failure
  */
 export async function printBulkFiles(
   exercises: BulkPrintExercise[],
   stamp?: PrintStampInfo,
-  paperlessSearch?: (path: string) => Promise<number | null>
+  paperlessSearch?: (path: string) => Promise<number | null>,
+  title?: string
 ): Promise<'not_supported' | 'no_valid_files' | 'print_failed' | null> {
   const fsSupported = isFileSystemAccessSupported();
 
@@ -1143,7 +1145,8 @@ export async function printBulkFiles(
     return [];
   };
 
-  for (const exercise of validExercises) {
+  // Fetch all PDFs in parallel for better performance
+  const fetchPdf = async (exercise: BulkPrintExercise): Promise<{ exercise: BulkPrintExercise; arrayBuffer: ArrayBuffer | null }> => {
     let arrayBuffer: ArrayBuffer | null = null;
 
     // Try local file access first (if supported)
@@ -1188,7 +1191,14 @@ export async function printBulkFiles(
       }
     }
 
-    // If we got the file data, add to bulk items
+    return { exercise, arrayBuffer };
+  };
+
+  // Execute all fetches in parallel
+  const results = await Promise.all(validExercises.map(fetchPdf));
+
+  // Build bulkItems from results
+  for (const { exercise, arrayBuffer } of results) {
     if (arrayBuffer) {
       const pageNumbers = getPageNumbers(exercise);
       bulkItems.push({
@@ -1224,6 +1234,9 @@ export async function printBulkFiles(
 
     // Wait for the window to load, then print
     printWindow.onload = () => {
+      // Set document title for meaningful print dialog filename
+      printWindow.document.title = title || 'Combined_Exercises';
+
       setTimeout(() => {
         printWindow.print();
       }, 500);
@@ -1239,5 +1252,161 @@ export async function printBulkFiles(
   } catch (err) {
     console.error('[BulkPrint] Failed to create combined print:', err);
     return 'print_failed';
+  }
+}
+
+/**
+ * Download multiple PDFs combined into a single file.
+ * Uses the same page extraction logic as printBulkFiles but triggers download.
+ *
+ * @param exercises - Array of exercises with PDF paths and page ranges
+ * @param filename - The filename to use for the download
+ * @param stamp - Optional stamp info to display on each page
+ * @param paperlessSearch - Optional callback to search Paperless when local access fails
+ * @returns null on success, error string on failure
+ */
+export async function downloadBulkFiles(
+  exercises: BulkPrintExercise[],
+  filename: string,
+  stamp?: PrintStampInfo,
+  paperlessSearch?: (path: string) => Promise<number | null>
+): Promise<'not_supported' | 'no_valid_files' | 'download_failed' | null> {
+  const fsSupported = isFileSystemAccessSupported();
+
+  // If no File System API and no Paperless fallback, can't proceed
+  if (!fsSupported && !paperlessSearch) {
+    return 'not_supported';
+  }
+
+  // Filter exercises that have valid PDF paths
+  const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+  if (validExercises.length === 0) {
+    return 'no_valid_files';
+  }
+
+  console.log('[BulkDownload] Processing', validExercises.length, 'exercises');
+
+  const bulkItems: BulkPrintItem[] = [];
+
+  // Helper to determine page numbers from exercise
+  const getPageNumbers = (exercise: BulkPrintExercise): number[] => {
+    const complexRange = exercise.complex_pages?.trim();
+
+    if (complexRange) {
+      const pageNumbers = parsePageRange(complexRange);
+      console.log('[BulkDownload] Complex range for', exercise.pdf_name, ':', pageNumbers);
+      return pageNumbers;
+    }
+
+    const pageStart = exercise.page_start
+      ? (typeof exercise.page_start === 'string' ? parseInt(exercise.page_start, 10) : exercise.page_start)
+      : undefined;
+    const pageEnd = exercise.page_end
+      ? (typeof exercise.page_end === 'string' ? parseInt(exercise.page_end, 10) : exercise.page_end)
+      : undefined;
+
+    if (pageStart !== undefined && !isNaN(pageStart)) {
+      const end = pageEnd !== undefined && !isNaN(pageEnd) ? pageEnd : pageStart;
+      const pageNumbers = Array.from({ length: end - pageStart + 1 }, (_, i) => pageStart + i);
+      console.log('[BulkDownload] Simple range for', exercise.pdf_name, ':', pageNumbers);
+      return pageNumbers;
+    }
+
+    // No page range specified - will use all pages
+    console.log('[BulkDownload] All pages (to be determined) for', exercise.pdf_name);
+    return [];
+  };
+
+  // Fetch all PDFs in parallel for better performance
+  const fetchPdf = async (exercise: BulkPrintExercise): Promise<{ exercise: BulkPrintExercise; arrayBuffer: ArrayBuffer | null }> => {
+    let arrayBuffer: ArrayBuffer | null = null;
+
+    // Try local file access first (if supported)
+    if (fsSupported) {
+      const result = await getFileHandleFromPath(exercise.pdf_name);
+      if (result.success) {
+        try {
+          const file = await result.handle.getFile();
+          arrayBuffer = await file.arrayBuffer();
+        } catch (err) {
+          console.warn('[BulkDownload] Failed to read local file:', exercise.pdf_name, err);
+        }
+      } else {
+        console.log('[BulkDownload] Local file access failed for:', exercise.pdf_name, result.error);
+      }
+    }
+
+    // Try Paperless fallback if local failed and callback provided
+    if (!arrayBuffer && paperlessSearch) {
+      try {
+        // Check cache first
+        let documentId = getCachedPaperlessDocumentId(exercise.pdf_name);
+
+        // If not cached, search Paperless
+        if (!documentId) {
+          documentId = await paperlessSearch(exercise.pdf_name);
+          if (documentId) {
+            setPaperlessPathCache(exercise.pdf_name, documentId);
+          }
+        }
+
+        if (documentId) {
+          console.log('[BulkDownload] Fetching from Paperless:', exercise.pdf_name, 'documentId:', documentId);
+          const response = await fetch(`/api/paperless/preview/${documentId}`);
+          if (response.ok) {
+            const blob = await response.blob();
+            arrayBuffer = await blob.arrayBuffer();
+          }
+        }
+      } catch (err) {
+        console.warn('[BulkDownload] Paperless fallback failed for:', exercise.pdf_name, err);
+      }
+    }
+
+    return { exercise, arrayBuffer };
+  };
+
+  // Execute all fetches in parallel
+  const results = await Promise.all(validExercises.map(fetchPdf));
+
+  // Build bulkItems from results
+  for (const { exercise, arrayBuffer } of results) {
+    if (arrayBuffer) {
+      const pageNumbers = getPageNumbers(exercise);
+      bulkItems.push({
+        pdfData: arrayBuffer,
+        pageNumbers,
+        label: exercise.pdf_name,
+      });
+    } else {
+      console.warn('[BulkDownload] Could not get file data for:', exercise.pdf_name);
+    }
+  }
+
+  if (bulkItems.length === 0) {
+    return 'no_valid_files';
+  }
+
+  console.log('[BulkDownload] Extracting pages from', bulkItems.length, 'PDFs');
+
+  try {
+    // Extract and combine all pages into actual PDF (not HTML like print)
+    const combinedBlob = await extractBulkPagesForDownload(bulkItems, stamp);
+    console.log('[BulkDownload] Combined PDF blob size:', combinedBlob.size);
+
+    // Trigger download
+    const url = URL.createObjectURL(combinedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    return null;
+  } catch (err) {
+    console.error('[BulkDownload] Failed to create combined download:', err);
+    return 'download_failed';
   }
 }

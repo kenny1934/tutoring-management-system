@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 
@@ -77,6 +77,8 @@ export function BulkExerciseModal({
   const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
+  const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   // Check for File System Access API support on mount
   useEffect(() => {
@@ -335,6 +337,55 @@ export function BulkExerciseModal({
     }
   }, [fileActionState, searchPaperlessByPath]);
 
+  // Handle print all exercises in one batch
+  const handlePrintAll = useCallback(async () => {
+    if (printAllState === 'loading') return;
+
+    // Filter exercises that have PDF paths
+    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    if (exercisesWithPdfs.length === 0) return;
+
+    setPrintAllState('loading');
+
+    // Build title (same format as download filename)
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const printTitle = `Bulk_${exerciseType}_${dateStr}_${sessions.length}students`;
+
+    // No stamp for bulk modal (multiple students)
+    const error = await printBulkFiles(exercisesWithPdfs, undefined, searchPaperlessByPath, printTitle);
+    if (error) {
+      console.warn('Failed to print all files:', error);
+      setPrintAllState('error');
+      setTimeout(() => setPrintAllState('idle'), 2000);
+    } else {
+      setPrintAllState('idle');
+    }
+  }, [exercises, printAllState, sessions, exerciseType, searchPaperlessByPath]);
+
+  // Handle download all exercises in one combined file
+  const handleDownloadAll = useCallback(async () => {
+    if (downloadAllState === 'loading') return;
+
+    // Filter exercises that have PDF paths
+    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    if (exercisesWithPdfs.length === 0) return;
+
+    setDownloadAllState('loading');
+
+    // Build filename: Bulk_CW_20260110_5students.pdf
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `Bulk_${exerciseType}_${dateStr}_${sessions.length}students.pdf`;
+
+    const error = await downloadBulkFiles(exercisesWithPdfs, filename, undefined, searchPaperlessByPath);
+    if (error) {
+      console.warn('Failed to download all files:', error);
+      setDownloadAllState('error');
+      setTimeout(() => setDownloadAllState('idle'), 2000);
+    } else {
+      setDownloadAllState('idle');
+    }
+  }, [exercises, downloadAllState, sessions, exerciseType, searchPaperlessByPath]);
+
   const removeExercise = useCallback((index: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== index));
   }, []);
@@ -465,8 +516,54 @@ export function BulkExerciseModal({
           </div>
         </div>
 
-        {/* Add Button */}
-        <div className="flex justify-end">
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center">
+          {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
+          {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handlePrintAll}
+                disabled={printAllState === 'loading'}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
+                  printAllState === 'loading' && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {printAllState === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : printAllState === 'error' ? (
+                  <XCircle className="h-4 w-4" />
+                ) : (
+                  <Printer className="h-4 w-4" />
+                )}
+                Print All
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadAll}
+                disabled={downloadAllState === 'loading'}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
+                  downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {downloadAllState === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : downloadAllState === 'error' ? (
+                  <XCircle className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download All
+              </button>
+            </div>
+          ) : (
+            <div /> // Spacer
+          )}
+
           <button
             type="button"
             onClick={addExercise}
@@ -744,6 +841,7 @@ export function BulkExerciseModal({
         onFileSelected={handleFileSelected}
         onFilesSelected={handleBatchAddFromBrowse}
         allowMultiSelect={true}
+        initialPath={browsingForIndex !== null ? exercises[browsingForIndex]?.pdf_name : undefined}
       />
 
       {/* Paperless Search Modal */}
