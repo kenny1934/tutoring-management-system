@@ -35,6 +35,7 @@ import {
 } from "@/lib/file-system";
 import { getPageCount } from "@/lib/pdf-utils";
 import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
+import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
 import { CalendarPlus } from "lucide-react";
 
 // File selection with page range
@@ -130,6 +131,9 @@ export function FolderTreeModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [zoomIndex, setZoomIndex] = useState(2); // Start at 100%
+  // Handwriting removal state
+  const [cleanedPreviewUrl, setCleanedPreviewUrl] = useState<string | null>(null);
+  const [showCleanedPreview, setShowCleanedPreview] = useState(false);
 
   // Sort state
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
@@ -686,9 +690,21 @@ export function FolderTreeModal({
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
     }
+    if (cleanedPreviewUrl) {
+      URL.revokeObjectURL(cleanedPreviewUrl);
+    }
     setPreviewUrl(null);
     setPreviewNode(null);
-  }, [previewUrl]);
+    setCleanedPreviewUrl(null);
+    setShowCleanedPreview(false);
+  }, [previewUrl, cleanedPreviewUrl]);
+
+  // Handle cleaned PDF from handwriting removal
+  const handleCleanedPdf = useCallback((url: string | null) => {
+    if (cleanedPreviewUrl) URL.revokeObjectURL(cleanedPreviewUrl);
+    setCleanedPreviewUrl(url);
+    if (url) setShowCleanedPreview(true);
+  }, [cleanedPreviewUrl]);
 
   // Use previewed file
   const handleUsePreviewedFile = useCallback(() => {
@@ -1470,6 +1486,16 @@ export function FolderTreeModal({
                 </div>
               </div>
 
+              {/* Handwriting removal toolbar */}
+              <HandwritingRemovalToolbar
+                pdfBlobUrl={previewUrl}
+                filename={previewNode?.name}
+                onCleanedPdf={handleCleanedPdf}
+                showCleaned={showCleanedPreview}
+                onToggleCleaned={() => setShowCleanedPreview(!showCleanedPreview)}
+                className="mb-2 py-2 border-b border-gray-200/50 dark:border-gray-700/50"
+              />
+
               {/* PDF iframe - overflow-auto allows internal scrolling for wide PDFs */}
               <div className="flex-1 relative bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto">
                 {previewLoading ? (
@@ -1478,7 +1504,7 @@ export function FolderTreeModal({
                   </div>
                 ) : (
                   <iframe
-                    src={previewUrl}
+                    src={showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl}
                     className="w-full h-full border-0"
                     style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }}
                     title="PDF Preview"

@@ -472,6 +472,83 @@ export const holidaysAPI = {
   },
 };
 
+// Document processing API
+export type ProcessingMode = 'conservative' | 'balanced' | 'aggressive';
+
+export interface HandwritingRemovalOptions {
+  removeBlue?: boolean;
+  removeRed?: boolean;
+  removeGreen?: boolean;
+  removePencil?: boolean;
+  pencilThreshold?: number;
+  // Black ink removal (stroke-based detection)
+  removeBlackInk?: boolean;
+  blackInkMode?: ProcessingMode;
+  // Manual stroke threshold (0 = use preset, 1-20 = manual override)
+  blackInkStrokeThreshold?: number;
+}
+
+export interface HandwritingRemovalResponse {
+  pdf_base64: string;
+  pages_processed: number;
+  success: boolean;
+  message: string;
+}
+
+export interface DocumentProcessingStatus {
+  available: boolean;
+  opencv: boolean;
+  pymupdf: boolean;
+  features: {
+    remove_colored_ink: boolean;
+    remove_pencil: boolean;
+    remove_black_ink: boolean;
+    pdf_processing: boolean;
+  };
+}
+
+export const documentProcessingAPI = {
+  /**
+   * Remove handwriting from a PDF (base64 input/output)
+   */
+  async removeHandwriting(
+    pdfBase64: string,
+    options: HandwritingRemovalOptions = {}
+  ): Promise<HandwritingRemovalResponse> {
+    const response = await fetch(`${API_BASE_URL}/document-processing/remove-handwriting`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pdf_base64: pdfBase64,
+        remove_blue: options.removeBlue ?? true,
+        remove_red: options.removeRed ?? true,
+        remove_green: options.removeGreen ?? true,
+        remove_pencil: options.removePencil ?? true,
+        pencil_threshold: options.pencilThreshold ?? 200,
+        remove_black_ink: options.removeBlackInk ?? false,
+        black_ink_mode: options.blackInkMode ?? 'balanced',
+        black_ink_stroke_threshold: options.blackInkStrokeThreshold ?? 0,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || 'Failed to remove handwriting');
+    }
+
+    return response.json();
+  },
+
+  /**
+   * Check if document processing is available
+   */
+  async getStatus(): Promise<DocumentProcessingStatus> {
+    return fetchAPI<DocumentProcessingStatus>('/document-processing/status');
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -485,4 +562,5 @@ export const api = {
   paperless: paperlessAPI,
   pathAliases: pathAliasesAPI,
   holidays: holidaysAPI,
+  documentProcessing: documentProcessingAPI,
 };
