@@ -975,7 +975,10 @@ function CoursewareBrowserTab() {
   const navigateInto = useCallback(async (node: TreeNode) => {
     if (node.kind !== "folder" || !node.handle) return;
     const dirHandle = node.handle as FileSystemDirectoryHandle;
-    const newPath = [...currentPath, node.name];
+    // At root level, use node.path which has brackets for alias folders
+    // For subfolders, use node.name (just the folder name)
+    const segment = currentPath.length === 0 ? node.path : node.name;
+    const newPath = [...currentPath, segment];
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
     await loadFolderContents(dirHandle, newPath.join("\\"), node.id);

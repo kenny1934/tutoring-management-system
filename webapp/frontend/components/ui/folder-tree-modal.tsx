@@ -31,6 +31,7 @@ import {
   verifyPermission,
   addFolder,
   removeFolder,
+  getPathMappings,
   type SavedFolder,
 } from "@/lib/file-system";
 import { getPageCount } from "@/lib/pdf-utils";
@@ -209,15 +210,22 @@ export function FolderTreeModal({
     try {
       const folders = await getSavedFolders();
 
-      // Convert to nodes
-      const nodes: TreeNode[] = folders.map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        path: folder.name,
-        kind: "folder" as const,
-        handle: folder.handle,
-        isShared: folder.isShared,
-      }));
+      // Get path mappings to determine which folders are network drive aliases
+      const mappings = await getPathMappings();
+      const aliasNames = new Set(mappings.map((m) => m.alias));
+
+      // Convert to nodes - add brackets for network drive aliases
+      const nodes: TreeNode[] = folders.map((folder) => {
+        const isAlias = aliasNames.has(folder.name);
+        return {
+          id: folder.id,
+          name: folder.name,
+          path: isAlias ? `[${folder.name}]` : folder.name,
+          kind: "folder" as const,
+          handle: folder.handle,
+          isShared: folder.isShared,
+        };
+      });
 
       // Sort: shared first, then alphabetical
       nodes.sort((a, b) => {
@@ -236,14 +244,44 @@ export function FolderTreeModal({
     }
   };
 
-  // Navigate to initial path (e.g., "Center\Math\file.pdf")
+  // Navigate to initial path (e.g., "Center\Math\file.pdf" or "[MSA Staff]\scan\file.pdf")
   const navigateToInitialPath = async (path: string) => {
     const parts = path.split("\\").filter(Boolean);
     if (parts.length === 0) return;
 
-    // Find root folder
-    const rootName = parts[0];
-    const rootFolder = rootFolders.find((f) => f.name === rootName);
+    // Get the root part (may be bracketed alias from Shelv)
+    let rootName = parts[0];
+
+    // Strip brackets from Shelv format: [MSA Staff] → MSA Staff
+    if (rootName.startsWith("[") && rootName.endsWith("]")) {
+      rootName = rootName.slice(1, -1);
+    }
+
+    // Try to find root folder directly by name first
+    let rootFolder = rootFolders.find((f) => f.name === rootName);
+
+    // If not found, check if it's an alias that maps to a saved folder
+    if (!rootFolder) {
+      try {
+        const mappings = await getPathMappings();
+        const mapping = mappings.find((m) => m.alias === rootName);
+        if (mapping) {
+          // Find root folder by drive path (e.g., mapping.drivePath = "Z:")
+          // The saved folder name might be the drive letter or the alias itself
+          rootFolder = rootFolders.find((f) => {
+            const folderNameUpper = f.name.toUpperCase();
+            const drivePathUpper = mapping.drivePath.toUpperCase().replace(":", "");
+            // Match if folder name starts with drive letter (e.g., "Z" or "Z:")
+            return folderNameUpper === drivePathUpper ||
+                   folderNameUpper === `${drivePathUpper}:` ||
+                   folderNameUpper.startsWith(`${drivePathUpper}:`);
+          });
+        }
+      } catch (err) {
+        console.warn("Failed to lookup path mappings:", err);
+      }
+    }
+
     if (!rootFolder || !rootFolder.handle) return;
 
     try {
@@ -252,9 +290,9 @@ export function FolderTreeModal({
       if (folderParts.length === 0) return;
 
       let currentDir = rootFolder.handle as FileSystemDirectoryHandle;
-      const pathSoFar: string[] = [rootName];
+      const pathSoFar: string[] = [rootFolder.name]; // Use actual folder name, not alias
 
-      // Navigate through each subfolder
+      // Navigate through each subfolder (skip the first part which is the root/alias)
       for (let i = 1; i < folderParts.length; i++) {
         const subfolderName = folderParts[i];
         try {
@@ -381,7 +419,10 @@ export function FolderTreeModal({
     if (node.kind !== "folder" || !node.handle) return;
 
     const dirHandle = node.handle as FileSystemDirectoryHandle;
-    const newPath = [...currentPath, node.name];
+    // At root level, use node.path which has brackets for alias folders
+    // For subfolders, use node.name (just the folder name)
+    const segment = currentPath.length === 0 ? node.path : node.name;
+    const newPath = [...currentPath, segment];
 
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
