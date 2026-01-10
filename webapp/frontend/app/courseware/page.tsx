@@ -850,16 +850,25 @@ function CoursewareBrowserTab() {
     setLoading(true);
     setError(null);
     try {
-      const { getSavedFolders } = await import("@/lib/file-system");
+      const { getSavedFolders, getPathMappings } = await import("@/lib/file-system");
       const folders = await getSavedFolders();
-      const nodes: TreeNode[] = folders.map((folder) => ({
-        id: folder.id,
-        name: folder.name,
-        path: folder.name,
-        kind: "folder",
-        handle: folder.handle,
-        isShared: folder.isShared,
-      }));
+
+      // Get path mappings to determine which folders are network drive aliases
+      const mappings = await getPathMappings();
+      const aliasNames = new Set(mappings.map((m) => m.alias));
+
+      // Convert to nodes - add brackets for network drive aliases
+      const nodes: TreeNode[] = folders.map((folder) => {
+        const isAlias = aliasNames.has(folder.name);
+        return {
+          id: folder.id,
+          name: folder.name,
+          path: isAlias ? `[${folder.name}]` : folder.name,
+          kind: "folder" as const,
+          handle: folder.handle,
+          isShared: folder.isShared,
+        };
+      });
       nodes.sort((a, b) => {
         if (a.isShared && !b.isShared) return -1;
         if (!a.isShared && b.isShared) return 1;
@@ -1979,9 +1988,33 @@ function CoursewareSearchTab() {
   const [previewDocId, setPreviewDocId] = useState<number | null>(null);
   const [previewDocTitle, setPreviewDocTitle] = useState<string>("");
 
+  // Session assignment
+  const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
+  const [assignSelections, setAssignSelections] = useState<{ path: string; pages: string }[]>([]);
+
+  // Multi-select state
+  const [selectedDocs, setSelectedDocs] = useState<Map<number, { path: string; title: string }>>(new Map());
+
   // Keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  // State ref for keyboard handler (avoids re-registering on every state change)
+  const stateRef = useRef({
+    results: [] as PaperlessDocument[],
+    focusedIndex: -1,
+    recentDocs: [] as RecentDocument[],
+    trendingData: null as CoursewarePopularity[] | null | undefined,
+    showHomeView: false,
+    selectedDocs: new Map() as Map<number, { path: string; title: string }>,
+  });
+
+  // Check if showing home view (no query) - moved up for stateRef
+  const showHomeView = !query.trim() && results.length === 0;
+
+  useEffect(() => {
+    stateRef.current = { results, focusedIndex, recentDocs, trendingData, showHomeView, selectedDocs };
+  });
 
   // Home view
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
@@ -2097,17 +2130,59 @@ function CoursewareSearchTab() {
   };
 
   // Handle copy path
-  const handleCopyPath = (filename: string) => {
+  const handleCopyPath = useCallback((filename: string) => {
     navigator.clipboard.writeText(filename);
     setCopiedPath(filename);
     setTimeout(() => setCopiedPath(null), 2000);
-  };
+  }, []);
 
   // Handle preview
-  const handlePreview = (docId: number, docTitle: string) => {
+  const handlePreview = useCallback((docId: number, docTitle: string) => {
     setPreviewDocId(docId);
     setPreviewDocTitle(docTitle);
-  };
+  }, []);
+
+  // Toggle document selection for multi-select
+  const toggleSelection = useCallback((doc: PaperlessDocument) => {
+    const path = doc.converted_path || doc.original_path || doc.original_file_name || doc.title;
+    setSelectedDocs(prev => {
+      const next = new Map(prev);
+      if (next.has(doc.id)) {
+        next.delete(doc.id);
+      } else {
+        next.set(doc.id, { path, title: doc.title });
+      }
+      return next;
+    });
+  }, []);
+
+  // Toggle selection for recent documents
+  const toggleSelectionRecent = useCallback((doc: RecentDocument) => {
+    setSelectedDocs(prev => {
+      const next = new Map(prev);
+      if (next.has(doc.id)) {
+        next.delete(doc.id);
+      } else {
+        next.set(doc.id, { path: doc.path, title: doc.title });
+      }
+      return next;
+    });
+  }, []);
+
+  // Toggle selection for trending items (use negative IDs to avoid collision)
+  const toggleSelectionTrending = useCallback((item: CoursewarePopularity, index: number) => {
+    const path = item.normalized_paths?.split(", ")[0] || item.filename;
+    const id = -(index + 1000); // Negative ID to avoid collision with doc IDs
+    setSelectedDocs(prev => {
+      const next = new Map(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.set(id, { path, title: item.filename });
+      }
+      return next;
+    });
+  }, []);
 
   // Handle select from preview (adds to recent)
   const handleSelectFromPreview = (docId: number, title: string, filename: string) => {
@@ -2121,7 +2196,7 @@ function CoursewareSearchTab() {
     handleCopyPath(filename);
   };
 
-  // Keyboard navigation
+  // Keyboard navigation (uses capture phase to prevent scroll interference)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Skip if in input
@@ -2129,33 +2204,117 @@ function CoursewareSearchTab() {
         return;
       }
 
-      const totalItems = results.length;
+      const { results, focusedIndex, recentDocs, trendingData, showHomeView, selectedDocs: currentSelectedDocs } = stateRef.current;
+
+      // Calculate total navigable items based on view
+      const trendingCount = trendingData?.slice(0, 10).length || 0;
+      const totalItems = showHomeView
+        ? trendingCount + recentDocs.length
+        : results.length;
+
+      // Ctrl+A / Cmd+A - select all
+      if ((e.ctrlKey || e.metaKey) && e.key === "a" && totalItems > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const newSelections = new Map(currentSelectedDocs);
+        if (showHomeView) {
+          trendingData?.slice(0, 10).forEach((item, index) => {
+            const id = -(index + 1000);
+            const path = item.normalized_paths?.split(", ")[0] || item.filename;
+            newSelections.set(id, { path, title: item.filename });
+          });
+          recentDocs.forEach(doc => {
+            newSelections.set(doc.id, { path: doc.path, title: doc.title });
+          });
+        } else {
+          results.forEach(doc => {
+            const path = doc.converted_path || doc.original_path || doc.original_file_name || doc.title;
+            newSelections.set(doc.id, { path, title: doc.title || path });
+          });
+        }
+        setSelectedDocs(newSelections);
+        return;
+      }
+
+      // Escape - clear selections
+      if (e.key === "Escape" && currentSelectedDocs.size > 0) {
+        e.preventDefault();
+        setSelectedDocs(new Map());
+        return;
+      }
+
       if (totalItems === 0) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         setFocusedIndex(prev => (prev < totalItems - 1 ? prev + 1 : prev));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         setFocusedIndex(prev => (prev > 0 ? prev - 1 : 0));
       } else if (e.key === "Enter" && focusedIndex >= 0) {
         e.preventDefault();
-        const doc = results[focusedIndex];
-        if (doc) {
-          handleCopyPath(doc.original_file_name || doc.title);
+        e.stopPropagation();
+        if (showHomeView) {
+          if (focusedIndex < trendingCount) {
+            const item = trendingData![focusedIndex];
+            const path = item.normalized_paths?.split(", ")[0] || item.filename;
+            handleCopyPath(path);
+          } else {
+            const recentDoc = recentDocs[focusedIndex - trendingCount];
+            if (recentDoc) handleCopyPath(recentDoc.path);
+          }
+        } else {
+          const doc = results[focusedIndex];
+          if (doc) {
+            handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title);
+          }
         }
       } else if (e.key === " " && focusedIndex >= 0) {
+        // Space - toggle selection
         e.preventDefault();
-        const doc = results[focusedIndex];
-        if (doc) {
-          handlePreview(doc.id, doc.title || doc.original_file_name);
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        if (showHomeView) {
+          if (focusedIndex < trendingCount) {
+            const item = trendingData![focusedIndex];
+            toggleSelectionTrending(item, focusedIndex);
+          } else {
+            const recentDoc = recentDocs[focusedIndex - trendingCount];
+            if (recentDoc) toggleSelectionRecent(recentDoc);
+          }
+        } else {
+          const doc = results[focusedIndex];
+          if (doc) toggleSelection(doc);
+        }
+      } else if ((e.key === "p" || e.key === "P") && focusedIndex >= 0) {
+        // P - preview
+        e.preventDefault();
+        e.stopPropagation();
+        if (showHomeView) {
+          if (focusedIndex < trendingCount) {
+            const item = trendingData![focusedIndex];
+            const path = item.normalized_paths?.split(", ")[0] || item.filename;
+            handlePreview(-1, path);
+          } else {
+            const recentDoc = recentDocs[focusedIndex - trendingCount];
+            if (recentDoc) handlePreview(recentDoc.id, recentDoc.path);
+          }
+        } else {
+          const doc = results[focusedIndex];
+          if (doc) {
+            handlePreview(doc.id, doc.title || doc.original_file_name);
+          }
         }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [results, focusedIndex]);
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [handleCopyPath, handlePreview, toggleSelection, toggleSelectionRecent, toggleSelectionTrending]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -2164,9 +2323,6 @@ function CoursewareSearchTab() {
       items[focusedIndex]?.scrollIntoView({ block: "nearest" });
     }
   }, [focusedIndex]);
-
-  // Check if showing home view (no query)
-  const showHomeView = !query.trim() && results.length === 0;
 
   return (
     <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border-2 border-[#d4a574] dark:border-[#8b6f47] overflow-hidden flex flex-col h-full">
@@ -2350,6 +2506,32 @@ function CoursewareSearchTab() {
         </div>
       )}
 
+      {/* Selection panel */}
+      {selectedDocs.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-green-50 dark:bg-green-900/20 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {selectedDocs.size} selected
+          </span>
+          <button
+            onClick={() => setSelectedDocs(new Map())}
+            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => {
+              const files = Array.from(selectedDocs.values()).map(d => ({ path: d.path, pages: "" }));
+              setAssignSelections(files);
+              setSessionSelectorOpen(true);
+            }}
+            className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            Assign to Sessions
+          </button>
+        </div>
+      )}
+
       {/* Content area */}
       <div ref={resultsContainerRef} className="flex-1 overflow-y-auto">
         {/* Home View - shown when no query */}
@@ -2367,41 +2549,56 @@ function CoursewareSearchTab() {
                 </div>
               ) : trendingData && trendingData.length > 0 ? (
                 <div className="space-y-1">
-                  {trendingData.slice(0, 10).map((item, index) => (
-                    <div
-                      key={item.stable_id || `trending-${index}`}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                        "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
-                        index < 3 && "bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-900/10"
-                      )}
-                      onClick={() => handleCopyPath(item.path || item.filename)}
-                    >
-                      {index < 3 && <Flame className="h-4 w-4 text-orange-500 shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {item.filename}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>{item.assignment_count}× assignments</span>
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {item.unique_students}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleCopyPath(item.path || item.filename); }}
-                        className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                      >
-                        {copiedPath === (item.path || item.filename) ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4 text-gray-400" />
+                  {trendingData.slice(0, 10).map((item, index) => {
+                    const trendingId = -(index + 1000);
+                    return (
+                      <div
+                        key={item.stable_id || `trending-${index}`}
+                        data-result-item
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                          "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                          index < 3 && "bg-gradient-to-r from-orange-50/50 to-transparent dark:from-orange-900/10",
+                          focusedIndex === index && "ring-2 ring-amber-400/50 ring-inset",
+                          selectedDocs.has(trendingId) && "bg-green-50 dark:bg-green-900/20"
                         )}
-                      </button>
-                    </div>
-                  ))}
+                        onClick={() => handleCopyPath(item.path || item.filename)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocs.has(trendingId)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelectionTrending(item, index);
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                        />
+                        {index < 3 && <Flame className="h-4 w-4 text-orange-500 shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {item.filename}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <span>{item.assignment_count}× assignments</span>
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {item.unique_students}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCopyPath(item.path || item.filename); }}
+                          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          {copiedPath === (item.path || item.filename) ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 py-4 text-center">No trending data available</p>
@@ -2424,27 +2621,45 @@ function CoursewareSearchTab() {
                   </button>
                 </div>
                 <div className="space-y-1">
-                  {recentDocs.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-                      onClick={() => handleCopyPath(doc.path)}
-                    >
-                      <FileText className="h-4 w-4 text-red-500 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {doc.title}
-                        </div>
-                        <div className="text-xs text-gray-500 truncate">{doc.path}</div>
-                      </div>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title); }}
-                        className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  {recentDocs.map((doc, index) => {
+                    const recentIndex = (trendingData?.slice(0, 10).length || 0) + index;
+                    return (
+                      <div
+                        key={doc.id}
+                        data-result-item
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                          "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                          focusedIndex === recentIndex && "ring-2 ring-amber-400/50 ring-inset",
+                          selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
+                        )}
+                        onClick={() => handleCopyPath(doc.path)}
                       >
-                        <Eye className="h-4 w-4 text-gray-400" />
-                      </button>
-                    </div>
-                  ))}
+                        <input
+                          type="checkbox"
+                          checked={selectedDocs.has(doc.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelectionRecent(doc);
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                        />
+                        <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {doc.title}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">{doc.path}</div>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title); }}
+                          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <Eye className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -2475,15 +2690,30 @@ function CoursewareSearchTab() {
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-colors cursor-pointer",
                   "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
-                  focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset"
+                  focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset",
+                  selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
                 )}
-                onClick={() => handleCopyPath(doc.original_file_name || doc.title)}
+                onClick={() => handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title)}
               >
+                <input
+                  type="checkbox"
+                  checked={selectedDocs.has(doc.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSelection(doc);
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 shrink-0"
+                />
                 <FileText className="h-5 w-5 text-red-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 dark:text-gray-100 truncate">
                     {doc.title || doc.original_file_name}
                   </div>
+                  {(doc.converted_path || doc.original_path) && (
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={doc.converted_path || doc.original_path}>
+                      {doc.converted_path || doc.original_path}
+                    </div>
+                  )}
                   {doc.correspondent_name && (
                     <div className="text-xs text-gray-500">{doc.correspondent_name}</div>
                   )}
@@ -2512,10 +2742,10 @@ function CoursewareSearchTab() {
                     <Eye className="h-4 w-4 text-gray-400" />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleCopyPath(doc.original_file_name || doc.title); }}
+                    onClick={(e) => { e.stopPropagation(); handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title); }}
                     className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                   >
-                    {copiedPath === (doc.original_file_name || doc.title) ? (
+                    {copiedPath === (doc.converted_path || doc.original_path || doc.original_file_name || doc.title) ? (
                       <Check className="h-3 w-3 text-green-500" />
                     ) : (
                       <Copy className="h-3 w-3" />
@@ -2571,16 +2801,28 @@ function CoursewareSearchTab() {
         onClose={() => setPreviewDocId(null)}
         documentId={previewDocId}
         documentTitle={previewDocTitle}
-        onSelect={() => {
+        onAssign={() => {
           if (previewDocId) {
             const doc = results.find(d => d.id === previewDocId) || recentDocs.find(d => d.id === previewDocId);
             if (doc) {
               const filename = "original_file_name" in doc ? doc.original_file_name : doc.path;
-              const title = doc.title;
-              handleSelectFromPreview(previewDocId, title, filename || title);
+              setAssignSelections([{ path: filename || doc.title, pages: "" }]);
+              setSessionSelectorOpen(true);
             }
           }
           setPreviewDocId(null);
+        }}
+      />
+
+      {/* Session Selector Modal */}
+      <SessionSelectorModal
+        isOpen={sessionSelectorOpen}
+        onClose={() => setSessionSelectorOpen(false)}
+        files={assignSelections}
+        onAssignComplete={() => {
+          setSessionSelectorOpen(false);
+          setAssignSelections([]);
+          setSelectedDocs(new Map());
         }}
       />
     </div>
