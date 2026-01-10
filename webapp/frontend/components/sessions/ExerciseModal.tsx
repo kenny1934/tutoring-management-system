@@ -858,6 +858,17 @@ export function ExerciseModal({
           </span>
         </div>
 
+        {/* Trending Section - Loading Skeleton */}
+        {trendingLoading && (
+          <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-50 to-white dark:from-orange-900/20 dark:to-[#1a1a1a]">
+              <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            </div>
+          </div>
+        )}
+
         {/* Compact Trending Section */}
         {!trendingLoading && trendingData && trendingData.length > 0 && (
           <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
