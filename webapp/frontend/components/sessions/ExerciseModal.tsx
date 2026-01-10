@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session, PageSelection, CoursewarePopularity } from "@/types";
 import Link from "next/link";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
@@ -244,6 +244,7 @@ export function ExerciseModal({
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   // Drag-drop file search state
   const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
@@ -898,7 +899,12 @@ export function ExerciseModal({
     setPrintAllState('loading');
     const stamp = buildStampInfo();
 
-    const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath);
+    // Build title (same format as download filename)
+    const dateStr = session.session_date.replace(/-/g, '');
+    const studentName = session.student_name.replace(/\s+/g, '_');
+    const printTitle = `${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}`;
+
+    const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath, printTitle);
     if (error) {
       console.warn('Failed to print all files:', error);
       setPrintAllState('error');
@@ -906,7 +912,33 @@ export function ExerciseModal({
     } else {
       setPrintAllState('idle');
     }
-  }, [exercises, printAllState, buildStampInfo, searchPaperlessByPath]);
+  }, [exercises, printAllState, buildStampInfo, session, exerciseType, searchPaperlessByPath]);
+
+  // Handle download all exercises in one combined file
+  const handleDownloadAll = useCallback(async () => {
+    if (downloadAllState === 'loading') return;
+
+    // Filter exercises that have PDF paths
+    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    if (exercisesWithPdfs.length === 0) return;
+
+    setDownloadAllState('loading');
+    const stamp = buildStampInfo();
+
+    // Build filename: CW_1978_John_Doe_20260110.pdf
+    const dateStr = session.session_date.replace(/-/g, '');
+    const studentName = session.student_name.replace(/\s+/g, '_');
+    const filename = `${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
+
+    const error = await downloadBulkFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
+    if (error) {
+      console.warn('Failed to download all files:', error);
+      setDownloadAllState('error');
+      setTimeout(() => setDownloadAllState('idle'), 2000);
+    } else {
+      setDownloadAllState('idle');
+    }
+  }, [exercises, downloadAllState, buildStampInfo, session, exerciseType, searchPaperlessByPath]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -1305,27 +1337,48 @@ export function ExerciseModal({
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center">
-          {/* Print All Button - only show if there are exercises with PDFs */}
+          {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
           {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
-            <button
-              type="button"
-              onClick={handlePrintAll}
-              disabled={printAllState === 'loading'}
-              className={cn(
-                "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
-                "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
-                printAllState === 'loading' && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {printAllState === 'loading' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : printAllState === 'error' ? (
-                <XCircle className="h-4 w-4" />
-              ) : (
-                <Printer className="h-4 w-4" />
-              )}
-              Print All
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handlePrintAll}
+                disabled={printAllState === 'loading'}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
+                  printAllState === 'loading' && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {printAllState === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : printAllState === 'error' ? (
+                  <XCircle className="h-4 w-4" />
+                ) : (
+                  <Printer className="h-4 w-4" />
+                )}
+                Print All
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadAll}
+                disabled={downloadAllState === 'loading'}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
+                  downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {downloadAllState === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : downloadAllState === 'error' ? (
+                  <XCircle className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download All
+              </button>
+            </div>
           ) : (
             <div /> // Spacer
           )}

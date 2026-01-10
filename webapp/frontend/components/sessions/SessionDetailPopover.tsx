@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -33,6 +33,8 @@ import {
   isFileSystemAccessSupported,
   openFileFromPathWithFallback,
   printFileFromPathWithFallback,
+  printBulkFiles,
+  downloadBulkFiles,
 } from "@/lib/file-system";
 
 // Grade tag colors
@@ -194,13 +196,103 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
 }
 
 // Exercises list component
-function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number }> }) {
+function ExercisesList({ exercises, session }: {
+  exercises: Array<{ exercise_type: string; pdf_name: string; page_start?: number; page_end?: number }>;
+  session: Session;
+}) {
+  const [cwPrintState, setCwPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [cwDownloadState, setCwDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [hwPrintState, setHwPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [hwDownloadState, setHwDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
+
   const cwExercises = exercises.filter(
     (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
   );
   const hwExercises = exercises.filter(
     (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
   );
+
+  // Generate filename components
+  const studentName = (session.student_name || 'Unknown').replace(/\s+/g, '_');
+  const dateStr = session.session_date?.replace(/-/g, '') || '';
+
+  // Paperless search callback for fallback
+  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
+    try {
+      const response = await api.paperless.search(searchPath, 1, 'all');
+      if (response.results.length > 0) {
+        return response.results[0].id;
+      }
+    } catch (error) {
+      console.warn('Paperless search failed:', error);
+    }
+    return null;
+  }, []);
+
+  const handlePrintAll = async (type: 'CW' | 'HW') => {
+    const setLoading = type === 'CW' ? setCwPrintState : setHwPrintState;
+    const exerciseList = type === 'CW' ? cwExercises : hwExercises;
+
+    if (exerciseList.length === 0) return;
+    setLoading('loading');
+
+    const bulkExercises = exerciseList.map(ex => ({
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_start,
+      page_end: ex.page_end,
+    }));
+
+    const title = `${type}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
+    const stamp = {
+      location: session.location,
+      schoolStudentId: session.school_student_id,
+      studentName: session.student_name,
+      sessionDate: session.session_date,
+      sessionTime: session.time_slot,
+    };
+
+    const error = await printBulkFiles(bulkExercises, stamp, searchPaperlessByPath, title);
+    if (error) {
+      console.warn('Failed to print all:', error);
+      setLoading('error');
+      setTimeout(() => setLoading('idle'), 2000);
+    } else {
+      setLoading('idle');
+    }
+  };
+
+  const handleDownloadAll = async (type: 'CW' | 'HW') => {
+    const setLoading = type === 'CW' ? setCwDownloadState : setHwDownloadState;
+    const exerciseList = type === 'CW' ? cwExercises : hwExercises;
+
+    if (exerciseList.length === 0) return;
+    setLoading('loading');
+
+    const bulkExercises = exerciseList.map(ex => ({
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_start,
+      page_end: ex.page_end,
+    }));
+
+    const filename = `${type}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
+    const stamp = {
+      location: session.location,
+      schoolStudentId: session.school_student_id,
+      studentName: session.student_name,
+      sessionDate: session.session_date,
+      sessionTime: session.time_slot,
+    };
+
+    const error = await downloadBulkFiles(bulkExercises, filename, stamp, searchPaperlessByPath);
+    if (error) {
+      console.warn('Failed to download all:', error);
+      setLoading('error');
+      setTimeout(() => setLoading('idle'), 2000);
+    } else {
+      setLoading('idle');
+    }
+  };
 
   return (
     <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -209,6 +301,38 @@ function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
             <PenTool className="h-3 w-3 text-red-500" />
             <span className="text-xs font-medium">Classwork</span>
+            {canBrowseFiles && cwExercises.length > 0 && (
+              <div className="flex items-center gap-0.5 ml-auto">
+                <button
+                  onClick={() => handlePrintAll('CW')}
+                  disabled={cwPrintState === 'loading'}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  title="Print All CW"
+                >
+                  {cwPrintState === 'loading' ? (
+                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                  ) : cwPrintState === 'error' ? (
+                    <XCircle className="h-3 w-3 text-red-500" />
+                  ) : (
+                    <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+                  )}
+                </button>
+                <button
+                  onClick={() => handleDownloadAll('CW')}
+                  disabled={cwDownloadState === 'loading'}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  title="Download All CW"
+                >
+                  {cwDownloadState === 'loading' ? (
+                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                  ) : cwDownloadState === 'error' ? (
+                    <XCircle className="h-3 w-3 text-red-500" />
+                  ) : (
+                    <Download className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
           <div className="space-y-0.5 pl-4">
             {cwExercises.map((ex, i) => (
@@ -222,6 +346,38 @@ function ExercisesList({ exercises }: { exercises: Array<{ exercise_type: string
           <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400 mb-1">
             <Home className="h-3 w-3 text-blue-500" />
             <span className="text-xs font-medium">Homework</span>
+            {canBrowseFiles && hwExercises.length > 0 && (
+              <div className="flex items-center gap-0.5 ml-auto">
+                <button
+                  onClick={() => handlePrintAll('HW')}
+                  disabled={hwPrintState === 'loading'}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  title="Print All HW"
+                >
+                  {hwPrintState === 'loading' ? (
+                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                  ) : hwPrintState === 'error' ? (
+                    <XCircle className="h-3 w-3 text-red-500" />
+                  ) : (
+                    <Printer className="h-3 w-3 text-gray-400 hover:text-green-500" />
+                  )}
+                </button>
+                <button
+                  onClick={() => handleDownloadAll('HW')}
+                  disabled={hwDownloadState === 'loading'}
+                  className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                  title="Download All HW"
+                >
+                  {hwDownloadState === 'loading' ? (
+                    <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
+                  ) : hwDownloadState === 'error' ? (
+                    <XCircle className="h-3 w-3 text-red-500" />
+                  ) : (
+                    <Download className="h-3 w-3 text-gray-400 hover:text-blue-500" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
           <div className="space-y-0.5 pl-4">
             {hwExercises.map((ex, i) => (
@@ -853,7 +1009,7 @@ export function SessionDetailPopover({
 
           {/* Exercises (CW/HW) */}
           {session.exercises && session.exercises.length > 0 && (
-            <ExercisesList exercises={session.exercises} />
+            <ExercisesList exercises={session.exercises} session={session} />
           )}
         </div>
 
