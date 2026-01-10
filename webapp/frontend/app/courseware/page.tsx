@@ -56,6 +56,7 @@ import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type Recen
 import { FolderTreeModal, type FileSelection, validatePageInput } from "@/components/ui/folder-tree-modal";
 import { getPageCount } from "@/lib/pdf-utils";
 import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
+import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
 import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
@@ -830,6 +831,9 @@ function CoursewareBrowserTab() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [zoomIndex, setZoomIndex] = useState(2);
+  // Handwriting removal state
+  const [cleanedPreviewUrl, setCleanedPreviewUrl] = useState<string | null>(null);
+  const [showCleanedPreview, setShowCleanedPreview] = useState(false);
 
   const ZOOM_LEVELS = [50, 75, 100, 125, 150, 200];
   const currentZoom = ZOOM_LEVELS[zoomIndex];
@@ -1204,9 +1208,19 @@ function CoursewareBrowserTab() {
 
   const handleClosePreview = useCallback(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (cleanedPreviewUrl) URL.revokeObjectURL(cleanedPreviewUrl);
     setPreviewUrl(null);
     setPreviewNode(null);
-  }, [previewUrl]);
+    setCleanedPreviewUrl(null);
+    setShowCleanedPreview(false);
+  }, [previewUrl, cleanedPreviewUrl]);
+
+  // Handle cleaned PDF from handwriting removal
+  const handleCleanedPdf = useCallback((url: string | null) => {
+    if (cleanedPreviewUrl) URL.revokeObjectURL(cleanedPreviewUrl);
+    setCleanedPreviewUrl(url);
+    if (url) setShowCleanedPreview(true);
+  }, [cleanedPreviewUrl]);
 
   const handleOpenInNewTab = useCallback(async () => {
     if (previewNode?.handle) {
@@ -1842,6 +1856,15 @@ function CoursewareBrowserTab() {
               </button>
             </div>
           </div>
+          {/* Handwriting removal toolbar */}
+          <HandwritingRemovalToolbar
+            pdfBlobUrl={previewUrl}
+            filename={previewNode?.name}
+            onCleanedPdf={handleCleanedPdf}
+            showCleaned={showCleanedPreview}
+            onToggleCleaned={() => setShowCleanedPreview(!showCleanedPreview)}
+            className="mb-2 py-2 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+          />
           <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto relative">
             {previewLoading ? (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -1849,7 +1872,7 @@ function CoursewareBrowserTab() {
               </div>
             ) : (
               <iframe
-                src={previewUrl}
+                src={showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl}
                 className="w-full h-full border-0"
                 style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }}
                 title="PDF Preview"
