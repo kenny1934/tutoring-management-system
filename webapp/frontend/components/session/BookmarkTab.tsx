@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import { History, Star, Home, ChevronDown, ChevronRight, BookOpen, Copy, Check, X } from "lucide-react";
+import { History, Star, Home, ChevronDown, ChevronRight, BookOpen, Copy, Check, X, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import type { Session, HomeworkCompletion } from "@/types";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -95,6 +96,14 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
           <div className="flex items-center gap-2 mb-4 pb-3 border-b-2 border-dashed border-[#d4a574]/30">
             <History className="h-4 w-4 text-[#8b6f47]" />
             <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Previous Session</h3>
+            <Link
+              href={`/sessions/${previousSession.id}`}
+              target="_blank"
+              className="p-1 rounded hover:bg-[#d4a574]/20 ml-auto"
+              title="Open previous session"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-[#8b6f47]" />
+            </Link>
           </div>
 
           {/* Date and Status */}
@@ -157,7 +166,7 @@ export function BookmarkTab({ previousSession, homeworkToCheck = [] }: BookmarkT
           {/* Notes Preview */}
           {previousSession.notes && (
             <div className="mb-3">
-              <p className="text-xs text-muted-foreground mb-2">Session Notes</p>
+              <p className="text-xs text-muted-foreground mb-2">Comments</p>
               <div className="p-3 bg-background/50 rounded border border-border/50">
                 <p className="text-xs leading-relaxed line-clamp-4 text-foreground/80 italic">
                   {previousSession.notes}
