@@ -254,6 +254,26 @@ async def get_session_detail(
 
         session_data.previous_session = prev_session_data
 
+    # Navigation: previous session (most recent non-cancelled session before current)
+    nav_previous = db.query(SessionLog).filter(
+        SessionLog.student_id == session.student_id,
+        SessionLog.session_date < session.session_date,
+        SessionLog.session_status.in_(['Scheduled', 'Make-up Class', 'Trial Class', 'Attended', 'Attended (Make-up)'])
+    ).order_by(SessionLog.session_date.desc(), SessionLog.time_slot.desc()).first()
+
+    if nav_previous:
+        session_data.nav_previous_id = nav_previous.id
+
+    # Navigation: next session (next valid session after current)
+    nav_next = db.query(SessionLog).filter(
+        SessionLog.student_id == session.student_id,
+        SessionLog.session_date > session.session_date,
+        SessionLog.session_status.in_(['Scheduled', 'Make-up Class', 'Trial Class', 'Attended', 'Attended (Make-up)'])
+    ).order_by(SessionLog.session_date.asc(), SessionLog.time_slot.asc()).first()
+
+    if nav_next:
+        session_data.nav_next_id = nav_next.id
+
     # Load linked sessions (rescheduled_to and make_up_for)
     if session.rescheduled_to_id:
         linked = db.query(SessionLog).options(
