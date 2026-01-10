@@ -356,6 +356,12 @@ async def get_activity_feed(
         if s.student:
             grade_desc = f"{s.student.grade or ''}{s.student.lang_stream or ''}".strip()
 
+        # Use attendance_mark_time for completed sessions, fall back to last_modified_time
+        if event_type in ('session_attended', 'makeup_completed') and s.attendance_mark_time:
+            event_timestamp = s.attendance_mark_time
+        else:
+            event_timestamp = s.last_modified_time
+
         events.append(ActivityEvent(
             id=f"session_{s.id}",
             type=event_type,
@@ -364,7 +370,7 @@ async def get_activity_feed(
             school_student_id=s.student.school_student_id if s.student else None,
             location=s.location,
             description=grade_desc if grade_desc else None,
-            timestamp=s.last_modified_time,
+            timestamp=event_timestamp,
             link=f"/sessions/{s.id}"
         ))
 
