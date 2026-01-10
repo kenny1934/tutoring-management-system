@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Search, FileText, Loader2, AlertCircle, Check, Eye, EyeOff, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink } from "lucide-react";
+import { Search, FileText, Loader2, AlertCircle, Check, Eye, EyeOff, Tag, ChevronDown, X, Trash2, Square, CheckSquare, TrendingUp, Flame, User, Info, ChevronUp, ExternalLink, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, type PaperlessDocument, type PaperlessSearchMode, type PaperlessTag, type PaperlessTagMatchMode } from "@/lib/api";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
+import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
 import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
 import { setPaperlessPathCache } from "@/lib/file-system";
@@ -964,6 +965,8 @@ export function PaperlessSearchModal({
                                 )}
                               </button>
                             )}
+                            {/* Copy path button */}
+                            <CopyPathButton paths={item.normalized_paths} filename={item.filename} />
                             {/* Info/details button */}
                             <button
                               onClick={(e) => {
