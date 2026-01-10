@@ -162,6 +162,8 @@ export interface Session {
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];
   previous_session?: Session;
+  nav_previous_id?: number;
+  nav_next_id?: number;
 }
 
 // Dashboard stats types

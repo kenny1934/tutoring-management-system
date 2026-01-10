@@ -12,6 +12,8 @@ import {
   Info,
   GraduationCap,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
@@ -426,6 +428,31 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
               iconColor={action.id === 'cw' ? '#ef4444' : action.id === 'hw' ? '#3b82f6' : undefined}
             />
           ))}
+
+          {/* Spacer to push nav buttons right */}
+          <div className="flex-1" />
+
+          {/* Session Navigation */}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {session.nav_previous_id && (
+              <Link
+                href={`/sessions/${session.nav_previous_id}`}
+                className="p-1.5 rounded-full bg-[#6b5a3a]/50 hover:bg-[#6b5a3a] transition-colors"
+                title="Previous session"
+              >
+                <ChevronLeft className="h-4 w-4 text-white/80" />
+              </Link>
+            )}
+            {session.nav_next_id && (
+              <Link
+                href={`/sessions/${session.nav_next_id}`}
+                className="p-1.5 rounded-full bg-[#6b5a3a]/50 hover:bg-[#6b5a3a] transition-colors"
+                title="Next session"
+              >
+                <ChevronRight className="h-4 w-4 text-white/80" />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

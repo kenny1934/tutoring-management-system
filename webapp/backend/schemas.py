@@ -254,6 +254,8 @@ class DetailedSessionResponse(SessionResponse):
     exercises: List[SessionExerciseResponse] = []
     homework_completion: List[HomeworkCompletionResponse] = []
     previous_session: Optional['DetailedSessionResponse'] = None
+    nav_previous_id: Optional[int] = None
+    nav_next_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
