@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import Fuse from "fuse.js";
 import {
   Folder,
   FolderOpen,
@@ -24,6 +25,7 @@ import {
   X,
   AlertTriangle,
   RefreshCw,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -171,6 +173,10 @@ export function FolderTreeModal({
 
   // Session selector modal state
   const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
+
+  // Search/filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Load root folders when modal opens
   useEffect(() => {
@@ -424,6 +430,7 @@ export function FolderTreeModal({
     const segment = currentPath.length === 0 ? node.path : node.name;
     const newPath = [...currentPath, segment];
 
+    setSearchQuery(""); // Clear search when navigating
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
     await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
@@ -436,6 +443,7 @@ export function FolderTreeModal({
 
   // Navigate via breadcrumb
   const navigateTo = useCallback(async (index: number) => {
+    setSearchQuery(""); // Clear search when navigating
     if (index === -1) {
       // Go to root
       setCurrentPath([]);
@@ -449,8 +457,11 @@ export function FolderTreeModal({
     // Find the handle for this path
     let handle: FileSystemDirectoryHandle | null = null;
 
-    // Start from root folder
-    const rootName = newPath[0];
+    // Start from root folder - strip brackets if present
+    let rootName = newPath[0];
+    if (rootName.startsWith("[") && rootName.endsWith("]")) {
+      rootName = rootName.slice(1, -1);
+    }
     const rootFolder = rootFolders.find((f) => f.name === rootName);
     if (!rootFolder || !rootFolder.handle) return;
 
@@ -549,7 +560,20 @@ export function FolderTreeModal({
   }, []);
 
   // Sort current contents - needed early for click/keyboard handlers
-  const sortedContents = sortNodes(currentContents);
+  const sortedContentsRaw = sortNodes(currentContents);
+
+  // Fuzzy filter when search query is active
+  const fuseOptions = useMemo(() => ({
+    keys: ["name"],
+    threshold: 0.4, // 0 = exact, 1 = match anything
+    ignoreLocation: true,
+  }), []);
+
+  const sortedContents = useMemo(() => {
+    if (!searchQuery.trim()) return sortedContentsRaw;
+    const fuse = new Fuse(sortedContentsRaw, fuseOptions);
+    return fuse.search(searchQuery).map((result) => result.item);
+  }, [sortedContentsRaw, searchQuery, fuseOptions]);
 
   // Load file dates lazily when sorting by date
   useEffect(() => {
@@ -791,6 +815,22 @@ export function FolderTreeModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F or / to focus search
+      if ((e.ctrlKey && e.key === "f") || (e.key === "/" && !(e.target instanceof HTMLInputElement))) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      // Escape in search input clears it and unfocuses
+      if (e.key === "Escape" && e.target === searchInputRef.current) {
+        e.preventDefault();
+        setSearchQuery("");
+        searchInputRef.current?.blur();
+        return;
+      }
+
       // Don't handle if user is typing in a text input (but allow checkboxes)
       if (e.target instanceof HTMLInputElement && e.target.type !== "checkbox") {
         return;
@@ -1144,7 +1184,7 @@ export function FolderTreeModal({
                   </div>
                 </div>
 
-                {/* Row 2: Sort + Item count */}
+                {/* Row 2: Sort + Search + Item count */}
                 <div className="flex items-center gap-3">
                   <select
                     value={sortBy}
@@ -1156,16 +1196,41 @@ export function FolderTreeModal({
                     <option value="date-desc">Newest first</option>
                     <option value="date-asc">Oldest first</option>
                   </select>
+
+                  {/* Search input */}
+                  <div className="relative flex-1 max-w-[200px]">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder="Filter... (Ctrl+F)"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        title="Clear search"
+                      >
+                        <X className="h-3 w-3 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+
                   {loadingDates && (
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
                   )}
-                  {sortedContents.length > 0 && (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {hasMore
+                  <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                    {searchQuery.trim()
+                      ? `${sortedContents.length} of ${sortedContentsRaw.length} items`
+                      : hasMore
                         ? `${displayedContents.length} of ${sortedContents.length} items`
-                        : `${sortedContents.length} item${sortedContents.length !== 1 ? "s" : ""}`}
-                    </span>
-                  )}
+                        : sortedContents.length > 0
+                          ? `${sortedContents.length} item${sortedContents.length !== 1 ? "s" : ""}`
+                          : ""}
+                  </span>
                 </div>
 
                 {/* Selection panel - shows when files selected with page range inputs */}
