@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -50,6 +50,7 @@ export function RateSessionModal({
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Reset form only when modal first opens, not on session changes
   useEffect(() => {
@@ -63,7 +64,7 @@ export function RateSessionModal({
     }
   }, [isOpen, session]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     const sessionId = session.id;
     const currentRating = rating;
     const currentNotes = notes;
@@ -99,7 +100,53 @@ export function RateSessionModal({
       console.error("Failed to save rating:", error);
       // Could rollback cache or show toast here
     }
-  };
+  }, [session, rating, notes, onClose, onSave]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if focused on textarea (allow normal typing)
+      const isTextarea = (e.target as HTMLElement)?.tagName === 'TEXTAREA';
+
+      // Cmd/Ctrl+Enter - Save (works even in textarea)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleSave();
+        return;
+      }
+
+      // Skip remaining shortcuts if in textarea
+      if (isTextarea) return;
+
+      // Number keys 1-5 - Set rating
+      if (e.key >= '1' && e.key <= '5') {
+        e.preventDefault();
+        setRating(parseInt(e.key, 10));
+        return;
+      }
+
+      // 0 or Backspace - Clear rating
+      if (e.key === '0' || e.key === 'Backspace') {
+        e.preventDefault();
+        setRating(0);
+        return;
+      }
+
+      // Tab - Focus comment textarea
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        textareaRef.current?.focus();
+        return;
+      }
+    };
+
+    // Use capture phase to intercept before modal's handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, handleSave]);
 
   const inputClass = cn(
     "w-full px-3 py-2 rounded-md border",
@@ -124,13 +171,38 @@ export function RateSessionModal({
       }
       size="md"
       footer={
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save Changes
-          </Button>
+        <div className="space-y-2">
+          {/* Keyboard shortcuts hint */}
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">1-5</kbd>
+              <span>rate</span>
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">0</kbd>
+              <span>clear</span>
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Tab</kbd>
+              <span>comment</span>
+            </span>
+            <span className="text-gray-300 dark:text-gray-600">·</span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
+              <span>save</span>
+            </span>
+          </div>
+          {/* Buttons */}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              Save Changes
+            </Button>
+          </div>
         </div>
       }
     >
@@ -191,6 +263,7 @@ export function RateSessionModal({
             Comments
           </label>
           <textarea
+            ref={textareaRef}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Add comments..."
