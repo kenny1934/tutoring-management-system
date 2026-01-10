@@ -21,7 +21,7 @@ SYNC_TTL_MINUTES = int(os.getenv("CALENDAR_SYNC_TTL_MINUTES", "15"))
 # Examples: "TIS F2 Test", "PCMS F4(A) Exam", "SRL-E F3 Quiz"
 # Supports: F4(A), F4A, F4 Art, F4 Science, F4 Commerce
 EVENT_TITLE_PATTERN = re.compile(
-    r'^([A-Z\-]+)\s+(F[1-6](?:\([ASC]\))?(?:[ASC])?(?:\s+(?:Art|Science|Commerce))?)\s+(.+)$',
+    r'^([A-Z0-9\-]+)\s+(F[1-6](?:\([ASC]\))?(?:[ASC])?(?:\s+(?:Art|Science|Commerce))?)\s+(.+)$',
     re.IGNORECASE
 )
 
