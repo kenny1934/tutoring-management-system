@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -14,7 +14,7 @@ import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-moda
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { CopyPathButton } from "@/components/ui/copy-path-button";
-import { useCoursewarePopularity, useCoursewareUsageDetail } from "@/lib/hooks";
+import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
 
@@ -114,6 +114,92 @@ interface ExerciseModalProps {
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
 }
 
+// Component for displaying exercise items in Recap section with action buttons
+function RecapExerciseItem({ pdfName, pageStart, pageEnd }: {
+  pdfName: string;
+  pageStart?: number;
+  pageEnd?: number;
+}) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [canBrowseFiles, setCanBrowseFiles] = useState(false);
+
+  useEffect(() => {
+    setCanBrowseFiles(isFileSystemAccessSupported());
+  }, []);
+
+  // Parse display name from full path
+  const displayName = pdfName.includes('/') || pdfName.includes('\\')
+    ? pdfName.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || pdfName
+    : pdfName.replace(/\.[^.]+$/, '');
+
+  const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
+    ? `(p${pageStart}-${pageEnd})`
+    : pageStart ? `(p${pageStart})` : null;
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(pdfName);
+    setCopyState('copied');
+    setTimeout(() => setCopyState('idle'), 1500);
+  };
+
+  const handleOpen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpenState('loading');
+    try {
+      await openFileFromPathWithFallback(pdfName);
+      setOpenState('idle');
+    } catch {
+      setOpenState('error');
+      setTimeout(() => setOpenState('idle'), 2000);
+    }
+  };
+
+  const handlePrint = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPrintState('loading');
+    try {
+      await printFileFromPathWithFallback(pdfName, pageStart, pageEnd);
+      setPrintState('idle');
+    } catch {
+      setPrintState('error');
+      setTimeout(() => setPrintState('idle'), 2000);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs min-w-0">
+      <span className="truncate text-gray-700 dark:text-gray-300 min-w-0" title={pdfName}>
+        {displayName}
+      </span>
+      {pageInfo && <span className="text-gray-500 flex-shrink-0">{pageInfo}</span>}
+
+      {/* Copy button */}
+      <button onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
+        {copyState === 'copied' ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3 text-gray-400" />}
+      </button>
+
+      {/* Open/Print buttons - only if file system supported */}
+      {canBrowseFiles && (
+        <>
+          <button onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Open file">
+            {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
+             openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
+             <ExternalLink className="h-3 w-3 text-gray-400" />}
+          </button>
+          <button onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Print file">
+            {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
+             printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
+             <Printer className="h-3 w-3 text-gray-400" />}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function ExerciseModal({
   session,
   exerciseType,
@@ -152,6 +238,25 @@ export function ExerciseModal({
   const [unavailableTrending, setUnavailableTrending] = useState<Set<string>>(new Set());
   const [checkingPreview, setCheckingPreview] = useState<Set<string>>(new Set());
   const [detailItem, setDetailItem] = useState<CoursewarePopularity | null>(null);
+
+  // Recap section state
+  const [recapExpanded, setRecapExpanded] = useState(false);
+
+  // Fetch detailed session data for recap (previous session, homework completion)
+  const { data: detailedSession, isLoading: isLoadingDetails } = useSession(session?.id ?? 0);
+
+  // Compute recap data
+  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
+    hw => !hw.completion_status || hw.completion_status === "Not Checked"
+  ).length || 0;
+
+  const starCount = detailedSession?.previous_session?.performance_rating
+    ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length
+    : 0;
+
+  const prevClasswork = detailedSession?.previous_session?.exercises?.filter(
+    ex => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  ) || [];
 
   // Fetch trending courseware for this grade/school
   const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity(
@@ -857,6 +962,116 @@ export function ExerciseModal({
             {new Date(session.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} | {session.time_slot}
           </span>
         </div>
+
+        {/* Recap Section (Previous Session + Homework to Check) */}
+        {isLoadingDetails ? (
+          <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="h-3.5 w-3.5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            </div>
+          </div>
+        ) : (detailedSession?.previous_session || (detailedSession?.homework_completion && detailedSession.homework_completion.length > 0)) && (
+          <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRecapExpanded(!recapExpanded)}
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 text-left transition-colors",
+                "bg-gradient-to-r from-purple-50 to-white dark:from-purple-900/20 dark:to-[#1a1a1a]",
+                "hover:from-purple-100 hover:to-white dark:hover:from-purple-900/30 dark:hover:to-[#1a1a1a]"
+              )}
+            >
+              <History className="h-3.5 w-3.5 text-purple-600" />
+              <span className="text-xs text-gray-600 dark:text-gray-300">Recap</span>
+              {(prevClasswork.length > 0 || uncheckedHwCount > 0) && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full">
+                  {prevClasswork.length > 0 && `${prevClasswork.length} CW`}
+                  {prevClasswork.length > 0 && uncheckedHwCount > 0 && ' · '}
+                  {uncheckedHwCount > 0 && `${uncheckedHwCount} HW`}
+                </span>
+              )}
+              {recapExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-gray-400 ml-auto" />
+              )}
+            </button>
+
+            {recapExpanded && (
+              <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] px-3 py-2 space-y-2">
+                {/* Previous Session Info */}
+                {detailedSession?.previous_session && (
+                  <div className="text-xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/sessions/${detailedSession.previous_session.id}`}
+                          target="_blank"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {new Date(detailedSession.previous_session.session_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {detailedSession.previous_session.time_slot && (
+                            <span className="text-gray-500 dark:text-gray-400 ml-1">· {detailedSession.previous_session.time_slot}</span>
+                          )}
+                        </Link>
+                        <Link
+                          href={`/sessions/${detailedSession.previous_session.id}`}
+                          target="_blank"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                          title="Open in new tab"
+                        >
+                          <ExternalLink className="h-3 w-3 text-gray-400" />
+                        </Link>
+                      </div>
+                      {detailedSession.previous_session.performance_rating && (
+                        <div className="flex">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-400" : "text-gray-300")} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Previous CW */}
+                    {prevClasswork.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        <span className="text-gray-500 text-[10px]">Classwork:</span>
+                        {prevClasswork.map((ex, i) => (
+                          <RecapExerciseItem key={i} pdfName={ex.pdf_name} pageStart={ex.page_start} pageEnd={ex.page_end} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Homework to Check */}
+                {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
+                  <div className="text-xs space-y-0.5">
+                    <span className="text-gray-500 text-[10px]">HW to check:</span>
+                    {detailedSession.homework_completion.map((hw, i) => (
+                      <div key={i} className="flex items-center gap-1.5">
+                        <span className={cn(
+                          "text-[9px] px-1 rounded flex-shrink-0",
+                          hw.completion_status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          hw.completion_status === 'Partially Completed' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        )}>
+                          {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
+                        </span>
+                        {hw.pdf_name ? (
+                          <RecapExerciseItem pdfName={hw.pdf_name} />
+                        ) : (
+                          <span className="text-gray-500 italic">No PDF</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Trending Section - Loading Skeleton */}
         {trendingLoading && (
