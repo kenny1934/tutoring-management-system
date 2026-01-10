@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import React, { useState, useEffect, useCallback, useRef, Fragment, useMemo } from "react";
+import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
@@ -826,6 +827,10 @@ function CoursewareBrowserTab() {
   // Session selector modal
   const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
 
+  // Search/filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Preview state
   const [previewNode, setPreviewNode] = useState<TreeNode | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -979,6 +984,7 @@ function CoursewareBrowserTab() {
     // For subfolders, use node.name (just the folder name)
     const segment = currentPath.length === 0 ? node.path : node.name;
     const newPath = [...currentPath, segment];
+    setSearchQuery(""); // Clear search when navigating
     setCurrentPath(newPath);
     setCurrentHandle(dirHandle);
     await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
@@ -987,6 +993,7 @@ function CoursewareBrowserTab() {
 
   // Navigate via breadcrumb
   const navigateTo = useCallback(async (index: number) => {
+    setSearchQuery(""); // Clear search when navigating
     if (index === -1) {
       setCurrentPath([]);
       setCurrentHandle(null);
@@ -996,7 +1003,11 @@ function CoursewareBrowserTab() {
 
     const newPath = currentPath.slice(0, index + 1);
     let handle: FileSystemDirectoryHandle | null = null;
-    const rootName = newPath[0];
+    // Strip brackets if present: [Center] → Center
+    let rootName = newPath[0];
+    if (rootName.startsWith("[") && rootName.endsWith("]")) {
+      rootName = rootName.slice(1, -1);
+    }
     const rootFolder = rootFolders.find((f) => f.name === rootName);
     if (!rootFolder || !rootFolder.handle) return;
 
@@ -1028,7 +1039,20 @@ function CoursewareBrowserTab() {
     });
   }, [sortBy]);
 
-  const sortedContents = sortNodes(currentContents);
+  const sortedContentsRaw = sortNodes(currentContents);
+
+  // Fuzzy filter when search query is active
+  const fuseOptions = useMemo(() => ({
+    keys: ["name"],
+    threshold: 0.4,
+    ignoreLocation: true,
+  }), []);
+
+  const sortedContents = useMemo(() => {
+    if (!searchQuery.trim()) return sortedContentsRaw;
+    const fuse = new Fuse(sortedContentsRaw, fuseOptions);
+    return fuse.search(searchQuery).map((result) => result.item);
+  }, [sortedContentsRaw, searchQuery, fuseOptions]);
 
   // Load file dates when sorting by date
   useEffect(() => {
@@ -1269,6 +1293,22 @@ function CoursewareBrowserTab() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F or / to focus search
+      if ((e.ctrlKey && e.key === "f") || (e.key === "/" && !(e.target instanceof HTMLInputElement))) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      // Escape in search input clears it and unfocuses
+      if (e.key === "Escape" && e.target === searchInputRef.current) {
+        e.preventDefault();
+        setSearchQuery("");
+        searchInputRef.current?.blur();
+        return;
+      }
+
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       const totalItems = sortedContents.length;
@@ -1489,7 +1529,7 @@ function CoursewareBrowserTab() {
             </div>
           </div>
 
-          {/* Row 2: Sort + Item count + Assign Button */}
+          {/* Row 2: Sort + Search + Item count */}
           <div className="flex items-center gap-3">
             <select
               value={sortBy}
@@ -1501,14 +1541,39 @@ function CoursewareBrowserTab() {
               <option value="date-desc">Newest first</option>
               <option value="date-asc">Oldest first</option>
             </select>
+
+            {/* Search input */}
+            <div className="relative flex-1 max-w-[200px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Filter... (Ctrl+F)"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-7 pr-7 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  title="Clear search"
+                >
+                  <X className="h-3 w-3 text-gray-400" />
+                </button>
+              )}
+            </div>
+
             {loadingDates && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />}
-            {sortedContents.length > 0 && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                {hasMore
+            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+              {searchQuery.trim()
+                ? `${sortedContents.length} of ${sortedContentsRaw.length} items`
+                : hasMore
                   ? `${displayedContents.length} of ${sortedContents.length} items`
-                  : `${sortedContents.length} item${sortedContents.length !== 1 ? "s" : ""}`}
-              </span>
-            )}
+                  : sortedContents.length > 0
+                    ? `${sortedContents.length} item${sortedContents.length !== 1 ? "s" : ""}`
+                    : ""}
+            </span>
           </div>
         </div>
 
