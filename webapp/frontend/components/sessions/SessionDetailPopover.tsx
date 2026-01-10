@@ -12,14 +12,16 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2 } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info } from "lucide-react";
+import useSWR from "swr";
+import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
-import type { Session } from "@/types";
+import type { Session, UpcomingTestAlert } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -133,7 +135,7 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
     : '';
 
   return (
-    <div className="flex items-center gap-1.5 text-xs">
+    <div className="flex items-center gap-1.5 text-xs min-w-0 overflow-hidden flex-1">
       <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
         {displayName}
       </span>
@@ -258,6 +260,20 @@ export function SessionDetailPopover({
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
+
+  // Tests and Recap section state (using SWR for caching)
+  const [testsExpanded, setTestsExpanded] = useState(false);
+  const [recapExpanded, setRecapExpanded] = useState(false);
+  const [expandedTest, setExpandedTest] = useState<string | null>(null);
+
+  // Fetch upcoming tests with SWR caching
+  const { data: upcomingTests = [], isLoading: isLoadingTests } = useSWR<UpcomingTestAlert[]>(
+    isOpen && session?.id ? ['upcoming-tests', session.id] : null,
+    () => api.sessions.getUpcomingTests(session!.id)
+  );
+
+  // Fetch detailed session with SWR caching (for previous_session and homework_completion)
+  const { data: detailedSession, isLoading: isLoadingDetails } = useSession(isOpen ? session?.id : null);
 
   // Check if session can be marked (not already attended/completed)
   const canBeMarked = useCallback((s: Session | null) => {
@@ -444,6 +460,19 @@ export function SessionDetailPopover({
   }
 
   const parsed = parseTimeSlot(session.time_slot);
+
+  // Computed values for Recap section (using detailedSession from API)
+  const uncheckedHwCount = detailedSession?.homework_completion?.filter(
+    hw => !hw.completion_status || hw.completion_status === "Not Checked"
+  ).length || 0;
+
+  const starCount = detailedSession?.previous_session?.performance_rating
+    ? (detailedSession.previous_session.performance_rating.match(/⭐/g) || []).length
+    : 0;
+
+  const prevClasswork = detailedSession?.previous_session?.exercises?.filter(
+    ex => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  ) || [];
 
   return (
     <FloatingPortal>
@@ -659,6 +688,166 @@ export function SessionDetailPopover({
               <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap">
                 {session.notes}
               </p>
+            </div>
+          )}
+
+          {/* Upcoming Tests Section */}
+          {isLoadingTests ? (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 animate-pulse bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-12 animate-pulse bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            </div>
+          ) : upcomingTests.length > 0 && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setTestsExpanded(!testsExpanded)}
+                className="flex items-center gap-1.5 w-full text-left"
+              >
+                {testsExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
+                <AlertTriangle className="h-3 w-3 text-amber-500" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Tests</span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-500 text-white rounded-full ml-auto">
+                  {upcomingTests.length}
+                </span>
+              </button>
+              {testsExpanded && (
+                <div className="mt-1.5 space-y-1.5 pl-4">
+                  {upcomingTests.map(test => (
+                    <div key={test.event_id} className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className={cn(
+                          "px-1 py-0.5 rounded text-[10px] font-medium text-white flex-shrink-0",
+                          test.event_type.toLowerCase().includes('quiz') ? 'bg-green-500' :
+                          test.event_type.toLowerCase().includes('exam') ? 'bg-purple-500' : 'bg-red-500'
+                        )}>
+                          {test.event_type}
+                        </span>
+                        <span className="truncate text-gray-700 dark:text-gray-300">{test.title}</span>
+                        <span className="text-gray-500 ml-auto flex-shrink-0">{test.days_until}d</span>
+                        {test.description && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedTest(expandedTest === test.event_id ? null : test.event_id);
+                            }}
+                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
+                            title="Show syllabus"
+                          >
+                            <Info className={cn("h-3 w-3", expandedTest === test.event_id ? "text-amber-500" : "text-gray-400")} />
+                          </button>
+                        )}
+                      </div>
+                      {expandedTest === test.event_id && test.description && (
+                        <div className="pl-5 text-[10px] text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800/50 rounded p-1.5 max-h-24 overflow-y-auto">
+                          {test.description}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recap Section (Previous Session + Homework to Check) */}
+          {isLoadingDetails ? (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 animate-pulse bg-gray-200 dark:bg-gray-700 rounded" />
+                <div className="h-3 w-12 animate-pulse bg-gray-200 dark:bg-gray-700 rounded" />
+              </div>
+            </div>
+          ) : (detailedSession?.previous_session || (detailedSession?.homework_completion && detailedSession.homework_completion.length > 0)) && (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setRecapExpanded(!recapExpanded)}
+                className="flex items-center gap-1.5 w-full text-left"
+              >
+                {recapExpanded ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
+                <History className="h-3 w-3 text-[#8b6f47]" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Recap</span>
+                {uncheckedHwCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-500 text-white rounded-full ml-auto">
+                    {uncheckedHwCount}
+                  </span>
+                )}
+              </button>
+              {recapExpanded && (
+                <div className="mt-1.5 space-y-2 pl-4">
+                  {/* Previous Session Info */}
+                  {detailedSession?.previous_session && (
+                    <div className="text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={`/sessions/${detailedSession.previous_session.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate?.();
+                              onClose();
+                            }}
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {new Date(detailedSession.previous_session.session_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {detailedSession.previous_session.time_slot && (
+                              <span className="text-gray-500 dark:text-gray-400 ml-1">· {detailedSession.previous_session.time_slot}</span>
+                            )}
+                          </Link>
+                          <Link
+                            href={`/sessions/${detailedSession.previous_session.id}`}
+                            target="_blank"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                            title="Open in new tab"
+                          >
+                            <ExternalLink className="h-3 w-3 text-gray-400" />
+                          </Link>
+                        </div>
+                        {detailedSession.previous_session.performance_rating && (
+                          <div className="flex">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star key={i} className={cn("h-2.5 w-2.5", i < starCount ? "fill-yellow-400 text-yellow-400" : "text-gray-300")} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Previous CW */}
+                      {prevClasswork.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {prevClasswork.map((ex, i) => (
+                            <ExerciseItem key={i} exercise={ex} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Homework to Check */}
+                  {detailedSession?.homework_completion && detailedSession.homework_completion.length > 0 && (
+                    <div className="text-xs space-y-0.5">
+                      <span className="text-gray-500 text-[10px]">HW to check:</span>
+                      {detailedSession.homework_completion.map((hw, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <span className={cn(
+                            "text-[9px] px-1 rounded flex-shrink-0",
+                            hw.completion_status === 'Completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            hw.completion_status === 'Partially Completed' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          )}>
+                            {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
+                          </span>
+                          {hw.pdf_name ? (
+                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name }} />
+                          ) : (
+                            <span className="text-gray-500 italic">No PDF</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
