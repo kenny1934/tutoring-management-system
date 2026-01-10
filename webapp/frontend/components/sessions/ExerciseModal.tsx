@@ -969,9 +969,13 @@ export function ExerciseModal({
           <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {session.school_student_id}
           </span>
-          <span className="text-base font-bold text-gray-900 dark:text-gray-100">
+          <Link
+            href={`/students/${session.student_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-base font-bold text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+          >
             {session.student_name}
-          </span>
+          </Link>
           {session.grade && (
             <span
               className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
