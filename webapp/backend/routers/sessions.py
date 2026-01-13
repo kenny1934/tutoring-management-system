@@ -25,6 +25,27 @@ def _build_linked_session_info(session: SessionLog, tutor: Tutor = None) -> Link
     )
 
 
+def _build_session_response(session: SessionLog) -> SessionResponse:
+    """
+    Build a SessionResponse from a SessionLog with student/tutor/exercise data.
+
+    Centralizes the common pattern of populating student fields, tutor name,
+    and exercises from the loaded session relationships.
+    """
+    data = SessionResponse.model_validate(session)
+    data.student_name = session.student.student_name if session.student else None
+    data.tutor_name = session.tutor.tutor_name if session.tutor else None
+    data.school_student_id = session.student.school_student_id if session.student else None
+    data.grade = session.student.grade if session.student else None
+    data.lang_stream = session.student.lang_stream if session.student else None
+    data.school = session.student.school if session.student else None
+    data.exercises = [
+        SessionExerciseResponse.model_validate(ex)
+        for ex in session.exercises
+    ]
+    return data
+
+
 @router.get("/sessions", response_model=List[SessionResponse])
 async def get_sessions(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
@@ -114,17 +135,7 @@ async def get_sessions(
     # Build response with related data
     result = []
     for session in sessions:
-        session_data = SessionResponse.model_validate(session)
-        session_data.student_name = session.student.student_name if session.student else None
-        session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-        session_data.school_student_id = session.student.school_student_id if session.student else None
-        session_data.grade = session.student.grade if session.student else None
-        session_data.lang_stream = session.student.lang_stream if session.student else None
-        session_data.school = session.student.school if session.student else None
-        session_data.exercises = [
-            SessionExerciseResponse.model_validate(ex)
-            for ex in session.exercises
-        ]
+        session_data = _build_session_response(session)
 
         # Add linked session info
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
@@ -350,17 +361,7 @@ async def mark_session_attended(
     db.refresh(session)
 
     # Build response with related data
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -404,17 +405,7 @@ async def mark_session_no_show(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -458,17 +449,7 @@ async def mark_session_rescheduled(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -512,17 +493,7 @@ async def mark_session_sick_leave(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -566,17 +537,7 @@ async def mark_session_weather_cancelled(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -632,23 +593,8 @@ async def save_session_exercises(
     db.commit()
     db.refresh(session)
 
-    # Reload exercises
-    exercises = db.query(SessionExercise).filter(
-        SessionExercise.session_id == session_id
-    ).all()
-
-    # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in exercises
-    ]
+    # Build response (refresh loads exercises relationship)
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -744,17 +690,7 @@ async def rate_session(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
@@ -821,17 +757,7 @@ async def update_session(
     db.refresh(session)
 
     # Build response
-    session_data = SessionResponse.model_validate(session)
-    session_data.student_name = session.student.student_name if session.student else None
-    session_data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    session_data.school_student_id = session.student.school_student_id if session.student else None
-    session_data.grade = session.student.grade if session.student else None
-    session_data.lang_stream = session.student.lang_stream if session.student else None
-    session_data.school = session.student.school if session.student else None
-    session_data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
+    session_data = _build_session_response(session)
 
     return session_data
 
