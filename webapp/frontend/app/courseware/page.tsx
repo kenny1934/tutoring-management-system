@@ -64,6 +64,7 @@ import { BrowseSelectionPanel } from "@/components/courseware/BrowseSelectionPan
 import { SearchSelectionBar } from "@/components/courseware/SearchSelectionBar";
 import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
+import { getDocumentPath, getTrendingPath, type ExtendedPaperlessDocument } from "@/lib/courseware-utils";
 
 // Medal icons for top 3 - using lucide icons with glow effects
 const MEDAL_CONFIG = [
@@ -1904,13 +1905,7 @@ function CoursewareSearchTab() {
   const [showAdvancedHints, setShowAdvancedHints] = useState(false);
 
   // Results state
-  const [results, setResults] = useState<Array<{
-    id: number;
-    title: string;
-    original_file_name: string;
-    correspondent_name?: string;
-    tags?: string[];
-  }>>([]);
+  const [results, setResults] = useState<ExtendedPaperlessDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1950,20 +1945,16 @@ function CoursewareSearchTab() {
 
   // State ref for keyboard handler (avoids re-registering on every state change)
   const stateRef = useRef({
-    results: [] as PaperlessDocument[],
+    results: [] as ExtendedPaperlessDocument[],
     focusedIndex: -1,
     recentDocs: [] as RecentDocument[],
-    trendingData: null as CoursewarePopularity[] | null | undefined,
+    top10Trending: [] as CoursewarePopularity[],
     showHomeView: false,
     selectedDocs: new Map() as Map<number, { path: string; title: string }>,
   });
 
   // Check if showing home view (no query) - moved up for stateRef
   const showHomeView = !query.trim() && results.length === 0;
-
-  useEffect(() => {
-    stateRef.current = { results, focusedIndex, recentDocs, trendingData, showHomeView, selectedDocs };
-  });
 
   // Home view
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
@@ -1974,6 +1965,14 @@ function CoursewareSearchTab() {
     limit: 10,
     grade: undefined,
     school: undefined,
+  });
+
+  // Memoize top 10 trending to avoid repeated slicing
+  const top10Trending = useMemo(() => trendingData?.slice(0, 10) || [], [trendingData]);
+
+  // Update stateRef for keyboard handler
+  useEffect(() => {
+    stateRef.current = { results, focusedIndex, recentDocs, top10Trending, showHomeView, selectedDocs };
   });
 
   // Load tags and recent docs on mount
@@ -2092,9 +2091,8 @@ function CoursewareSearchTab() {
   }, []);
 
   // Toggle document selection for multi-select (using shared hook)
-  const toggleSelection = useCallback((doc: PaperlessDocument) => {
-    const path = doc.converted_path || doc.original_path || doc.original_file_name || doc.title;
-    toggleDocSelection(doc.id, { path, title: doc.title });
+  const toggleSelection = useCallback((doc: ExtendedPaperlessDocument) => {
+    toggleDocSelection(doc.id, { path: getDocumentPath(doc), title: doc.title });
   }, [toggleDocSelection]);
 
   // Toggle selection for recent documents (using shared hook)
@@ -2104,9 +2102,8 @@ function CoursewareSearchTab() {
 
   // Toggle selection for trending items (use negative IDs to avoid collision)
   const toggleSelectionTrending = useCallback((item: CoursewarePopularity, index: number) => {
-    const path = item.normalized_paths?.split(", ")[0] || item.filename;
     const id = -(index + 1000); // Negative ID to avoid collision with doc IDs
-    toggleDocSelection(id, { path, title: item.filename });
+    toggleDocSelection(id, { path: getTrendingPath(item), title: item.filename });
   }, [toggleDocSelection]);
 
   // Handle select from preview (adds to recent)
@@ -2129,10 +2126,10 @@ function CoursewareSearchTab() {
         return;
       }
 
-      const { results, focusedIndex, recentDocs, trendingData, showHomeView, selectedDocs: currentSelectedDocs } = stateRef.current;
+      const { results, focusedIndex, recentDocs, top10Trending, showHomeView, selectedDocs: currentSelectedDocs } = stateRef.current;
 
       // Calculate total navigable items based on view
-      const trendingCount = trendingData?.slice(0, 10).length || 0;
+      const trendingCount = top10Trending.length;
       const totalItems = showHomeView
         ? trendingCount + recentDocs.length
         : results.length;
@@ -2143,17 +2140,16 @@ function CoursewareSearchTab() {
         e.stopPropagation();
         const newSelections = new Map(currentSelectedDocs);
         if (showHomeView) {
-          trendingData?.slice(0, 10).forEach((item, index) => {
+          top10Trending.forEach((item, index) => {
             const id = -(index + 1000);
-            const path = item.normalized_paths?.split(", ")[0] || item.filename;
-            newSelections.set(id, { path, title: item.filename });
+            newSelections.set(id, { path: getTrendingPath(item), title: item.filename });
           });
           recentDocs.forEach(doc => {
             newSelections.set(doc.id, { path: doc.path, title: doc.title });
           });
         } else {
           results.forEach(doc => {
-            const path = doc.converted_path || doc.original_path || doc.original_file_name || doc.title;
+            const path = getDocumentPath(doc);
             newSelections.set(doc.id, { path, title: doc.title || path });
           });
         }
@@ -2185,18 +2181,14 @@ function CoursewareSearchTab() {
         e.stopPropagation();
         if (showHomeView) {
           if (focusedIndex < trendingCount) {
-            const item = trendingData![focusedIndex];
-            const path = item.normalized_paths?.split(", ")[0] || item.filename;
-            handleCopyPath(path);
+            handleCopyPath(getTrendingPath(top10Trending[focusedIndex]));
           } else {
             const recentDoc = recentDocs[focusedIndex - trendingCount];
             if (recentDoc) handleCopyPath(recentDoc.path);
           }
         } else {
           const doc = results[focusedIndex];
-          if (doc) {
-            handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title);
-          }
+          if (doc) handleCopyPath(getDocumentPath(doc));
         }
       } else if (e.key === " " && focusedIndex >= 0) {
         // Space - toggle selection
@@ -2205,7 +2197,7 @@ function CoursewareSearchTab() {
         e.stopImmediatePropagation();
         if (showHomeView) {
           if (focusedIndex < trendingCount) {
-            const item = trendingData![focusedIndex];
+            const item = top10Trending[focusedIndex];
             toggleSelectionTrending(item, focusedIndex);
           } else {
             const recentDoc = recentDocs[focusedIndex - trendingCount];
@@ -2221,18 +2213,14 @@ function CoursewareSearchTab() {
         e.stopPropagation();
         if (showHomeView) {
           if (focusedIndex < trendingCount) {
-            const item = trendingData![focusedIndex];
-            const path = item.normalized_paths?.split(", ")[0] || item.filename;
-            handlePreview(-1, path);
+            handlePreview(-1, getTrendingPath(top10Trending[focusedIndex]));
           } else {
             const recentDoc = recentDocs[focusedIndex - trendingCount];
             if (recentDoc) handlePreview(recentDoc.id, recentDoc.path);
           }
         } else {
           const doc = results[focusedIndex];
-          if (doc) {
-            handlePreview(doc.id, doc.title || doc.original_file_name);
-          }
+          if (doc) handlePreview(doc.id, doc.title || doc.original_file_name || "");
         }
       }
     };
@@ -2457,9 +2445,9 @@ function CoursewareSearchTab() {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 text-amber-500 animate-spin" />
                 </div>
-              ) : trendingData && trendingData.length > 0 ? (
+              ) : top10Trending.length > 0 ? (
                 <div className="space-y-1">
-                  {trendingData.slice(0, 10).map((item, index) => {
+                  {top10Trending.map((item, index) => {
                     const trendingId = -(index + 1000);
                     return (
                       <div
@@ -2532,7 +2520,7 @@ function CoursewareSearchTab() {
                 </div>
                 <div className="space-y-1">
                   {recentDocs.map((doc, index) => {
-                    const recentIndex = (trendingData?.slice(0, 10).length || 0) + index;
+                    const recentIndex = top10Trending.length + index;
                     return (
                       <div
                         key={doc.id}
@@ -2575,7 +2563,7 @@ function CoursewareSearchTab() {
             )}
 
             {/* Empty state when no recent and no trending */}
-            {recentDocs.length === 0 && (!trendingData || trendingData.length === 0) && !trendingLoading && (
+            {recentDocs.length === 0 && top10Trending.length === 0 && !trendingLoading && (
               <div className="text-center py-12 text-gray-500">
                 <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
                 <p className="text-sm">Search for courseware files in Shelv</p>
@@ -2603,7 +2591,7 @@ function CoursewareSearchTab() {
                   focusedIndex === index && "bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-400/50 ring-inset",
                   selectedDocs.has(doc.id) && "bg-green-50 dark:bg-green-900/20"
                 )}
-                onClick={() => handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title)}
+                onClick={() => handleCopyPath(getDocumentPath(doc))}
               >
                 <input
                   type="checkbox"
@@ -2620,7 +2608,7 @@ function CoursewareSearchTab() {
                     {doc.title || doc.original_file_name}
                   </div>
                   {(doc.converted_path || doc.original_path) && (
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={doc.converted_path || doc.original_path}>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate" title={doc.converted_path || doc.original_path || undefined}>
                       {doc.converted_path || doc.original_path}
                     </div>
                   )}
@@ -2645,17 +2633,17 @@ function CoursewareSearchTab() {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title || doc.original_file_name); }}
+                    onClick={(e) => { e.stopPropagation(); handlePreview(doc.id, doc.title || doc.original_file_name || ""); }}
                     className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                     title="Preview"
                   >
                     <Eye className="h-4 w-4 text-gray-400" />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleCopyPath(doc.converted_path || doc.original_path || doc.original_file_name || doc.title); }}
+                    onClick={(e) => { e.stopPropagation(); handleCopyPath(getDocumentPath(doc)); }}
                     className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
                   >
-                    {copiedPath === (doc.converted_path || doc.original_path || doc.original_file_name || doc.title) ? (
+                    {copiedPath === getDocumentPath(doc) ? (
                       <Check className="h-3 w-3 text-green-500" />
                     ) : (
                       <Copy className="h-3 w-3" />
@@ -2713,10 +2701,11 @@ function CoursewareSearchTab() {
         documentTitle={previewDocTitle}
         onAssign={() => {
           if (previewDocId) {
-            const doc = results.find(d => d.id === previewDocId) || recentDocs.find(d => d.id === previewDocId);
-            if (doc) {
-              const filename = "original_file_name" in doc ? doc.original_file_name : doc.path;
-              setAssignSelections([{ path: filename || doc.title, pages: "" }]);
+            const paperlessDoc = results.find(d => d.id === previewDocId);
+            const recentDoc = recentDocs.find(d => d.id === previewDocId);
+            const path = paperlessDoc ? getDocumentPath(paperlessDoc) : recentDoc?.path;
+            if (path) {
+              setAssignSelections([{ path, pages: "" }]);
               setSessionSelectorOpen(true);
             }
           }
