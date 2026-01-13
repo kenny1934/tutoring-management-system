@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -55,31 +56,40 @@ export function BulkExerciseModal({
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const { showToast } = useToast();
+
+  // Wrapper for onClose that includes state reset
+  const closeAndReset = useCallback(() => {
+    setExercises([]);
+    setValidationErrors([]);
+    onClose();
+  }, [onClose]);
+
+  // Form dirty tracking hook
+  const {
+    isDirty, setIsDirty, showCloseConfirm, setShowCloseConfirm,
+    handleCloseAttempt, confirmDiscard, cancelClose,
+  } = useFormDirtyTracking(isOpen, closeAndReset);
+
+  // Delete exercise handler for confirmation hook
+  const handleDeleteExercise = useCallback((index: number) => {
+    setExercises((prev) => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
+    setFocusedRowIndex(null);
+  }, [setIsDirty]);
+
+  // Delete confirmation hook
+  const {
+    pendingIndex: deleteConfirmIndex, requestDelete, confirmDelete, cancelDelete, isPending: isDeletePending,
+  } = useDeleteConfirmation(handleDeleteExercise);
 
   // Check for File System Access API support on mount
   useEffect(() => {
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
-
-  // Warn user about unsaved changes before leaving
-  useEffect(() => {
-    if (!isDirty || !isOpen) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty, isOpen]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
@@ -187,27 +197,6 @@ export function BulkExerciseModal({
     setValidationErrors([]);
     onClose();
   }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
-
-  // Handle close attempts - show confirmation if dirty
-  const handleCloseAttempt = useCallback(() => {
-    if (isDirty) {
-      setShowCloseConfirm(true);
-    } else {
-      setExercises([]);
-      setIsDirty(false);
-      setValidationErrors([]);
-      onClose();
-    }
-  }, [isDirty, onClose]);
-
-  // Actually close and reset everything
-  const handleClose = useCallback(() => {
-    setExercises([]);
-    setIsDirty(false);
-    setValidationErrors([]);
-    setShowCloseConfirm(false);
-    onClose();
-  }, [onClose]);
 
   const addExercise = useCallback(() => {
     setExercises((prev) => [
@@ -512,24 +501,6 @@ export function BulkExerciseModal({
     }
   }, [exercises, downloadAllState, sessions, exerciseType, searchPaperlessByPath]);
 
-  const removeExercise = useCallback((index: number) => {
-    setExercises((prev) => prev.filter((_, i) => i !== index));
-    setIsDirty(true);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (deleteConfirmIndex !== null) {
-      setExercises((prev) => prev.filter((_, i) => i !== deleteConfirmIndex));
-      setIsDirty(true);
-      setDeleteConfirmIndex(null);
-      setFocusedRowIndex(null);
-    }
-  }, [deleteConfirmIndex]);
-
-  const cancelDelete = useCallback(() => {
-    setDeleteConfirmIndex(null);
-  }, []);
-
   // Focus new exercise input after render
   useEffect(() => {
     if (shouldFocusNewRef.current && newExerciseInputRef.current) {
@@ -548,7 +519,7 @@ export function BulkExerciseModal({
         if (e.key === 'Escape') {
           e.preventDefault();
           e.stopPropagation();
-          setShowCloseConfirm(false);
+          cancelClose();
           return;
         }
       }
@@ -609,8 +580,17 @@ export function BulkExerciseModal({
           confirmDelete();
         } else {
           // First press, request confirmation
-          setDeleteConfirmIndex(focusedRowIndex);
+          requestDelete(focusedRowIndex);
         }
+        return;
+      }
+
+      // General Escape handler - triggers close attempt and blocks propagation
+      // This prevents sessions page from deselecting sessions when modal is open
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCloseAttempt();
         return;
       }
     };
@@ -618,7 +598,7 @@ export function BulkExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
+  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -911,7 +891,7 @@ export function BulkExerciseModal({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setDeleteConfirmIndex(index)}
+                        onClick={() => requestDelete(index)}
                         className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
                         title="Remove exercise (Alt+Backspace)"
                       >
@@ -1124,10 +1104,10 @@ export function BulkExerciseModal({
               You have unsaved changes. Discard them?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+              <Button variant="outline" onClick={cancelClose}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleClose}>
+              <Button variant="destructive" onClick={confirmDiscard}>
                 Discard
               </Button>
             </div>
