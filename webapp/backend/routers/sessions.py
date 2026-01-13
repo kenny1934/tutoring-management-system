@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse
 from datetime import date, timedelta, datetime
 
 router = APIRouter()
@@ -651,6 +651,61 @@ async def save_session_exercises(
     ]
 
     return session_data
+
+
+@router.post("/sessions/bulk-assign-exercises", response_model=BulkExerciseAssignResponse)
+async def bulk_assign_exercises(
+    request: BulkExerciseAssignRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Assign an exercise to multiple sessions at once.
+
+    Creates the same exercise (CW or HW) for each specified session.
+    Useful for assigning the same courseware to multiple sessions in bulk.
+
+    - **session_ids**: List of session IDs to assign the exercise to
+    - **exercise_type**: Type of exercise ("CW" or "HW")
+    - **pdf_name**: PDF filename/path
+    - **page_start**: Optional start page
+    - **page_end**: Optional end page
+    - **remarks**: Optional remarks
+    """
+    # Verify all sessions exist
+    sessions = db.query(SessionLog).filter(
+        SessionLog.id.in_(request.session_ids)
+    ).all()
+
+    found_ids = {s.id for s in sessions}
+    missing_ids = set(request.session_ids) - found_ids
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Sessions not found: {sorted(missing_ids)}"
+        )
+
+    # Create exercises for each session
+    created_count = 0
+    for session_id in request.session_ids:
+        new_exercise = SessionExercise(
+            session_id=session_id,
+            exercise_type=request.exercise_type,
+            pdf_name=request.pdf_name,
+            page_start=request.page_start,
+            page_end=request.page_end,
+            remarks=request.remarks,
+            created_by="system@csmpro.app",  # TODO: get from auth when available
+            created_at=datetime.now()
+        )
+        db.add(new_exercise)
+        created_count += 1
+
+    db.commit()
+
+    return BulkExerciseAssignResponse(
+        created_count=created_count,
+        session_ids=request.session_ids
+    )
 
 
 @router.patch("/sessions/{session_id}/rate", response_model=SessionResponse)

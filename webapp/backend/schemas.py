@@ -211,6 +211,22 @@ class ExerciseSaveRequest(BaseModel):
     exercises: List[ExerciseCreateRequest] = []
 
 
+class BulkExerciseAssignRequest(BaseModel):
+    """Request schema for assigning exercises to multiple sessions at once"""
+    session_ids: List[int] = Field(..., min_length=1, description="List of session IDs to assign exercises to")
+    exercise_type: str = Field(..., pattern="^(CW|HW)$", description="Exercise type (CW or HW)")
+    pdf_name: str = Field(..., min_length=1, max_length=500, description="PDF filename/path")
+    page_start: Optional[int] = Field(None, gt=0, description="Start page number")
+    page_end: Optional[int] = Field(None, gt=0, description="End page number")
+    remarks: Optional[str] = Field(None, max_length=1000, description="Exercise remarks")
+
+
+class BulkExerciseAssignResponse(BaseModel):
+    """Response schema for bulk exercise assignment"""
+    created_count: int = Field(..., description="Number of exercises created")
+    session_ids: List[int] = Field(..., description="IDs of sessions that received exercises")
+
+
 class RateSessionRequest(BaseModel):
     """Request schema for rating a session"""
     performance_rating: Optional[str] = Field(None, max_length=100)
@@ -415,6 +431,84 @@ class HolidayResponse(BaseModel):
     holiday_name: Optional[str] = Field(None, max_length=255)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================
+# Parent Communication Schemas
+# ============================================
+
+class ParentCommunicationCreate(BaseModel):
+    """Schema for creating a parent communication record"""
+    student_id: int = Field(..., gt=0)
+    contact_method: str = Field(default='WeChat', max_length=50)
+    contact_type: str = Field(default='Progress Update', max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: bool = Field(default=False)
+    follow_up_date: Optional[date] = None
+    contact_date: Optional[datetime] = None  # Defaults to now if not provided
+
+
+class ParentCommunicationUpdate(BaseModel):
+    """Schema for updating a parent communication record"""
+    contact_method: Optional[str] = Field(None, max_length=50)
+    contact_type: Optional[str] = Field(None, max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: Optional[bool] = None
+    follow_up_date: Optional[date] = None
+    contact_date: Optional[datetime] = None
+
+
+class ParentCommunicationResponse(BaseModel):
+    """Response schema for a parent communication record"""
+    id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=255)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=50)
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str = Field(..., max_length=255)
+    contact_date: datetime
+    contact_method: str = Field(..., max_length=50)
+    contact_type: str = Field(..., max_length=50)
+    brief_notes: Optional[str] = Field(None, max_length=500)
+    follow_up_needed: bool
+    follow_up_date: Optional[date] = None
+    created_at: datetime
+    created_by: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StudentContactStatus(BaseModel):
+    """Student with parent contact status information"""
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=255)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    last_contact_date: Optional[datetime] = None
+    last_contacted_by: Optional[str] = Field(None, max_length=255)
+    days_since_contact: int = Field(..., ge=0)  # 999 if never contacted
+    contact_status: str = Field(..., max_length=50)  # "Never Contacted", "Recent", "Been a While", "Contact Needed"
+    pending_follow_up: bool = Field(default=False)
+    follow_up_date: Optional[date] = None
+    enrollment_count: int = Field(default=0, ge=0)
+
+
+class LocationSettingsResponse(BaseModel):
+    """Location settings response"""
+    id: int = Field(..., gt=0)
+    location: str = Field(..., max_length=50)
+    contact_recent_days: int = Field(default=28, ge=1)
+    contact_warning_days: int = Field(default=50, ge=1)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LocationSettingsUpdate(BaseModel):
+    """Schema for updating location settings"""
+    contact_recent_days: Optional[int] = Field(None, ge=1)
+    contact_warning_days: Optional[int] = Field(None, ge=1)
 
 
 # Enable forward references for nested models
