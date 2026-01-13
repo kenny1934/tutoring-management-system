@@ -7,6 +7,7 @@ import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2
 import { cn } from "@/lib/utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection, CoursewarePopularity } from "@/types";
 import Link from "next/link";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
@@ -17,6 +18,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/lib/exercise-utils";
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -45,44 +47,6 @@ export interface ExerciseFormItem {
   page_end: string;                // For simple mode
   complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
-}
-
-// Parse DB remarks into separate complex_pages, remarks, and detected mode
-function parseExerciseRemarks(dbRemarks: string | null | undefined): { complexPages: string; remarks: string } {
-  if (!dbRemarks) return { complexPages: '', remarks: '' };
-
-  if (dbRemarks.startsWith('Pages: ')) {
-    const delimiterIdx = dbRemarks.indexOf(' || ');
-    if (delimiterIdx > 0) {
-      return {
-        complexPages: dbRemarks.substring(7, delimiterIdx),
-        remarks: dbRemarks.substring(delimiterIdx + 4)
-      };
-    }
-    // No remarks, just pages
-    return { complexPages: dbRemarks.substring(7), remarks: '' };
-  }
-
-  // No pages, just remarks
-  return { complexPages: '', remarks: dbRemarks };
-}
-
-// Detect page mode based on which fields have values
-function detectPageMode(pageStart: string | number | null | undefined, pageEnd: string | number | null | undefined, complexPages: string): 'simple' | 'custom' {
-  // If complex pages has content, use custom mode
-  if (complexPages && complexPages.trim()) return 'custom';
-  // If simple range has content, use simple mode
-  if ((pageStart && String(pageStart).trim()) || (pageEnd && String(pageEnd).trim())) return 'simple';
-  // Default to simple mode
-  return 'simple';
-}
-
-// Combine complex_pages and remarks for DB storage
-function combineExerciseRemarks(complexPages: string, remarks: string): string {
-  const parts: string[] = [];
-  if (complexPages.trim()) parts.push(`Pages: ${complexPages.trim()}`);
-  if (remarks.trim()) parts.push(remarks.trim());
-  return parts.join(' || ');
 }
 
 // Parse page input string into PageSelection
@@ -304,6 +268,9 @@ export function ExerciseModal({
     session.school
   );
 
+  // Toast for error notifications
+  const { showToast } = useToast();
+
   // Check for File System Access API support on mount
   useEffect(() => {
     setCanBrowseFiles(isFileSystemAccessSupported());
@@ -345,6 +312,7 @@ export function ExerciseModal({
   const handleSave = useCallback(async () => {
     const sessionId = session.id;
     const currentExercises = [...exercises];
+    const originalSession = session; // Store for rollback on error
 
     // Build API format - only use the active mode's values
     const apiExercises = currentExercises.map((ex) => ({
@@ -401,9 +369,11 @@ export function ExerciseModal({
       }
     } catch (error) {
       console.error("Failed to save exercises:", error);
-      // Could rollback cache or show toast here
+      // Rollback to original state and show error
+      updateSessionInCache(originalSession);
+      showToast("Failed to save exercises. Changes reverted.", "error");
     }
-  }, [session, exercises, exerciseType, onClose, onSave]);
+  }, [session, exercises, exerciseType, onClose, onSave, showToast]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
@@ -468,8 +438,8 @@ export function ExerciseModal({
         }
       }
 
-      // Cmd/Ctrl+Enter - Save
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      // Cmd/Ctrl+Enter or Cmd/Ctrl+S - Save
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
         e.preventDefault();
         handleSave();
         return;
@@ -981,7 +951,7 @@ export function ExerciseModal({
             <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+⌫</kbd>
             <span>delete</span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+↵/S</kbd>
             <span>save</span>
           </span>
           <div className="flex gap-3">
