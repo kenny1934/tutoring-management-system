@@ -21,6 +21,7 @@ import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
+import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
 
 
 // Exercise form item type
@@ -186,17 +187,34 @@ export function ExerciseModal({
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
 
-  // Delete confirmation state
-  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  // Form dirty tracking and close confirmation (from ui-hooks)
+  const {
+    isDirty,
+    setIsDirty,
+    showCloseConfirm,
+    setShowCloseConfirm,
+    handleCloseAttempt,
+    confirmDiscard,
+    cancelClose,
+  } = useFormDirtyTracking(isOpen, onClose);
 
-  // Unsaved changes tracking
-  const [isDirty, setIsDirty] = useState(false);
+  // Delete confirmation (from ui-hooks)
+  const handleDeleteExercise = useCallback((index: number) => {
+    setExercises((prev) => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
+    setFocusedRowIndex(null);
+  }, [setIsDirty]);
+
+  const {
+    pendingIndex: pendingDeleteIndex,
+    requestDelete,
+    confirmDelete,
+    cancelDelete,
+    isPending: isDeletePending,
+  } = useDeleteConfirmation(handleDeleteExercise);
 
   // Validation errors
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
-
-  // Close confirmation state
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   // Trending section state
   const [trendingExpanded, setTrendingExpanded] = useState(false);
@@ -251,18 +269,6 @@ export function ExerciseModal({
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
 
-  // Warn user about unsaved changes before leaving
-  useEffect(() => {
-    if (!isDirty || !isOpen) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isDirty, isOpen]);
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -302,14 +308,6 @@ export function ExerciseModal({
     }
   }, [isOpen, session, exerciseType]);
 
-  // Handle close attempts - show confirmation if dirty
-  const handleCloseAttempt = useCallback(() => {
-    if (isDirty) {
-      setShowCloseConfirm(true);
-    } else {
-      onClose();
-    }
-  }, [isDirty, onClose]);
 
   const handleSave = useCallback(async () => {
     // Validate page ranges before saving
@@ -429,28 +427,6 @@ export function ExerciseModal({
     }
   }, [exercises.length]);
 
-  // Delete confirmation handlers
-  const requestDelete = useCallback((index: number) => {
-    setPendingDeleteIndex(index);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (pendingDeleteIndex !== null) {
-      setExercises((prev) => prev.filter((_, i) => i !== pendingDeleteIndex));
-      setIsDirty(true);
-      setPendingDeleteIndex(null);
-      setFocusedRowIndex(null);
-    }
-  }, [pendingDeleteIndex]);
-
-  const cancelDelete = useCallback(() => {
-    setPendingDeleteIndex(null);
-  }, []);
-
-  // Legacy removeExercise for backward compatibility (direct delete without confirmation)
-  const removeExercise = useCallback((index: number) => {
-    setExercises((prev) => prev.filter((_, i) => i !== index));
-  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -462,7 +438,7 @@ export function ExerciseModal({
         if (e.key === 'Escape') {
           e.preventDefault();
           e.stopPropagation();
-          setShowCloseConfirm(false);
+          cancelClose();
           return;
         }
       }
@@ -509,12 +485,21 @@ export function ExerciseModal({
         }
         return;
       }
+
+      // General Escape handler - triggers close attempt and blocks propagation
+      // This prevents sessions page from deselecting sessions when modal is open
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCloseAttempt();
+        return;
+      }
     };
 
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm]);
+  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -1792,10 +1777,10 @@ export function ExerciseModal({
               You have unsaved changes. Discard them?
             </p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+              <Button variant="outline" onClick={cancelClose}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={() => { setShowCloseConfirm(false); onClose(); }}>
+              <Button variant="destructive" onClick={confirmDiscard}>
                 Discard
               </Button>
             </div>

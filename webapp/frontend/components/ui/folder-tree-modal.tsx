@@ -73,6 +73,29 @@ async function withTimeout<T>(
   return Promise.race([promise, timeout]);
 }
 
+/**
+ * Load page count from a file handle.
+ * Returns null if loading fails or file is not a PDF.
+ */
+async function loadFilePageCount(
+  handle: FileSystemFileHandle
+): Promise<number | null> {
+  try {
+    const file = await handle.getFile();
+    const arrayBuffer = await file.arrayBuffer();
+    return await getPageCount(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Create a new FileSelection with default empty pages.
+ */
+function createFileSelection(path: string, pageCount?: number): FileSelection {
+  return { path, pages: "", pageCount };
+}
+
 interface TreeNode {
   id: string;
   name: string;
@@ -485,6 +508,16 @@ export function FolderTreeModal({
     await loadFolderContents(handle, newPath.join("\\"));
   }, [currentPath, rootFolders]);
 
+  // Refresh current folder contents
+  const refreshCurrentFolder = useCallback(() => {
+    if (currentHandle && currentPath.length > 0) {
+      const rootFolder = rootFolders.find(f => f.name === currentPath[0]);
+      loadFolderContents(currentHandle, currentPath.join("\\"), rootFolder?.id);
+    } else {
+      loadRootFolders();
+    }
+  }, [currentHandle, currentPath, rootFolders]);
+
   // Sort nodes helper
   const sortNodes = useCallback((nodes: TreeNode[]): TreeNode[] => {
     return [...nodes].sort((a, b) => {
@@ -519,23 +552,18 @@ export function FolderTreeModal({
       });
     } else {
       // Add with placeholder
-      const sel: FileSelection = { path, pages: "" };
-      setSelections((prev) => new Map(prev).set(path, sel));
+      setSelections((prev) => new Map(prev).set(path, createFileSelection(path)));
 
       // Load page count async
       if (node.handle && node.kind === "file") {
-        try {
-          const file = await (node.handle as FileSystemFileHandle).getFile();
-          const arrayBuffer = await file.arrayBuffer();
-          const pageCount = await getPageCount(arrayBuffer);
+        const pageCount = await loadFilePageCount(node.handle as FileSystemFileHandle);
+        if (pageCount !== null) {
           setSelections((prev) => {
             const next = new Map(prev);
             const existing = next.get(path);
             if (existing) next.set(path, { ...existing, pageCount });
             return next;
           });
-        } catch {
-          // Page count loading failed, validation will be skipped
         }
       }
     }
@@ -639,14 +667,8 @@ export function FolderTreeModal({
       const url = URL.createObjectURL(file);
 
       // Get page count for validation
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pageCount = await getPageCount(arrayBuffer);
-        setPreviewPageCount(pageCount);
-      } catch {
-        // Page count loading failed, validation will be skipped
-        setPreviewPageCount(null);
-      }
+      const pageCount = await loadFilePageCount(fileHandle);
+      setPreviewPageCount(pageCount);
 
       // Cleanup previous URL
       if (previewUrl) {
@@ -685,7 +707,7 @@ export function FolderTreeModal({
         const next = new Map(prev);
         for (const n of rangeNodes) {
           if (!next.has(n.path)) {
-            next.set(n.path, { path: n.path, pages: "" });
+            next.set(n.path, createFileSelection(n.path));
           }
         }
         return next;
@@ -693,10 +715,8 @@ export function FolderTreeModal({
       // Load page counts for new selections in parallel
       rangeNodes.forEach(async (n) => {
         if (n.handle && !selections.has(n.path)) {
-          try {
-            const file = await (n.handle as FileSystemFileHandle).getFile();
-            const arrayBuffer = await file.arrayBuffer();
-            const pageCount = await getPageCount(arrayBuffer);
+          const pageCount = await loadFilePageCount(n.handle as FileSystemFileHandle);
+          if (pageCount !== null) {
             setSelections((prev) => {
               const next = new Map(prev);
               const existing = next.get(n.path);
@@ -705,8 +725,6 @@ export function FolderTreeModal({
               }
               return next;
             });
-          } catch {
-            // Page count loading failed, skip
           }
         }
       });
@@ -733,7 +751,7 @@ export function FolderTreeModal({
         // Batch add all selected + this one (if not already selected)
         const allSelections = new Map(selections);
         if (!allSelections.has(node.path)) {
-          allSelections.set(node.path, { path: node.path, pages: "" });
+          allSelections.set(node.path, createFileSelection(node.path));
         }
         onFilesSelected(Array.from(allSelections.values()));
       } else {
@@ -975,7 +993,7 @@ export function FolderTreeModal({
             const allFileSelections = new Map<string, FileSelection>();
             sortedContents
               .filter((n) => n.kind === "file")
-              .forEach((n) => allFileSelections.set(n.path, { path: n.path, pages: "" }));
+              .forEach((n) => allFileSelections.set(n.path, createFileSelection(n.path)));
             setSelections(allFileSelections);
           }
           break;
@@ -1163,6 +1181,21 @@ export function FolderTreeModal({
                       </Fragment>
                     ))}
                   </div>
+
+                  {/* Refresh button */}
+                  <button
+                    onClick={refreshCurrentFolder}
+                    disabled={contentsLoading}
+                    className={cn(
+                      "shrink-0 p-1 rounded transition-colors",
+                      contentsLoading
+                        ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                        : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-500"
+                    )}
+                    title="Refresh folder"
+                  >
+                    <RefreshCw className={cn("h-4 w-4", contentsLoading && "animate-spin")} />
+                  </button>
 
                   {/* View toggle */}
                   <div className="flex items-center gap-0.5 border border-gray-300 dark:border-gray-600 rounded-md p-0.5 shrink-0">
