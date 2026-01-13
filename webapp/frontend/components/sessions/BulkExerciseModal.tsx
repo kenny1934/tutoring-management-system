@@ -16,6 +16,7 @@ import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFro
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
+import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 
 
 
@@ -907,113 +908,22 @@ export function BulkExerciseModal({
 
                     {/* Page Range Section with Radio Toggle */}
                     <div className="flex-1 space-y-1">
-                      <div className="flex flex-wrap gap-x-4 gap-y-1">
-                        {/* Simple Range Mode */}
-                        <label
-                          className={cn(
-                            "flex items-center gap-2 cursor-pointer transition-opacity",
-                            exercise.page_mode !== 'simple' && "opacity-50"
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name={`page-mode-${index}`}
-                            checked={exercise.page_mode === 'simple'}
-                            onChange={() => {
-                              updateExercise(index, "page_mode", "simple");
-                              updateExercise(index, "complex_pages", ""); // Clear custom field
-                            }}
-                            className="text-amber-500 focus:ring-amber-400"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
-                          <input
-                            type="number"
-                            value={exercise.page_start}
-                            onChange={(e) => {
-                              if (exercise.page_mode !== 'simple') {
-                                updateExercise(index, "page_mode", "simple");
-                                updateExercise(index, "complex_pages", "");
-                              }
-                              updateExercise(index, "page_start", e.target.value);
-                            }}
-                            onFocus={() => setFocusedRowIndex(index)}
-                            placeholder="From"
-                            min="1"
-                            disabled={exercise.page_mode !== 'simple'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
-                              hasFieldError(index, 'page_start') && "border-red-500 ring-1 ring-red-500"
-                            )}
-                          />
-                          <span className="text-xs text-gray-400">–</span>
-                          <input
-                            type="number"
-                            value={exercise.page_end}
-                            onChange={(e) => {
-                              if (exercise.page_mode !== 'simple') {
-                                updateExercise(index, "page_mode", "simple");
-                                updateExercise(index, "complex_pages", "");
-                              }
-                              updateExercise(index, "page_end", e.target.value);
-                            }}
-                            onFocus={() => setFocusedRowIndex(index)}
-                            placeholder="To"
-                            min="1"
-                            disabled={exercise.page_mode !== 'simple'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
-                              hasFieldError(index, 'page_end') && "border-red-500 ring-1 ring-red-500"
-                            )}
-                          />
-                        </label>
-
-                        {/* Custom Range Mode */}
-                        <label
-                          className={cn(
-                            "flex items-center gap-2 cursor-pointer transition-opacity flex-1 min-w-[180px]",
-                            exercise.page_mode !== 'custom' && "opacity-50"
-                          )}
-                        >
-                          <input
-                            type="radio"
-                            name={`page-mode-${index}`}
-                            checked={exercise.page_mode === 'custom'}
-                            onChange={() => {
-                              updateExercise(index, "page_mode", "custom");
-                              updateExercise(index, "page_start", ""); // Clear simple fields
-                              updateExercise(index, "page_end", "");
-                            }}
-                            className="text-amber-500 focus:ring-amber-400"
-                          />
-                          <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
-                          <input
-                            type="text"
-                            value={exercise.complex_pages}
-                            onChange={(e) => {
-                              if (exercise.page_mode !== 'custom') {
-                                updateExercise(index, "page_mode", "custom");
-                                updateExercise(index, "page_start", "");
-                                updateExercise(index, "page_end", "");
-                              }
-                              updateExercise(index, "complex_pages", e.target.value);
-                            }}
-                            onFocus={() => setFocusedRowIndex(index)}
-                            placeholder="e.g. 1,3,5-7"
-                            disabled={exercise.page_mode !== 'custom'}
-                            className={cn(
-                              inputClass,
-                              "text-xs py-1 flex-1",
-                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed",
-                              hasFieldError(index, 'complex_pages') && "border-red-500 ring-1 ring-red-500"
-                            )}
-                            title="Custom page range (e.g., 1,3,5-7)"
-                          />
-                        </label>
-                      </div>
+                      <ExercisePageRangeInput
+                        radioName={`page-mode-${index}`}
+                        pageMode={exercise.page_mode}
+                        pageStart={exercise.page_start}
+                        pageEnd={exercise.page_end}
+                        complexPages={exercise.complex_pages}
+                        onPageModeChange={(mode) => updateExercise(index, "page_mode", mode)}
+                        onPageStartChange={(value) => updateExercise(index, "page_start", value)}
+                        onPageEndChange={(value) => updateExercise(index, "page_end", value)}
+                        onComplexPagesChange={(value) => updateExercise(index, "complex_pages", value)}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        inputClass={inputClass}
+                        pageStartError={hasFieldError(index, 'page_start')}
+                        pageEndError={hasFieldError(index, 'page_end')}
+                        complexPagesError={hasFieldError(index, 'complex_pages')}
+                      />
 
                       {/* Remarks row */}
                       <div className="flex items-center gap-2">
