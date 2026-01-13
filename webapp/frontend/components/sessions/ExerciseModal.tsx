@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
@@ -19,24 +20,8 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, type ExerciseValidationError } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 
-// Grade tag colors (matches EditSessionModal)
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 // Exercise form item type
 export interface ExerciseFormItem {
@@ -50,26 +35,6 @@ export interface ExerciseFormItem {
   remarks: string;
 }
 
-// Parse page input string into PageSelection
-// Accepts: "5", "1-5", "1~5", "1,3,5-7"
-function parsePageInput(input: string): PageSelection | undefined {
-  const trimmed = input.trim();
-  if (!trimmed) return undefined;
-
-  // Normalize common "to" separators: - ~ – — −
-  const normalized = trimmed.replace(/[~–—−]/g, '-');
-
-  // Simple range pattern: "5" or "1-5"
-  const match = normalized.match(/^(\d+)(?:-(\d+))?$/);
-  if (match) {
-    const start = parseInt(match[1], 10);
-    const end = match[2] ? parseInt(match[2], 10) : start;
-    return { pageStart: start, pageEnd: end };
-  }
-
-  // Everything else → complex mode (pass normalized string)
-  return { complexRange: normalized };
-}
 
 interface ExerciseModalProps {
   session: Session;
