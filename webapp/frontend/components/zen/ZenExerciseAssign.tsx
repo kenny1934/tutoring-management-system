@@ -27,6 +27,7 @@ import {
 } from "@/lib/shelv-storage";
 import { ZenPdfPreview } from "./ZenPdfPreview";
 import { getPageCount } from "@/lib/pdf-utils";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface ZenExerciseAssignProps {
   session: Session;
@@ -705,19 +706,6 @@ export function ZenExerciseAssign({
     }
   }, [exercises, session.id, exerciseType, onAssigned, onClose]);
 
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
-
   // Handle open file
   const handleOpenFile = useCallback(async (path?: string) => {
     const filePath = path || exercises[activeExerciseIndex]?.pdf_name;
@@ -728,7 +716,7 @@ export function ZenExerciseAssign({
     } else {
       setStatusMessage("Opening PDF...");
     }
-  }, [exercises, activeExerciseIndex, searchPaperlessByPath]);
+  }, [exercises, activeExerciseIndex]);
 
   // Handle print single file
   const handlePrintFile = useCallback(async (path?: string) => {
@@ -745,7 +733,7 @@ export function ZenExerciseAssign({
     } else {
       setStatusMessage("Printing...");
     }
-  }, [exercises, activeExerciseIndex, buildStampInfo, searchPaperlessByPath]);
+  }, [exercises, activeExerciseIndex, buildStampInfo]);
 
   // Handle batch print all
   const handleBatchPrint = useCallback(async () => {
@@ -769,7 +757,7 @@ export function ZenExerciseAssign({
     } else {
       setStatusMessage("Batch print sent!");
     }
-  }, [exercises, buildStampInfo, searchPaperlessByPath]);
+  }, [exercises, buildStampInfo]);
 
   // Preview trending item - checks Shelv for file existence first
   const handlePreviewTrending = useCallback(async (item: { filename: string; path: string }) => {

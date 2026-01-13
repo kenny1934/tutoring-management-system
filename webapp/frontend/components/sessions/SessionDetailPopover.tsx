@@ -36,6 +36,7 @@ import {
   printBulkFiles,
   downloadBulkFiles,
 } from "@/lib/file-system";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 // Grade tag colors
 const GRADE_COLORS: Record<string, string> = {
@@ -69,19 +70,6 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
-
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
 
   const handleCopy = async () => {
     try {
@@ -216,19 +204,6 @@ function ExercisesList({ exercises, session }: {
   // Generate filename components
   const studentName = (session.student_name || 'Unknown').replace(/\s+/g, '_');
   const dateStr = session.session_date?.replace(/-/g, '') || '';
-
-  // Paperless search callback for fallback
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
 
   const handlePrintAll = async (type: 'CW' | 'HW') => {
     const setLoading = type === 'CW' ? setCwPrintState : setHwPrintState;

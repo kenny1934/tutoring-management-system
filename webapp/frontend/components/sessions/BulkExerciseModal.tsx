@@ -17,6 +17,7 @@ import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 
 
@@ -403,19 +404,6 @@ export function BulkExerciseModal({
     }
   }, [searchingForIndex, exerciseType]);
 
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
-
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
     if (!path || fileActionState[index]?.open === 'loading') return;
@@ -428,7 +416,7 @@ export function BulkExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
     }
-  }, [fileActionState, searchPaperlessByPath]);
+  }, [fileActionState]);
 
   // Handle print file with page range support
   const handlePrintFile = useCallback(async (index: number, exercise: ExerciseFormItem) => {
@@ -451,7 +439,7 @@ export function BulkExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
     }
-  }, [fileActionState, searchPaperlessByPath]);
+  }, [fileActionState]);
 
   // Handle print all exercises in one batch
   const handlePrintAll = useCallback(async () => {
@@ -476,7 +464,7 @@ export function BulkExerciseModal({
     } else {
       setPrintAllState('idle');
     }
-  }, [exercises, printAllState, sessions, exerciseType, searchPaperlessByPath]);
+  }, [exercises, printAllState, sessions, exerciseType]);
 
   // Handle download all exercises in one combined file
   const handleDownloadAll = useCallback(async () => {
@@ -500,7 +488,7 @@ export function BulkExerciseModal({
     } else {
       setDownloadAllState('idle');
     }
-  }, [exercises, downloadAllState, sessions, exerciseType, searchPaperlessByPath]);
+  }, [exercises, downloadAllState, sessions, exerciseType]);
 
   // Focus new exercise input after render
   useEffect(() => {

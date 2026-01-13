@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import type { Session, SessionExercise } from "@/types";
 import { canBeMarked, getStatusChar, getStatusColor } from "./utils/sessionSorting";
 import { openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { ZenEditSession } from "./ZenEditSession";
 import { ZenExerciseAssign } from "./ZenExerciseAssign";
@@ -231,19 +232,6 @@ export function ZenSessionDetail({
     [session.id, onRefresh]
   );
 
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
-
   // Exercise operations
   const handleOpenExercise = useCallback(async (exercise: SessionExercise) => {
     const error = await openFileFromPathWithFallback(exercise.pdf_name, searchPaperlessByPath);
@@ -252,7 +240,7 @@ export function ZenSessionDetail({
     } else {
       setStatusMessage("Opening PDF...");
     }
-  }, [searchPaperlessByPath]);
+  }, []);
 
   const handlePrintExercise = useCallback(
     async (exercise: SessionExercise) => {
@@ -277,7 +265,7 @@ export function ZenSessionDetail({
         setStatusMessage("Printing...");
       }
     },
-    [session, searchPaperlessByPath]
+    [session]
   );
 
   const handleCopyPath = useCallback(async (exercise: SessionExercise) => {
