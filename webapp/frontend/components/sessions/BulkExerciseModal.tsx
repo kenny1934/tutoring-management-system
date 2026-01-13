@@ -15,6 +15,7 @@ import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
+import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -56,6 +57,12 @@ export function BulkExerciseModal({
   const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
+  const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [searchFilename, setSearchFilename] = useState("");
+  const [searchForIndex, setSearchForIndex] = useState<number | null>(null);
+  const [batchSearchOpen, setBatchSearchOpen] = useState(false);
+  const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
@@ -85,7 +92,7 @@ export function BulkExerciseModal({
 
   // Delete confirmation hook
   const {
-    pendingIndex: deleteConfirmIndex, requestDelete, confirmDelete, cancelDelete, isPending: isDeletePending,
+    pendingIndex: pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, isPending: isDeletePending,
   } = useDeleteConfirmation(handleDeleteExercise);
 
   // Check for File System Access API support on mount
@@ -404,6 +411,90 @@ export function BulkExerciseModal({
     }
   }, [searchingForIndex, exerciseType]);
 
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(index);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(null);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Filter to only PDF files
+    const pdfFiles = files.filter(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfFiles.length === 0) return;
+
+    if (pdfFiles.length === 1) {
+      // Single file: search by filename
+      setSearchFilename(pdfFiles[0].name);
+      setSearchForIndex(index);
+      setFileSearchOpen(true);
+    } else {
+      // Multiple files: batch search
+      setSearchFilenames(pdfFiles.map(f => f.name));
+      setSearchForIndex(index);
+      setBatchSearchOpen(true);
+    }
+  }, []);
+
+  // Handle file selected from search modal (single file)
+  const handleSearchFileSelected = useCallback((path: string) => {
+    if (searchForIndex !== null) {
+      updateExercise(searchForIndex, "pdf_name", path);
+      setSearchForIndex(null);
+    }
+    setFileSearchOpen(false);
+    setSearchFilename("");
+  }, [searchForIndex]);
+
+  // Handle batch file search results
+  const handleBatchSearchFilesSelected = useCallback((paths: string[]) => {
+    if (paths.length === 0 || searchForIndex === null) {
+      setBatchSearchOpen(false);
+      setSearchFilenames([]);
+      setSearchForIndex(null);
+      return;
+    }
+
+    // First path fills the drop target row
+    updateExercise(searchForIndex, "pdf_name", paths[0]);
+
+    // Remaining paths create new exercise rows after drop target
+    if (paths.length > 1) {
+      const newExercises = paths.slice(1).map((path) => ({
+        exercise_type: exerciseType,
+        pdf_name: path,
+        page_mode: 'simple' as const,
+        page_start: "",
+        page_end: "",
+        complex_pages: "",
+        remarks: "",
+      }));
+      setExercises(prev => {
+        const before = prev.slice(0, searchForIndex + 1);
+        const after = prev.slice(searchForIndex + 1);
+        return [...before, ...newExercises, ...after];
+      });
+      setIsDirty(true);
+    }
+
+    setBatchSearchOpen(false);
+    setSearchFilenames([]);
+    setSearchForIndex(null);
+  }, [searchForIndex, exerciseType]);
+
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
     if (!path || fileActionState[index]?.open === 'loading') return;
@@ -530,7 +621,7 @@ export function BulkExerciseModal({
       }
 
       // Handle delete confirmation with Enter/Escape when pending
-      if (deleteConfirmIndex !== null) {
+      if (pendingDeleteIndex !== null) {
         if (e.key === 'Enter') {
           e.preventDefault();
           e.stopPropagation();
@@ -564,7 +655,7 @@ export function BulkExerciseModal({
       // Alt/Option+Backspace - Delete focused row (with confirmation)
       if (e.altKey && e.key === 'Backspace' && focusedRowIndex !== null) {
         e.preventDefault();
-        if (deleteConfirmIndex === focusedRowIndex) {
+        if (pendingDeleteIndex === focusedRowIndex) {
           // Already pending confirmation, confirm it
           confirmDelete();
         } else {
@@ -587,7 +678,7 @@ export function BulkExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
+  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -755,11 +846,16 @@ export function BulkExerciseModal({
             {exercises.map((exercise, index) => (
               <div
                 key={index}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "p-3 rounded-lg border",
+                  "p-3 rounded-lg border transition-all",
                   isCW
                     ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
-                    : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800"
+                    : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
+                  focusedRowIndex === index && "ring-2 ring-amber-400/70 ring-offset-1",
+                  isDraggingOver === index && "ring-2 ring-amber-400 bg-amber-50/50 dark:bg-amber-900/30"
                 )}
               >
                 <div className="space-y-2">
@@ -787,8 +883,12 @@ export function BulkExerciseModal({
                       value={exercise.pdf_name}
                       onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
                       onFocus={() => setFocusedRowIndex(index)}
-                      placeholder="PDF name or path"
-                      className={cn(inputClass, "text-xs py-1.5 flex-1 min-w-0")}
+                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF name or path (drag & drop supported)"}
+                      className={cn(
+                        inputClass,
+                        "text-xs py-1.5 flex-1 min-w-0 transition-all",
+                        isDraggingOver === index && "border-amber-400"
+                      )}
                     />
 
                     {/* File action buttons */}
@@ -859,7 +959,7 @@ export function BulkExerciseModal({
                     </button>
 
                     {/* Delete button with inline confirmation */}
-                    {deleteConfirmIndex === index ? (
+                    {pendingDeleteIndex === index ? (
                       <div className="flex items-center gap-1 text-xs shrink-0">
                         <span className="text-red-500">Delete?</span>
                         <button
@@ -957,6 +1057,30 @@ export function BulkExerciseModal({
         onSelect={handlePaperlessSelected}
         multiSelect
         onMultiSelect={handlePaperlessMultiSelect}
+      />
+
+      {/* File Search Modal (single file from drag-drop) */}
+      <FileSearchModal
+        isOpen={fileSearchOpen}
+        onClose={() => {
+          setFileSearchOpen(false);
+          setSearchFilename("");
+          setSearchForIndex(null);
+        }}
+        filename={searchFilename}
+        onFileSelected={handleSearchFileSelected}
+      />
+
+      {/* Batch File Search Modal (multiple files from drag-drop) */}
+      <FileSearchModal
+        isOpen={batchSearchOpen}
+        onClose={() => {
+          setBatchSearchOpen(false);
+          setSearchFilenames([]);
+          setSearchForIndex(null);
+        }}
+        filenames={searchFilenames}
+        onFilesSelected={handleBatchSearchFilesSelected}
       />
 
       {/* Save Confirmation Dialog - uses createPortal to render outside Modal */}
