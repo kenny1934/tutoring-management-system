@@ -23,6 +23,7 @@ import type { PaperlessDocument } from "@/lib/api";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
+import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 
 // Exercise form item type
@@ -56,19 +57,6 @@ function RecapExerciseItem({ pdfName, pageStart, pageEnd }: {
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
-
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
 
   // Parse display name from full path
   const displayName = pdfName.includes('/') || pdfName.includes('\\')
@@ -838,19 +826,6 @@ export function ExerciseModal({
     }
   }, [searchingForIndex, exerciseType]);
 
-  // Paperless search callback for fallback when local file access fails
-  const searchPaperlessByPath = useCallback(async (searchPath: string): Promise<number | null> => {
-    try {
-      const response = await api.paperless.search(searchPath, 1, 'all');
-      if (response.results.length > 0) {
-        return response.results[0].id;
-      }
-    } catch (error) {
-      console.warn('Paperless search failed:', error);
-    }
-    return null;
-  }, []);
-
   // Handle open file in new tab
   const handleOpenFile = useCallback(async (index: number, path: string) => {
     if (!path || fileActionState[index]?.open === 'loading') return;
@@ -863,7 +838,7 @@ export function ExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
     }
-  }, [fileActionState, searchPaperlessByPath]);
+  }, [fileActionState]);
 
   // Build print stamp info from session data
   const buildStampInfo = useCallback((): PrintStampInfo => {
@@ -901,7 +876,7 @@ export function ExerciseModal({
     } else {
       setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
     }
-  }, [fileActionState, buildStampInfo, searchPaperlessByPath]);
+  }, [fileActionState, buildStampInfo]);
 
   // Handle print all exercises in one batch
   const handlePrintAll = useCallback(async () => {
@@ -927,7 +902,7 @@ export function ExerciseModal({
     } else {
       setPrintAllState('idle');
     }
-  }, [exercises, printAllState, buildStampInfo, session, exerciseType, searchPaperlessByPath]);
+  }, [exercises, printAllState, buildStampInfo, session, exerciseType]);
 
   // Handle download all exercises in one combined file
   const handleDownloadAll = useCallback(async () => {
@@ -953,7 +928,7 @@ export function ExerciseModal({
     } else {
       setDownloadAllState('idle');
     }
-  }, [exercises, downloadAllState, buildStampInfo, session, exerciseType, searchPaperlessByPath]);
+  }, [exercises, downloadAllState, buildStampInfo, session, exerciseType]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
