@@ -5,6 +5,7 @@ import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCoursewarePopularity, useCoursewareUsageDetail, usePageTitle } from "@/lib/hooks";
+import { useMapSelection, type DocSelection } from "@/lib/use-selection";
 import { useLocation } from "@/contexts/LocationContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -819,8 +820,16 @@ function CoursewareBrowserTab() {
   // Network errors
   const [unavailableFolders, setUnavailableFolders] = useState<Set<string>>(new Set());
 
-  // Multi-select state (replicated from FolderTreeModal)
-  const [selections, setSelections] = useState<Map<string, FileSelection>>(new Map());
+  // Multi-select state (using shared hook)
+  const {
+    selections,
+    setSelections,
+    toggle: toggleFileSelection,
+    set: setFileSelection,
+    update: updateFileSelection,
+    remove: removeFileSelection,
+    clear: clearFileSelections,
+  } = useMapSelection<string, FileSelection>();
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
@@ -1109,54 +1118,33 @@ function CoursewareBrowserTab() {
   const toggleSelection = useCallback(async (node: TreeNode) => {
     const path = node.path;
     if (selections.has(path)) {
-      setSelections((prev) => {
-        const next = new Map(prev);
-        next.delete(path);
-        return next;
-      });
+      removeFileSelection(path);
     } else {
-      const sel: FileSelection = { path, pages: "" };
-      setSelections((prev) => new Map(prev).set(path, sel));
+      setFileSelection(path, { path, pages: "" });
       // Load page count async
       if (node.handle && node.kind === "file") {
         try {
           const file = await (node.handle as FileSystemFileHandle).getFile();
           const arrayBuffer = await file.arrayBuffer();
           const pageCount = await getPageCount(arrayBuffer);
-          setSelections((prev) => {
-            const next = new Map(prev);
-            const existing = next.get(path);
-            if (existing) next.set(path, { ...existing, pageCount });
-            return next;
-          });
+          updateFileSelection(path, (sel) => ({ ...sel, pageCount }));
         } catch (err) {
           console.warn("Failed to get page count:", err);
         }
       }
     }
-  }, [selections]);
+  }, [selections, removeFileSelection, setFileSelection, updateFileSelection]);
 
-  // Update page input for a selection
+  // Update page input for a selection (with validation)
   const updateSelectionPages = useCallback((path: string, pages: string) => {
-    setSelections((prev) => {
-      const next = new Map(prev);
-      const sel = next.get(path);
-      if (sel) {
-        const error = sel.pageCount ? validatePageInput(pages, sel.pageCount) : null;
-        next.set(path, { ...sel, pages, error: error || undefined });
-      }
-      return next;
+    updateFileSelection(path, (sel) => {
+      const error = sel.pageCount ? validatePageInput(pages, sel.pageCount) : null;
+      return { ...sel, pages, error: error || undefined };
     });
-  }, []);
+  }, [updateFileSelection]);
 
-  // Remove a single selection
-  const removeSelection = useCallback((path: string) => {
-    setSelections((prev) => {
-      const next = new Map(prev);
-      next.delete(path);
-      return next;
-    });
-  }, []);
+  // Remove a single selection (alias for hook method)
+  const removeSelection = removeFileSelection;
 
   // Handle click with multi-select support (replicated from FolderTreeModal)
   const handleSingleClick = useCallback((e: React.MouseEvent, node: TreeNode, index: number) => {
@@ -1392,7 +1380,7 @@ function CoursewareBrowserTab() {
         case "Escape": // Clear selection
           if (selections.size > 0) {
             e.preventDefault();
-            setSelections(new Map());
+            clearFileSelections();
           }
           break;
         case "p":
@@ -1619,7 +1607,7 @@ function CoursewareBrowserTab() {
                 <span className="font-normal ml-1 opacity-70">(Esc to clear)</span>
               </span>
               <button
-                onClick={() => setSelections(new Map())}
+                onClick={() => clearFileSelections()}
                 className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
               >
                 Clear all
@@ -1990,7 +1978,7 @@ function CoursewareBrowserTab() {
         files={Array.from(selections.values())}
         onAssignComplete={() => {
           setSessionSelectorOpen(false);
-          setSelections(new Map());
+          clearFileSelections();
         }}
       />
     </div>
@@ -2060,8 +2048,14 @@ function CoursewareSearchTab() {
   const [sessionSelectorOpen, setSessionSelectorOpen] = useState(false);
   const [assignSelections, setAssignSelections] = useState<{ path: string; pages: string }[]>([]);
 
-  // Multi-select state
-  const [selectedDocs, setSelectedDocs] = useState<Map<number, { path: string; title: string }>>(new Map());
+  // Multi-select state (using shared hook)
+  const {
+    selections: selectedDocs,
+    setSelections: setSelectedDocs,
+    toggle: toggleDocSelection,
+    remove: removeDocSelection,
+    clear: clearDocSelections,
+  } = useMapSelection<number, DocSelection>();
 
   // Keyboard navigation
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -2210,47 +2204,23 @@ function CoursewareSearchTab() {
     setPreviewDocTitle(docTitle);
   }, []);
 
-  // Toggle document selection for multi-select
+  // Toggle document selection for multi-select (using shared hook)
   const toggleSelection = useCallback((doc: PaperlessDocument) => {
     const path = doc.converted_path || doc.original_path || doc.original_file_name || doc.title;
-    setSelectedDocs(prev => {
-      const next = new Map(prev);
-      if (next.has(doc.id)) {
-        next.delete(doc.id);
-      } else {
-        next.set(doc.id, { path, title: doc.title });
-      }
-      return next;
-    });
-  }, []);
+    toggleDocSelection(doc.id, { path, title: doc.title });
+  }, [toggleDocSelection]);
 
-  // Toggle selection for recent documents
+  // Toggle selection for recent documents (using shared hook)
   const toggleSelectionRecent = useCallback((doc: RecentDocument) => {
-    setSelectedDocs(prev => {
-      const next = new Map(prev);
-      if (next.has(doc.id)) {
-        next.delete(doc.id);
-      } else {
-        next.set(doc.id, { path: doc.path, title: doc.title });
-      }
-      return next;
-    });
-  }, []);
+    toggleDocSelection(doc.id, { path: doc.path, title: doc.title });
+  }, [toggleDocSelection]);
 
   // Toggle selection for trending items (use negative IDs to avoid collision)
   const toggleSelectionTrending = useCallback((item: CoursewarePopularity, index: number) => {
     const path = item.normalized_paths?.split(", ")[0] || item.filename;
     const id = -(index + 1000); // Negative ID to avoid collision with doc IDs
-    setSelectedDocs(prev => {
-      const next = new Map(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.set(id, { path, title: item.filename });
-      }
-      return next;
-    });
-  }, []);
+    toggleDocSelection(id, { path, title: item.filename });
+  }, [toggleDocSelection]);
 
   // Handle select from preview (adds to recent)
   const handleSelectFromPreview = (docId: number, title: string, filename: string) => {
@@ -2307,7 +2277,7 @@ function CoursewareSearchTab() {
       // Escape - clear selections
       if (e.key === "Escape" && currentSelectedDocs.size > 0) {
         e.preventDefault();
-        setSelectedDocs(new Map());
+        clearDocSelections();
         return;
       }
 
@@ -2581,7 +2551,7 @@ function CoursewareSearchTab() {
             {selectedDocs.size} selected
           </span>
           <button
-            onClick={() => setSelectedDocs(new Map())}
+            onClick={() => clearDocSelections()}
             className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           >
             Clear
@@ -2890,7 +2860,7 @@ function CoursewareSearchTab() {
         onAssignComplete={() => {
           setSessionSelectorOpen(false);
           setAssignSelections([]);
-          setSelectedDocs(new Map());
+          clearDocSelections();
         }}
       />
     </div>
