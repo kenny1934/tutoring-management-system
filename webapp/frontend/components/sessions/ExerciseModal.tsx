@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check, Download } from "lucide-react";
@@ -18,7 +19,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, type ExerciseValidationError } from "@/lib/exercise-utils";
 
 // Grade tag colors (matches EditSessionModal)
 const GRADE_COLORS: Record<string, string> = {
@@ -223,6 +224,15 @@ export function ExerciseModal({
   // Delete confirmation state
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
 
+  // Unsaved changes tracking
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
+
+  // Close confirmation state
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+
   // Trending section state
   const [trendingExpanded, setTrendingExpanded] = useState(false);
   const [trendingPreviewDoc, setTrendingPreviewDoc] = useState<PaperlessDocument | null>(null);
@@ -276,6 +286,19 @@ export function ExerciseModal({
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
 
+  // Warn user about unsaved changes before leaving
+  useEffect(() => {
+    if (!isDirty || !isOpen) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, isOpen]);
+
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
 
@@ -303,13 +326,44 @@ export function ExerciseModal({
           };
         });
       setExercises(filteredExercises);
+      setIsDirty(false);
+      setValidationErrors([]);
     }
     if (!isOpen) {
       initializedRef.current = false;
+      setIsDirty(false);
+      setValidationErrors([]);
+      setShowCloseConfirm(false);
     }
   }, [isOpen, session, exerciseType]);
 
+  // Handle close attempts - show confirmation if dirty
+  const handleCloseAttempt = useCallback(() => {
+    if (isDirty) {
+      setShowCloseConfirm(true);
+    } else {
+      onClose();
+    }
+  }, [isDirty, onClose]);
+
   const handleSave = useCallback(async () => {
+    // Validate page ranges before saving
+    const errors: ExerciseValidationError[] = [];
+    exercises.forEach((ex, idx) => {
+      if (ex.pdf_name.trim()) { // Only validate exercises with PDF names
+        errors.push(...validateExercisePageRange(ex, idx));
+      }
+    });
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      const firstError = errors[0];
+      showToast(`Row ${firstError.index + 1}: ${firstError.message}`, 'error');
+      return;
+    }
+
+    setValidationErrors([]);
+
     const sessionId = session.id;
     const currentExercises = [...exercises];
     const originalSession = session; // Store for rollback on error
@@ -351,7 +405,8 @@ export function ExerciseModal({
     // Update cache IMMEDIATELY (optimistic)
     updateSessionInCache(optimisticSession);
 
-    // Close modal
+    // Clear dirty state and close modal
+    setIsDirty(false);
     onClose();
 
     // Save in background - will update cache again with server state
@@ -384,8 +439,22 @@ export function ExerciseModal({
       ...prev,
       { exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
     ]);
+    setIsDirty(true);
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
+
+  const duplicateExercise = useCallback((index: number) => {
+    setExercises((prev) => {
+      const exerciseToDuplicate = prev[index];
+      if (!exerciseToDuplicate) return prev;
+      const duplicate = { ...exerciseToDuplicate, id: undefined }; // Remove id so it's treated as new
+      // Insert after the current index
+      const before = prev.slice(0, index + 1);
+      const after = prev.slice(index + 1);
+      return [...before, duplicate, ...after];
+    });
+    setIsDirty(true);
+  }, []);
 
   // Focus new exercise input after render
   useEffect(() => {
@@ -403,6 +472,7 @@ export function ExerciseModal({
   const confirmDelete = useCallback(() => {
     if (pendingDeleteIndex !== null) {
       setExercises((prev) => prev.filter((_, i) => i !== pendingDeleteIndex));
+      setIsDirty(true);
       setPendingDeleteIndex(null);
       setFocusedRowIndex(null);
     }
@@ -422,6 +492,16 @@ export function ExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle close confirmation with Escape - MUST be at TOP
+      if (showCloseConfirm) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowCloseConfirm(false);
+          return;
+        }
+      }
+
       // Handle confirmation with Enter/Escape when pending - MUST be at TOP to intercept before modal's handlers
       if (pendingDeleteIndex !== null) {
         if (e.key === 'Enter') {
@@ -469,7 +549,7 @@ export function ExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete]);
+  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm]);
 
   const updateExercise = (
     index: number,
@@ -479,7 +559,19 @@ export function ExerciseModal({
     setExercises((prev) =>
       prev.map((ex, i) => (i === index ? { ...ex, [field]: value } : ex))
     );
+    setIsDirty(true);
+    // Clear validation errors for this field when user edits it
+    if (['page_start', 'page_end', 'complex_pages'].includes(field)) {
+      setValidationErrors((prev) => prev.filter((e) => !(e.index === index && e.field === field)));
+    }
   };
+
+  // Check if a field has validation error
+  const hasFieldError = useCallback(
+    (index: number, field: ExerciseValidationError['field']) =>
+      validationErrors.some((e) => e.index === index && e.field === field),
+    [validationErrors]
+  );
 
   // Handle paste - auto-convert Windows drive paths to alias paths
   const handlePasteConvert = useCallback(async (
@@ -672,6 +764,7 @@ export function ExerciseModal({
         // Or append at end
         return [...prev, ...newExercises];
       });
+      setIsDirty(true);
     }
 
     setBrowsingForIndex(null);
@@ -787,6 +880,7 @@ export function ExerciseModal({
           const after = prev.slice(searchingForIndex + 1);
           return [...before, ...newExercises, ...after];
         });
+        setIsDirty(true);
       }
 
       setSearchingForIndex(null);
@@ -926,7 +1020,7 @@ export function ExerciseModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleCloseAttempt}
       title={
         <div className="flex items-center gap-2">
           <span className={cn(
@@ -955,7 +1049,7 @@ export function ExerciseModal({
             <span>save</span>
           </span>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleCloseAttempt}>
               Cancel
             </Button>
             <Button onClick={handleSave}>
@@ -1172,6 +1266,7 @@ export function ExerciseModal({
                             complex_pages: '',
                             remarks: '',
                           }]);
+                          setIsDirty(true);
                         }}
                         title={`Click to add ${item.filename} as new exercise`}
                       >
@@ -1486,6 +1581,16 @@ export function ExerciseModal({
                       </>
                     )}
 
+                    {/* Duplicate button */}
+                    <button
+                      type="button"
+                      onClick={() => duplicateExercise(index)}
+                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors shrink-0"
+                      title="Duplicate exercise"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+
                     {/* Delete button with confirmation */}
                     {pendingDeleteIndex === index ? (
                       <div className="flex items-center gap-1 text-xs shrink-0">
@@ -1560,7 +1665,8 @@ export function ExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'page_start') && "border-red-500 ring-1 ring-red-500"
                             )}
                           />
                           <span className="text-xs text-gray-400">–</span>
@@ -1581,7 +1687,8 @@ export function ExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'page_end') && "border-red-500 ring-1 ring-red-500"
                             )}
                           />
                         </label>
@@ -1622,7 +1729,8 @@ export function ExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 flex-1",
-                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'complex_pages') && "border-red-500 ring-1 ring-red-500"
                             )}
                             title="Custom page range (e.g., 1,3,5-7)"
                           />
@@ -1710,6 +1818,26 @@ export function ExerciseModal({
         filenames={searchFilenames}
         onFilesSelected={handleBatchSearchFilesSelected}
       />
+
+      {/* Close Confirmation Dialog - uses createPortal to render above modal */}
+      {showCloseConfirm && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              You have unsaved changes. Discard them?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={() => { setShowCloseConfirm(false); onClose(); }}>
+                Discard
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </Modal>
   );
 }

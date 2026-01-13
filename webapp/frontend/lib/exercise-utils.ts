@@ -63,3 +63,68 @@ export function combineExerciseRemarks(complexPages: string, remarks: string): s
   if (remarks.trim()) parts.push(remarks.trim());
   return parts.join(' || ');
 }
+
+/**
+ * Exercise validation error
+ */
+export interface ExerciseValidationError {
+  index: number;
+  field: 'page_start' | 'page_end' | 'complex_pages' | 'pdf_name';
+  message: string;
+}
+
+/**
+ * Validate an exercise's page range fields.
+ *
+ * @param exercise - Exercise with page fields to validate
+ * @param index - Index of the exercise (for error reporting)
+ * @returns Array of validation errors (empty if valid)
+ */
+export function validateExercisePageRange(
+  exercise: {
+    page_mode: 'simple' | 'custom';
+    page_start: string;
+    page_end: string;
+    complex_pages: string;
+    pdf_name: string;
+  },
+  index: number
+): ExerciseValidationError[] {
+  const errors: ExerciseValidationError[] = [];
+
+  if (exercise.page_mode === 'simple') {
+    const start = exercise.page_start.trim();
+    const end = exercise.page_end.trim();
+
+    if (start) {
+      const startNum = parseInt(start, 10);
+      if (isNaN(startNum) || startNum < 1) {
+        errors.push({ index, field: 'page_start', message: 'Start page must be a positive number' });
+      } else if (end) {
+        const endNum = parseInt(end, 10);
+        if (isNaN(endNum) || endNum < 1) {
+          errors.push({ index, field: 'page_end', message: 'End page must be a positive number' });
+        } else if (endNum < startNum) {
+          errors.push({ index, field: 'page_end', message: 'End page must be ≥ start page' });
+        }
+      }
+    } else if (end) {
+      // Has end but no start - that's unusual but valid, treat as single page
+      const endNum = parseInt(end, 10);
+      if (isNaN(endNum) || endNum < 1) {
+        errors.push({ index, field: 'page_end', message: 'Page must be a positive number' });
+      }
+    }
+  } else if (exercise.page_mode === 'custom') {
+    const range = exercise.complex_pages.trim();
+    if (range) {
+      // Check for at least one valid page number pattern
+      const hasValidNumber = /\d+/.test(range);
+      if (!hasValidNumber) {
+        errors.push({ index, field: 'complex_pages', message: 'Invalid page range format' });
+      }
+    }
+  }
+
+  return errors;
+}
