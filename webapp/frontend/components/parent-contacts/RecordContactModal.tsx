@@ -10,56 +10,11 @@ import {
   Loader2,
   User,
   Calendar,
-  MessageCircle,
   FileText,
   Bell,
   Search,
-  Phone,
-  TrendingUp,
-  AlertTriangle
 } from "lucide-react";
-
-// Custom WeChat icon SVG
-const WeChatIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.045c.134 0 .24-.111.24-.247 0-.06-.024-.12-.04-.178l-.326-1.233a.49.49 0 0 1 .178-.553c1.527-1.122 2.5-2.782 2.5-4.622 0-3.105-3.05-5.924-7.059-6.119zm-2.07 2.867c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982zm4.14 0c.535 0 .969.44.969.982a.976.976 0 0 1-.97.983.976.976 0 0 1-.968-.983c0-.542.434-.982.969-.982z"/>
-  </svg>
-);
-
-// Custom In-Person icon SVG (two people meeting)
-const InPersonIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="7" cy="6" r="3" />
-    <circle cx="17" cy="6" r="3" />
-    <path d="M2 20c0-3.5 2.5-6 5-6s5 2.5 5 6" />
-    <path d="M12 20c0-3.5 2.5-6 5-6s5 2.5 5 6" />
-  </svg>
-);
-
-const getMethodIcon = (method: string) => {
-  switch (method) {
-    case 'WeChat':
-      return <WeChatIcon className="h-4 w-4 text-green-600" />;
-    case 'Phone':
-      return <Phone className="h-4 w-4 text-blue-600" />;
-    case 'In-Person':
-      return <InPersonIcon className="h-4 w-4 text-purple-600" />;
-    default:
-      return <MessageCircle className="h-4 w-4" />;
-  }
-};
-
-const getContactTypeIcon = (type: string) => {
-  switch (type) {
-    case 'Progress Update':
-      return <TrendingUp className="h-4 w-4 text-blue-600" />;
-    case 'Concern':
-      return <AlertTriangle className="h-4 w-4 text-orange-600" />;
-    case 'General':
-    default:
-      return <MessageCircle className="h-4 w-4 text-gray-600" />;
-  }
-};
+import { getMethodIcon, getContactTypeIcon, CONTACT_METHODS, CONTACT_TYPES } from "./contact-utils";
 import {
   useFloating,
   useClick,
@@ -83,9 +38,6 @@ interface RecordContactModalProps {
   currentUserTutorId?: number;  // The tutor ID associated with the logged-in user
   currentUserRole?: UserRole;   // The role of the logged-in user
 }
-
-const CONTACT_METHODS = ['WeChat', 'Phone', 'In-Person'];
-const CONTACT_TYPES = ['Progress Update', 'Concern', 'General'];
 
 export function RecordContactModal({
   isOpen,
@@ -246,7 +198,7 @@ export function RecordContactModal({
           ref={refs.setFloating}
           {...getFloatingProps()}
           className={cn(
-            "w-[448px] bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
+            "w-full sm:w-[448px] bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
             "border border-[#e8d4b8] dark:border-[#6b5a4a]",
             "max-h-[90vh] flex flex-col"
           )}
@@ -275,15 +227,17 @@ export function RecordContactModal({
 
             {/* Student Selection */}
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="student-search" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
                 <User className="h-4 w-4 text-[#a0704b]" />
                 Student <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <input
+                  id="student-search"
                   type="text"
                   placeholder="Search students..."
+                  aria-label="Search for a student"
                   value={selectedStudent ? selectedStudent.student_name : studentSearch}
                   onChange={(e) => {
                     setStudentSearch(e.target.value);
@@ -352,11 +306,13 @@ export function RecordContactModal({
 
             {/* Contacted By (Tutor) */}
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <User className="h-4 w-4 text-[#a0704b]" />
-                Contacted By <span className="text-red-500">*</span>
+              <label htmlFor="contacted-by" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <User className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+                Contacted By <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <select
+                id="contacted-by"
+                aria-required="true"
                 value={selectedTutorId || ''}
                 onChange={(e) => setSelectedTutorId(e.target.value ? parseInt(e.target.value) : null)}
                 disabled={!canEditTutor}
@@ -382,13 +338,14 @@ export function RecordContactModal({
             </div>
 
             {/* Contact Date & Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Calendar className="h-4 w-4 text-[#a0704b]" />
+                <label htmlFor="contact-date" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Calendar className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
                   Date
                 </label>
                 <input
+                  id="contact-date"
                   type="date"
                   value={contactDate}
                   onChange={(e) => setContactDate(e.target.value)}
@@ -400,10 +357,11 @@ export function RecordContactModal({
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="contact-time" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Time
                 </label>
                 <input
+                  id="contact-time"
                   type="time"
                   value={contactTime}
                   onChange={(e) => setContactTime(e.target.value)}
@@ -417,13 +375,14 @@ export function RecordContactModal({
             </div>
 
             {/* Method & Type */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {getMethodIcon(contactMethod)}
+                <label htmlFor="contact-method" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span aria-hidden="true">{getMethodIcon(contactMethod)}</span>
                   Method
                 </label>
                 <select
+                  id="contact-method"
                   value={contactMethod}
                   onChange={(e) => setContactMethod(e.target.value)}
                   className={cn(
@@ -438,11 +397,12 @@ export function RecordContactModal({
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {getContactTypeIcon(contactType)}
+                <label htmlFor="contact-type" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span aria-hidden="true">{getContactTypeIcon(contactType, "h-4 w-4")}</span>
                   Type
                 </label>
                 <select
+                  id="contact-type"
                   value={contactType}
                   onChange={(e) => setContactType(e.target.value)}
                   className={cn(
@@ -460,11 +420,12 @@ export function RecordContactModal({
 
             {/* Notes */}
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <FileText className="h-4 w-4 text-[#a0704b]" />
+              <label htmlFor="contact-notes" className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <FileText className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
                 Notes
               </label>
               <textarea
+                id="contact-notes"
                 value={briefNotes}
                 onChange={(e) => setBriefNotes(e.target.value)}
                 placeholder="Brief summary of the conversation..."
@@ -480,25 +441,27 @@ export function RecordContactModal({
 
             {/* Follow-up */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
+                  id="follow-up-needed"
                   type="checkbox"
                   checked={followUpNeeded}
                   onChange={(e) => setFollowUpNeeded(e.target.checked)}
                   className="rounded border-[#d4a574] text-[#a0704b] focus:ring-[#a0704b]"
                 />
                 <span className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                  <Bell className="h-4 w-4 text-blue-500" />
+                  <Bell className="h-4 w-4 text-blue-500" aria-hidden="true" />
                   Follow-up needed
                 </span>
               </label>
 
               {followUpNeeded && (
                 <div className="ml-6 space-y-1.5">
-                  <label className="text-sm text-gray-600 dark:text-gray-400">
+                  <label htmlFor="follow-up-date" className="text-sm text-gray-600 dark:text-gray-400">
                     Follow-up by
                   </label>
                   <input
+                    id="follow-up-date"
                     type="date"
                     value={followUpDate}
                     onChange={(e) => setFollowUpDate(e.target.value)}

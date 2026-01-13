@@ -323,6 +323,32 @@ async def get_pending_followups(
         .all()
     )
 
+    # Batch-fetch last contacts for all students with pending followups (avoid N+1)
+    student_ids = list(student_followups.keys())
+    last_contacts = {}
+    if student_ids:
+        # Subquery to get max contact date per student
+        subquery = db.query(
+            ParentCommunication.student_id,
+            func.max(ParentCommunication.contact_date).label('last_date')
+        ).filter(
+            ParentCommunication.student_id.in_(student_ids)
+        ).group_by(ParentCommunication.student_id).subquery()
+
+        # Join to get full records with tutor info
+        last_contact_records = db.query(
+            ParentCommunication
+        ).join(
+            subquery,
+            and_(
+                ParentCommunication.student_id == subquery.c.student_id,
+                ParentCommunication.contact_date == subquery.c.last_date
+            )
+        ).options(joinedload(ParentCommunication.tutor)).all()
+
+        for record in last_contact_records:
+            last_contacts[record.student_id] = record
+
     today = date.today()
     result = []
     for student_id, fu in student_followups.items():
@@ -330,10 +356,8 @@ async def get_pending_followups(
         if not student:
             continue
 
-        # Calculate days since last contact
-        last_contact = db.query(ParentCommunication).filter(
-            ParentCommunication.student_id == student_id
-        ).order_by(desc(ParentCommunication.contact_date)).first()
+        # Use pre-fetched last contact data
+        last_contact = last_contacts.get(student_id)
 
         if last_contact:
             days_since = (today - last_contact.contact_date.date()).days
@@ -525,17 +549,38 @@ async def update_communication(
 @router.delete("/parent-communications/{communication_id}")
 async def delete_communication(
     communication_id: int,
+    deleted_by: Optional[str] = Query(None, description="Email of user deleting this record"),
     db: Session = Depends(get_db)
 ):
     """
     Delete a parent communication record.
+    Logs deletion details for audit purposes.
     """
-    comm = db.query(ParentCommunication).filter(
+    comm = db.query(ParentCommunication).options(
+        joinedload(ParentCommunication.student),
+        joinedload(ParentCommunication.tutor)
+    ).filter(
         ParentCommunication.id == communication_id
     ).first()
 
     if not comm:
         raise HTTPException(status_code=404, detail="Communication not found")
+
+    # Log audit information before deletion
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"AUDIT: Parent communication deleted - "
+        f"ID: {comm.id}, "
+        f"Student: {comm.student.student_name if comm.student else 'Unknown'} (ID: {comm.student_id}), "
+        f"Tutor: {comm.tutor.tutor_name if comm.tutor else 'Unknown'} (ID: {comm.tutor_id}), "
+        f"Date: {comm.contact_date}, "
+        f"Method: {comm.contact_method}, "
+        f"Type: {comm.contact_type}, "
+        f"Notes: {comm.brief_notes[:100] if comm.brief_notes else 'None'}..., "
+        f"Created by: {comm.created_by}, "
+        f"Deleted by: {deleted_by or 'Unknown'}"
+    )
 
     db.delete(comm)
     db.commit()

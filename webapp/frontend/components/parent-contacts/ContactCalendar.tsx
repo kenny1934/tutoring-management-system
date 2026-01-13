@@ -163,7 +163,7 @@ export function ContactCalendar({
     )}>
       {/* Header */}
       <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-center sm:justify-between gap-2">
           {/* Navigation */}
           <div className="flex items-center gap-2">
             <button
