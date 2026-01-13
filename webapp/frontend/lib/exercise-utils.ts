@@ -3,6 +3,34 @@
  * Used by ExerciseModal and BulkExerciseModal.
  */
 
+import type { PageSelection } from '@/types';
+
+/**
+ * Parse page input string into PageSelection.
+ * Accepts: "5", "1-5", "1~5", "1,3,5-7"
+ *
+ * @param input - User input string for page range
+ * @returns PageSelection object or undefined if empty
+ */
+export function parsePageInput(input: string): PageSelection | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  // Normalize common "to" separators: - ~ – — −
+  const normalized = trimmed.replace(/[~–—−]/g, '-');
+
+  // Simple range pattern: "5" or "1-5"
+  const match = normalized.match(/^(\d+)(?:-(\d+))?$/);
+  if (match) {
+    const start = parseInt(match[1], 10);
+    const end = match[2] ? parseInt(match[2], 10) : start;
+    return { pageStart: start, pageEnd: end };
+  }
+
+  // Everything else → complex mode (pass normalized string)
+  return { complexRange: normalized };
+}
+
 /**
  * Parse DB remarks field into separate complex_pages and remarks.
  * The DB stores complex pages encoded as "Pages: 1,3,5-7" prefix in remarks field.

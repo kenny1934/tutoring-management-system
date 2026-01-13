@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getGradeColor } from "@/lib/constants";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
@@ -13,38 +14,9 @@ import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, type ExerciseValidationError } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 
-// Parse page input string into structured format
-function parsePageInput(input: string): { pageStart?: number; pageEnd?: number; complexRange?: string } | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  const normalized = trimmed.replace(/[~–—−]/g, '-');
-  const match = normalized.match(/^(\d+)(?:-(\d+))?$/);
-  if (match) {
-    const start = parseInt(match[1], 10);
-    const end = match[2] ? parseInt(match[2], 10) : start;
-    return { pageStart: start, pageEnd: end };
-  }
-  return { complexRange: normalized };
-}
 
-// Grade tag colors (matches EditSessionModal)
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 // Exercise form item type
 export interface ExerciseFormItem {
