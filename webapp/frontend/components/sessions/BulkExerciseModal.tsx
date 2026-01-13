@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -13,7 +13,7 @@ import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
-import { combineExerciseRemarks } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, type ExerciseValidationError } from "@/lib/exercise-utils";
 
 // Parse page input string into structured format
 function parsePageInput(input: string): { pageStart?: number; pageEnd?: number; complexRange?: string } | null {
@@ -86,12 +86,28 @@ export function BulkExerciseModal({
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const { showToast } = useToast();
 
   // Check for File System Access API support on mount
   useEffect(() => {
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
+
+  // Warn user about unsaved changes before leaving
+  useEffect(() => {
+    if (!isDirty || !isOpen) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, isOpen]);
 
   // Ref for focusing newly added exercise input
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +128,21 @@ export function BulkExerciseModal({
       showToast('No valid exercises to save', 'error');
       return;
     }
+
+    // Validate page ranges before showing confirmation
+    const errors: ExerciseValidationError[] = [];
+    validExercises.forEach((ex, idx) => {
+      errors.push(...validateExercisePageRange(ex, idx));
+    });
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      const firstError = errors[0];
+      showToast(`Row ${firstError.index + 1}: ${firstError.message}`, 'error');
+      return;
+    }
+
+    setValidationErrors([]);
 
     // Show confirmation dialog
     setShowSaveConfirm(true);
@@ -180,21 +211,53 @@ export function BulkExerciseModal({
     setIsSaving(false);
     setSaveProgress(null);
     setExercises([]); // Reset for next use
+    setIsDirty(false);
+    setValidationErrors([]);
     onClose();
   }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
 
-  const handleClose = () => {
-    setExercises([]); // Reset on close
+  // Handle close attempts - show confirmation if dirty
+  const handleCloseAttempt = useCallback(() => {
+    if (isDirty) {
+      setShowCloseConfirm(true);
+    } else {
+      setExercises([]);
+      setIsDirty(false);
+      setValidationErrors([]);
+      onClose();
+    }
+  }, [isDirty, onClose]);
+
+  // Actually close and reset everything
+  const handleClose = useCallback(() => {
+    setExercises([]);
+    setIsDirty(false);
+    setValidationErrors([]);
+    setShowCloseConfirm(false);
     onClose();
-  };
+  }, [onClose]);
 
   const addExercise = useCallback(() => {
     setExercises((prev) => [
       ...prev,
       { exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
     ]);
+    setIsDirty(true);
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
+
+  const duplicateExercise = useCallback((index: number) => {
+    setExercises((prev) => {
+      const exerciseToDuplicate = prev[index];
+      if (!exerciseToDuplicate) return prev;
+      const duplicate = { ...exerciseToDuplicate };
+      // Insert after the current index
+      const before = prev.slice(0, index + 1);
+      const after = prev.slice(index + 1);
+      return [...before, duplicate, ...after];
+    });
+    setIsDirty(true);
+  }, []);
 
   const updateExercise = (
     index: number,
@@ -204,7 +267,19 @@ export function BulkExerciseModal({
     setExercises((prev) =>
       prev.map((ex, i) => (i === index ? { ...ex, [field]: value } : ex))
     );
+    setIsDirty(true);
+    // Clear validation errors for this field when user edits it
+    if (['page_start', 'page_end', 'complex_pages'].includes(field)) {
+      setValidationErrors((prev) => prev.filter((e) => !(e.index === index && e.field === field)));
+    }
   };
+
+  // Check if a field has validation error
+  const hasFieldError = useCallback(
+    (index: number, field: ExerciseValidationError['field']) =>
+      validationErrors.some((e) => e.index === index && e.field === field),
+    [validationErrors]
+  );
 
   // Handle file browse for PDF selection
   const handleBrowseFile = useCallback((index: number) => {
@@ -282,6 +357,7 @@ export function BulkExerciseModal({
           const after = prev.slice(browsingForIndex + 1);
           return [...before, ...newExercises, ...after];
         });
+        setIsDirty(true);
       }
 
       setBrowsingForIndex(null);
@@ -358,6 +434,7 @@ export function BulkExerciseModal({
           const after = prev.slice(searchingForIndex + 1);
           return [...before, ...newExercises, ...after];
         });
+        setIsDirty(true);
       }
 
       setSearchingForIndex(null);
@@ -465,11 +542,13 @@ export function BulkExerciseModal({
 
   const removeExercise = useCallback((index: number) => {
     setExercises((prev) => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
   }, []);
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmIndex !== null) {
       setExercises((prev) => prev.filter((_, i) => i !== deleteConfirmIndex));
+      setIsDirty(true);
       setDeleteConfirmIndex(null);
       setFocusedRowIndex(null);
     }
@@ -492,6 +571,16 @@ export function BulkExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Handle close confirmation with Escape - MUST be at TOP
+      if (showCloseConfirm) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowCloseConfirm(false);
+          return;
+        }
+      }
+
       // Handle save confirmation with Enter/Escape - MUST be at TOP
       if (showSaveConfirm) {
         if (e.key === 'Enter') {
@@ -557,7 +646,7 @@ export function BulkExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, exercises.length, isSaving, showSaveConfirm]);
+  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -575,7 +664,7 @@ export function BulkExerciseModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={handleCloseAttempt}
       title={
         <div className="flex items-center gap-2">
           <span className={cn(
@@ -604,7 +693,7 @@ export function BulkExerciseModal({
             <span>save</span>
           </span>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleClose} disabled={isSaving}>
+            <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>
               Cancel
             </Button>
             <Button onClick={initiateSave} disabled={isSaving || exercises.length === 0}>
@@ -818,6 +907,16 @@ export function BulkExerciseModal({
                       </>
                     )}
 
+                    {/* Duplicate button */}
+                    <button
+                      type="button"
+                      onClick={() => duplicateExercise(index)}
+                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors shrink-0"
+                      title="Duplicate exercise"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+
                     {/* Delete button with inline confirmation */}
                     {deleteConfirmIndex === index ? (
                       <div className="flex items-center gap-1 text-xs shrink-0">
@@ -892,7 +991,8 @@ export function BulkExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'page_start') && "border-red-500 ring-1 ring-red-500"
                             )}
                           />
                           <span className="text-xs text-gray-400">–</span>
@@ -913,7 +1013,8 @@ export function BulkExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 w-16",
-                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'simple' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'page_end') && "border-red-500 ring-1 ring-red-500"
                             )}
                           />
                         </label>
@@ -954,7 +1055,8 @@ export function BulkExerciseModal({
                             className={cn(
                               inputClass,
                               "text-xs py-1 flex-1",
-                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed"
+                              exercise.page_mode !== 'custom' && "opacity-50 cursor-not-allowed",
+                              hasFieldError(index, 'complex_pages') && "border-red-500 ring-1 ring-red-500"
                             )}
                             title="Custom page range (e.g., 1,3,5-7)"
                           />
@@ -1010,7 +1112,7 @@ export function BulkExerciseModal({
       {/* Save Confirmation Dialog - uses createPortal to render outside Modal */}
       {showSaveConfirm && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-[450px]">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[450px]">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
               Confirm Bulk Assignment
             </h3>
@@ -1035,6 +1137,26 @@ export function BulkExerciseModal({
               </Button>
               <Button onClick={handleSave}>
                 Confirm
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Close Confirmation Dialog - uses createPortal to render above modal */}
+      {showCloseConfirm && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl p-6 w-full max-w-[400px]">
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              You have unsaved changes. Discard them?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCloseConfirm(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleClose}>
+                Discard
               </Button>
             </div>
           </div>
