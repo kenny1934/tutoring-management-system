@@ -549,6 +549,163 @@ export const documentProcessingAPI = {
   },
 };
 
+// Parent Communications API
+export interface ParentCommunication {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  grade: string | null;
+  tutor_id: number;
+  tutor_name: string;
+  contact_date: string;
+  contact_method: string;
+  contact_type: string;
+  brief_notes: string | null;
+  follow_up_needed: boolean | null;  // Can be null for legacy data
+  follow_up_date: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface StudentContactStatus {
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  last_contact_date: string | null;
+  last_contacted_by: string | null;
+  days_since_contact: number;
+  contact_status: 'Never Contacted' | 'Recent' | 'Been a While' | 'Contact Needed';
+  pending_follow_up: boolean;
+  follow_up_date: string | null;
+  enrollment_count: number;
+}
+
+export interface LocationSettings {
+  id: number;
+  location: string;
+  contact_recent_days: number;
+  contact_warning_days: number;
+}
+
+export interface ParentCommunicationCreate {
+  student_id: number;
+  contact_method?: string;
+  contact_type?: string;
+  brief_notes?: string;
+  follow_up_needed?: boolean;
+  follow_up_date?: string;
+  contact_date?: string;
+}
+
+export const parentCommunicationsAPI = {
+  // Get all communications with filters
+  getAll: (params?: {
+    tutor_id?: number;
+    student_id?: number;
+    location?: string;
+    from_date?: string;
+    to_date?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.tutor_id) searchParams.append('tutor_id', params.tutor_id.toString());
+    if (params?.student_id) searchParams.append('student_id', params.student_id.toString());
+    if (params?.location) searchParams.append('location', params.location);
+    if (params?.from_date) searchParams.append('from_date', params.from_date);
+    if (params?.to_date) searchParams.append('to_date', params.to_date);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    if (params?.offset) searchParams.append('offset', params.offset.toString());
+    const queryString = searchParams.toString();
+    return fetchAPI<ParentCommunication[]>(`/parent-communications${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get student contact statuses (for the student list with status indicators)
+  getStudentStatuses: (tutor_id?: number, location?: string) => {
+    const params = new URLSearchParams();
+    if (tutor_id) params.append('tutor_id', tutor_id.toString());
+    if (location) params.append('location', location);
+    const queryString = params.toString();
+    return fetchAPI<StudentContactStatus[]>(`/parent-communications/students${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get calendar events for date range
+  getCalendarEvents: (start_date: string, end_date: string, tutor_id?: number, location?: string) => {
+    const params = new URLSearchParams({ start_date, end_date });
+    if (tutor_id) params.append('tutor_id', tutor_id.toString());
+    if (location) params.append('location', location);
+    return fetchAPI<ParentCommunication[]>(`/parent-communications/calendar?${params}`);
+  },
+
+  // Get pending follow-ups
+  getPendingFollowups: (tutor_id?: number, location?: string) => {
+    const params = new URLSearchParams();
+    if (tutor_id) params.append('tutor_id', tutor_id.toString());
+    if (location) params.append('location', location);
+    const queryString = params.toString();
+    return fetchAPI<StudentContactStatus[]>(`/parent-communications/pending-followups${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get contact needed count (for dashboard badge)
+  getContactNeededCount: (tutor_id?: number, location?: string) => {
+    const params = new URLSearchParams();
+    if (tutor_id) params.append('tutor_id', tutor_id.toString());
+    if (location) params.append('location', location);
+    const queryString = params.toString();
+    return fetchAPI<{ count: number }>(`/parent-communications/contact-needed-count${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get single communication
+  get: (id: number) => {
+    return fetchAPI<ParentCommunication>(`/parent-communications/${id}`);
+  },
+
+  // Create new communication
+  create: (data: ParentCommunicationCreate, tutor_id: number, created_by: string) => {
+    const params = new URLSearchParams({
+      tutor_id: tutor_id.toString(),
+      created_by,
+    });
+    return fetchAPI<ParentCommunication>(`/parent-communications?${params}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Update communication
+  update: (id: number, data: Partial<ParentCommunicationCreate>) => {
+    return fetchAPI<ParentCommunication>(`/parent-communications/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete communication
+  delete: (id: number, deleted_by?: string) => {
+    const params = deleted_by ? `?deleted_by=${encodeURIComponent(deleted_by)}` : '';
+    return fetchAPI<{ message: string }>(`/parent-communications/${id}${params}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Location Settings API
+export const locationSettingsAPI = {
+  get: (location: string) => {
+    return fetchAPI<LocationSettings>(`/location-settings/${location}`);
+  },
+
+  update: (location: string, data: { contact_recent_days?: number; contact_warning_days?: number }) => {
+    return fetchAPI<LocationSettings>(`/location-settings/${location}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -563,4 +720,6 @@ export const api = {
   pathAliases: pathAliasesAPI,
   holidays: holidaysAPI,
   documentProcessing: documentProcessingAPI,
+  parentCommunications: parentCommunicationsAPI,
+  locationSettings: locationSettingsAPI,
 };

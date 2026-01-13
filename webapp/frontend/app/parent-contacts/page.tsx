@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useTutors, usePageTitle } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
@@ -14,6 +15,7 @@ import { ContactCalendar } from "@/components/parent-contacts/ContactCalendar";
 import { ContactDetailPanel } from "@/components/parent-contacts/ContactDetailPanel";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { PendingFollowupsSection } from "@/components/parent-contacts/PendingFollowupsSection";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
 import { Users, Plus, Loader2, RefreshCw, LayoutList, Calendar as CalendarIcon } from "lucide-react";
@@ -28,6 +30,7 @@ export default function ParentContactsPage() {
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const { data: tutors = [] } = useTutors();
+  const { showToast } = useToast();
 
   // State from URL params
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(() => {
@@ -44,6 +47,8 @@ export default function ParentContactsPage() {
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [editingContact, setEditingContact] = useState<ParentCommunication | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState<'list' | 'calendar' | 'details'>('list');
 
@@ -168,26 +173,43 @@ export default function ParentContactsPage() {
     setShowRecordModal(true);
   };
 
-  // Handle delete contact
-  const handleDeleteContact = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this contact record?')) return;
+  // Handle delete contact - show confirmation dialog
+  const handleDeleteContact = (id: number) => {
+    setDeleteConfirmId(id);
+  };
+
+  // Confirm deletion
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    setIsDeleting(true);
     try {
-      await parentCommunicationsAPI.delete(id);
+      // Pass 'system' as deleted_by until OAuth is implemented
+      await parentCommunicationsAPI.delete(deleteConfirmId, 'system');
       setSelectedContactId(null);
+      setDeleteConfirmId(null);
       refreshData();
+      showToast('Contact record deleted', 'success');
     } catch (error) {
       console.error('Failed to delete contact:', error);
-      alert('Failed to delete contact record');
+      showToast('Failed to delete contact record', 'error');
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  // Cancel deletion
+  const cancelDelete = () => {
+    setDeleteConfirmId(null);
   };
 
   // Handle modal close
   const handleModalClose = (saved?: boolean) => {
     setShowRecordModal(false);
-    setEditingContact(null);
     if (saved) {
+      showToast(editingContact ? 'Contact record updated' : 'Contact record saved', 'success');
       refreshData();
     }
+    setEditingContact(null);
   };
 
   // Handle calendar event click
@@ -445,6 +467,18 @@ export default function ParentContactsPage() {
         preselectedStudentId={selectedStudentId}
         tutorId={typeof selectedTutorId === 'number' ? selectedTutorId : undefined}
         location={effectiveLocation}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirmId !== null}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        title="Delete Contact Record"
+        message="Are you sure you want to delete this contact record? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        loading={isDeleting}
       />
     </DeskSurface>
   );

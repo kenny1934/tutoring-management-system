@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import { cn } from "@/lib/utils";
 import { Check, AlertCircle, Clock, XCircle } from "lucide-react";
 
@@ -10,7 +11,7 @@ interface ContactStatusBadgeProps {
   className?: string;
 }
 
-export function ContactStatusBadge({
+export const ContactStatusBadge = memo(function ContactStatusBadge({
   status,
   size = 'sm',
   showLabel = true,
@@ -77,10 +78,10 @@ export function ContactStatusBadge({
       {showLabel && <span>{config.label}</span>}
     </span>
   );
-}
+});
 
 // Simple dot indicator for compact views
-export function ContactStatusDot({
+export const ContactStatusDot = memo(function ContactStatusDot({
   status
 }: {
   status: 'Never Contacted' | 'Recent' | 'Been a While' | 'Contact Needed' | string
@@ -105,4 +106,4 @@ export function ContactStatusDot({
       title={status}
     />
   );
-}
+});

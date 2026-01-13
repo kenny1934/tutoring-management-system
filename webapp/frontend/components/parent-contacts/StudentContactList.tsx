@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { ContactStatusBadge, ContactStatusDot } from "./ContactStatusBadge";
 import type { StudentContactStatus } from "@/lib/api";
@@ -40,7 +40,7 @@ const gradeOrder: Record<string, number> = {
   'F1': 9, 'F2': 10, 'F3': 11, 'F4': 12, 'F5': 13, 'F6': 14,
 };
 
-export function StudentContactList({
+export const StudentContactList = memo(function StudentContactList({
   students,
   selectedStudentId,
   onStudentClick,
@@ -321,4 +321,4 @@ export function StudentContactList({
       </div>
     </div>
   );
-}
+});
