@@ -59,6 +59,9 @@ import { FolderTreeModal, type FileSelection, validatePageInput } from "@/compon
 import { getPageCount } from "@/lib/pdf-utils";
 import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
 import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
+import { BrowsePdfPreview } from "@/components/courseware/BrowsePdfPreview";
+import { BrowseSelectionPanel } from "@/components/courseware/BrowseSelectionPanel";
+import { SearchSelectionBar } from "@/components/courseware/SearchSelectionBar";
 import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 
@@ -1599,66 +1602,13 @@ function CoursewareBrowserTab() {
         )}
 
         {/* Selection panel - shows when files are selected with page range inputs */}
-        {selections.size > 0 && (
-          <div className="p-2 mx-3 mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                {selections.size} file{selections.size !== 1 ? "s" : ""} selected
-                <span className="font-normal ml-1 opacity-70">(Esc to clear)</span>
-              </span>
-              <button
-                onClick={() => clearFileSelections()}
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
-              >
-                Clear all
-              </button>
-            </div>
-            <div className="max-h-32 overflow-y-auto space-y-1">
-              {Array.from(selections.values()).map((sel) => (
-                <div key={sel.path} className="space-y-0.5">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="flex-1 truncate text-gray-700 dark:text-gray-300" title={sel.path}>
-                      {sel.path.split("\\").pop()}
-                    </span>
-                    <input
-                      type="text"
-                      value={sel.pages}
-                      onChange={(e) => updateSelectionPages(sel.path, e.target.value)}
-                      placeholder={sel.pageCount ? `1-${sel.pageCount}` : "Pages"}
-                      className={cn(
-                        "w-20 px-1.5 py-0.5 text-xs border rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder:text-gray-400",
-                        sel.error
-                          ? "border-red-400 focus:ring-red-400"
-                          : "border-gray-300 dark:border-gray-600 focus:ring-amber-400"
-                      )}
-                    />
-                    {sel.pageCount && (
-                      <span className="text-gray-400 shrink-0">/{sel.pageCount}</span>
-                    )}
-                    <button
-                      onClick={() => removeSelection(sel.path)}
-                      className="p-0.5 rounded hover:bg-amber-200 dark:hover:bg-amber-800 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                  {sel.error && (
-                    <p className="text-[10px] text-red-500 pl-1">{sel.error}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={() => setSessionSelectorOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" />
-                Assign to Sessions
-              </button>
-            </div>
-          </div>
-        )}
+        <BrowseSelectionPanel
+          selections={selections}
+          onUpdatePages={updateSelectionPages}
+          onRemove={removeSelection}
+          onClear={clearFileSelections}
+          onAssign={() => setSessionSelectorOpen(true)}
+        />
 
         {/* Content area */}
         <div ref={contentScrollRef} className="flex-1 overflow-y-auto p-3">
@@ -1884,91 +1834,28 @@ function CoursewareBrowserTab() {
 
       {/* Preview panel */}
       {previewUrl && (
-        <div className="flex-1 flex flex-col p-4 min-w-0">
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-medium text-gray-700 dark:text-gray-300 truncate">{previewNode?.name}</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setZoomIndex((i) => Math.max(i - 1, 0))}
-                disabled={zoomIndex === 0}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                title="Zoom out"
-              >
-                <ZoomOut className="h-4 w-4 text-gray-500" />
-              </button>
-              <span className="text-xs text-gray-500 w-12 text-center">{currentZoom}%</span>
-              <button
-                onClick={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1))}
-                disabled={zoomIndex === ZOOM_LEVELS.length - 1}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
-                title="Zoom in"
-              >
-                <ZoomIn className="h-4 w-4 text-gray-500" />
-              </button>
-              <button
-                onClick={handleOpenInNewTab}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-2"
-                title="Open in new tab"
-              >
-                <ExternalLink className="h-4 w-4 text-gray-500" />
-              </button>
-              <button
-                onClick={handleClosePreview}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ml-1"
-                title="Close preview"
-              >
-                <X className="h-4 w-4 text-gray-500" />
-              </button>
-            </div>
-          </div>
-          {/* Handwriting removal toolbar */}
-          <HandwritingRemovalToolbar
-            pdfBlobUrl={previewUrl}
-            filename={previewNode?.name}
-            onCleanedPdf={handleCleanedPdf}
-            showCleaned={showCleanedPreview}
-            onToggleCleaned={() => setShowCleanedPreview(!showCleanedPreview)}
-            className="mb-2 py-2 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
-          />
-          <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-auto relative">
-            {previewLoading ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
-              </div>
-            ) : (
-              <iframe
-                src={showCleanedPreview && cleanedPreviewUrl ? cleanedPreviewUrl : previewUrl}
-                className="w-full h-full border-0"
-                style={{ transform: `scale(${currentZoom / 100})`, transformOrigin: "top left" }}
-                title="PDF Preview"
-              />
-            )}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden">
-            <span className="text-xs text-gray-500 truncate flex-1 min-w-0 mr-2">{previewNode?.path}</span>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => {
-                  if (previewNode) {
-                    setSelections(new Map([[previewNode.path, { path: previewNode.path, pages: "" }]]));
-                    setSessionSelectorOpen(true);
-                  }
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a]"
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Assign
-              </button>
-              <button
-                onClick={() => previewNode && handleCopyPath(previewNode.path)}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded bg-[#a0704b] text-white hover:bg-[#8b6340]"
-              >
-                {copiedPath === previewNode?.path ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                Copy Path
-              </button>
-            </div>
-          </div>
-        </div>
+        <BrowsePdfPreview
+          previewUrl={previewUrl}
+          previewNode={previewNode}
+          previewLoading={previewLoading}
+          zoomIndex={zoomIndex}
+          onZoomIn={() => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1))}
+          onZoomOut={() => setZoomIndex((i) => Math.max(i - 1, 0))}
+          onOpenInNewTab={handleOpenInNewTab}
+          onClose={handleClosePreview}
+          onCopyPath={handleCopyPath}
+          copiedPath={copiedPath}
+          onAssign={() => {
+            if (previewNode) {
+              setSelections(new Map([[previewNode.path, { path: previewNode.path, pages: "" }]]));
+              setSessionSelectorOpen(true);
+            }
+          }}
+          cleanedPreviewUrl={cleanedPreviewUrl}
+          showCleanedPreview={showCleanedPreview}
+          onCleanedPdf={handleCleanedPdf}
+          onToggleCleaned={() => setShowCleanedPreview(!showCleanedPreview)}
+        />
       )}
 
       {/* Session Selector Modal */}
@@ -2545,30 +2432,15 @@ function CoursewareSearchTab() {
       )}
 
       {/* Selection panel */}
-      {selectedDocs.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-green-50 dark:bg-green-900/20 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {selectedDocs.size} selected
-          </span>
-          <button
-            onClick={() => clearDocSelections()}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => {
-              const files = Array.from(selectedDocs.values()).map(d => ({ path: d.path, pages: "" }));
-              setAssignSelections(files);
-              setSessionSelectorOpen(true);
-            }}
-            className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] transition-colors"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            Assign to Sessions
-          </button>
-        </div>
-      )}
+      <SearchSelectionBar
+        selections={selectedDocs}
+        onClear={clearDocSelections}
+        onAssign={() => {
+          const files = Array.from(selectedDocs.values()).map(d => ({ path: d.path, pages: "" }));
+          setAssignSelections(files);
+          setSessionSelectorOpen(true);
+        }}
+      />
 
       {/* Content area */}
       <div ref={resultsContainerRef} className="flex-1 overflow-y-auto">
