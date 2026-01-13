@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
+import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
+import { combineExerciseRemarks } from "@/lib/exercise-utils";
 
 // Parse page input string into structured format
 function parsePageInput(input: string): { pageStart?: number; pageEnd?: number; complexRange?: string } | null {
@@ -79,6 +83,10 @@ export function BulkExerciseModal({
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
+  const { showToast } = useToast();
 
   // Check for File System Access API support on mount
   useEffect(() => {
@@ -89,22 +97,91 @@ export function BulkExerciseModal({
   const newExerciseInputRef = useRef<HTMLInputElement>(null);
   const shouldFocusNewRef = useRef(false);
 
+  // Initiate save - shows confirmation first
+  const initiateSave = useCallback(() => {
+    // Filter out exercises with empty PDF names
+    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    const emptyCount = exercises.length - validExercises.length;
+
+    if (emptyCount > 0) {
+      showToast(`Removed ${emptyCount} exercise(s) without PDF paths`, 'info');
+      setExercises(validExercises);
+    }
+
+    if (validExercises.length === 0) {
+      showToast('No valid exercises to save', 'error');
+      return;
+    }
+
+    // Show confirmation dialog
+    setShowSaveConfirm(true);
+  }, [exercises, showToast]);
+
+  // Execute actual save after confirmation
   const handleSave = useCallback(async () => {
+    setShowSaveConfirm(false);
     setIsSaving(true);
+    setSaveProgress({ current: 0, total: sessions.length });
 
-    const sessionIds = sessions.map((s) => s.id);
+    // Filter out empty PDF names (defensive, should already be filtered)
+    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
 
-    // For now, just log and close (API not implemented)
-    console.log("Bulk saving exercises:", { sessionIds, exerciseType, exercises });
+    // Build API format with remarks encoding
+    const apiExercises = validExercises.map((ex) => ({
+      exercise_type: ex.exercise_type,
+      pdf_name: ex.pdf_name,
+      page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
+      page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
+      remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
+    }));
 
+    let successCount = 0;
+    let failCount = 0;
+
+    // Save to each session with progress tracking
+    // Use concurrency limit of 5 to avoid overwhelming the server
+    const CONCURRENCY = 5;
+    for (let i = 0; i < sessions.length; i += CONCURRENCY) {
+      const batch = sessions.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map(session =>
+          sessionsAPI.saveExercises(session.id, exerciseType, apiExercises)
+            .then(updated => {
+              updateSessionInCache(updated);
+              return { success: true };
+            })
+        )
+      );
+
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled') {
+          successCount++;
+        } else {
+          console.error(`Failed to save to session ${batch[idx].id}:`, result.reason);
+          failCount++;
+        }
+      });
+
+      setSaveProgress({ current: Math.min(i + CONCURRENCY, sessions.length), total: sessions.length });
+    }
+
+    // Show result toast
+    if (failCount === 0) {
+      showToast(`Saved ${exerciseType} to ${successCount} session(s)`, 'success');
+    } else {
+      showToast(`Saved ${successCount}, failed ${failCount}`, 'error');
+    }
+
+    // Notify parent if provided
     if (onSave) {
-      onSave(sessionIds, exercises);
+      onSave(sessions.map(s => s.id), validExercises);
     }
 
     setIsSaving(false);
+    setSaveProgress(null);
     setExercises([]); // Reset for next use
     onClose();
-  }, [sessions, exerciseType, exercises, onSave, onClose]);
+  }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
 
   const handleClose = () => {
     setExercises([]); // Reset on close
@@ -390,6 +467,18 @@ export function BulkExerciseModal({
     setExercises((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const confirmDelete = useCallback(() => {
+    if (deleteConfirmIndex !== null) {
+      setExercises((prev) => prev.filter((_, i) => i !== deleteConfirmIndex));
+      setDeleteConfirmIndex(null);
+      setFocusedRowIndex(null);
+    }
+  }, [deleteConfirmIndex]);
+
+  const cancelDelete = useCallback(() => {
+    setDeleteConfirmIndex(null);
+  }, []);
+
   // Focus new exercise input after render
   useEffect(() => {
     if (shouldFocusNewRef.current && newExerciseInputRef.current) {
@@ -403,11 +492,43 @@ export function BulkExerciseModal({
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl+Enter - Save
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        if (exercises.length > 0 && !isSaving) {
+      // Handle save confirmation with Enter/Escape - MUST be at TOP
+      if (showSaveConfirm) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
           handleSave();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowSaveConfirm(false);
+          return;
+        }
+      }
+
+      // Handle delete confirmation with Enter/Escape when pending
+      if (deleteConfirmIndex !== null) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          confirmDelete();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelDelete();
+          return;
+        }
+      }
+
+      // Cmd/Ctrl+Enter or Cmd/Ctrl+S - Save
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
+        e.preventDefault();
+        if (exercises.length > 0 && !isSaving && !showSaveConfirm) {
+          initiateSave();
         }
         return;
       }
@@ -419,18 +540,24 @@ export function BulkExerciseModal({
         return;
       }
 
-      // Alt/Option+Backspace - Delete focused row
+      // Alt/Option+Backspace - Delete focused row (with confirmation)
       if (e.altKey && e.key === 'Backspace' && focusedRowIndex !== null) {
         e.preventDefault();
-        removeExercise(focusedRowIndex);
-        setFocusedRowIndex(null);
+        if (deleteConfirmIndex === focusedRowIndex) {
+          // Already pending confirmation, confirm it
+          confirmDelete();
+        } else {
+          // First press, request confirmation
+          setDeleteConfirmIndex(focusedRowIndex);
+        }
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, removeExercise, exercises.length, isSaving]);
+    // Use capture phase to intercept before modal's handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, deleteConfirmIndex, confirmDelete, cancelDelete, exercises.length, isSaving, showSaveConfirm]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -473,15 +600,19 @@ export function BulkExerciseModal({
             <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+⌫</kbd>
             <span>delete</span>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+Enter</kbd>
+            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+↵/S</kbd>
             <span>save</span>
           </span>
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || exercises.length === 0}>
-              {isSaving ? "Saving..." : `Assign to ${sessions.length} Session${sessions.length > 1 ? 's' : ''}`}
+            <Button onClick={initiateSave} disabled={isSaving || exercises.length === 0}>
+              {isSaving && saveProgress
+                ? `Saving ${saveProgress.current}/${saveProgress.total}...`
+                : isSaving
+                  ? "Saving..."
+                  : `Assign to ${sessions.length} Session${sessions.length > 1 ? 's' : ''}`}
             </Button>
           </div>
         </div>
@@ -687,15 +818,35 @@ export function BulkExerciseModal({
                       </>
                     )}
 
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => removeExercise(index)}
-                      className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
-                      title="Remove exercise"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {/* Delete button with inline confirmation */}
+                    {deleteConfirmIndex === index ? (
+                      <div className="flex items-center gap-1 text-xs shrink-0">
+                        <span className="text-red-500">Delete?</span>
+                        <button
+                          type="button"
+                          onClick={confirmDelete}
+                          className="px-1.5 py-0.5 text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelDelete}
+                          className="px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmIndex(index)}
+                        className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
+                        title="Remove exercise (Alt+Backspace)"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Row 2: Page Range Mode Selection */}
@@ -855,6 +1006,41 @@ export function BulkExerciseModal({
         multiSelect
         onMultiSelect={handlePaperlessMultiSelect}
       />
+
+      {/* Save Confirmation Dialog - uses createPortal to render outside Modal */}
+      {showSaveConfirm && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-[450px]">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              Confirm Bulk Assignment
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Assign {exercises.filter(ex => ex.pdf_name?.trim()).length} exercise(s) to {sessions.length} session(s)?
+            </p>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-h-32 overflow-y-auto">
+              <div className="font-medium mb-1">Sessions:</div>
+              <div className="flex flex-wrap gap-1">
+                {[...sessions].sort((a, b) =>
+                  (a.school_student_id || '').localeCompare(b.school_student_id || '')
+                ).map(s => (
+                  <span key={s.id} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
+                    {s.school_student_id} {s.student_name}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowSaveConfirm(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </Modal>
   );
 }

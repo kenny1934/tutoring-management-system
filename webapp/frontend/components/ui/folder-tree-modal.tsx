@@ -430,10 +430,14 @@ export function FolderTreeModal({
     const segment = currentPath.length === 0 ? node.path : node.name;
     const newPath = [...currentPath, segment];
 
+    // Normalize path: remove consecutive duplicate segments (defensive fix for state race conditions)
+    const normalizedPath = newPath.filter((seg, i) => i === 0 || seg !== newPath[i - 1]);
+    const basePath = normalizedPath.join("\\");
+
     setSearchQuery(""); // Clear search when navigating
-    setCurrentPath(newPath);
+    setCurrentPath(normalizedPath);
     setCurrentHandle(dirHandle);
-    await loadFolderContents(dirHandle, newPath.join("\\"), node.id);
+    await loadFolderContents(dirHandle, basePath, node.id);
 
     // Scroll to top
     if (contentScrollRef.current) {
@@ -626,7 +630,12 @@ export function FolderTreeModal({
 
     try {
       const fileHandle = node.handle as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
+      // Add timeout to prevent hanging on stale file handles (e.g., network drive disconnected)
+      const file = await withTimeout(
+        fileHandle.getFile(),
+        5000,
+        "Preview timeout - file may be unavailable"
+      );
       const url = URL.createObjectURL(file);
 
       // Get page count for validation
