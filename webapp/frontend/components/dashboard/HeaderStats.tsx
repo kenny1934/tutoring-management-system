@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Users, Calendar, DollarSign, Search, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { getGradeColor } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
 import type { DashboardStats } from "@/types";
 import {
@@ -29,6 +30,7 @@ interface StudentBasic {
   grade: string | null;
   lang_stream: string | null;
   school: string | null;
+  home_location: string | null;
 }
 
 
@@ -109,7 +111,8 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
             ref={refs.setReference}
             {...getReferenceProps()}
             className={cn(
-              "flex items-center gap-1.5 text-sm transition-all rounded-md px-1 -mx-1",
+              "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
+              "border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#2d2618]/50",
               "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
               isStudentsOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
             )}
@@ -189,19 +192,22 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
                           onClick={() => setIsStudentsOpen(false)}
                           className="flex items-center gap-2 px-3 py-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
                         >
-                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono w-16 flex-shrink-0 truncate">
-                            {student.school_student_id || `#${student.id}`}
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-mono flex-shrink-0 whitespace-nowrap">
+                            {selectedLocation === "All Locations" && student.home_location && `${student.home_location}-`}{student.school_student_id || `#${student.id}`}
                           </span>
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1">
                             {student.student_name}
                           </span>
                           {student.grade && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 whitespace-nowrap flex-shrink-0">
+                            <span
+                              className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800 whitespace-nowrap flex-shrink-0"
+                              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+                            >
                               {student.grade}{student.lang_stream || ""}
                             </span>
                           )}
                           {student.school && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-gray-800 dark:text-amber-200 whitespace-nowrap flex-shrink-0">
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 whitespace-nowrap flex-shrink-0">
                               {student.school}
                             </span>
                           )}
@@ -229,7 +235,11 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
         {/* This Week stat - clickable link */}
         <Link
           href="/sessions?view=weekly"
-          className="flex items-center gap-1.5 text-sm rounded-md px-1 -mx-1 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-all"
+          className={cn(
+            "flex items-center gap-1.5 text-sm transition-all rounded-full px-2.5 py-1",
+            "border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#2d2618]/50",
+            "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+          )}
         >
           <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-400" />
           <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">

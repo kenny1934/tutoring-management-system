@@ -512,6 +512,7 @@ interface SessionRowProps {
 }
 
 function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
+  const { selectedLocation } = useLocation();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
   const gradeColor = getGradeColor(session.grade, session.lang_stream);
@@ -550,7 +551,7 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
           )}>
             {session.school_student_id && (
               <span className="text-gray-500 dark:text-gray-400 mr-1">
-                {session.school_student_id}
+                {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id}
               </span>
             )}
             {session.student_name}
