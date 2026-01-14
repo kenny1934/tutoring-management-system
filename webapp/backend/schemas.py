@@ -57,6 +57,7 @@ class StudentBasic(BaseModel):
     grade: Optional[str] = None
     lang_stream: Optional[str] = None
     school: Optional[str] = None
+    home_location: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -471,7 +472,7 @@ class ParentCommunicationResponse(BaseModel):
     contact_method: str = Field(..., max_length=50)
     contact_type: str = Field(..., max_length=50)
     brief_notes: Optional[str] = Field(None, max_length=500)
-    follow_up_needed: bool
+    follow_up_needed: Optional[bool] = Field(default=False)  # Allow NULL for legacy data
     follow_up_date: Optional[date] = None
     created_at: datetime
     created_by: Optional[str] = Field(None, max_length=255)
@@ -509,6 +510,83 @@ class LocationSettingsUpdate(BaseModel):
     """Schema for updating location settings"""
     contact_recent_days: Optional[int] = Field(None, ge=1)
     contact_warning_days: Optional[int] = Field(None, ge=1)
+
+
+# ============================================
+# Termination Record Schemas
+# ============================================
+
+class TerminatedStudentResponse(BaseModel):
+    """Terminated student with editable record fields"""
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=255)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=50)
+    home_location: Optional[str] = Field(None, max_length=100)
+    termination_date: date
+    tutor_id: Optional[int] = Field(None, gt=0)
+    tutor_name: Optional[str] = Field(None, max_length=255)
+    schedule: Optional[str] = Field(None, max_length=100)
+    # Editable fields from termination_records
+    record_id: Optional[int] = Field(None, gt=0)
+    reason: Optional[str] = Field(None, max_length=1000)
+    count_as_terminated: bool = False
+
+
+class TerminationRecordUpdate(BaseModel):
+    """Request for updating termination record"""
+    quarter: int = Field(..., ge=1, le=4)
+    year: int = Field(..., ge=2020)
+    reason: Optional[str] = Field(None, max_length=1000)
+    count_as_terminated: bool = False
+
+
+class TerminationRecordResponse(BaseModel):
+    """Response after updating termination record"""
+    id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    quarter: int = Field(..., ge=1, le=4)
+    year: int = Field(..., ge=2020)
+    reason: Optional[str] = None
+    count_as_terminated: bool
+    tutor_id: Optional[int] = None
+    updated_by: Optional[str] = None
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TutorTerminationStats(BaseModel):
+    """Stats for a single tutor"""
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str = Field(..., max_length=255)
+    opening: int = Field(default=0, ge=0)
+    enrollment_transfer: int = Field(default=0)  # closing - opening - terminated (can be negative)
+    terminated: int = Field(default=0, ge=0)
+    closing: int = Field(default=0, ge=0)
+    term_rate: float = Field(default=0.0, ge=0)
+
+
+class LocationTerminationStats(BaseModel):
+    """Aggregate stats for a location"""
+    opening: int = Field(default=0, ge=0)
+    enrollment_transfer: int = Field(default=0)  # closing - opening - terminated (can be negative)
+    terminated: int = Field(default=0, ge=0)
+    closing: int = Field(default=0, ge=0)
+    term_rate: float = Field(default=0.0, ge=0)
+
+
+class TerminationStatsResponse(BaseModel):
+    """Full stats response with tutor and location breakdowns"""
+    tutor_stats: List[TutorTerminationStats]
+    location_stats: LocationTerminationStats
+
+
+class QuarterOption(BaseModel):
+    """Available quarter with count"""
+    quarter: int = Field(..., ge=1, le=4)
+    year: int = Field(..., ge=2020)
+    count: int = Field(default=0, ge=0)
 
 
 # Enable forward references for nested models
