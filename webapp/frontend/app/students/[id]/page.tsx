@@ -11,7 +11,7 @@ import {
   ArrowLeft, User, BookOpen, Calendar, FileText,
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
-  Palette, FlaskConical, Briefcase, ChevronDown
+  Palette, FlaskConical, Briefcase, ChevronDown, Tag
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -756,21 +756,35 @@ function ProfileTab({
                     </span>
                   </div>
                 </div>
-                {(() => {
-                  const displayStatus = getDisplayPaymentStatus(enrollment);
-                  return (
+                <div className="flex items-center gap-1.5">
+                  {/* Enrollment Type badge (only for non-Regular) */}
+                  {enrollment.enrollment_type && enrollment.enrollment_type !== 'Regular' && (
                     <span className={cn(
                       "text-xs px-2 py-0.5 rounded-full font-medium",
-                      displayStatus === 'Paid'
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                        : displayStatus === 'Overdue'
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                      enrollment.enrollment_type === 'Trial'
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                        : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
                     )}>
-                      {displayStatus}
+                      {enrollment.enrollment_type}
                     </span>
-                  );
-                })()}
+                  )}
+                  {/* Payment Status badge */}
+                  {(() => {
+                    const displayStatus = getDisplayPaymentStatus(enrollment);
+                    return (
+                      <span className={cn(
+                        "text-xs px-2 py-0.5 rounded-full font-medium",
+                        displayStatus === 'Paid'
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                          : displayStatus === 'Overdue'
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                      )}>
+                        {displayStatus}
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
             ))}
           </div>
@@ -1500,6 +1514,23 @@ function EnrollmentDetailPopover({
               <MapPin className="h-4 w-4 text-amber-500" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 {enrollment.location}
+              </span>
+            </div>
+          )}
+
+          {/* Enrollment Type */}
+          {enrollment.enrollment_type && (
+            <div className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-blue-500" />
+              <span className={cn(
+                "text-sm",
+                enrollment.enrollment_type === 'Trial'
+                  ? "text-blue-600 dark:text-blue-400"
+                  : enrollment.enrollment_type === 'One-Time'
+                  ? "text-purple-600 dark:text-purple-400"
+                  : "text-gray-700 dark:text-gray-300"
+              )}>
+                {enrollment.enrollment_type}
               </span>
             </div>
           )}

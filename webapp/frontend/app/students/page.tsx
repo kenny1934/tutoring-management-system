@@ -6,7 +6,7 @@ import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePage
 import { useLocation } from "@/contexts/LocationContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
-import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2 } from "lucide-react";
+import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
@@ -733,6 +733,26 @@ function RichPopoverContent({
                     {activeEnrollment.location && <span className="text-gray-500"> @ {activeEnrollment.location}</span>}
                   </span>
                 </div>
+                {/* Enrollment Type */}
+                {activeEnrollment.enrollment_type && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Tag className={cn(
+                      "h-3 w-3",
+                      activeEnrollment.enrollment_type === 'Trial' ? 'text-blue-500' :
+                      activeEnrollment.enrollment_type === 'One-Time' ? 'text-purple-500' :
+                      'text-gray-500'
+                    )} />
+                    <span className={cn(
+                      activeEnrollment.enrollment_type === 'Trial'
+                        ? "text-blue-600 dark:text-blue-400"
+                        : activeEnrollment.enrollment_type === 'One-Time'
+                        ? "text-purple-600 dark:text-purple-400"
+                        : "text-gray-700 dark:text-gray-300"
+                    )}>
+                      {activeEnrollment.enrollment_type}
+                    </span>
+                  </div>
+                )}
                 {(() => {
                   const displayStatus = getDisplayPaymentStatus(activeEnrollment);
                   return (
