@@ -110,3 +110,74 @@ export function useDeleteConfirmation(onDelete: (index: number) => void) {
     isPending,
   };
 }
+
+// ============================================================================
+// File Action Hooks
+// ============================================================================
+
+import { openFileFromPathWithFallback, printFileFromPathWithFallback, PrintStampInfo } from "./file-system";
+import { searchPaperlessByPath } from "./paperless-utils";
+
+/**
+ * State for file open/print operations per exercise (keyed by clientId).
+ */
+export type FileActionState = Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>;
+
+/**
+ * Minimal interface for exercise with page info needed for printing.
+ */
+interface ExerciseWithPages {
+  clientId: string;
+  pdf_name: string;
+  page_start: string;
+  page_end: string;
+  complex_pages: string;
+}
+
+/**
+ * Hook for handling file open and print operations with loading/error states.
+ * Manages per-exercise state keyed by clientId to avoid race conditions.
+ *
+ * @param buildStampInfo - Optional function to generate print stamp (for ExerciseModal)
+ */
+export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
+  const [fileActionState, setFileActionState] = useState<FileActionState>({});
+
+  const handleOpenFile = useCallback(async (clientId: string, path: string) => {
+    if (!path || fileActionState[clientId]?.open === 'loading') return;
+
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
+    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
+
+    if (error) {
+      console.warn('Failed to open file:', error);
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
+    } else {
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
+    }
+  }, [fileActionState]);
+
+  const handlePrintFile = useCallback(async (exercise: ExerciseWithPages) => {
+    const { clientId, pdf_name: path } = exercise;
+    if (!path || fileActionState[clientId]?.print === 'loading') return;
+
+    const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
+    const pageEnd = exercise.page_end ? parseInt(exercise.page_end, 10) : undefined;
+    const complexRange = exercise.complex_pages?.trim() || undefined;
+    const stamp = buildStampInfo?.();
+
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
+    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
+
+    if (error) {
+      console.warn('Failed to print file:', error);
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
+    } else {
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
+    }
+  }, [fileActionState, buildStampInfo]);
+
+  return { fileActionState, handleOpenFile, handlePrintFile };
+}

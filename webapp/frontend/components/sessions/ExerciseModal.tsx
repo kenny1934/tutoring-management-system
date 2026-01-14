@@ -20,8 +20,8 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
-import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -40,13 +40,6 @@ export interface ExerciseFormItem {
   complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
 }
-
-// Generate unique client ID for exercise rows
-let clientIdCounter = 0;
-function generateClientId(): string {
-  return `ex-${Date.now()}-${++clientIdCounter}`;
-}
-
 
 interface ExerciseModalProps {
   session: Session;
@@ -169,7 +162,6 @@ export function ExerciseModal({
   const [canBrowseFiles, setCanBrowseFiles] = useState(false);
   const [folderTreeOpen, setFolderTreeOpen] = useState(false);
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
-  const [fileActionState, setFileActionState] = useState<Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -210,6 +202,21 @@ export function ExerciseModal({
     cancelDelete,
     isPending: isDeletePending,
   } = useDeleteConfirmation(handleDeleteExercise);
+
+  // Build print stamp info from session data
+  const buildStampInfo = useCallback((): PrintStampInfo => {
+    const sessionDate = new Date(session.session_date + 'T00:00:00');
+    return {
+      location: session.location,
+      schoolStudentId: session.school_student_id,
+      studentName: session.student_name,
+      sessionDate: sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      sessionTime: session.time_slot,
+    };
+  }, [session]);
+
+  // File open/print actions (from ui-hooks)
+  const { fileActionState, handleOpenFile, handlePrintFile } = useFileActions(buildStampInfo);
 
   // Validation errors
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
@@ -397,10 +404,7 @@ export function ExerciseModal({
   const shouldFocusNewRef = useRef(false);
 
   const addExercise = useCallback(() => {
-    setExercises((prev) => [
-      ...prev,
-      { clientId: generateClientId(), exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
-    ]);
+    setExercises((prev) => [...prev, createExercise(exerciseType)]);
     setIsDirty(true);
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
@@ -605,19 +609,8 @@ export function ExerciseModal({
 
     // Remaining paths create new exercise rows after drop target
     if (paths.length > 1) {
-      const newExercises = paths.slice(1).map((path) => ({
-        clientId: generateClientId(),
-        exercise_type: exerciseType,
-        pdf_name: path,
-        page_mode: 'simple' as const,
-        page_start: "",
-        page_end: "",
-        complex_pages: "",
-        remarks: "",
-      }));
-
+      const newExercises = paths.slice(1).map((path) => createExercise(exerciseType, path));
       setExercises((prev) => {
-        // Insert after the drop target index
         const before = prev.slice(0, searchForIndex + 1);
         const after = prev.slice(searchForIndex + 1);
         return [...before, ...newExercises, ...after];
@@ -664,21 +657,6 @@ export function ExerciseModal({
   const handleBatchAddFromBrowse = useCallback((selections: FileSelection[]) => {
     if (selections.length === 0) return;
 
-    // Helper to create exercise from FileSelection
-    const createExerciseFromSelection = (sel: FileSelection): ExerciseFormItem => {
-      const pageSelection = parsePageInput(sel.pages);
-      return {
-        clientId: generateClientId(),
-        exercise_type: exerciseType,
-        pdf_name: sel.path,
-        page_mode: pageSelection?.complexRange ? 'custom' : 'simple',
-        page_start: pageSelection?.complexRange ? "" : (pageSelection?.pageStart?.toString() || ""),
-        page_end: pageSelection?.complexRange ? "" : (pageSelection?.pageEnd?.toString() || ""),
-        complex_pages: pageSelection?.complexRange || "",
-        remarks: "",
-      };
-    };
-
     // If we were browsing for a specific index, fill that first
     let startIndex = 0;
     if (browsingForIndex !== null && selections.length > 0) {
@@ -703,7 +681,9 @@ export function ExerciseModal({
 
     // Create new exercise rows for remaining files
     if (selections.length > startIndex) {
-      const newExercises = selections.slice(startIndex).map(createExerciseFromSelection);
+      const newExercises = selections.slice(startIndex).map((sel) =>
+        createExerciseFromSelection(exerciseType, sel.path, parsePageInput(sel.pages))
+      );
 
       setExercises((prev) => {
         if (browsingForIndex !== null) {
@@ -817,17 +797,9 @@ export function ExerciseModal({
       // Additional selections create new rows
       if (selections.length > 1) {
         setExercises((prev) => {
-          const newExercises = selections.slice(1).map(({ path, pageSelection }) => ({
-            clientId: generateClientId(),
-            exercise_type: exerciseType,
-            pdf_name: path,
-            page_mode: pageSelection?.complexRange ? 'custom' as const : 'simple' as const,
-            page_start: pageSelection?.complexRange ? "" : (pageSelection?.pageStart?.toString() || ""),
-            page_end: pageSelection?.complexRange ? "" : (pageSelection?.pageEnd?.toString() || ""),
-            complex_pages: pageSelection?.complexRange || "",
-            remarks: "",
-          }));
-          // Insert after the current index
+          const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
+            createExerciseFromSelection(exerciseType, path, pageSelection)
+          );
           const before = prev.slice(0, searchingForIndex + 1);
           const after = prev.slice(searchingForIndex + 1);
           return [...before, ...newExercises, ...after];
@@ -838,58 +810,6 @@ export function ExerciseModal({
       setSearchingForIndex(null);
     }
   }, [searchingForIndex, exerciseType]);
-
-  // Handle open file in new tab
-  const handleOpenFile = useCallback(async (clientId: string, path: string) => {
-    if (!path || fileActionState[clientId]?.open === 'loading') return;
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
-    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
-    if (error) {
-      console.warn('Failed to open file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
-    }
-  }, [fileActionState]);
-
-  // Build print stamp info from session data
-  const buildStampInfo = useCallback((): PrintStampInfo => {
-    const sessionDate = new Date(session.session_date + 'T00:00:00');
-    return {
-      location: session.location,
-      schoolStudentId: session.school_student_id,
-      studentName: session.student_name,
-      sessionDate: sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      sessionTime: session.time_slot,
-    };
-  }, [session]);
-
-  // Handle print file with page range support
-  const handlePrintFile = useCallback(async (exercise: ExerciseFormItem) => {
-    const { clientId, pdf_name: path } = exercise;
-    if (!path || fileActionState[clientId]?.print === 'loading') return;
-
-    // Extract page range info
-    const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
-    const pageEnd = exercise.page_end ? parseInt(exercise.page_end, 10) : undefined;
-
-    // Use complex_pages directly (no more parsing from remarks)
-    const complexRange = exercise.complex_pages?.trim() || undefined;
-
-    // Build stamp info
-    const stamp = buildStampInfo();
-
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
-    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
-    if (error) {
-      console.warn('Failed to print file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
-    }
-  }, [fileActionState, buildStampInfo]);
 
   // Handle print all exercises in one batch
   const handlePrintAll = useCallback(async () => {
@@ -1196,16 +1116,7 @@ export function ExerciseModal({
                         )}
                         onClick={() => {
                           // Add new exercise with this path
-                          setExercises(prev => [...prev, {
-                            clientId: generateClientId(),
-                            exercise_type: exerciseType,
-                            pdf_name: firstPath,
-                            page_mode: 'simple' as const,
-                            page_start: '',
-                            page_end: '',
-                            complex_pages: '',
-                            remarks: '',
-                          }]);
+                          setExercises(prev => [...prev, createExercise(exerciseType, firstPath)]);
                           setIsDirty(true);
                         }}
                         title={`Click to add ${item.filename} as new exercise`}

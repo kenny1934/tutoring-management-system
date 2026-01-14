@@ -5,6 +5,92 @@
 
 import type { PageSelection } from '@/types';
 
+// ============================================================================
+// Exercise Creation Utilities
+// ============================================================================
+
+/**
+ * Base interface for exercise form items.
+ * Both ExerciseModal and BulkExerciseModal extend this with optional `id`.
+ */
+export interface ExerciseFormItemBase {
+  clientId: string;
+  exercise_type: "CW" | "HW";
+  pdf_name: string;
+  page_mode: 'simple' | 'custom';
+  page_start: string;
+  page_end: string;
+  complex_pages: string;
+  remarks: string;
+}
+
+/**
+ * Generate unique client ID for exercise rows.
+ * Used for stable state tracking (fileActionState, etc.) that survives row reordering.
+ */
+let clientIdCounter = 0;
+export function generateClientId(): string {
+  return `ex-${Date.now()}-${++clientIdCounter}`;
+}
+
+/**
+ * Create a new empty exercise.
+ * Used when adding a new row or for drag-drop with just a path.
+ */
+export function createExercise(
+  exerciseType: "CW" | "HW",
+  pdfName: string = ""
+): ExerciseFormItemBase {
+  return {
+    clientId: generateClientId(),
+    exercise_type: exerciseType,
+    pdf_name: pdfName,
+    page_mode: 'simple',
+    page_start: "",
+    page_end: "",
+    complex_pages: "",
+    remarks: "",
+  };
+}
+
+/**
+ * Create exercise from a file selection with optional page info.
+ * Used for Paperless selections and folder picker results.
+ */
+export function createExerciseFromSelection(
+  exerciseType: "CW" | "HW",
+  path: string,
+  pageSelection?: PageSelection | null
+): ExerciseFormItemBase {
+  if (pageSelection?.complexRange) {
+    return {
+      clientId: generateClientId(),
+      exercise_type: exerciseType,
+      pdf_name: path,
+      page_mode: 'custom',
+      page_start: "",
+      page_end: "",
+      complex_pages: pageSelection.complexRange,
+      remarks: "",
+    };
+  }
+
+  return {
+    clientId: generateClientId(),
+    exercise_type: exerciseType,
+    pdf_name: path,
+    page_mode: 'simple',
+    page_start: pageSelection?.pageStart?.toString() || "",
+    page_end: pageSelection?.pageEnd?.toString() || "",
+    complex_pages: "",
+    remarks: "",
+  };
+}
+
+// ============================================================================
+// Page Parsing Utilities
+// ============================================================================
+
 /**
  * Parse page input string into PageSelection.
  * Accepts: "5", "1-5", "1~5", "1,3,5-7"

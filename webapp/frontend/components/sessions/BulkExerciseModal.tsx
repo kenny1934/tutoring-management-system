@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
+import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,11 @@ import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
+import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -34,12 +34,6 @@ export interface ExerciseFormItem {
   page_end: string;                // For simple mode
   complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
-}
-
-// Generate unique client ID for exercise rows
-let clientIdCounter = 0;
-function generateClientId(): string {
-  return `bex-${Date.now()}-${++clientIdCounter}`;
 }
 
 interface BulkExerciseModalProps {
@@ -63,7 +57,6 @@ export function BulkExerciseModal({
   const [canBrowseFiles, setCanBrowseFiles] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
-  const [fileActionState, setFileActionState] = useState<Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
@@ -103,6 +96,9 @@ export function BulkExerciseModal({
   const {
     pendingIndex: pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, isPending: isDeletePending,
   } = useDeleteConfirmation(handleDeleteExercise);
+
+  // File open/print actions (from ui-hooks) - no stamp info for bulk modal
+  const { fileActionState, handleOpenFile, handlePrintFile } = useFileActions();
 
   // Check for File System Access API support on mount
   useEffect(() => {
@@ -217,10 +213,7 @@ export function BulkExerciseModal({
   }, [sessions, exerciseType, exercises, onSave, onClose, showToast]);
 
   const addExercise = useCallback(() => {
-    setExercises((prev) => [
-      ...prev,
-      { clientId: generateClientId(), exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
-    ]);
+    setExercises((prev) => [...prev, createExercise(exerciseType)]);
     setIsDirty(true);
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
@@ -319,20 +312,9 @@ export function BulkExerciseModal({
       // Additional selections create new rows
       if (selections.length > 1) {
         setExercises((prev) => {
-          const newExercises = selections.slice(1).map((sel) => {
-            const parsed = sel.pages ? parsePageInput(sel.pages) : null;
-            return {
-              clientId: generateClientId(),
-              exercise_type: exerciseType,
-              pdf_name: sel.path,
-              page_mode: parsed?.complexRange ? 'custom' as const : 'simple' as const,
-              page_start: parsed?.complexRange ? "" : (parsed?.pageStart?.toString() || ""),
-              page_end: parsed?.complexRange ? "" : (parsed?.pageEnd?.toString() || ""),
-              complex_pages: parsed?.complexRange || "",
-              remarks: "",
-            };
-          });
-          // Insert after the current index
+          const newExercises = selections.slice(1).map((sel) =>
+            createExerciseFromSelection(exerciseType, sel.path, parsePageInput(sel.pages))
+          );
           const before = prev.slice(0, browsingForIndex + 1);
           const after = prev.slice(browsingForIndex + 1);
           return [...before, ...newExercises, ...after];
@@ -400,16 +382,9 @@ export function BulkExerciseModal({
       // Additional selections create new rows
       if (selections.length > 1) {
         setExercises((prev) => {
-          const newExercises = selections.slice(1).map(({ path, pageSelection }) => ({
-            clientId: generateClientId(),
-            exercise_type: exerciseType,
-            pdf_name: path,
-            page_mode: pageSelection?.complexRange ? 'custom' as const : 'simple' as const,
-            page_start: pageSelection?.complexRange ? "" : (pageSelection?.pageStart?.toString() || ""),
-            page_end: pageSelection?.complexRange ? "" : (pageSelection?.pageEnd?.toString() || ""),
-            complex_pages: pageSelection?.complexRange || "",
-            remarks: "",
-          }));
+          const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
+            createExerciseFromSelection(exerciseType, path, pageSelection)
+          );
           // Insert after the current index
           const before = prev.slice(0, searchingForIndex + 1);
           const after = prev.slice(searchingForIndex + 1);
@@ -484,16 +459,7 @@ export function BulkExerciseModal({
 
     // Remaining paths create new exercise rows after drop target
     if (paths.length > 1) {
-      const newExercises = paths.slice(1).map((path) => ({
-        clientId: generateClientId(),
-        exercise_type: exerciseType,
-        pdf_name: path,
-        page_mode: 'simple' as const,
-        page_start: "",
-        page_end: "",
-        complex_pages: "",
-        remarks: "",
-      }));
+      const newExercises = paths.slice(1).map((path) => createExercise(exerciseType, path));
       setExercises(prev => {
         const before = prev.slice(0, searchForIndex + 1);
         const after = prev.slice(searchForIndex + 1);
@@ -506,43 +472,6 @@ export function BulkExerciseModal({
     setSearchFilenames([]);
     setSearchForIndex(null);
   }, [searchForIndex, exerciseType]);
-
-  // Handle open file in new tab
-  const handleOpenFile = useCallback(async (clientId: string, path: string) => {
-    if (!path || fileActionState[clientId]?.open === 'loading') return;
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
-    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
-    if (error) {
-      console.warn('Failed to open file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
-    }
-  }, [fileActionState]);
-
-  // Handle print file with page range support
-  const handlePrintFile = useCallback(async (exercise: ExerciseFormItem) => {
-    const { clientId, pdf_name: path } = exercise;
-    if (!path || fileActionState[clientId]?.print === 'loading') return;
-
-    // Extract page range info
-    const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
-    const pageEnd = exercise.page_end ? parseInt(exercise.page_end, 10) : undefined;
-
-    // Use complex_pages directly (no more parsing from remarks)
-    const complexRange = exercise.complex_pages?.trim() || undefined;
-
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
-    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, undefined, searchPaperlessByPath);
-    if (error) {
-      console.warn('Failed to print file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
-    }
-  }, [fileActionState]);
 
   // Handle print all exercises in one batch
   const handlePrintAll = useCallback(async () => {
