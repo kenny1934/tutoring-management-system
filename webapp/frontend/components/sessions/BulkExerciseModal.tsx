@@ -16,25 +16,14 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles } from "
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
-
-
-// Exercise form item type
-export interface ExerciseFormItem {
-  clientId: string;               // Stable client-side ID for state tracking
-  exercise_type: "CW" | "HW";
-  pdf_name: string;
-  page_mode: 'simple' | 'custom';  // Tracks which page input mode is active
-  page_start: string;              // For simple mode
-  page_end: string;                // For simple mode
-  complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
-  remarks: string;
-}
+// Re-export type for external consumers
+export type ExerciseFormItem = ExerciseFormItemBase;
 
 interface BulkExerciseModalProps {
   sessions: Session[];
@@ -338,19 +327,13 @@ export function BulkExerciseModal({
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
 
-      // Auto-populate page fields based on selection and switch mode accordingly
-      if (pageSelection?.complexRange) {
-        // Complex range: set custom mode, clear simple range fields, set complex_pages
-        updateExercise(searchingForIndex, "page_mode", "custom");
-        updateExercise(searchingForIndex, "page_start", "");
-        updateExercise(searchingForIndex, "page_end", "");
-        updateExercise(searchingForIndex, "complex_pages", pageSelection.complexRange);
-      } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
-        // Simple range: set simple mode, set page fields, clear complex_pages
-        updateExercise(searchingForIndex, "page_mode", "simple");
-        updateExercise(searchingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
-        updateExercise(searchingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
-        updateExercise(searchingForIndex, "complex_pages", "");
+      // Auto-populate page fields if selection has page info
+      const pageFields = getPageFieldsFromSelection(pageSelection);
+      if (pageFields) {
+        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
+        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
+        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
+        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
       }
 
       setSearchingForIndex(null);
@@ -366,17 +349,13 @@ export function BulkExerciseModal({
       // First selection goes to the current row
       updateExercise(searchingForIndex, "pdf_name", first.path);
 
-      // Apply page selection for the first item with mode switching
-      if (first.pageSelection?.complexRange) {
-        updateExercise(searchingForIndex, "page_mode", "custom");
-        updateExercise(searchingForIndex, "page_start", "");
-        updateExercise(searchingForIndex, "page_end", "");
-        updateExercise(searchingForIndex, "complex_pages", first.pageSelection.complexRange);
-      } else if (first.pageSelection?.pageStart !== undefined || first.pageSelection?.pageEnd !== undefined) {
-        updateExercise(searchingForIndex, "page_mode", "simple");
-        updateExercise(searchingForIndex, "page_start", first.pageSelection.pageStart?.toString() || "");
-        updateExercise(searchingForIndex, "page_end", first.pageSelection.pageEnd?.toString() || "");
-        updateExercise(searchingForIndex, "complex_pages", "");
+      // Apply page selection for the first item
+      const pageFields = getPageFieldsFromSelection(first.pageSelection);
+      if (pageFields) {
+        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
+        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
+        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
+        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
       }
 
       // Additional selections create new rows
