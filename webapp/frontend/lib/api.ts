@@ -15,6 +15,11 @@ import type {
   CoursewarePopularity,
   CoursewareUsageDetail,
   Holiday,
+  TerminatedStudent,
+  TerminationRecordUpdate,
+  TerminationRecordResponse,
+  TerminationStatsResponse,
+  QuarterOption,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -706,6 +711,72 @@ export const locationSettingsAPI = {
   },
 };
 
+// Terminations API
+export const terminationsAPI = {
+  // Get available quarters with termination data
+  getQuarters: (location?: string) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    const queryString = params.toString();
+    return fetchAPI<QuarterOption[]>(`/terminations/quarters${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get terminated students for a specific quarter
+  getTerminatedStudents: (
+    quarter: number,
+    year: number,
+    location?: string,
+    tutorId?: number
+  ) => {
+    const params = new URLSearchParams({
+      quarter: quarter.toString(),
+      year: year.toString(),
+    });
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    return fetchAPI<TerminatedStudent[]>(`/terminations?${params}`);
+  },
+
+  // Update termination record (create or update)
+  updateRecord: (
+    studentId: number,
+    data: TerminationRecordUpdate,
+    updatedBy: string
+  ) => {
+    const params = new URLSearchParams({ updated_by: updatedBy });
+    return fetchAPI<TerminationRecordResponse>(`/terminations/${studentId}?${params}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Get termination stats for a quarter
+  getStats: (
+    quarter: number,
+    year: number,
+    location?: string,
+    tutorId?: number
+  ) => {
+    const params = new URLSearchParams({
+      quarter: quarter.toString(),
+      year: year.toString(),
+    });
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    return fetchAPI<TerminationStatsResponse>(`/terminations/stats?${params}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -722,4 +793,5 @@ export const api = {
   documentProcessing: documentProcessingAPI,
   parentCommunications: parentCommunicationsAPI,
   locationSettings: locationSettingsAPI,
+  terminations: terminationsAPI,
 };

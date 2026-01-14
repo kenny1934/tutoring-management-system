@@ -78,7 +78,7 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations
 
 # Register routers
 app.include_router(students.router, prefix="/api", tags=["students"])
@@ -92,6 +92,8 @@ app.include_router(path_aliases.router, prefix="/api", tags=["path-aliases"])
 app.include_router(paperless.router, prefix="/api", tags=["paperless"])
 app.include_router(holidays.router, prefix="/api", tags=["holidays"])
 app.include_router(document_processing.router, prefix="/api", tags=["document-processing"])
+app.include_router(parent_communications.router, prefix="/api", tags=["parent-communications"])
+app.include_router(terminations.router, prefix="/api", tags=["terminations"])
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -248,5 +248,52 @@ export function useHolidays(from_date?: string, to_date?: string) {
   return useSWR<Holiday[]>(
     key,
     () => holidaysAPI.getHolidays(from_date, to_date)
+  );
+}
+
+/**
+ * Hook for fetching available quarters with terminations
+ * Returns quarters in descending order (most recent first)
+ */
+export function useTerminationQuarters(location?: string) {
+  return useSWR<QuarterOption[]>(
+    ['termination-quarters', location || 'all'],
+    () => terminationsAPI.getQuarters(location)
+  );
+}
+
+/**
+ * Hook for fetching terminated students for a quarter
+ * Returns null key when quarter or year is falsy to skip fetching
+ */
+export function useTerminatedStudents(
+  quarter: number | null,
+  year: number | null,
+  location?: string,
+  tutorId?: number
+) {
+  return useSWR<TerminatedStudent[]>(
+    quarter && year
+      ? ['terminated-students', quarter, year, location || 'all', tutorId || 'all']
+      : null,
+    () => terminationsAPI.getTerminatedStudents(quarter!, year!, location, tutorId)
+  );
+}
+
+/**
+ * Hook for fetching termination stats for a quarter
+ * Returns null key when quarter or year is falsy to skip fetching
+ */
+export function useTerminationStats(
+  quarter: number | null,
+  year: number | null,
+  location?: string,
+  tutorId?: number
+) {
+  return useSWR<TerminationStatsResponse>(
+    quarter && year
+      ? ['termination-stats', quarter, year, location || 'all', tutorId || 'all']
+      : null,
+    () => terminationsAPI.getStats(quarter!, year!, location, tutorId)
   );
 }

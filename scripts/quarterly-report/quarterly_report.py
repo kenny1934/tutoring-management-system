@@ -270,6 +270,12 @@ def parse_date(date_str):
         return None
 
 
+def get_tutor_sort_name(name):
+    """Strip Mr/Ms/Mrs prefix for sorting by first name."""
+    import re
+    return re.sub(r'^(Mr\.?|Ms\.?|Mrs\.?)\s*', '', name, flags=re.IGNORECASE)
+
+
 def calculate_effective_end_date(enrollment):
     """
     Calculate when an enrollment effectively ends, skipping holidays.
@@ -495,7 +501,7 @@ def export_to_google_sheets(location, terminated_list, enrollment_stats, termina
     stats_headers = ["Instructor", "Opening", "Closing"]  # Only 3 columns
     stats_data = []
 
-    sorted_tutors = sorted(enrollment_stats.keys())
+    sorted_tutors = sorted(enrollment_stats.keys(), key=get_tutor_sort_name)
     for tutor_name in sorted_tutors:
         stats = enrollment_stats[tutor_name]
         opening = stats["opening"]
@@ -707,8 +713,8 @@ def write_report(location, year, quarter, terminated_list, enrollment_stats, ter
         writer.writerow(["=== TUTOR ENROLLMENT STATS ==="])
         writer.writerow(["Instructor", "Opening", "Enrollment / Transfer", "Termination", "Closing", "Net"])
 
-        # Sort by instructor name
-        sorted_tutors = sorted(enrollment_stats.keys())
+        # Sort by instructor first name (stripping Mr/Ms/Mrs prefix)
+        sorted_tutors = sorted(enrollment_stats.keys(), key=get_tutor_sort_name)
 
         for tutor_name in sorted_tutors:
             stats = enrollment_stats[tutor_name]

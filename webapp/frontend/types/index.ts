@@ -324,3 +324,67 @@ export interface PageSelection {
   pageEnd?: number;
   complexRange?: string;  // For non-consecutive pages: "1,3,5-7"
 }
+
+// Termination types
+export interface TerminatedStudent {
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  home_location?: string;
+  termination_date: string;
+  tutor_id?: number;
+  tutor_name?: string;
+  schedule?: string;
+  record_id?: number;
+  reason?: string;
+  count_as_terminated: boolean;
+}
+
+export interface TerminationRecordUpdate {
+  quarter: number;
+  year: number;
+  reason?: string;
+  count_as_terminated: boolean;
+}
+
+export interface TerminationRecordResponse {
+  id: number;
+  student_id: number;
+  quarter: number;
+  year: number;
+  reason?: string;
+  count_as_terminated: boolean;
+  tutor_id?: number;
+  updated_by?: string;
+  updated_at: string;
+}
+
+export interface TutorTerminationStats {
+  tutor_id: number;
+  tutor_name: string;
+  opening: number;
+  enrollment_transfer: number;
+  terminated: number;
+  closing: number;
+  term_rate: number;
+}
+
+export interface LocationTerminationStats {
+  opening: number;
+  enrollment_transfer: number;
+  terminated: number;
+  closing: number;
+  term_rate: number;
+}
+
+export interface TerminationStatsResponse {
+  tutor_stats: TutorTerminationStats[];
+  location_stats: LocationTerminationStats;
+}
+
+export interface QuarterOption {
+  quarter: number;
+  year: number;
+  count: number;
+}
