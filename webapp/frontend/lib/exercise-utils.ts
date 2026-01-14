@@ -87,6 +87,40 @@ export function createExerciseFromSelection(
   };
 }
 
+/**
+ * Get page field values from a PageSelection.
+ * Used to apply page selection to an existing exercise row.
+ * Returns null if no page info is present.
+ */
+export function getPageFieldsFromSelection(pageSelection?: PageSelection | null): {
+  page_mode: 'simple' | 'custom';
+  page_start: string;
+  page_end: string;
+  complex_pages: string;
+} | null {
+  if (!pageSelection) return null;
+
+  if (pageSelection.complexRange) {
+    return {
+      page_mode: 'custom',
+      page_start: '',
+      page_end: '',
+      complex_pages: pageSelection.complexRange,
+    };
+  }
+
+  if (pageSelection.pageStart !== undefined || pageSelection.pageEnd !== undefined) {
+    return {
+      page_mode: 'simple',
+      page_start: pageSelection.pageStart?.toString() || '',
+      page_end: pageSelection.pageEnd?.toString() || '',
+      complex_pages: '',
+    };
+  }
+
+  return null;
+}
+
 // ============================================================================
 // Page Parsing Utilities
 // ============================================================================

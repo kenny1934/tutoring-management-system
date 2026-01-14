@@ -20,25 +20,17 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
+import { RecapExerciseItem } from "./RecapExerciseItem";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
-
-// Exercise form item type
-export interface ExerciseFormItem {
+// Exercise form item extends base with optional id for existing exercises
+export interface ExerciseFormItem extends ExerciseFormItemBase {
   id?: number;
-  clientId: string;               // Stable client-side ID for state tracking
-  exercise_type: "CW" | "HW";
-  pdf_name: string;
-  page_mode: 'simple' | 'custom';  // Tracks which page input mode is active
-  page_start: string;              // For simple mode
-  page_end: string;                // For simple mode
-  complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
-  remarks: string;
 }
 
 interface ExerciseModalProps {
@@ -47,106 +39,6 @@ interface ExerciseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
-}
-
-// Component for displaying exercise items in Recap section with action buttons
-function RecapExerciseItem({ pdfName, pageStart, pageEnd }: {
-  pdfName: string;
-  pageStart?: number;
-  pageEnd?: number;
-}) {
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-  const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
-
-  // Parse display name from full path
-  const displayName = pdfName.includes('/') || pdfName.includes('\\')
-    ? pdfName.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, '') || pdfName
-    : pdfName.replace(/\.[^.]+$/, '');
-
-  const pageInfo = pageStart && pageEnd && pageStart !== pageEnd
-    ? `(p${pageStart}-${pageEnd})`
-    : pageStart ? `(p${pageStart})` : null;
-
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(pdfName);
-      setCopyState('copied');
-      setTimeout(() => setCopyState('idle'), 1500);
-    } catch {
-      setCopyState('failed');
-      setTimeout(() => setCopyState('idle'), 1500);
-    }
-  };
-
-  const handleOpen = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (openState === 'loading') return;
-    setOpenState('loading');
-    const error = await openFileFromPathWithFallback(pdfName, searchPaperlessByPath);
-    if (error) {
-      console.warn('Failed to open file:', error);
-      setOpenState('error');
-      setTimeout(() => setOpenState('idle'), 2000);
-    } else {
-      setOpenState('idle');
-    }
-  };
-
-  const handlePrint = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (printState === 'loading') return;
-    setPrintState('loading');
-    const error = await printFileFromPathWithFallback(
-      pdfName,
-      pageStart,
-      pageEnd,
-      undefined,
-      undefined,
-      searchPaperlessByPath
-    );
-    if (error) {
-      console.warn('Failed to print file:', error);
-      setPrintState('error');
-      setTimeout(() => setPrintState('idle'), 2000);
-    } else {
-      setPrintState('idle');
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-1.5 text-xs min-w-0">
-      <span className="truncate text-gray-700 dark:text-gray-300 min-w-0" title={pdfName}>
-        {displayName}
-      </span>
-      {pageInfo && <span className="text-gray-500 flex-shrink-0">{pageInfo}</span>}
-
-      {/* Copy button */}
-      <button type="button" onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
-        {copyState === 'copied' ? <Check className="h-3 w-3 text-green-500" /> :
-         copyState === 'failed' ? <XCircle className="h-3 w-3 text-red-500" /> :
-         <Copy className="h-3 w-3 text-gray-400" />}
-      </button>
-
-      {/* Open/Print buttons - only if file system supported */}
-      {canBrowseFiles && (
-        <>
-          <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Open file">
-            {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-             openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-             <ExternalLink className="h-3 w-3 text-gray-400" />}
-          </button>
-          <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Print file">
-            {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
-             printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
-             <Printer className="h-3 w-3 text-gray-400" />}
-          </button>
-        </>
-      )}
-    </div>
-  );
 }
 
 export function ExerciseModal({
@@ -635,17 +527,12 @@ export function ExerciseModal({
 
       // Apply page selection if provided
       if (pages) {
-        const pageSelection = parsePageInput(pages);
-        if (pageSelection?.complexRange) {
-          updateExercise(browsingForIndex, "page_mode", "custom");
-          updateExercise(browsingForIndex, "complex_pages", pageSelection.complexRange);
-          updateExercise(browsingForIndex, "page_start", "");
-          updateExercise(browsingForIndex, "page_end", "");
-        } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
-          updateExercise(browsingForIndex, "page_mode", "simple");
-          updateExercise(browsingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
-          updateExercise(browsingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
-          updateExercise(browsingForIndex, "complex_pages", "");
+        const pageFields = getPageFieldsFromSelection(parsePageInput(pages));
+        if (pageFields) {
+          updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
+          updateExercise(browsingForIndex, "page_start", pageFields.page_start);
+          updateExercise(browsingForIndex, "page_end", pageFields.page_end);
+          updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
         }
       }
 
@@ -661,19 +548,14 @@ export function ExerciseModal({
     let startIndex = 0;
     if (browsingForIndex !== null && selections.length > 0) {
       const first = selections[0];
-      const pageSelection = parsePageInput(first.pages);
       updateExercise(browsingForIndex, "pdf_name", first.path);
 
-      if (pageSelection?.complexRange) {
-        updateExercise(browsingForIndex, "page_mode", "custom");
-        updateExercise(browsingForIndex, "complex_pages", pageSelection.complexRange);
-        updateExercise(browsingForIndex, "page_start", "");
-        updateExercise(browsingForIndex, "page_end", "");
-      } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
-        updateExercise(browsingForIndex, "page_mode", "simple");
-        updateExercise(browsingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
-        updateExercise(browsingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
-        updateExercise(browsingForIndex, "complex_pages", "");
+      const pageFields = getPageFieldsFromSelection(parsePageInput(first.pages));
+      if (pageFields) {
+        updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
+        updateExercise(browsingForIndex, "page_start", pageFields.page_start);
+        updateExercise(browsingForIndex, "page_end", pageFields.page_end);
+        updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
       }
 
       startIndex = 1;
@@ -753,19 +635,13 @@ export function ExerciseModal({
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
 
-      // Auto-populate page fields based on selection and switch mode accordingly
-      if (pageSelection?.complexRange) {
-        // Complex range: set custom mode, clear simple range fields, set complex_pages
-        updateExercise(searchingForIndex, "page_mode", "custom");
-        updateExercise(searchingForIndex, "page_start", "");
-        updateExercise(searchingForIndex, "page_end", "");
-        updateExercise(searchingForIndex, "complex_pages", pageSelection.complexRange);
-      } else if (pageSelection?.pageStart !== undefined || pageSelection?.pageEnd !== undefined) {
-        // Simple range: set simple mode, set page fields, clear complex_pages
-        updateExercise(searchingForIndex, "page_mode", "simple");
-        updateExercise(searchingForIndex, "page_start", pageSelection.pageStart?.toString() || "");
-        updateExercise(searchingForIndex, "page_end", pageSelection.pageEnd?.toString() || "");
-        updateExercise(searchingForIndex, "complex_pages", "");
+      // Auto-populate page fields if selection has page info
+      const pageFields = getPageFieldsFromSelection(pageSelection);
+      if (pageFields) {
+        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
+        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
+        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
+        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
       }
 
       setSearchingForIndex(null);
@@ -781,17 +657,13 @@ export function ExerciseModal({
       // First selection goes to the current row
       updateExercise(searchingForIndex, "pdf_name", first.path);
 
-      // Apply page selection for the first item with mode switching
-      if (first.pageSelection?.complexRange) {
-        updateExercise(searchingForIndex, "page_mode", "custom");
-        updateExercise(searchingForIndex, "page_start", "");
-        updateExercise(searchingForIndex, "page_end", "");
-        updateExercise(searchingForIndex, "complex_pages", first.pageSelection.complexRange);
-      } else if (first.pageSelection?.pageStart !== undefined || first.pageSelection?.pageEnd !== undefined) {
-        updateExercise(searchingForIndex, "page_mode", "simple");
-        updateExercise(searchingForIndex, "page_start", first.pageSelection.pageStart?.toString() || "");
-        updateExercise(searchingForIndex, "page_end", first.pageSelection.pageEnd?.toString() || "");
-        updateExercise(searchingForIndex, "complex_pages", "");
+      // Apply page selection for the first item
+      const pageFields = getPageFieldsFromSelection(first.pageSelection);
+      if (pageFields) {
+        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
+        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
+        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
+        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
       }
 
       // Additional selections create new rows
