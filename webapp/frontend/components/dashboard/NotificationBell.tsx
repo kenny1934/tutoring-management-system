@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import useSWR from "swr";
 import { useCalendarEvents } from "@/lib/hooks";
+import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, BookOpen, ChevronRight } from "lucide-react";
+import { Bell, CreditCard, BookOpen, Users, ChevronRight } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -18,6 +20,7 @@ import {
 
 interface NotificationBellProps {
   pendingPayments: number;
+  location?: string;
 }
 
 interface NotificationItem {
@@ -29,11 +32,17 @@ interface NotificationItem {
   href: string;
 }
 
-export function NotificationBell({ pendingPayments }: NotificationBellProps) {
+export function NotificationBell({ pendingPayments, location }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch calendar events for upcoming tests
   const { data: events = [] } = useCalendarEvents(7);
+
+  // Fetch contact-needed count
+  const { data: contactNeeded } = useSWR(
+    ['contact-needed-count', location],
+    () => parentCommunicationsAPI.getContactNeededCount(undefined, location)
+  );
 
   // Count tests this week
   const testsThisWeek = useMemo(() => {
@@ -75,8 +84,19 @@ export function NotificationBell({ pendingPayments }: NotificationBellProps) {
       });
     }
 
+    if (contactNeeded?.count && contactNeeded.count > 0) {
+      items.push({
+        id: "parent-contact",
+        icon: <Users className="h-4 w-4" />,
+        label: "Parent Contact Needed",
+        count: contactNeeded.count,
+        severity: "warning",
+        href: "/parent-contacts",
+      });
+    }
+
     return items;
-  }, [pendingPayments, testsThisWeek]);
+  }, [pendingPayments, testsThisWeek, contactNeeded]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command } from "lucide-react";
+import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus } from "lucide-react";
 import { usefulTools } from "@/config/useful-tools";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
@@ -36,8 +36,9 @@ const greetingEmojis = ["🎯","🌟","✨","🎉","🚀","💫","🔥","⚡","�
 // Quick link definitions
 const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
-  { id: 'parents', label: 'Parent Contacts', icon: Users, href: '#' }, // Placeholder
+  { id: 'parents', label: 'Parent Contacts', icon: Users, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
+  { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
   { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: '#' }, // Placeholder
 ];
 
@@ -121,7 +122,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <HeaderStats stats={stats} />
           <div className="px-4 sm:px-6">
-            <NotificationBell pendingPayments={pendingPayments} />
+            <NotificationBell pendingPayments={pendingPayments} location={location} />
           </div>
         </div>
       )}
@@ -251,6 +252,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 <span className="xs:hidden">
                   {link.id === 'parents' && 'Parents'}
                   {link.id === 'revenue' && 'Revenue'}
+                  {link.id === 'terminated' && 'Termed'}
                   {link.id === 'leave' && 'Leave'}
                 </span>
               </Link>

@@ -216,7 +216,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 ? "gap-3 py-2 text-sm font-medium text-foreground/70"
                 : "justify-center p-1"
             )}>
-              <NotificationBell pendingPayments={pendingPayments} />
+              <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} />
               {(isMobile || !isCollapsed) && (
                 <span>Notifications</span>
               )}
