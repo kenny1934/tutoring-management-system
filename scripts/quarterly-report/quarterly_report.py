@@ -52,6 +52,25 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 env_path = os.path.join(project_root, 'webapp', 'backend', '.env')
 load_env_file(env_path)
 
+# Global holidays set (loaded at startup)
+HOLIDAYS = set()
+
+
+def load_holidays():
+    """Load holidays from database into global set (same source as MySQL function)."""
+    global HOLIDAYS
+    db = SessionLocal()
+    try:
+        query = text("SELECT holiday_date FROM holidays")
+        result = db.execute(query)
+        HOLIDAYS = {row[0] for row in result.fetchall()}
+        print(f"Loaded {len(HOLIDAYS)} holidays from database")
+    except Exception as e:
+        print(f"Warning: Could not load holidays from database: {e}")
+        HOLIDAYS = set()
+    finally:
+        db.close()
+
 # Database configuration
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -180,7 +199,7 @@ def fetch_all_enrollments():
     while True:
         try:
             response = requests.get(f"{API_BASE_URL}/enrollments",
-                                    params={"limit": limit, "offset": offset})
+                                    params={"enrollment_type": "Regular", "limit": limit, "offset": offset})
             if response.status_code == 200:
                 enrollments = response.json()
                 if not enrollments:
@@ -252,13 +271,37 @@ def parse_date(date_str):
 
 
 def calculate_effective_end_date(enrollment):
-    """Calculate when an enrollment effectively ends."""
+    """
+    Calculate when an enrollment effectively ends, skipping holidays.
+
+    This matches the MySQL calculate_effective_end_date function which:
+    1. Starts from first_lesson_date
+    2. Iterates week by week
+    3. Skips weeks where the lesson date falls on a holiday
+    4. Counts valid lesson dates until lessons_paid + extension_weeks
+    """
     first_lesson = parse_date(enrollment.get("first_lesson_date"))
     if not first_lesson:
         return None
     lessons_paid = enrollment.get("lessons_paid") or 0
     extension_weeks = enrollment.get("deadline_extension_weeks") or 0
-    return first_lesson + timedelta(weeks=lessons_paid + extension_weeks)
+    total_lesson_dates = lessons_paid + extension_weeks
+
+    # Count valid lesson dates (skipping holidays) until we reach the total
+    current_date = first_lesson
+    lessons_counted = 0
+    end_date = first_lesson
+
+    while lessons_counted < total_lesson_dates:
+        # Check if current date is a holiday
+        if current_date not in HOLIDAYS:
+            lessons_counted += 1
+            end_date = current_date
+
+        # Move to next week (same day of week)
+        current_date = current_date + timedelta(weeks=1)
+
+    return end_date
 
 
 def is_enrollment_active_during(enrollment, start_date, end_date):
@@ -273,7 +316,7 @@ def is_enrollment_active_during(enrollment, start_date, end_date):
         return False
     if effective_end <= start_date:
         return False
-    if enrollment.get("payment_status") == "Cancelled":
+    if enrollment.get("payment_status") not in ("Paid", "Pending Payment"):
         return False
     if enrollment.get("enrollment_type") != "Regular":
         return False
@@ -547,7 +590,7 @@ def calculate_enrollment_stats(all_enrollments, tutors, location, opening_start,
     # Calculate Closing
     closing_by_tutor = defaultdict(set)
     for enrollment in location_enrollments:
-        if enrollment.get("payment_status") == "Cancelled":
+        if enrollment.get("payment_status") not in ("Paid", "Pending Payment"):
             continue
         if enrollment.get("enrollment_type") != "Regular":
             continue
@@ -704,6 +747,9 @@ def main():
     parser.add_argument("--from-csv", action="store_true",
                         help="Read from existing CSV files instead of querying database")
     args = parser.parse_args()
+
+    # Load holidays for holiday-aware effective end date calculation
+    load_holidays()
 
     year = args.year
     quarter = args.quarter.upper()

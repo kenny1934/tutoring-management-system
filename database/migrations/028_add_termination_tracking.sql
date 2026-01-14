@@ -34,6 +34,7 @@ SELECT DISTINCT
 FROM students s
 INNER JOIN enrollments e ON s.id = e.student_id
 WHERE e.payment_status IN ('Paid', 'Pending Payment')
+  AND e.enrollment_type = 'Regular'
   AND calculate_effective_end_date(
         e.first_lesson_date,
         e.lessons_paid,
@@ -118,6 +119,7 @@ FROM students s
 INNER JOIN enrollments e ON s.id = e.student_id
 WHERE s.id NOT IN (SELECT student_id FROM active_students)
   AND e.payment_status IN ('Paid', 'Pending Payment')  -- Exclude cancelled
+  AND e.enrollment_type = 'Regular'
 GROUP BY s.id, s.student_name, s.school_student_id, s.home_location
 HAVING MAX(
     calculate_effective_end_date(

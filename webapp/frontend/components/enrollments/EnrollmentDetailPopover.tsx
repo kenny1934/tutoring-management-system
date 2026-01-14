@@ -13,7 +13,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2 } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -441,6 +441,26 @@ export function EnrollmentDetailPopover({
                 </span>
               </div>
             </>
+          )}
+
+          {/* Enrollment Type */}
+          {enrollment.enrollment_type && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                <Tag className="h-3.5 w-3.5" />
+                Type:
+              </span>
+              <span className={cn(
+                "px-2 py-0.5 rounded text-xs font-medium",
+                enrollment.enrollment_type === 'Trial'
+                  ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
+                  : enrollment.enrollment_type === 'One-Time'
+                  ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              )}>
+                {enrollment.enrollment_type}
+              </span>
+            </div>
           )}
 
           {/* Payment Status */}

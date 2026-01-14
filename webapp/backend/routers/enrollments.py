@@ -44,6 +44,10 @@ async def get_enrollments(
         joinedload(Enrollment.student),
         joinedload(Enrollment.tutor),
         joinedload(Enrollment.discount)
+    ).filter(
+        # Exclude orphaned enrollments with NULL foreign keys
+        Enrollment.student_id.isnot(None),
+        Enrollment.tutor_id.isnot(None)
     )
 
     # Apply filters
@@ -68,8 +72,8 @@ async def get_enrollments(
     if to_date:
         query = query.filter(Enrollment.first_lesson_date <= to_date)
 
-    # Order by most recent first
-    query = query.order_by(Enrollment.first_lesson_date.desc())
+    # Order by most recent first, with secondary sort by id for stable pagination
+    query = query.order_by(Enrollment.first_lesson_date.desc(), Enrollment.id.desc())
 
     # Apply pagination
     enrollments = query.offset(offset).limit(limit).all()
@@ -96,10 +100,12 @@ async def get_active_enrollments(
     db: Session = Depends(get_db)
 ):
     """
-    Get active enrollments - latest enrollment per student that is not cancelled.
+    Get active enrollments - latest enrollment per student that is still active.
 
     Logic: For each student, returns only their most recent enrollment based on first_lesson_date,
-    excluding enrollments with payment_status='Cancelled'.
+    excluding cancelled enrollments and those with effective_end_date < today.
+
+    effective_end_date = first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
 
     - **location**: Filter by location (optional, omit for all locations)
     """
@@ -133,12 +139,26 @@ async def get_active_enrollments(
     for enrollment in all_enrollments:
         student_enrollments[enrollment.student_id].append(enrollment)
 
-    # Keep only the most recent enrollment per student
+    # Keep only the most recent enrollment per student that is still active
+    today = date.today()
     latest_enrollments = []
     for student_id, enrollments_list in student_enrollments.items():
         # Sort by first_lesson_date descending and take the first one
         latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
-        latest_enrollments.append(latest)
+
+        # Calculate effective_end_date
+        if latest.first_lesson_date:
+            weeks_paid = latest.lessons_paid or 0
+            extension = latest.deadline_extension_weeks or 0
+            total_weeks = weeks_paid + extension
+            effective_end_date = latest.first_lesson_date + timedelta(weeks=total_weeks)
+
+            # Only include if still active
+            if effective_end_date >= today:
+                latest_enrollments.append(latest)
+        else:
+            # No first_lesson_date - include it (enrollment hasn't started yet)
+            latest_enrollments.append(latest)
 
     # Sort by student name for easier viewing
     latest_enrollments = sorted(latest_enrollments, key=lambda e: e.student.student_name if e.student else "")
