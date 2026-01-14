@@ -5,7 +5,7 @@ import { useFormDirtyTracking, useDeleteConfirmation } from "@/lib/ui-hooks";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, PenTool, Home, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Search, Download, Copy } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { api, sessionsAPI } from "@/lib/api";
@@ -18,12 +18,15 @@ import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
 import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, type ExerciseValidationError } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
+import { ExerciseActionButtons } from "./ExerciseActionButtons";
+import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 
 
 // Exercise form item type
 export interface ExerciseFormItem {
+  clientId: string;               // Stable client-side ID for state tracking
   exercise_type: "CW" | "HW";
   pdf_name: string;
   page_mode: 'simple' | 'custom';  // Tracks which page input mode is active
@@ -31,6 +34,12 @@ export interface ExerciseFormItem {
   page_end: string;                // For simple mode
   complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
+}
+
+// Generate unique client ID for exercise rows
+let clientIdCounter = 0;
+function generateClientId(): string {
+  return `bex-${Date.now()}-${++clientIdCounter}`;
 }
 
 interface BulkExerciseModalProps {
@@ -54,7 +63,7 @@ export function BulkExerciseModal({
   const [canBrowseFiles, setCanBrowseFiles] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
-  const [fileActionState, setFileActionState] = useState<Record<number, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
+  const [fileActionState, setFileActionState] = useState<Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>>({});
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
@@ -210,7 +219,7 @@ export function BulkExerciseModal({
   const addExercise = useCallback(() => {
     setExercises((prev) => [
       ...prev,
-      { exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
+      { clientId: generateClientId(), exercise_type: exerciseType, pdf_name: "", page_mode: 'simple', page_start: "", page_end: "", complex_pages: "", remarks: "" },
     ]);
     setIsDirty(true);
     shouldFocusNewRef.current = true;
@@ -220,7 +229,7 @@ export function BulkExerciseModal({
     setExercises((prev) => {
       const exerciseToDuplicate = prev[index];
       if (!exerciseToDuplicate) return prev;
-      const duplicate = { ...exerciseToDuplicate };
+      const duplicate = { ...exerciseToDuplicate, clientId: generateClientId() }; // New clientId for duplicate
       // Insert after the current index
       const before = prev.slice(0, index + 1);
       const after = prev.slice(index + 1);
@@ -313,6 +322,7 @@ export function BulkExerciseModal({
           const newExercises = selections.slice(1).map((sel) => {
             const parsed = sel.pages ? parsePageInput(sel.pages) : null;
             return {
+              clientId: generateClientId(),
               exercise_type: exerciseType,
               pdf_name: sel.path,
               page_mode: parsed?.complexRange ? 'custom' as const : 'simple' as const,
@@ -391,6 +401,7 @@ export function BulkExerciseModal({
       if (selections.length > 1) {
         setExercises((prev) => {
           const newExercises = selections.slice(1).map(({ path, pageSelection }) => ({
+            clientId: generateClientId(),
             exercise_type: exerciseType,
             pdf_name: path,
             page_mode: pageSelection?.complexRange ? 'custom' as const : 'simple' as const,
@@ -474,6 +485,7 @@ export function BulkExerciseModal({
     // Remaining paths create new exercise rows after drop target
     if (paths.length > 1) {
       const newExercises = paths.slice(1).map((path) => ({
+        clientId: generateClientId(),
         exercise_type: exerciseType,
         pdf_name: path,
         page_mode: 'simple' as const,
@@ -496,23 +508,23 @@ export function BulkExerciseModal({
   }, [searchForIndex, exerciseType]);
 
   // Handle open file in new tab
-  const handleOpenFile = useCallback(async (index: number, path: string) => {
-    if (!path || fileActionState[index]?.open === 'loading') return;
-    setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'loading' } }));
+  const handleOpenFile = useCallback(async (clientId: string, path: string) => {
+    if (!path || fileActionState[clientId]?.open === 'loading') return;
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
     const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to open file:', error);
-      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } })), 2000);
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
     } else {
-      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], open: undefined } }));
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
     }
   }, [fileActionState]);
 
   // Handle print file with page range support
-  const handlePrintFile = useCallback(async (index: number, exercise: ExerciseFormItem) => {
-    const path = exercise.pdf_name;
-    if (!path || fileActionState[index]?.print === 'loading') return;
+  const handlePrintFile = useCallback(async (exercise: ExerciseFormItem) => {
+    const { clientId, pdf_name: path } = exercise;
+    if (!path || fileActionState[clientId]?.print === 'loading') return;
 
     // Extract page range info
     const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
@@ -521,14 +533,14 @@ export function BulkExerciseModal({
     // Use complex_pages directly (no more parsing from remarks)
     const complexRange = exercise.complex_pages?.trim() || undefined;
 
-    setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'loading' } }));
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
     const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, undefined, searchPaperlessByPath);
     if (error) {
       console.warn('Failed to print file:', error);
-      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } })), 2000);
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
+      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
     } else {
-      setFileActionState(prev => ({ ...prev, [index]: { ...prev[index], print: undefined } }));
+      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
     }
   }, [fileActionState]);
 
@@ -892,61 +904,15 @@ export function BulkExerciseModal({
                     />
 
                     {/* File action buttons */}
-                    {/* Paperless search button - always show */}
-                    <button
-                      type="button"
-                      onClick={() => handlePaperlessSearch(index)}
-                      className="px-2 py-1.5 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors shrink-0"
-                      title="Search Shelv"
-                    >
-                      <Search className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                    </button>
-                    {canBrowseFiles && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleBrowseFile(index)}
-                          className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                          title="Browse files"
-                        >
-                          <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                        </button>
-                        {exercise.pdf_name && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenFile(index, exercise.pdf_name)}
-                              disabled={fileActionState[index]?.open === 'loading'}
-                              className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                              title="Open PDF"
-                            >
-                              {fileActionState[index]?.open === 'loading' ? (
-                                <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
-                              ) : fileActionState[index]?.open === 'error' ? (
-                                <XCircle className="h-3.5 w-3.5 text-red-500" />
-                              ) : (
-                                <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePrintFile(index, exercise)}
-                              disabled={fileActionState[index]?.print === 'loading'}
-                              className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                              title="Print PDF (with page range if specified)"
-                            >
-                              {fileActionState[index]?.print === 'loading' ? (
-                                <Loader2 className="h-3.5 w-3.5 text-gray-400 animate-spin" />
-                              ) : fileActionState[index]?.print === 'error' ? (
-                                <XCircle className="h-3.5 w-3.5 text-red-500" />
-                              ) : (
-                                <Printer className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-green-500" />
-                              )}
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
+                    <ExerciseActionButtons
+                      hasPdfName={!!exercise.pdf_name}
+                      canBrowseFiles={canBrowseFiles}
+                      fileActionState={fileActionState[exercise.clientId]}
+                      onPaperlessSearch={() => handlePaperlessSearch(index)}
+                      onBrowseFile={() => handleBrowseFile(index)}
+                      onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
+                      onPrintFile={() => handlePrintFile(exercise)}
+                    />
 
                     {/* Duplicate button */}
                     <button
@@ -959,34 +925,12 @@ export function BulkExerciseModal({
                     </button>
 
                     {/* Delete button with inline confirmation */}
-                    {pendingDeleteIndex === index ? (
-                      <div className="flex items-center gap-1 text-xs shrink-0">
-                        <span className="text-red-500">Delete?</span>
-                        <button
-                          type="button"
-                          onClick={confirmDelete}
-                          className="px-1.5 py-0.5 text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelDelete}
-                          className="px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                        >
-                          No
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => requestDelete(index)}
-                        className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
-                        title="Remove exercise (Alt+Backspace)"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <ExerciseDeleteButton
+                      isPending={pendingDeleteIndex === index}
+                      onRequestDelete={() => requestDelete(index)}
+                      onConfirmDelete={confirmDelete}
+                      onCancelDelete={cancelDelete}
+                    />
                   </div>
 
                   {/* Row 2: Page Range Mode Selection */}
