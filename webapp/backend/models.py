@@ -26,6 +26,7 @@ class Tutor(Base):
     # Relationships
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")
     sessions = relationship("SessionLog", back_populates="tutor")
+    parent_communications = relationship("ParentCommunication", back_populates="tutor")
 
 
 class Student(Base):
@@ -48,6 +49,7 @@ class Student(Base):
     # Relationships
     enrollments = relationship("Enrollment", back_populates="student")
     sessions = relationship("SessionLog", back_populates="student")
+    parent_communications = relationship("ParentCommunication", back_populates="student")
 
 
 class Discount(Base):
@@ -376,3 +378,65 @@ class CalendarEvent(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     last_synced_at = Column(DateTime, server_default=func.now())
+
+
+class ParentCommunication(Base):
+    """
+    Tracks parent-tutor communications for accountability and follow-up.
+    Each record represents a contact made by a tutor with a student's parent.
+    """
+    __tablename__ = "parent_communications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    contact_date = Column(DateTime, nullable=False)
+    contact_method = Column(String(50), default='WeChat')  # WeChat, Phone, In-Person
+    contact_type = Column(String(50), default='Progress Update')  # Progress Update, Concern, General
+    brief_notes = Column(Text, comment='Quick summary of what was discussed')
+    follow_up_needed = Column(Boolean, default=False, nullable=True)  # Allow NULL for legacy data
+    follow_up_date = Column(Date, comment='When follow-up is needed by')
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255), default='system')
+
+    # Relationships
+    student = relationship("Student", back_populates="parent_communications")
+    tutor = relationship("Tutor", back_populates="parent_communications")
+
+
+class LocationSettings(Base):
+    """
+    Per-location settings for configurable features.
+    Stores thresholds for parent contact status indicators.
+    """
+    __tablename__ = "location_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location = Column(String(50), unique=True, nullable=False)  # MSA, MSB
+    contact_recent_days = Column(Integer, default=28, comment='Days threshold for "Recent" contact status')
+    contact_warning_days = Column(Integer, default=50, comment='Days threshold for "Been a While" status')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class TerminationRecord(Base):
+    """
+    Termination records for quarterly reporting.
+    Stores user-editable reason and count_as_terminated flag per student per quarter.
+    """
+    __tablename__ = "termination_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    quarter = Column(Integer, nullable=False)
+    year = Column(Integer, nullable=False)
+    reason = Column(Text, nullable=True)
+    count_as_terminated = Column(Boolean, default=False, nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
+    updated_by = Column(String(255), nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    student = relationship("Student")
+    tutor = relationship("Tutor")
