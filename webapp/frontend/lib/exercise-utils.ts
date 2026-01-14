@@ -121,6 +121,21 @@ export function getPageFieldsFromSelection(pageSelection?: PageSelection | null)
   return null;
 }
 
+/**
+ * Insert new exercises after a given index in the array.
+ * Used for multi-select handlers where first item fills current row,
+ * and remaining items are inserted after.
+ */
+export function insertExercisesAfterIndex<T>(
+  exercises: T[],
+  insertAfterIndex: number,
+  newItems: T[]
+): T[] {
+  const before = exercises.slice(0, insertAfterIndex + 1);
+  const after = exercises.slice(insertAfterIndex + 1);
+  return [...before, ...newItems, ...after];
+}
+
 // ============================================================================
 // Page Parsing Utilities
 // ============================================================================

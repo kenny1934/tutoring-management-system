@@ -20,7 +20,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -116,9 +116,8 @@ export function ExerciseModal({
   // Trending section state
   const [trendingExpanded, setTrendingExpanded] = useState(false);
   const [trendingPreviewDoc, setTrendingPreviewDoc] = useState<PaperlessDocument | null>(null);
-  const [previewableTrending, setPreviewableTrending] = useState<Map<string, PaperlessDocument>>(new Map());
-  const [unavailableTrending, setUnavailableTrending] = useState<Set<string>>(new Set());
-  const [checkingPreview, setCheckingPreview] = useState<Set<string>>(new Set());
+  // Consolidated trending item state: tracks status and cached document per filename
+  const [trendingItemState, setTrendingItemState] = useState<Record<string, { status: 'checking' | 'available' | 'unavailable'; doc?: PaperlessDocument }>>({});
   const [detailItem, setDetailItem] = useState<CoursewarePopularity | null>(null);
 
   // Recap section state
@@ -502,11 +501,7 @@ export function ExerciseModal({
     // Remaining paths create new exercise rows after drop target
     if (paths.length > 1) {
       const newExercises = paths.slice(1).map((path) => createExercise(exerciseType, path));
-      setExercises((prev) => {
-        const before = prev.slice(0, searchForIndex + 1);
-        const after = prev.slice(searchForIndex + 1);
-        return [...before, ...newExercises, ...after];
-      });
+      setExercises((prev) => insertExercisesAfterIndex(prev, searchForIndex, newExercises));
     }
 
     setBatchSearchOpen(false);
@@ -567,16 +562,11 @@ export function ExerciseModal({
         createExerciseFromSelection(exerciseType, sel.path, parsePageInput(sel.pages))
       );
 
-      setExercises((prev) => {
-        if (browsingForIndex !== null) {
-          // Insert after the browsing index
-          const before = prev.slice(0, browsingForIndex + 1);
-          const after = prev.slice(browsingForIndex + 1);
-          return [...before, ...newExercises, ...after];
-        }
-        // Or append at end
-        return [...prev, ...newExercises];
-      });
+      setExercises((prev) =>
+        browsingForIndex !== null
+          ? insertExercisesAfterIndex(prev, browsingForIndex, newExercises)
+          : [...prev, ...newExercises]
+      );
       setIsDirty(true);
     }
 
@@ -591,26 +581,24 @@ export function ExerciseModal({
 
   // Handle preview trending item
   const handlePreviewTrending = useCallback(async (item: CoursewarePopularity) => {
+    const itemState = trendingItemState[item.filename];
+
     // If already cached, open immediately
-    const cachedDoc = previewableTrending.get(item.filename);
-    if (cachedDoc) {
-      setTrendingPreviewDoc(cachedDoc);
+    if (itemState?.status === 'available' && itemState.doc) {
+      setTrendingPreviewDoc(itemState.doc);
       return;
     }
 
-    // If already known to be unavailable, do nothing
-    if (unavailableTrending.has(item.filename)) return;
-
-    // If already checking, ignore
-    if (checkingPreview.has(item.filename)) return;
+    // If already known to be unavailable or checking, do nothing
+    if (itemState?.status === 'unavailable' || itemState?.status === 'checking') return;
 
     // Start checking
-    setCheckingPreview(prev => { const next = new Set(prev); next.add(item.filename); return next; });
+    setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'checking' } }));
 
     try {
       const path = item.normalized_paths?.split(',')[0]?.trim();
       if (!path) {
-        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
+        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
         return;
       }
 
@@ -618,17 +606,15 @@ export function ExerciseModal({
       if (response.results.length > 0) {
         // Found - cache and open preview
         const doc = response.results[0];
-        setPreviewableTrending(prev => new Map(prev).set(item.filename, doc));
+        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'available', doc } }));
         setTrendingPreviewDoc(doc);
       } else {
-        setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
+        setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
       }
     } catch {
-      setUnavailableTrending(prev => { const next = new Set(prev); next.add(item.filename); return next; });
-    } finally {
-      setCheckingPreview(prev => { const next = new Set(prev); next.delete(item.filename); return next; });
+      setTrendingItemState(prev => ({ ...prev, [item.filename]: { status: 'unavailable' } }));
     }
-  }, [previewableTrending, unavailableTrending, checkingPreview]);
+  }, [trendingItemState]);
 
   // Handle file selected from Paperless search (single select)
   const handlePaperlessSelected = useCallback((path: string, pageSelection?: PageSelection) => {
@@ -668,14 +654,10 @@ export function ExerciseModal({
 
       // Additional selections create new rows
       if (selections.length > 1) {
-        setExercises((prev) => {
-          const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
-            createExerciseFromSelection(exerciseType, path, pageSelection)
-          );
-          const before = prev.slice(0, searchingForIndex + 1);
-          const after = prev.slice(searchingForIndex + 1);
-          return [...before, ...newExercises, ...after];
-        });
+        const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
+          createExerciseFromSelection(exerciseType, path, pageSelection)
+        );
+        setExercises((prev) => insertExercisesAfterIndex(prev, searchingForIndex!, newExercises));
         setIsDirty(true);
       }
 
@@ -1004,7 +986,7 @@ export function ExerciseModal({
                           {item.unique_student_count}
                         </span>
                         {/* Preview button */}
-                        {unavailableTrending.has(item.filename) ? (
+                        {trendingItemState[item.filename]?.status === 'unavailable' ? (
                           <div className="p-1 shrink-0" title="Not available in Shelv" onClick={(e) => e.stopPropagation()}>
                             <EyeOff className="h-3.5 w-3.5 text-gray-300 dark:text-gray-600" />
                           </div>
@@ -1014,11 +996,11 @@ export function ExerciseModal({
                               e.stopPropagation();
                               handlePreviewTrending(item);
                             }}
-                            disabled={checkingPreview.has(item.filename)}
+                            disabled={trendingItemState[item.filename]?.status === 'checking'}
                             className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 shrink-0 disabled:opacity-50"
-                            title={checkingPreview.has(item.filename) ? 'Checking...' : 'Preview PDF'}
+                            title={trendingItemState[item.filename]?.status === 'checking' ? 'Checking...' : 'Preview PDF'}
                           >
-                            {checkingPreview.has(item.filename) ? (
+                            {trendingItemState[item.filename]?.status === 'checking' ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <Eye className="h-3.5 w-3.5" />
@@ -1064,6 +1046,8 @@ export function ExerciseModal({
                                   const displayId = detail.school_student_id
                                     ? `${detail.location}-${detail.school_student_id}`
                                     : detail.location;
+                                  // Check if user has access to this detail's location
+                                  const canAccessLocation = !session.location || session.location === detail.location;
                                   return (
                                     <div
                                       key={`${detail.session_id}-${detail.exercise_id}-${i}`}
@@ -1074,15 +1058,21 @@ export function ExerciseModal({
                                           ? new Date(detail.session_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                                           : '-'}
                                       </span>
-                                      <Link
-                                        href={`/students/${detail.student_id}`}
-                                        target="_blank"
-                                        className="truncate flex-1 text-[#a0704b] dark:text-[#cd853f] hover:underline"
-                                        title={`${displayId} ${detail.student_name}`}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {detail.student_name}
-                                      </Link>
+                                      {canAccessLocation ? (
+                                        <Link
+                                          href={`/students/${detail.student_id}`}
+                                          target="_blank"
+                                          className="truncate flex-1 text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                                          title={`${displayId} ${detail.student_name}`}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {detail.student_name}
+                                        </Link>
+                                      ) : (
+                                        <span className="truncate flex-1 text-gray-500 dark:text-gray-400" title={detail.student_name}>
+                                          {detail.student_name}
+                                        </span>
+                                      )}
                                       <span className="shrink-0 text-gray-400 dark:text-gray-500">
                                         {detail.grade}
                                       </span>
@@ -1094,15 +1084,19 @@ export function ExerciseModal({
                                       )}>
                                         {detail.exercise_type}
                                       </span>
-                                      <Link
-                                        href={`/sessions/${detail.session_id}`}
-                                        target="_blank"
-                                        className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0"
-                                        title="Go to session"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <ExternalLink className="h-2.5 w-2.5 text-gray-400 hover:text-[#a0704b]" />
-                                      </Link>
+                                      {canAccessLocation ? (
+                                        <Link
+                                          href={`/sessions/${detail.session_id}`}
+                                          target="_blank"
+                                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0"
+                                          title="Go to session"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <ExternalLink className="h-2.5 w-2.5 text-gray-400 hover:text-[#a0704b]" />
+                                        </Link>
+                                      ) : (
+                                        <div className="p-0.5 shrink-0 w-3.5" />
+                                      )}
                                     </div>
                                   );
                                 })}

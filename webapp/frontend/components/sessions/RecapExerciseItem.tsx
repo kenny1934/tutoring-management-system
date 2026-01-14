@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Check, XCircle, Copy, Loader2, ExternalLink, Printer } from "lucide-react";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
@@ -14,8 +14,9 @@ interface RecapExerciseItemProps {
 /**
  * Component for displaying exercise items in Recap section with action buttons.
  * Shows filename, page info, and copy/open/print buttons.
+ * Memoized to prevent re-renders when parent state changes.
  */
-export function RecapExerciseItem({ pdfName, pageStart, pageEnd }: RecapExerciseItemProps) {
+export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, pageStart, pageEnd }: RecapExerciseItemProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -108,4 +109,4 @@ export function RecapExerciseItem({ pdfName, pageStart, pageEnd }: RecapExercise
       )}
     </div>
   );
-}
+});

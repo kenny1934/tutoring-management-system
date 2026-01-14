@@ -5,7 +5,7 @@ import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/l
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Copy } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { api, sessionsAPI } from "@/lib/api";
@@ -16,7 +16,7 @@ import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles } from "
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
-import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
@@ -58,6 +58,8 @@ export function BulkExerciseModal({
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [saveProgress, setSaveProgress] = useState<{ current: number; total: number } | null>(null);
+  // Per-session save status for visual feedback
+  const [sessionSaveStatus, setSessionSaveStatus] = useState<Record<number, 'saving' | 'success' | 'error'>>({});
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
   const { showToast } = useToast();
 
@@ -138,6 +140,7 @@ export function BulkExerciseModal({
     setShowSaveConfirm(false);
     setIsSaving(true);
     setSaveProgress({ current: 0, total: sessions.length });
+    setSessionSaveStatus({}); // Reset status
 
     // Filter out empty PDF names (defensive, should already be filtered)
     const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
@@ -159,23 +162,42 @@ export function BulkExerciseModal({
     const CONCURRENCY = 5;
     for (let i = 0; i < sessions.length; i += CONCURRENCY) {
       const batch = sessions.slice(i, i + CONCURRENCY);
+
+      // Mark batch as saving
+      setSessionSaveStatus(prev => {
+        const next = { ...prev };
+        batch.forEach(s => { next[s.id] = 'saving'; });
+        return next;
+      });
+
       const results = await Promise.allSettled(
         batch.map(session =>
           sessionsAPI.saveExercises(session.id, exerciseType, apiExercises)
             .then(updated => {
               updateSessionInCache(updated);
-              return { success: true };
+              return { sessionId: session.id, success: true };
+            })
+            .catch(err => {
+              throw { sessionId: session.id, error: err };
             })
         )
       );
 
-      results.forEach((result, idx) => {
-        if (result.status === 'fulfilled') {
-          successCount++;
-        } else {
-          console.error(`Failed to save to session ${batch[idx].id}:`, result.reason);
-          failCount++;
-        }
+      // Update status for each result
+      setSessionSaveStatus(prev => {
+        const next = { ...prev };
+        results.forEach((result, idx) => {
+          const sessionId = batch[idx].id;
+          if (result.status === 'fulfilled') {
+            next[sessionId] = 'success';
+            successCount++;
+          } else {
+            console.error(`Failed to save to session ${sessionId}:`, result.reason);
+            next[sessionId] = 'error';
+            failCount++;
+          }
+        });
+        return next;
       });
 
       setSaveProgress({ current: Math.min(i + CONCURRENCY, sessions.length), total: sessions.length });
@@ -195,6 +217,7 @@ export function BulkExerciseModal({
 
     setIsSaving(false);
     setSaveProgress(null);
+    setSessionSaveStatus({}); // Clear status after close
     setExercises([]); // Reset for next use
     setIsDirty(false);
     setValidationErrors([]);
@@ -300,14 +323,10 @@ export function BulkExerciseModal({
 
       // Additional selections create new rows
       if (selections.length > 1) {
-        setExercises((prev) => {
-          const newExercises = selections.slice(1).map((sel) =>
-            createExerciseFromSelection(exerciseType, sel.path, parsePageInput(sel.pages))
-          );
-          const before = prev.slice(0, browsingForIndex + 1);
-          const after = prev.slice(browsingForIndex + 1);
-          return [...before, ...newExercises, ...after];
-        });
+        const newExercises = selections.slice(1).map((sel) =>
+          createExerciseFromSelection(exerciseType, sel.path, parsePageInput(sel.pages))
+        );
+        setExercises((prev) => insertExercisesAfterIndex(prev, browsingForIndex!, newExercises));
         setIsDirty(true);
       }
 
@@ -360,15 +379,10 @@ export function BulkExerciseModal({
 
       // Additional selections create new rows
       if (selections.length > 1) {
-        setExercises((prev) => {
-          const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
-            createExerciseFromSelection(exerciseType, path, pageSelection)
-          );
-          // Insert after the current index
-          const before = prev.slice(0, searchingForIndex + 1);
-          const after = prev.slice(searchingForIndex + 1);
-          return [...before, ...newExercises, ...after];
-        });
+        const newExercises = selections.slice(1).map(({ path, pageSelection }) =>
+          createExerciseFromSelection(exerciseType, path, pageSelection)
+        );
+        setExercises((prev) => insertExercisesAfterIndex(prev, searchingForIndex!, newExercises));
         setIsDirty(true);
       }
 
@@ -439,11 +453,7 @@ export function BulkExerciseModal({
     // Remaining paths create new exercise rows after drop target
     if (paths.length > 1) {
       const newExercises = paths.slice(1).map((path) => createExercise(exerciseType, path));
-      setExercises(prev => {
-        const before = prev.slice(0, searchForIndex + 1);
-        const after = prev.slice(searchForIndex + 1);
-        return [...before, ...newExercises, ...after];
-      });
+      setExercises(prev => insertExercisesAfterIndex(prev, searchForIndex!, newExercises));
       setIsDirty(true);
     }
 
@@ -668,23 +678,34 @@ export function BulkExerciseModal({
           <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
             {[...sessions].sort((a, b) =>
               (a.school_student_id || '').localeCompare(b.school_student_id || '')
-            ).map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-1.5 px-2 py-1 bg-white dark:bg-gray-800 rounded text-xs shadow-sm"
-              >
-                <span className="text-gray-500 dark:text-gray-400">{s.school_student_id}</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{s.student_name}</span>
-                {s.grade && (
-                  <span
-                    className="px-1 py-0.5 rounded text-[9px] text-gray-800"
-                    style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
-                  >
-                    {s.grade}{s.lang_stream}
-                  </span>
-                )}
-              </div>
-            ))}
+            ).map((s) => {
+              const status = sessionSaveStatus[s.id];
+              return (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-1.5 px-2 py-1 rounded text-xs shadow-sm",
+                    status === 'success' ? "bg-green-50 dark:bg-green-900/20" :
+                    status === 'error' ? "bg-red-50 dark:bg-red-900/20" :
+                    "bg-white dark:bg-gray-800"
+                  )}
+                >
+                  {status === 'saving' && <Loader2 className="h-3 w-3 animate-spin text-amber-500" />}
+                  {status === 'success' && <Check className="h-3 w-3 text-green-500" />}
+                  {status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
+                  <span className="text-gray-500 dark:text-gray-400">{s.school_student_id}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{s.student_name}</span>
+                  {s.grade && (
+                    <span
+                      className="px-1 py-0.5 rounded text-[9px] text-gray-800"
+                      style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
+                    >
+                      {s.grade}{s.lang_stream}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
