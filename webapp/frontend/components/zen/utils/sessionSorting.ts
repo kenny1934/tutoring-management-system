@@ -4,23 +4,10 @@
  */
 
 import type { Session } from "@/types";
+import { GRADE_COLORS, getGradeColor } from "@/lib/constants";
 
-// Grade tag colors (matching GUI)
-export const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-export const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
+// Re-export for consumers
+export { GRADE_COLORS, getGradeColor };
 
 // Strip honorific prefixes for tutor name sorting
 export const getTutorSortName = (name: string): string =>

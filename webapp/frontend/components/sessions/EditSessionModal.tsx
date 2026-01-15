@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
+import { getGradeColor } from "@/lib/constants";
 
 // Available session statuses
 const SESSION_STATUSES = [
@@ -27,23 +28,6 @@ const SESSION_STATUSES = [
   "Sick Leave - Make-up Booked",
   "Weather Cancelled - Make-up Booked",
 ];
-
-// Grade tag colors (matches SessionDetailPopover)
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 // Form state type
 interface EditFormState {

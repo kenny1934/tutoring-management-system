@@ -24,6 +24,7 @@ import {
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { getGradeColor } from "@/lib/constants";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -43,23 +44,6 @@ const getTutorFirstName = (name: string): string => {
 
 // Helper to get tutor name without prefix for sorting
 const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-
-// Grade colors (matching DailyGridView)
-const GRADE_COLORS: Record<string, string> = {
-  "F1C": "#c2dfce",
-  "F1E": "#cedaf5",
-  "F2C": "#fbf2d0",
-  "F2E": "#f0a19e",
-  "F3C": "#e2b1cc",
-  "F3E": "#ebb26e",
-  "F4C": "#7dc347",
-  "F4E": "#a590e6",
-};
-
-const getGradeColor = (grade: string | undefined, langStream: string | undefined): string => {
-  const key = `${grade || ""}${langStream || ""}`;
-  return GRADE_COLORS[key] || "#e5e7eb";
-};
 
 // Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
 const canBeMarked = (session: Session): boolean =>
