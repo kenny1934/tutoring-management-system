@@ -90,6 +90,61 @@ function timeToMinutes(timeStr: string): number {
   return parseInt(match[1]) * 60 + parseInt(match[2]);
 }
 
+// Student display component - reduces duplication across 4 locations
+interface StudentDisplayProps {
+  student: {
+    student_name?: string;
+    school_student_id?: string;
+    grade?: string;
+    lang_stream?: string;
+    school?: string;
+  };
+  compact?: boolean; // true = inline badge style (Day Picker), false = list item style (Suggestions/Form)
+}
+
+function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
+  const name = compact ? student.student_name?.split(' ')[0] : student.student_name;
+
+  const content = (
+    <>
+      {student.school_student_id && (
+        <span className="text-[9px] text-gray-400 font-mono mr-1">{student.school_student_id}</span>
+      )}
+      <span className={compact ? "" : "text-gray-700 dark:text-gray-300"}>{name}</span>
+      {student.grade && (
+        <span
+          className={cn(compact ? "ml-1 text-[9px] px-1 rounded" : "text-[9px] px-1 py-0.5 rounded text-gray-800")}
+          style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream), color: '#374151' }}
+        >
+          {student.grade}{student.lang_stream || ""}
+        </span>
+      )}
+      {student.school && (
+        <span className={cn(
+          "rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300",
+          compact ? "ml-1 text-[8px] px-1 py-0.5" : "text-[8px] px-1 py-0.5"
+        )}>
+          {student.school}
+        </span>
+      )}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400">
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      {content}
+    </div>
+  );
+}
+
 interface ScheduleMakeupModalProps {
   session: Session;
   isOpen: boolean;
@@ -259,6 +314,17 @@ export function ScheduleMakeupModal({
         ? daySessions
         : daySessions.filter(s => s.tutor_id === selectedTutorId);
 
+      // Calculate availability: group by time slot and tutor, count students vs capacity (8)
+      const slotOccupancy = new Map<string, number>(); // "timeSlot-tutorId" -> student count
+      displaySessions.forEach(s => {
+        const key = `${s.time_slot}-${s.tutor_id}`;
+        slotOccupancy.set(key, (slotOccupancy.get(key) || 0) + 1);
+      });
+      const totalSlots = slotOccupancy.size;
+      const totalCapacity = totalSlots * 8;
+      const totalStudents = displaySessions.length;
+      const availableSpots = totalCapacity - totalStudents;
+
       return {
         date,
         dateString,
@@ -270,6 +336,11 @@ export function ScheduleMakeupModal({
         sessions: displaySessions,
         sessionCount: displaySessions.length,
         allSessions: daySessions, // Keep all sessions for day picker
+        // Availability metrics
+        totalSlots,
+        totalCapacity,
+        totalStudents,
+        availableSpots,
       };
     });
   }, [viewDate, sessionsByDate, today, holidayDates, selectedDate, showAllTutors, selectedTutorId]);
@@ -811,25 +882,7 @@ export function ScheduleMakeupModal({
                         ) : (
                           <div className="space-y-1 mb-3">
                             {suggestion.students_in_slot.map((student, idx) => (
-                              <div key={idx} className="flex items-center gap-2 text-xs">
-                                {student.school_student_id && (
-                                  <span className="text-[9px] text-gray-500 font-mono">{student.school_student_id}</span>
-                                )}
-                                <span className="text-gray-700 dark:text-gray-300">{student.student_name}</span>
-                                {student.grade && (
-                                  <span
-                                    className="text-[9px] px-1 py-0.5 rounded text-gray-800"
-                                    style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-                                  >
-                                    {student.grade}{student.lang_stream || ""}
-                                  </span>
-                                )}
-                                {student.school && (
-                                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                                    {student.school}
-                                  </span>
-                                )}
-                              </div>
+                              <StudentDisplay key={idx} student={student} />
                             ))}
                           </div>
                         )}
@@ -959,11 +1012,19 @@ export function ScheduleMakeupModal({
                         )}>
                           {dayData.date.getDate()}
                         </div>
-                        {dayData.sessionCount > 0 && (
-                          <div className="text-[9px] text-[#8b6f47] dark:text-[#cd853f]">
-                            {dayData.sessionCount} sess
-                          </div>
-                        )}
+                        {dayData.totalSlots > 0 && (() => {
+                          const utilization = dayData.totalStudents / dayData.totalCapacity;
+                          return (
+                            <div className={cn(
+                              "text-[9px]",
+                              utilization < 0.5 ? "text-green-600 dark:text-green-400" :
+                              utilization < 0.8 ? "text-[#8b6f47] dark:text-[#cd853f]" :
+                              "text-red-500 dark:text-red-400"
+                            )}>
+                              {dayData.totalStudents}/{dayData.totalCapacity}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -1082,25 +1143,7 @@ export function ScheduleMakeupModal({
                 </div>
                 <div className="space-y-1">
                   {studentsInSlot.map((student, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
-                      {student.school_student_id && (
-                        <span className="text-[9px] text-gray-500 font-mono">{student.school_student_id}</span>
-                      )}
-                      <span>{student.student_name}</span>
-                      {student.grade && (
-                        <span
-                          className="text-[9px] px-1 py-0.5 rounded text-gray-800"
-                          style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-                        >
-                          {student.grade}{student.lang_stream || ""}
-                        </span>
-                      )}
-                      {student.school && (
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                          {student.school}
-                        </span>
-                      )}
-                    </div>
+                    <StudentDisplay key={idx} student={student} />
                   ))}
                 </div>
               </div>
@@ -1216,28 +1259,7 @@ export function ScheduleMakeupModal({
                                   {/* Show students - simplified */}
                                   <div className="flex flex-wrap gap-1 mt-1.5">
                                     {sessions.slice(0, 3).map((s, i) => (
-                                      <span
-                                        key={i}
-                                        className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
-                                      >
-                                        {s.school_student_id && (
-                                          <span className="text-[9px] text-gray-400 font-mono mr-1">{s.school_student_id}</span>
-                                        )}
-                                        {s.student_name?.split(' ')[0]}
-                                        {s.grade && (
-                                          <span
-                                            className="ml-1 text-[9px] px-1 rounded"
-                                            style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream), color: '#374151' }}
-                                          >
-                                            {s.grade}{s.lang_stream || ""}
-                                          </span>
-                                        )}
-                                        {s.school && (
-                                          <span className="ml-1 text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                                            {s.school}
-                                          </span>
-                                        )}
-                                      </span>
+                                      <StudentDisplay key={i} student={s} compact />
                                     ))}
                                     {sessions.length > 3 && (
                                       <button
@@ -1256,28 +1278,7 @@ export function ScheduleMakeupModal({
                                   {expandedSlotStudents === `${timeSlot}-${tutorId}` && sessions.length > 3 && (
                                     <div className="flex flex-wrap gap-1 mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700">
                                       {sessions.slice(3).map((s, i) => (
-                                        <span
-                                          key={i}
-                                          className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-400"
-                                        >
-                                          {s.school_student_id && (
-                                            <span className="text-[9px] text-gray-400 font-mono mr-1">{s.school_student_id}</span>
-                                          )}
-                                          {s.student_name?.split(' ')[0]}
-                                          {s.grade && (
-                                            <span
-                                              className="ml-1 text-[9px] px-1 rounded"
-                                              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream), color: '#374151' }}
-                                            >
-                                              {s.grade}{s.lang_stream || ""}
-                                            </span>
-                                          )}
-                                          {s.school && (
-                                            <span className="ml-1 text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                                              {s.school}
-                                            </span>
-                                          )}
-                                        </span>
+                                        <StudentDisplay key={i} student={s} compact />
                                       ))}
                                     </div>
                                   )}
