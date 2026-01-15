@@ -227,6 +227,7 @@ export function ScheduleMakeupModal({
   const [confirmSuggestion, setConfirmSuggestion] = useState<MakeupSlotSuggestion | null>(null);
   const [expandedSlotStudents, setExpandedSlotStudents] = useState<string | null>(null);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(true);
 
   // Location is fixed to original session's location
   const location = session.location || "";
@@ -891,16 +892,17 @@ export function ScheduleMakeupModal({
               </Button>
             </div>
 
-            {/* Toggle */}
+            {/* Toggle - affects both calendar and day picker */}
             <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <input
                   type="checkbox"
                   checked={showAllTutors}
                   onChange={(e) => setShowAllTutors(e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="rounded border-gray-300 accent-[#a0704b]"
                 />
-                Show all tutors&apos; sessions
+                <span className="text-gray-700 dark:text-gray-300">Show all tutors</span>
+                <span className="text-[10px] text-gray-400">(calendar + time slots)</span>
               </label>
             </div>
 
@@ -979,8 +981,24 @@ export function ScheduleMakeupModal({
             )}
           </div>
 
-          {/* Form Fields */}
+          {/* Form Fields - Collapsible */}
           <div className="space-y-3">
+            {/* Section Header - Custom Time/Tutor Selection */}
+            <div
+              onClick={() => setShowManualForm(!showManualForm)}
+              className="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200 transition-colors py-1"
+            >
+              {showManualForm ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              <span>CUSTOM TIME & TUTOR</span>
+              {!showManualForm && selectedDate && effectiveTimeSlot && (
+                <span className="font-normal text-gray-400">
+                  — {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} • {effectiveTimeSlot}
+                </span>
+              )}
+            </div>
+
+            {showManualForm && (
+              <>
             {/* Date (read-only display) */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1121,6 +1139,8 @@ export function ScheduleMakeupModal({
                 This slot is full (8 students)
               </div>
             )}
+              </>
+            )}
 
             {/* Schedule Button */}
             <Button
@@ -1142,10 +1162,10 @@ export function ScheduleMakeupModal({
             </Button>
           </div>
 
-          {/* Day Picker Panel - Full width when open */}
+          {/* Time Slots Panel - Shows available slots for selected date */}
           {showDayPicker && dayPickerDate && (
             <div className="lg:col-span-2 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg overflow-hidden">
-              {/* Day Picker Header - Fixed outside scroll */}
+              {/* Header - Fixed outside scroll */}
               <div className="flex items-center justify-between px-3 py-2.5 bg-[#a0704b] dark:bg-[#8b6f47]">
                 <span className="text-xs font-semibold text-white">
                   {new Date(dayPickerDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -1288,7 +1308,7 @@ export function ScheduleMakeupModal({
         </div>
       </div>
 
-      {/* Confirm Booking Dialog - Day Picker */}
+      {/* Confirm Booking Dialog - Time Slots */}
       <ConfirmDialog
         isOpen={!!confirmBooking}
         onConfirm={() => {
