@@ -6,14 +6,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: string;
   message: string;
   type: "success" | "error" | "info";
+  action?: ToastAction;
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: "success" | "error" | "info") => void;
+  showToast: (message: string, type?: "success" | "error" | "info", action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -29,15 +35,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success", action?: ToastAction) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, action }]);
 
-    // Auto-dismiss after duration
+    // Auto-dismiss after duration (longer if there's an action)
+    const duration = action ? 5000 : TOAST_DURATION;
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, TOAST_DURATION);
+    }, duration);
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -89,6 +96,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {toast.message}
                   </span>
+                  {toast.action && (
+                    <button
+                      onClick={() => {
+                        toast.action?.onClick();
+                        dismissToast(toast.id);
+                      }}
+                      className="px-2 py-1 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
+                    >
+                      {toast.action.label}
+                    </button>
+                  )}
                   <button
                     onClick={() => dismissToast(toast.id)}
                     className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"

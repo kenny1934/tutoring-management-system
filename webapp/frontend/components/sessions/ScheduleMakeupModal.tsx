@@ -192,43 +192,86 @@ export function ScheduleMakeupModal({
   const { data: tutors } = useTutors();
   const today = getToday();
 
-  // Form state
+  // Form selection state
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
-  const [customTimeStart, setCustomTimeStart] = useState("");
-  const [customTimeEnd, setCustomTimeEnd] = useState("");
-  const [useCustomTime, setUseCustomTime] = useState(false);
+  const [makeupNotes, setMakeupNotes] = useState("");
+
+  // Custom time state (consolidated: start, end, enabled)
+  const [customTime, setCustomTime] = useState({ start: "", end: "", enabled: false });
+  const customTimeStart = customTime.start;
+  const customTimeEnd = customTime.end;
+  const useCustomTime = customTime.enabled;
+  const setCustomTimeStart = (v: string) => setCustomTime(prev => ({ ...prev, start: v }));
+  const setCustomTimeEnd = (v: string) => setCustomTime(prev => ({ ...prev, end: v }));
+  const setUseCustomTime = (v: boolean) => setCustomTime(prev => ({ ...prev, enabled: v }));
 
   // Calendar state
   const [viewDate, setViewDate] = useState<Date>(today);
   const [showAllTutors, setShowAllTutors] = useState(false);
 
-  // UI state
+  // UI toggles state (consolidated: multiple panel visibility)
+  const [panels, setPanels] = useState({
+    showDayPicker: false,
+    showWeightTuner: false,
+    showSuggestions: true,
+    showManualForm: true,
+    showAllSuggestions: false,
+  });
+  const showDayPicker = panels.showDayPicker;
+  const showWeightTuner = panels.showWeightTuner;
+  const showSuggestions = panels.showSuggestions;
+  const showManualForm = panels.showManualForm;
+  const showAllSuggestions = panels.showAllSuggestions;
+  const setShowDayPicker = (v: boolean) => setPanels(prev => ({ ...prev, showDayPicker: v }));
+  const setShowWeightTuner = (v: boolean) => setPanels(prev => ({ ...prev, showWeightTuner: v }));
+  const setShowSuggestions = (v: boolean) => setPanels(prev => ({ ...prev, showSuggestions: v }));
+  const setShowManualForm = (v: boolean) => setPanels(prev => ({ ...prev, showManualForm: v }));
+  const setShowAllSuggestions = (v: boolean) => setPanels(prev => ({ ...prev, showAllSuggestions: v }));
+
+  // Saving/validation state
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Expanded items state
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
-  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [expandedSlotStudents, setExpandedSlotStudents] = useState<string | null>(null);
   const [dayPickerDate, setDayPickerDate] = useState<string | null>(null);
 
   // Scoring weights state
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
-  const [showWeightTuner, setShowWeightTuner] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  // Selection state for day picker
   const [selectedDayPickerSlot, setSelectedDayPickerSlot] = useState<{
     timeSlot: string;
     tutorId: number;
   } | null>(null);
+
+  // Confirmation dialogs state
   const [confirmBooking, setConfirmBooking] = useState<{
     timeSlot: string;
     tutorId: number;
     tutorName: string;
   } | null>(null);
   const [confirmSuggestion, setConfirmSuggestion] = useState<MakeupSlotSuggestion | null>(null);
-  const [expandedSlotStudents, setExpandedSlotStudents] = useState<string | null>(null);
-  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
-  const [showManualForm, setShowManualForm] = useState(true);
-  const [makeupNotes, setMakeupNotes] = useState("");
+
+  // Filters (consolidated: time slots + hide full + same grade)
+  const [filters, setFilters] = useState({ timeSlots: [] as string[], hideFull: false, sameGrade: false });
+  const filterTimeSlots = filters.timeSlots;
+  const filterHideFull = filters.hideFull;
+  const filterSameGrade = filters.sameGrade;
+  const setFilterHideFull = (v: boolean) => setFilters(prev => ({ ...prev, hideFull: v }));
+  const setFilterSameGrade = (v: boolean) => setFilters(prev => ({ ...prev, sameGrade: v }));
+  const toggleTimeSlotFilter = (slot: string) => {
+    setFilters(prev => ({
+      ...prev,
+      timeSlots: prev.timeSlots.includes(slot)
+        ? prev.timeSlots.filter(s => s !== slot)
+        : [...prev.timeSlots, slot]
+    }));
+  };
+  const clearTimeSlotFilters = () => setFilters(prev => ({ ...prev, timeSlots: [] }));
 
   // Location is fixed to original session's location
   const location = session.location || "";
@@ -331,6 +374,26 @@ export function ScheduleMakeupModal({
     return map;
   }, [existingSessions]);
 
+  // Get all unique time slots from existing sessions (for filter chips)
+  // Respects "Show all tutors" setting - only shows slots for relevant tutors
+  const allTimeSlots = useMemo(() => {
+    const slots = new Set<string>();
+    existingSessions?.forEach(s => {
+      if (s.time_slot && (s.session_status === "Scheduled" || s.session_status === "Make-up Class")) {
+        // Only include time slots for relevant tutors
+        if (showAllTutors || s.tutor_id === session.tutor_id) {
+          slots.add(s.time_slot);
+        }
+      }
+    });
+    // Sort chronologically
+    return Array.from(slots).sort((a, b) => {
+      const aMin = timeToMinutes(a.split(' - ')[0]);
+      const bMin = timeToMinutes(b.split(' - ')[0]);
+      return aMin - bMin;
+    });
+  }, [existingSessions, showAllTutors, session.tutor_id]);
+
   // Generate calendar grid data
   const calendarData = useMemo(() => {
     const calendarDates = getMonthCalendarDates(viewDate);
@@ -342,9 +405,14 @@ export function ScheduleMakeupModal({
       const dayOfWeek = date.getDay();
 
       // Filter sessions by selected tutor if not showing all
-      const displaySessions = showAllTutors
+      let displaySessions = showAllTutors
         ? daySessions
         : daySessions.filter(s => s.tutor_id === selectedTutorId);
+
+      // Filter by selected time slots if any
+      if (filterTimeSlots.length > 0) {
+        displaySessions = displaySessions.filter(s => filterTimeSlots.includes(s.time_slot));
+      }
 
       // Calculate availability: group by time slot and tutor, count students vs capacity (8)
       const slotOccupancy = new Map<string, number>(); // "timeSlot-tutorId" -> student count
@@ -375,7 +443,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayDates, selectedDate, showAllTutors, selectedTutorId]);
+  }, [viewDate, sessionsByDate, today, holidayDates, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -418,6 +486,19 @@ export function ScheduleMakeupModal({
     return null;
   }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates]);
 
+  // Handle undo of a booked makeup session
+  const handleUndoMakeup = useCallback(async (makeupSessionId: number, originalSessionId: number) => {
+    try {
+      const revertedOriginal = await sessionsAPI.cancelMakeup(makeupSessionId);
+      updateSessionInCache(revertedOriginal);
+      // Remove the makeup session from cache by invalidating
+      showToast("Make-up cancelled", "info");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to undo make-up";
+      showToast(message, "error");
+    }
+  }, [showToast]);
+
   // Unified booking function
   const bookMakeup = async (params: {
     session_date: string;
@@ -438,7 +519,15 @@ export function ScheduleMakeupModal({
       const response = await sessionsAPI.scheduleMakeup(session.id, requestParams);
       updateSessionInCache(response.original_session);
       updateSessionInCache(response.makeup_session);
-      showToast("Make-up class scheduled successfully", "success");
+
+      // Show toast with Undo action
+      const makeupId = response.makeup_session.id;
+      const originalId = response.original_session.id;
+      showToast("Make-up class scheduled", "success", {
+        label: "Undo",
+        onClick: () => handleUndoMakeup(makeupId, originalId),
+      });
+
       onScheduled?.(response.makeup_session, response.original_session);
       onClose();
     } catch (error) {
@@ -590,6 +679,36 @@ export function ScheduleMakeupModal({
 
     return result;
   }, [dayPickerDate, sessionsByDate, tutors, showAllTutors, selectedTutorId, session.grade, session.lang_stream, session.school]);
+
+  // Apply filters to day picker slots
+  const filteredDayPickerSlots = useMemo(() => {
+    let slots = dayPickerSlots;
+
+    // Filter by selected time slots
+    if (filterTimeSlots.length > 0) {
+      slots = slots.filter(slot => filterTimeSlots.includes(slot.timeSlot));
+    }
+
+    // Filter by same grade (at least one student in slot has same grade)
+    if (filterSameGrade && session.grade) {
+      slots = slots.map(slot => ({
+        ...slot,
+        tutors: slot.tutors.filter(t =>
+          t.sessions.some(s => s.grade === session.grade)
+        )
+      })).filter(slot => slot.tutors.length > 0);
+    }
+
+    // Filter out full slots (8 students)
+    if (filterHideFull) {
+      slots = slots.map(slot => ({
+        ...slot,
+        tutors: slot.tutors.filter(t => t.studentCount < 8)
+      })).filter(slot => slot.tutors.length > 0);
+    }
+
+    return slots;
+  }, [dayPickerSlots, filterTimeSlots, filterSameGrade, filterHideFull, session.grade]);
 
   // Toggle suggestion expansion
   const toggleSuggestion = (key: string) => {
@@ -941,6 +1060,43 @@ export function ScheduleMakeupModal({
               </label>
             </div>
 
+            {/* Time Slot Filter */}
+            <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-xs text-gray-700 dark:text-gray-300">Filter by time</span>
+                {filterTimeSlots.length > 0 && (
+                  <button
+                    onClick={clearTimeSlotFilters}
+                    className="text-[10px] text-[#a0704b] hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {sessionsLoading ? (
+                  <span className="text-[10px] text-gray-400">Loading...</span>
+                ) : allTimeSlots.length === 0 ? (
+                  <span className="text-[10px] text-gray-400">No sessions found</span>
+                ) : (
+                  allTimeSlots.map(slot => (
+                    <button
+                      key={slot}
+                      onClick={() => toggleTimeSlotFilter(slot)}
+                      className={cn(
+                        "px-2 py-0.5 text-[10px] rounded border transition-colors",
+                        filterTimeSlots.includes(slot)
+                          ? "bg-[#a0704b] text-white border-[#a0704b]"
+                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                      )}
+                    >
+                      {slot.split(' - ')[0]}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
             {/* Loading state */}
             {sessionsLoading && (
               <div className="flex items-center justify-center py-4">
@@ -1217,14 +1373,50 @@ export function ScheduleMakeupModal({
                 </button>
               </div>
 
+              {/* Filter Options */}
+              {dayPickerSlots.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]">
+                  <span className="text-[10px] text-gray-500 mr-1">Filter:</span>
+                  <button
+                    onClick={() => setFilterSameGrade(!filterSameGrade)}
+                    className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
+                      filterSameGrade
+                        ? "bg-[#a0704b] text-white border-[#a0704b]"
+                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                    )}
+                  >
+                    Same grade
+                  </button>
+                  <button
+                    onClick={() => setFilterHideFull(!filterHideFull)}
+                    className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full border transition-colors",
+                      filterHideFull
+                        ? "bg-[#a0704b] text-white border-[#a0704b]"
+                        : "text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-[#a0704b]"
+                    )}
+                  >
+                    Hide full
+                  </button>
+                  {(filterTimeSlots.length > 0 || filterSameGrade || filterHideFull) && (
+                    <span className="text-[10px] text-gray-400 ml-auto">
+                      {filteredDayPickerSlots.reduce((sum, s) => sum + s.tutors.length, 0)} results
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Time Slots - Scrollable with more height */}
               <div className="max-h-[350px] overflow-y-auto p-2 space-y-2 bg-gray-50 dark:bg-[#252525]">
-                  {dayPickerSlots.length === 0 ? (
+                  {filteredDayPickerSlots.length === 0 ? (
                     <div className="text-xs text-gray-500 text-center py-4">
-                      No sessions on this day. Select anyway to use a custom time slot.
+                      {dayPickerSlots.length === 0
+                        ? "No sessions on this day. Select anyway to use a custom time slot."
+                        : "No slots match your filters."}
                     </div>
                   ) : (
-                    dayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
+                    filteredDayPickerSlots.map(({ timeSlot, tutors: slotTutors }) => (
                       <div key={timeSlot} className="space-y-1.5">
                         {/* Time Slot Header */}
                         <div className="sticky top-0 z-10 text-[10px] font-bold text-[#8b6f47] dark:text-[#cd853f] uppercase tracking-wide border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-1 pt-2 -mt-2 bg-gray-50 dark:bg-[#252525] shadow-[0_-4px_0_0] shadow-gray-50 dark:shadow-[#252525]">
