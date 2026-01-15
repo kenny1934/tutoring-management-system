@@ -7,6 +7,7 @@ import type { Enrollment } from "@/types";
 import { cn } from "@/lib/utils";
 import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 // Group options - can be combined
 export type GroupOption = 'payment_status' | 'grade_lang' | 'school' | 'day' | 'time_slot' | 'tutor';
@@ -179,12 +180,6 @@ interface MyStudentsListProps {
   isMobile?: boolean;
   isAllTutors?: boolean;
 }
-
-// Get tutor first name, stripping title prefix
-const getTutorFirstName = (name: string): string => {
-  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-  return cleaned.split(' ')[0] || cleaned;
-};
 
 // Threshold for enabling virtualization
 const VIRTUALIZATION_THRESHOLD = 50;

@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
-import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
+import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -35,12 +35,6 @@ const getTutorInitials = (name: string): string => {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   }
   return cleaned.substring(0, 2).toUpperCase();
-};
-
-// Helper to get tutor first name
-const getTutorFirstName = (name: string): string => {
-  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-  return cleaned.split(' ')[0] || cleaned;
 };
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

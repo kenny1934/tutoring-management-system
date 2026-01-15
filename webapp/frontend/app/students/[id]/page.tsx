@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
+import { getDisplayName } from "@/lib/exercise-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import {
   useFloating,
@@ -1208,12 +1209,6 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
     </div>
   );
 }
-
-// Helper to extract display name from PDF path
-const getDisplayName = (pdfName: string): string => {
-  const filename = pdfName.split(/[/\\]/).pop() || pdfName;
-  return filename.replace(/\.[^.]+$/, '');
-};
 
 // Courseware Tab Component
 interface CoursewareExercise {

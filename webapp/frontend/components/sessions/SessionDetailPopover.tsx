@@ -38,15 +38,7 @@ import {
 } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
-
-// Parse full path to display name (filename without extension)
-// V:\abc\def\ghi.pdf → ghi
-// jkl.docx → jkl
-// mno → mno
-const getDisplayName = (pdfName: string): string => {
-  const filename = pdfName.split(/[/\\]/).pop() || pdfName;
-  return filename.replace(/\.[^.]+$/, '');
-};
+import { getDisplayName } from "@/lib/exercise-utils";
 
 // Exercise item with copy, open, and print functionality
 function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {

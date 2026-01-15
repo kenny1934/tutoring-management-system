@@ -19,11 +19,7 @@ import { getGradeColor } from "@/lib/constants";
 import type { Enrollment } from "@/types";
 import type { GroupOption, SortOption, SortDirection } from "@/components/students/MyStudentsList";
 import { getGroupKey, compareGroupKeys, getGroupLabel } from "@/components/students/MyStudentsList";
-
-const getTutorFirstName = (name: string): string => {
-  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-  return cleaned.split(' ')[0] || cleaned;
-};
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 interface MoreEnrollmentsPopoverProps {
   enrollments: Enrollment[];
