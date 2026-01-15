@@ -2,6 +2,7 @@
 Sessions API endpoints.
 Provides read-only access to session log data.
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -12,6 +13,7 @@ from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseRes
 from datetime import date, timedelta, datetime
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _build_linked_session_info(session: SessionLog, tutor: Tutor = None) -> LinkedSessionInfo:
@@ -812,7 +814,7 @@ async def get_upcoming_tests(
         sync_calendar_events(db=db, force_sync=False)
     except Exception as e:
         # Log but don't fail the request if sync fails
-        print(f"Calendar sync failed (non-fatal): {e}")
+        logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
     # Get session to extract student info
     session = db.query(SessionLog).filter(SessionLog.id == session_id).first()
@@ -890,7 +892,7 @@ async def get_calendar_events(
         sync_calendar_events(db=db, force_sync=False)
     except Exception as e:
         # Log but don't fail if sync fails
-        print(f"Calendar sync failed (non-fatal): {e}")
+        logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
     # Fetch all events within date range
     start_date = date.today()

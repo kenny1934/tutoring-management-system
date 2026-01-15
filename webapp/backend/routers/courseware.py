@@ -18,7 +18,7 @@ async def get_courseware_popularity(
     grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
     school: Optional[str] = Query(None, description="Filter by school"),
     limit: int = Query(1000, ge=1, le=2000),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=100000),
     db: Session = Depends(get_db)
 ):
     """
@@ -111,7 +111,7 @@ async def get_courseware_usage_detail(
     grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
     school: Optional[str] = Query(None, description="Filter by school"),
     limit: int = Query(10, ge=1, le=100, description="Number of results to return"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
+    offset: int = Query(0, ge=0, le=10000, description="Offset for pagination"),
     db: Session = Depends(get_db)
 ):
     """
