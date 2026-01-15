@@ -680,7 +680,7 @@ function ThreadDetailPanel({
                     minute: '2-digit',
                     hour12: true
                   })}
-                  {m.updated_at && m.updated_at !== m.created_at && (
+                  {m.updated_at && (
                     <span className="text-gray-400 dark:text-gray-500 italic">(edited)</span>
                   )}
                 </span>
@@ -855,6 +855,20 @@ export default function InboxPage() {
     });
   }, [selectedCategory, sentAsThreads, threads, searchQuery]);
   const isLoading = selectedCategory === "sent" ? loadingSent : loadingThreads;
+
+  // Sync selectedThread with latest data from SWR
+  // Use a ref to track the selected thread ID to avoid stale closure issues
+  const selectedThreadId = selectedThread?.root_message.id;
+  useEffect(() => {
+    if (selectedThreadId) {
+      const updatedThread = displayThreads.find(
+        t => t.root_message.id === selectedThreadId
+      );
+      if (updatedThread) {
+        setSelectedThread(updatedThread);
+      }
+    }
+  }, [displayThreads, selectedThreadId]);
 
   // Auto-select first tutor
   useEffect(() => {
