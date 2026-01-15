@@ -145,6 +145,36 @@ function StudentDisplay({ student, compact = false }: StudentDisplayProps) {
   );
 }
 
+// Weight slider component - reduces duplication in weight tuner (6 sliders)
+interface WeightSliderProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}
+
+function WeightSlider({ label, value, min, max, step, onChange }: WeightSliderProps) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] text-gray-600 dark:text-gray-400">{label}</label>
+        <span className="text-[10px] font-mono text-[#a0704b]">{value}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseInt(e.target.value))}
+        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
+      />
+    </div>
+  );
+}
+
 interface ScheduleMakeupModalProps {
   session: Session;
   isOpen: boolean;
@@ -349,6 +379,11 @@ export function ScheduleMakeupModal({
   const effectiveTimeSlot = useCustomTime
     ? `${customTimeStart} - ${customTimeEnd}`
     : selectedTimeSlot;
+
+  // Validate custom time (end must be after start)
+  const isCustomTimeValid = !useCustomTime || (
+    customTimeStart && customTimeEnd && timeToMinutes(customTimeEnd) > timeToMinutes(customTimeStart)
+  );
 
   // Dynamic time slots based on selected date
   const availableTimeSlots = useMemo(() => {
@@ -570,7 +605,7 @@ export function ScheduleMakeupModal({
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId}>
+          <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid}>
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -684,107 +719,18 @@ export function ScheduleMakeupModal({
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {/* Same Tutor */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">Same Tutor</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.sameTutor}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="200"
-                    step="10"
-                    value={weights.sameTutor}
-                    onChange={(e) => setWeights(w => ({ ...w, sameTutor: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
-
-                {/* Same Grade */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">Same Grade (per student)</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.sameGrade}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="5"
-                    value={weights.sameGrade}
-                    onChange={(e) => setWeights(w => ({ ...w, sameGrade: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
-
-                {/* Same Lang */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">Same Lang (per student)</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.sameLang}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="5"
-                    value={weights.sameLang}
-                    onChange={(e) => setWeights(w => ({ ...w, sameLang: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
-
-                {/* Same School */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">Same School (per student)</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.sameSchool}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="5"
-                    value={weights.sameSchool}
-                    onChange={(e) => setWeights(w => ({ ...w, sameSchool: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
-
-                {/* Sooner Date */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">Sooner Date</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.soonerDate}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={weights.soonerDate}
-                    onChange={(e) => setWeights(w => ({ ...w, soonerDate: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
-
-                {/* More Capacity */}
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-600 dark:text-gray-400">More Capacity (per spot)</label>
-                    <span className="text-[10px] font-mono text-[#a0704b]">{weights.moreCapacity}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="30"
-                    step="2"
-                    value={weights.moreCapacity}
-                    onChange={(e) => setWeights(w => ({ ...w, moreCapacity: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#a0704b]"
-                  />
-                </div>
+                <WeightSlider label="Same Tutor" value={weights.sameTutor} min={0} max={200} step={10}
+                  onChange={(v) => setWeights(w => ({ ...w, sameTutor: v }))} />
+                <WeightSlider label="Same Grade (per student)" value={weights.sameGrade} min={0} max={50} step={5}
+                  onChange={(v) => setWeights(w => ({ ...w, sameGrade: v }))} />
+                <WeightSlider label="Same Lang (per student)" value={weights.sameLang} min={0} max={50} step={5}
+                  onChange={(v) => setWeights(w => ({ ...w, sameLang: v }))} />
+                <WeightSlider label="Same School (per student)" value={weights.sameSchool} min={0} max={50} step={5}
+                  onChange={(v) => setWeights(w => ({ ...w, sameSchool: v }))} />
+                <WeightSlider label="Sooner Date" value={weights.soonerDate} min={0} max={100} step={5}
+                  onChange={(v) => setWeights(w => ({ ...w, soonerDate: v }))} />
+                <WeightSlider label="More Capacity (per spot)" value={weights.moreCapacity} min={0} max={30} step={2}
+                  onChange={(v) => setWeights(w => ({ ...w, moreCapacity: v }))} />
               </div>
               <div className="mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[9px] text-gray-500 dark:text-gray-400">
                 Adjust weights to prioritize different factors. Suggestions re-sort instantly.
@@ -1043,6 +989,11 @@ export function ScheduleMakeupModal({
               <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md text-sm">
                 {selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : "Click a date on the calendar"}
               </div>
+              {selectedDate === session.session_date && (
+                <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+                  Note: Same day as original session
+                </p>
+              )}
             </div>
 
             {/* Time Slot */}
@@ -1072,36 +1023,50 @@ export function ScheduleMakeupModal({
                     Use custom time
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={customTimeStart}
-                      onChange={(e) => setCustomTimeStart(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800"
-                    />
-                    <span className="text-gray-500">to</span>
-                    <input
-                      type="time"
-                      value={customTimeEnd}
-                      onChange={(e) => setCustomTimeEnd(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-md text-sm bg-white dark:bg-gray-800"
-                    />
+              ) : (() => {
+                const startMins = timeToMinutes(customTimeStart);
+                const endMins = timeToMinutes(customTimeEnd);
+                const isInvalid = customTimeStart && customTimeEnd && endMins <= startMins;
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={customTimeStart}
+                        onChange={(e) => setCustomTimeStart(e.target.value)}
+                        className={cn(
+                          "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
+                          isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
+                        )}
+                      />
+                      <span className="text-gray-500">to</span>
+                      <input
+                        type="time"
+                        value={customTimeEnd}
+                        onChange={(e) => setCustomTimeEnd(e.target.value)}
+                        className={cn(
+                          "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
+                          isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
+                        )}
+                      />
+                    </div>
+                    {isInvalid && (
+                      <p className="text-xs text-red-500">End time must be after start time</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseCustomTime(false);
+                        setCustomTimeStart("");
+                        setCustomTimeEnd("");
+                      }}
+                      className="text-xs text-[#a0704b] hover:underline"
+                    >
+                      Use preset times
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUseCustomTime(false);
-                      setCustomTimeStart("");
-                      setCustomTimeEnd("");
-                    }}
-                    className="text-xs text-[#a0704b] hover:underline"
-                  >
-                    Use preset times
-                  </button>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Tutor */}
@@ -1160,7 +1125,7 @@ export function ScheduleMakeupModal({
             {/* Schedule Button */}
             <Button
               onClick={handleSchedule}
-              disabled={isSaving || !selectedDate || (!selectedTimeSlot && !useCustomTime) || !selectedTutorId}
+              disabled={isSaving || !selectedDate || (!selectedTimeSlot && !useCustomTime) || !selectedTutorId || !isCustomTimeValid}
               className="w-full"
             >
               {isSaving ? (
