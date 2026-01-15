@@ -278,6 +278,12 @@ export const sessionsAPI = {
       body: JSON.stringify(request),
     });
   },
+
+  cancelMakeup: (makeupSessionId: number) => {
+    return fetchAPI<Session>(`/sessions/${makeupSessionId}/cancel-makeup`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 // Calendar API

@@ -888,6 +888,69 @@ async def schedule_makeup(
     )
 
 
+@router.delete("/sessions/{makeup_session_id}/cancel-makeup", response_model=SessionResponse)
+async def cancel_makeup(
+    makeup_session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Cancel a scheduled make-up session.
+
+    Deletes the make-up session and reverts the original session status
+    from "X - Make-up Booked" back to "X - Pending Make-up".
+
+    Can only cancel make-up sessions that haven't been attended yet.
+    """
+    # Get the makeup session
+    makeup_session = db.query(SessionLog).filter(SessionLog.id == makeup_session_id).first()
+
+    if not makeup_session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {makeup_session_id} not found")
+
+    # Validate this is a make-up session
+    if makeup_session.session_status != "Make-up Class":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only cancel make-up sessions, got '{makeup_session.session_status}'"
+        )
+
+    # Get the original session
+    if not makeup_session.make_up_for_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Make-up session has no linked original session"
+        )
+
+    original_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == makeup_session.make_up_for_id).first()
+
+    if not original_session:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Original session with ID {makeup_session.make_up_for_id} not found"
+        )
+
+    # Revert original session status
+    # "X - Make-up Booked" -> "X - Pending Make-up"
+    original_session.session_status = original_session.session_status.replace(
+        "Make-up Booked", "Pending Make-up"
+    )
+    original_session.rescheduled_to_id = None
+    original_session.last_modified_by = "system@csmpro.app"
+    original_session.last_modified_time = datetime.now()
+
+    # Delete the makeup session
+    db.delete(makeup_session)
+
+    db.commit()
+    db.refresh(original_session)
+
+    return _build_session_response(original_session)
+
+
 @router.put("/sessions/{session_id}/exercises", response_model=SessionResponse)
 async def save_session_exercises(
     session_id: int,
