@@ -3,7 +3,7 @@
  * These hooks handle common UI patterns like dirty tracking, confirmations, etc.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Hook for tracking form dirty state and showing close confirmation.
@@ -142,42 +142,58 @@ interface ExerciseWithPages {
  */
 export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
   const [fileActionState, setFileActionState] = useState<FileActionState>({});
+  // Ref for synchronous guard checks to prevent race conditions on rapid clicks
+  const loadingRef = useRef<Set<string>>(new Set());
 
   const handleOpenFile = useCallback(async (clientId: string, path: string) => {
-    if (!path || fileActionState[clientId]?.open === 'loading') return;
+    const loadingKey = `open-${clientId}`;
+    if (!path || loadingRef.current.has(loadingKey)) return;
 
+    loadingRef.current.add(loadingKey);
     setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
-    const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
 
-    if (error) {
-      console.warn('Failed to open file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
+    try {
+      const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
+
+      if (error) {
+        console.warn('Failed to open file:', error);
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
+        setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
+      } else {
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
+      }
+    } finally {
+      loadingRef.current.delete(loadingKey);
     }
-  }, [fileActionState]);
+  }, []);
 
   const handlePrintFile = useCallback(async (exercise: ExerciseWithPages) => {
     const { clientId, pdf_name: path } = exercise;
-    if (!path || fileActionState[clientId]?.print === 'loading') return;
+    const loadingKey = `print-${clientId}`;
+    if (!path || loadingRef.current.has(loadingKey)) return;
 
+    loadingRef.current.add(loadingKey);
     const pageStart = exercise.page_start ? parseInt(exercise.page_start, 10) : undefined;
     const pageEnd = exercise.page_end ? parseInt(exercise.page_end, 10) : undefined;
     const complexRange = exercise.complex_pages?.trim() || undefined;
     const stamp = buildStampInfo?.();
 
     setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
-    const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
 
-    if (error) {
-      console.warn('Failed to print file:', error);
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
-      setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
-    } else {
-      setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
+    try {
+      const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
+
+      if (error) {
+        console.warn('Failed to print file:', error);
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
+        setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
+      } else {
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
+      }
+    } finally {
+      loadingRef.current.delete(loadingKey);
     }
-  }, [fileActionState, buildStampInfo]);
+  }, [buildStampInfo]);
 
   return { fileActionState, handleOpenFile, handlePrintFile };
 }
