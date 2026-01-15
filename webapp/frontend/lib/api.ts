@@ -882,6 +882,14 @@ export const messagesAPI = {
       body: JSON.stringify({ message }),
     });
   },
+
+  // Delete a message (only by sender)
+  delete: (messageId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean; message: string }>(
+      `/messages/${messageId}?tutor_id=${tutorId}`,
+      { method: "DELETE" }
+    );
+  },
 };
 
 // Export all APIs as a single object

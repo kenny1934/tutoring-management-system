@@ -494,3 +494,29 @@ async def update_message(
     )
 
     return build_message_response(message, tutor_id, db)
+
+
+@router.delete("/messages/{message_id}")
+async def delete_message(
+    message_id: int,
+    tutor_id: int = Query(..., description="Requesting tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """Delete a message (only by the sender)."""
+    message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Only sender can delete
+    if message.from_tutor_id != tutor_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+
+    # Delete related records first (read receipts, likes)
+    db.query(MessageReadReceipt).filter(MessageReadReceipt.message_id == message_id).delete()
+    db.query(MessageLike).filter(MessageLike.message_id == message_id).delete()
+
+    # Delete the message
+    db.delete(message)
+    db.commit()
+
+    return {"success": True, "message": "Message deleted"}

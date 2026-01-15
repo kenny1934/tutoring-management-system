@@ -53,7 +53,7 @@ export function EmojiPicker({ onSelect, isOpen, onClose }: EmojiPickerProps) {
   return (
     <div
       ref={ref}
-      className="absolute bottom-full left-0 mb-2 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2 z-50 w-64"
+      className="absolute bottom-full right-0 mb-2 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2 z-50 w-64"
     >
       {/* Group tabs */}
       <div className="flex gap-1 mb-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-2">
