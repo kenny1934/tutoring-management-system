@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { CalendarEvent } from "@/types";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+import { getDaysUntil } from "@/lib/calendar-utils";
 
 interface ZenTestListProps {
   events: CalendarEvent[];
@@ -338,17 +339,6 @@ export function ZenTestList({
       </div>
     </div>
   );
-}
-
-/**
- * Get number of days until a date
- */
-function getDaysUntil(dateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(dateStr);
-  date.setHours(0, 0, 0, 0);
-  return Math.round((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 /**
