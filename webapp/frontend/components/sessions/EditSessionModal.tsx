@@ -14,6 +14,8 @@ import type { Session } from "@/types";
 import { getGradeColor } from "@/lib/constants";
 import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/lib/exercise-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { ratingToEmoji } from "@/lib/formatters";
+import { parseTimeSlot } from "@/lib/calendar-utils";
 
 // Available session statuses
 const SESSION_STATUSES = [
@@ -55,25 +57,9 @@ interface ExerciseFormItem {
   remarks: string;
 }
 
-// Parse time_slot "16:45 - 18:15" (24-hour format) to { start: "16:45", end: "18:15" }
-function parseTimeSlot(timeSlot: string): { start: string; end: string } {
-  if (!timeSlot) return { start: "", end: "" };
-
-  // Format is "HH:MM - HH:MM" (24-hour), which matches HTML time input directly
-  const match = timeSlot.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-  if (!match) return { start: "", end: "" };
-
-  return { start: match[1], end: match[2] };
-}
-
 // Format time back to storage format (24-hour)
 function formatTimeSlot(start: string, end: string): string {
   return `${start} - ${end}`;
-}
-
-// Convert rating number to emoji stars
-function ratingToEmoji(rating: number): string {
-  return "⭐".repeat(rating);
 }
 
 interface EditSessionModalProps {
@@ -112,7 +98,7 @@ export function EditSessionModal({
 
   // Initialize form state from session
   const [form, setForm] = useState<EditFormState>(() => {
-    const times = parseTimeSlot(session.time_slot || "");
+    const times = parseTimeSlot(session.time_slot || "") || { start: "", end: "" };
     return {
       session_date: session.session_date,
       time_slot_start: times.start,
@@ -143,7 +129,7 @@ export function EditSessionModal({
   useEffect(() => {
     if (isOpen && !initializedRef.current) {
       initializedRef.current = true;
-      const times = parseTimeSlot(session.time_slot || "");
+      const times = parseTimeSlot(session.time_slot || "") || { start: "", end: "" };
       setForm({
         session_date: session.session_date,
         time_slot_start: times.start,

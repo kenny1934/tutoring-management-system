@@ -152,3 +152,11 @@ export function formatTimeAgo(timestamp: string): string {
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+/**
+ * Convert rating number to emoji stars
+ * Example: 3 → "⭐⭐⭐"
+ */
+export function ratingToEmoji(rating: number): string {
+  return "⭐".repeat(rating);
+}

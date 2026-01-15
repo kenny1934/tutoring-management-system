@@ -5,6 +5,7 @@ import type { Session } from "@/types";
 import { sessionsAPI } from "@/lib/api";
 import { useTutors, useLocations } from "@/lib/hooks";
 import { updateSessionInCache } from "@/lib/session-cache";
+import { parseTimeSlot } from "@/lib/calendar-utils";
 
 // Available session statuses
 const SESSION_STATUSES = [
@@ -30,14 +31,6 @@ interface ZenEditSessionProps {
 
 type FieldName = "date" | "timeStart" | "timeEnd" | "location" | "tutor" | "status" | "rating" | "notes";
 
-// Parse time_slot "16:45 - 18:15" to { start: "16:45", end: "18:15" }
-function parseTimeSlot(timeSlot: string): { start: string; end: string } {
-  if (!timeSlot) return { start: "", end: "" };
-  const match = timeSlot.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-  if (!match) return { start: "", end: "" };
-  return { start: match[1], end: match[2] };
-}
-
 /**
  * Terminal-style session editor
  *
@@ -56,7 +49,7 @@ export function ZenEditSession({
   const { data: locations } = useLocations();
 
   // Parse initial time slot
-  const initialTime = parseTimeSlot(session.time_slot || "");
+  const initialTime = parseTimeSlot(session.time_slot || "") || { start: "", end: "" };
 
   // Form state
   const [formData, setFormData] = useState({
