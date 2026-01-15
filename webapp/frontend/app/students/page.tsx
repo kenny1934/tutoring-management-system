@@ -28,6 +28,7 @@ import { MyStudentsView } from "@/components/students/MyStudentsView";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
+import { getDaysUntil } from "@/lib/calendar-utils";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -569,17 +570,6 @@ export default function StudentsPage() {
     </DeskSurface>
   );
 }
-
-// Helper to get days until a date
-function getDaysUntil(dateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-// getDisplayPaymentStatus is now imported from @/lib/enrollment-utils
 
 // Rich popover content component
 function RichPopoverContent({

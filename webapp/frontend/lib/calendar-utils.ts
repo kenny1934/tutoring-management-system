@@ -416,3 +416,14 @@ export function calculateSessionLayouts(sessions: Session[]): Array<Session & { 
 
   return result;
 }
+
+/**
+ * Get the number of days until a date (negative if in the past)
+ */
+export function getDaysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
