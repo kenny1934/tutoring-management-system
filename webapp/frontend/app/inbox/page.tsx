@@ -418,8 +418,8 @@ function ComposeModal({
   );
 }
 
-// Thread Item Component
-function ThreadItem({
+// Thread Item Component - memoized to prevent unnecessary re-renders
+const ThreadItem = React.memo(function ThreadItem({
   thread,
   isSelected,
   onClick,
@@ -518,10 +518,10 @@ function ThreadItem({
       </div>
     </button>
   );
-}
+});
 
-// Thread Detail Panel Component
-function ThreadDetailPanel({
+// Thread Detail Panel Component - memoized to prevent unnecessary re-renders
+const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   thread,
   currentTutorId,
   onClose,
@@ -790,7 +790,7 @@ function ThreadDetailPanel({
       </div>
     </div>
   );
-}
+});
 
 export default function InboxPage() {
   usePageTitle("Inbox");

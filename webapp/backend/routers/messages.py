@@ -25,7 +25,11 @@ def build_message_response(
     current_tutor_id: int,
     db: Session
 ) -> MessageResponse:
-    """Build a MessageResponse from a TutorMessage with computed fields."""
+    """Build a MessageResponse from a TutorMessage with computed fields.
+
+    NOTE: This function runs 4 queries per message. For multiple messages,
+    use batch_build_message_responses() instead to avoid N+1 query issues.
+    """
     # Check if read by current tutor
     is_read = db.query(MessageReadReceipt).filter(
         MessageReadReceipt.message_id == message.id,
@@ -68,6 +72,94 @@ def build_message_response(
         is_liked_by_me=is_liked_by_me,
         reply_count=reply_count
     )
+
+
+def batch_build_message_responses(
+    messages: List[TutorMessage],
+    current_tutor_id: int,
+    db: Session
+) -> List[MessageResponse]:
+    """Build MessageResponse objects for multiple messages using batched queries.
+
+    This function runs ~6 queries total regardless of message count,
+    compared to 4 queries per message with build_message_response().
+    """
+    from sqlalchemy import desc
+
+    if not messages:
+        return []
+
+    message_ids = [m.id for m in messages]
+
+    # 1. Batch fetch read receipts
+    read_receipts = db.query(MessageReadReceipt.message_id).filter(
+        MessageReadReceipt.message_id.in_(message_ids),
+        MessageReadReceipt.tutor_id == current_tutor_id
+    ).all()
+    read_ids = set(r.message_id for r in read_receipts)
+
+    # 2. Batch fetch like counts (GROUP BY)
+    like_counts = db.query(
+        MessageLike.message_id,
+        func.count(MessageLike.id).label('count')
+    ).filter(
+        MessageLike.message_id.in_(message_ids),
+        MessageLike.action_type == "LIKE"
+    ).group_by(MessageLike.message_id).all()
+    like_count_map = {lc.message_id: lc.count for lc in like_counts}
+
+    # 3. Batch fetch "liked by me" - get latest action per message
+    my_likes_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(
+            MessageLike.message_id.in_(message_ids),
+            MessageLike.tutor_id == current_tutor_id
+        )
+        .subquery()
+    )
+    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
+        my_likes_subq.c.rn == 1
+    ).all()
+    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
+
+    # 4. Batch fetch reply counts
+    reply_counts = db.query(
+        TutorMessage.reply_to_id,
+        func.count(TutorMessage.id).label('count')
+    ).filter(
+        TutorMessage.reply_to_id.in_(message_ids)
+    ).group_by(TutorMessage.reply_to_id).all()
+    reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
+
+    # Build responses using pre-fetched data
+    return [
+        MessageResponse(
+            id=msg.id,
+            from_tutor_id=msg.from_tutor_id,
+            from_tutor_name=msg.from_tutor.tutor_name if msg.from_tutor else None,
+            to_tutor_id=msg.to_tutor_id,
+            to_tutor_name=msg.to_tutor.tutor_name if msg.to_tutor else "All",
+            subject=msg.subject,
+            message=msg.message,
+            priority=msg.priority or "Normal",
+            category=msg.category,
+            created_at=msg.created_at,
+            updated_at=msg.updated_at,
+            reply_to_id=msg.reply_to_id,
+            is_read=msg.id in read_ids,
+            like_count=like_count_map.get(msg.id, 0),
+            is_liked_by_me=msg.id in liked_by_me,
+            reply_count=reply_count_map.get(msg.id, 0)
+        )
+        for msg in messages
+    ]
 
 
 @router.get("/messages", response_model=List[ThreadResponse])
@@ -232,7 +324,8 @@ async def get_sent_messages(
         .all()
     )
 
-    return [build_message_response(m, tutor_id, db) for m in messages]
+    # Use batch function to avoid N+1 queries
+    return batch_build_message_responses(messages, tutor_id, db)
 
 
 @router.get("/messages/unread-count", response_model=UnreadCountResponse)
@@ -315,19 +408,14 @@ async def get_thread(
         .all()
     )
 
-    # Build response
-    root_response = build_message_response(root, tutor_id, db)
-    reply_responses = [build_message_response(r, tutor_id, db) for r in replies]
+    # Use batch function to avoid N+1 queries
+    all_messages = [root] + replies
+    all_responses = batch_build_message_responses(all_messages, tutor_id, db)
+    root_response = all_responses[0]
+    reply_responses = all_responses[1:]
 
-    # Count unread
-    all_message_ids = [root.id] + [r.id for r in replies]
-    read_ids = set(
-        r.message_id for r in db.query(MessageReadReceipt.message_id).filter(
-            MessageReadReceipt.message_id.in_(all_message_ids),
-            MessageReadReceipt.tutor_id == tutor_id
-        ).all()
-    )
-    total_unread = len(all_message_ids) - len(read_ids)
+    # Count unread from responses (already computed by batch function)
+    total_unread = sum(1 for r in all_responses if not r.is_read)
 
     return ThreadResponse(
         root_message=root_response,
