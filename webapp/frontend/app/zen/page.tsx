@@ -10,14 +10,7 @@ import { setZenStatus } from "@/components/zen/ZenStatusBar";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { mutate } from "swr";
-
-// Helper to format date as YYYY-MM-DD
-const formatDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+import { toDateString } from "@/lib/calendar-utils";
 
 // ASCII progress bar component
 function ZenProgressBar({ completed, total }: { completed: number; total: number }) {
@@ -80,11 +73,11 @@ export default function ZenDashboardPage() {
   const navigateDate = useCallback((days: number) => {
     const current = new Date(selectedDate + "T00:00:00");
     current.setDate(current.getDate() + days);
-    setSelectedDate(formatDate(current));
+    setSelectedDate(toDateString(current));
   }, [selectedDate, setSelectedDate]);
 
   const goToToday = useCallback(() => {
-    setSelectedDate(formatDate(new Date()));
+    setSelectedDate(toDateString(new Date()));
   }, [setSelectedDate]);
 
   // Keyboard shortcuts for date navigation
@@ -102,12 +95,12 @@ export default function ZenDashboardPage() {
         case "[":
           e.preventDefault();
           navigateDate(-1);
-          setZenStatus(`← ${formatDate(new Date(new Date(selectedDate + "T00:00:00").getTime() - 86400000))}`, "info");
+          setZenStatus(`← ${toDateString(new Date(new Date(selectedDate + "T00:00:00").getTime() - 86400000))}`, "info");
           break;
         case "]":
           e.preventDefault();
           navigateDate(1);
-          setZenStatus(`→ ${formatDate(new Date(new Date(selectedDate + "T00:00:00").getTime() + 86400000))}`, "info");
+          setZenStatus(`→ ${toDateString(new Date(new Date(selectedDate + "T00:00:00").getTime() + 86400000))}`, "info");
           break;
         case "t":
           if (!e.ctrlKey && !e.metaKey && !e.altKey) {
