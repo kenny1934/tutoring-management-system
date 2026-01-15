@@ -10,11 +10,7 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 import { getGradeColor } from "@/lib/constants";
-
-// Convert rating number to emoji stars
-function ratingToEmoji(rating: number): string {
-  return "⭐".repeat(rating);
-}
+import { ratingToEmoji } from "@/lib/formatters";
 
 interface RateSessionModalProps {
   session: Session;

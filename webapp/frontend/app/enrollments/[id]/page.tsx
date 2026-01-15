@@ -20,20 +20,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { useLocation } from "@/contexts/LocationContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
-
-// Helper to get display payment status (shows "Overdue" if pending and past start date)
-function getDisplayPaymentStatus(enrollment: Enrollment): string {
-  if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
-    const startDate = new Date(enrollment.first_lesson_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    if (today >= startDate) {
-      return 'Overdue';
-    }
-  }
-  return enrollment.payment_status || '';
-}
+import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 
 // Helper to format day/time as a badge
 function formatScheduleBadge(day?: string, time?: string): string {

@@ -21,6 +21,7 @@ import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate } from "@/lib/formatters";
+import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import {
   useFloating,
@@ -49,21 +50,6 @@ const TABS: Tab[] = [
   { id: "tests", label: "Tests", icon: BookOpen },
   { id: "notes", label: "Notes", icon: FileText },
 ];
-
-
-// Helper to get display payment status (shows "Overdue" if pending and past start date)
-function getDisplayPaymentStatus(enrollment: Enrollment): string {
-  if (enrollment.payment_status === 'Pending Payment' && enrollment.first_lesson_date) {
-    const startDate = new Date(enrollment.first_lesson_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    startDate.setHours(0, 0, 0, 0);
-    if (today >= startDate) {
-      return 'Overdue';
-    }
-  }
-  return enrollment.payment_status || '';
-}
 
 export default function StudentDetailPage() {
   const params = useParams();
