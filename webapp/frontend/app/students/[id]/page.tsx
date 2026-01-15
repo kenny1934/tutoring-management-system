@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
+import { formatShortDate } from "@/lib/formatters";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import {
   useFloating,
@@ -49,12 +50,6 @@ const TABS: Tab[] = [
   { id: "notes", label: "Notes", icon: FileText },
 ];
 
-
-// Helper to format date
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 // Helper to get display payment status (shows "Overdue" if pending and past start date)
 function getDisplayPaymentStatus(enrollment: Enrollment): string {
@@ -753,7 +748,7 @@ function ProfileTab({
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       {enrollment.location} • {enrollment.tutor_name || 'No tutor'}
-                      {enrollment.first_lesson_date && ` • Started ${formatDate(enrollment.first_lesson_date)}`}
+                      {enrollment.first_lesson_date && ` • Started ${formatShortDate(enrollment.first_lesson_date)}`}
                     </span>
                   </div>
                 </div>
@@ -1562,7 +1557,7 @@ function EnrollmentDetailPopover({
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-indigo-500" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
-                Started: {formatDate(enrollment.first_lesson_date)}
+                Started: {formatShortDate(enrollment.first_lesson_date)}
               </span>
             </div>
           )}

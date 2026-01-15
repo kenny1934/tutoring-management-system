@@ -27,6 +27,7 @@ import { TutorSelector, ALL_TUTORS, type TutorValue } from "@/components/selecto
 import { MyStudentsView } from "@/components/students/MyStudentsView";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
+import { formatShortDate } from "@/lib/formatters";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -569,12 +570,6 @@ export default function StudentsPage() {
   );
 }
 
-// Helper to format date
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 // Helper to get days until a date
 function getDaysUntil(dateStr: string): number {
   const today = new Date();
@@ -782,7 +777,7 @@ function RichPopoverContent({
                   <div className="flex items-center gap-1.5 text-xs">
                     <Calendar className="h-3 w-3 text-purple-500" />
                     <span className="text-gray-700 dark:text-gray-300">
-                      Started: {formatDate(activeEnrollment.first_lesson_date)}
+                      Started: {formatShortDate(activeEnrollment.first_lesson_date)}
                     </span>
                   </div>
                 )}
@@ -803,7 +798,7 @@ function RichPopoverContent({
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
-                    {formatDate(lastSession.session_date)}
+                    {formatShortDate(lastSession.session_date)}
                   </span>
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded font-medium",

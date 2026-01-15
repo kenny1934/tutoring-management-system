@@ -19,12 +19,7 @@ import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { useLocation } from "@/contexts/LocationContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-
-// Helper to format date
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
+import { formatShortDate } from "@/lib/formatters";
 
 // Helper to get display payment status (shows "Overdue" if pending and past start date)
 function getDisplayPaymentStatus(enrollment: Enrollment): string {
@@ -553,7 +548,7 @@ export default function EnrollmentDetailPage() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-500 dark:text-gray-400">First Lesson</span>
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {formatDate(enrollment.first_lesson_date)}
+                            {formatShortDate(enrollment.first_lesson_date)}
                           </span>
                         </div>
                       </div>
@@ -743,7 +738,7 @@ export default function EnrollmentDetailPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500 dark:text-gray-400">Payment Date</span>
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {formatDate(enrollment.payment_date)}
+                          {formatShortDate(enrollment.payment_date)}
                         </span>
                       </div>
                     )}

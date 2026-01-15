@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useCalendarEvents } from "@/lib/hooks";
+import { toDateString } from "@/lib/calendar-utils";
 
 interface ZenCalendarProps {
   selectedDate: string; // YYYY-MM-DD
@@ -10,16 +11,8 @@ interface ZenCalendarProps {
   isFocused?: boolean;
 }
 
-// Helper to format date as YYYY-MM-DD
-const formatDate = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 // Helper to get today's date string
-const getToday = (): string => formatDate(new Date());
+const getToday = (): string => toDateString(new Date());
 
 // Get first day of month
 const getFirstDayOfMonth = (year: number, month: number): Date => {
@@ -88,7 +81,7 @@ export function ZenCalendar({
       const prevMonth = viewMonth === 0 ? 11 : viewMonth - 1;
       const prevYear = viewMonth === 0 ? viewYear - 1 : viewYear;
       grid.push({
-        date: formatDate(new Date(prevYear, prevMonth, day)),
+        date: toDateString(new Date(prevYear, prevMonth, day)),
         day,
         isCurrentMonth: false,
       });
@@ -97,7 +90,7 @@ export function ZenCalendar({
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       grid.push({
-        date: formatDate(new Date(viewYear, viewMonth, day)),
+        date: toDateString(new Date(viewYear, viewMonth, day)),
         day,
         isCurrentMonth: true,
       });
@@ -109,7 +102,7 @@ export function ZenCalendar({
       const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
       const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
       grid.push({
-        date: formatDate(new Date(nextYear, nextMonth, day)),
+        date: toDateString(new Date(nextYear, nextMonth, day)),
         day,
         isCurrentMonth: false,
       });
@@ -148,7 +141,7 @@ export function ZenCalendar({
   const moveCursor = useCallback((days: number) => {
     const current = new Date(cursorDate + "T00:00:00");
     current.setDate(current.getDate() + days);
-    const newDate = formatDate(current);
+    const newDate = toDateString(current);
     setCursorDate(newDate);
 
     // Update view month if needed
