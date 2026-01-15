@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
+import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -41,13 +42,6 @@ const getTutorFirstName = (name: string): string => {
   const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
   return cleaned.split(' ')[0] || cleaned;
 };
-
-// Helper to get tutor name without prefix for sorting
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-
-// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
-const canBeMarked = (session: Session): boolean =>
-  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

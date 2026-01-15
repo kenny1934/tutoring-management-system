@@ -31,10 +31,7 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { getGradeColor } from "@/lib/constants";
-
-// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
-const canBeMarked = (session: Session): boolean =>
-  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
+import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
@@ -294,10 +291,6 @@ export default function SessionsPage() {
     setPopoverClickPosition({ x: event.clientX, y: event.clientY });
     setPopoverSession(session);
   };
-
-
-  // Helper to get tutor name without Mr/Ms prefix for sorting
-  const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
   // Group sessions by time slot
   const groupedSessions = useMemo(() => {

@@ -35,14 +35,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Session } from "@/types";
 import type { FileSelection } from "@/components/ui/folder-tree-modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 // Session selection with exercise type
 interface SessionSelection {

@@ -14,9 +14,7 @@ import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, X, Save, R
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats } from "@/types";
-
-// Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 // Type for pending changes
 interface PendingChange {

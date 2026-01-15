@@ -12,6 +12,8 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import type { Session } from "@/types";
 import { getGradeColor } from "@/lib/constants";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/lib/exercise-utils";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 // Available session statuses
 const SESSION_STATUSES = [
@@ -51,44 +53,6 @@ interface ExerciseFormItem {
   page_end: string;                // For simple mode
   complex_pages: string;           // For custom mode (e.g., "1,3,5-7")
   remarks: string;
-}
-
-// Parse DB remarks into separate complex_pages and remarks fields
-function parseExerciseRemarks(dbRemarks: string | null | undefined): { complexPages: string; remarks: string } {
-  if (!dbRemarks) return { complexPages: '', remarks: '' };
-
-  if (dbRemarks.startsWith('Pages: ')) {
-    const delimiterIdx = dbRemarks.indexOf(' || ');
-    if (delimiterIdx > 0) {
-      return {
-        complexPages: dbRemarks.substring(7, delimiterIdx),
-        remarks: dbRemarks.substring(delimiterIdx + 4)
-      };
-    }
-    // No remarks, just pages
-    return { complexPages: dbRemarks.substring(7), remarks: '' };
-  }
-
-  // No pages, just remarks
-  return { complexPages: '', remarks: dbRemarks };
-}
-
-// Detect page mode based on which fields have values
-function detectPageMode(pageStart: string | number | null | undefined, pageEnd: string | number | null | undefined, complexPages: string): 'simple' | 'custom' {
-  // If complex pages has content, use custom mode
-  if (complexPages && complexPages.trim()) return 'custom';
-  // If simple range has content, use simple mode
-  if ((pageStart && String(pageStart).trim()) || (pageEnd && String(pageEnd).trim())) return 'simple';
-  // Default to simple mode
-  return 'simple';
-}
-
-// Combine complex_pages and remarks for DB storage
-function combineExerciseRemarks(complexPages: string, remarks: string): string {
-  const parts: string[] = [];
-  if (complexPages.trim()) parts.push(`Pages: ${complexPages.trim()}`);
-  if (remarks.trim()) parts.push(remarks.trim());
-  return parts.join(' || ');
 }
 
 // Parse time_slot "16:45 - 18:15" (24-hour format) to { start: "16:45", end: "18:15" }
@@ -209,9 +173,6 @@ export function EditSessionModal({
       initializedRef.current = false;
     }
   }, [isOpen, session]);
-
-  // Helper to get tutor name without Mr/Ms prefix for sorting (same as sessions toolbar)
-  const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
   // Filter tutors by selected location and sort by first name (like sessions toolbar)
   const filteredTutors = useMemo(() => {

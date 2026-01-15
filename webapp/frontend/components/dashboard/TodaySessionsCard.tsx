@@ -17,6 +17,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import type { Session } from "@/types";
 import { getGradeColor } from "@/lib/constants";
+import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Format today's date as YYYY-MM-DD
 const getTodayString = (): string => {
@@ -26,13 +27,6 @@ const getTodayString = (): string => {
   const day = String(today.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-// Strip honorific prefixes for tutor name sorting
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-
-// Check if a session can have attendance actions (same as isNotAttended in session-actions.ts)
-const canBeMarked = (session: Session): boolean =>
-  ['Scheduled', 'Trial Class', 'Make-up Class'].includes(session.session_status);
 
 interface TodaySessionsCardProps {
   className?: string;
