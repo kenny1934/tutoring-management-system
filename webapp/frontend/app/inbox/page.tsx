@@ -35,6 +35,8 @@ import {
   Smile,
   Pencil,
   Check,
+  Search,
+  Trash2,
 } from "lucide-react";
 
 // Category definition
@@ -168,6 +170,29 @@ function ComposeModal({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [priorityDropdownOpen]);
 
+  // Check for unsaved changes
+  const hasUnsavedChanges = message.trim().length > 0 || (subject.trim().length > 0 && !replyTo);
+
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (confirm("You have unsaved changes. Discard draft?")) {
+        onClose();
+      }
+    } else {
+      onClose();
+    }
+  };
+
+  // Close on escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, hasUnsavedChanges]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
@@ -198,7 +223,7 @@ function ComposeModal({
             {replyTo ? "Reply" : "New Message"}
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <X className="h-5 w-5" />
@@ -215,7 +240,6 @@ function ComposeModal({
               value={toTutorId}
               onChange={(e) => setToTutorId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
               className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
-              disabled={!!replyTo}
             >
               <option value="all">All Tutors (Broadcast)</option>
               {tutors
@@ -362,7 +386,7 @@ function ComposeModal({
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               Cancel
@@ -420,7 +444,7 @@ function ThreadItem({
             </span>
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
-                All
+                Broadcast
               </span>
             )}
             {msg.priority !== "Normal" && (
@@ -488,6 +512,7 @@ function ThreadDetailPanel({
   onLike,
   onMarkRead,
   onEdit,
+  onDelete,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -496,6 +521,7 @@ function ThreadDetailPanel({
   onLike: (msgId: number) => void;
   onMarkRead: (msgId: number) => void;
   onEdit: (msgId: number, newText: string) => Promise<void>;
+  onDelete: (msgId: number) => Promise<void>;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
@@ -504,6 +530,14 @@ function ThreadDetailPanel({
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when thread opens
+  useEffect(() => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, 100);
+  }, [thread]);
 
   // Mark messages as read when viewing
   useEffect(() => {
@@ -547,15 +581,25 @@ function ThreadDetailPanel({
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-gray-900 dark:text-white truncate">
-            {msg.subject || "(no subject)"}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold text-gray-900 dark:text-white truncate">
+              {msg.subject || "(no subject)"}
+            </h2>
+            {msg.priority && msg.priority !== "Normal" && (
+              <span className={cn(
+                "text-[10px] px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0",
+                msg.priority === "Urgent" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+              )}>
+                {msg.priority}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-gray-500 dark:text-gray-500">
             {allMessages.length} message{allMessages.length !== 1 && "s"}
           </div>
         </div>
         <button
-          onClick={() => onReply(msg)}
+          onClick={() => onReply(allMessages[allMessages.length - 1])}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
         >
           <Reply className="h-4 w-4" />
@@ -564,7 +608,7 @@ function ThreadDetailPanel({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
         {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
           const isEditing = editingMessageId === m.id;
@@ -651,13 +695,26 @@ function ThreadDetailPanel({
                   {m.like_count > 0 && m.like_count}
                 </button>
                 {isOwn && !isEditing && (
-                  <button
-                    onClick={() => startEdit(m)}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </button>
+                  <>
+                    <button
+                      onClick={() => startEdit(m)}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this message?")) {
+                          onDelete(m.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </button>
+                  </>
                 )}
                 {idx === allMessages.length - 1 && (
                   <button
@@ -692,6 +749,7 @@ export default function InboxPage() {
   const [replyTo, setReplyTo] = useState<Message | undefined>();
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get category filter
   const categoryFilter = useMemo(() => {
@@ -722,8 +780,22 @@ export default function InboxPage() {
     }));
   }, [sentMessages]);
 
-  // Determine which data to show
-  const displayThreads = selectedCategory === "sent" ? sentAsThreads : threads;
+  // Determine which data to show (with search filtering)
+  const displayThreads = useMemo(() => {
+    const baseThreads = selectedCategory === "sent" ? sentAsThreads : threads;
+    if (!searchQuery.trim()) return baseThreads;
+
+    const query = searchQuery.toLowerCase();
+    return baseThreads.filter(thread => {
+      const msg = thread.root_message;
+      return (
+        msg.subject?.toLowerCase().includes(query) ||
+        msg.message.toLowerCase().includes(query) ||
+        msg.from_tutor_name?.toLowerCase().includes(query) ||
+        msg.to_tutor_name?.toLowerCase().includes(query)
+      );
+    });
+  }, [selectedCategory, sentAsThreads, threads, searchQuery]);
   const isLoading = selectedCategory === "sent" ? loadingSent : loadingThreads;
 
   // Auto-select first tutor
@@ -812,6 +884,20 @@ export default function InboxPage() {
     }
   }, [selectedTutorId, showToast]);
 
+  const handleDelete = useCallback(async (messageId: number) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    try {
+      await messagesAPI.delete(messageId, selectedTutorId);
+      showToast("Message deleted!", "success");
+      setSelectedThread(null);
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages"));
+    } catch (error) {
+      showToast("Failed to delete message", "error");
+      throw error;
+    }
+  }, [selectedTutorId, showToast]);
+
   return (
     <DeskSurface fullHeight>
       <PageTransition className="h-full">
@@ -821,7 +907,14 @@ export default function InboxPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Inbox className="h-6 w-6 text-[#a0704b]" />
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
+                  {typeof selectedTutorId === "number" && tutors.length > 0 && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Viewing as: {tutors.find(t => t.id === selectedTutorId)?.tutor_name || "Unknown"}
+                    </p>
+                  )}
+                </div>
                 {unreadCount && unreadCount.count > 0 && (
                   <span className="px-2 py-0.5 text-xs font-bold text-white bg-[#a0704b] rounded-full">
                     {unreadCount.count}
@@ -890,6 +983,41 @@ export default function InboxPage() {
               "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/30 flex flex-col",
               isMobile && selectedThread && "hidden"
             )}>
+              {/* Search bar */}
+              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search messages..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400"
+                    />
+                  </div>
+                  {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && (
+                    <button
+                      onClick={async () => {
+                        const unreadThreads = displayThreads.filter(t => t.total_unread > 0);
+                        for (const thread of unreadThreads) {
+                          const allMsgs = [thread.root_message, ...thread.replies];
+                          for (const m of allMsgs) {
+                            if (!m.is_read && typeof selectedTutorId === "number" && m.from_tutor_id !== selectedTutorId) {
+                              await handleMarkRead(m.id);
+                            }
+                          }
+                        }
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      title="Mark all as read"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Mark all read</span>
+                    </button>
+                  )}
+                </div>
+              </div>
               {isLoading ? (
                 <div className="flex-1 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
@@ -903,7 +1031,25 @@ export default function InboxPage() {
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
                   <div className="text-center">
                     <Inbox className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No messages</p>
+                    <p>
+                      {searchQuery
+                        ? "No messages match your search"
+                        : selectedCategory === "sent"
+                        ? "You haven't sent any messages yet"
+                        : selectedCategory === "reminder"
+                        ? "No reminders"
+                        : selectedCategory === "question"
+                        ? "No questions"
+                        : selectedCategory === "announcement"
+                        ? "No announcements"
+                        : selectedCategory === "schedule"
+                        ? "No schedule messages"
+                        : selectedCategory === "chat"
+                        ? "No chat messages"
+                        : selectedCategory === "courseware"
+                        ? "No courseware messages"
+                        : "No messages in your inbox"}
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -924,7 +1070,7 @@ export default function InboxPage() {
             {selectedThread && typeof selectedTutorId === "number" && (
               <div className={cn(
                 "h-full border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                isMobile ? "fixed inset-0 z-40" : "w-[450px] flex-shrink-0"
+                isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
                 <ThreadDetailPanel
                   thread={selectedThread}
@@ -934,6 +1080,7 @@ export default function InboxPage() {
                   onLike={handleLike}
                   onMarkRead={handleMarkRead}
                   onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
               </div>
             )}
