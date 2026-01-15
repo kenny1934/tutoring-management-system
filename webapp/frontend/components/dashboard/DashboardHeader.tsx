@@ -3,14 +3,21 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus } from "lucide-react";
+import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet } from "lucide-react";
 import { usefulTools } from "@/config/useful-tools";
+import { leaveRecords, getLeaveRecordUrl } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { useRole } from "@/contexts/RoleContext";
+import { useTutors } from "@/lib/hooks";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
+
+// Maps the current user's display name to their tutor_name in the database
+const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
 import {
   useFloating,
   offset,
@@ -39,18 +46,42 @@ const quickLinks = [
   { id: 'parents', label: 'Parent Contacts', icon: Users, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
-  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: '#' }, // Placeholder
+  { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: dropdown or direct link based on role
 ];
 
 
 export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
+  const { viewMode } = useRole();
+  const { data: tutors = [] } = useTutors();
 
   // Random emoji - memoized so it doesn't change on every render
   const greetingEmoji = useMemo(() => {
     return greetingEmojis[Math.floor(Math.random() * greetingEmojis.length)];
   }, []);
+
+  // Current user's leave record URL (for my-view mode)
+  const currentUserLeaveUrl = getLeaveRecordUrl(CURRENT_USER_TUTOR);
+
+  // Filter tutors with leave records by location, sorted by first name
+  const tutorsWithLeaveRecords = useMemo(() => {
+    return tutors
+      .map((tutor) => ({
+        ...tutor,
+        sheetUrl: getLeaveRecordUrl(tutor.tutor_name),
+      }))
+      .filter((t) => t.sheetUrl) // Only show tutors that have a sheet configured
+      .filter((t) => {
+        // Filter by location if not "All Locations"
+        if (location && location !== "All Locations") {
+          return t.default_location === location;
+        }
+        return true;
+      })
+      .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
+  }, [tutors, location]);
 
   // Floating UI for tools dropdown
   const { refs, floatingStyles, context } = useFloating({
@@ -67,6 +98,26 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const click = useClick(context);
   const dismiss = useDismiss(context);
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+
+  // Floating UI for leave dropdown
+  const {
+    refs: leaveRefs,
+    floatingStyles: leaveFloatingStyles,
+    context: leaveContext,
+  } = useFloating({
+    open: leaveOpen,
+    onOpenChange: setLeaveOpen,
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: "end" }),
+      shift({ padding: 8 }),
+    ],
+    placement: "bottom-start",
+  });
+
+  const leaveClick = useClick(leaveContext);
+  const leaveDismiss = useDismiss(leaveContext);
+  const { getReferenceProps: getLeaveReferenceProps, getFloatingProps: getLeaveFloatingProps } = useInteractions([leaveClick, leaveDismiss]);
 
   return (
     <div className={cn(
@@ -228,7 +279,106 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
               );
             }
 
-            // Regular link pills (placeholders for now)
+            // Special handling for Leave Record
+            if (link.id === 'leave') {
+              // In my-view mode, render as direct link to current user's sheet
+              if (viewMode === 'my-view' && currentUserLeaveUrl) {
+                return (
+                  <a
+                    key={link.id}
+                    href={currentUserLeaveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "text-[#a0704b] dark:text-[#cd853f]",
+                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden xs:inline">{link.label}</span>
+                    <span className="xs:hidden">Leave</span>
+                    <ExternalLink className="h-3 w-3 opacity-50" />
+                  </a>
+                );
+              }
+
+              // In center-view mode, render as dropdown
+              return (
+                <div key={link.id} className="relative">
+                  <button
+                    ref={leaveRefs.setReference}
+                    {...getLeaveReferenceProps()}
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium transition-all",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "text-[#a0704b] dark:text-[#cd853f]",
+                      "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] hover:shadow-sm",
+                      leaveOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden xs:inline">{link.label}</span>
+                    <span className="xs:hidden">Leave</span>
+                    <ChevronDown className={cn(
+                      "h-3.5 w-3.5 transition-transform",
+                      leaveOpen && "rotate-180"
+                    )} />
+                  </button>
+
+                  {/* Leave Record Dropdown */}
+                  {leaveOpen && (
+                    <FloatingPortal>
+                      <div
+                        ref={leaveRefs.setFloating}
+                        style={leaveFloatingStyles}
+                        {...getLeaveFloatingProps()}
+                        className={cn(
+                          "z-50 w-72 py-2 max-h-[70vh] overflow-y-auto",
+                          "bg-white dark:bg-[#1a1a1a] rounded-lg shadow-lg",
+                          "border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        )}
+                      >
+                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          {location && location !== "All Locations" ? location : "All Tutors"}
+                        </div>
+                        {tutorsWithLeaveRecords.map((tutor) => (
+                          <a
+                            key={tutor.id}
+                            href={tutor.sheetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors group"
+                            onClick={() => setLeaveOpen(false)}
+                          >
+                            <FileSpreadsheet className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                {tutor.tutor_name}
+                              </div>
+                              {tutor.default_location && location === "All Locations" && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  {tutor.default_location}
+                                </div>
+                              )}
+                            </div>
+                            <ExternalLink className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        ))}
+                        {tutorsWithLeaveRecords.length === 0 && (
+                          <p className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            No leave records configured
+                          </p>
+                        )}
+                      </div>
+                    </FloatingPortal>
+                  )}
+                </div>
+              );
+            }
+
+            // Regular link pills
             return (
               <Link
                 key={link.id}
@@ -243,7 +393,6 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 onClick={(e) => {
                   if (link.href === '#') {
                     e.preventDefault();
-                    // Could show a toast here: "Coming soon!"
                   }
                 }}
               >
@@ -253,7 +402,6 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   {link.id === 'parents' && 'Parents'}
                   {link.id === 'revenue' && 'Revenue'}
                   {link.id === 'terminated' && 'Termed'}
-                  {link.id === 'leave' && 'Leave'}
                 </span>
               </Link>
             );
