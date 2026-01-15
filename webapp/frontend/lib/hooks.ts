@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -306,5 +306,52 @@ export function useOverdueEnrollments(location?: string, tutorId?: number) {
   return useSWR<OverdueEnrollment[]>(
     ['overdue-enrollments', location || 'all', tutorId || 'all'],
     () => enrollmentsAPI.getOverdue(location, tutorId)
+  );
+}
+
+/**
+ * Hook for fetching message threads for a tutor
+ * Returns threads grouped by root message with replies
+ */
+export function useMessageThreads(
+  tutorId: number | null | undefined,
+  category?: MessageCategory
+) {
+  return useSWR<MessageThread[]>(
+    tutorId ? ['message-threads', tutorId, category || 'all'] : null,
+    () => messagesAPI.getThreads(tutorId!, category)
+  );
+}
+
+/**
+ * Hook for fetching sent messages for a tutor
+ */
+export function useSentMessages(tutorId: number | null | undefined) {
+  return useSWR<Message[]>(
+    tutorId ? ['sent-messages', tutorId] : null,
+    () => messagesAPI.getSent(tutorId!)
+  );
+}
+
+/**
+ * Hook for fetching unread message count for a tutor
+ */
+export function useUnreadMessageCount(tutorId: number | null | undefined) {
+  return useSWR<{ count: number }>(
+    tutorId ? ['unread-count', tutorId] : null,
+    () => messagesAPI.getUnreadCount(tutorId!)
+  );
+}
+
+/**
+ * Hook for fetching a specific message thread
+ */
+export function useMessageThread(
+  messageId: number | null | undefined,
+  tutorId: number | null | undefined
+) {
+  return useSWR<MessageThread>(
+    messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
+    () => messagesAPI.getThread(messageId!, tutorId!)
   );
 }

@@ -405,3 +405,86 @@ export interface OverdueEnrollment {
   lessons_paid: number;
   days_overdue: number;
 }
+
+// Message types
+export type MessagePriority = 'Normal' | 'High' | 'Urgent';
+export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware';
+
+export interface Message {
+  id: number;
+  from_tutor_id: number;
+  from_tutor_name?: string;
+  to_tutor_id?: number;
+  to_tutor_name?: string;  // "All" for broadcasts
+  subject?: string;
+  message: string;
+  priority: MessagePriority;
+  category?: MessageCategory;
+  created_at: string;
+  reply_to_id?: number;
+  is_read: boolean;
+  like_count: number;
+  is_liked_by_me: boolean;
+  reply_count: number;
+}
+
+export interface MessageThread {
+  root_message: Message;
+  replies: Message[];
+  total_unread: number;
+}
+
+export interface MessageCreate {
+  to_tutor_id?: number;  // NULL = broadcast
+  reply_to_id?: number;
+  subject?: string;
+  message: string;
+  priority?: MessagePriority;
+  category?: MessageCategory;
+}
+
+// Make-up scheduling types
+export interface StudentInSlot {
+  id: number;
+  school_student_id?: string;
+  student_name: string;
+  grade?: string;
+  school?: string;
+  lang_stream?: string;
+  session_status: string;
+}
+
+// Raw scoring data returned by backend for frontend-side weighted scoring
+export interface MakeupScoreBreakdown {
+  is_same_tutor: boolean;
+  matching_grade_count: number;
+  matching_school_count: number;
+  matching_lang_count: number;
+  days_away: number;
+  current_students: number;
+}
+
+export interface MakeupSlotSuggestion {
+  session_date: string;  // ISO format
+  time_slot: string;
+  tutor_id: number;
+  tutor_name: string;
+  location: string;
+  current_students: number;
+  available_spots: number;
+  compatibility_score: number;  // Default score from backend
+  score_breakdown: MakeupScoreBreakdown;  // Raw data for frontend scoring
+  students_in_slot: StudentInSlot[];
+}
+
+export interface ScheduleMakeupRequest {
+  session_date: string;  // ISO format
+  time_slot: string;
+  tutor_id: number;
+  location: string;
+}
+
+export interface ScheduleMakeupResponse {
+  makeup_session: Session;
+  original_session: Session;
+}

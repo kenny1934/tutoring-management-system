@@ -440,3 +440,63 @@ class TerminationRecord(Base):
     # Relationships
     student = relationship("Student")
     tutor = relationship("Tutor")
+
+
+class TutorMessage(Base):
+    """
+    Tutor-to-tutor messaging system.
+    Supports direct messages and broadcasts (to_tutor_id = NULL).
+    """
+    __tablename__ = "tutor_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    from_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    to_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)  # NULL = broadcast to all
+    subject = Column(String(200))
+    message = Column(Text, nullable=False)
+    priority = Column(String(20), default="Normal")  # Normal, High, Urgent
+    category = Column(String(50))  # Reminder, Question, Announcement, Schedule, Handover
+    created_at = Column(DateTime, server_default=func.now())
+    reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
+    image_attachment = Column(String(500))  # Optional image URL/path
+
+    # Relationships
+    from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")
+    to_tutor = relationship("Tutor", foreign_keys=[to_tutor_id], backref="received_messages")
+    replies = relationship("TutorMessage", backref="parent", remote_side=[id], foreign_keys=[reply_to_id])
+    read_receipts = relationship("MessageReadReceipt", back_populates="message", cascade="all, delete-orphan")
+    likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageReadReceipt(Base):
+    """
+    Tracks when tutors read messages.
+    Used to calculate unread counts and show read status.
+    """
+    __tablename__ = "message_read_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    read_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="read_receipts")
+    tutor = relationship("Tutor")
+
+
+class MessageLike(Base):
+    """
+    Tracks message likes/reactions from tutors.
+    """
+    __tablename__ = "message_likes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    action_type = Column(String(10), default="LIKE")  # LIKE or UNLIKE
+    liked_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="likes")
+    tutor = relationship("Tutor")

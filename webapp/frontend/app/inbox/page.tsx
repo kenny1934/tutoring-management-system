@@ -1,0 +1,955 @@
+"use client";
+
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useLocation } from "@/contexts/LocationContext";
+import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
+import { messagesAPI } from "@/lib/api";
+import { DeskSurface } from "@/components/layout/DeskSurface";
+import { PageTransition } from "@/lib/design-system";
+import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSelector";
+import { cn } from "@/lib/utils";
+import { formatTimeAgo } from "@/lib/formatters";
+import { mutate } from "swr";
+import type { Message, MessageThread, MessageCreate, MessageCategory } from "@/types";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import {
+  Inbox,
+  Send,
+  Bell,
+  HelpCircle,
+  Megaphone,
+  Calendar,
+  MessageCircle,
+  BookOpen,
+  PenSquare,
+  X,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Reply,
+  Loader2,
+  AlertCircle,
+  Clock,
+  Smile,
+  Pencil,
+  Check,
+} from "lucide-react";
+
+// Category definition
+interface Category {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  filter?: MessageCategory;
+}
+
+const CATEGORIES: Category[] = [
+  { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
+  { id: "reminder", label: "Reminder", icon: <Bell className="h-4 w-4" />, filter: "Reminder" },
+  { id: "question", label: "Question", icon: <HelpCircle className="h-4 w-4" />, filter: "Question" },
+  { id: "announcement", label: "Announcement", icon: <Megaphone className="h-4 w-4" />, filter: "Announcement" },
+  { id: "schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" />, filter: "Schedule" },
+  { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
+  { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
+  { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
+];
+
+// Priority colors
+const priorityColors: Record<string, string> = {
+  Urgent: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30",
+  High: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
+  Normal: "text-gray-600 dark:text-gray-400",
+};
+
+// Category options for dropdown
+const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon: React.ReactNode }> = [
+  { value: "", label: "None", icon: null },
+  { value: "Reminder", label: "Reminder", icon: <Bell className="h-4 w-4" /> },
+  { value: "Question", label: "Question", icon: <HelpCircle className="h-4 w-4" /> },
+  { value: "Announcement", label: "Announcement", icon: <Megaphone className="h-4 w-4" /> },
+  { value: "Schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" /> },
+  { value: "Chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" /> },
+  { value: "Courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" /> },
+];
+
+// Priority options for dropdown
+const PRIORITY_OPTIONS: Array<{ value: "Normal" | "High" | "Urgent"; label: string; colorClass: string }> = [
+  { value: "Normal", label: "Normal", colorClass: "text-gray-600 dark:text-gray-400" },
+  { value: "High", label: "High", colorClass: "text-orange-600 dark:text-orange-400" },
+  { value: "Urgent", label: "Urgent", colorClass: "text-red-600 dark:text-red-400" },
+];
+
+// Compose Modal Component
+function ComposeModal({
+  isOpen,
+  onClose,
+  tutors,
+  fromTutorId,
+  replyTo,
+  onSend,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  tutors: Array<{ id: number; tutor_name: string }>;
+  fromTutorId: number;
+  replyTo?: Message;
+  onSend: (data: MessageCreate) => Promise<void>;
+}) {
+  const [toTutorId, setToTutorId] = useState<number | "all">("all");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
+  const [category, setCategory] = useState<MessageCategory | "">("");
+  const [isSending, setIsSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const priorityDropdownRef = useRef<HTMLDivElement>(null);
+
+  const insertEmoji = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setMessage((prev) => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newMessage = message.slice(0, start) + emoji + message.slice(end);
+    setMessage(newMessage);
+    // Set cursor position after emoji
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
+
+  // Reset form when opening/closing
+  useEffect(() => {
+    if (isOpen) {
+      if (replyTo) {
+        setToTutorId(replyTo.from_tutor_id);
+        setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
+        setCategory(replyTo.category || "");
+      } else {
+        setToTutorId("all");
+        setSubject("");
+        setCategory("");
+      }
+      setMessage("");
+      setPriority("Normal");
+    }
+  }, [isOpen, replyTo]);
+
+  // Close category dropdown on click outside
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [categoryDropdownOpen]);
+
+  // Close priority dropdown on click outside
+  useEffect(() => {
+    if (!priorityDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target as Node)) {
+        setPriorityDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [priorityDropdownOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!message.trim()) return;
+
+    setIsSending(true);
+    try {
+      await onSend({
+        to_tutor_id: toTutorId === "all" ? undefined : toTutorId,
+        subject: subject || undefined,
+        message: message.trim(),
+        priority,
+        category: category || undefined,
+        reply_to_id: replyTo?.id,
+      });
+      onClose();
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <h2 className="font-semibold text-gray-900 dark:text-white">
+            {replyTo ? "Reply" : "New Message"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* To */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              To
+            </label>
+            <select
+              value={toTutorId}
+              onChange={(e) => setToTutorId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              disabled={!!replyTo}
+            >
+              <option value="all">All Tutors (Broadcast)</option>
+              {tutors
+                .filter(t => t.id !== fromTutorId)
+                .sort((a, b) => {
+                  // Extract first name (skip title like Mr/Ms/Mrs)
+                  const getFirstName = (name: string) => {
+                    const parts = name.split(' ');
+                    return parts.length > 1 ? parts[1] : parts[0];
+                  };
+                  return getFirstName(a.tutor_name).localeCompare(getFirstName(b.tutor_name));
+                })
+                .map((tutor) => (
+                <option key={tutor.id} value={tutor.id}>
+                  {tutor.tutor_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Subject
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Optional subject..."
+              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+            />
+          </div>
+
+          {/* Category & Priority row */}
+          <div className="grid grid-cols-5 gap-4">
+            <div className="col-span-3">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Category
+              </label>
+              <div ref={categoryDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    {CATEGORY_OPTIONS.find(c => c.value === category)?.icon}
+                    {CATEGORY_OPTIONS.find(c => c.value === category)?.label || "None"}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", categoryDropdownOpen && "rotate-180")} />
+                </button>
+                {categoryDropdownOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setCategory(opt.value); setCategoryDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          category === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        )}
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Priority
+              </label>
+              <div ref={priorityDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
+                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] flex items-center justify-between"
+                >
+                  <span className={PRIORITY_OPTIONS.find(p => p.value === priority)?.colorClass}>
+                    {priority}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", priorityDropdownOpen && "rotate-180")} />
+                </button>
+                {priorityDropdownOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setPriority(opt.value); setPriorityDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          opt.colorClass,
+                          priority === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Message
+            </label>
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Write your message..."
+                rows={5}
+                required
+                className="w-full px-3 py-2 pr-10 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
+              />
+              <div className="absolute bottom-2 right-2">
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setShowEmojiPicker(!showEmojiPicker); }}
+                  className="p-1.5 text-gray-500 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                  title="Add emoji"
+                >
+                  <Smile className="h-5 w-5" />
+                </button>
+                <EmojiPicker
+                  isOpen={showEmojiPicker}
+                  onClose={() => setShowEmojiPicker(false)}
+                  onSelect={insertEmoji}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSending || !message.trim()}
+              className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Thread Item Component
+function ThreadItem({
+  thread,
+  isSelected,
+  onClick,
+}: {
+  thread: MessageThread;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const { root_message: msg, replies, total_unread } = thread;
+  const hasUnread = total_unread > 0;
+  const replyCount = replies.length;
+  const latestMessage = replies.length > 0 ? replies[replies.length - 1] : msg;
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full text-left p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+        isSelected
+          ? "bg-[#f5ede3] dark:bg-[#3d3628]"
+          : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
+        hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          {/* Sender & Time */}
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className={cn(
+              "text-sm truncate",
+              hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+            )}>
+              {msg.from_tutor_name || "Unknown"}
+            </span>
+            {msg.to_tutor_id === null && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                All
+              </span>
+            )}
+            {msg.priority !== "Normal" && (
+              <span className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                priorityColors[msg.priority]
+              )}>
+                {msg.priority}
+              </span>
+            )}
+          </div>
+
+          {/* Subject */}
+          <div className={cn(
+            "text-sm truncate",
+            hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"
+          )}>
+            {msg.subject || "(no subject)"}
+          </div>
+
+          {/* Preview */}
+          <div className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
+            {latestMessage.message.slice(0, 80)}
+            {latestMessage.message.length > 80 && "..."}
+          </div>
+
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatTimeAgo(latestMessage.created_at)}
+            </span>
+            {replyCount > 0 && (
+              <span className="flex items-center gap-1">
+                <Reply className="h-3 w-3" />
+                {replyCount}
+              </span>
+            )}
+            {msg.like_count > 0 && (
+              <span className="flex items-center gap-1">
+                <Heart className="h-3 w-3" />
+                {msg.like_count}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Unread badge */}
+        {hasUnread && (
+          <span className="flex-shrink-0 min-w-[20px] h-5 flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1.5">
+            {total_unread}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// Thread Detail Panel Component
+function ThreadDetailPanel({
+  thread,
+  currentTutorId,
+  onClose,
+  onReply,
+  onLike,
+  onMarkRead,
+  onEdit,
+}: {
+  thread: MessageThread;
+  currentTutorId: number;
+  onClose: () => void;
+  onReply: (msg: Message) => void;
+  onLike: (msgId: number) => void;
+  onMarkRead: (msgId: number) => void;
+  onEdit: (msgId: number, newText: string) => Promise<void>;
+}) {
+  const { root_message: msg, replies } = thread;
+  const allMessages = [msg, ...replies];
+
+  // Edit state
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Mark messages as read when viewing
+  useEffect(() => {
+    allMessages.forEach((m) => {
+      if (!m.is_read && m.from_tutor_id !== currentTutorId) {
+        onMarkRead(m.id);
+      }
+    });
+  }, [allMessages, currentTutorId, onMarkRead]);
+
+  const startEdit = (m: Message) => {
+    setEditingMessageId(m.id);
+    setEditText(m.message);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingMessageId || !editText.trim()) return;
+    setIsSaving(true);
+    try {
+      await onEdit(editingMessageId, editText.trim());
+      setEditingMessageId(null);
+      setEditText("");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <button
+          onClick={onClose}
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-semibold text-gray-900 dark:text-white truncate">
+            {msg.subject || "(no subject)"}
+          </h2>
+          <div className="text-xs text-gray-500 dark:text-gray-500">
+            {allMessages.length} message{allMessages.length !== 1 && "s"}
+          </div>
+        </div>
+        <button
+          onClick={() => onReply(msg)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
+        >
+          <Reply className="h-4 w-4" />
+          Reply
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {allMessages.map((m, idx) => {
+          const isOwn = m.from_tutor_id === currentTutorId;
+          const isEditing = editingMessageId === m.id;
+
+          return (
+            <div
+              key={m.id}
+              className={cn(
+                "p-4 rounded-lg border",
+                isOwn
+                  ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a] ml-8"
+                  : "bg-white dark:bg-[#2a2a2a] border-[#e8d4b8] dark:border-[#6b5a4a]"
+              )}
+            >
+              {/* Message header */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <span className="font-medium text-gray-900 dark:text-white truncate">
+                    {m.from_tutor_name || "Unknown"}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-500 flex-shrink-0">→</span>
+                  <span className="text-gray-600 dark:text-gray-400 truncate">
+                    {m.to_tutor_id === null ? "All" : m.to_tutor_name || "Unknown"}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 whitespace-nowrap">
+                  {new Date(m.created_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </span>
+              </div>
+
+              {/* Message body - editable for own messages */}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
+                    rows={4}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveEdit}
+                      disabled={isSaving || !editText.trim()}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                  {m.message}
+                </div>
+              )}
+
+              {/* Message footer */}
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <button
+                  onClick={() => onLike(m.id)}
+                  className={cn(
+                    "flex items-center gap-1 text-sm transition-colors",
+                    m.is_liked_by_me
+                      ? "text-red-500"
+                      : "text-gray-500 hover:text-red-500"
+                  )}
+                >
+                  <Heart className={cn("h-4 w-4", m.is_liked_by_me && "fill-current")} />
+                  {m.like_count > 0 && m.like_count}
+                </button>
+                {isOwn && !isEditing && (
+                  <button
+                    onClick={() => startEdit(m)}
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </button>
+                )}
+                {idx === allMessages.length - 1 && (
+                  <button
+                    onClick={() => onReply(m)}
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                  >
+                    <Reply className="h-4 w-4" />
+                    Reply
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function InboxPage() {
+  usePageTitle("Inbox");
+
+  const { selectedLocation } = useLocation();
+  const { data: tutors = [] } = useTutors();
+  const { showToast } = useToast();
+
+  // State
+  const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("inbox");
+  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
+  const [showCompose, setShowCompose] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | undefined>();
+  const [isMobile, setIsMobile] = useState(false);
+  const [categoryCollapsed, setCategoryCollapsed] = useState(false);
+
+  // Get category filter
+  const categoryFilter = useMemo(() => {
+    const cat = CATEGORIES.find(c => c.id === selectedCategory);
+    return cat?.filter;
+  }, [selectedCategory]);
+
+  // Fetch data
+  const { data: threads = [], isLoading: loadingThreads, error: threadsError } = useMessageThreads(
+    selectedCategory === "sent" ? null : (typeof selectedTutorId === "number" ? selectedTutorId : null),
+    categoryFilter
+  );
+
+  const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
+    selectedCategory === "sent" && typeof selectedTutorId === "number" ? selectedTutorId : null
+  );
+
+  const { data: unreadCount } = useUnreadMessageCount(
+    typeof selectedTutorId === "number" ? selectedTutorId : null
+  );
+
+  // Convert sent messages to thread format for display
+  const sentAsThreads: MessageThread[] = useMemo(() => {
+    return sentMessages.map(msg => ({
+      root_message: msg,
+      replies: [],
+      total_unread: 0,
+    }));
+  }, [sentMessages]);
+
+  // Determine which data to show
+  const displayThreads = selectedCategory === "sent" ? sentAsThreads : threads;
+  const isLoading = selectedCategory === "sent" ? loadingSent : loadingThreads;
+
+  // Auto-select first tutor
+  useEffect(() => {
+    if (selectedTutorId === null && tutors.length > 0) {
+      const effectiveLocation = selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
+      const filteredTutors = effectiveLocation
+        ? tutors.filter(t => t.default_location === effectiveLocation)
+        : tutors;
+      if (filteredTutors.length > 0) {
+        setSelectedTutorId(filteredTutors[0].id);
+      }
+    }
+  }, [selectedTutorId, tutors, selectedLocation]);
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Clear selection when category changes
+  useEffect(() => {
+    setSelectedThread(null);
+  }, [selectedCategory]);
+
+  // Handlers
+  const handleSendMessage = useCallback(async (data: MessageCreate) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    try {
+      await messagesAPI.create(data, selectedTutorId);
+      showToast("Message sent!", "success");
+      // Refresh data
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages" || key[0] === "unread-count"));
+    } catch (error) {
+      showToast("Failed to send message", "error");
+      throw error;
+    }
+  }, [selectedTutorId, showToast]);
+
+  const handleLike = useCallback(async (messageId: number) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    try {
+      await messagesAPI.toggleLike(messageId, selectedTutorId);
+      mutate((key) => Array.isArray(key) && key[0] === "message-threads");
+    } catch (error) {
+      showToast("Failed to toggle like", "error");
+    }
+  }, [selectedTutorId, showToast]);
+
+  const handleMarkRead = useCallback(async (messageId: number) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    try {
+      await messagesAPI.markRead(messageId, selectedTutorId);
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
+    } catch (error) {
+      // Silently fail for mark read
+    }
+  }, [selectedTutorId]);
+
+  const handleReply = useCallback((msg: Message) => {
+    setReplyTo(msg);
+    setShowCompose(true);
+  }, []);
+
+  const handleCompose = useCallback(() => {
+    setReplyTo(undefined);
+    setShowCompose(true);
+  }, []);
+
+  const handleEdit = useCallback(async (messageId: number, newText: string) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    try {
+      await messagesAPI.update(messageId, newText, selectedTutorId);
+      showToast("Message updated!", "success");
+      mutate((key) => Array.isArray(key) && key[0] === "message-threads");
+    } catch (error) {
+      showToast("Failed to update message", "error");
+      throw error;
+    }
+  }, [selectedTutorId, showToast]);
+
+  return (
+    <DeskSurface fullHeight>
+      <PageTransition className="h-full">
+        <div className="h-full flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Inbox className="h-6 w-6 text-[#a0704b]" />
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
+                {unreadCount && unreadCount.count > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-bold text-white bg-[#a0704b] rounded-full">
+                    {unreadCount.count}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <TutorSelector
+                  value={selectedTutorId}
+                  onChange={setSelectedTutorId}
+                  showAllTutors={false}
+                  className="w-36"
+                />
+                <button
+                  onClick={handleCompose}
+                  disabled={typeof selectedTutorId !== "number"}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <PenSquare className="h-4 w-4" />
+                  Compose
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main content - 3 panel layout */}
+          <div className="flex-1 flex overflow-hidden min-h-0">
+            {/* Left panel - Categories */}
+            <div className={cn(
+              "h-full flex-shrink-0 border-r border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#1a1a1a]/50 transition-all duration-200 overflow-y-auto",
+              categoryCollapsed ? "w-12" : "w-48",
+              isMobile && selectedThread && "hidden"
+            )}>
+              <div className="p-2">
+                <button
+                  onClick={() => setCategoryCollapsed(!categoryCollapsed)}
+                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] mb-1"
+                  title={categoryCollapsed ? "Expand" : "Collapse"}
+                >
+                  {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                </button>
+                <nav className="space-y-1">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                        categoryCollapsed && "justify-center px-2",
+                        selectedCategory === cat.id
+                          ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                      )}
+                      title={categoryCollapsed ? cat.label : undefined}
+                    >
+                      {cat.icon}
+                      {!categoryCollapsed && <span>{cat.label}</span>}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            </div>
+
+            {/* Middle panel - Thread list */}
+            <div className={cn(
+              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/30 flex flex-col",
+              isMobile && selectedThread && "hidden"
+            )}>
+              {isLoading ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+                </div>
+              ) : threadsError ? (
+                <div className="flex-1 flex items-center justify-center text-red-500">
+                  <AlertCircle className="h-6 w-6 mr-2" />
+                  Failed to load messages
+                </div>
+              ) : displayThreads.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
+                  <div className="text-center">
+                    <Inbox className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No messages</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto">
+                  {displayThreads.map((thread) => (
+                    <ThreadItem
+                      key={thread.root_message.id}
+                      thread={thread}
+                      isSelected={selectedThread?.root_message.id === thread.root_message.id}
+                      onClick={() => setSelectedThread(thread)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Right panel - Thread detail */}
+            {selectedThread && typeof selectedTutorId === "number" && (
+              <div className={cn(
+                "h-full border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
+                isMobile ? "fixed inset-0 z-40" : "w-[450px] flex-shrink-0"
+              )}>
+                <ThreadDetailPanel
+                  thread={selectedThread}
+                  currentTutorId={selectedTutorId}
+                  onClose={() => setSelectedThread(null)}
+                  onReply={handleReply}
+                  onLike={handleLike}
+                  onMarkRead={handleMarkRead}
+                  onEdit={handleEdit}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </PageTransition>
+
+      {/* Compose Modal */}
+      <ComposeModal
+        isOpen={showCompose}
+        onClose={() => setShowCompose(false)}
+        tutors={tutors}
+        fromTutorId={typeof selectedTutorId === "number" ? selectedTutorId : 0}
+        replyTo={replyTo}
+        onSend={handleSendMessage}
+      />
+    </DeskSurface>
+  );
+}

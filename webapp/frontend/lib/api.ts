@@ -21,6 +21,13 @@ import type {
   TerminationStatsResponse,
   QuarterOption,
   OverdueEnrollment,
+  Message,
+  MessageThread,
+  MessageCreate,
+  MessageCategory,
+  MakeupSlotSuggestion,
+  ScheduleMakeupRequest,
+  ScheduleMakeupResponse,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -248,6 +255,27 @@ export const sessionsAPI = {
     return fetchAPI<Session>(`/sessions/${sessionId}`, {
       method: 'PATCH',
       body: JSON.stringify(updates),
+    });
+  },
+
+  // Make-up scheduling
+  getMakeupSuggestions: (
+    sessionId: number,
+    options?: { daysAhead?: number; limit?: number }
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.daysAhead) params.append('days_ahead', options.daysAhead.toString());
+    if (options?.limit) params.append('limit', options.limit.toString());
+    const query = params.toString();
+    return fetchAPI<MakeupSlotSuggestion[]>(
+      `/sessions/${sessionId}/makeup-suggestions${query ? `?${query}` : ''}`
+    );
+  },
+
+  scheduleMakeup: (sessionId: number, request: ScheduleMakeupRequest) => {
+    return fetchAPI<ScheduleMakeupResponse>(`/sessions/${sessionId}/schedule-makeup`, {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   },
 };
@@ -790,6 +818,72 @@ export const terminationsAPI = {
   },
 };
 
+// Messages API
+export const messagesAPI = {
+  // Get message threads for a tutor
+  getThreads: (
+    tutorId: number,
+    category?: MessageCategory,
+    limit?: number,
+    offset?: number
+  ) => {
+    const params = new URLSearchParams({ tutor_id: tutorId.toString() });
+    if (category) params.append("category", category);
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+    return fetchAPI<MessageThread[]>(`/messages?${params}`);
+  },
+
+  // Get sent messages for a tutor
+  getSent: (tutorId: number, limit?: number, offset?: number) => {
+    const params = new URLSearchParams({ tutor_id: tutorId.toString() });
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+    return fetchAPI<Message[]>(`/messages/sent?${params}`);
+  },
+
+  // Get unread count for a tutor
+  getUnreadCount: (tutorId: number) => {
+    return fetchAPI<{ count: number }>(`/messages/unread-count?tutor_id=${tutorId}`);
+  },
+
+  // Get a specific thread
+  getThread: (messageId: number, tutorId: number) => {
+    return fetchAPI<MessageThread>(`/messages/thread/${messageId}?tutor_id=${tutorId}`);
+  },
+
+  // Create a new message
+  create: (data: MessageCreate, fromTutorId: number) => {
+    return fetchAPI<Message>(`/messages?from_tutor_id=${fromTutorId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Mark message as read
+  markRead: (messageId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean }>(`/messages/${messageId}/read?tutor_id=${tutorId}`, {
+      method: "POST",
+    });
+  },
+
+  // Toggle like on a message
+  toggleLike: (messageId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean; is_liked: boolean; like_count: number }>(
+      `/messages/${messageId}/like?tutor_id=${tutorId}`,
+      { method: "POST" }
+    );
+  },
+
+  // Update a message (only by sender)
+  update: (messageId: number, message: string, tutorId: number) => {
+    return fetchAPI<Message>(`/messages/${messageId}?tutor_id=${tutorId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ message }),
+    });
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -807,4 +901,5 @@ export const api = {
   parentCommunications: parentCommunicationsAPI,
   locationSettings: locationSettingsAPI,
   terminations: terminationsAPI,
+  messages: messagesAPI,
 };
