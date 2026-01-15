@@ -46,7 +46,7 @@ export function AttentionCard({ pendingPayments, className, isMobile = false }: 
         label: 'Overdue Payments',
         count: pendingPayments,
         severity: 'danger',
-        href: '/enrollments?status=pending',
+        href: '/overdue-payments',
       });
     }
 

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -295,5 +295,16 @@ export function useTerminationStats(
       ? ['termination-stats', quarter, year, location || 'all', tutorId || 'all']
       : null,
     () => terminationsAPI.getStats(quarter!, year!, location, tutorId)
+  );
+}
+
+/**
+ * Hook for fetching overdue enrollments (pending payment with lessons started)
+ * Returns enrollments sorted by days overdue (most overdue first)
+ */
+export function useOverdueEnrollments(location?: string, tutorId?: number) {
+  return useSWR<OverdueEnrollment[]>(
+    ['overdue-enrollments', location || 'all', tutorId || 'all'],
+    () => enrollmentsAPI.getOverdue(location, tutorId)
   );
 }

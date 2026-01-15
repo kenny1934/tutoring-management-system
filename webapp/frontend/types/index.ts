@@ -388,3 +388,20 @@ export interface QuarterOption {
   year: number;
   count: number;
 }
+
+// Overdue enrollment types
+export interface OverdueEnrollment {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  tutor_id?: number;
+  tutor_name?: string;
+  assigned_day?: string;
+  assigned_time?: string;
+  location?: string;
+  first_lesson_date: string;  // ISO format (YYYY-MM-DD)
+  lessons_paid: number;
+  days_overdue: number;
+}

@@ -129,6 +129,25 @@ class EnrollmentUpdate(BaseModel):
     enrollment_type: Optional[str] = Field(None, max_length=50)
 
 
+class OverdueEnrollment(BaseModel):
+    """Overdue enrollment with days overdue calculation"""
+    id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=200)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=20)
+    tutor_id: Optional[int] = Field(None, gt=0)
+    tutor_name: Optional[str] = Field(None, max_length=200)
+    assigned_day: Optional[str] = Field(None, max_length=20)
+    assigned_time: Optional[str] = Field(None, max_length=20)
+    location: Optional[str] = Field(None, max_length=200)
+    first_lesson_date: date
+    lessons_paid: int = Field(..., ge=0)
+    days_overdue: int  # Negative for upcoming ("due soon"), positive for overdue
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================
 # Session Schemas
 # ============================================

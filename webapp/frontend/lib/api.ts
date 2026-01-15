@@ -20,6 +20,7 @@ import type {
   TerminationRecordResponse,
   TerminationStatsResponse,
   QuarterOption,
+  OverdueEnrollment,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -118,6 +119,18 @@ export const enrollmentsAPI = {
       params.append("location", location);
     }
     return fetchAPI<Enrollment[]>(`/enrollments/my-students?${params.toString()}`);
+  },
+
+  getOverdue: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    const queryString = params.toString();
+    return fetchAPI<OverdueEnrollment[]>(`/enrollments/overdue${queryString ? `?${queryString}` : ''}`);
   },
 };
 

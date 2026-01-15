@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import date, timedelta
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
-from schemas import EnrollmentResponse, EnrollmentUpdate
+from schemas import EnrollmentResponse, EnrollmentUpdate, OverdueEnrollment
 
 router = APIRouter()
 
@@ -175,6 +175,79 @@ async def get_active_enrollments(
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
         result.append(enrollment_data)
+
+    return result
+
+
+@router.get("/enrollments/overdue", response_model=List[OverdueEnrollment])
+async def get_overdue_enrollments(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get overdue and upcoming enrollments with pending payment.
+
+    Includes:
+    - Overdue: payment_status = 'Pending Payment' AND first_lesson_date <= today
+    - Due Soon: payment_status = 'Pending Payment' AND first_lesson_date within next 7 days
+
+    Returns enrollments with calculated days_overdue (negative for upcoming).
+    Sorted by days_overdue descending (most overdue first).
+
+    - **location**: Filter by location (optional)
+    - **tutor_id**: Filter by tutor ID (optional)
+    """
+    today = date.today()
+    week_from_now = today + timedelta(days=7)
+
+    query = (
+        db.query(Enrollment)
+        .options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.tutor)
+        )
+        .filter(
+            Enrollment.payment_status == "Pending Payment",
+            Enrollment.first_lesson_date.isnot(None),
+            Enrollment.first_lesson_date <= week_from_now,
+            Enrollment.student_id.isnot(None)
+        )
+    )
+
+    # Apply location filter if provided
+    if location:
+        query = query.filter(Enrollment.location == location)
+
+    # Apply tutor filter if provided
+    if tutor_id:
+        query = query.filter(Enrollment.tutor_id == tutor_id)
+
+    overdue_enrollments = query.all()
+
+    # Build response with days_overdue calculation
+    result = []
+    for enrollment in overdue_enrollments:
+        days_overdue = (today - enrollment.first_lesson_date).days
+
+        result.append(OverdueEnrollment(
+            id=enrollment.id,
+            student_id=enrollment.student_id,
+            student_name=enrollment.student.student_name if enrollment.student else "",
+            school_student_id=enrollment.student.school_student_id if enrollment.student else None,
+            grade=enrollment.student.grade if enrollment.student else None,
+            tutor_id=enrollment.tutor_id,
+            tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else None,
+            assigned_day=enrollment.assigned_day,
+            assigned_time=enrollment.assigned_time,
+            location=enrollment.location,
+            first_lesson_date=enrollment.first_lesson_date,
+            lessons_paid=enrollment.lessons_paid or 0,
+            days_overdue=days_overdue
+        ))
+
+    # Sort by days_overdue descending (most overdue first)
+    result.sort(key=lambda x: x.days_overdue, reverse=True)
 
     return result
 
