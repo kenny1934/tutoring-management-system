@@ -69,7 +69,7 @@ export function NotificationBell({ pendingPayments, location }: NotificationBell
         label: "Overdue Payments",
         count: pendingPayments,
         severity: "danger",
-        href: "/enrollments?status=pending",
+        href: "/overdue-payments",
       });
     }
 

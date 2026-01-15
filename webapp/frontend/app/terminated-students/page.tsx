@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats } from "@/lib/hooks";
@@ -10,7 +11,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { terminationsAPI } from "@/lib/api";
-import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, X, Save, RotateCcw } from "lucide-react";
+import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats } from "@/types";
@@ -51,6 +52,10 @@ export default function TerminatedStudentsPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState<{
+    column: 'id' | 'lastLesson';
+    direction: 'asc' | 'desc';
+  }>({ column: 'lastLesson', direction: 'asc' });
 
   // Pending changes state for batch save
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
@@ -189,6 +194,14 @@ export default function TerminatedStudentsPage() {
   // Discard all pending changes
   const handleDiscardChanges = useCallback(() => {
     setPendingChanges(new Map());
+  }, []);
+
+  // Handle sort column click
+  const handleSort = useCallback((column: 'id' | 'lastLesson') => {
+    setSortConfig(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
   }, []);
 
   // Save all pending changes
@@ -350,7 +363,6 @@ export default function TerminatedStudentsPage() {
                     onChange={setSelectedTutorId}
                     location={effectiveLocation}
                     showAllTutors
-                    className="w-[180px]"
                   />
                 )}
               </div>
@@ -480,12 +492,36 @@ export default function TerminatedStudentsPage() {
                       <thead className="bg-muted/50">
                         <tr>
                           <th className="px-4 py-3 text-left font-medium w-10">Count</th>
-                          <th className="px-4 py-3 text-left font-medium">ID#</th>
+                          <th className="px-4 py-3 text-left font-medium">
+                            <button
+                              onClick={() => handleSort('id')}
+                              className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                            >
+                              ID#
+                              {sortConfig.column === 'id' ? (
+                                sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                              )}
+                            </button>
+                          </th>
                           <th className="px-4 py-3 text-left font-medium">Student</th>
                           <th className="px-4 py-3 text-left font-medium">Grade</th>
                           <th className="px-4 py-3 text-left font-medium">Instructor</th>
                           <th className="px-4 py-3 text-left font-medium">Schedule</th>
-                          <th className="px-4 py-3 text-left font-medium">Last Lesson</th>
+                          <th className="px-4 py-3 text-left font-medium">
+                            <button
+                              onClick={() => handleSort('lastLesson')}
+                              className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
+                            >
+                              Last Lesson
+                              {sortConfig.column === 'lastLesson' ? (
+                                sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                              ) : (
+                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                              )}
+                            </button>
+                          </th>
                           <th className="px-4 py-3 text-left font-medium min-w-[200px]">Reason</th>
                         </tr>
                       </thead>
@@ -501,7 +537,15 @@ export default function TerminatedStudentsPage() {
                               </td>
                             </tr>
                             {/* Students */}
-                            {students.map((student) => (
+                            {[...students]
+                              .sort((a, b) => {
+                                const dir = sortConfig.direction === 'asc' ? 1 : -1;
+                                if (sortConfig.column === 'id') {
+                                  return dir * (a.school_student_id || '').localeCompare(b.school_student_id || '');
+                                }
+                                return dir * (a.termination_date || '').localeCompare(b.termination_date || '');
+                              })
+                              .map((student) => (
                               <TerminatedStudentRow
                                 key={student.student_id}
                                 student={student}
@@ -510,6 +554,7 @@ export default function TerminatedStudentsPage() {
                                 effectiveCountAsTerminated={getEffectiveValue(student, 'countAsTerminated') as boolean}
                                 effectiveReason={getEffectiveValue(student, 'reason') as string}
                                 hasPendingChanges={hasPendingChanges(student.student_id)}
+                                showLocationPrefix={selectedLocation === "All Locations"}
                               />
                             ))}
                           </React.Fragment>
@@ -561,7 +606,7 @@ export default function TerminatedStudentsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfirmDialog(false)} />
             <div className={cn(
-              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl shadow-xl max-w-md w-full mx-4 p-6",
+              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl shadow-xl max-w-md w-full min-w-[400px] mx-4 p-6",
               "border-2 border-[#d4a574] dark:border-[#8b6f47]",
               "paper-texture"
             )}>
@@ -599,6 +644,7 @@ function TerminatedStudentRow({
   effectiveCountAsTerminated,
   effectiveReason,
   hasPendingChanges,
+  showLocationPrefix,
 }: {
   student: TerminatedStudent;
   onCheckboxToggle: (student: TerminatedStudent) => void;
@@ -606,6 +652,7 @@ function TerminatedStudentRow({
   effectiveCountAsTerminated: boolean;
   effectiveReason: string;
   hasPendingChanges: boolean;
+  showLocationPrefix: boolean;
 }) {
   const [localReason, setLocalReason] = useState(effectiveReason);
   const [isEditing, setIsEditing] = useState(false);
@@ -642,12 +689,17 @@ function TerminatedStudentRow({
         </button>
       </td>
       {/* ID */}
-      <td className="px-4 py-3 font-mono text-xs">
-        {student.school_student_id || "-"}
+      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+        {showLocationPrefix && student.home_location && `${student.home_location}-`}{student.school_student_id || "-"}
       </td>
       {/* Name */}
       <td className="px-4 py-3 font-medium">
-        {student.student_name}
+        <Link
+          href={`/students/${student.student_id}`}
+          className="hover:text-[#a0704b] dark:hover:text-[#cd853f] hover:underline"
+        >
+          {student.student_name}
+        </Link>
         {hasPendingChanges && (
           <span className="ml-2 text-xs text-[#a0704b] dark:text-[#cd853f]">•</span>
         )}
@@ -686,9 +738,9 @@ function TerminatedStudentRow({
 // Tutor Stats Row Component
 function TutorStatsRow({ stats }: { stats: TutorTerminationStats }) {
   const termRateColor = useMemo(() => {
-    if (stats.term_rate > 30) return "text-red-600";
-    if (stats.term_rate > 15) return "text-amber-600";
-    return "text-green-600";
+    if (stats.term_rate > 30) return "text-red-600 dark:text-red-400";
+    if (stats.term_rate > 15) return "text-amber-600 dark:text-amber-400";
+    return "text-green-600 dark:text-green-400";
   }, [stats.term_rate]);
 
   const enrollTransferColor = useMemo(() => {
