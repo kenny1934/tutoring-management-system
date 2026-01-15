@@ -843,6 +843,7 @@ async def schedule_makeup(
         session_status="Make-up Class",
         financial_status="Unpaid",  # Inherits from original or set to Unpaid
         make_up_for_id=original_session.id,
+        notes=request.notes,  # Optional reason for scheduling
         last_modified_by="system@csmpro.app",
         last_modified_time=datetime.now()
     )
