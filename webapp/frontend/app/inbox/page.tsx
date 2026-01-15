@@ -349,6 +349,18 @@ function ComposeModal({
             </div>
           </div>
 
+          {/* Reply context */}
+          {replyTo && (
+            <div className="p-3 bg-gray-50 dark:bg-[#2a2a2a] rounded-lg border-l-4 border-[#a0704b] text-sm">
+              <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {replyTo.from_tutor_name} wrote:
+              </div>
+              <div className="text-gray-600 dark:text-gray-400 line-clamp-3">
+                {replyTo.message}
+              </div>
+            </div>
+          )}
+
           {/* Message */}
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
@@ -459,10 +471,15 @@ function ThreadItem({
 
           {/* Subject */}
           <div className={cn(
-            "text-sm truncate",
+            "text-sm truncate flex items-center gap-1",
             hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"
           )}>
-            {msg.subject || "(no subject)"}
+            {msg.category && (
+              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
+                {CATEGORIES.find(c => c.filter === msg.category)?.icon}
+              </span>
+            )}
+            <span className="truncate">{msg.subject || "(no subject)"}</span>
           </div>
 
           {/* Preview */}
@@ -530,7 +547,25 @@ function ThreadDetailPanel({
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertEditEmoji = (emoji: string) => {
+    const textarea = editTextareaRef.current;
+    if (!textarea) {
+      setEditText((prev) => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newText = editText.slice(0, start) + emoji + editText.slice(end);
+    setEditText(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 0);
+  };
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -556,6 +591,7 @@ function ThreadDetailPanel({
   const cancelEdit = () => {
     setEditingMessageId(null);
     setEditText("");
+    setShowEditEmojiPicker(false);
   };
 
   const saveEdit = async () => {
@@ -565,6 +601,7 @@ function ThreadDetailPanel({
       await onEdit(editingMessageId, editText.trim());
       setEditingMessageId(null);
       setEditText("");
+      setShowEditEmojiPicker(false);
     } finally {
       setIsSaving(false);
     }
@@ -634,7 +671,7 @@ function ThreadDetailPanel({
                     {m.to_tutor_id === null ? "All" : m.to_tutor_name || "Unknown"}
                   </span>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 whitespace-nowrap">
+                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 whitespace-nowrap flex items-center gap-1">
                   {new Date(m.created_at).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -643,19 +680,40 @@ function ThreadDetailPanel({
                     minute: '2-digit',
                     hour12: true
                   })}
+                  {m.updated_at && m.updated_at !== m.created_at && (
+                    <span className="text-gray-400 dark:text-gray-500 italic">(edited)</span>
+                  )}
                 </span>
               </div>
 
               {/* Message body - editable for own messages */}
               {isEditing ? (
                 <div className="space-y-2">
-                  <textarea
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
-                    rows={4}
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <textarea
+                      ref={editTextareaRef}
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
+                      rows={4}
+                      autoFocus
+                    />
+                    <div className="absolute bottom-2 right-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
+                        className="p-1.5 text-gray-500 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        title="Add emoji"
+                      >
+                        <Smile className="h-5 w-5" />
+                      </button>
+                      <EmojiPicker
+                        isOpen={showEditEmojiPicker}
+                        onClose={() => setShowEditEmojiPicker(false)}
+                        onSelect={insertEditEmoji}
+                      />
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={saveEdit}

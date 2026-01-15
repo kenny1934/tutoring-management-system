@@ -421,6 +421,7 @@ export interface Message {
   priority: MessagePriority;
   category?: MessageCategory;
   created_at: string;
+  updated_at?: string;
   reply_to_id?: number;
   is_read: boolean;
   like_count: number;

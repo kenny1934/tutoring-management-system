@@ -457,6 +457,7 @@ class TutorMessage(Base):
     priority = Column(String(20), default="Normal")  # Normal, High, Urgent
     category = Column(String(50))  # Reminder, Question, Announcement, Schedule, Handover
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, nullable=True)  # Set when message is edited
     reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
     image_attachment = Column(String(500))  # Optional image URL/path
 

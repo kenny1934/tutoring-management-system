@@ -684,6 +684,7 @@ class MessageResponse(MessageBase):
     to_tutor_id: Optional[int] = Field(None, gt=0)
     to_tutor_name: Optional[str] = Field(None, max_length=255)  # "All" for broadcasts
     created_at: datetime
+    updated_at: Optional[datetime] = None
     reply_to_id: Optional[int] = Field(None, gt=0)
     is_read: bool = False
     like_count: int = Field(default=0, ge=0)
