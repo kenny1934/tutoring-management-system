@@ -333,6 +333,7 @@ class ScheduleMakeupRequest(BaseModel):
     time_slot: str = Field(..., max_length=50)
     tutor_id: int = Field(..., gt=0)
     location: str = Field(..., max_length=200)
+    notes: Optional[str] = Field(None, max_length=500, description="Optional reason for scheduling this make-up")
 
 
 class ScheduleMakeupResponse(BaseModel):

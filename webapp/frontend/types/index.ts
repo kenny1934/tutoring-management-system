@@ -483,6 +483,7 @@ export interface ScheduleMakeupRequest {
   time_slot: string;
   tutor_id: number;
   location: string;
+  notes?: string;  // Optional reason for scheduling
 }
 
 export interface ScheduleMakeupResponse {

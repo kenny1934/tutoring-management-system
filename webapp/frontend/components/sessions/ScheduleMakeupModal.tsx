@@ -228,6 +228,7 @@ export function ScheduleMakeupModal({
   const [expandedSlotStudents, setExpandedSlotStudents] = useState<string | null>(null);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [showManualForm, setShowManualForm] = useState(true);
+  const [makeupNotes, setMakeupNotes] = useState("");
 
   // Location is fixed to original session's location
   const location = session.location || "";
@@ -423,12 +424,18 @@ export function ScheduleMakeupModal({
     time_slot: string;
     tutor_id: number;
     location: string;
+    notes?: string;
   }) => {
     setIsSaving(true);
     setValidationError(null);
 
     try {
-      const response = await sessionsAPI.scheduleMakeup(session.id, params);
+      // Include notes if provided
+      const requestParams = {
+        ...params,
+        notes: makeupNotes.trim() || undefined,
+      };
+      const response = await sessionsAPI.scheduleMakeup(session.id, requestParams);
       updateSessionInCache(response.original_session);
       updateSessionInCache(response.makeup_session);
       showToast("Make-up class scheduled successfully", "success");
@@ -651,6 +658,18 @@ export function ScheduleMakeupModal({
           <span className="text-orange-600 dark:text-orange-400">{session.session_status}</span>
         </div>
 
+        {/* Optional Notes Field */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={makeupNotes}
+            onChange={(e) => setMakeupNotes(e.target.value)}
+            placeholder="Reason for make-up (optional)"
+            maxLength={500}
+            className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 placeholder:text-gray-400"
+          />
+        </div>
+
         {/* Validation Error */}
         {validationError && (
           <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
@@ -683,21 +702,37 @@ export function ScheduleMakeupModal({
               )}
             </div>
             {showSuggestions && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowWeightTuner(!showWeightTuner);
-                }}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors",
-                  showWeightTuner
-                    ? "bg-[#a0704b] text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+              <div className="flex items-center gap-1.5">
+                {/* Quick Book Best Suggestion */}
+                {sortedSuggestions.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmSuggestion(sortedSuggestions[0]);
+                    }}
+                    disabled={isSaving}
+                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
+                  >
+                    <Check className="h-3 w-3" />
+                    Quick Book
+                  </button>
                 )}
-              >
-                <Settings2 className="h-3 w-3" />
-                Tune
-              </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowWeightTuner(!showWeightTuner);
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors",
+                    showWeightTuner
+                      ? "bg-[#a0704b] text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                  )}
+                >
+                  <Settings2 className="h-3 w-3" />
+                  Tune
+                </button>
+              </div>
             )}
           </div>
 
