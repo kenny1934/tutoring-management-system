@@ -16,6 +16,7 @@ import {
 import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import type { Enrollment } from "@/types";
@@ -32,9 +33,6 @@ const isWeekend = (day: string) => day === "Sat" || day === "Sun" || day === "Sa
 
 // Get time options based on selected day
 const getTimeOptions = (day: string) => isWeekend(day) ? WEEKEND_TIMES : WEEKDAY_TIMES;
-
-// Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 interface EnrollmentDetailPopoverProps {
   enrollment: Enrollment | null;

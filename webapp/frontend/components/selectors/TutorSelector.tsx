@@ -15,10 +15,8 @@ import {
 import { ChevronDown, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Tutor } from "@/types";
-
-// Helper to sort tutors by first name (stripping Mr/Ms/Mrs prefix)
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 // Special value for "All Tutors" mode
 export const ALL_TUTORS = 'all' as const;

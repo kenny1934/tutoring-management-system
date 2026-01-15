@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { useLocation } from "@/contexts/LocationContext";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 // Helper to format date
 function formatDate(dateStr: string): string {
@@ -45,9 +46,6 @@ function formatScheduleBadge(day?: string, time?: string): string {
   if (!time) return day || "";
   return `${day} ${time}`;
 }
-
-// Helper to get tutor name without Mr/Ms prefix for sorting
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
 
 export default function EnrollmentDetailPage() {
   const params = useParams();

@@ -17,9 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
-
-// Helper to get tutor name without Mr/Ms prefix for sorting
-const getTutorSortName = (name: string) => name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 
 interface DailyGridViewProps {
   sessions: Session[];
