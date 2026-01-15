@@ -319,7 +319,8 @@ export function useMessageThreads(
 ) {
   return useSWR<MessageThread[]>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
-    () => messagesAPI.getThreads(tutorId!, category)
+    () => messagesAPI.getThreads(tutorId!, category),
+    { refreshInterval: 60000 }  // Poll every 60 seconds for new messages
   );
 }
 
@@ -339,7 +340,8 @@ export function useSentMessages(tutorId: number | null | undefined) {
 export function useUnreadMessageCount(tutorId: number | null | undefined) {
   return useSWR<{ count: number }>(
     tutorId ? ['unread-count', tutorId] : null,
-    () => messagesAPI.getUnreadCount(tutorId!)
+    () => messagesAPI.getUnreadCount(tutorId!),
+    { refreshInterval: 30000 }  // Poll every 30 seconds for notification badge
   );
 }
 
