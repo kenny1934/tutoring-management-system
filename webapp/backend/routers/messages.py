@@ -478,6 +478,7 @@ async def update_message(
 
     if update_data.message is not None:
         message.message = update_data.message
+        message.updated_at = datetime.now()
 
     db.commit()
     db.refresh(message)
