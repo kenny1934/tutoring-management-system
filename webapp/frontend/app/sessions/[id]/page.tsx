@@ -76,7 +76,6 @@ export default function SessionDetailPage() {
         setCurriculumSuggestion(data);
       } catch (err) {
         // Silently fail if no curriculum suggestions available
-        console.log("No curriculum suggestions found for this session");
         setCurriculumSuggestion(null);
       }
     }
@@ -91,7 +90,6 @@ export default function SessionDetailPage() {
         setUpcomingTests(data);
       } catch (err) {
         // Silently fail if no upcoming tests available
-        console.log("No upcoming tests found for this session");
         setUpcomingTests([]);
       }
     }
