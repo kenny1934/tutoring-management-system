@@ -28,9 +28,10 @@ engine = create_engine(
     max_overflow=10,
     pool_timeout=30,
     pool_recycle=3600,
-    pool_pre_ping=False,  # Disabled to avoid timeout issues
+    pool_pre_ping=True,  # Re-enabled for connection health checks
     echo=False,  # Set to True for SQL debugging
     connect_args={
+        "charset": "utf8mb4",  # Full Unicode support including emojis
         "connect_timeout": 10,  # 10 second connection timeout
         "read_timeout": 60,  # 60 second read timeout for complex queries
         "write_timeout": 30,
