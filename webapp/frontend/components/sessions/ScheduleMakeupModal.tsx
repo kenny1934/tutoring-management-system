@@ -28,16 +28,13 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
-  Clock,
   User,
-  MapPin,
   Users,
   Loader2,
   Check,
   AlertTriangle,
   Sparkles,
   X,
-  ArrowRight,
   Settings2,
   RotateCcw,
 } from "lucide-react";
@@ -142,7 +139,9 @@ export function ScheduleMakeupModal({
     tutorId: number;
     tutorName: string;
   } | null>(null);
+  const [confirmSuggestion, setConfirmSuggestion] = useState<MakeupSlotSuggestion | null>(null);
   const [expandedSlotStudents, setExpandedSlotStudents] = useState<string | null>(null);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
   // Location is fixed to original session's location
   const location = session.location || "";
@@ -224,7 +223,9 @@ export function ScheduleMakeupModal({
       setShowSuggestions(true);
       setSelectedDayPickerSlot(null);
       setConfirmBooking(null);
+      setConfirmSuggestion(null);
       setExpandedSlotStudents(null);
+      setShowAllSuggestions(false);
     }
     // eslint-disable-next-line react-hooks-exhaustive-deps
   }, [isOpen, session.tutor_id]);
@@ -309,23 +310,20 @@ export function ScheduleMakeupModal({
     return null;
   }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates]);
 
-  // Handle quick book from suggestion
-  const handleQuickBook = async (suggestion: MakeupSlotSuggestion) => {
+  // Unified booking function
+  const bookMakeup = async (params: {
+    session_date: string;
+    time_slot: string;
+    tutor_id: number;
+    location: string;
+  }) => {
     setIsSaving(true);
     setValidationError(null);
 
     try {
-      const response = await sessionsAPI.scheduleMakeup(session.id, {
-        session_date: suggestion.session_date,
-        time_slot: suggestion.time_slot,
-        tutor_id: suggestion.tutor_id,
-        location: suggestion.location,
-      });
-
-      // Update cache
+      const response = await sessionsAPI.scheduleMakeup(session.id, params);
       updateSessionInCache(response.original_session);
       updateSessionInCache(response.makeup_session);
-
       showToast("Make-up class scheduled successfully", "success");
       onScheduled?.(response.makeup_session, response.original_session);
       onClose();
@@ -338,70 +336,19 @@ export function ScheduleMakeupModal({
     }
   };
 
-  // Handle quick book from day picker
-  const handleQuickBookFromDayPicker = async () => {
-    if (!dayPickerDate || !selectedDayPickerSlot) return;
-
-    setIsSaving(true);
-    setValidationError(null);
-
-    try {
-      const response = await sessionsAPI.scheduleMakeup(session.id, {
-        session_date: dayPickerDate,
-        time_slot: selectedDayPickerSlot.timeSlot,
-        tutor_id: selectedDayPickerSlot.tutorId,
-        location,
-      });
-
-      // Update cache
-      updateSessionInCache(response.original_session);
-      updateSessionInCache(response.makeup_session);
-
-      showToast("Make-up class scheduled successfully", "success");
-      onScheduled?.(response.makeup_session, response.original_session);
-      onClose();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to schedule make-up";
-      setValidationError(message);
-      showToast(message, "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle manual schedule
+  // Handle manual schedule from form
   const handleSchedule = async () => {
     const error = validateForm();
     if (error) {
       setValidationError(error);
       return;
     }
-
-    setIsSaving(true);
-    setValidationError(null);
-
-    try {
-      const response = await sessionsAPI.scheduleMakeup(session.id, {
-        session_date: selectedDate,
-        time_slot: effectiveTimeSlot,
-        tutor_id: selectedTutorId!,
-        location,
-      });
-
-      // Update cache
-      updateSessionInCache(response.original_session);
-      updateSessionInCache(response.makeup_session);
-
-      showToast("Make-up class scheduled successfully", "success");
-      onScheduled?.(response.makeup_session, response.original_session);
-      onClose();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to schedule make-up";
-      setValidationError(message);
-      showToast(message, "error");
-    } finally {
-      setIsSaving(false);
-    }
+    await bookMakeup({
+      session_date: selectedDate,
+      time_slot: effectiveTimeSlot,
+      tutor_id: selectedTutorId!,
+      location,
+    });
   };
 
   // Navigation handlers
@@ -784,7 +731,7 @@ export function ScheduleMakeupModal({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-              {sortedSuggestions.slice(0, 5).map((suggestion) => {
+              {(showAllSuggestions ? sortedSuggestions : sortedSuggestions.slice(0, 5)).map((suggestion) => {
                 const suggestionKey = `${suggestion.session_date}-${suggestion.time_slot}-${suggestion.tutor_id}`;
                 const isExpanded = expandedSuggestion === suggestionKey;
                 const breakdown = suggestion.score_breakdown;
@@ -892,7 +839,7 @@ export function ScheduleMakeupModal({
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleQuickBook(suggestion);
+                            setConfirmSuggestion(suggestion);
                           }}
                           disabled={isSaving}
                           className="w-full h-8 text-xs"
@@ -909,6 +856,14 @@ export function ScheduleMakeupModal({
                   </div>
                 );
               })}
+                  {sortedSuggestions.length > 5 && (
+                    <button
+                      onClick={() => setShowAllSuggestions(!showAllSuggestions)}
+                      className="w-full py-2 text-xs text-[#a0704b] hover:text-[#8b5d3b] hover:underline transition-colors"
+                    >
+                      {showAllSuggestions ? `Show less` : `Show ${sortedSuggestions.length - 5} more suggestions`}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1141,7 +1096,9 @@ export function ScheduleMakeupModal({
                         </span>
                       )}
                       {student.school && (
-                        <span className="text-[9px] text-gray-500">{student.school}</span>
+                        <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                          {student.school}
+                        </span>
                       )}
                     </div>
                   ))}
@@ -1365,16 +1322,45 @@ export function ScheduleMakeupModal({
         </div>
       </div>
 
-      {/* Confirm Booking Dialog */}
+      {/* Confirm Booking Dialog - Day Picker */}
       <ConfirmDialog
         isOpen={!!confirmBooking}
         onConfirm={() => {
-          handleQuickBookFromDayPicker();
+          if (dayPickerDate && confirmBooking) {
+            bookMakeup({
+              session_date: dayPickerDate,
+              time_slot: confirmBooking.timeSlot,
+              tutor_id: confirmBooking.tutorId,
+              location,
+            });
+          }
           setConfirmBooking(null);
         }}
         onCancel={() => setConfirmBooking(null)}
         title="Confirm Make-up Booking"
         message={`Book make-up class on ${dayPickerDate ? new Date(dayPickerDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''} at ${confirmBooking?.timeSlot || ''} with ${confirmBooking?.tutorName || ''}?`}
+        confirmText="Book"
+        variant="default"
+        loading={isSaving}
+      />
+
+      {/* Confirm Booking Dialog - Smart Suggestions */}
+      <ConfirmDialog
+        isOpen={!!confirmSuggestion}
+        onConfirm={() => {
+          if (confirmSuggestion) {
+            bookMakeup({
+              session_date: confirmSuggestion.session_date,
+              time_slot: confirmSuggestion.time_slot,
+              tutor_id: confirmSuggestion.tutor_id,
+              location: confirmSuggestion.location,
+            });
+          }
+          setConfirmSuggestion(null);
+        }}
+        onCancel={() => setConfirmSuggestion(null)}
+        title="Confirm Make-up Booking"
+        message={`Book make-up class on ${confirmSuggestion ? new Date(confirmSuggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''} at ${confirmSuggestion?.time_slot || ''} with ${confirmSuggestion?.tutor_name || ''}?`}
         confirmText="Book"
         variant="default"
         loading={isSaving}
