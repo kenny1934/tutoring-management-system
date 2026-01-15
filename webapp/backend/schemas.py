@@ -297,6 +297,51 @@ class DetailedSessionResponse(SessionResponse):
 
 
 # ============================================
+# Make-up Scheduling Schemas
+# ============================================
+
+class StudentInSlot(BaseModel):
+    """Student info for make-up slot preview"""
+    id: int
+    school_student_id: Optional[str] = None
+    student_name: str
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    session_status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MakeupSlotSuggestion(BaseModel):
+    """Scored slot suggestion for make-up scheduling"""
+    session_date: date
+    time_slot: str
+    tutor_id: int
+    tutor_name: str
+    location: str
+    current_students: int = Field(..., ge=0, description="Only Scheduled + Make-up Class sessions")
+    available_spots: int = Field(..., ge=0, description="8 - current_students")
+    compatibility_score: int = Field(..., ge=0)
+    score_breakdown: dict = Field(default_factory=dict)
+    students_in_slot: List[StudentInSlot] = Field(default_factory=list)
+
+
+class ScheduleMakeupRequest(BaseModel):
+    """Request to schedule a make-up session"""
+    session_date: date
+    time_slot: str = Field(..., max_length=50)
+    tutor_id: int = Field(..., gt=0)
+    location: str = Field(..., max_length=200)
+
+
+class ScheduleMakeupResponse(BaseModel):
+    """Response after scheduling a make-up session"""
+    makeup_session: SessionResponse
+    original_session: SessionResponse
+
+
+# ============================================
 # Curriculum Suggestion Schemas
 # ============================================
 
@@ -608,7 +653,60 @@ class QuarterOption(BaseModel):
     count: int = Field(default=0, ge=0)
 
 
+# ============================================
+# Message Schemas
+# ============================================
+
+class MessageBase(BaseModel):
+    """Base message schema with common fields"""
+    subject: Optional[str] = Field(None, max_length=200)
+    message: str = Field(..., min_length=1)
+    priority: str = Field("Normal", pattern="^(Normal|High|Urgent)$")
+    category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware)$")
+
+
+class MessageCreate(MessageBase):
+    """Schema for creating a new message"""
+    to_tutor_id: Optional[int] = Field(None, gt=0)  # NULL = broadcast
+    reply_to_id: Optional[int] = Field(None, gt=0)
+
+
+class MessageUpdate(BaseModel):
+    """Schema for updating an existing message"""
+    message: Optional[str] = Field(None, min_length=1)
+
+
+class MessageResponse(MessageBase):
+    """Full message response with computed fields"""
+    id: int = Field(..., gt=0)
+    from_tutor_id: int = Field(..., gt=0)
+    from_tutor_name: Optional[str] = Field(None, max_length=255)
+    to_tutor_id: Optional[int] = Field(None, gt=0)
+    to_tutor_name: Optional[str] = Field(None, max_length=255)  # "All" for broadcasts
+    created_at: datetime
+    reply_to_id: Optional[int] = Field(None, gt=0)
+    is_read: bool = False
+    like_count: int = Field(default=0, ge=0)
+    is_liked_by_me: bool = False
+    reply_count: int = Field(default=0, ge=0)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThreadResponse(BaseModel):
+    """Thread with root message and replies"""
+    root_message: MessageResponse
+    replies: List[MessageResponse] = []
+    total_unread: int = Field(default=0, ge=0)
+
+
+class UnreadCountResponse(BaseModel):
+    """Unread message count response"""
+    count: int = Field(default=0, ge=0)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
 DetailedSessionResponse.model_rebuild()
+ThreadResponse.model_rebuild()
