@@ -6,7 +6,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, PenTool, Home, RefreshCw } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -435,6 +435,7 @@ export default function SessionsPage() {
     noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    weatherCancelled: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
   }), [selectedSessions]);
 
   // Bulk selection handlers
@@ -691,6 +692,50 @@ export default function SessionsPage() {
 
     if (failCount === 0) {
       showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as sick leave`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkWeatherCancelled = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('weather-cancelled');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    // Add all markable session IDs to loading state upfront with action ID
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'weather-cancelled');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of markableSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as weather cancelled:`, error);
+        failCount++;
+      }
+      // Remove this session from loading state
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as weather cancelled`, 'success');
     } else {
       showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
     }
@@ -1459,6 +1504,20 @@ export default function SessionsPage() {
                       >
                         <Ambulance className={cn("h-3 w-3", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
                         <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
+                      </button>
+                    )}
+                    {bulkActionsAvailable.weatherCancelled && (
+                      <button
+                        onClick={handleBulkWeatherCancelled}
+                        disabled={bulkActionLoading !== null}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                          bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                        )}
+                        title="Mark all as weather cancelled"
+                      >
+                        <CloudRain className={cn("h-3 w-3", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
+                        <span className="hidden xs:inline">{bulkActionLoading === 'weather-cancelled' ? '...' : 'Weather'}</span>
                       </button>
                     )}
                     {/* Exercise actions - always visible */}

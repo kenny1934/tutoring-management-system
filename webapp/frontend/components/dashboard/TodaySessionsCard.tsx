@@ -4,9 +4,12 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
+import { useToast } from "@/contexts/ToastContext";
+import { sessionsAPI } from "@/lib/api";
+import { updateSessionInCache } from "@/lib/session-cache";
 import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder } from "@/lib/session-status";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -41,12 +44,14 @@ interface TimeSlotGroup {
 
 export function TodaySessionsCard({ className, isMobile = false }: TodaySessionsCardProps) {
   const { selectedLocation } = useLocation();
+  const { showToast } = useToast();
   const todayString = getTodayString();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
   const [loadingSessionActions, setLoadingSessionActions] = useState<Map<number, string>>(new Map());
+  const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
 
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
@@ -198,6 +203,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
     noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
     sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
+    weatherCancelled: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
   }), [selectedSessions]);
 
   // Bulk selection handlers
@@ -225,6 +231,215 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
+
+  // Bulk action handlers
+  const handleBulkAttended = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('attended');
+
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of selectedSessions) {
+        next.set(s.id, 'attended');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markAttended(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as attended:`, error);
+        failCount++;
+      }
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as attended`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkNoShow = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('no-show');
+
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of selectedSessions) {
+        next.set(s.id, 'no-show');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of selectedSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markNoShow(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as no show:`, error);
+        failCount++;
+      }
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as no show`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkReschedule = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('reschedule');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'reschedule');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of markableSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markRescheduled(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as rescheduled:`, error);
+        failCount++;
+      }
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as rescheduled`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkSickLeave = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('sick-leave');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'sick-leave');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of markableSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markSickLeave(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as sick leave:`, error);
+        failCount++;
+      }
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as sick leave`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
+
+  const handleBulkWeatherCancelled = useCallback(async () => {
+    if (selectedSessions.length === 0) return;
+    setBulkActionLoading('weather-cancelled');
+
+    const markableSessions = selectedSessions.filter(canBeMarked);
+    setLoadingSessionActions(prev => {
+      const next = new Map(prev);
+      for (const s of markableSessions) {
+        next.set(s.id, 'weather-cancelled');
+      }
+      return next;
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const session of markableSessions) {
+      try {
+        const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
+        updateSessionInCache(updatedSession);
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to mark session ${session.id} as weather cancelled:`, error);
+        failCount++;
+      }
+      setLoadingSessionActions(prev => {
+        const next = new Map(prev);
+        next.delete(session.id);
+        return next;
+      });
+    }
+
+    setBulkActionLoading(null);
+    clearSelection();
+
+    if (failCount === 0) {
+      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as weather cancelled`, 'success');
+    } else {
+      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
+    }
+  }, [selectedSessions, clearSelection, showToast]);
 
   // Handler for action buttons to update loading state
   const handleActionLoadingChange = useCallback((sessionId: number, isLoading: boolean, actionId?: string) => {
@@ -362,42 +577,72 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               {/* Attendance actions - conditional based on selected sessions */}
               {bulkActionsAvailable.attended && (
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed opacity-50"
-                  title="Coming soon"
+                  onClick={handleBulkAttended}
+                  disabled={bulkActionLoading !== null}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+                    bulkActionLoading === 'attended' ? "opacity-50 cursor-wait" : "hover:bg-green-200 dark:hover:bg-green-900/50"
+                  )}
+                  title="Mark all as attended"
                 >
-                  <CheckCheck className="h-3 w-3" />
-                  <span className="hidden xs:inline">Attended</span>
+                  <CheckCheck className={cn("h-3 w-3", bulkActionLoading === 'attended' && "animate-pulse")} />
+                  <span className="hidden xs:inline">{bulkActionLoading === 'attended' ? '...' : 'Attended'}</span>
                 </button>
               )}
               {bulkActionsAvailable.noShow && (
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 cursor-not-allowed opacity-50"
-                  title="Coming soon"
+                  onClick={handleBulkNoShow}
+                  disabled={bulkActionLoading !== null}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
+                    bulkActionLoading === 'no-show' ? "opacity-50 cursor-wait" : "hover:bg-red-200 dark:hover:bg-red-900/50"
+                  )}
+                  title="Mark all as no show"
                 >
-                  <UserX className="h-3 w-3" />
-                  <span className="hidden xs:inline">No Show</span>
+                  <UserX className={cn("h-3 w-3", bulkActionLoading === 'no-show' && "animate-pulse")} />
+                  <span className="hidden xs:inline">{bulkActionLoading === 'no-show' ? '...' : 'No Show'}</span>
                 </button>
               )}
               {bulkActionsAvailable.reschedule && (
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                  title="Coming soon"
+                  onClick={handleBulkReschedule}
+                  disabled={bulkActionLoading !== null}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    bulkActionLoading === 'reschedule' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                  )}
+                  title="Mark all as rescheduled"
                 >
-                  <CalendarClock className="h-3 w-3" />
-                  <span className="hidden xs:inline">Reschedule</span>
+                  <CalendarClock className={cn("h-3 w-3", bulkActionLoading === 'reschedule' && "animate-pulse")} />
+                  <span className="hidden xs:inline">{bulkActionLoading === 'reschedule' ? '...' : 'Reschedule'}</span>
                 </button>
               )}
               {bulkActionsAvailable.sickLeave && (
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 cursor-not-allowed opacity-50"
-                  title="Coming soon"
+                  onClick={handleBulkSickLeave}
+                  disabled={bulkActionLoading !== null}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    bulkActionLoading === 'sick-leave' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                  )}
+                  title="Mark all as sick leave"
                 >
-                  <Ambulance className="h-3 w-3" />
-                  <span className="hidden xs:inline">Sick</span>
+                  <Ambulance className={cn("h-3 w-3", bulkActionLoading === 'sick-leave' && "animate-pulse")} />
+                  <span className="hidden xs:inline">{bulkActionLoading === 'sick-leave' ? '...' : 'Sick'}</span>
+                </button>
+              )}
+              {bulkActionsAvailable.weatherCancelled && (
+                <button
+                  onClick={handleBulkWeatherCancelled}
+                  disabled={bulkActionLoading !== null}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
+                    bulkActionLoading === 'weather-cancelled' ? "opacity-50 cursor-wait" : "hover:bg-orange-200 dark:hover:bg-orange-900/50"
+                  )}
+                  title="Mark all as weather cancelled"
+                >
+                  <CloudRain className={cn("h-3 w-3", bulkActionLoading === 'weather-cancelled' && "animate-pulse")} />
+                  <span className="hidden xs:inline">{bulkActionLoading === 'weather-cancelled' ? '...' : 'Weather'}</span>
                 </button>
               )}
               {/* Exercise actions - always visible */}
