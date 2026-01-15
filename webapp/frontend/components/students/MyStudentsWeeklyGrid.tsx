@@ -16,7 +16,7 @@ import { getDisplayPaymentStatus, getPaymentStatusConfig } from "@/lib/enrollmen
 import { DAY_NAMES, DAY_NAME_TO_INDEX, getGradeColor } from "@/lib/constants";
 import type { GroupOption, SortOption, SortDirection } from "./MyStudentsList";
 import { getGroupKey, compareGroupKeys } from "./MyStudentsList";
-
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 interface MyStudentsWeeklyGridProps {
   enrollments: Enrollment[];
@@ -31,12 +31,6 @@ interface MyStudentsWeeklyGridProps {
   sortDirection?: SortDirection;
   selectedGroupKey?: string | null;
 }
-
-// Get tutor first name, stripping title prefix
-const getTutorFirstName = (name: string): string => {
-  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
-  return cleaned.split(' ')[0] || cleaned;
-};
 
 // For overlap detection and column assignment
 interface TimeGroupInfo {

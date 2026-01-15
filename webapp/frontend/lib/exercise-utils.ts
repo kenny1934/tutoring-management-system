@@ -291,3 +291,18 @@ export function validateExercisePageRange(
 
   return errors;
 }
+
+// ============================================================================
+// Display Utilities
+// ============================================================================
+
+/**
+ * Extract display name from PDF path.
+ * Removes directory path and file extension.
+ * "V:\abc\def\ghi.pdf" → "ghi"
+ * "jkl.docx" → "jkl"
+ */
+export function getDisplayName(pdfName: string): string {
+  const filename = pdfName.split(/[/\\]/).pop() || pdfName;
+  return filename.replace(/\.[^.]+$/, '');
+}
