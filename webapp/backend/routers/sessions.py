@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
 from datetime import date, timedelta, datetime
 
 router = APIRouter()
@@ -542,6 +542,349 @@ async def mark_session_weather_cancelled(
     session_data = _build_session_response(session)
 
     return session_data
+
+
+# ============================================
+# Make-up Scheduling Endpoints
+# ============================================
+
+def _get_makeup_raw_data(
+    original_session: SessionLog,
+    original_student: Student,
+    candidate_tutor_id: int,
+    active_students: List[dict],
+    slot_date: date,
+    today: date
+) -> dict:
+    """
+    Get raw compatibility data for a make-up slot.
+
+    Returns raw counts and flags for frontend-side weighted scoring.
+    This allows users to adjust weights and re-sort instantly.
+    """
+    # Count matching students (density-based)
+    matching_grade_count = sum(
+        1 for s in active_students
+        if original_student.grade and s.get("grade") == original_student.grade
+    )
+    matching_school_count = sum(
+        1 for s in active_students
+        if original_student.school and s.get("school") == original_student.school
+    )
+    matching_lang_count = sum(
+        1 for s in active_students
+        if original_student.lang_stream and s.get("lang_stream") == original_student.lang_stream
+    )
+
+    # Calculate days from today
+    days_away = (slot_date - today).days if slot_date >= today else 0
+
+    return {
+        "is_same_tutor": candidate_tutor_id == original_session.tutor_id,
+        "matching_grade_count": matching_grade_count,
+        "matching_school_count": matching_school_count,
+        "matching_lang_count": matching_lang_count,
+        "days_away": days_away,
+        "current_students": len(active_students),
+    }
+
+
+@router.get("/sessions/{session_id}/makeup-suggestions", response_model=List[MakeupSlotSuggestion])
+async def get_makeup_suggestions(
+    session_id: int,
+    days_ahead: int = Query(30, ge=1, le=60, description="Days ahead to search for slots"),
+    limit: int = Query(10, ge=1, le=20, description="Maximum suggestions to return"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get scored slot suggestions for scheduling a make-up session.
+
+    Returns available slots at the same location, scored by compatibility:
+    - Same tutor: +100 points
+    - Same grade students: +50 points
+    - Same school students: +30 points
+    - Same language stream: +20 points
+    - Available capacity: +10 points per empty spot
+
+    Only includes slots with capacity (< 8 active students).
+    Only counts "Scheduled" and "Make-up Class" sessions.
+    """
+    # Get the original session
+    original_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not original_session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate it's a pending make-up session
+    if "Pending Make-up" not in original_session.session_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Session status must be 'Pending Make-up', got '{original_session.session_status}'"
+        )
+
+    # Already has make-up scheduled?
+    if original_session.rescheduled_to_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Make-up already scheduled for this session"
+        )
+
+    original_student = original_session.student
+    location = original_session.location
+
+    # Query date range
+    start_date = date.today()
+    end_date = start_date + timedelta(days=days_ahead)
+
+    # Get all sessions in the date range at same location with active statuses
+    active_statuses = ["Scheduled", "Make-up Class"]
+    sessions = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.location == location,
+        SessionLog.session_date >= start_date,
+        SessionLog.session_date <= end_date,
+        SessionLog.session_status.in_(active_statuses)
+    ).all()
+
+    # Get holidays in the range
+    holidays = db.query(Holiday).filter(
+        Holiday.holiday_date >= start_date,
+        Holiday.holiday_date <= end_date
+    ).all()
+    holiday_dates = {h.holiday_date for h in holidays}
+
+    # Group sessions by (date, time_slot, tutor_id)
+    from collections import defaultdict
+    slots = defaultdict(list)
+    for session in sessions:
+        key = (session.session_date, session.time_slot, session.tutor_id)
+        slots[key].append(session)
+
+    # Get all tutors at this location
+    tutors = db.query(Tutor).filter(Tutor.default_location == location).all()
+    tutor_map = {t.id: t for t in tutors}
+
+    # Get common time slots from existing sessions
+    time_slots = set()
+    for session in sessions:
+        if session.time_slot:
+            time_slots.add(session.time_slot)
+
+    # Generate scored suggestions
+    suggestions = []
+    for (slot_date, time_slot, tutor_id), slot_sessions in slots.items():
+        # Skip holidays
+        if slot_date in holiday_dates:
+            continue
+
+        # Skip if full (8 or more students)
+        if len(slot_sessions) >= 8:
+            continue
+
+        tutor = tutor_map.get(tutor_id)
+        if not tutor:
+            continue
+
+        # Build active students list
+        active_students = [
+            {
+                "id": s.student.id,
+                "school_student_id": s.student.school_student_id,
+                "student_name": s.student.student_name,
+                "grade": s.student.grade,
+                "school": s.student.school,
+                "lang_stream": s.student.lang_stream,
+                "session_status": s.session_status
+            }
+            for s in slot_sessions if s.student
+        ]
+
+        # Get raw compatibility data for frontend-side weighted scoring
+        raw_data = _get_makeup_raw_data(
+            original_session, original_student, tutor_id, active_students,
+            slot_date, start_date  # start_date is today
+        )
+
+        # Calculate a default score for initial sorting
+        # Frontend can re-sort with different weights
+        default_score = 0
+        if raw_data["is_same_tutor"]:
+            default_score += 100
+        default_score += min(raw_data["matching_grade_count"] * 20, 60)
+        default_score += min(raw_data["matching_school_count"] * 15, 45)
+        default_score += min(raw_data["matching_lang_count"] * 10, 30)
+        default_score += max(0, 30 * (30 - raw_data["days_away"]) / 30)  # Sooner date bonus
+        default_score += (8 - raw_data["current_students"]) * 10  # Capacity bonus
+
+        suggestions.append(MakeupSlotSuggestion(
+            session_date=slot_date,
+            time_slot=time_slot,
+            tutor_id=tutor_id,
+            tutor_name=tutor.tutor_name,
+            location=location,
+            current_students=len(active_students),
+            available_spots=8 - len(active_students),
+            compatibility_score=int(default_score),
+            score_breakdown=raw_data,
+            students_in_slot=[
+                StudentInSlot(
+                    id=s["id"],
+                    school_student_id=s["school_student_id"],
+                    student_name=s["student_name"],
+                    grade=s["grade"],
+                    school=s["school"],
+                    lang_stream=s["lang_stream"],
+                    session_status=s["session_status"]
+                )
+                for s in active_students
+            ]
+        ))
+
+    # Also add empty slots for tutors (slots with no existing sessions but tutor is available)
+    # For now, we'll just show slots that have existing sessions - can expand later
+
+    # Sort by score descending, then by date
+    suggestions.sort(key=lambda s: (-s.compatibility_score, s.session_date))
+
+    return suggestions[:limit]
+
+
+@router.post("/sessions/{session_id}/schedule-makeup", response_model=ScheduleMakeupResponse)
+async def schedule_makeup(
+    session_id: int,
+    request: ScheduleMakeupRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Schedule a make-up session for a pending make-up.
+
+    Creates a new session with status "Make-up Class" and links it to the original.
+    Updates the original session status from "X - Pending Make-up" to "X - Make-up Booked".
+
+    Validates:
+    - Original session is in "Pending Make-up" status
+    - No make-up already scheduled (1:1 relationship)
+    - Target date is not a holiday
+    - Student doesn't have active session at that slot (unless it's also rescheduled)
+    """
+    # Get the original session
+    original_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not original_session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate status
+    if "Pending Make-up" not in original_session.session_status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Session must be in 'Pending Make-up' status, got '{original_session.session_status}'"
+        )
+
+    # Check 1:1 relationship
+    if original_session.rescheduled_to_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Make-up already scheduled for this session"
+        )
+
+    # Check for holiday
+    holiday = db.query(Holiday).filter(
+        Holiday.holiday_date == request.session_date
+    ).first()
+    if holiday:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
+        )
+
+    # Check for student conflict at the target slot
+    # Allow if the existing session is also in "Pending Make-up" status (that slot is free)
+    existing_session = db.query(SessionLog).filter(
+        SessionLog.student_id == original_session.student_id,
+        SessionLog.session_date == request.session_date,
+        SessionLog.time_slot == request.time_slot,
+        SessionLog.location == request.location
+    ).first()
+
+    if existing_session:
+        if "Pending Make-up" not in existing_session.session_status:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Student already has a session at this slot (Session #{existing_session.id})"
+            )
+
+    # Verify tutor exists and is at the location
+    tutor = db.query(Tutor).filter(Tutor.id == request.tutor_id).first()
+    if not tutor:
+        raise HTTPException(status_code=404, detail=f"Tutor with ID {request.tutor_id} not found")
+    if tutor.default_location != request.location:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tutor '{tutor.tutor_name}' is not at location '{request.location}'"
+        )
+
+    # Create the make-up session
+    makeup_session = SessionLog(
+        enrollment_id=original_session.enrollment_id,
+        student_id=original_session.student_id,
+        tutor_id=request.tutor_id,
+        session_date=request.session_date,
+        time_slot=request.time_slot,
+        location=request.location,
+        session_status="Make-up Class",
+        financial_status="Unpaid",  # Inherits from original or set to Unpaid
+        make_up_for_id=original_session.id,
+        last_modified_by="system@csmpro.app",
+        last_modified_time=datetime.now()
+    )
+    db.add(makeup_session)
+    db.flush()  # Get the ID
+
+    # Update original session status and link
+    # "Rescheduled - Pending Make-up" -> "Rescheduled - Make-up Booked"
+    # "Sick Leave - Pending Make-up" -> "Sick Leave - Make-up Booked"
+    # "Weather Cancelled - Pending Make-up" -> "Weather Cancelled - Make-up Booked"
+    original_session.session_status = original_session.session_status.replace(
+        "Pending Make-up", "Make-up Booked"
+    )
+    original_session.rescheduled_to_id = makeup_session.id
+    original_session.last_modified_by = "system@csmpro.app"
+    original_session.last_modified_time = datetime.now()
+
+    db.commit()
+
+    # Refresh and load relationships for response
+    db.refresh(makeup_session)
+    db.refresh(original_session)
+
+    # Load relationships for the makeup session
+    makeup_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == makeup_session.id).first()
+
+    # Build responses
+    makeup_response = _build_session_response(makeup_session)
+    original_response = _build_session_response(original_session)
+
+    # Add linked session info
+    original_response.rescheduled_to = _build_linked_session_info(makeup_session, makeup_session.tutor)
+    makeup_response.make_up_for = _build_linked_session_info(original_session, original_session.tutor)
+
+    return ScheduleMakeupResponse(
+        makeup_session=makeup_response,
+        original_session=original_response
+    )
 
 
 @router.put("/sessions/{session_id}/exercises", response_model=SessionResponse)

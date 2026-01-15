@@ -147,7 +147,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     isVisible: isPendingMakeup,
     allowedRoles: ['tutor', 'admin', 'super_admin'],
     api: {
-      enabled: false,
+      enabled: true,
       method: 'POST',
       endpoint: '/api/sessions/{id}/schedule-makeup',
     },
