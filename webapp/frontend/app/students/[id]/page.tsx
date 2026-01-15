@@ -1095,7 +1095,7 @@ function SessionsTab({
 }
 
 // Tests Tab Component
-function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; student: any; isMobile: boolean }) {
+function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; student: Student; isMobile: boolean }) {
   if (tests.length === 0) {
     return (
       <div className="flex justify-center py-12">
