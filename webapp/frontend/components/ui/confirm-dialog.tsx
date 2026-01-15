@@ -73,7 +73,7 @@ export function ConfirmDialog({
           ref={refs.setFloating}
           {...getFloatingProps()}
           className={cn(
-            "w-full max-w-sm bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
+            "w-full min-w-[320px] max-w-sm bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl",
             "border border-gray-200 dark:border-gray-700"
           )}
         >
