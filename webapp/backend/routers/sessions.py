@@ -994,6 +994,11 @@ async def save_session_exercises(
             page_start=ex.page_start,
             page_end=ex.page_end,
             remarks=ex.remarks,
+            # Answer file fields
+            answer_pdf_name=ex.answer_pdf_name,
+            answer_page_start=ex.answer_page_start,
+            answer_page_end=ex.answer_page_end,
+            answer_remarks=ex.answer_remarks,
             created_by="system@csmpro.app",  # TODO: get from auth when available
             created_at=datetime.now()
         )

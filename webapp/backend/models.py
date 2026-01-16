@@ -218,6 +218,11 @@ class SessionExercise(Base):
     created_by = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     remarks = Column(Text)
+    # Answer file fields (for manual answer selection)
+    answer_pdf_name = Column(String(255), nullable=True, comment='Manually selected answer PDF path')
+    answer_page_start = Column(Integer, nullable=True)
+    answer_page_end = Column(Integer, nullable=True)
+    answer_remarks = Column(Text, comment='Answer complex pages + notes')
 
     # Relationships
     session = relationship("SessionLog", back_populates="exercises")

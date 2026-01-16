@@ -57,6 +57,11 @@ export interface SessionExercise {
   created_by: string;
   created_at?: string;
   remarks?: string;
+  // Answer file fields (for manual answer selection)
+  answer_pdf_name?: string;
+  answer_page_start?: number;
+  answer_page_end?: number;
+  answer_remarks?: string;
 }
 
 // Homework Completion types
