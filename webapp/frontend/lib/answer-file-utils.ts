@@ -24,8 +24,25 @@ const CENTER_FOLDER_REPLACEMENTS: Record<string, string> = {
   'Courseware (Eng)': 'ANS',
   'Courseware (Chi)': 'ANS',
   'IB': 'IB_2020',
-  // Add more rules here as needed
+  'DSE': 'DSE_key',
 };
+
+/**
+ * Configurable filename transformation rules for answer files.
+ * Each rule specifies a pattern to match and how to build the answer filename.
+ * Rules are checked in order; first match wins.
+ */
+const FILENAME_TRANSFORMATIONS: Array<{
+  pattern: RegExp;      // Pattern to match filename (without .pdf)
+  answerFilename: (match: RegExpMatchArray) => string;  // Build answer filename from match
+}> = [
+  // DSE: DSE_09.4_xxx → DSE_09.4_KEY
+  {
+    pattern: /^(DSE_\d+\.\d+)_/i,
+    answerFilename: (match) => `${match[1]}_KEY`,
+  },
+  // Add more rules here as needed
+];
 
 /**
  * Get the "Ans" tag ID from Shelv, with caching.
@@ -110,6 +127,17 @@ export function buildAnswerPaths(originalPath: string): string[] {
       CENTER_FOLDER_REPLACEMENTS[part] ?? part
     );
 
+    // Check for special filename transformations first (e.g., DSE_09.4_xxx → DSE_09.4_KEY)
+    for (const rule of FILENAME_TRANSFORMATIONS) {
+      const match = filenameWithoutExt.match(rule.pattern);
+      if (match) {
+        const ansFilename = rule.answerFilename(match);
+        const ansPath = `[Center]\\${modifiedParts.join('\\')}\\${ansFilename}.pdf`;
+        candidates.push(ansPath);
+      }
+    }
+
+    // Then add standard _ANS suffix candidates
     for (const suffix of suffixes) {
       const ansPath = `[Center]\\${modifiedParts.join('\\')}\\${filenameWithoutExt}${suffix}.pdf`;
       candidates.push(ansPath);

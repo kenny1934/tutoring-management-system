@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, X, FolderOpen, Search } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -20,14 +20,14 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, getDisplayName, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
+import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
-import { searchAnswerFile, openAnswerFile, downloadAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -73,13 +73,6 @@ export function ExerciseModal({
   // Multi-file drag-drop batch search state
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
-
-  // Answer file search state: Map from clientId to state and result
-  const [answerState, setAnswerState] = useState<Record<string, 'idle' | 'searching' | 'found' | 'not_found'>>({});
-  const [answerResults, setAnswerResults] = useState<Record<string, AnswerSearchResult>>({});
-
-  // Track which answer sections are expanded (by clientId)
-  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
 
   // Form dirty tracking and close confirmation (from ui-hooks)
   const {
@@ -217,37 +210,12 @@ export function ExerciseModal({
       setExercises(filteredExercises);
       setIsDirty(false);
       setValidationErrors([]);
-
-      // Auto-expand answer sections for exercises with saved answers
-      const idsWithAnswers = filteredExercises
-        .filter(ex => ex.answer_pdf_name)
-        .map(ex => ex.clientId);
-      if (idsWithAnswers.length > 0) {
-        setExpandedAnswers(new Set(idsWithAnswers));
-      }
-
-      // Initialize answer state for exercises with saved answers
-      const initialAnswerState: Record<string, 'idle' | 'searching' | 'found' | 'not_found'> = {};
-      const initialAnswerResults: Record<string, AnswerSearchResult> = {};
-      filteredExercises.forEach(ex => {
-        if (ex.answer_pdf_name) {
-          initialAnswerState[ex.clientId] = 'found';
-          initialAnswerResults[ex.clientId] = { source: 'local', path: ex.answer_pdf_name };
-        }
-      });
-      if (Object.keys(initialAnswerState).length > 0) {
-        setAnswerState(initialAnswerState);
-        setAnswerResults(initialAnswerResults);
-      }
     }
     if (!isOpen) {
       initializedRef.current = false;
       setIsDirty(false);
       setValidationErrors([]);
       setShowCloseConfirm(false);
-      setExpandedAnswers(new Set());
-      setAnswerState({});
-      setAnswerResults({});
     }
   }, [isOpen, session, exerciseType]);
 
@@ -355,71 +323,6 @@ export function ExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
-  // Answer file handlers
-  const handleSearchAnswer = useCallback(async (clientId: string, pdfName: string) => {
-    if (!pdfName) return;
-
-    setAnswerState(prev => ({ ...prev, [clientId]: 'searching' }));
-
-    try {
-      const result = await searchAnswerFile(pdfName);
-      if (result) {
-        setAnswerResults(prev => ({ ...prev, [clientId]: result }));
-        setAnswerState(prev => ({ ...prev, [clientId]: 'found' }));
-        // Save the found answer path to the exercise form (will be persisted on save)
-        setExercises(prev => prev.map(ex =>
-          ex.clientId === clientId ? { ...ex, answer_pdf_name: result.path } : ex
-        ));
-        setIsDirty(true);
-        // Auto-expand the answer section
-        setExpandedAnswers(prev => new Set([...prev, clientId]));
-      } else {
-        setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
-        // Auto-reset after 2 seconds
-        setTimeout(() => {
-          setAnswerState(prev => prev[clientId] === 'not_found' ? { ...prev, [clientId]: 'idle' } : prev);
-        }, 2000);
-      }
-    } catch (err) {
-      console.error('[AnswerSearch] Error:', err);
-      setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
-      // Auto-reset after 2 seconds
-      setTimeout(() => {
-        setAnswerState(prev => prev[clientId] === 'not_found' ? { ...prev, [clientId]: 'idle' } : prev);
-      }, 2000);
-    }
-  }, [setIsDirty]);
-
-  const handleOpenAnswer = useCallback(async (clientId: string) => {
-    // Try answerResults first, fall back to exercise data
-    let answerPath = answerResults[clientId]?.path;
-    if (!answerPath) {
-      const exercise = exercises.find(ex => ex.clientId === clientId);
-      answerPath = exercise?.answer_pdf_name;
-    }
-    if (!answerPath) return;
-
-    const success = await openAnswerFile({ source: 'local', path: answerPath });
-    if (!success) {
-      showToast('Failed to open answer file', 'error');
-    }
-  }, [answerResults, exercises, showToast]);
-
-  const handleDownloadAnswer = useCallback(async (clientId: string) => {
-    // Try answerResults first, fall back to exercise data
-    let answerPath = answerResults[clientId]?.path;
-    if (!answerPath) {
-      const exercise = exercises.find(ex => ex.clientId === clientId);
-      answerPath = exercise?.answer_pdf_name;
-    }
-    if (!answerPath) return;
-
-    const success = await downloadAnswerFile({ source: 'local', path: answerPath });
-    if (!success) {
-      showToast('Failed to download answer file', 'error');
-    }
-  }, [answerResults, exercises, showToast]);
-
   // Handle manual browse for answer file
   const handleBrowseAnswer = useCallback((clientId: string) => {
     setBrowsingForAnswerClientId(clientId);
@@ -449,52 +352,9 @@ export function ExerciseModal({
         return { ...ex, ...updates };
       }));
       setIsDirty(true);
-
-      // Update answer state to 'found' since user manually selected
-      setAnswerState(prev => ({ ...prev, [browsingForAnswerClientId]: 'found' }));
-      setAnswerResults(prev => ({
-        ...prev,
-        [browsingForAnswerClientId]: { source: 'local', path }
-      }));
-
-      // Auto-expand the answer section
-      setExpandedAnswers(prev => new Set([...prev, browsingForAnswerClientId]));
-
       setBrowsingForAnswerClientId(null);
     }
   }, [browsingForAnswerClientId, setIsDirty]);
-
-  // Toggle answer section expanded state
-  const toggleAnswerExpanded = useCallback((clientId: string) => {
-    setExpandedAnswers(prev => {
-      const next = new Set(prev);
-      if (next.has(clientId)) next.delete(clientId);
-      else next.add(clientId);
-      return next;
-    });
-  }, []);
-
-  // Clear answer for an exercise
-  const handleClearAnswer = useCallback((clientId: string) => {
-    setExercises(prev => prev.map(ex => {
-      if (ex.clientId !== clientId) return ex;
-      return {
-        ...ex,
-        answer_pdf_name: "",
-        answer_page_mode: 'simple' as const,
-        answer_page_start: "",
-        answer_page_end: "",
-        answer_complex_pages: "",
-      };
-    }));
-    setIsDirty(true);
-    setAnswerState(prev => ({ ...prev, [clientId]: 'idle' }));
-    setAnswerResults(prev => {
-      const next = { ...prev };
-      delete next[clientId];
-      return next;
-    });
-  }, [setIsDirty]);
 
   // Focus new exercise input after render
   useEffect(() => {
@@ -1526,155 +1386,23 @@ export function ExerciseModal({
                         />
                       </div>
 
-                      {/* Answer Section - Collapsible */}
-                      <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
-                        {/* Answer header with toggle and action buttons */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleAnswerExpanded(exercise.clientId)}
-                            className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                          >
-                            {expandedAnswers.has(exercise.clientId) ? (
-                              <ChevronDown className="h-3 w-3 text-gray-500" />
-                            ) : (
-                              <ChevronRight className="h-3 w-3 text-gray-500" />
-                            )}
-                          </button>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">Answer:</span>
-
-                          {exercise.answer_pdf_name ? (
-                            <>
-                              {/* Answer is set - show filename + Open + Download */}
-                              <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[200px]" title={exercise.answer_pdf_name}>
-                                {getDisplayName(exercise.answer_pdf_name)}
-                              </span>
-                              {!expandedAnswers.has(exercise.clientId) && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenAnswer(exercise.clientId)}
-                                    className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                    title="Open answer file"
-                                  >
-                                    <ExternalLink className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownloadAnswer(exercise.clientId)}
-                                    className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                    title="Download answer file"
-                                  >
-                                    <Download className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              {/* Answer not set - show "Not set" + Search */}
-                              <span className="text-xs text-gray-400 italic">Not set</span>
-                              <button
-                                type="button"
-                                onClick={() => handleSearchAnswer(exercise.clientId, exercise.pdf_name)}
-                                disabled={answerState[exercise.clientId] === 'searching' || !exercise.pdf_name}
-                                className={cn(
-                                  "px-1.5 py-1 rounded-md border transition-colors shrink-0",
-                                  answerState[exercise.clientId] === 'searching'
-                                    ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30"
-                                    : answerState[exercise.clientId] === 'not_found'
-                                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30"
-                                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
-                                  !exercise.pdf_name && "opacity-50 cursor-not-allowed"
-                                )}
-                                title={!exercise.pdf_name ? "Set PDF first" : answerState[exercise.clientId] === 'not_found' ? "Answer not found" : "Search for answer file"}
-                              >
-                                {answerState[exercise.clientId] === 'searching' ? (
-                                  <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
-                                ) : answerState[exercise.clientId] === 'not_found' ? (
-                                  <XCircle className="h-3 w-3 text-red-500" />
-                                ) : (
-                                  <Search className="h-3 w-3 text-gray-500 dark:text-gray-400" />
-                                )}
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Expanded content */}
-                        {expandedAnswers.has(exercise.clientId) && (
-                          <div className="pl-5 space-y-1 mt-1">
-                            {/* Answer path input + buttons */}
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={exercise.answer_pdf_name}
-                                onChange={(e) => updateExercise(index, "answer_pdf_name", e.target.value)}
-                                onFocus={() => setFocusedRowIndex(index)}
-                                placeholder="Answer PDF path"
-                                className={cn(inputClass, "text-xs py-1 flex-1")}
-                              />
-                              {/* Browse for answer file - right next to path */}
-                              <button
-                                type="button"
-                                onClick={() => handleBrowseAnswer(exercise.clientId)}
-                                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                title="Browse for answer file"
-                              >
-                                <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                              </button>
-                              {/* Open answer file */}
-                              {exercise.answer_pdf_name && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenAnswer(exercise.clientId)}
-                                  className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                  title="Open answer file"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
-                                </button>
-                              )}
-                              {/* Download answer file */}
-                              {exercise.answer_pdf_name && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDownloadAnswer(exercise.clientId)}
-                                  className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                  title="Download answer file"
-                                >
-                                  <Download className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
-                                </button>
-                              )}
-                              {/* Clear answer */}
-                              {exercise.answer_pdf_name && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleClearAnswer(exercise.clientId)}
-                                  className="ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0"
-                                  title="Clear answer"
-                                >
-                                  <X className="h-3.5 w-3.5 text-red-500" />
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Answer page range */}
-                            <ExercisePageRangeInput
-                              radioName={`answer-page-mode-${index}`}
-                              pageMode={exercise.answer_page_mode}
-                              pageStart={exercise.answer_page_start}
-                              pageEnd={exercise.answer_page_end}
-                              complexPages={exercise.answer_complex_pages}
-                              onPageModeChange={(mode) => updateExercise(index, "answer_page_mode", mode)}
-                              onPageStartChange={(value) => updateExercise(index, "answer_page_start", value)}
-                              onPageEndChange={(value) => updateExercise(index, "answer_page_end", value)}
-                              onComplexPagesChange={(value) => updateExercise(index, "answer_complex_pages", value)}
-                              onFocus={() => setFocusedRowIndex(index)}
-                              inputClass={inputClass}
-                            />
-                          </div>
-                        )}
-                      </div>
+                      {/* Answer Section - Shared Component */}
+                      <ExerciseAnswerSection
+                        clientId={exercise.clientId}
+                        index={index}
+                        radioNamePrefix="exercise"
+                        pdfName={exercise.pdf_name}
+                        answerPdfName={exercise.answer_pdf_name}
+                        answerPageMode={exercise.answer_page_mode}
+                        answerPageStart={exercise.answer_page_start}
+                        answerPageEnd={exercise.answer_page_end}
+                        answerComplexPages={exercise.answer_complex_pages}
+                        onAnswerChange={(field, value) => updateExercise(index, field, value)}
+                        onBrowseAnswer={() => handleBrowseAnswer(exercise.clientId)}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        inputClass={inputClass}
+                        canBrowseFiles={canBrowseFiles}
+                      />
                     </div>
                   </div>
                 </div>
