@@ -5,6 +5,7 @@ import {
   Ambulance,
   CloudRain,
   CalendarPlus,
+  CalendarX2,
   PenTool,
   Home,
   MessageSquarePlus,
@@ -44,6 +45,13 @@ const hideCwHw = (s: Session): boolean =>
  */
 const canUndo = (s: Session): boolean =>
   !!s.previous_session_status;
+
+/**
+ * Sessions where make-up can be cancelled.
+ * Either the original session (with Make-up Booked) or the make-up session itself.
+ */
+const canCancelMakeup = (s: Session): boolean =>
+  s.session_status?.includes('Make-up Booked') || s.session_status === 'Make-up Class';
 
 // ============================================
 // SESSION ACTIONS CONFIGURATION
@@ -224,6 +232,25 @@ export const sessionActions: ActionConfig<Session>[] = [
       endpoint: '/api/sessions/{id}/undo',
     },
     confirmMessage: 'Revert to previous status?',
+  },
+
+  // ----------------------------------------
+  // Cancel Make-up Action
+  // ----------------------------------------
+  {
+    id: 'cancel-makeup',
+    label: 'Cancel Make-up',
+    shortLabel: 'Cancel',
+    icon: CalendarX2,
+    colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    isVisible: canCancelMakeup,
+    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    api: {
+      enabled: true,
+      method: 'DELETE',
+      endpoint: '/api/sessions/{id}/cancel-makeup',
+    },
+    confirmMessage: 'Cancel this make-up? The make-up session will be deleted and the original session will return to "Pending Make-up" status.',
   },
 
   // ----------------------------------------
