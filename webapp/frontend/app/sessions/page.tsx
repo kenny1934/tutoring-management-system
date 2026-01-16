@@ -1699,13 +1699,6 @@ export default function SessionsPage() {
                                             </span>
                                           </div>
 
-                                          {/* Notes */}
-                                          {session.notes && (
-                                            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
-                                              {session.notes}
-                                            </p>
-                                          )}
-
                                           {/* Action buttons */}
                                           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                             <button
@@ -1962,21 +1955,6 @@ export default function SessionsPage() {
                                         <ExternalLink className="h-3.5 w-3.5" />
                                       </Link>
                                     </div>
-
-                                    {session.notes && (
-                                      <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">
-                                        {session.notes}
-                                      </p>
-                                    )}
-
-                                    {session.performance_rating && (
-                                      <StarRating
-                                        rating={parseStarRating(session.performance_rating)}
-                                        showEmpty={true}
-                                        size="sm"
-                                        className="mt-1"
-                                      />
-                                    )}
                                   </div>
 
                                   {/* Right side - Status text */}
