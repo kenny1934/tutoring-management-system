@@ -204,7 +204,9 @@ export function FolderTreeModal({
   // Load root folders when modal opens
   useEffect(() => {
     if (isOpen) {
-      loadRootFolders();
+      // If we have an initialPath, skip setting currentContents in loadRootFolders
+      // because navigateToInitialPath will handle setting contents after navigation
+      loadRootFolders(!!initialPath);
     } else {
       // Cleanup on close
       if (previewUrl) {
@@ -223,7 +225,8 @@ export function FolderTreeModal({
       setCurrentContents([]);
       setSelections(new Map());
     }
-  }, [isOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialPath]);
 
   // Navigate to initial path when root folders are loaded
   useEffect(() => {
@@ -232,7 +235,7 @@ export function FolderTreeModal({
     }
   }, [isOpen, initialPath, rootFolders]);
 
-  const loadRootFolders = async () => {
+  const loadRootFolders = async (skipCurrentContents = false) => {
     setLoading(true);
     setError(null);
 
@@ -264,7 +267,11 @@ export function FolderTreeModal({
       });
 
       setRootFolders(nodes);
-      setCurrentContents(nodes);
+      // Only set currentContents if we're not navigating to an initialPath
+      // (navigateToInitialPath will handle setting contents in that case)
+      if (!skipCurrentContents) {
+        setCurrentContents(nodes);
+      }
     } catch (err) {
       setError("Failed to load folders. Please try again.");
       console.error("Failed to load folders:", err);
@@ -276,7 +283,10 @@ export function FolderTreeModal({
   // Navigate to initial path (e.g., "Center\Math\file.pdf" or "[MSA Staff]\scan\file.pdf")
   const navigateToInitialPath = async (path: string) => {
     const parts = path.split("\\").filter(Boolean);
-    if (parts.length === 0) return;
+    if (parts.length === 0) {
+      setCurrentContents(rootFolders);
+      return;
+    }
 
     // Get the root part (may be bracketed alias from Shelv)
     let rootName = parts[0];
@@ -311,12 +321,18 @@ export function FolderTreeModal({
       }
     }
 
-    if (!rootFolder || !rootFolder.handle) return;
+    if (!rootFolder || !rootFolder.handle) {
+      setCurrentContents(rootFolders);
+      return;
+    }
 
     try {
       // Navigate to the parent folder of the file (not including the filename)
       const folderParts = parts.slice(0, -1); // Remove filename
-      if (folderParts.length === 0) return;
+      if (folderParts.length === 0) {
+        setCurrentContents(rootFolders);
+        return;
+      }
 
       let currentDir = rootFolder.handle as FileSystemDirectoryHandle;
       const pathSoFar: string[] = [rootFolder.name]; // Use actual folder name, not alias
@@ -333,17 +349,25 @@ export function FolderTreeModal({
         }
       }
 
-      // Load contents of the final folder
-      setCurrentPath(pathSoFar);
-      setCurrentHandle(currentDir);
-      await loadFolderContents(currentDir, pathSoFar.join("\\"));
+      // Load contents first, only update path state if successful
+      const success = await loadFolderContents(currentDir, pathSoFar.join("\\"));
+      if (success) {
+        setCurrentPath(pathSoFar);
+        setCurrentHandle(currentDir);
+      } else {
+        // Navigation failed, show root folders instead
+        setCurrentContents(rootFolders);
+      }
     } catch (err) {
       console.warn("Failed to navigate to initial path:", err);
+      // On error, show root folders
+      setCurrentContents(rootFolders);
     }
   };
 
   // Load contents of a directory (with chunked loading for large folders)
-  const loadFolderContents = async (handle: FileSystemDirectoryHandle, basePath: string, folderId?: string) => {
+  // Returns true on success, false on failure
+  const loadFolderContents = async (handle: FileSystemDirectoryHandle, basePath: string, folderId?: string): Promise<boolean> => {
     setContentsLoading(true);
     setError(null);
 
@@ -360,7 +384,7 @@ export function FolderTreeModal({
       if (!hasPermission) {
         setError(`Permission denied. Please grant access in Settings.`);
         setContentsLoading(false);
-        return;
+        return false;
       }
 
       const contents: TreeNode[] = [];
@@ -429,6 +453,7 @@ export function FolderTreeModal({
 
       setCurrentContents(contents);
       setDisplayLimit(ITEMS_PER_PAGE); // Reset pagination when folder changes
+      return true;
     } catch (err) {
       console.error("Failed to load folder contents:", err);
       const message = err instanceof Error ? err.message : "Failed to load folder contents.";
@@ -438,6 +463,7 @@ export function FolderTreeModal({
       if (folderId && (message.includes("timeout") || message.includes("unavailable"))) {
         setUnavailableFolders((prev) => new Set(prev).add(folderId));
       }
+      return false;
     } finally {
       setContentsLoading(false);
     }
