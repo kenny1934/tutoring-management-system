@@ -67,7 +67,7 @@ export function ConfirmDialog({
   return (
     <FloatingPortal>
       <FloatingOverlay
-        className="z-[100] bg-black/50 flex items-center justify-center p-4"
+        className="z-[10000] bg-black/50 flex items-center justify-center p-4"
         lockScroll
       >
         <FloatingFocusManager context={context}>

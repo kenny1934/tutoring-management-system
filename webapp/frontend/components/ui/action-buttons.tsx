@@ -123,6 +123,7 @@ interface SessionActionButtonsProps {
   size?: "sm" | "md";
   showLabels?: boolean;
   userRole?: "tutor" | "admin" | "super_admin";
+  currentTutorId?: number;  // For propose mode in ScheduleMakeupModal
   onAction?: (actionId: string, session: Session) => void;
   onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
   loadingActionId?: string | null;  // External loading state from parent (keyboard shortcuts)
@@ -134,6 +135,7 @@ export function SessionActionButtons({
   size = "md",
   showLabels = false,
   userRole,
+  currentTutorId,
   onAction,
   onLoadingChange,
   loadingActionId,
@@ -417,6 +419,7 @@ export function SessionActionButtons({
           session={session}
           isOpen={isMakeupModalOpen}
           onClose={() => setIsMakeupModalOpen(false)}
+          proposerTutorId={currentTutorId}
         />
       )}
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -371,6 +371,63 @@ export function useMessageThread(
   return useSWR<MessageThread>(
     messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
     () => messagesAPI.getThread(messageId!, tutorId!)
+  );
+}
+
+// ============================================
+// Make-up Proposal Hooks
+// ============================================
+
+/**
+ * Hook for fetching proposals with filters
+ * Can filter by target tutor, proposer, or status
+ */
+export function useProposals(params: {
+  tutorId?: number;
+  proposedBy?: number;
+  status?: ProposalStatus;
+  includeSession?: boolean;
+} = {}) {
+  return useSWR<MakeupProposal[]>(
+    ['proposals', params.tutorId, params.proposedBy, params.status],
+    () => proposalsAPI.getAll({
+      tutor_id: params.tutorId,
+      proposed_by: params.proposedBy,
+      status: params.status,
+      include_session: params.includeSession ?? true,
+    }),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching pending proposal count for notification bell
+ */
+export function usePendingProposalCount(tutorId: number | null | undefined) {
+  return useSWR<PendingProposalCount>(
+    tutorId ? ['pending-proposals-count', tutorId] : null,
+    () => proposalsAPI.getPendingCount(tutorId!),
+    { refreshInterval: 30000, revalidateOnFocus: false }  // Poll every 30s
+  );
+}
+
+/**
+ * Hook for fetching a single proposal by ID
+ */
+export function useProposal(proposalId: number | null | undefined) {
+  return useSWR<MakeupProposal>(
+    proposalId ? ['proposal', proposalId] : null,
+    () => proposalsAPI.getById(proposalId!)
+  );
+}
+
+/**
+ * Hook for fetching the active proposal for a specific session
+ */
+export function useProposalForSession(sessionId: number | null | undefined) {
+  return useSWR<MakeupProposal | null>(
+    sessionId ? ['proposal-for-session', sessionId] : null,
+    () => proposalsAPI.getForSession(sessionId!)
   );
 }
 

@@ -413,7 +413,7 @@ export interface OverdueEnrollment {
 
 // Message types
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
-export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware';
+export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation';
 
 export interface Message {
   id: number;
@@ -494,4 +494,62 @@ export interface ScheduleMakeupRequest {
 export interface ScheduleMakeupResponse {
   makeup_session: Session;
   original_session: Session;
+}
+
+// Make-up Proposal types
+export type ProposalType = 'specific_slots' | 'needs_input';
+export type ProposalStatus = 'pending' | 'approved' | 'rejected';
+export type SlotStatus = 'pending' | 'approved' | 'rejected';
+
+export interface MakeupProposalSlot {
+  id: number;
+  proposal_id: number;
+  slot_order: number;
+  proposed_date: string;  // ISO format
+  proposed_time_slot: string;
+  proposed_tutor_id: number;
+  proposed_tutor_name?: string;
+  proposed_location: string;
+  slot_status: SlotStatus;
+  resolved_at?: string;
+  resolved_by_tutor_id?: number;
+  resolved_by_tutor_name?: string;
+  rejection_reason?: string;
+}
+
+export interface MakeupProposal {
+  id: number;
+  original_session_id: number;
+  proposed_by_tutor_id: number;
+  proposed_by_tutor_name?: string;
+  proposal_type: ProposalType;
+  needs_input_tutor_id?: number;
+  needs_input_tutor_name?: string;
+  notes?: string;
+  status: ProposalStatus;
+  created_at: string;
+  resolved_at?: string;
+  message_id?: number;
+  slots: MakeupProposalSlot[];
+  original_session?: Session;
+}
+
+export interface MakeupProposalSlotCreate {
+  slot_order: number;
+  proposed_date: string;
+  proposed_time_slot: string;
+  proposed_tutor_id: number;
+  proposed_location: string;
+}
+
+export interface MakeupProposalCreate {
+  original_session_id: number;
+  proposal_type: ProposalType;
+  needs_input_tutor_id?: number;
+  slots?: MakeupProposalSlotCreate[];
+  notes?: string;
+}
+
+export interface PendingProposalCount {
+  count: number;
 }

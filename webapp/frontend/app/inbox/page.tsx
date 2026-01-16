@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
-import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications } from "@/lib/hooks";
+import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -11,8 +12,10 @@ import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSele
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
-import type { Message, MessageThread, MessageCreate, MessageCategory } from "@/types";
+import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session } from "@/types";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
+import { ProposalCard } from "@/components/inbox/ProposalCard";
+import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import {
   Inbox,
   Send,
@@ -37,6 +40,7 @@ import {
   Check,
   Search,
   Trash2,
+  CalendarClock,
 } from "lucide-react";
 
 // Category definition
@@ -55,6 +59,7 @@ const CATEGORIES: Category[] = [
   { id: "schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" />, filter: "Schedule" },
   { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
   { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
+  // MakeupConfirmation moved to dedicated /proposals page
   { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
 ];
 
@@ -796,13 +801,25 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 export default function InboxPage() {
   usePageTitle("Inbox");
 
+  const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
+  // Get initial category from URL param
+  const initialCategory = useMemo(() => {
+    const categoryParam = searchParams.get("category");
+    if (categoryParam) {
+      // Find category by filter value (e.g., "MakeupConfirmation")
+      const found = CATEGORIES.find(c => c.filter === categoryParam);
+      if (found) return found.id;
+    }
+    return "inbox";
+  }, [searchParams]);
+
   // State
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>("inbox");
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
@@ -831,6 +848,18 @@ export default function InboxPage() {
     typeof selectedTutorId === "number" ? selectedTutorId : null
   );
 
+  // Fetch proposals for makeup-confirmation category
+  const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useProposals({
+    tutorId: selectedCategory === "makeup-confirmation" && typeof selectedTutorId === "number"
+      ? selectedTutorId
+      : undefined,
+    status: "pending",
+    includeSession: true,
+  });
+
+  // State for ScheduleMakeupModal (for needs_input proposals)
+  const [makeupModalSession, setMakeupModalSession] = useState<Session | null>(null);
+
   // Convert sent messages to thread format for display
   const sentAsThreads: MessageThread[] = useMemo(() => {
     return sentMessages.map(msg => ({
@@ -856,7 +885,11 @@ export default function InboxPage() {
       );
     });
   }, [selectedCategory, sentAsThreads, threads, debouncedSearch]);
-  const isLoading = selectedCategory === "sent" ? loadingSent : loadingThreads;
+  const isLoading = selectedCategory === "sent"
+    ? loadingSent
+    : selectedCategory === "makeup-confirmation"
+    ? loadingProposals
+    : loadingThreads;
 
   // Sync selectedThread with latest data from SWR
   // Use a ref to track the selected thread ID to avoid stale closure issues
@@ -1131,15 +1164,19 @@ export default function InboxPage() {
                 <div className="flex-1 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
                 </div>
-              ) : threadsError ? (
+              ) : (threadsError || proposalsError) ? (
                 <div className="flex-1 flex items-center justify-center text-red-500">
                   <AlertCircle className="h-6 w-6 mr-2" />
-                  Failed to load messages
+                  Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
                 </div>
-              ) : displayThreads.length === 0 ? (
+              ) : (selectedCategory === "makeup-confirmation" ? proposals.length === 0 : displayThreads.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
                   <div className="text-center">
-                    <Inbox className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    {selectedCategory === "makeup-confirmation" ? (
+                      <CalendarClock className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    ) : (
+                      <Inbox className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    )}
                     <p>
                       {searchQuery
                         ? "No messages match your search"
@@ -1157,9 +1194,28 @@ export default function InboxPage() {
                         ? "No chat messages"
                         : selectedCategory === "courseware"
                         ? "No courseware messages"
+                        : selectedCategory === "makeup-confirmation"
+                        ? "No pending make-up confirmations"
                         : "No messages in your inbox"}
                     </p>
                   </div>
+                </div>
+              ) : selectedCategory === "makeup-confirmation" ? (
+                // Proposals view for makeup confirmations
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {proposals.map((proposal) => (
+                    <ProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      currentTutorId={typeof selectedTutorId === "number" ? selectedTutorId : 0}
+                      onSelectSlot={() => {
+                        // For needs_input proposals, open ScheduleMakeupModal
+                        if (proposal.original_session) {
+                          setMakeupModalSession(proposal.original_session);
+                        }
+                      }}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
@@ -1206,6 +1262,15 @@ export default function InboxPage() {
         replyTo={replyTo}
         onSend={handleSendMessage}
       />
+
+      {/* Schedule Makeup Modal for needs_input proposals */}
+      {makeupModalSession && (
+        <ScheduleMakeupModal
+          session={makeupModalSession}
+          isOpen={!!makeupModalSession}
+          onClose={() => setMakeupModalSession(null)}
+        />
+      )}
     </DeskSurface>
   );
 }
