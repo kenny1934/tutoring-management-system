@@ -3,7 +3,7 @@ Sessions API endpoints.
 Provides read-only access to session log data.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import date
@@ -592,6 +592,7 @@ def _get_makeup_raw_data(
 @router.get("/sessions/{session_id}/makeup-suggestions", response_model=List[MakeupSlotSuggestion])
 async def get_makeup_suggestions(
     session_id: int,
+    response: Response,
     days_ahead: int = Query(30, ge=1, le=60, description="Days ahead to search for slots"),
     limit: int = Query(10, ge=1, le=20, description="Maximum suggestions to return"),
     db: Session = Depends(get_db)
@@ -609,6 +610,9 @@ async def get_makeup_suggestions(
     Only includes slots with capacity (< 8 active students).
     Only counts "Scheduled" and "Make-up Class" sessions.
     """
+    # Set cache headers for browser caching (2 minutes)
+    response.headers["Cache-Control"] = "private, max-age=120"
+
     # Get the original session
     original_session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
