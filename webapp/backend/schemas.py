@@ -673,7 +673,7 @@ class MessageBase(BaseModel):
     subject: Optional[str] = Field(None, max_length=200)
     message: str = Field(..., min_length=1)
     priority: str = Field("Normal", pattern="^(Normal|High|Urgent)$")
-    category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware)$")
+    category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware|MakeupConfirmation)$")
 
 
 class MessageCreate(MessageBase):
@@ -717,8 +717,104 @@ class UnreadCountResponse(BaseModel):
     count: int = Field(default=0, ge=0)
 
 
+# ============================================
+# Make-up Proposal Schemas
+# ============================================
+
+class MakeupProposalSlotBase(BaseModel):
+    """Base schema for proposal slot"""
+    proposed_date: date
+    proposed_time_slot: str = Field(..., max_length=100)
+    proposed_tutor_id: int = Field(..., gt=0)
+    proposed_location: str = Field(..., max_length=100)
+
+
+class MakeupProposalSlotCreate(MakeupProposalSlotBase):
+    """Schema for creating a proposal slot"""
+    slot_order: int = Field(default=1, ge=1, le=3)
+
+
+class MakeupProposalSlotResponse(MakeupProposalSlotBase):
+    """Response schema for a proposal slot"""
+    id: int = Field(..., gt=0)
+    proposal_id: int = Field(..., gt=0)
+    slot_order: int = Field(..., ge=1, le=3)
+    slot_status: str = Field(default='pending', max_length=20)
+    resolved_at: Optional[datetime] = None
+    resolved_by_tutor_id: Optional[int] = Field(None, gt=0)
+    resolved_by_tutor_name: Optional[str] = Field(None, max_length=255)
+    rejection_reason: Optional[str] = Field(None, max_length=1000)
+    proposed_tutor_name: Optional[str] = Field(None, max_length=255)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MakeupProposalCreate(BaseModel):
+    """Schema for creating a make-up proposal"""
+    original_session_id: int = Field(..., gt=0)
+    proposal_type: str = Field(..., pattern="^(specific_slots|needs_input)$")
+    # For needs_input type
+    needs_input_tutor_id: Optional[int] = Field(None, gt=0)
+    # For specific_slots type (1-3 slots)
+    slots: List[MakeupProposalSlotCreate] = Field(default_factory=list, max_length=3)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    @field_validator('slots')
+    @classmethod
+    def validate_slots(cls, v, info):
+        proposal_type = info.data.get('proposal_type')
+        if proposal_type == 'specific_slots' and len(v) == 0:
+            raise ValueError('At least one slot is required for specific_slots proposal')
+        if proposal_type == 'needs_input' and len(v) > 0:
+            raise ValueError('Slots should be empty for needs_input proposal')
+        return v
+
+
+class MakeupProposalResponse(BaseModel):
+    """Response schema for a make-up proposal"""
+    id: int = Field(..., gt=0)
+    original_session_id: int = Field(..., gt=0)
+    proposed_by_tutor_id: int = Field(..., gt=0)
+    proposed_by_tutor_name: Optional[str] = Field(None, max_length=255)
+    proposal_type: str = Field(..., max_length=20)
+    needs_input_tutor_id: Optional[int] = Field(None, gt=0)
+    needs_input_tutor_name: Optional[str] = Field(None, max_length=255)
+    notes: Optional[str] = Field(None, max_length=1000)
+    status: str = Field(default='pending', max_length=20)
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    message_id: Optional[int] = Field(None, gt=0)
+    # Nested slot responses
+    slots: List[MakeupProposalSlotResponse] = Field(default_factory=list)
+    # Original session info for context
+    original_session: Optional['SessionResponse'] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SlotApproveRequest(BaseModel):
+    """Request to approve a slot"""
+    pass  # No additional fields needed
+
+
+class SlotRejectRequest(BaseModel):
+    """Request to reject a slot"""
+    rejection_reason: Optional[str] = Field(None, max_length=1000)
+
+
+class ProposalRejectRequest(BaseModel):
+    """Request to reject entire proposal (for needs_input type)"""
+    rejection_reason: Optional[str] = Field(None, max_length=1000)
+
+
+class PendingProposalCount(BaseModel):
+    """Count of pending proposals for current tutor"""
+    count: int = Field(default=0, ge=0)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
 DetailedSessionResponse.model_rebuild()
 ThreadResponse.model_rebuild()
+MakeupProposalResponse.model_rebuild()

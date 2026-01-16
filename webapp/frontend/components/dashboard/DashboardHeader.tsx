@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet } from "lucide-react";
+import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
+import { ProposalQuickLink } from "./ProposalQuickLink";
 import { usefulTools } from "@/config/useful-tools";
 import { leaveRecords, getLeaveRecordUrl } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
@@ -35,6 +36,7 @@ interface DashboardHeaderProps {
   isMobile?: boolean;
   pendingPayments?: number;
   stats?: DashboardStats | null;
+  tutorId?: number;
 }
 
 // Random greeting emojis
@@ -43,6 +45,7 @@ const greetingEmojis = ["🎯","🌟","✨","🎉","🚀","💫","🔥","⚡","�
 // Quick link definitions
 const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
+  { id: 'proposals', label: 'Make-up Proposals', icon: CalendarClock, href: null }, // Special: ProposalQuickLink component
   { id: 'parents', label: 'Parent Contacts', icon: Users, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
@@ -50,7 +53,7 @@ const quickLinks = [
 ];
 
 
-export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats }: DashboardHeaderProps) {
+export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
@@ -61,6 +64,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const greetingEmoji = useMemo(() => {
     return greetingEmojis[Math.floor(Math.random() * greetingEmojis.length)];
   }, []);
+
+  // Derive tutor ID from tutors list if not provided
+  const currentTutorId = useMemo(() => {
+    if (tutorId) return tutorId;
+    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return currentTutor?.id;
+  }, [tutorId, tutors]);
 
   // Current user's leave record URL (for my-view mode)
   const currentUserLeaveUrl = getLeaveRecordUrl(CURRENT_USER_TUTOR);
@@ -173,7 +183,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <HeaderStats stats={stats} />
           <div className="px-4 sm:px-6">
-            <NotificationBell pendingPayments={pendingPayments} location={location} />
+            <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} />
           </div>
         </div>
       )}
@@ -277,6 +287,29 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   )}
                 </div>
               );
+            }
+
+            // Special handling for Make-up Proposals
+            if (link.id === 'proposals') {
+              // Show placeholder while loading, then full component
+              if (!currentTutorId) {
+                return (
+                  <button
+                    key={link.id}
+                    disabled
+                    className={cn(
+                      "inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-medium",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "text-[#a0704b]/50 dark:text-[#cd853f]/50 cursor-wait"
+                    )}
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Make-up Proposals</span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                );
+              }
+              return <ProposalQuickLink key={link.id} tutorId={currentTutorId} />;
             }
 
             // Special handling for Leave Record

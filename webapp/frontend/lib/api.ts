@@ -28,6 +28,10 @@ import type {
   MakeupSlotSuggestion,
   ScheduleMakeupRequest,
   ScheduleMakeupResponse,
+  MakeupProposal,
+  MakeupProposalCreate,
+  PendingProposalCount,
+  ProposalStatus,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -898,6 +902,93 @@ export const messagesAPI = {
   },
 };
 
+// Make-up Proposals API
+export const proposalsAPI = {
+  // Get proposals with optional filters
+  getAll: (params: {
+    tutor_id?: number;
+    proposed_by?: number;
+    status?: ProposalStatus;
+    include_session?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.tutor_id) searchParams.append("tutor_id", params.tutor_id.toString());
+    if (params.proposed_by) searchParams.append("proposed_by", params.proposed_by.toString());
+    if (params.status) searchParams.append("status", params.status);
+    if (params.include_session) searchParams.append("include_session", "true");
+    if (params.limit) searchParams.append("limit", params.limit.toString());
+    if (params.offset) searchParams.append("offset", params.offset.toString());
+
+    const query = searchParams.toString();
+    return fetchAPI<MakeupProposal[]>(`/makeup-proposals${query ? `?${query}` : ""}`);
+  },
+
+  // Get pending proposal count for notification bell
+  getPendingCount: (tutorId: number) => {
+    return fetchAPI<PendingProposalCount>(`/makeup-proposals/pending-count?tutor_id=${tutorId}`);
+  },
+
+  // Get single proposal
+  getById: (proposalId: number, includeSession = true) => {
+    return fetchAPI<MakeupProposal>(
+      `/makeup-proposals/${proposalId}?include_session=${includeSession}`
+    );
+  },
+
+  // Get proposal for a specific session
+  getForSession: (sessionId: number) => {
+    return fetchAPI<MakeupProposal | null>(`/makeup-proposals/for-session/${sessionId}`);
+  },
+
+  // Create a new proposal
+  create: (data: MakeupProposalCreate, fromTutorId: number) => {
+    return fetchAPI<MakeupProposal>(`/makeup-proposals?from_tutor_id=${fromTutorId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Approve a slot
+  approveSlot: (slotId: number, tutorId: number) => {
+    return fetchAPI<MakeupProposal>(
+      `/makeup-proposals/slots/${slotId}/approve?tutor_id=${tutorId}`,
+      { method: "POST" }
+    );
+  },
+
+  // Reject a slot
+  rejectSlot: (slotId: number, tutorId: number, rejectionReason?: string) => {
+    return fetchAPI<MakeupProposal>(
+      `/makeup-proposals/slots/${slotId}/reject?tutor_id=${tutorId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ rejection_reason: rejectionReason }),
+      }
+    );
+  },
+
+  // Reject entire proposal (for needs_input type)
+  reject: (proposalId: number, tutorId: number, rejectionReason?: string) => {
+    return fetchAPI<MakeupProposal>(
+      `/makeup-proposals/${proposalId}/reject?tutor_id=${tutorId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ rejection_reason: rejectionReason }),
+      }
+    );
+  },
+
+  // Cancel proposal (by proposer)
+  cancel: (proposalId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean; message: string }>(
+      `/makeup-proposals/${proposalId}?tutor_id=${tutorId}`,
+      { method: "DELETE" }
+    );
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -916,4 +1007,5 @@ export const api = {
   locationSettings: locationSettingsAPI,
   terminations: terminationsAPI,
   messages: messagesAPI,
+  proposals: proposalsAPI,
 };

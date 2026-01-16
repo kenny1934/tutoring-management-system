@@ -506,3 +506,67 @@ class MessageLike(Base):
     # Relationships
     message = relationship("TutorMessage", back_populates="likes")
     tutor = relationship("Tutor")
+
+
+class MakeupProposal(Base):
+    """
+    Make-up session proposals awaiting confirmation from target tutors.
+    Allows tutors to propose 1-3 slot options for review before booking.
+    """
+    __tablename__ = "makeup_proposals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    original_session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False)
+    proposed_by_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+
+    # Proposal type: 'specific_slots' (1-3 options) or 'needs_input' (ask main tutor)
+    proposal_type = Column(String(20), nullable=False)  # specific_slots or needs_input
+
+    # For needs_input: single target tutor (main tutor from enrollment)
+    needs_input_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
+
+    # Metadata
+    notes = Column(Text, comment='Message from proposer to target tutors')
+    status = Column(String(20), default='pending')  # pending, approved, rejected
+    created_at = Column(DateTime, server_default=func.now())
+    resolved_at = Column(DateTime, nullable=True)
+    active_flag = Column(Integer, default=1, comment='Set to 1 when pending, NULL when resolved')
+
+    # Link to auto-created message for discussion
+    message_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
+
+    # Relationships
+    original_session = relationship("SessionLog", foreign_keys=[original_session_id])
+    proposed_by_tutor = relationship("Tutor", foreign_keys=[proposed_by_tutor_id])
+    needs_input_tutor = relationship("Tutor", foreign_keys=[needs_input_tutor_id])
+    message = relationship("TutorMessage", foreign_keys=[message_id])
+    slots = relationship("MakeupProposalSlot", back_populates="proposal", cascade="all, delete-orphan")
+
+
+class MakeupProposalSlot(Base):
+    """
+    Individual slot options within a make-up proposal.
+    Each slot can have a different target tutor.
+    """
+    __tablename__ = "makeup_proposal_slots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    proposal_id = Column(Integer, ForeignKey("makeup_proposals.id", ondelete="CASCADE"), nullable=False)
+    slot_order = Column(Integer, default=1, comment='1, 2, or 3 for ordering options')
+
+    # Slot details
+    proposed_date = Column(Date, nullable=False)
+    proposed_time_slot = Column(String(100), nullable=False)
+    proposed_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    proposed_location = Column(String(100), nullable=False)
+
+    # Slot-level status
+    slot_status = Column(String(20), default='pending')  # pending, approved, rejected
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+
+    # Relationships
+    proposal = relationship("MakeupProposal", back_populates="slots")
+    proposed_tutor = relationship("Tutor", foreign_keys=[proposed_tutor_id])
+    resolved_by_tutor = relationship("Tutor", foreign_keys=[resolved_by_tutor_id])

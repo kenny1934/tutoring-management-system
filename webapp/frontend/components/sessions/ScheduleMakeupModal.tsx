@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useTutors, useHolidays } from "@/lib/hooks";
-import { sessionsAPI } from "@/lib/api";
+import { sessionsAPI, proposalsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
   toDateString,
@@ -37,8 +37,12 @@ import {
   X,
   Settings2,
   RotateCcw,
+  Send,
+  Plus,
+  Trash2,
+  MessageSquare,
 } from "lucide-react";
-import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor } from "@/types";
+import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -175,6 +179,9 @@ interface SuggestionCardProps {
   isExpanded: boolean;
   onToggle: () => void;
   onBook: () => void;
+  onAddToProposal?: () => void;
+  mode: "book" | "propose";
+  canAddMore: boolean;
   weights: ScoringWeights;
   isSaving: boolean;
 }
@@ -184,6 +191,9 @@ const SuggestionCard = React.memo(function SuggestionCard({
   isExpanded,
   onToggle,
   onBook,
+  onAddToProposal,
+  mode,
+  canAddMore,
   weights,
   isSaving,
 }: SuggestionCardProps) {
@@ -264,34 +274,69 @@ const SuggestionCard = React.memo(function SuggestionCard({
             </div>
           )}
 
-          {/* Book Button */}
-          <Button
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onBook();
-            }}
-            disabled={isSaving}
-            className="w-full h-8 text-xs"
-          >
-            {isSaving ? (
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-            ) : (
-              <Check className="h-3 w-3 mr-1" />
-            )}
-            Book This Slot
-          </Button>
+          {/* Book / Add to Proposal Button */}
+          {mode === "propose" ? (
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToProposal?.();
+              }}
+              disabled={!canAddMore}
+              className="w-full h-8 text-xs"
+              variant={canAddMore ? "default" : "outline"}
+            >
+              {canAddMore ? (
+                <>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add to Proposal
+                </>
+              ) : (
+                "3 Slots Selected"
+              )}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBook();
+              }}
+              disabled={isSaving}
+              className="w-full h-8 text-xs"
+            >
+              {isSaving ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Check className="h-3 w-3 mr-1" />
+              )}
+              Book This Slot
+            </Button>
+          )}
         </div>
       )}
     </div>
   );
 });
 
+// Proposal slot type for local state
+interface ProposalSlotLocal {
+  date: string;
+  timeSlot: string;
+  tutorId: number;
+  tutorName: string;
+  location: string;
+}
+
 interface ScheduleMakeupModalProps {
   session: Session;
   isOpen: boolean;
   onClose: () => void;
   onScheduled?: (makeupSession: Session, originalSession: Session) => void;
+  /** Tutor ID for the proposer (required for propose mode) */
+  proposerTutorId?: number;
+  /** Callback after proposal is created */
+  onProposed?: () => void;
 }
 
 export function ScheduleMakeupModal({
@@ -299,6 +344,8 @@ export function ScheduleMakeupModal({
   isOpen,
   onClose,
   onScheduled,
+  proposerTutorId,
+  onProposed,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { data: tutors } = useTutors();
@@ -309,6 +356,15 @@ export function ScheduleMakeupModal({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
   const [makeupNotes, setMakeupNotes] = useState("");
+
+  // Propose mode state
+  const [mode, setMode] = useState<"book" | "propose">("book");
+  const [proposalSlots, setProposalSlots] = useState<ProposalSlotLocal[]>([]);
+  const [isProposing, setIsProposing] = useState(false);
+  // Track selected proposer (defaults to prop, but can be changed in modal)
+  const [selectedProposerTutorId, setSelectedProposerTutorId] = useState<number | null>(
+    proposerTutorId ?? null
+  );
 
   // Custom time state (consolidated: start, end, enabled)
   const [customTime, setCustomTime] = useState({ start: "", end: "", enabled: false });
@@ -474,6 +530,11 @@ export function ScheduleMakeupModal({
       setConfirmManualBooking(false);
       setExpandedSlotStudents(null);
       setShowAllSuggestions(false);
+      // Reset propose mode state
+      setMode("book");
+      setProposalSlots([]);
+      setIsProposing(false);
+      setSelectedProposerTutorId(proposerTutorId ?? null);
     }
     // eslint-disable-next-line react-hooks-exhaustive-deps
   }, [isOpen, session.tutor_id]);
@@ -656,6 +717,76 @@ export function ScheduleMakeupModal({
       showToast(message, "error");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Add slot to proposal (up to 3)
+  const addProposalSlot = useCallback((slot: ProposalSlotLocal) => {
+    if (proposalSlots.length >= 3) {
+      showToast("Maximum 3 slot options allowed", "info");
+      return;
+    }
+    // Check for duplicate
+    const isDuplicate = proposalSlots.some(
+      s => s.date === slot.date && s.timeSlot === slot.timeSlot && s.tutorId === slot.tutorId
+    );
+    if (isDuplicate) {
+      showToast("This slot is already in your proposal", "info");
+      return;
+    }
+    setProposalSlots(prev => [...prev, slot]);
+    showToast(`Added option ${proposalSlots.length + 1}`, "success");
+  }, [proposalSlots, showToast]);
+
+  // Remove slot from proposal
+  const removeProposalSlot = useCallback((index: number) => {
+    setProposalSlots(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // Submit proposal
+  const submitProposal = async () => {
+    if (!selectedProposerTutorId) {
+      showToast("Please select who you are proposing as", "info");
+      return;
+    }
+    if (proposalSlots.length === 0) {
+      showToast("Add at least one slot option", "info");
+      return;
+    }
+
+    setIsProposing(true);
+    try {
+      const slots: MakeupProposalSlotCreate[] = proposalSlots.map((slot, idx) => ({
+        slot_order: idx + 1,
+        proposed_date: slot.date,
+        proposed_time_slot: slot.timeSlot,
+        proposed_tutor_id: slot.tutorId,
+        proposed_location: slot.location,
+      }));
+
+      await proposalsAPI.create({
+        original_session_id: session.id,
+        proposal_type: "specific_slots",
+        slots,
+        notes: makeupNotes.trim() || undefined,
+      }, selectedProposerTutorId);
+
+      // Refresh proposal-related data
+      mutate((key) =>
+        Array.isArray(key) &&
+        (key[0] === "proposals" ||
+          key[0] === "pending-proposals-count" ||
+          key[0] === "message-threads")
+      );
+
+      showToast("Make-up proposal sent!", "success");
+      onProposed?.();
+      onClose();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send proposal";
+      showToast(message, "error");
+    } finally {
+      setIsProposing(false);
     }
   };
 
@@ -851,29 +982,53 @@ export function ScheduleMakeupModal({
       title={
         <div className="flex items-center gap-2">
           <Calendar className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
-          <span>Schedule Make-up Class</span>
+          <span>{mode === "propose" ? "Propose Make-up Slots" : "Schedule Make-up Class"}</span>
         </div>
       }
       size="xl"
-      persistent={isSaving}
+      persistent={isSaving || isProposing}
       footer={
         <div className="flex items-center justify-between w-full">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving || isProposing}>
             Cancel
           </Button>
-          <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid}>
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Scheduling...
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4 mr-2" />
-                Schedule Make-up
-              </>
-            )}
-          </Button>
+          {mode === "propose" ? (
+            <Button
+              onClick={submitProposal}
+              disabled={isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+            >
+              {isProposing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : !selectedProposerTutorId ? (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Select Tutor First
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Proposal ({proposalSlots.length}/3)
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Schedule Make-up
+                </>
+              )}
+            </Button>
+          )}
         </div>
       }
     >
@@ -906,13 +1061,111 @@ export function ScheduleMakeupModal({
           <span className="text-orange-600 dark:text-orange-400">{session.session_status}</span>
         </div>
 
+        {/* Mode Toggle - Book vs Propose */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setMode("book")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                mode === "book"
+                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              )}
+            >
+              <Check className="h-3 w-3 inline mr-1" />
+              Book Directly
+            </button>
+            <button
+              onClick={() => setMode("propose")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                mode === "propose"
+                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              )}
+            >
+              <Send className="h-3 w-3 inline mr-1" />
+              Propose to Tutor
+            </button>
+          </div>
+          {mode === "propose" && (
+            <>
+              <span className="text-xs text-gray-500">
+                Select up to 3 time slots
+              </span>
+              {/* Proposer selector - show as text if prop provided, dropdown otherwise */}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-xs text-gray-500">As:</span>
+                {proposerTutorId ? (
+                  <span className="px-2 py-1 text-xs font-medium text-[#a0704b]">
+                    {tutors?.find(t => t.id === proposerTutorId)?.tutor_name || "Unknown"}
+                  </span>
+                ) : (
+                  <select
+                    value={selectedProposerTutorId || ""}
+                    onChange={(e) => setSelectedProposerTutorId(e.target.value ? Number(e.target.value) : null)}
+                    className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#2a2a2a]"
+                  >
+                    <option value="">Select tutor...</option>
+                    {tutors?.map((t) => (
+                      <option key={t.id} value={t.id}>{t.tutor_name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Proposal Slots (when in propose mode) */}
+        {mode === "propose" && proposalSlots.length > 0 && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                <MessageSquare className="h-3.5 w-3.5" />
+                PROPOSED SLOTS ({proposalSlots.length}/3)
+              </span>
+              {proposalSlots.length < 3 && (
+                <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                  Click slots below to add more options
+                </span>
+              )}
+            </div>
+            <div className="space-y-2">
+              {proposalSlots.map((slot, idx) => (
+                <div
+                  key={`${slot.date}-${slot.timeSlot}-${slot.tutorId}`}
+                  className="flex items-center justify-between bg-white dark:bg-[#1a1a1a] rounded-md px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400">#{idx + 1}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="text-gray-500">{slot.timeSlot}</span>
+                    <span className="text-[#a0704b]">{slot.tutorName}</span>
+                  </div>
+                  <button
+                    onClick={() => removeProposalSlot(idx)}
+                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    title="Remove this option"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Optional Notes Field */}
         <div className="flex items-center gap-2">
           <input
             type="text"
             value={makeupNotes}
             onChange={(e) => setMakeupNotes(e.target.value)}
-            placeholder="Reason for make-up (optional)"
+            placeholder={mode === "propose" ? "Note for the tutor (optional)" : "Reason for make-up (optional)"}
             maxLength={500}
             className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 placeholder:text-gray-400"
           />
@@ -951,19 +1204,40 @@ export function ScheduleMakeupModal({
             </div>
             {showSuggestions && (
               <div className="flex items-center gap-1.5">
-                {/* Quick Book Best Suggestion */}
+                {/* Quick Book / Quick Add Best Suggestion */}
                 {sortedSuggestions.length > 0 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirmSuggestion(sortedSuggestions[0]);
-                    }}
-                    disabled={isSaving}
-                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
-                  >
-                    <Check className="h-3 w-3" />
-                    Quick Book
-                  </button>
+                  mode === "propose" ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const best = sortedSuggestions[0];
+                        addProposalSlot({
+                          date: best.session_date,
+                          timeSlot: best.time_slot,
+                          tutorId: best.tutor_id,
+                          tutorName: best.tutor_name,
+                          location: best.location,
+                        });
+                      }}
+                      disabled={proposalSlots.length >= 3}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Quick Add
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmSuggestion(sortedSuggestions[0]);
+                      }}
+                      disabled={isSaving}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded transition-colors bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 disabled:opacity-50"
+                    >
+                      <Check className="h-3 w-3" />
+                      Quick Book
+                    </button>
+                  )
                 )}
                 <button
                   onClick={(e) => {
@@ -1058,6 +1332,15 @@ export function ScheduleMakeupModal({
                         isExpanded={expandedSuggestion === suggestionKey}
                         onToggle={() => toggleSuggestion(suggestionKey)}
                         onBook={() => setConfirmSuggestion(suggestion)}
+                        onAddToProposal={() => addProposalSlot({
+                          date: suggestion.session_date,
+                          timeSlot: suggestion.time_slot,
+                          tutorId: suggestion.tutor_id,
+                          tutorName: suggestion.tutor_name,
+                          location: suggestion.location,
+                        })}
+                        mode={mode}
+                        canAddMore={proposalSlots.length < 3}
                         weights={weights}
                         isSaving={isSaving}
                       />
@@ -1380,6 +1663,36 @@ export function ScheduleMakeupModal({
                 This slot is full (8 students)
               </div>
             )}
+
+            {/* Add to Proposal button (propose mode only) */}
+            {mode === "propose" && selectedDate && effectiveTimeSlot && selectedTutorId && (
+              <Button
+                onClick={() => {
+                  const tutorName = tutors?.find(t => t.id === selectedTutorId)?.tutor_name || "";
+                  addProposalSlot({
+                    date: selectedDate,
+                    timeSlot: effectiveTimeSlot,
+                    tutorId: selectedTutorId,
+                    tutorName,
+                    location,
+                  });
+                }}
+                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8}
+                className="w-full"
+                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 ? "default" : "outline"}
+              >
+                {proposalSlots.length >= 3 ? (
+                  "3 Slots Selected"
+                ) : studentsInSlot.length >= 8 ? (
+                  "Slot is Full"
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add to Proposal
+                  </>
+                )}
+              </Button>
+            )}
               </>
             )}
           </div>
@@ -1533,25 +1846,57 @@ export function ScheduleMakeupModal({
                                 )}
                               </div>
 
-                              {/* Book Button - Shown when selected */}
+                              {/* Book / Add to Proposal Button - Shown when selected */}
                               {isSelected && (
                                 <div className="px-2.5 pb-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
-                                  <Button
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setConfirmBooking({ timeSlot, tutorId, tutorName });
-                                    }}
-                                    disabled={isSaving || isFull}
-                                    className="w-full mt-2 h-8 text-xs"
-                                  >
-                                    {isSaving ? (
-                                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                    ) : (
-                                      <Check className="h-3 w-3 mr-1" />
-                                    )}
-                                    {isFull ? "Slot is Full" : "Book This Slot"}
-                                  </Button>
+                                  {mode === "propose" ? (
+                                    <Button
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (dayPickerDate) {
+                                          addProposalSlot({
+                                            date: dayPickerDate,
+                                            timeSlot,
+                                            tutorId,
+                                            tutorName,
+                                            location,
+                                          });
+                                        }
+                                      }}
+                                      disabled={proposalSlots.length >= 3 || isFull}
+                                      className="w-full mt-2 h-8 text-xs"
+                                      variant={proposalSlots.length < 3 && !isFull ? "default" : "outline"}
+                                    >
+                                      {proposalSlots.length >= 3 ? (
+                                        "3 Slots Selected"
+                                      ) : isFull ? (
+                                        "Slot is Full"
+                                      ) : (
+                                        <>
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Add to Proposal
+                                        </>
+                                      )}
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmBooking({ timeSlot, tutorId, tutorName });
+                                      }}
+                                      disabled={isSaving || isFull}
+                                      className="w-full mt-2 h-8 text-xs"
+                                    >
+                                      {isSaving ? (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Check className="h-3 w-3 mr-1" />
+                                      )}
+                                      {isFull ? "Slot is Full" : "Book This Slot"}
+                                    </Button>
+                                  )}
                                 </div>
                               )}
                             </div>
