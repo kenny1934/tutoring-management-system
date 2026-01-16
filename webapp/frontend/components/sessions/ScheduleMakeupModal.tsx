@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import useSWR from "swr";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -169,6 +169,124 @@ function WeightSlider({ label, value, min, max, step, onChange }: WeightSliderPr
   );
 }
 
+// Memoized suggestion card to prevent re-renders when weights change
+interface SuggestionCardProps {
+  suggestion: MakeupSlotSuggestion & { calculatedScore: number };
+  isExpanded: boolean;
+  onToggle: () => void;
+  onBook: () => void;
+  weights: ScoringWeights;
+  isSaving: boolean;
+}
+
+const SuggestionCard = React.memo(function SuggestionCard({
+  suggestion,
+  isExpanded,
+  onToggle,
+  onBook,
+  weights,
+  isSaving,
+}: SuggestionCardProps) {
+  const breakdown = suggestion.score_breakdown;
+
+  return (
+    <div className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg overflow-hidden transition-all">
+      {/* Suggestion Header - Clickable */}
+      <div
+        onClick={onToggle}
+        className="flex items-center justify-between gap-3 p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] cursor-pointer transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-[#5d4e37] dark:text-[#e8d4b8]">
+              {new Date(suggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+            <span className="text-xs text-gray-500">{suggestion.time_slot}</span>
+            <span className="text-xs text-gray-500">•</span>
+            <span className="text-xs text-[#8b6f47] dark:text-[#cd853f]">{suggestion.tutor_name}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] text-gray-500">
+              {suggestion.current_students}/8 students
+            </span>
+            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
+              Score: {suggestion.calculatedScore}
+            </span>
+            {breakdown.is_same_tutor && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+                Same tutor
+              </span>
+            )}
+          </div>
+        </div>
+        {isExpanded ? (
+          <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+        )}
+      </div>
+
+      {/* Expanded Content - Students List */}
+      {isExpanded && (
+        <div className="px-3 pb-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+          {/* Score Breakdown */}
+          <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
+            <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+              {breakdown.is_same_tutor && (
+                <span>Same tutor: +{weights.sameTutor}</span>
+              )}
+              {breakdown.matching_grade_count > 0 && (
+                <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, 60)}</span>
+              )}
+              {breakdown.matching_lang_count > 0 && (
+                <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, 45)}</span>
+              )}
+              {breakdown.matching_school_count > 0 && (
+                <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, 30)}</span>
+              )}
+              <span>Sooner date ({breakdown.days_away}d): +{Math.round(weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30))}</span>
+              <span>Capacity ({8 - breakdown.current_students} spots): +{weights.moreCapacity * (8 - breakdown.current_students)}</span>
+            </div>
+          </div>
+
+          {/* Students in Slot */}
+          <div className="text-xs font-medium text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
+            Students in this slot:
+          </div>
+          {suggestion.students_in_slot.length === 0 ? (
+            <div className="text-xs text-gray-500 italic">No students yet (empty slot)</div>
+          ) : (
+            <div className="space-y-1 mb-3">
+              {suggestion.students_in_slot.map((student, idx) => (
+                <StudentDisplay key={idx} student={student} />
+              ))}
+            </div>
+          )}
+
+          {/* Book Button */}
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onBook();
+            }}
+            disabled={isSaving}
+            className="w-full h-8 text-xs"
+          >
+            {isSaving ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : (
+              <Check className="h-3 w-3 mr-1" />
+            )}
+            Book This Slot
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+});
+
 interface ScheduleMakeupModalProps {
   session: Session;
   isOpen: boolean;
@@ -271,11 +389,11 @@ export function ScheduleMakeupModal({
   // Location is fixed to original session's location
   const location = session.location || "";
 
-  // Fetch suggestions
+  // Fetch suggestions (14 days ahead for faster loading)
   const { data: suggestions = [], isLoading: suggestionsLoading } = useSWR(
     isOpen ? [`makeup-suggestions`, session.id] : null,
     async () => {
-      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead: 30, limit: 10 });
+      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead: 14, limit: 10 });
     },
     { revalidateOnFocus: false }
   );
@@ -290,7 +408,7 @@ export function ScheduleMakeupModal({
       .sort((a, b) => b.calculatedScore - a.calculatedScore);
   }, [suggestions, weights]);
 
-  // Fetch holidays for the month
+  // Fetch holidays for the current month view
   const monthBounds = getMonthBounds(viewDate);
   const { data: holidays = [] } = useHolidays(
     toDateString(monthBounds.start),
@@ -298,7 +416,11 @@ export function ScheduleMakeupModal({
   );
   const holidayDates = useMemo(() => new Set(holidays.map(h => h.holiday_date)), [holidays]);
 
-  // Fetch existing sessions for calendar view
+  // Prefetch next month's holidays for instant navigation
+  const nextMonthBounds = useMemo(() => getMonthBounds(getNextMonth(viewDate)), [viewDate]);
+  useHolidays(toDateString(nextMonthBounds.start), toDateString(nextMonthBounds.end));
+
+  // Fetch existing sessions for the viewed month
   const { data: existingSessions = [], isLoading: sessionsLoading } = useSWR(
     isOpen ? [`sessions-for-makeup`, toDateString(monthBounds.start), toDateString(monthBounds.end), location] : null,
     async () => {
@@ -356,16 +478,13 @@ export function ScheduleMakeupModal({
     // eslint-disable-next-line react-hooks-exhaustive-deps
   }, [isOpen, session.tutor_id]);
 
-  // Build sessions by date lookup
+  // Build sessions by date lookup (include all statuses for retrospective scheduling)
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, Session[]>();
     existingSessions.forEach((s) => {
-      // Only count active sessions
-      if (s.session_status === "Scheduled" || s.session_status === "Make-up Class") {
-        const dateKey = s.session_date;
-        if (!map.has(dateKey)) map.set(dateKey, []);
-        map.get(dateKey)!.push(s);
-      }
+      const dateKey = s.session_date;
+      if (!map.has(dateKey)) map.set(dateKey, []);
+      map.get(dateKey)!.push(s);
     });
     return map;
   }, [existingSessions]);
@@ -609,10 +728,24 @@ export function ScheduleMakeupModal({
 
     const allDaySessions = sessionsByDate.get(dayPickerDate) || [];
 
+    // Filter out sessions where student wasn't actually there
+    const attendingSessions = allDaySessions.filter(s => {
+      const status = s.session_status || '';
+      // Exclude: Rescheduled, No Show, Cancelled, Make-up Booked, Pending Make-up
+      if (status.includes('Rescheduled') ||
+          status.includes('No Show') ||
+          status.includes('Cancelled') ||
+          status.includes('Make-up Booked') ||
+          status.includes('Pending Make-up')) {
+        return false;
+      }
+      return true;
+    });
+
     // Filter by tutor if "Show all tutors" is unchecked
     const daySessions = showAllTutors
-      ? allDaySessions
-      : allDaySessions.filter(s => s.tutor_id === selectedTutorId);
+      ? attendingSessions
+      : attendingSessions.filter(s => s.tutor_id === selectedTutorId);
 
     // Group by time slot, then by tutor
     const slotMap = new Map<string, Map<number, { tutor: Tutor | undefined; sessions: Session[] }>>();
@@ -889,9 +1022,26 @@ export function ScheduleMakeupModal({
               </div>
               )}
               {suggestionsLoading ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
-                  <span className="ml-2 text-sm text-gray-500">Loading suggestions...</span>
+                <div className="space-y-2">
+                  {/* Skeleton suggestion cards */}
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg p-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="h-4 w-20 bg-gray-300 dark:bg-gray-600 rounded animate-pulse" />
+                            <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-3 w-14 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            <div className="h-4 w-14 bg-green-100 dark:bg-green-900/30 rounded animate-pulse" />
+                          </div>
+                        </div>
+                        <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : sortedSuggestions.length === 0 ? (
                 <div className="text-sm text-gray-500 py-2">
@@ -899,113 +1049,20 @@ export function ScheduleMakeupModal({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-              {(showAllSuggestions ? sortedSuggestions : sortedSuggestions.slice(0, 5)).map((suggestion) => {
-                const suggestionKey = `${suggestion.session_date}-${suggestion.time_slot}-${suggestion.tutor_id}`;
-                const isExpanded = expandedSuggestion === suggestionKey;
-                const breakdown = suggestion.score_breakdown;
-
-                return (
-                  <div
-                    key={suggestionKey}
-                    className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg overflow-hidden transition-all"
-                  >
-                    {/* Suggestion Header - Clickable */}
-                    <div
-                      onClick={() => toggleSuggestion(suggestionKey)}
-                      className="flex items-center justify-between gap-3 p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] cursor-pointer transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium text-[#5d4e37] dark:text-[#e8d4b8]">
-                            {new Date(suggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                          </span>
-                          <span className="text-xs text-gray-500">{suggestion.time_slot}</span>
-                          <span className="text-xs text-gray-500">•</span>
-                          <span className="text-xs text-[#8b6f47] dark:text-[#cd853f]">{suggestion.tutor_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-gray-500">
-                            {suggestion.current_students}/8 students
-                          </span>
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded"
-                          >
-                            Score: {suggestion.calculatedScore}
-                          </span>
-                          {breakdown.is_same_tutor && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
-                              Same tutor
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      )}
-                    </div>
-
-                    {/* Expanded Content - Students List */}
-                    {isExpanded && (
-                      <div className="px-3 pb-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-                        {/* Score Breakdown */}
-                        <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
-                          <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                            {breakdown.is_same_tutor && (
-                              <span>Same tutor: +{weights.sameTutor}</span>
-                            )}
-                            {breakdown.matching_grade_count > 0 && (
-                              <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, 60)}</span>
-                            )}
-                            {breakdown.matching_lang_count > 0 && (
-                              <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, 45)}</span>
-                            )}
-                            {breakdown.matching_school_count > 0 && (
-                              <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, 30)}</span>
-                            )}
-                            <span>Sooner date ({breakdown.days_away}d): +{Math.round(weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30))}</span>
-                            <span>Capacity ({8 - breakdown.current_students} spots): +{weights.moreCapacity * (8 - breakdown.current_students)}</span>
-                          </div>
-                        </div>
-
-                        {/* Students in Slot */}
-                        <div className="text-xs font-medium text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
-                          Students in this slot:
-                        </div>
-                        {suggestion.students_in_slot.length === 0 ? (
-                          <div className="text-xs text-gray-500 italic">No students yet (empty slot)</div>
-                        ) : (
-                          <div className="space-y-1 mb-3">
-                            {suggestion.students_in_slot.map((student, idx) => (
-                              <StudentDisplay key={idx} student={student} />
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Book Button */}
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmSuggestion(suggestion);
-                          }}
-                          disabled={isSaving}
-                          className="w-full h-8 text-xs"
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                          ) : (
-                            <Check className="h-3 w-3 mr-1" />
-                          )}
-                          Book This Slot
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  {(showAllSuggestions ? sortedSuggestions : sortedSuggestions.slice(0, 5)).map((suggestion) => {
+                    const suggestionKey = `${suggestion.session_date}-${suggestion.time_slot}-${suggestion.tutor_id}`;
+                    return (
+                      <SuggestionCard
+                        key={suggestionKey}
+                        suggestion={suggestion}
+                        isExpanded={expandedSuggestion === suggestionKey}
+                        onToggle={() => toggleSuggestion(suggestionKey)}
+                        onBook={() => setConfirmSuggestion(suggestion)}
+                        weights={weights}
+                        isSaving={isSaving}
+                      />
+                    );
+                  })}
                   {sortedSuggestions.length > 5 && (
                     <button
                       onClick={() => setShowAllSuggestions(!showAllSuggestions)}
@@ -1093,61 +1150,58 @@ export function ScheduleMakeupModal({
               </div>
             </div>
 
-            {/* Loading state */}
-            {sessionsLoading && (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+            {/* Calendar grid - dates shown immediately, availability skeletons while loading */}
+            <>
+              {/* Weekday headers */}
+              <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                {WEEKDAY_NAMES.map((day, idx) => (
+                  <div
+                    key={day}
+                    className={cn(
+                      "py-1 px-0.5 text-center text-[10px] font-semibold bg-[#fef9f3] dark:bg-[#2d2618]",
+                      idx > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
+                      (idx === 0 || idx === 6) && "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                    )}
+                  >
+                    {day}
+                  </div>
+                ))}
               </div>
-            )}
 
-            {/* Calendar grid */}
-            {!sessionsLoading && (
-              <>
-                {/* Weekday headers */}
-                <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                  {WEEKDAY_NAMES.map((day, idx) => (
+              {/* Days grid */}
+              <div className="grid grid-cols-7">
+                {calendarData.map((dayData) => {
+                  const dayOfWeek = dayData.date.getDay();
+                  const isFirstCol = dayOfWeek === 0;
+
+                  return (
                     <div
-                      key={day}
+                      key={dayData.dateString}
+                      onClick={() => handleDateClick(dayData.dateString, dayData.isHoliday, dayData.allSessions.length)}
                       className={cn(
-                        "py-1 px-0.5 text-center text-[10px] font-semibold bg-[#fef9f3] dark:bg-[#2d2618]",
-                        idx > 0 && "border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
-                        (idx === 0 || idx === 6) && "text-[#a0704b]/70 dark:text-[#cd853f]/70"
+                        "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer",
+                        !isFirstCol && "border-l",
+                        !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
+                        dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10 cursor-not-allowed",
+                        dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
+                        !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
+                        dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}
                     >
-                      {day}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Days grid */}
-                <div className="grid grid-cols-7">
-                  {calendarData.map((dayData) => {
-                    const dayOfWeek = dayData.date.getDay();
-                    const isFirstCol = dayOfWeek === 0;
-
-                    return (
-                      <div
-                        key={dayData.dateString}
-                        onClick={() => handleDateClick(dayData.dateString, dayData.isHoliday, dayData.allSessions.length)}
-                        className={cn(
-                          "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer",
-                          !isFirstCol && "border-l",
-                          !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
-                          dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10 cursor-not-allowed",
-                          dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
-                          !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
-                          dayData.isToday && "ring-1 ring-inset ring-blue-400"
-                        )}
-                      >
-                        <div className={cn(
-                          "text-[10px] font-semibold",
-                          dayData.isToday && "text-blue-500",
-                          dayData.isHoliday && "text-rose-500",
-                          !dayData.isToday && !dayData.isHoliday && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
-                        )}>
-                          {dayData.date.getDate()}
-                        </div>
-                        {dayData.totalSlots > 0 && (() => {
+                      {/* Date number - always visible */}
+                      <div className={cn(
+                        "text-[10px] font-semibold",
+                        dayData.isToday && "text-blue-500",
+                        dayData.isHoliday && "text-rose-500",
+                        !dayData.isToday && !dayData.isHoliday && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
+                      )}>
+                        {dayData.date.getDate()}
+                      </div>
+                      {/* Availability - skeleton while loading */}
+                      {sessionsLoading ? (
+                        <div className="h-2.5 w-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-0.5" />
+                      ) : (
+                        dayData.totalSlots > 0 && (() => {
                           const utilization = dayData.totalStudents / dayData.totalCapacity;
                           return (
                             <div className={cn(
@@ -1159,13 +1213,13 @@ export function ScheduleMakeupModal({
                               {dayData.totalStudents}/{dayData.totalCapacity}
                             </div>
                           );
-                        })()}
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                        })()
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           </div>
 
           {/* Form Fields - Collapsible */}

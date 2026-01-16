@@ -96,7 +96,8 @@ CREATE TABLE session_log (
     FOREIGN KEY (enrollment_id) REFERENCES enrollments(id),
     FOREIGN KEY (student_id) REFERENCES students(id),
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
-    UNIQUE KEY unique_student_tutor_session (student_id, tutor_id, session_date, time_slot, location)
+    UNIQUE KEY unique_student_tutor_session (student_id, tutor_id, session_date, time_slot, location),
+    INDEX idx_location_date_status (location, session_date, session_status)
 );
 
 CREATE TABLE discounts (
