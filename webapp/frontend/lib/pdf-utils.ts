@@ -230,7 +230,7 @@ html,body{margin:0;padding:0}
 .page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
 .page+.page{page-break-before:always;break-before:page}
 .page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:40px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
+.stamp{position:absolute;top:25px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
 </style></head><body>${pageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
 
     return new Blob([htmlContent], { type: 'text/html' });
@@ -318,7 +318,7 @@ html,body{margin:0;padding:0}
 .page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
 .page+.page{page-break-before:always;break-before:page}
 .page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:40px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
+.stamp{position:absolute;top:25px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
 </style></head><body>${allPageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
 
   return new Blob([htmlContent], { type: 'text/html' });
@@ -376,7 +376,7 @@ export async function extractBulkPagesForDownload(
       // Draw stamp in top-right corner (with margin for print safety)
       page.drawText(stampText, {
         x: width - textWidth - 40,  // 40px from right
-        y: height - 40,              // 40px from top
+        y: height - 25,              // 25px from top
         size: fontSize,
         font,
         color: rgb(0.2, 0.2, 0.2),  // Dark gray

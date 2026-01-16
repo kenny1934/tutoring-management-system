@@ -335,19 +335,15 @@ async def get_unread_count(
 ):
     """Get the count of unread messages for a tutor."""
     # Single query: count visible messages that have no read receipt
-    from sqlalchemy import exists
-
     unread_count = db.query(func.count(TutorMessage.id)).filter(
         or_(
             TutorMessage.to_tutor_id == tutor_id,
             TutorMessage.to_tutor_id.is_(None)  # Broadcasts
         ),
-        ~exists(
-            db.query(MessageReadReceipt.id).filter(
-                MessageReadReceipt.message_id == TutorMessage.id,
-                MessageReadReceipt.tutor_id == tutor_id
-            )
-        )
+        ~db.query(MessageReadReceipt.id).filter(
+            MessageReadReceipt.message_id == TutorMessage.id,
+            MessageReadReceipt.tutor_id == tutor_id
+        ).exists()
     ).scalar() or 0
 
     return UnreadCountResponse(count=unread_count)

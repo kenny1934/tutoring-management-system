@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, X, FolderOpen } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, X, FolderOpen, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -375,10 +375,18 @@ export function ExerciseModal({
         setExpandedAnswers(prev => new Set([...prev, clientId]));
       } else {
         setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
+        // Auto-reset after 2 seconds
+        setTimeout(() => {
+          setAnswerState(prev => prev[clientId] === 'not_found' ? { ...prev, [clientId]: 'idle' } : prev);
+        }, 2000);
       }
     } catch (err) {
       console.error('[AnswerSearch] Error:', err);
       setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
+      // Auto-reset after 2 seconds
+      setTimeout(() => {
+        setAnswerState(prev => prev[clientId] === 'not_found' ? { ...prev, [clientId]: 'idle' } : prev);
+      }, 2000);
     }
   }, [setIsDirty]);
 
@@ -1470,11 +1478,6 @@ export function ExerciseModal({
                       onBrowseFile={() => handleBrowseFile(index)}
                       onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
                       onPrintFile={() => handlePrintFile(exercise)}
-                      answerState={answerState[exercise.clientId] || 'idle'}
-                      onSearchAnswer={() => handleSearchAnswer(exercise.clientId, exercise.pdf_name)}
-                      onOpenAnswer={() => handleOpenAnswer(exercise.clientId)}
-                      onDownloadAnswer={() => handleDownloadAnswer(exercise.clientId)}
-                      onBrowseAnswer={() => handleBrowseAnswer(exercise.clientId)}
                     />
 
                     {/* Delete button with confirmation */}
@@ -1525,7 +1528,7 @@ export function ExerciseModal({
 
                       {/* Answer Section - Collapsible */}
                       <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
-                        {/* Answer header with toggle */}
+                        {/* Answer header with toggle and action buttons */}
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -1539,12 +1542,62 @@ export function ExerciseModal({
                             )}
                           </button>
                           <span className="text-xs text-gray-500 dark:text-gray-400">Answer:</span>
+
                           {exercise.answer_pdf_name ? (
-                            <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[200px]" title={exercise.answer_pdf_name}>
-                              {getDisplayName(exercise.answer_pdf_name)}
-                            </span>
+                            <>
+                              {/* Answer is set - show filename + Open + Download */}
+                              <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[200px]" title={exercise.answer_pdf_name}>
+                                {getDisplayName(exercise.answer_pdf_name)}
+                              </span>
+                              {!expandedAnswers.has(exercise.clientId) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenAnswer(exercise.clientId)}
+                                    className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                    title="Open answer file"
+                                  >
+                                    <ExternalLink className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadAnswer(exercise.clientId)}
+                                    className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                    title="Download answer file"
+                                  >
+                                    <Download className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
+                                  </button>
+                                </>
+                              )}
+                            </>
                           ) : (
-                            <span className="text-xs text-gray-400 italic">Not set</span>
+                            <>
+                              {/* Answer not set - show "Not set" + Search */}
+                              <span className="text-xs text-gray-400 italic">Not set</span>
+                              <button
+                                type="button"
+                                onClick={() => handleSearchAnswer(exercise.clientId, exercise.pdf_name)}
+                                disabled={answerState[exercise.clientId] === 'searching' || !exercise.pdf_name}
+                                className={cn(
+                                  "px-1.5 py-1 rounded-md border transition-colors shrink-0",
+                                  answerState[exercise.clientId] === 'searching'
+                                    ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30"
+                                    : answerState[exercise.clientId] === 'not_found'
+                                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30"
+                                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
+                                  !exercise.pdf_name && "opacity-50 cursor-not-allowed"
+                                )}
+                                title={!exercise.pdf_name ? "Set PDF first" : answerState[exercise.clientId] === 'not_found' ? "Answer not found" : "Search for answer file"}
+                              >
+                                {answerState[exercise.clientId] === 'searching' ? (
+                                  <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                                ) : answerState[exercise.clientId] === 'not_found' ? (
+                                  <XCircle className="h-3 w-3 text-red-500" />
+                                ) : (
+                                  <Search className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                                )}
+                              </button>
+                            </>
                           )}
                         </div>
 
@@ -1561,6 +1614,15 @@ export function ExerciseModal({
                                 placeholder="Answer PDF path"
                                 className={cn(inputClass, "text-xs py-1 flex-1")}
                               />
+                              {/* Browse for answer file - right next to path */}
+                              <button
+                                type="button"
+                                onClick={() => handleBrowseAnswer(exercise.clientId)}
+                                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                title="Browse for answer file"
+                              >
+                                <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                              </button>
                               {/* Open answer file */}
                               {exercise.answer_pdf_name && (
                                 <button
@@ -1583,21 +1645,12 @@ export function ExerciseModal({
                                   <Download className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
                                 </button>
                               )}
-                              {/* Browse for answer file */}
-                              <button
-                                type="button"
-                                onClick={() => handleBrowseAnswer(exercise.clientId)}
-                                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
-                                title="Browse for answer file"
-                              >
-                                <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
-                              </button>
                               {/* Clear answer */}
                               {exercise.answer_pdf_name && (
                                 <button
                                   type="button"
                                   onClick={() => handleClearAnswer(exercise.clientId)}
-                                  className="px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0"
+                                  className="ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0"
                                   title="Clear answer"
                                 >
                                   <X className="h-3.5 w-3.5 text-red-500" />
