@@ -334,31 +334,22 @@ async def get_unread_count(
     db: Session = Depends(get_db)
 ):
     """Get the count of unread messages for a tutor."""
-    # Get all message IDs visible to this tutor
-    visible_messages = (
-        db.query(TutorMessage.id)
-        .filter(
-            or_(
-                TutorMessage.to_tutor_id == tutor_id,
-                TutorMessage.to_tutor_id.is_(None)  # Broadcasts
+    # Single query: count visible messages that have no read receipt
+    from sqlalchemy import exists
+
+    unread_count = db.query(func.count(TutorMessage.id)).filter(
+        or_(
+            TutorMessage.to_tutor_id == tutor_id,
+            TutorMessage.to_tutor_id.is_(None)  # Broadcasts
+        ),
+        ~exists(
+            db.query(MessageReadReceipt.id).filter(
+                MessageReadReceipt.message_id == TutorMessage.id,
+                MessageReadReceipt.tutor_id == tutor_id
             )
         )
-        .all()
-    )
-    visible_ids = [m.id for m in visible_messages]
+    ).scalar() or 0
 
-    if not visible_ids:
-        return UnreadCountResponse(count=0)
-
-    # Get read message IDs
-    read_ids = set(
-        r.message_id for r in db.query(MessageReadReceipt.message_id).filter(
-            MessageReadReceipt.message_id.in_(visible_ids),
-            MessageReadReceipt.tutor_id == tutor_id
-        ).all()
-    )
-
-    unread_count = len(visible_ids) - len(read_ids)
     return UnreadCountResponse(count=unread_count)
 
 
@@ -486,24 +477,15 @@ async def mark_as_read(
     db: Session = Depends(get_db)
 ):
     """Mark a message as read by the current tutor."""
-    # Verify message exists
-    message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
+    from sqlalchemy.dialects.mysql import insert
 
-    # Check if already read
-    existing = db.query(MessageReadReceipt).filter(
-        MessageReadReceipt.message_id == message_id,
-        MessageReadReceipt.tutor_id == tutor_id
-    ).first()
-
-    if not existing:
-        receipt = MessageReadReceipt(
-            message_id=message_id,
-            tutor_id=tutor_id
-        )
-        db.add(receipt)
-        db.commit()
+    # Use INSERT IGNORE to avoid checking if already read (single query)
+    stmt = insert(MessageReadReceipt).values(
+        message_id=message_id,
+        tutor_id=tutor_id
+    ).prefix_with('IGNORE')
+    db.execute(stmt)
+    db.commit()
 
     return {"success": True}
 
@@ -515,13 +497,8 @@ async def toggle_like(
     db: Session = Depends(get_db)
 ):
     """Toggle like on a message."""
-    # Verify message exists
-    message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-
-    # Get current like status
-    current_like = db.query(MessageLike).filter(
+    # Get current like status (skip message existence check - FK will catch it)
+    current_like = db.query(MessageLike.action_type).filter(
         MessageLike.message_id == message_id,
         MessageLike.tutor_id == tutor_id
     ).order_by(MessageLike.liked_at.desc()).first()
@@ -529,19 +506,23 @@ async def toggle_like(
     # Toggle: if currently liked -> unlike, else -> like
     new_action = "UNLIKE" if (current_like and current_like.action_type == "LIKE") else "LIKE"
 
-    new_like = MessageLike(
-        message_id=message_id,
-        tutor_id=tutor_id,
-        action_type=new_action
-    )
-    db.add(new_like)
-    db.commit()
+    try:
+        new_like = MessageLike(
+            message_id=message_id,
+            tutor_id=tutor_id,
+            action_type=new_action
+        )
+        db.add(new_like)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=404, detail="Message not found")
 
-    # Return new like count
-    like_count = db.query(MessageLike).filter(
+    # Return new like count (more efficient: count distinct LIKE actions)
+    like_count = db.query(func.count(MessageLike.id)).filter(
         MessageLike.message_id == message_id,
         MessageLike.action_type == "LIKE"
-    ).count()
+    ).scalar() or 0
 
     return {
         "success": True,

@@ -1,10 +1,25 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
+
+/**
+ * Hook for debouncing a value
+ * Useful for search inputs to avoid filtering on every keystroke
+ */
+export function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 /**
  * Hook for fetching sessions list with filters
@@ -320,7 +335,7 @@ export function useMessageThreads(
   return useSWR<MessageThread[]>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
     () => messagesAPI.getThreads(tutorId!, category),
-    { refreshInterval: 60000 }  // Poll every 60 seconds for new messages
+    { refreshInterval: 60000, revalidateOnFocus: false }  // Poll every 60s, no refetch on tab switch
   );
 }
 
@@ -330,7 +345,8 @@ export function useMessageThreads(
 export function useSentMessages(tutorId: number | null | undefined) {
   return useSWR<Message[]>(
     tutorId ? ['sent-messages', tutorId] : null,
-    () => messagesAPI.getSent(tutorId!)
+    () => messagesAPI.getSent(tutorId!),
+    { revalidateOnFocus: false }  // No refetch on tab switch
   );
 }
 
@@ -341,7 +357,7 @@ export function useUnreadMessageCount(tutorId: number | null | undefined) {
   return useSWR<{ count: number }>(
     tutorId ? ['unread-count', tutorId] : null,
     () => messagesAPI.getUnreadCount(tutorId!),
-    { refreshInterval: 30000 }  // Poll every 30 seconds for notification badge
+    { refreshInterval: 30000, revalidateOnFocus: false }  // Poll every 30s, no refetch on tab switch
   );
 }
 
@@ -356,4 +372,40 @@ export function useMessageThread(
     messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
     () => messagesAPI.getThread(messageId!, tutorId!)
   );
+}
+
+/**
+ * Hook for browser notifications
+ * Handles permission state and sending OS-level notifications
+ */
+export function useBrowserNotifications() {
+  const [permission, setPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestPermission = async (): Promise<NotificationPermission> => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return 'denied';
+    }
+    const result = await Notification.requestPermission();
+    setPermission(result);
+    return result;
+  };
+
+  const sendNotification = (title: string, options?: NotificationOptions): Notification | null => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return null;
+    }
+    // Only send if permission granted and page is not visible
+    if (permission === 'granted' && document.hidden) {
+      return new Notification(title, options);
+    }
+    return null;
+  };
+
+  return { permission, requestPermission, sendNotification };
 }
