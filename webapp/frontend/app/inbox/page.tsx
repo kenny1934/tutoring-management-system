@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useLocation } from "@/contexts/LocationContext";
-import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount } from "@/lib/hooks";
+import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -443,6 +443,7 @@ const ThreadItem = React.memo(function ThreadItem({
           : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
         hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]"
       )}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
@@ -808,6 +809,7 @@ export default function InboxPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
 
   // Get category filter
   const categoryFilter = useMemo(() => {
@@ -841,9 +843,9 @@ export default function InboxPage() {
   // Determine which data to show (with search filtering)
   const displayThreads = useMemo(() => {
     const baseThreads = selectedCategory === "sent" ? sentAsThreads : threads;
-    if (!searchQuery.trim()) return baseThreads;
+    if (!debouncedSearch.trim()) return baseThreads;
 
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearch.toLowerCase();
     return baseThreads.filter(thread => {
       const msg = thread.root_message;
       return (
@@ -853,7 +855,7 @@ export default function InboxPage() {
         msg.to_tutor_name?.toLowerCase().includes(query)
       );
     });
-  }, [selectedCategory, sentAsThreads, threads, searchQuery]);
+  }, [selectedCategory, sentAsThreads, threads, debouncedSearch]);
   const isLoading = selectedCategory === "sent" ? loadingSent : loadingThreads;
 
   // Sync selectedThread with latest data from SWR
@@ -895,6 +897,41 @@ export default function InboxPage() {
   useEffect(() => {
     setSelectedThread(null);
   }, [selectedCategory]);
+
+  // Browser notifications setup
+  const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
+  const prevUnreadRef = useRef<number | null>(null);
+
+  // Request notification permission on first visit (only once)
+  useEffect(() => {
+    if (notifPermission === 'default') {
+      requestPermission();
+    }
+  }, [notifPermission, requestPermission]);
+
+  // Toast + Browser notification on new messages
+  useEffect(() => {
+    if (unreadCount?.count !== undefined) {
+      if (prevUnreadRef.current !== null && unreadCount.count > prevUnreadRef.current) {
+        const newCount = unreadCount.count - prevUnreadRef.current;
+        // In-app toast
+        showToast(`You have ${newCount} new message${newCount > 1 ? 's' : ''}`, "info");
+        // Browser notification (only if tab not visible)
+        sendNotification('New Message', {
+          body: `You have ${newCount} new message${newCount > 1 ? 's' : ''} in your inbox`,
+          icon: '/favicon.ico'
+        });
+      }
+      prevUnreadRef.current = unreadCount.count;
+    }
+  }, [unreadCount?.count, showToast, sendNotification]);
+
+  // Page title badge with unread count
+  useEffect(() => {
+    const count = unreadCount?.count || 0;
+    document.title = count > 0 ? `(${count}) Inbox` : 'Inbox';
+    return () => { document.title = 'TMS'; };
+  }, [unreadCount?.count]);
 
   // Handlers
   const handleSendMessage = useCallback(async (data: MessageCreate) => {
