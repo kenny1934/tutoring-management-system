@@ -593,6 +593,7 @@ export function SessionDetailPopover({
           "border-2 border-[#d4a574] dark:border-[#8b6f47]",
           "rounded-lg shadow-lg",
           "p-4 w-[280px]",
+          "max-h-[80vh] overflow-y-auto",
           "paper-texture"
         )}
       >
