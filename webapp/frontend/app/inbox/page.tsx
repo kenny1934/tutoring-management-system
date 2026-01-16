@@ -637,7 +637,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           </div>
         </div>
         <button
-          onClick={() => onReply(allMessages[allMessages.length - 1])}
+          onClick={() => onReply(msg)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
         >
           <Reply className="h-4 w-4" />
@@ -777,7 +777,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 )}
                 {idx === allMessages.length - 1 && (
                   <button
-                    onClick={() => onReply(m)}
+                    onClick={() => onReply(msg)}
                     className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
                   >
                     <Reply className="h-4 w-4" />
