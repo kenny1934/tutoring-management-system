@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -11,12 +11,14 @@ import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
+import { useUnreadMessageCount } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
   { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
+  { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];
 
 interface SidebarProps {
@@ -31,6 +33,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Fetch unread message count for Inbox badge
+  const { data: unreadCount } = useUnreadMessageCount(1); // tutorId=1 for now
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
@@ -161,7 +166,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 }}
                 className={cn(
                   "group relative flex items-center rounded-2xl text-sm font-medium",
-                  showExpanded ? "gap-3 px-4 py-3.5" : "justify-center p-3",
+                  showExpanded ? "gap-3 px-4 py-3" : "justify-center p-3",
                   isActive
                     ? "bg-primary/10 text-primary shadow-sm"
                     : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.02] active:scale-[0.98]"
@@ -194,6 +199,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 {showExpanded && (
                   <>
                     <span className="flex-1">{item.name}</span>
+                    {/* Unread badge for Inbox */}
+                    {item.name === "Inbox" && unreadCount?.count && unreadCount.count > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {unreadCount.count > 99 ? "99+" : unreadCount.count}
+                      </span>
+                    )}
                     {isActive && (
                       <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
                     )}
@@ -227,7 +238,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
       {/* Filters - show when expanded or mobile */}
       {(isMobile || !isCollapsed) && (
-        <div className="border-t border-white/10 dark:border-white/5 p-4 space-y-4">
+        <div className="border-t border-white/10 dark:border-white/5 p-3 space-y-3">
           {/* Weekly Mini-Calendar */}
           <WeeklyMiniCalendar />
 
@@ -243,7 +254,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             <select
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
-              className="w-full px-4 py-2.5 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-border transition-all bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)]"
+              className="w-full px-3 py-2 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-border transition-all bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)]"
               style={{
                 transition: 'all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
               }}
@@ -267,7 +278,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setViewMode("center-view")}
                 className={cn(
-                  "flex-1 px-3 py-2 text-xs font-semibold rounded-lg",
+                  "flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg",
                   viewMode === "center-view"
                     ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
                     : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.01] active:scale-[0.98]"
@@ -280,7 +291,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <button
                 onClick={() => setViewMode("my-view")}
                 className={cn(
-                  "flex-1 px-3 py-2 text-xs font-semibold rounded-lg",
+                  "flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg",
                   viewMode === "my-view"
                     ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
                     : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.01] active:scale-[0.98]"
