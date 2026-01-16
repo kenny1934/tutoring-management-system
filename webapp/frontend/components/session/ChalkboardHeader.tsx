@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
 import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
+import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
@@ -42,6 +43,7 @@ const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   edit: "white",
   attended: "green",
   "schedule-makeup": "green",
+  "cancel-makeup": "red",
   "no-show": "red",
   "sick-leave": "orange",
   "weather-cancelled": "orange",
@@ -174,6 +176,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
@@ -219,6 +222,12 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
     // Special handling for rate action - open rate modal
     if (action.id === 'rate') {
       setIsRateModalOpen(true);
+      return;
+    }
+
+    // Special handling for cancel-makeup action - show confirm dialog
+    if (action.id === 'cancel-makeup') {
+      setConfirmCancelMakeup(true);
       return;
     }
 
@@ -311,6 +320,33 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
       onAction(action.id, action);
     } else if (!action.api.enabled) {
       console.log(`Action ${action.id} not yet implemented`);
+    }
+  };
+
+  const handleCancelMakeup = async () => {
+    setLoadingAction('cancel-makeup');
+    try {
+      // For "Make-up Class" sessions, use own ID
+      // For "Make-up Booked" sessions, use rescheduled_to_id
+      const makeupSessionId = session.session_status === "Make-up Class"
+        ? session.id
+        : session.rescheduled_to_id;
+
+      if (!makeupSessionId) {
+        showToast("Cannot find linked make-up session", "error");
+        return;
+      }
+
+      const originalSession = await sessionsAPI.cancelMakeup(makeupSessionId);
+      removeSessionFromCache(makeupSessionId);
+      updateSessionInCache(originalSession);
+      showToast("Make-up cancelled", "success");
+      onAction?.('cancel-makeup', sessionActions.find(a => a.id === 'cancel-makeup')!);
+    } catch (error) {
+      console.error("Failed to cancel make-up:", error);
+      showToast("Failed to cancel make-up", "error");
+    } finally {
+      setLoadingAction(null);
     }
   };
 
@@ -421,7 +457,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(action.id) && !action.api.enabled}
+              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup'].includes(action.id) && !action.api.enabled}
               loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
@@ -836,6 +872,21 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         session={session}
         isOpen={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
+      />
+
+      {/* Cancel Make-up Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmCancelMakeup}
+        onConfirm={() => {
+          setConfirmCancelMakeup(false);
+          handleCancelMakeup();
+        }}
+        onCancel={() => setConfirmCancelMakeup(false)}
+        title="Cancel Make-up Session"
+        message="Cancel this make-up? The make-up session will be deleted and the original session will return to 'Pending Make-up' status."
+        confirmText="Cancel Make-up"
+        variant="danger"
+        loading={loadingAction === 'cancel-makeup'}
       />
     </motion.div>
   );

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { updateSessionInCache } from "@/lib/session-cache";
+import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
@@ -11,6 +12,7 @@ import { sessionsAPI } from "@/lib/api";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
+import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 
 // Size configurations for buttons
 const sizeClasses = {
@@ -140,6 +142,8 @@ export function SessionActionButtons({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
+  const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -189,6 +193,18 @@ export function SessionActionButtons({
     // Special handling for rate action - open rate modal
     if (action.id === "rate") {
       setIsRateModalOpen(true);
+      return;
+    }
+
+    // Special handling for schedule-makeup action - open makeup modal
+    if (action.id === "schedule-makeup") {
+      setIsMakeupModalOpen(true);
+      return;
+    }
+
+    // Special handling for cancel-makeup action - show confirm dialog
+    if (action.id === "cancel-makeup") {
+      setConfirmCancelMakeup(true);
       return;
     }
 
@@ -300,13 +316,47 @@ export function SessionActionButtons({
     onAction?.("edit-saved", session);
   };
 
+  const handleCancelMakeup = async () => {
+    setLoadingAction("cancel-makeup");
+    onLoadingChange?.(session.id, true, "cancel-makeup");
+
+    try {
+      // Determine which session ID to pass to API
+      // For "Make-up Class" sessions, use own ID
+      // For "Make-up Booked" sessions, use rescheduled_to_id
+      const makeupSessionId = session.session_status === "Make-up Class"
+        ? session.id
+        : session.rescheduled_to_id;
+
+      if (!makeupSessionId) {
+        showToast("Cannot find linked make-up session", "error");
+        return;
+      }
+
+      const originalSession = await sessionsAPI.cancelMakeup(makeupSessionId);
+
+      // Update cache
+      removeSessionFromCache(makeupSessionId);
+      updateSessionInCache(originalSession);
+
+      showToast("Make-up cancelled", "success");
+      onAction?.("cancel-makeup", originalSession);
+    } catch (error) {
+      console.error("Failed to cancel make-up:", error);
+      showToast("Failed to cancel make-up", "error");
+    } finally {
+      setLoadingAction(null);
+      onLoadingChange?.(session.id, false);
+    }
+  };
+
   return (
     <>
       <div className={cn("flex flex-wrap gap-1.5", className)}>
         {visibleActions.map((action) => {
           const Icon = action.icon;
-          // Edit, CW, HW, Rate actions are always enabled (open modals)
-          const isEnabled = ["edit", "cw", "hw", "rate"].includes(action.id) || action.api.enabled;
+          // Edit, CW, HW, Rate, Schedule-makeup, Cancel-makeup actions are always enabled (open modals/dialogs)
+          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "cancel-makeup"].includes(action.id) || action.api.enabled;
           const isLoading = effectiveLoadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
@@ -359,6 +409,30 @@ export function SessionActionButtons({
         session={session}
         isOpen={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
+      />
+
+      {/* Schedule Makeup Modal */}
+      {isMakeupModalOpen && (
+        <ScheduleMakeupModal
+          session={session}
+          isOpen={isMakeupModalOpen}
+          onClose={() => setIsMakeupModalOpen(false)}
+        />
+      )}
+
+      {/* Cancel Make-up Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmCancelMakeup}
+        onConfirm={() => {
+          setConfirmCancelMakeup(false);
+          handleCancelMakeup();
+        }}
+        onCancel={() => setConfirmCancelMakeup(false)}
+        title="Cancel Make-up Session"
+        message="Cancel this make-up? The make-up session will be deleted and the original session will return to 'Pending Make-up' status."
+        confirmText="Cancel Make-up"
+        variant="danger"
+        loading={loadingAction === "cancel-makeup"}
       />
     </>
   );

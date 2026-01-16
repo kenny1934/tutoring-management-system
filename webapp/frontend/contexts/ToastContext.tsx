@@ -18,8 +18,13 @@ interface Toast {
   action?: ToastAction;
 }
 
+interface ToastOptions {
+  persistent?: boolean;  // If true, toast won't auto-dismiss
+}
+
 interface ToastContextType {
-  showToast: (message: string, type?: "success" | "error" | "info", action?: ToastAction) => void;
+  showToast: (message: string, type?: "success" | "error" | "info", action?: ToastAction, options?: ToastOptions) => string;
+  dismissToast: (id: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -35,16 +40,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success", action?: ToastAction) => {
+  const showToast = useCallback((
+    message: string,
+    type: "success" | "error" | "info" = "success",
+    action?: ToastAction,
+    options?: ToastOptions
+  ) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     setToasts((prev) => [...prev, { id, message, type, action }]);
 
-    // Auto-dismiss after duration (longer if there's an action)
-    const duration = action ? 5000 : TOAST_DURATION;
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, duration);
+    // Only auto-dismiss if not persistent
+    if (!options?.persistent) {
+      const duration = action ? 10000 : TOAST_DURATION;
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+    }
+
+    return id;  // Return ID for manual dismissal
   }, []);
 
   const dismissToast = useCallback((id: string) => {
@@ -74,7 +88,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, dismissToast }}>
       {children}
       {isMounted &&
         createPortal(

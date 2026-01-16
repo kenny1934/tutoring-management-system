@@ -55,3 +55,55 @@ export function revalidateSessionCaches() {
     { revalidate: true }
   );
 }
+
+/**
+ * Add a new session to all relevant list caches.
+ * Use after creating a make-up session.
+ */
+export function addSessionToCache(newSession: Session) {
+  // Update single session cache
+  mutate(['session', newSession.id], newSession, { revalidate: false });
+
+  // Add to list caches
+  mutate(
+    (key) => {
+      if (!Array.isArray(key)) return false;
+      const [type] = key;
+      return type === 'sessions' ||
+             type === 'student-sessions' ||
+             type === 'enrollment-sessions';
+    },
+    (currentData: Session[] | undefined) => {
+      if (!currentData) return currentData;
+      // Add new session if not already present
+      if (currentData.some(s => s.id === newSession.id)) return currentData;
+      return [...currentData, newSession];
+    },
+    { revalidate: false }
+  );
+}
+
+/**
+ * Remove a session from all relevant list caches.
+ * Use after deleting a make-up session (undo).
+ */
+export function removeSessionFromCache(sessionId: number) {
+  // Remove from single session cache
+  mutate(['session', sessionId], undefined, { revalidate: false });
+
+  // Remove from list caches
+  mutate(
+    (key) => {
+      if (!Array.isArray(key)) return false;
+      const [type] = key;
+      return type === 'sessions' ||
+             type === 'student-sessions' ||
+             type === 'enrollment-sessions';
+    },
+    (currentData: Session[] | undefined) => {
+      if (!currentData) return currentData;
+      return currentData.filter(s => s.id !== sessionId);
+    },
+    { revalidate: false }
+  );
+}

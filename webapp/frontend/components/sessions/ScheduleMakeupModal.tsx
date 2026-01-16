@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useTutors, useHolidays } from "@/lib/hooks";
 import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
+import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
   toDateString,
   getToday,
@@ -42,15 +42,9 @@ import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor } from 
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Fallback time slots when no sessions exist
-const COMMON_TIME_SLOTS = [
-  "09:00 - 10:30",
-  "10:45 - 12:15",
-  "13:00 - 14:30",
-  "14:45 - 16:15",
-  "16:30 - 18:00",
-  "18:15 - 19:45",
-];
+// Fallback time slots when no sessions exist (based on day of week)
+const WEEKDAY_TIME_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"];
+const WEEKEND_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"];
 
 // Scoring weights for make-up slot suggestions
 interface ScoringWeights {
@@ -188,7 +182,7 @@ export function ScheduleMakeupModal({
   onClose,
   onScheduled,
 }: ScheduleMakeupModalProps) {
-  const { showToast } = useToast();
+  const { showToast, dismissToast } = useToast();
   const { data: tutors } = useTutors();
   const today = getToday();
 
@@ -255,6 +249,7 @@ export function ScheduleMakeupModal({
     tutorName: string;
   } | null>(null);
   const [confirmSuggestion, setConfirmSuggestion] = useState<MakeupSlotSuggestion | null>(null);
+  const [confirmManualBooking, setConfirmManualBooking] = useState(false);
 
   // Filters (consolidated: time slots + hide full + same grade)
   const [filters, setFilters] = useState({ timeSlots: [] as string[], hideFull: false, sameGrade: false });
@@ -354,6 +349,7 @@ export function ScheduleMakeupModal({
       setSelectedDayPickerSlot(null);
       setConfirmBooking(null);
       setConfirmSuggestion(null);
+      setConfirmManualBooking(false);
       setExpandedSlotStudents(null);
       setShowAllSuggestions(false);
     }
@@ -457,7 +453,14 @@ export function ScheduleMakeupModal({
 
   // Dynamic time slots based on selected date
   const availableTimeSlots = useMemo(() => {
-    if (!selectedDate) return COMMON_TIME_SLOTS;
+    // Helper to get fallback slots based on day of week
+    const getFallbackSlots = (dateStr: string) => {
+      const date = new Date(dateStr + 'T00:00:00');
+      const dayOfWeek = date.getDay();
+      return (dayOfWeek === 0 || dayOfWeek === 6) ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
+    };
+
+    if (!selectedDate) return WEEKDAY_TIME_SLOTS; // Default to weekday slots
 
     const daySessions = sessionsByDate.get(selectedDate) || [];
     const slots = new Set<string>();
@@ -467,7 +470,7 @@ export function ScheduleMakeupModal({
       if (s.time_slot) slots.add(s.time_slot);
     });
 
-    if (slots.size === 0) return COMMON_TIME_SLOTS;
+    if (slots.size === 0) return getFallbackSlots(selectedDate);
 
     // Sort chronologically
     return Array.from(slots).sort((a, b) => {
@@ -485,19 +488,6 @@ export function ScheduleMakeupModal({
     if (holidayDates.has(selectedDate)) return "Cannot schedule on a holiday";
     return null;
   }, [selectedDate, effectiveTimeSlot, selectedTutorId, holidayDates]);
-
-  // Handle undo of a booked makeup session
-  const handleUndoMakeup = useCallback(async (makeupSessionId: number, originalSessionId: number) => {
-    try {
-      const revertedOriginal = await sessionsAPI.cancelMakeup(makeupSessionId);
-      updateSessionInCache(revertedOriginal);
-      // Remove the makeup session from cache by invalidating
-      showToast("Make-up cancelled", "info");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to undo make-up";
-      showToast(message, "error");
-    }
-  }, [showToast]);
 
   // Unified booking function
   const bookMakeup = async (params: {
@@ -518,14 +508,25 @@ export function ScheduleMakeupModal({
       };
       const response = await sessionsAPI.scheduleMakeup(session.id, requestParams);
       updateSessionInCache(response.original_session);
-      updateSessionInCache(response.makeup_session);
+      addSessionToCache(response.makeup_session); // Add new session to cache directly
 
-      // Show toast with Undo action
+      // Show toast with Undo action (inline to avoid closure issues after modal unmounts)
       const makeupId = response.makeup_session.id;
-      const originalId = response.original_session.id;
       showToast("Make-up class scheduled", "success", {
         label: "Undo",
-        onClick: () => handleUndoMakeup(makeupId, originalId),
+        onClick: async () => {
+          const undoingId = showToast("Undoing make-up...", "info", undefined, { persistent: true });
+          try {
+            const originalSession = await sessionsAPI.cancelMakeup(makeupId);
+            dismissToast(undoingId);
+            removeSessionFromCache(makeupId);
+            updateSessionInCache(originalSession);
+            showToast("Make-up cancelled", "success");
+          } catch {
+            dismissToast(undoingId);
+            showToast("Failed to undo make-up", "error");
+          }
+        },
       });
 
       onScheduled?.(response.makeup_session, response.original_session);
@@ -539,19 +540,14 @@ export function ScheduleMakeupModal({
     }
   };
 
-  // Handle manual schedule from form
-  const handleSchedule = async () => {
+  // Handle manual schedule from form - shows confirm dialog
+  const handleSchedule = () => {
     const error = validateForm();
     if (error) {
       setValidationError(error);
       return;
     }
-    await bookMakeup({
-      session_date: selectedDate,
-      time_slot: effectiveTimeSlot,
-      tutor_id: selectedTutorId!,
-      location,
-    });
+    setConfirmManualBooking(true);
   };
 
   // Navigation handlers
@@ -1332,25 +1328,6 @@ export function ScheduleMakeupModal({
             )}
               </>
             )}
-
-            {/* Schedule Button */}
-            <Button
-              onClick={handleSchedule}
-              disabled={isSaving || !selectedDate || (!selectedTimeSlot && !useCustomTime) || !selectedTutorId || !isCustomTimeValid}
-              className="w-full"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Scheduling...
-                </>
-              ) : (
-                <>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule Make-up Class
-                </>
-              )}
-            </Button>
           </div>
 
           {/* Time Slots Panel - Shows available slots for selected date */}
@@ -1574,6 +1551,26 @@ export function ScheduleMakeupModal({
         onCancel={() => setConfirmSuggestion(null)}
         title="Confirm Make-up Booking"
         message={`Book make-up class on ${confirmSuggestion ? new Date(confirmSuggestion.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''} at ${confirmSuggestion?.time_slot || ''} with ${confirmSuggestion?.tutor_name || ''}?`}
+        confirmText="Book"
+        variant="default"
+        loading={isSaving}
+      />
+
+      {/* Confirm Booking Dialog - Manual Form */}
+      <ConfirmDialog
+        isOpen={confirmManualBooking}
+        onConfirm={() => {
+          bookMakeup({
+            session_date: selectedDate,
+            time_slot: effectiveTimeSlot,
+            tutor_id: selectedTutorId!,
+            location,
+          });
+          setConfirmManualBooking(false);
+        }}
+        onCancel={() => setConfirmManualBooking(false)}
+        title="Confirm Make-up Booking"
+        message={`Book make-up class on ${selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''} at ${effectiveTimeSlot} with ${filteredTutors.find(t => t.id === selectedTutorId)?.tutor_name || ''}?`}
         confirmText="Book"
         variant="default"
         loading={isSaving}
