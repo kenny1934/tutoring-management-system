@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Copy, Check, Download } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, X, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -12,7 +12,7 @@ import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection, CoursewarePopularity } from "@/types";
 import Link from "next/link";
-import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
+import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback, printBulkFiles, downloadBulkFiles, downloadAllAnswerFiles, PrintStampInfo, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
@@ -20,13 +20,14 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, getDisplayName, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { searchAnswerFile, openAnswerFile, downloadAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -56,8 +57,12 @@ export function ExerciseModal({
   const [browsingForIndex, setBrowsingForIndex] = useState<number | null>(null);
   const [paperlessSearchOpen, setPaperlessSearchOpen] = useState(false);
   const [searchingForIndex, setSearchingForIndex] = useState<number | null>(null);
+  // Answer file browse state
+  const [answerFolderTreeOpen, setAnswerFolderTreeOpen] = useState(false);
+  const [browsingForAnswerClientId, setBrowsingForAnswerClientId] = useState<string | null>(null);
   const [printAllState, setPrintAllState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [downloadAllState, setDownloadAllState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [downloadAllAnswersState, setDownloadAllAnswersState] = useState<'idle' | 'loading' | 'error'>('idle');
 
   // Drag-drop file search state
   const [isDraggingOver, setIsDraggingOver] = useState<number | null>(null);
@@ -68,6 +73,13 @@ export function ExerciseModal({
   // Multi-file drag-drop batch search state
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
+
+  // Answer file search state: Map from clientId to state and result
+  const [answerState, setAnswerState] = useState<Record<string, 'idle' | 'searching' | 'found' | 'not_found'>>({});
+  const [answerResults, setAnswerResults] = useState<Record<string, AnswerSearchResult>>({});
+
+  // Track which answer sections are expanded (by clientId)
+  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
 
   // Form dirty tracking and close confirmation (from ui-hooks)
   const {
@@ -181,6 +193,9 @@ export function ExerciseModal({
         .map((ex) => {
           const { complexPages, remarks } = parseExerciseRemarks(ex.remarks);
           const pageMode = detectPageMode(ex.page_start, ex.page_end, complexPages);
+          // Parse answer remarks for complex pages
+          const { complexPages: answerComplexPages } = parseExerciseRemarks(ex.answer_remarks);
+          const answerPageMode = detectPageMode(ex.answer_page_start, ex.answer_page_end, answerComplexPages);
           return {
             id: ex.id,
             clientId: generateClientId(),
@@ -191,17 +206,48 @@ export function ExerciseModal({
             page_end: ex.page_end?.toString() || "",
             complex_pages: complexPages,
             remarks: remarks,
+            // Answer fields
+            answer_pdf_name: ex.answer_pdf_name || "",
+            answer_page_mode: answerPageMode,
+            answer_page_start: ex.answer_page_start?.toString() || "",
+            answer_page_end: ex.answer_page_end?.toString() || "",
+            answer_complex_pages: answerComplexPages,
           };
         });
       setExercises(filteredExercises);
       setIsDirty(false);
       setValidationErrors([]);
+
+      // Auto-expand answer sections for exercises with saved answers
+      const idsWithAnswers = filteredExercises
+        .filter(ex => ex.answer_pdf_name)
+        .map(ex => ex.clientId);
+      if (idsWithAnswers.length > 0) {
+        setExpandedAnswers(new Set(idsWithAnswers));
+      }
+
+      // Initialize answer state for exercises with saved answers
+      const initialAnswerState: Record<string, 'idle' | 'searching' | 'found' | 'not_found'> = {};
+      const initialAnswerResults: Record<string, AnswerSearchResult> = {};
+      filteredExercises.forEach(ex => {
+        if (ex.answer_pdf_name) {
+          initialAnswerState[ex.clientId] = 'found';
+          initialAnswerResults[ex.clientId] = { source: 'local', path: ex.answer_pdf_name };
+        }
+      });
+      if (Object.keys(initialAnswerState).length > 0) {
+        setAnswerState(initialAnswerState);
+        setAnswerResults(initialAnswerResults);
+      }
     }
     if (!isOpen) {
       initializedRef.current = false;
       setIsDirty(false);
       setValidationErrors([]);
       setShowCloseConfirm(false);
+      setExpandedAnswers(new Set());
+      setAnswerState({});
+      setAnswerResults({});
     }
   }, [isOpen, session, exerciseType]);
 
@@ -237,6 +283,11 @@ export function ExerciseModal({
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
       // Only include complex pages if in custom mode
       remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
+      // Answer file fields
+      answer_pdf_name: ex.answer_pdf_name || null,
+      answer_page_start: ex.answer_page_mode === 'simple' && ex.answer_page_start ? parseInt(ex.answer_page_start, 10) : null,
+      answer_page_end: ex.answer_page_mode === 'simple' && ex.answer_page_end ? parseInt(ex.answer_page_end, 10) : null,
+      answer_remarks: combineExerciseRemarks(ex.answer_page_mode === 'custom' ? ex.answer_complex_pages : '', '') || null,
     }));
 
     // Build optimistic session state
@@ -254,6 +305,10 @@ export function ExerciseModal({
       page_start: ex.page_start ?? undefined,
       page_end: ex.page_end ?? undefined,
       remarks: ex.remarks ?? undefined,
+      answer_pdf_name: ex.answer_pdf_name ?? undefined,
+      answer_page_start: ex.answer_page_start ?? undefined,
+      answer_page_end: ex.answer_page_end ?? undefined,
+      answer_remarks: ex.answer_remarks ?? undefined,
       created_by: session.tutor_name || 'user', // for optimistic update
     }));
 
@@ -300,18 +355,138 @@ export function ExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
-  const duplicateExercise = useCallback((index: number) => {
-    setExercises((prev) => {
-      const exerciseToDuplicate = prev[index];
-      if (!exerciseToDuplicate) return prev;
-      const duplicate = { ...exerciseToDuplicate, id: undefined, clientId: generateClientId() }; // New clientId for duplicate
-      // Insert after the current index
-      const before = prev.slice(0, index + 1);
-      const after = prev.slice(index + 1);
-      return [...before, duplicate, ...after];
-    });
-    setIsDirty(true);
+  // Answer file handlers
+  const handleSearchAnswer = useCallback(async (clientId: string, pdfName: string) => {
+    if (!pdfName) return;
+
+    setAnswerState(prev => ({ ...prev, [clientId]: 'searching' }));
+
+    try {
+      const result = await searchAnswerFile(pdfName);
+      if (result) {
+        setAnswerResults(prev => ({ ...prev, [clientId]: result }));
+        setAnswerState(prev => ({ ...prev, [clientId]: 'found' }));
+        // Save the found answer path to the exercise form (will be persisted on save)
+        setExercises(prev => prev.map(ex =>
+          ex.clientId === clientId ? { ...ex, answer_pdf_name: result.path } : ex
+        ));
+        setIsDirty(true);
+        // Auto-expand the answer section
+        setExpandedAnswers(prev => new Set([...prev, clientId]));
+      } else {
+        setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
+      }
+    } catch (err) {
+      console.error('[AnswerSearch] Error:', err);
+      setAnswerState(prev => ({ ...prev, [clientId]: 'not_found' }));
+    }
+  }, [setIsDirty]);
+
+  const handleOpenAnswer = useCallback(async (clientId: string) => {
+    // Try answerResults first, fall back to exercise data
+    let answerPath = answerResults[clientId]?.path;
+    if (!answerPath) {
+      const exercise = exercises.find(ex => ex.clientId === clientId);
+      answerPath = exercise?.answer_pdf_name;
+    }
+    if (!answerPath) return;
+
+    const success = await openAnswerFile({ source: 'local', path: answerPath });
+    if (!success) {
+      showToast('Failed to open answer file', 'error');
+    }
+  }, [answerResults, exercises, showToast]);
+
+  const handleDownloadAnswer = useCallback(async (clientId: string) => {
+    // Try answerResults first, fall back to exercise data
+    let answerPath = answerResults[clientId]?.path;
+    if (!answerPath) {
+      const exercise = exercises.find(ex => ex.clientId === clientId);
+      answerPath = exercise?.answer_pdf_name;
+    }
+    if (!answerPath) return;
+
+    const success = await downloadAnswerFile({ source: 'local', path: answerPath });
+    if (!success) {
+      showToast('Failed to download answer file', 'error');
+    }
+  }, [answerResults, exercises, showToast]);
+
+  // Handle manual browse for answer file
+  const handleBrowseAnswer = useCallback((clientId: string) => {
+    setBrowsingForAnswerClientId(clientId);
+    setAnswerFolderTreeOpen(true);
   }, []);
+
+  // Handle answer file selected from folder picker
+  const handleAnswerFileSelected = useCallback((path: string, pages?: string) => {
+    if (browsingForAnswerClientId) {
+      setExercises(prev => prev.map(ex => {
+        if (ex.clientId !== browsingForAnswerClientId) return ex;
+
+        // Build the updates
+        const updates: Partial<ExerciseFormItem> = { answer_pdf_name: path };
+
+        // Apply page selection if provided
+        if (pages) {
+          const pageFields = getPageFieldsFromSelection(parsePageInput(pages));
+          if (pageFields) {
+            updates.answer_page_mode = pageFields.page_mode;
+            updates.answer_page_start = pageFields.page_start;
+            updates.answer_page_end = pageFields.page_end;
+            updates.answer_complex_pages = pageFields.complex_pages;
+          }
+        }
+
+        return { ...ex, ...updates };
+      }));
+      setIsDirty(true);
+
+      // Update answer state to 'found' since user manually selected
+      setAnswerState(prev => ({ ...prev, [browsingForAnswerClientId]: 'found' }));
+      setAnswerResults(prev => ({
+        ...prev,
+        [browsingForAnswerClientId]: { source: 'local', path }
+      }));
+
+      // Auto-expand the answer section
+      setExpandedAnswers(prev => new Set([...prev, browsingForAnswerClientId]));
+
+      setBrowsingForAnswerClientId(null);
+    }
+  }, [browsingForAnswerClientId, setIsDirty]);
+
+  // Toggle answer section expanded state
+  const toggleAnswerExpanded = useCallback((clientId: string) => {
+    setExpandedAnswers(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  }, []);
+
+  // Clear answer for an exercise
+  const handleClearAnswer = useCallback((clientId: string) => {
+    setExercises(prev => prev.map(ex => {
+      if (ex.clientId !== clientId) return ex;
+      return {
+        ...ex,
+        answer_pdf_name: "",
+        answer_page_mode: 'simple' as const,
+        answer_page_start: "",
+        answer_page_end: "",
+        answer_complex_pages: "",
+      };
+    }));
+    setIsDirty(true);
+    setAnswerState(prev => ({ ...prev, [clientId]: 'idle' }));
+    setAnswerResults(prev => {
+      const next = { ...prev };
+      delete next[clientId];
+      return next;
+    });
+  }, [setIsDirty]);
 
   // Focus new exercise input after render
   useEffect(() => {
@@ -716,6 +891,32 @@ export function ExerciseModal({
       setDownloadAllState('idle');
     }
   }, [exercises, downloadAllState, buildStampInfo, session, exerciseType]);
+
+  // Handle download all answer files in one combined file
+  const handleDownloadAllAnswers = useCallback(async () => {
+    if (downloadAllAnswersState === 'loading') return;
+
+    // Filter exercises that have PDF paths (answers will be searched or use saved answer_pdf_name)
+    const exercisesWithPdfs = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    if (exercisesWithPdfs.length === 0) return;
+
+    setDownloadAllAnswersState('loading');
+    const stamp = buildStampInfo();
+
+    // Build filename: Ans_CW_1978_John_Doe_20260110.pdf
+    const dateStr = session.session_date.replace(/-/g, '');
+    const studentName = session.student_name.replace(/\s+/g, '_');
+    const filename = `Ans_${exerciseType}_${session.school_student_id}_${studentName}_${dateStr}.pdf`;
+
+    const result = await downloadAllAnswerFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
+    if (result.status === 'success') {
+      setDownloadAllAnswersState('idle');
+    } else {
+      console.warn('Failed to download all answer files:', result);
+      setDownloadAllAnswersState('error');
+      setTimeout(() => setDownloadAllAnswersState('idle'), 2000);
+    }
+  }, [exercises, downloadAllAnswersState, buildStampInfo, session, exerciseType]);
 
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
@@ -1160,6 +1361,25 @@ export function ExerciseModal({
                 )}
                 Download All
               </button>
+              <button
+                type="button"
+                onClick={handleDownloadAllAnswers}
+                disabled={downloadAllAnswersState === 'loading'}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50",
+                  downloadAllAnswersState === 'loading' && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {downloadAllAnswersState === 'loading' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : downloadAllAnswersState === 'error' ? (
+                  <XCircle className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download Answers
+              </button>
             </div>
           ) : (
             <div /> // Spacer
@@ -1250,17 +1470,12 @@ export function ExerciseModal({
                       onBrowseFile={() => handleBrowseFile(index)}
                       onOpenFile={() => handleOpenFile(exercise.clientId, exercise.pdf_name)}
                       onPrintFile={() => handlePrintFile(exercise)}
+                      answerState={answerState[exercise.clientId] || 'idle'}
+                      onSearchAnswer={() => handleSearchAnswer(exercise.clientId, exercise.pdf_name)}
+                      onOpenAnswer={() => handleOpenAnswer(exercise.clientId)}
+                      onDownloadAnswer={() => handleDownloadAnswer(exercise.clientId)}
+                      onBrowseAnswer={() => handleBrowseAnswer(exercise.clientId)}
                     />
-
-                    {/* Duplicate button */}
-                    <button
-                      type="button"
-                      onClick={() => duplicateExercise(index)}
-                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors shrink-0"
-                      title="Duplicate exercise"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
 
                     {/* Delete button with confirmation */}
                     <ExerciseDeleteButton
@@ -1307,6 +1522,106 @@ export function ExerciseModal({
                           className={cn(inputClass, "text-xs py-1 flex-1")}
                         />
                       </div>
+
+                      {/* Answer Section - Collapsible */}
+                      <div className="mt-1 pt-1 border-t border-gray-200 dark:border-gray-700">
+                        {/* Answer header with toggle */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleAnswerExpanded(exercise.clientId)}
+                            className="p-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                          >
+                            {expandedAnswers.has(exercise.clientId) ? (
+                              <ChevronDown className="h-3 w-3 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3 text-gray-500" />
+                            )}
+                          </button>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Answer:</span>
+                          {exercise.answer_pdf_name ? (
+                            <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[200px]" title={exercise.answer_pdf_name}>
+                              {getDisplayName(exercise.answer_pdf_name)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Not set</span>
+                          )}
+                        </div>
+
+                        {/* Expanded content */}
+                        {expandedAnswers.has(exercise.clientId) && (
+                          <div className="pl-5 space-y-1 mt-1">
+                            {/* Answer path input + buttons */}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={exercise.answer_pdf_name}
+                                onChange={(e) => updateExercise(index, "answer_pdf_name", e.target.value)}
+                                onFocus={() => setFocusedRowIndex(index)}
+                                placeholder="Answer PDF path"
+                                className={cn(inputClass, "text-xs py-1 flex-1")}
+                              />
+                              {/* Open answer file */}
+                              {exercise.answer_pdf_name && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenAnswer(exercise.clientId)}
+                                  className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                  title="Open answer file"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
+                                </button>
+                              )}
+                              {/* Download answer file */}
+                              {exercise.answer_pdf_name && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadAnswer(exercise.clientId)}
+                                  className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                  title="Download answer file"
+                                >
+                                  <Download className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
+                                </button>
+                              )}
+                              {/* Browse for answer file */}
+                              <button
+                                type="button"
+                                onClick={() => handleBrowseAnswer(exercise.clientId)}
+                                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                                title="Browse for answer file"
+                              >
+                                <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
+                              </button>
+                              {/* Clear answer */}
+                              {exercise.answer_pdf_name && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleClearAnswer(exercise.clientId)}
+                                  className="px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0"
+                                  title="Clear answer"
+                                >
+                                  <X className="h-3.5 w-3.5 text-red-500" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Answer page range */}
+                            <ExercisePageRangeInput
+                              radioName={`answer-page-mode-${index}`}
+                              pageMode={exercise.answer_page_mode}
+                              pageStart={exercise.answer_page_start}
+                              pageEnd={exercise.answer_page_end}
+                              complexPages={exercise.answer_complex_pages}
+                              onPageModeChange={(mode) => updateExercise(index, "answer_page_mode", mode)}
+                              onPageStartChange={(value) => updateExercise(index, "answer_page_start", value)}
+                              onPageEndChange={(value) => updateExercise(index, "answer_page_end", value)}
+                              onComplexPagesChange={(value) => updateExercise(index, "answer_complex_pages", value)}
+                              onFocus={() => setFocusedRowIndex(index)}
+                              inputClass={inputClass}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1327,6 +1642,21 @@ export function ExerciseModal({
         onFilesSelected={handleBatchAddFromBrowse}
         allowMultiSelect
         initialPath={browsingForIndex !== null ? exercises[browsingForIndex]?.pdf_name : undefined}
+      />
+
+      {/* Answer File Browser Modal */}
+      <FolderTreeModal
+        isOpen={answerFolderTreeOpen}
+        onClose={() => {
+          setAnswerFolderTreeOpen(false);
+          setBrowsingForAnswerClientId(null);
+        }}
+        onFileSelected={handleAnswerFileSelected}
+        allowMultiSelect={false}
+        initialPath={browsingForAnswerClientId
+          ? exercises.find(ex => ex.clientId === browsingForAnswerClientId)?.answer_pdf_name || exercises.find(ex => ex.clientId === browsingForAnswerClientId)?.pdf_name
+          : undefined
+        }
       />
 
       {/* Paperless Search Modal */}

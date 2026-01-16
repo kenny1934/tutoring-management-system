@@ -212,6 +212,11 @@ class SessionExerciseResponse(BaseModel):
     created_by: str = Field(..., max_length=200)
     created_at: Optional[datetime] = None
     remarks: Optional[str] = Field(None, max_length=1000)
+    # Answer file fields
+    answer_pdf_name: Optional[str] = Field(None, max_length=500)
+    answer_page_start: Optional[int] = Field(None, gt=0)
+    answer_page_end: Optional[int] = Field(None, gt=0)
+    answer_remarks: Optional[str] = Field(None, max_length=1000)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -223,6 +228,11 @@ class ExerciseCreateRequest(BaseModel):
     page_start: Optional[int] = Field(None, gt=0)
     page_end: Optional[int] = Field(None, gt=0)
     remarks: Optional[str] = Field(None, max_length=1000)
+    # Answer file fields (for manual answer selection)
+    answer_pdf_name: Optional[str] = Field(None, max_length=500)
+    answer_page_start: Optional[int] = Field(None, gt=0)
+    answer_page_end: Optional[int] = Field(None, gt=0)
+    answer_remarks: Optional[str] = Field(None, max_length=1000)
 
 
 class ExerciseSaveRequest(BaseModel):

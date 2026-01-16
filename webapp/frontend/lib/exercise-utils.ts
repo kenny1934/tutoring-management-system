@@ -22,6 +22,12 @@ export interface ExerciseFormItemBase {
   page_end: string;
   complex_pages: string;
   remarks: string;
+  // Answer file fields (for manual answer selection)
+  answer_pdf_name: string;
+  answer_page_mode: 'simple' | 'custom';
+  answer_page_start: string;
+  answer_page_end: string;
+  answer_complex_pages: string;
 }
 
 /**
@@ -50,6 +56,12 @@ export function createExercise(
     page_end: "",
     complex_pages: "",
     remarks: "",
+    // Answer fields default empty
+    answer_pdf_name: "",
+    answer_page_mode: 'simple',
+    answer_page_start: "",
+    answer_page_end: "",
+    answer_complex_pages: "",
   };
 }
 
@@ -72,6 +84,11 @@ export function createExerciseFromSelection(
       page_end: "",
       complex_pages: pageSelection.complexRange,
       remarks: "",
+      answer_pdf_name: "",
+      answer_page_mode: 'simple',
+      answer_page_start: "",
+      answer_page_end: "",
+      answer_complex_pages: "",
     };
   }
 
@@ -84,6 +101,11 @@ export function createExerciseFromSelection(
     page_end: pageSelection?.pageEnd?.toString() || "",
     complex_pages: "",
     remarks: "",
+    answer_pdf_name: "",
+    answer_page_mode: 'simple',
+    answer_page_start: "",
+    answer_page_end: "",
+    answer_complex_pages: "",
   };
 }
 
