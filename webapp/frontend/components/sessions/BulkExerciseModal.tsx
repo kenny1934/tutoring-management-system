@@ -5,10 +5,10 @@ import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/l
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Copy, Check } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
-import { api, sessionsAPI } from "@/lib/api";
+import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
@@ -20,6 +20,7 @@ import { combineExerciseRemarks, validateExercisePageRange, parsePageInput, getP
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
+import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 // Re-export type for external consumers
@@ -61,6 +62,9 @@ export function BulkExerciseModal({
   // Per-session save status for visual feedback
   const [sessionSaveStatus, setSessionSaveStatus] = useState<Record<number, 'saving' | 'success' | 'error'>>({});
   const [validationErrors, setValidationErrors] = useState<ExerciseValidationError[]>([]);
+  // Answer file browse state
+  const [answerFolderTreeOpen, setAnswerFolderTreeOpen] = useState(false);
+  const [browsingForAnswerClientId, setBrowsingForAnswerClientId] = useState<string | null>(null);
   const { showToast } = useToast();
 
   // Wrapper for onClose that includes state reset
@@ -152,6 +156,11 @@ export function BulkExerciseModal({
       page_start: ex.page_mode === 'simple' && ex.page_start ? parseInt(ex.page_start, 10) : null,
       page_end: ex.page_mode === 'simple' && ex.page_end ? parseInt(ex.page_end, 10) : null,
       remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
+      // Answer file fields
+      answer_pdf_name: ex.answer_pdf_name || null,
+      answer_page_start: ex.answer_page_mode === 'simple' && ex.answer_page_start ? parseInt(ex.answer_page_start, 10) : null,
+      answer_page_end: ex.answer_page_mode === 'simple' && ex.answer_page_end ? parseInt(ex.answer_page_end, 10) : null,
+      answer_remarks: combineExerciseRemarks(ex.answer_page_mode === 'custom' ? ex.answer_complex_pages : '', '') || null,
     }));
 
     let successCount = 0;
@@ -230,18 +239,38 @@ export function BulkExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
-  const duplicateExercise = useCallback((index: number) => {
-    setExercises((prev) => {
-      const exerciseToDuplicate = prev[index];
-      if (!exerciseToDuplicate) return prev;
-      const duplicate = { ...exerciseToDuplicate, clientId: generateClientId() }; // New clientId for duplicate
-      // Insert after the current index
-      const before = prev.slice(0, index + 1);
-      const after = prev.slice(index + 1);
-      return [...before, duplicate, ...after];
-    });
-    setIsDirty(true);
+  // Handle manual browse for answer file
+  const handleBrowseAnswer = useCallback((clientId: string) => {
+    setBrowsingForAnswerClientId(clientId);
+    setAnswerFolderTreeOpen(true);
   }, []);
+
+  // Handle answer file selected from folder picker
+  const handleAnswerFileSelected = useCallback((path: string, pages?: string) => {
+    if (browsingForAnswerClientId) {
+      setExercises(prev => prev.map(ex => {
+        if (ex.clientId !== browsingForAnswerClientId) return ex;
+
+        // Build the updates
+        const updates: Partial<ExerciseFormItem> = { answer_pdf_name: path };
+
+        // Apply page selection if provided
+        if (pages) {
+          const pageFields = getPageFieldsFromSelection(parsePageInput(pages));
+          if (pageFields) {
+            updates.answer_page_mode = pageFields.page_mode;
+            updates.answer_page_start = pageFields.page_start;
+            updates.answer_page_end = pageFields.page_end;
+            updates.answer_complex_pages = pageFields.complex_pages;
+          }
+        }
+
+        return { ...ex, ...updates };
+      }));
+      setIsDirty(true);
+      setBrowsingForAnswerClientId(null);
+    }
+  }, [browsingForAnswerClientId, setIsDirty]);
 
   const updateExercise = (
     index: number,
@@ -843,16 +872,6 @@ export function BulkExerciseModal({
                       onPrintFile={() => handlePrintFile(exercise)}
                     />
 
-                    {/* Duplicate button */}
-                    <button
-                      type="button"
-                      onClick={() => duplicateExercise(index)}
-                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors shrink-0"
-                      title="Duplicate exercise"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-
                     {/* Delete button with inline confirmation */}
                     <ExerciseDeleteButton
                       isPending={pendingDeleteIndex === index}
@@ -898,6 +917,24 @@ export function BulkExerciseModal({
                           className={cn(inputClass, "text-xs py-1 flex-1")}
                         />
                       </div>
+
+                      {/* Answer Section - Shared Component */}
+                      <ExerciseAnswerSection
+                        clientId={exercise.clientId}
+                        index={index}
+                        radioNamePrefix="bulk-exercise"
+                        pdfName={exercise.pdf_name}
+                        answerPdfName={exercise.answer_pdf_name}
+                        answerPageMode={exercise.answer_page_mode}
+                        answerPageStart={exercise.answer_page_start}
+                        answerPageEnd={exercise.answer_page_end}
+                        answerComplexPages={exercise.answer_complex_pages}
+                        onAnswerChange={(field, value) => updateExercise(index, field, value)}
+                        onBrowseAnswer={() => handleBrowseAnswer(exercise.clientId)}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        inputClass={inputClass}
+                        canBrowseFiles={canBrowseFiles}
+                      />
                     </div>
                   </div>
                 </div>
@@ -918,6 +955,21 @@ export function BulkExerciseModal({
         onFilesSelected={handleBatchAddFromBrowse}
         allowMultiSelect={true}
         initialPath={browsingForIndex !== null ? exercises[browsingForIndex]?.pdf_name : undefined}
+      />
+
+      {/* Answer File Browser Modal */}
+      <FolderTreeModal
+        isOpen={answerFolderTreeOpen}
+        onClose={() => {
+          setAnswerFolderTreeOpen(false);
+          setBrowsingForAnswerClientId(null);
+        }}
+        onFileSelected={handleAnswerFileSelected}
+        allowMultiSelect={false}
+        initialPath={browsingForAnswerClientId
+          ? exercises.find(ex => ex.clientId === browsingForAnswerClientId)?.answer_pdf_name || exercises.find(ex => ex.clientId === browsingForAnswerClientId)?.pdf_name
+          : undefined
+        }
       />
 
       {/* Paperless Search Modal */}
