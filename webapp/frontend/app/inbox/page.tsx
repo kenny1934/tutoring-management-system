@@ -15,6 +15,7 @@ import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session } from "@/types";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
+import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import {
   Inbox,
@@ -742,6 +743,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                   {m.message}
                 </div>
+              )}
+
+              {/* Proposal embed for MakeupConfirmation messages */}
+              {m.category === "MakeupConfirmation" && (
+                <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
               )}
 
               {/* Message footer */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight, Inbox } from "lucide-react";
@@ -11,7 +11,10 @@ import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
-import { useUnreadMessageCount } from "@/lib/hooks";
+import { useUnreadMessageCount, useTutors } from "@/lib/hooks";
+
+// Current user constant (will be replaced with OAuth)
+const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -34,8 +37,17 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
+  // Get tutors list to find current tutor ID
+  const { data: tutors = [] } = useTutors();
+
+  // Derive current tutor ID from tutors list
+  const currentTutorId = useMemo(() => {
+    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return currentTutor?.id;
+  }, [tutors]);
+
   // Fetch unread message count for Inbox badge
-  const { data: unreadCount } = useUnreadMessageCount(1); // tutorId=1 for now
+  const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
@@ -227,7 +239,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 ? "gap-3 py-2 text-sm font-medium text-foreground/70"
                 : "justify-center p-1"
             )}>
-              <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} />
+              <NotificationBell pendingPayments={pendingPayments} location={selectedLocation} tutorId={currentTutorId} />
               {(isMobile || !isCollapsed) && (
                 <span>Notifications</span>
               )}
