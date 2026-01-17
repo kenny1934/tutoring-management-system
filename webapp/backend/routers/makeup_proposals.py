@@ -26,6 +26,12 @@ from schemas import (
 router = APIRouter()
 
 
+def _format_date_with_day(date_str: str) -> str:
+    """Format date string with day of week, e.g., 'Thu Mar 5'"""
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    return date.strftime("%a %b %-d")
+
+
 def _build_slot_response(slot: MakeupProposalSlot) -> MakeupProposalSlotResponse:
     """Build a MakeupProposalSlotResponse from a slot."""
     return MakeupProposalSlotResponse(
@@ -139,11 +145,11 @@ async def get_pending_count(
 ):
     """
     Get count of pending proposals where tutor needs to take action.
-    Counts slots where tutor is the target and slot is pending.
+    Counts unique proposals (not slots) where tutor is the target.
     """
-    # Count pending slots where this tutor is the target
-    slot_count = db.query(func.count(MakeupProposalSlot.id)).join(
-        MakeupProposal
+    # Count unique proposals where this tutor has pending slots
+    slot_proposal_count = db.query(func.count(func.distinct(MakeupProposal.id))).join(
+        MakeupProposalSlot
     ).filter(
         MakeupProposalSlot.proposed_tutor_id == tutor_id,
         MakeupProposalSlot.slot_status == 'pending',
@@ -156,7 +162,7 @@ async def get_pending_count(
         MakeupProposal.status == 'pending'
     ).scalar() or 0
 
-    return PendingProposalCount(count=slot_count + needs_input_count)
+    return PendingProposalCount(count=slot_proposal_count + needs_input_count)
 
 
 @router.get("/makeup-proposals/{proposal_id}", response_model=MakeupProposalResponse)
@@ -248,7 +254,7 @@ async def create_proposal(
     student_name = original_session.student.student_name if original_session.student else "Unknown"
     student_id = original_session.student.school_student_id if original_session.student else ""
     student_grade = original_session.student.grade if original_session.student else ""
-    session_date = original_session.session_date.strftime("%Y-%m-%d") if original_session.session_date else "Unknown"
+    session_date = original_session.session_date.strftime("%a %b %-d") if original_session.session_date else "Unknown"
     session_time = original_session.time_slot or ""
     original_tutor = original_session.tutor.tutor_name if original_session.tutor else "Unknown"
 
@@ -284,7 +290,8 @@ async def create_proposal(
         slot_lines = []
         for i, slot_data in enumerate(data.slots, 1):
             slot_tutor = db.query(Tutor).filter(Tutor.id == slot_data.proposed_tutor_id).first()
-            slot_lines.append(f"  {i}. {slot_data.proposed_date} {slot_data.proposed_time_slot} with {slot_tutor.tutor_name if slot_tutor else 'TBD'} @ {slot_data.proposed_location}")
+            formatted_date = _format_date_with_day(slot_data.proposed_date)
+            slot_lines.append(f"  {i}. {formatted_date} {slot_data.proposed_time_slot} with {slot_tutor.tutor_name if slot_tutor else 'TBD'} @ {slot_data.proposed_location}")
         slots_summary = "Proposed slots:\n" + "\n".join(slot_lines)
     else:
         target_tutor = db.query(Tutor).filter(Tutor.id == data.needs_input_tutor_id).first()

@@ -94,15 +94,17 @@ export default function ProposalsPage() {
   const filteredProposals = useMemo(() => {
     let proposals = activeTab === "for-me" ? proposalsForMe : proposalsByMe;
 
-    // Filter by search
+    // Filter by search (student, proposer, target tutors, original tutor)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       proposals = proposals.filter((p) => {
         const studentName = p.original_session?.student_name?.toLowerCase() || "";
+        const studentId = p.original_session?.school_student_id?.toLowerCase() || "";
         const proposerName = p.proposed_by_tutor_name?.toLowerCase() || "";
-        // Also search by target tutors in slots
+        const originalTutor = p.original_session?.tutor_name?.toLowerCase() || "";
         const slotTutorNames = p.slots?.map(s => s.proposed_tutor_name?.toLowerCase() || "").join(" ") || "";
-        return studentName.includes(query) || proposerName.includes(query) || slotTutorNames.includes(query);
+        return studentName.includes(query) || studentId.includes(query) ||
+               proposerName.includes(query) || originalTutor.includes(query) || slotTutorNames.includes(query);
       });
     }
 

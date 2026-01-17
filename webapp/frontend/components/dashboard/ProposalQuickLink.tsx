@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useProposals, usePendingProposalCount, useTutors } from "@/lib/hooks";
@@ -444,23 +444,31 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
     includeSession: true,
   });
 
-  // Total pending count (for badge)
+  // Total pending count (for badge) - deduplicated
   const totalPending = useMemo(() => {
-    const forMeCount = pendingCount?.count || 0;
-    const byMeCount = proposalsByMe.length;
-    return forMeCount + byMeCount;
-  }, [pendingCount, proposalsByMe]);
+    // Combine all proposals and deduplicate by ID
+    const allProposalIds = new Set<number>();
+    proposalsForMe.forEach(p => allProposalIds.add(p.id));
+    proposalsByMe.forEach(p => allProposalIds.add(p.id));
+    return allProposalIds.size;
+  }, [proposalsForMe, proposalsByMe]);
 
   // Filter and sort proposals
   const filteredProposals = useMemo(() => {
     let result = activeTab === "for-me" ? proposalsForMe : proposalsByMe;
 
-    // Filter by search
+    // Filter by search (student, proposer, target tutors, original tutor)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(p =>
-        p.original_session?.student_name?.toLowerCase().includes(q)
-      );
+      result = result.filter(p => {
+        const studentName = p.original_session?.student_name?.toLowerCase() || "";
+        const studentId = p.original_session?.school_student_id?.toLowerCase() || "";
+        const proposerName = p.proposed_by_tutor_name?.toLowerCase() || "";
+        const originalTutor = p.original_session?.tutor_name?.toLowerCase() || "";
+        const slotTutors = p.slots?.map(s => s.proposed_tutor_name?.toLowerCase() || "").join(" ") || "";
+        return studentName.includes(q) || studentId.includes(q) ||
+               proposerName.includes(q) || originalTutor.includes(q) || slotTutors.includes(q);
+      });
     }
 
     // Sort by created_at
@@ -472,6 +480,16 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
 
     return result;
   }, [activeTab, proposalsForMe, proposalsByMe, searchQuery, sortOrder]);
+
+  // Revalidate proposals when popover opens to ensure fresh data
+  useEffect(() => {
+    if (isOpen) {
+      mutate((key) =>
+        Array.isArray(key) &&
+        (key[0] === "proposals" || key[0] === "pending-proposals-count")
+      );
+    }
+  }, [isOpen]);
 
   // Floating UI
   const { refs, floatingStyles, context } = useFloating({
