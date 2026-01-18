@@ -8,7 +8,7 @@ from sqlalchemy import and_, or_, func
 from typing import List, Optional
 from datetime import datetime
 from database import get_db
-from models import TutorMessage, MessageReadReceipt, MessageLike, Tutor
+from models import TutorMessage, MessageReadReceipt, MessageLike, Tutor, MakeupProposal
 from schemas import (
     MessageCreate,
     MessageUpdate,
@@ -579,7 +579,12 @@ async def delete_message(
     if message.from_tutor_id != tutor_id:
         raise HTTPException(status_code=403, detail="You can only delete your own messages")
 
-    # Delete related records first (read receipts, likes)
+    # Nullify message_id on any linked makeup proposals (to avoid FK constraint)
+    db.query(MakeupProposal).filter(MakeupProposal.message_id == message_id).update(
+        {"message_id": None}, synchronize_session=False
+    )
+
+    # Delete related records (read receipts, likes)
     db.query(MessageReadReceipt).filter(MessageReadReceipt.message_id == message_id).delete()
     db.query(MessageLike).filter(MessageLike.message_id == message_id).delete()
 
