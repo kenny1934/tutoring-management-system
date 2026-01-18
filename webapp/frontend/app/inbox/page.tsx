@@ -60,7 +60,7 @@ const CATEGORIES: Category[] = [
   { id: "schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" />, filter: "Schedule" },
   { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
   { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
-  // MakeupConfirmation moved to dedicated /proposals page
+  { id: "makeup-confirmation", label: "Make-up", icon: <CalendarClock className="h-4 w-4" />, filter: "MakeupConfirmation" },
   { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
 ];
 
@@ -584,7 +584,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Mark messages as read when viewing
   useEffect(() => {
     allMessages.forEach((m) => {
-      if (!m.is_read && m.from_tutor_id !== currentTutorId) {
+      // Mark as read if: unread AND (from someone else OR it's a system-generated message)
+      const isSystemMessage = m.category === "MakeupConfirmation";
+      if (!m.is_read && (m.from_tutor_id !== currentTutorId || isSystemMessage)) {
         onMarkRead(m.id);
       }
     });
@@ -1001,11 +1003,49 @@ export default function InboxPage() {
   const handleMarkRead = useCallback(async (messageId: number) => {
     if (typeof selectedTutorId !== "number") return;
 
+    // Helper to update a message's is_read status
+    const updateMessage = (m: Message): Message =>
+      m.id === messageId ? { ...m, is_read: true } : m;
+
+    // Helper to update a thread's messages and total_unread
+    const updateThread = (t: MessageThread): MessageThread => {
+      const rootUpdated = updateMessage(t.root_message);
+      const repliesUpdated = t.replies.map(updateMessage);
+      const wasUnread = t.root_message.id === messageId ? !t.root_message.is_read :
+                        t.replies.some(r => r.id === messageId && !r.is_read);
+      return {
+        ...t,
+        root_message: rootUpdated,
+        replies: repliesUpdated,
+        total_unread: wasUnread ? Math.max(0, t.total_unread - 1) : t.total_unread
+      };
+    };
+
+    // Optimistic update - update SWR cache directly
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "message-threads",
+      (currentData: MessageThread[] | undefined) => currentData?.map(updateThread),
+      { revalidate: false }
+    );
+
+    // Update unread count optimistically
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "unread-count",
+      (currentData: { count: number } | undefined) =>
+        currentData ? { count: Math.max(0, currentData.count - 1) } : currentData,
+      { revalidate: false }
+    );
+
+    // Update local selectedThread state
+    setSelectedThread(prev => prev ? updateThread(prev) : prev);
+
     try {
       await messagesAPI.markRead(messageId, selectedTutorId);
+      // Revalidate to sync with server
       mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
     } catch (error) {
-      // Silently fail for mark read
+      // Revert on error
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
     }
   }, [selectedTutorId]);
 
@@ -1035,13 +1075,30 @@ export default function InboxPage() {
   const handleDelete = useCallback(async (messageId: number) => {
     if (typeof selectedTutorId !== "number") return;
 
+    // Optimistic update - remove thread from SWR cache immediately
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "message-threads",
+      (currentData: MessageThread[] | undefined) =>
+        currentData?.filter(t => t.root_message.id !== messageId),
+      { revalidate: false }
+    );
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "sent-messages",
+      (currentData: Message[] | undefined) =>
+        currentData?.filter(m => m.id !== messageId),
+      { revalidate: false }
+    );
+    setSelectedThread(null);
+
     try {
       await messagesAPI.delete(messageId, selectedTutorId);
       showToast("Message deleted!", "success");
-      setSelectedThread(null);
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages"));
+      // Revalidate to sync with server
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages" || key[0] === "unread-count"));
     } catch (error) {
       showToast("Failed to delete message", "error");
+      // Revert on error by refetching
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages"));
       throw error;
     }
   }, [selectedTutorId, showToast]);

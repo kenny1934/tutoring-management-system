@@ -26,9 +26,13 @@ from schemas import (
 router = APIRouter()
 
 
-def _format_date_with_day(date_str: str) -> str:
-    """Format date string with day of week, e.g., 'Thu Mar 5'"""
-    date = datetime.strptime(date_str, "%Y-%m-%d")
+def _format_date_with_day(date_input) -> str:
+    """Format date string or date object with day of week, e.g., 'Thu Mar 5'"""
+    if isinstance(date_input, str):
+        date = datetime.strptime(date_input, "%Y-%m-%d")
+    else:
+        # Already a date or datetime object
+        date = date_input
     return date.strftime("%a %b %-d")
 
 
