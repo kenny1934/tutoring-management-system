@@ -739,6 +739,23 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {/* Exam Revision Indicator */}
+          {session.exam_revision_slot_id && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Type:</span>
+              <Link
+                href="/exams"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+              >
+                Exam Revision
+              </Link>
+            </div>
+          )}
+
           {/* Session Linking */}
           {session.rescheduled_to && (
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">

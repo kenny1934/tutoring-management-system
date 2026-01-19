@@ -158,6 +158,10 @@ class SessionLog(Base):
     rescheduled_to_id = Column(Integer, ForeignKey("session_log.id"), nullable=True)
     make_up_for_id = Column(Integer, ForeignKey("session_log.id"), nullable=True)
 
+    # Exam revision slot link
+    exam_revision_slot_id = Column(Integer, ForeignKey("exam_revision_slots.id"), nullable=True,
+                                    comment='Links session to exam revision slot when enrolled via revision class feature')
+
     # Notes
     notes = Column(Text)
 
@@ -171,6 +175,7 @@ class SessionLog(Base):
     student = relationship("Student", back_populates="sessions")
     tutor = relationship("Tutor", back_populates="sessions")
     exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
+    exam_revision_slot = relationship("ExamRevisionSlot", back_populates="sessions")
 
 
 class Holiday(Base):
@@ -384,6 +389,9 @@ class CalendarEvent(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     last_synced_at = Column(DateTime, server_default=func.now())
 
+    # Relationships
+    revision_slots = relationship("ExamRevisionSlot", back_populates="calendar_event")
+
 
 class ParentCommunication(Base):
     """
@@ -570,3 +578,27 @@ class MakeupProposalSlot(Base):
     proposal = relationship("MakeupProposal", back_populates="slots")
     proposed_tutor = relationship("Tutor", foreign_keys=[proposed_tutor_id])
     resolved_by_tutor = relationship("Tutor", foreign_keys=[resolved_by_tutor_id])
+
+
+class ExamRevisionSlot(Base):
+    """
+    Exam revision slots allow tutors to create dedicated revision sessions
+    linked to upcoming exams. Students can be enrolled into these slots
+    by consuming their pending make-up sessions.
+    """
+    __tablename__ = "exam_revision_slots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    calendar_event_id = Column(Integer, ForeignKey("calendar_events.id", ondelete="CASCADE"), nullable=False)
+    session_date = Column(Date, nullable=False)
+    time_slot = Column(String(50), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=False)
+    location = Column(String(100), nullable=False)
+    notes = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255))
+
+    # Relationships
+    calendar_event = relationship("CalendarEvent", back_populates="revision_slots")
+    tutor = relationship("Tutor")
+    sessions = relationship("SessionLog", back_populates="exam_revision_slot")

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useCalendarEvents } from "@/lib/hooks";
 import { CalendarEvent } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap } from "lucide-react";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
@@ -350,6 +351,13 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         <div className="flex items-center gap-2">
           <TestsAccent className="w-8 h-6" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
+          <Link
+            href="/exams"
+            className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+          >
+            <GraduationCap className="h-3 w-3" />
+            Revision
+          </Link>
         </div>
         <div className="flex items-center gap-1">
           <button

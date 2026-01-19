@@ -190,6 +190,7 @@ class SessionResponse(SessionBase):
     previous_session_status: Optional[str] = Field(None, max_length=50)
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)
+    exam_revision_slot_id: Optional[int] = Field(None, gt=0, description="Links session to exam revision slot")
     rescheduled_to: Optional[LinkedSessionInfo] = None
     make_up_for: Optional[LinkedSessionInfo] = None
     exercises: List["SessionExerciseResponse"] = []
@@ -749,6 +750,14 @@ class MakeupProposalSlotResponse(MakeupProposalSlotBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MakeupProposalSlotUpdate(BaseModel):
+    """Schema for updating a proposal slot (all fields optional)"""
+    proposed_date: Optional[date] = None
+    proposed_time_slot: Optional[str] = Field(None, max_length=100)
+    proposed_tutor_id: Optional[int] = Field(None, gt=0)
+    proposed_location: Optional[str] = Field(None, max_length=100)
+
+
 class MakeupProposalCreate(BaseModel):
     """Schema for creating a make-up proposal"""
     original_session_id: int = Field(..., gt=0)
@@ -812,9 +821,133 @@ class PendingProposalCount(BaseModel):
     count: int = Field(default=0, ge=0)
 
 
+# ============================================
+# Exam Revision Slot Schemas
+# ============================================
+
+class ExamRevisionSlotCreate(BaseModel):
+    """Schema for creating an exam revision slot"""
+    calendar_event_id: int = Field(..., gt=0, description="ID of the calendar event (exam) this slot is for")
+    session_date: date = Field(..., description="Date of the revision session")
+    time_slot: str = Field(..., max_length=50, description="Time slot (e.g., '10:00-12:00')")
+    tutor_id: int = Field(..., gt=0, description="ID of the tutor running the session")
+    location: str = Field(..., max_length=100, description="Location of the session")
+    notes: Optional[str] = Field(None, max_length=1000, description="Optional notes for this revision slot")
+
+
+class ExamRevisionSlotUpdate(BaseModel):
+    """Schema for updating an exam revision slot"""
+    session_date: Optional[date] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    tutor_id: Optional[int] = Field(None, gt=0)
+    location: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class ExamRevisionSlotResponse(BaseModel):
+    """Response schema for an exam revision slot"""
+    id: int = Field(..., gt=0)
+    calendar_event_id: int = Field(..., gt=0)
+    session_date: date
+    time_slot: str
+    tutor_id: int
+    tutor_name: Optional[str] = Field(None, max_length=255)
+    location: str
+    notes: Optional[str] = None
+    created_at: datetime
+    created_by: Optional[str] = None
+    enrolled_count: int = Field(default=0, ge=0, description="Number of students enrolled")
+    # Include calendar event info
+    calendar_event: Optional['CalendarEventResponse'] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EnrolledStudentInfo(BaseModel):
+    """Info about a student enrolled in a revision slot"""
+    session_id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=255)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=200)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    academic_stream: Optional[str] = Field(None, max_length=50)
+    session_status: str = Field(..., max_length=50)
+    consumed_session_id: Optional[int] = Field(None, gt=0, description="Original session that was consumed")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExamRevisionSlotDetailResponse(ExamRevisionSlotResponse):
+    """Detailed response including enrolled students"""
+    enrolled_students: List[EnrolledStudentInfo] = Field(default_factory=list)
+
+
+class PendingSessionInfo(BaseModel):
+    """Info about a pending session that can be consumed"""
+    id: int = Field(..., gt=0)
+    session_date: date
+    time_slot: Optional[str] = None
+    session_status: str
+    tutor_name: Optional[str] = None
+    location: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EligibleStudentResponse(BaseModel):
+    """Student eligible for enrollment in a revision slot"""
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=255)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=200)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    academic_stream: Optional[str] = Field(None, max_length=50)
+    pending_sessions: List[PendingSessionInfo] = Field(default_factory=list, description="Sessions available to consume")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EnrollStudentRequest(BaseModel):
+    """Request to enroll a student in a revision slot"""
+    student_id: int = Field(..., gt=0, description="ID of the student to enroll")
+    consume_session_id: int = Field(..., gt=0, description="ID of the pending session to consume")
+    notes: Optional[str] = Field(None, max_length=500, description="Optional notes for the enrollment")
+
+
+class EnrollStudentResponse(BaseModel):
+    """Response after enrolling a student"""
+    revision_session: SessionResponse
+    consumed_session: SessionResponse
+
+
+class ExamWithRevisionSlotsResponse(BaseModel):
+    """Calendar event with its revision slots for calendar view"""
+    id: int = Field(..., gt=0)
+    event_id: str
+    title: str
+    description: Optional[str] = None
+    start_date: date
+    end_date: Optional[date] = None
+    school: Optional[str] = None
+    grade: Optional[str] = None
+    academic_stream: Optional[str] = None
+    event_type: Optional[str] = None
+    revision_slots: List[ExamRevisionSlotResponse] = Field(default_factory=list)
+    total_enrolled: int = Field(default=0, ge=0, description="Total students enrolled across all slots")
+    eligible_count: int = Field(default=0, ge=0, description="Count of eligible students not yet enrolled")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
 DetailedSessionResponse.model_rebuild()
 ThreadResponse.model_rebuild()
 MakeupProposalResponse.model_rebuild()
+ExamRevisionSlotResponse.model_rebuild()
+ExamRevisionSlotDetailResponse.model_rebuild()
+EnrollStudentResponse.model_rebuild()

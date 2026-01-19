@@ -163,6 +163,7 @@ export interface Session {
   previous_session_status?: string;
   rescheduled_to_id?: number;
   make_up_for_id?: number;
+  exam_revision_slot_id?: number;  // Links session to exam revision slot
   rescheduled_to?: LinkedSessionInfo;
   make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;
@@ -555,4 +556,93 @@ export interface MakeupProposalCreate {
 
 export interface PendingProposalCount {
   count: number;
+}
+
+// Exam Revision Slot types
+export interface ExamRevisionSlot {
+  id: number;
+  calendar_event_id: number;
+  session_date: string;  // ISO format
+  time_slot: string;
+  tutor_id: number;
+  tutor_name?: string;
+  location: string;
+  notes?: string;
+  created_at: string;
+  created_by?: string;
+  enrolled_count: number;
+  calendar_event?: CalendarEvent;
+}
+
+export interface EnrolledStudentInfo {
+  session_id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  school?: string;
+  lang_stream?: string;
+  academic_stream?: string;
+  session_status: string;
+  consumed_session_id?: number;
+}
+
+export interface ExamRevisionSlotDetail extends ExamRevisionSlot {
+  enrolled_students: EnrolledStudentInfo[];
+}
+
+export interface PendingSessionInfo {
+  id: number;
+  session_date: string;
+  time_slot?: string;
+  session_status: string;
+  tutor_name?: string;
+  location?: string;
+}
+
+export interface EligibleStudent {
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  school?: string;
+  lang_stream?: string;
+  academic_stream?: string;
+  pending_sessions: PendingSessionInfo[];
+}
+
+export interface ExamRevisionSlotCreate {
+  calendar_event_id: number;
+  session_date: string;
+  time_slot: string;
+  tutor_id: number;
+  location: string;
+  notes?: string;
+}
+
+export interface EnrollStudentRequest {
+  student_id: number;
+  consume_session_id: number;
+  notes?: string;
+}
+
+export interface EnrollStudentResponse {
+  revision_session: Session;
+  consumed_session: Session;
+}
+
+export interface ExamWithRevisionSlots {
+  id: number;
+  event_id: string;
+  title: string;
+  description?: string;
+  start_date: string;
+  end_date?: string;
+  school?: string;
+  grade?: string;
+  academic_stream?: string;
+  event_type?: string;
+  revision_slots: ExamRevisionSlot[];
+  total_enrolled: number;
+  eligible_count: number;
 }
