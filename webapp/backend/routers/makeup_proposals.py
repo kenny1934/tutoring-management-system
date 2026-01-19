@@ -443,7 +443,7 @@ async def approve_slot(
     is_target_tutor = slot.proposed_tutor_id == tutor_id
     is_proposer = proposal.proposed_by_tutor_id == tutor_id
     acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    is_admin = acting_tutor and acting_tutor.role in ['admin', 'super_admin']
+    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
 
     if not (is_target_tutor or is_proposer or is_admin):
         raise HTTPException(
@@ -581,7 +581,7 @@ async def reject_slot(
     is_target_tutor = slot.proposed_tutor_id == tutor_id
     is_proposer = proposal.proposed_by_tutor_id == tutor_id
     acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    is_admin = acting_tutor and acting_tutor.role in ['admin', 'super_admin']
+    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
 
     if not (is_target_tutor or is_proposer or is_admin):
         raise HTTPException(

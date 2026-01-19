@@ -25,7 +25,7 @@ import {
 } from "@floating-ui/react";
 import useSWR from "swr";
 
-type UserRole = 'tutor' | 'admin' | 'super_admin';
+type UserRole = 'Tutor' | 'Admin' | 'Super Admin';
 
 interface RecordContactModalProps {
   isOpen: boolean;
@@ -63,7 +63,7 @@ export function RecordContactModal({
   const canEditTutor = useMemo(() => {
     if (!currentUserTutorId) return true; // No OAuth yet, allow editing
     if (editingContact) {
-      return currentUserRole === 'admin' || currentUserRole === 'super_admin';
+      return currentUserRole === 'Admin' || currentUserRole === 'Super Admin';
     }
     return false; // New contact with OAuth - auto-select, no edit
   }, [currentUserTutorId, currentUserRole, editingContact]);

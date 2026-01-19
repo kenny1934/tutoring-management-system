@@ -175,7 +175,7 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
   // Get tutors to check admin status
   const { data: tutors = [] } = useTutors();
   const currentTutor = tutors.find((t) => t.id === currentTutorId);
-  const isAdmin = currentTutor?.role === 'admin' || currentTutor?.role === 'super_admin';
+  const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
 
   const refreshProposals = () => {
     mutate((key) =>

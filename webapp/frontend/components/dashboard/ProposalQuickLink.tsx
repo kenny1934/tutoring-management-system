@@ -425,7 +425,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
   const currentTutor = useMemo(() => {
     return tutors.find((t) => t.id === tutorId);
   }, [tutors, tutorId]);
-  const isAdmin = currentTutor?.role === 'admin' || currentTutor?.role === 'super_admin';
+  const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
 
   // Fetch counts and proposals
   const { data: pendingCount } = usePendingProposalCount(tutorId);

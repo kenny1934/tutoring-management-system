@@ -1,9 +1,12 @@
 // Tutor types
+export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin';
+
 export interface Tutor {
   id: number;
   user_email?: string;
   tutor_name: string;
   default_location?: string;
+  role: TutorRole;
 }
 
 // Student types
