@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { useSessions } from "@/lib/hooks";
+import { useSessions, useProposalsInDateRange, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
@@ -18,8 +18,11 @@ import { SessionsAccent } from "@/components/illustrations/CardAccents";
 import { ProgressRing } from "@/components/dashboard/ProgressRing";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
-import type { Session } from "@/types";
-import { getGradeColor } from "@/lib/constants";
+import type { Session, MakeupProposal } from "@/types";
+import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { proposalSlotsToSessions } from "@/lib/proposal-utils";
+import type { ProposedSession } from "@/lib/proposal-utils";
+import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Format today's date as YYYY-MM-DD
@@ -40,6 +43,7 @@ interface TimeSlotGroup {
   timeSlot: string;
   startTime: string;
   sessions: Session[];
+  proposedSessions: ProposedSession[];
 }
 
 export function TodaySessionsCard({ className, isMobile = false }: TodaySessionsCardProps) {
@@ -58,6 +62,31 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
     location: selectedLocation === "All Locations" ? undefined : selectedLocation,
     limit: 500,  // Ensure all daily sessions are fetched (default is 100)
   });
+
+  // Fetch proposals for today (only proposals with slots on today's date)
+  const { data: proposals = [] } = useProposalsInDateRange(todayString, todayString);
+
+  // Fetch tutors for currentTutorId
+  const { data: tutors = [] } = useTutors();
+
+  // Get current user's tutor ID for proposal actions
+  const currentTutorId = useMemo(() => {
+    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return tutor?.id ?? 0;
+  }, [tutors]);
+
+  // Convert proposals to proposed sessions
+  const proposedSessions = useMemo(() => {
+    const allProposed = proposalSlotsToSessions(proposals);
+    // Filter by location if location filter is active
+    if (selectedLocation && selectedLocation !== "All Locations") {
+      return allProposed.filter(p => p.location === selectedLocation);
+    }
+    return allProposed;
+  }, [proposals, selectedLocation]);
+
+  // Proposal modal state
+  const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);
 
   // Sync popover session with updated data from SWR (e.g., after marking attended)
   useEffect(() => {
@@ -146,8 +175,25 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
       groupSessions.push(...sortedSessions);
     });
 
-    // Sort time slots chronologically and convert to array
-    const sortedEntries = Object.entries(groups).sort(([timeA], [timeB]) => {
+    // Group proposed sessions by time slot
+    const proposedBySlot: Record<string, ProposedSession[]> = {};
+    proposedSessions.forEach((ps) => {
+      const slot = ps.time_slot || "Unscheduled";
+      if (!proposedBySlot[slot]) {
+        proposedBySlot[slot] = [];
+      }
+      proposedBySlot[slot].push(ps);
+    });
+
+    // Add time slots from proposed sessions that don't have real sessions
+    Object.keys(proposedBySlot).forEach((slot) => {
+      if (!groups[slot]) {
+        groups[slot] = [];
+      }
+    });
+
+    // Re-sort including new proposed-only time slots
+    const allSortedEntries = Object.entries(groups).sort(([timeA], [timeB]) => {
       if (timeA === "Unscheduled") return 1;
       if (timeB === "Unscheduled") return -1;
       const startA = timeA.split("-")[0];
@@ -155,19 +201,20 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
       return startA.localeCompare(startB);
     });
 
-    const groupedArray: TimeSlotGroup[] = sortedEntries.map(([slot, sessionsInSlot]) => {
+    const groupedArray: TimeSlotGroup[] = allSortedEntries.map(([slot, sessionsInSlot]) => {
       const parsed = parseTimeSlot(slot);
       return {
         timeSlot: slot,
         startTime: parsed?.start || slot,
         sessions: sessionsInSlot,
+        proposedSessions: proposedBySlot[slot] || [],
       };
     });
 
     // Collect all session IDs for select all
     const allIds = sessions.map(s => s.id);
 
-    // Calculate stats
+    // Calculate stats (proposed sessions don't count toward stats)
     const completed = sessions.filter(s =>
       s.session_status === 'Attended' ||
       s.session_status === 'Attended (Make-up)'
@@ -190,7 +237,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
         cancelled,
       }
     };
-  }, [sessions]);
+  }, [sessions, proposedSessions]);
 
   // Compute which bulk actions are available based on selected sessions
   const selectedSessions = useMemo(() =>
@@ -536,7 +583,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                     {group.timeSlot}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({group.sessions.length})
+                    ({group.sessions.length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
                   </span>
                 </div>
 
@@ -556,6 +603,15 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                       isLoading={loadingSessionActions.has(session.id)}
                       loadingActionId={loadingSessionActions.get(session.id) || null}
                       onLoadingChange={handleActionLoadingChange}
+                    />
+                  ))}
+                  {/* Proposed sessions in this time slot */}
+                  {group.proposedSessions.map((ps, idx) => (
+                    <ProposedSessionRow
+                      key={ps.id}
+                      proposedSession={ps}
+                      isAlternate={(group.sessions.length + idx) % 2 === 1}
+                      onClick={() => setSelectedProposal(ps.proposal)}
                     />
                   ))}
                 </div>
@@ -718,6 +774,14 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
           onClose={() => setBulkExerciseType(null)}
         />
       )}
+
+      {/* Proposal Detail Modal */}
+      <ProposalDetailModal
+        proposal={selectedProposal}
+        currentTutorId={currentTutorId}
+        isOpen={!!selectedProposal}
+        onClose={() => setSelectedProposal(null)}
+      />
     </div>
   );
 }
@@ -833,6 +897,85 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
         loadingActionId={loadingActionId}
         className="mt-1.5 ml-6"
       />
+    </div>
+  );
+}
+
+// Proposed session row component (ghost styling)
+interface ProposedSessionRowProps {
+  proposedSession: ProposedSession;
+  isAlternate: boolean;
+  onClick: () => void;
+}
+
+function ProposedSessionRow({ proposedSession, isAlternate, onClick }: ProposedSessionRowProps) {
+  const { selectedLocation } = useLocation();
+  const gradeColor = getGradeColor(proposedSession.grade, proposedSession.lang_stream);
+
+  return (
+    <div
+      className={cn(
+        "px-3 py-2 cursor-pointer transition-colors",
+        "border-l-2 border-dashed border-amber-400 dark:border-amber-500",
+        "hover:bg-amber-50/50 dark:hover:bg-amber-900/20",
+        isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30"
+      )}
+      onClick={onClick}
+      style={{
+        backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(156, 163, 175, 0.03) 10px, rgba(156, 163, 175, 0.03) 20px)",
+      }}
+    >
+      {/* Main row */}
+      <div className="flex items-center gap-2">
+        {/* CalendarClock icon instead of checkbox */}
+        <div className="flex-shrink-0 p-0.5">
+          <CalendarClock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+        </div>
+
+        {/* Left: Student info */}
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 flex-wrap">
+          {/* School ID + Name */}
+          <span className="text-sm font-medium truncate text-gray-700 dark:text-gray-300">
+            {proposedSession.school_student_id && (
+              <span className="text-gray-500 dark:text-gray-400 mr-1">
+                {selectedLocation === "All Locations" && proposedSession.location && `${proposedSession.location}-`}{proposedSession.school_student_id}
+              </span>
+            )}
+            {proposedSession.student_name}
+          </span>
+
+          {/* Grade badge */}
+          {proposedSession.grade && (
+            <span
+              className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-gray-800"
+              style={{ backgroundColor: gradeColor }}
+            >
+              {proposedSession.grade}{proposedSession.lang_stream || ''}
+            </span>
+          )}
+
+          {/* School badge */}
+          {proposedSession.school && (
+            <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+              {proposedSession.school}
+            </span>
+          )}
+
+          {/* PROPOSED badge */}
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-dashed border-amber-300 dark:border-amber-600">
+            Proposed
+          </span>
+        </div>
+
+        {/* Right: Tutor */}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {proposedSession.tutor_name && (
+            <span className="text-[10px] text-gray-500 dark:text-gray-400 max-w-[60px] truncate">
+              {proposedSession.tutor_name}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
