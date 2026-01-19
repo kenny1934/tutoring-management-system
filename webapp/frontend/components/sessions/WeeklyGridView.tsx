@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { MoreSessionsPopover } from "@/components/sessions/MoreSessionsPopover";
@@ -670,6 +670,9 @@ export function WeeklyGridView({
                                         )}
                                         {!isMobile && widthPercent > 50 && session.school && (
                                           <span className="text-[7px] px-1 py-px rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
+                                        )}
+                                        {session.exam_revision_slot_id && (
+                                          <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
                                         )}
                                       </p>
                                     </div>

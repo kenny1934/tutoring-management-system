@@ -32,6 +32,13 @@ import type {
   MakeupProposalCreate,
   PendingProposalCount,
   ProposalStatus,
+  ExamRevisionSlot,
+  ExamRevisionSlotDetail,
+  ExamRevisionSlotCreate,
+  EligibleStudent,
+  EnrollStudentRequest,
+  EnrollStudentResponse,
+  ExamWithRevisionSlots,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -984,6 +991,26 @@ export const proposalsAPI = {
     );
   },
 
+  // Update a slot (only for pending proposals)
+  updateSlot: (
+    slotId: number,
+    tutorId: number,
+    data: {
+      proposed_date?: string;
+      proposed_time_slot?: string;
+      proposed_tutor_id?: number;
+      proposed_location?: string;
+    }
+  ) => {
+    return fetchAPI<MakeupProposal>(
+      `/makeup-proposals/slots/${slotId}?tutor_id=${tutorId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
   // Reject entire proposal (for needs_input type)
   reject: (proposalId: number, tutorId: number, rejectionReason?: string) => {
     return fetchAPI<MakeupProposal>(
@@ -1001,6 +1028,90 @@ export const proposalsAPI = {
       `/makeup-proposals/${proposalId}?tutor_id=${tutorId}`,
       { method: "DELETE" }
     );
+  },
+};
+
+// Exam Revision Slots API
+export const examRevisionAPI = {
+  // Get revision slots with filters
+  getSlots: (params?: {
+    calendar_event_id?: number;
+    tutor_id?: number;
+    location?: string;
+    from_date?: string;
+    to_date?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.calendar_event_id) searchParams.append("calendar_event_id", params.calendar_event_id.toString());
+    if (params?.tutor_id) searchParams.append("tutor_id", params.tutor_id.toString());
+    if (params?.location) searchParams.append("location", params.location);
+    if (params?.from_date) searchParams.append("from_date", params.from_date);
+    if (params?.to_date) searchParams.append("to_date", params.to_date);
+    const query = searchParams.toString();
+    return fetchAPI<ExamRevisionSlot[]>(`/exam-revision/slots${query ? `?${query}` : ""}`);
+  },
+
+  // Create a new revision slot
+  createSlot: (data: ExamRevisionSlotCreate) => {
+    return fetchAPI<ExamRevisionSlot>("/exam-revision/slots", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Get slot details with enrolled students
+  getSlotDetails: (slotId: number) => {
+    return fetchAPI<ExamRevisionSlotDetail>(`/exam-revision/slots/${slotId}`);
+  },
+
+  // Delete an empty slot
+  deleteSlot: (slotId: number) => {
+    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Get eligible students for a slot
+  getEligibleStudents: (slotId: number) => {
+    return fetchAPI<EligibleStudent[]>(`/exam-revision/slots/${slotId}/eligible-students`);
+  },
+
+  // Get eligible students by exam (calendar event) - doesn't require a slot to exist
+  getEligibleStudentsByExam: (eventId: number, location: string) => {
+    return fetchAPI<EligibleStudent[]>(`/exam-revision/calendar/${eventId}/eligible-students?location=${encodeURIComponent(location)}`);
+  },
+
+  // Enroll a student in a slot
+  enrollStudent: (slotId: number, data: EnrollStudentRequest) => {
+    return fetchAPI<EnrollStudentResponse>(`/exam-revision/slots/${slotId}/enroll`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Remove a student's enrollment from a slot
+  removeEnrollment: (slotId: number, sessionId: number) => {
+    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}/enrollments/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Get exams (calendar events) with their revision slot summaries
+  getCalendarWithSlots: (params?: {
+    school?: string;
+    grade?: string;
+    location?: string;
+    from_date?: string;
+    to_date?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.school) searchParams.append("school", params.school);
+    if (params?.grade) searchParams.append("grade", params.grade);
+    if (params?.location) searchParams.append("location", params.location);
+    if (params?.from_date) searchParams.append("from_date", params.from_date);
+    if (params?.to_date) searchParams.append("to_date", params.to_date);
+    const query = searchParams.toString();
+    return fetchAPI<ExamWithRevisionSlots[]>(`/exam-revision/calendar${query ? `?${query}` : ""}`);
   },
 };
 
@@ -1023,4 +1134,5 @@ export const api = {
   terminations: terminationsAPI,
   messages: messagesAPI,
   proposals: proposalsAPI,
+  examRevision: examRevisionAPI,
 };

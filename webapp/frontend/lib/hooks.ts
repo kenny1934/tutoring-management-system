@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, api } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -529,4 +529,79 @@ export function useClickOutside<T extends HTMLElement>(
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [ref, onClickOutside, enabled]);
+}
+
+// ============================================
+// Exam Revision Hooks
+// ============================================
+
+/**
+ * Hook for fetching exams with their revision slot summaries
+ * Used on the exams calendar page
+ */
+export function useExamsWithSlots(params?: {
+  school?: string;
+  grade?: string;
+  location?: string;
+  from_date?: string;
+  to_date?: string;
+}) {
+  const key = params ? ['exams-with-slots', JSON.stringify(params)] : ['exams-with-slots'];
+  return useSWR<ExamWithRevisionSlots[]>(
+    key,
+    () => examRevisionAPI.getCalendarWithSlots(params),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching revision slots with filters
+ */
+export function useRevisionSlots(params?: {
+  calendar_event_id?: number;
+  tutor_id?: number;
+  location?: string;
+  from_date?: string;
+  to_date?: string;
+}) {
+  const key = params ? ['revision-slots', JSON.stringify(params)] : ['revision-slots'];
+  return useSWR<ExamRevisionSlot[]>(
+    key,
+    () => examRevisionAPI.getSlots(params),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching a single revision slot with enrolled students
+ */
+export function useRevisionSlotDetail(slotId: number | null | undefined) {
+  return useSWR<ExamRevisionSlotDetail>(
+    slotId ? ['revision-slot-detail', slotId] : null,
+    () => examRevisionAPI.getSlotDetails(slotId!),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching eligible students for a revision slot
+ */
+export function useEligibleStudents(slotId: number | null | undefined) {
+  return useSWR<EligibleStudent[]>(
+    slotId ? ['eligible-students', slotId] : null,
+    () => examRevisionAPI.getEligibleStudents(slotId!),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching eligible students by exam (calendar event)
+ * This doesn't require a slot to exist - useful for showing eligible students before creating slots
+ */
+export function useEligibleStudentsByExam(eventId: number | null | undefined, location: string | null | undefined) {
+  return useSWR<EligibleStudent[]>(
+    eventId && location ? ['eligible-students-by-exam', eventId, location] : null,
+    () => examRevisionAPI.getEligibleStudentsByExam(eventId!, location!),
+    { revalidateOnFocus: false }
+  );
 }
