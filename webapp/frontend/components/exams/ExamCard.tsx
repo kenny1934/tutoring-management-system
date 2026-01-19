@@ -29,10 +29,12 @@ interface ExamCardProps {
   location: string | null;
   onCreateSlot: () => void;
   onRefresh: () => void;
+  highlighted?: boolean;
+  defaultExpanded?: boolean;
 }
 
-export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh }: ExamCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, highlighted, defaultExpanded }: ExamCardProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
   const [selectedSlot, setSelectedSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showEligibleStudents, setShowEligibleStudents] = useState(false);
@@ -81,7 +83,8 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
     <div className={cn(
       "rounded-xl border overflow-hidden",
       "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
-      "paper-texture transition-all"
+      "paper-texture transition-all",
+      highlighted && "ring-2 ring-[#a0704b] ring-offset-2"
     )}>
       {/* Header - Always visible */}
       <button
