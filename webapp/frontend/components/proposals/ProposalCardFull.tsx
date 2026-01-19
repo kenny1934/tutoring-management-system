@@ -5,13 +5,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { useTutors, useSessions } from "@/lib/hooks";
+import { useTutors, useSessions, useLocations } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
 import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { formatProposalDate } from "@/lib/formatters";
-import type { MakeupProposal, MakeupProposalSlot, Session } from "@/types";
+import type { MakeupProposal, MakeupProposalSlot, Session, Tutor } from "@/types";
 import {
   CalendarClock,
   Check,
@@ -32,7 +32,19 @@ import {
   Send,
   Inbox,
   Eye,
+  Pencil,
+  Save,
 } from "lucide-react";
+// All possible time slots (weekday + weekend)
+const TIME_SLOTS = [
+  "10:00 - 11:30",
+  "11:45 - 13:15",
+  "14:30 - 16:00",
+  "16:15 - 17:45",
+  "16:45 - 18:15",
+  "18:00 - 19:30",
+  "18:25 - 19:55",
+];
 
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
@@ -119,8 +131,15 @@ function SlotItem({
   isAdmin,
   proposalStatus,
   slotSessions,
+  canEdit,
+  isEditing,
+  tutors,
+  locations,
   onApprove,
   onReject,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
 }: {
   slot: MakeupProposalSlot;
   slotIndex: number;
@@ -129,18 +148,75 @@ function SlotItem({
   isAdmin: boolean;
   proposalStatus: string;
   slotSessions: Session[];
+  canEdit: boolean;
+  isEditing: boolean;
+  tutors: Tutor[];
+  locations: string[];
   onApprove: (slotId: number) => void;
   onReject: (slotId: number, reason?: string) => void;
+  onStartEdit: (slotId: number) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (slotId: number, data: {
+    proposed_date?: string;
+    proposed_time_slot?: string;
+    proposed_tutor_id?: number;
+    proposed_location?: string;
+  }) => Promise<void>;
 }) {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Edit form state
+  const [editDate, setEditDate] = useState(slot.proposed_date);
+  const [editTime, setEditTime] = useState(slot.proposed_time_slot);
+  const [editTutorId, setEditTutorId] = useState(slot.proposed_tutor_id);
+  const [editLocation, setEditLocation] = useState(slot.proposed_location);
 
   const isTargetTutor = slot.proposed_tutor_id === currentTutorId;
   // Expanded permissions: target tutor, proposer, or admin can act
   const canAct = (isTargetTutor || isProposer || isAdmin) &&
     slot.slot_status === "pending" && proposalStatus === "pending";
+
+  // Reset edit state when slot changes
+  const resetEditState = () => {
+    setEditDate(slot.proposed_date);
+    setEditTime(slot.proposed_time_slot);
+    setEditTutorId(slot.proposed_tutor_id);
+    setEditLocation(slot.proposed_location);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const changes: {
+        proposed_date?: string;
+        proposed_time_slot?: string;
+        proposed_tutor_id?: number;
+        proposed_location?: string;
+      } = {};
+
+      if (editDate !== slot.proposed_date) changes.proposed_date = editDate;
+      if (editTime !== slot.proposed_time_slot) changes.proposed_time_slot = editTime;
+      if (editTutorId !== slot.proposed_tutor_id) changes.proposed_tutor_id = editTutorId;
+      if (editLocation !== slot.proposed_location) changes.proposed_location = editLocation;
+
+      if (Object.keys(changes).length > 0) {
+        await onSaveEdit(slot.id, changes);
+      } else {
+        onCancelEdit();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    resetEditState();
+    onCancelEdit();
+  };
 
   // Determine the role badge to show (priority: target > proposer > admin)
   const actingAs = isTargetTutor ? null : isProposer ? "proposer" : isAdmin ? "admin" : null;
@@ -191,6 +267,8 @@ function SlotItem({
             ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
             : slot.slot_status === "rejected"
             ? "bg-gray-50 border-gray-200 dark:bg-gray-900/20 dark:border-gray-700 opacity-60"
+            : isEditing
+            ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
             : "bg-white border-[#e8d4b8] dark:bg-[#2a2a2a] dark:border-[#6b5a4a]"
         )}
       >
@@ -201,71 +279,155 @@ function SlotItem({
                 Option {slotIndex + 1}
               </span>
               <SlotStatusBadge status={slot.slot_status} rejectionReason={slot.rejection_reason || undefined} />
+              {/* Edit button - visible when canEdit and not currently editing */}
+              {canEdit && !isEditing && (
+                <button
+                  onClick={() => onStartEdit(slot.id)}
+                  className="ml-auto p-1 text-gray-400 hover:text-[#a0704b] dark:hover:text-[#cd853f] rounded transition-colors"
+                  title="Edit slot"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
-                <Calendar className="h-4 w-4 text-[#a0704b]" />
-                {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
-              </div>
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                <User className="h-4 w-4" />
-                <span className="font-medium">{slot.proposed_tutor_name || `Tutor #${slot.proposed_tutor_id}`}</span>
-                {isTargetTutor && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    You
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                <MapPin className="h-4 w-4" />
-                {slot.proposed_location}
-              </div>
-            </div>
-
-            {/* Slot availability - students in this slot */}
-            {slot.slot_status === "pending" && (
-              <div className="mt-3 p-2.5 bg-[#fef9f3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-2 border-l-[#a0704b]">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  STUDENTS IN SLOT ({studentsInSlot.length}/{slotCapacity})
+            {/* Edit form or static display */}
+            {isEditing ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Time</label>
+                    <select
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    >
+                      {TIME_SLOTS.map((ts) => (
+                        <option key={ts} value={ts}>{ts}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                {studentsInSlot.length > 0 ? (
-                  <div className="space-y-1">
-                    {studentsInSlot.map((s) => (
-                      <StudentInSlot key={s.id} session={s} />
-                    ))}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Tutor</label>
+                    <select
+                      value={editTutorId}
+                      onChange={(e) => setEditTutorId(Number(e.target.value))}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    >
+                      {tutors.map((t) => (
+                        <option key={t.id} value={t.id}>{t.tutor_name}</option>
+                      ))}
+                    </select>
                   </div>
-                ) : (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                    No students in this slot yet
-                  </p>
-                )}
-                {isFull && (
-                  <div className="mt-2 flex items-center gap-1 text-xs text-red-500 font-medium">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    This slot is full
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Location</label>
+                    <select
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
+                    >
+                      {locations.map((loc) => (
+                        <option key={loc} value={loc}>{loc}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-[#a0704b] hover:bg-[#8b5f3c] rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isSaving}
+                    className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
+                    <Calendar className="h-4 w-4 text-[#a0704b]" />
+                    {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <User className="h-4 w-4" />
+                    <span className="font-medium">{slot.proposed_tutor_name || `Tutor #${slot.proposed_tutor_id}`}</span>
+                    {isTargetTutor && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        You
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <MapPin className="h-4 w-4" />
+                    {slot.proposed_location}
+                  </div>
+                </div>
+
+                {/* Slot availability - students in this slot */}
+                {slot.slot_status === "pending" && (
+                  <div className="mt-3 p-2.5 bg-[#fef9f3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-2 border-l-[#a0704b]">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
+                      <Users className="h-3.5 w-3.5" />
+                      STUDENTS IN SLOT ({studentsInSlot.length}/{slotCapacity})
+                    </div>
+                    {studentsInSlot.length > 0 ? (
+                      <div className="space-y-1">
+                        {studentsInSlot.map((s) => (
+                          <StudentInSlot key={s.id} session={s} />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                        No students in this slot yet
+                      </p>
+                    )}
+                    {isFull && (
+                      <div className="mt-2 flex items-center gap-1 text-xs text-red-500 font-medium">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        This slot is full
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {slot.slot_status === "rejected" && slot.rejection_reason && (
-              <div className="mt-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded p-2">
-                <span className="font-medium">Reason:</span> {slot.rejection_reason}
-              </div>
-            )}
+                {slot.slot_status === "rejected" && slot.rejection_reason && (
+                  <div className="mt-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded p-2">
+                    <span className="font-medium">Reason:</span> {slot.rejection_reason}
+                  </div>
+                )}
 
-            {slot.resolved_at && (
-              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {slot.slot_status === "approved" ? "Approved" : "Rejected"} {formatRelativeTime(slot.resolved_at)}
-                {slot.resolved_by_tutor_name && ` by ${slot.resolved_by_tutor_name}`}
-              </div>
+                {slot.resolved_at && (
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {slot.slot_status === "approved" ? "Approved" : "Rejected"} {formatRelativeTime(slot.resolved_at)}
+                    {slot.resolved_by_tutor_name && ` by ${slot.resolved_by_tutor_name}`}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {/* Action buttons - expanded permissions */}
-          {canAct && (
+          {/* Action buttons - expanded permissions (only show when not editing) */}
+          {canAct && !isEditing && (
             <div className="flex flex-col gap-2">
               {/* Role indicator when not the target tutor */}
               {actingAs && (
@@ -370,11 +532,13 @@ export function ProposalCardFull({
 }: ProposalCardFullProps) {
   const { showToast } = useToast();
   const { data: tutors = [] } = useTutors();
+  const { data: locations = [] } = useLocations();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [editingSlotId, setEditingSlotId] = useState<number | null>(null);
 
   // Session detail popover state
   const [showSessionPopover, setShowSessionPopover] = useState(false);
@@ -391,6 +555,13 @@ export function ProposalCardFull({
     return tutors.find((t) => t.id === currentTutorId);
   }, [tutors, currentTutorId]);
   const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
+
+  // Check if editing is allowed: proposer or admin, proposal pending, ALL slots pending
+  const canEdit = useMemo(() => {
+    if (proposal.status !== "pending") return false;
+    if (!isProposer && !isAdmin) return false;
+    return proposal.slots.every((s) => s.slot_status === "pending");
+  }, [proposal.status, proposal.slots, isProposer, isAdmin]);
 
   // Session info from the proposal
   const session = proposal.original_session;
@@ -452,6 +623,27 @@ export function ProposalCardFull({
       showToast("Failed to reject slot", "error");
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const handleUpdateSlot = async (
+    slotId: number,
+    data: {
+      proposed_date?: string;
+      proposed_time_slot?: string;
+      proposed_tutor_id?: number;
+      proposed_location?: string;
+    }
+  ) => {
+    try {
+      await proposalsAPI.updateSlot(slotId, currentTutorId, data);
+      showToast("Slot updated", "success");
+      setEditingSlotId(null);
+      refreshProposals();
+    } catch (error) {
+      console.error("Failed to update slot:", error);
+      showToast("Failed to update slot", "error");
+      throw error; // Re-throw so the SlotItem can handle the error state
     }
   };
 
@@ -708,8 +900,15 @@ export function ProposalCardFull({
                         isAdmin={isAdmin}
                         proposalStatus={proposal.status}
                         slotSessions={slotSessions}
+                        canEdit={canEdit}
+                        isEditing={editingSlotId === slot.id}
+                        tutors={tutors}
+                        locations={locations}
                         onApprove={handleApproveSlot}
                         onReject={handleRejectSlot}
+                        onStartEdit={setEditingSlotId}
+                        onCancelEdit={() => setEditingSlotId(null)}
+                        onSaveEdit={handleUpdateSlot}
                       />
                     ))}
                 </div>
