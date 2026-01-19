@@ -47,10 +47,10 @@ export default function SettingsPage() {
             <Settings className="h-6 w-6 text-foreground/60" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold text-white">
               Settings
             </h1>
-            <p className="text-sm text-foreground/70">
+            <p className="text-sm text-white/70">
               Configure your preferences and system settings
             </p>
           </div>

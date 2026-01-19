@@ -183,10 +183,10 @@ export default function ProposalsPage() {
                 <CalendarClock className="h-6 w-6 text-[#a0704b]" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-white">
                   Make-up Proposals
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-white/70">
                   Manage make-up session requests
                 </p>
               </div>

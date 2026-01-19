@@ -130,10 +130,10 @@ export default function ExamsPage() {
                 <GraduationCap className="h-6 w-6 text-[#a0704b]" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-white">
                   Exam Revision Classes
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-white/70">
                   Create and manage revision sessions for upcoming exams
                 </p>
               </div>
