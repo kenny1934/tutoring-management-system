@@ -42,6 +42,7 @@ import {
   Search,
   Trash2,
   CalendarClock,
+  Circle,
 } from "lucide-react";
 
 // Category definition
@@ -535,6 +536,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onReply,
   onLike,
   onMarkRead,
+  onMarkUnread,
   onEdit,
   onDelete,
 }: {
@@ -544,6 +546,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onReply: (msg: Message) => void;
   onLike: (msgId: number) => void;
   onMarkRead: (msgId: number) => void;
+  onMarkUnread: (msgId: number) => void;
   onEdit: (msgId: number, newText: string) => Promise<void>;
   onDelete: (msgId: number) => Promise<void>;
 }) {
@@ -644,6 +647,13 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             {allMessages.length} message{allMessages.length !== 1 && "s"}
           </div>
         </div>
+        <button
+          onClick={() => onMarkUnread(msg.id)}
+          className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+          title="Mark as unread"
+        >
+          <Circle className="h-4 w-4" />
+        </button>
         <button
           onClick={() => onReply(msg)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
@@ -939,7 +949,7 @@ export default function InboxPage() {
     setSelectedThread(null);
   }, [selectedCategory]);
 
-  // Browser notifications setup
+  // Browser notifications setup (toast is now handled app-wide in Sidebar)
   const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
   const prevUnreadRef = useRef<number | null>(null);
 
@@ -950,13 +960,11 @@ export default function InboxPage() {
     }
   }, [notifPermission, requestPermission]);
 
-  // Toast + Browser notification on new messages
+  // Browser notification on new messages (toast handled in Sidebar)
   useEffect(() => {
     if (unreadCount?.count !== undefined) {
       if (prevUnreadRef.current !== null && unreadCount.count > prevUnreadRef.current) {
         const newCount = unreadCount.count - prevUnreadRef.current;
-        // In-app toast
-        showToast(`You have ${newCount} new message${newCount > 1 ? 's' : ''}`, "info");
         // Browser notification (only if tab not visible)
         sendNotification('New Message', {
           body: `You have ${newCount} new message${newCount > 1 ? 's' : ''} in your inbox`,
@@ -965,7 +973,7 @@ export default function InboxPage() {
       }
       prevUnreadRef.current = unreadCount.count;
     }
-  }, [unreadCount?.count, showToast, sendNotification]);
+  }, [unreadCount?.count, sendNotification]);
 
   // Page title badge with unread count
   useEffect(() => {
@@ -1041,6 +1049,58 @@ export default function InboxPage() {
 
     try {
       await messagesAPI.markRead(messageId, selectedTutorId);
+      // Revalidate to sync with server
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
+    } catch (error) {
+      // Revert on error
+      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
+    }
+  }, [selectedTutorId]);
+
+  const handleMarkUnread = useCallback(async (messageId: number) => {
+    if (typeof selectedTutorId !== "number") return;
+
+    // Close the thread panel so auto-read effect doesn't immediately mark it read again
+    setSelectedThread(null);
+
+    // Helper to update a message's is_read status
+    const updateMessage = (m: Message): Message =>
+      m.id === messageId ? { ...m, is_read: false } : m;
+
+    // Helper to update a thread's messages and total_unread
+    const updateThread = (t: MessageThread): MessageThread => {
+      const rootUpdated = updateMessage(t.root_message);
+      const repliesUpdated = t.replies.map(updateMessage);
+      const wasRead = t.root_message.id === messageId ? t.root_message.is_read :
+                      t.replies.some(r => r.id === messageId && r.is_read);
+      return {
+        ...t,
+        root_message: rootUpdated,
+        replies: repliesUpdated,
+        total_unread: wasRead ? t.total_unread + 1 : t.total_unread
+      };
+    };
+
+    // Optimistic update - update SWR cache directly
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "message-threads",
+      (currentData: MessageThread[] | undefined) => currentData?.map(updateThread),
+      { revalidate: false }
+    );
+
+    // Update unread count optimistically
+    mutate(
+      (key) => Array.isArray(key) && key[0] === "unread-count",
+      (currentData: { count: number } | undefined) =>
+        currentData ? { count: currentData.count + 1 } : currentData,
+      { revalidate: false }
+    );
+
+    // Update local selectedThread state
+    setSelectedThread(prev => prev ? updateThread(prev) : prev);
+
+    try {
+      await messagesAPI.markUnread(messageId, selectedTutorId);
       // Revalidate to sync with server
       mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
     } catch (error) {
@@ -1307,6 +1367,7 @@ export default function InboxPage() {
                   onReply={handleReply}
                   onLike={handleLike}
                   onMarkRead={handleMarkRead}
+                  onMarkUnread={handleMarkUnread}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                 />

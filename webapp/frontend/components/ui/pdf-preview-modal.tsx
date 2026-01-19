@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw } from "lucide-react";
+import { Loader2, ExternalLink, ZoomIn, ZoomOut, Check, Eraser, Download, RotateCcw, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, documentProcessingAPI, type ProcessingMode } from "@/lib/api";
 import { validatePageRange, getPageCount } from "@/lib/pdf-utils";
@@ -15,6 +15,7 @@ interface PdfPreviewModalProps {
   documentId: number | null;
   documentTitle?: string;
   onSelect?: (selection?: PageSelection) => void;
+  onAssign?: () => void;
   enablePageSelection?: boolean;
 }
 
@@ -24,6 +25,7 @@ export function PdfPreviewModal({
   documentId,
   documentTitle,
   onSelect,
+  onAssign,
   enablePageSelection = false,
 }: PdfPreviewModalProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -375,6 +377,19 @@ export function PdfPreviewModal({
               >
                 <Check className="h-4 w-4" />
                 {hasPageSelection ? "Use with Pages" : "Use"}
+              </Button>
+            )}
+            {onAssign && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  onAssign();
+                  onClose();
+                }}
+                className="gap-1 bg-[#5a8a5a] hover:bg-[#4a7a4a]"
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Assign
               </Button>
             )}
             <Button

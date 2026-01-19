@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useCalendarEvents } from "@/lib/hooks";
+import { useCalendarEvents, useUnreadMessageCount, usePendingProposalCount } from "@/lib/hooks";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, BookOpen, Users, ChevronRight } from "lucide-react";
+import { Bell, CreditCard, BookOpen, Users, ChevronRight, MessageSquare, CalendarClock } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -21,6 +21,7 @@ import {
 interface NotificationBellProps {
   pendingPayments: number;
   location?: string;
+  tutorId?: number;
 }
 
 interface NotificationItem {
@@ -32,7 +33,7 @@ interface NotificationItem {
   href: string;
 }
 
-export function NotificationBell({ pendingPayments, location }: NotificationBellProps) {
+export function NotificationBell({ pendingPayments, location, tutorId }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch calendar events for upcoming tests
@@ -43,6 +44,12 @@ export function NotificationBell({ pendingPayments, location }: NotificationBell
     ['contact-needed-count', location],
     () => parentCommunicationsAPI.getContactNeededCount(undefined, location)
   );
+
+  // Fetch unread message count
+  const { data: unreadMessages } = useUnreadMessageCount(tutorId);
+
+  // Fetch pending proposals count
+  const { data: pendingProposals } = usePendingProposalCount(tutorId);
 
   // Count tests this week
   const testsThisWeek = useMemo(() => {
@@ -95,8 +102,30 @@ export function NotificationBell({ pendingPayments, location }: NotificationBell
       });
     }
 
+    if (unreadMessages?.count && unreadMessages.count > 0) {
+      items.push({
+        id: "messages",
+        icon: <MessageSquare className="h-4 w-4" />,
+        label: "Unread Messages",
+        count: unreadMessages.count,
+        severity: "warning",
+        href: "/inbox",
+      });
+    }
+
+    if (pendingProposals?.count && pendingProposals.count > 0) {
+      items.push({
+        id: "proposals",
+        icon: <CalendarClock className="h-4 w-4" />,
+        label: "Pending Make-up Confirmations",
+        count: pendingProposals.count,
+        severity: "warning",
+        href: "/inbox?category=MakeupConfirmation",
+      });
+    }
+
     return items;
-  }, [pendingPayments, testsThisWeek, contactNeeded]);
+  }, [pendingPayments, testsThisWeek, contactNeeded, unreadMessages, pendingProposals]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

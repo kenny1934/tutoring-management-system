@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
@@ -48,6 +49,26 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch unread message count for Inbox badge
   const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
+
+  // App-wide new message notification toast
+  const router = useRouter();
+  const { showToast } = useToast();
+  const prevUnreadRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (unreadCount?.count !== undefined && currentTutorId) {
+      if (prevUnreadRef.current !== null && unreadCount.count > prevUnreadRef.current) {
+        const newCount = unreadCount.count - prevUnreadRef.current;
+        showToast(
+          `You have ${newCount} new message${newCount > 1 ? 's' : ''}`,
+          "info",
+          { label: "View Inbox", onClick: () => router.push('/inbox') },
+          { persistent: true }
+        );
+      }
+      prevUnreadRef.current = unreadCount.count;
+    }
+  }, [unreadCount?.count, currentTutorId, showToast, router]);
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
@@ -207,12 +228,19 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   }}
                 />
 
+                {/* Badge for collapsed Inbox */}
+                {!showExpanded && item.name === "Inbox" && (unreadCount?.count ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                    {unreadCount.count > 99 ? "99+" : unreadCount.count}
+                  </span>
+                )}
+
                 {/* Label */}
                 {showExpanded && (
                   <>
                     <span className="flex-1">{item.name}</span>
                     {/* Unread badge for Inbox */}
-                    {item.name === "Inbox" && unreadCount?.count && unreadCount.count > 0 && (
+                    {item.name === "Inbox" && (unreadCount?.count ?? 0) > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                         {unreadCount.count > 99 ? "99+" : unreadCount.count}
                       </span>
