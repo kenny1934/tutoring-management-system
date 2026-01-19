@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
-import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals } from "@/lib/hooks";
+import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -65,11 +65,27 @@ const CATEGORIES: Category[] = [
   { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
 ];
 
-// Priority colors
-const priorityColors: Record<string, string> = {
-  Urgent: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30",
-  High: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
-  Normal: "text-gray-600 dark:text-gray-400",
+// Priority configuration - single source of truth
+type PriorityLevel = "Normal" | "High" | "Urgent";
+const PRIORITIES: Record<PriorityLevel, { label: string; textClass: string; badgeClass: string; borderClass: string }> = {
+  Normal: {
+    label: "Normal",
+    textClass: "text-gray-600 dark:text-gray-400",
+    badgeClass: "text-gray-600 dark:text-gray-400",
+    borderClass: "",
+  },
+  High: {
+    label: "High",
+    textClass: "text-orange-600 dark:text-orange-400",
+    badgeClass: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30",
+    borderClass: "border-l-4 border-l-orange-400",
+  },
+  Urgent: {
+    label: "Urgent",
+    textClass: "text-red-600 dark:text-red-400",
+    badgeClass: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30",
+    borderClass: "border-l-4 border-l-red-500",
+  },
 };
 
 // Category options for dropdown
@@ -83,12 +99,29 @@ const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon
   { value: "Courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" /> },
 ];
 
-// Priority options for dropdown
-const PRIORITY_OPTIONS: Array<{ value: "Normal" | "High" | "Urgent"; label: string; colorClass: string }> = [
-  { value: "Normal", label: "Normal", colorClass: "text-gray-600 dark:text-gray-400" },
-  { value: "High", label: "High", colorClass: "text-orange-600 dark:text-orange-400" },
-  { value: "Urgent", label: "Urgent", colorClass: "text-red-600 dark:text-red-400" },
-];
+// Priority options for dropdown (derived from PRIORITIES)
+const PRIORITY_OPTIONS = (Object.entries(PRIORITIES) as [PriorityLevel, typeof PRIORITIES[PriorityLevel]][]).map(
+  ([value, config]) => ({ value, label: config.label, colorClass: config.textClass })
+);
+
+// Empty state messages by category
+const EMPTY_MESSAGES: Record<string, string> = {
+  sent: "You haven't sent any messages yet",
+  reminder: "No reminders",
+  question: "No questions",
+  announcement: "No announcements",
+  schedule: "No schedule messages",
+  chat: "No chat messages",
+  courseware: "No courseware messages",
+  "makeup-confirmation": "No pending make-up confirmations",
+  inbox: "No messages in your inbox",
+};
+
+// Mutate filter functions
+const isThreadsKey = (key: unknown) => Array.isArray(key) && key[0] === "message-threads";
+const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
+const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
+const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
 
 // Compose Modal Component
 function ComposeModal({
@@ -153,29 +186,9 @@ function ComposeModal({
     }
   }, [isOpen, replyTo]);
 
-  // Close category dropdown on click outside
-  useEffect(() => {
-    if (!categoryDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target as Node)) {
-        setCategoryDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [categoryDropdownOpen]);
-
-  // Close priority dropdown on click outside
-  useEffect(() => {
-    if (!priorityDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target as Node)) {
-        setPriorityDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [priorityDropdownOpen]);
+  // Close dropdowns on click outside
+  useClickOutside(categoryDropdownRef, () => setCategoryDropdownOpen(false), categoryDropdownOpen);
+  useClickOutside(priorityDropdownRef, () => setPriorityDropdownOpen(false), priorityDropdownOpen);
 
   // Check for unsaved changes
   const hasUnsavedChanges = message.trim().length > 0 || (subject.trim().length > 0 && !replyTo);
@@ -440,6 +453,8 @@ const ThreadItem = React.memo(function ThreadItem({
   const replyCount = replies.length;
   const latestMessage = replies.length > 0 ? replies[replies.length - 1] : msg;
 
+  const priorityConfig = PRIORITIES[msg.priority as PriorityLevel] || PRIORITIES.Normal;
+
   return (
     <button
       onClick={onClick}
@@ -448,7 +463,8 @@ const ThreadItem = React.memo(function ThreadItem({
         isSelected
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
           : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
-        hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]"
+        hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
+        priorityConfig.borderClass
       )}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
     >
@@ -470,9 +486,9 @@ const ThreadItem = React.memo(function ThreadItem({
             {msg.priority !== "Normal" && (
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                priorityColors[msg.priority]
+                priorityConfig.badgeClass
               )}>
-                {msg.priority}
+                {priorityConfig.label}
               </span>
             )}
           </div>
@@ -631,13 +647,18 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
+            {msg.category && (
+              <span className="text-[#a0704b] flex-shrink-0">
+                {CATEGORIES.find(c => c.filter === msg.category)?.icon}
+              </span>
+            )}
             <h2 className="font-semibold text-gray-900 dark:text-white truncate">
               {msg.subject || "(no subject)"}
             </h2>
             {msg.priority && msg.priority !== "Normal" && (
               <span className={cn(
                 "text-[10px] px-2 py-0.5 rounded-full font-medium capitalize flex-shrink-0",
-                msg.priority === "Urgent" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                PRIORITIES[msg.priority as PriorityLevel]?.badgeClass
               )}>
                 {msg.priority}
               </span>
@@ -668,6 +689,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
           const isEditing = editingMessageId === m.id;
+          const isBroadcast = m.to_tutor_id === null;
 
           return (
             <div
@@ -676,6 +698,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 "p-4 rounded-lg border",
                 isOwn
                   ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a] ml-8"
+                  : isBroadcast
+                  ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/30"
                   : "bg-white dark:bg-[#2a2a2a] border-[#e8d4b8] dark:border-[#6b5a4a]"
               )}
             >
@@ -846,6 +870,10 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
 
+  // Derived value for tutor selection check
+  const hasTutor = typeof selectedTutorId === "number";
+  const tutorId = hasTutor ? selectedTutorId : null;
+
   // Get category filter
   const categoryFilter = useMemo(() => {
     const cat = CATEGORIES.find(c => c.id === selectedCategory);
@@ -854,23 +882,22 @@ export default function InboxPage() {
 
   // Fetch data
   const { data: threads = [], isLoading: loadingThreads, error: threadsError } = useMessageThreads(
-    selectedCategory === "sent" ? null : (typeof selectedTutorId === "number" ? selectedTutorId : null),
+    selectedCategory === "sent" ? null : tutorId,
     categoryFilter
   );
 
+  // Fetch ALL threads (no category filter) for sidebar badge counts
+  const { data: allThreads = [] } = useMessageThreads(tutorId, undefined);
+
   const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
-    selectedCategory === "sent" && typeof selectedTutorId === "number" ? selectedTutorId : null
+    selectedCategory === "sent" ? tutorId : null
   );
 
-  const { data: unreadCount } = useUnreadMessageCount(
-    typeof selectedTutorId === "number" ? selectedTutorId : null
-  );
+  const { data: unreadCount } = useUnreadMessageCount(tutorId);
 
   // Fetch proposals for makeup-confirmation category
   const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useProposals({
-    tutorId: selectedCategory === "makeup-confirmation" && typeof selectedTutorId === "number"
-      ? selectedTutorId
-      : undefined,
+    tutorId: selectedCategory === "makeup-confirmation" && hasTutor ? selectedTutorId : undefined,
     status: "pending",
     includeSession: true,
   });
@@ -903,6 +930,25 @@ export default function InboxPage() {
       );
     });
   }, [selectedCategory, sentAsThreads, threads, debouncedSearch]);
+
+  // Calculate per-category unread counts from all threads (not filtered by category)
+  const categoryUnreadCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allThreads.forEach(thread => {
+      if (thread.total_unread > 0) {
+        const cat = thread.root_message.category;
+        // Map to category id
+        const catId = cat ? CATEGORIES.find(c => c.filter === cat)?.id : "inbox";
+        if (catId) {
+          counts[catId] = (counts[catId] || 0) + thread.total_unread;
+        }
+        // Also count toward inbox (all messages)
+        counts.inbox = (counts.inbox || 0) + thread.total_unread;
+      }
+    });
+    return counts;
+  }, [allThreads]);
+
   const isLoading = selectedCategory === "sent"
     ? loadingSent
     : selectedCategory === "makeup-confirmation"
@@ -984,130 +1030,91 @@ export default function InboxPage() {
 
   // Handlers
   const handleSendMessage = useCallback(async (data: MessageCreate) => {
-    if (typeof selectedTutorId !== "number") return;
+    if (tutorId === null) return;
 
     try {
-      await messagesAPI.create(data, selectedTutorId);
+      await messagesAPI.create(data, tutorId);
       showToast("Message sent!", "success");
       // Refresh data
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages" || key[0] === "unread-count"));
+      mutate(isAnyMessageKey);
     } catch (error) {
       showToast("Failed to send message", "error");
       throw error;
     }
-  }, [selectedTutorId, showToast]);
+  }, [tutorId, showToast]);
 
   const handleLike = useCallback(async (messageId: number) => {
-    if (typeof selectedTutorId !== "number") return;
+    if (tutorId === null) return;
 
     try {
-      await messagesAPI.toggleLike(messageId, selectedTutorId);
-      mutate((key) => Array.isArray(key) && key[0] === "message-threads");
+      await messagesAPI.toggleLike(messageId, tutorId);
+      mutate(isThreadsKey);
     } catch (error) {
       showToast("Failed to toggle like", "error");
     }
-  }, [selectedTutorId, showToast]);
+  }, [tutorId, showToast]);
 
-  const handleMarkRead = useCallback(async (messageId: number) => {
-    if (typeof selectedTutorId !== "number") return;
-
-    // Helper to update a message's is_read status
+  // Shared helper for mark read/unread optimistic updates
+  const createReadStatusUpdaters = useCallback((messageId: number, setReadTo: boolean) => {
     const updateMessage = (m: Message): Message =>
-      m.id === messageId ? { ...m, is_read: true } : m;
+      m.id === messageId ? { ...m, is_read: setReadTo } : m;
 
-    // Helper to update a thread's messages and total_unread
     const updateThread = (t: MessageThread): MessageThread => {
       const rootUpdated = updateMessage(t.root_message);
       const repliesUpdated = t.replies.map(updateMessage);
-      const wasUnread = t.root_message.id === messageId ? !t.root_message.is_read :
-                        t.replies.some(r => r.id === messageId && !r.is_read);
+      const wasOpposite = setReadTo
+        ? (t.root_message.id === messageId ? !t.root_message.is_read : t.replies.some(r => r.id === messageId && !r.is_read))
+        : (t.root_message.id === messageId ? t.root_message.is_read : t.replies.some(r => r.id === messageId && r.is_read));
+      const countDelta = wasOpposite ? (setReadTo ? -1 : 1) : 0;
       return {
         ...t,
         root_message: rootUpdated,
         replies: repliesUpdated,
-        total_unread: wasUnread ? Math.max(0, t.total_unread - 1) : t.total_unread
+        total_unread: Math.max(0, t.total_unread + countDelta)
       };
     };
 
-    // Optimistic update - update SWR cache directly
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "message-threads",
-      (currentData: MessageThread[] | undefined) => currentData?.map(updateThread),
-      { revalidate: false }
-    );
+    return { updateThread };
+  }, []);
 
-    // Update unread count optimistically
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "unread-count",
-      (currentData: { count: number } | undefined) =>
-        currentData ? { count: Math.max(0, currentData.count - 1) } : currentData,
-      { revalidate: false }
-    );
+  const handleMarkRead = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
 
-    // Update local selectedThread state
+    const { updateThread } = createReadStatusUpdaters(messageId, true);
+
+    // Optimistic updates
+    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.map(updateThread), { revalidate: false });
+    mutate(isUnreadKey, (data: { count: number } | undefined) => data ? { count: Math.max(0, data.count - 1) } : data, { revalidate: false });
     setSelectedThread(prev => prev ? updateThread(prev) : prev);
 
     try {
-      await messagesAPI.markRead(messageId, selectedTutorId);
-      // Revalidate to sync with server
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
-    } catch (error) {
-      // Revert on error
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
+      await messagesAPI.markRead(messageId, tutorId);
+      mutate((key) => isThreadsKey(key) || isUnreadKey(key));
+    } catch {
+      mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
-  }, [selectedTutorId]);
+  }, [tutorId, createReadStatusUpdaters]);
 
   const handleMarkUnread = useCallback(async (messageId: number) => {
-    if (typeof selectedTutorId !== "number") return;
+    if (tutorId === null) return;
 
     // Close the thread panel so auto-read effect doesn't immediately mark it read again
     setSelectedThread(null);
 
-    // Helper to update a message's is_read status
-    const updateMessage = (m: Message): Message =>
-      m.id === messageId ? { ...m, is_read: false } : m;
+    const { updateThread } = createReadStatusUpdaters(messageId, false);
 
-    // Helper to update a thread's messages and total_unread
-    const updateThread = (t: MessageThread): MessageThread => {
-      const rootUpdated = updateMessage(t.root_message);
-      const repliesUpdated = t.replies.map(updateMessage);
-      const wasRead = t.root_message.id === messageId ? t.root_message.is_read :
-                      t.replies.some(r => r.id === messageId && r.is_read);
-      return {
-        ...t,
-        root_message: rootUpdated,
-        replies: repliesUpdated,
-        total_unread: wasRead ? t.total_unread + 1 : t.total_unread
-      };
-    };
-
-    // Optimistic update - update SWR cache directly
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "message-threads",
-      (currentData: MessageThread[] | undefined) => currentData?.map(updateThread),
-      { revalidate: false }
-    );
-
-    // Update unread count optimistically
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "unread-count",
-      (currentData: { count: number } | undefined) =>
-        currentData ? { count: currentData.count + 1 } : currentData,
-      { revalidate: false }
-    );
-
-    // Update local selectedThread state
+    // Optimistic updates
+    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.map(updateThread), { revalidate: false });
+    mutate(isUnreadKey, (data: { count: number } | undefined) => data ? { count: data.count + 1 } : data, { revalidate: false });
     setSelectedThread(prev => prev ? updateThread(prev) : prev);
 
     try {
-      await messagesAPI.markUnread(messageId, selectedTutorId);
-      // Revalidate to sync with server
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
-    } catch (error) {
-      // Revert on error
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "unread-count"));
+      await messagesAPI.markUnread(messageId, tutorId);
+      mutate((key) => isThreadsKey(key) || isUnreadKey(key));
+    } catch {
+      mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
-  }, [selectedTutorId]);
+  }, [tutorId, createReadStatusUpdaters]);
 
   const handleReply = useCallback((msg: Message) => {
     setReplyTo(msg);
@@ -1120,48 +1127,36 @@ export default function InboxPage() {
   }, []);
 
   const handleEdit = useCallback(async (messageId: number, newText: string) => {
-    if (typeof selectedTutorId !== "number") return;
+    if (tutorId === null) return;
 
     try {
-      await messagesAPI.update(messageId, newText, selectedTutorId);
+      await messagesAPI.update(messageId, newText, tutorId);
       showToast("Message updated!", "success");
-      mutate((key) => Array.isArray(key) && key[0] === "message-threads");
+      mutate(isThreadsKey);
     } catch (error) {
       showToast("Failed to update message", "error");
       throw error;
     }
-  }, [selectedTutorId, showToast]);
+  }, [tutorId, showToast]);
 
   const handleDelete = useCallback(async (messageId: number) => {
-    if (typeof selectedTutorId !== "number") return;
+    if (tutorId === null) return;
 
     // Optimistic update - remove thread from SWR cache immediately
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "message-threads",
-      (currentData: MessageThread[] | undefined) =>
-        currentData?.filter(t => t.root_message.id !== messageId),
-      { revalidate: false }
-    );
-    mutate(
-      (key) => Array.isArray(key) && key[0] === "sent-messages",
-      (currentData: Message[] | undefined) =>
-        currentData?.filter(m => m.id !== messageId),
-      { revalidate: false }
-    );
+    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.filter(t => t.root_message.id !== messageId), { revalidate: false });
+    mutate(isSentKey, (data: Message[] | undefined) => data?.filter(m => m.id !== messageId), { revalidate: false });
     setSelectedThread(null);
 
     try {
-      await messagesAPI.delete(messageId, selectedTutorId);
+      await messagesAPI.delete(messageId, tutorId);
       showToast("Message deleted!", "success");
-      // Revalidate to sync with server
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages" || key[0] === "unread-count"));
+      mutate(isAnyMessageKey);
     } catch (error) {
       showToast("Failed to delete message", "error");
-      // Revert on error by refetching
-      mutate((key) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "sent-messages"));
+      mutate((key) => isThreadsKey(key) || isSentKey(key));
       throw error;
     }
-  }, [selectedTutorId, showToast]);
+  }, [tutorId, showToast]);
 
   return (
     <DeskSurface fullHeight>
@@ -1174,7 +1169,7 @@ export default function InboxPage() {
                 <Inbox className="h-6 w-6 text-[#a0704b]" />
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
-                  {typeof selectedTutorId === "number" && tutors.length > 0 && (
+                  {hasTutor && tutors.length > 0 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Viewing as: {tutors.find(t => t.id === selectedTutorId)?.tutor_name || "Unknown"}
                     </p>
@@ -1235,8 +1230,24 @@ export default function InboxPage() {
                       )}
                       title={categoryCollapsed ? cat.label : undefined}
                     >
-                      {cat.icon}
-                      {!categoryCollapsed && <span>{cat.label}</span>}
+                      <span className="relative">
+                        {cat.icon}
+                        {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
+                            {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                          </span>
+                        )}
+                      </span>
+                      {!categoryCollapsed && (
+                        <>
+                          <span className="flex-1">{cat.label}</span>
+                          {categoryUnreadCounts[cat.id] > 0 && (
+                            <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1">
+                              {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </button>
                   ))}
                 </nav>
@@ -1268,7 +1279,7 @@ export default function InboxPage() {
                         for (const thread of unreadThreads) {
                           const allMsgs = [thread.root_message, ...thread.replies];
                           for (const m of allMsgs) {
-                            if (!m.is_read && typeof selectedTutorId === "number" && m.from_tutor_id !== selectedTutorId) {
+                            if (!m.is_read && hasTutor && m.from_tutor_id !== selectedTutorId) {
                               await handleMarkRead(m.id);
                             }
                           }
@@ -1303,23 +1314,7 @@ export default function InboxPage() {
                     <p>
                       {searchQuery
                         ? "No messages match your search"
-                        : selectedCategory === "sent"
-                        ? "You haven't sent any messages yet"
-                        : selectedCategory === "reminder"
-                        ? "No reminders"
-                        : selectedCategory === "question"
-                        ? "No questions"
-                        : selectedCategory === "announcement"
-                        ? "No announcements"
-                        : selectedCategory === "schedule"
-                        ? "No schedule messages"
-                        : selectedCategory === "chat"
-                        ? "No chat messages"
-                        : selectedCategory === "courseware"
-                        ? "No courseware messages"
-                        : selectedCategory === "makeup-confirmation"
-                        ? "No pending make-up confirmations"
-                        : "No messages in your inbox"}
+                        : EMPTY_MESSAGES[selectedCategory] || "No messages in your inbox"}
                     </p>
                   </div>
                 </div>
@@ -1330,7 +1325,7 @@ export default function InboxPage() {
                     <ProposalCard
                       key={proposal.id}
                       proposal={proposal}
-                      currentTutorId={typeof selectedTutorId === "number" ? selectedTutorId : 0}
+                      currentTutorId={tutorId ?? 0}
                       onSelectSlot={() => {
                         // For needs_input proposals, open ScheduleMakeupModal
                         if (proposal.original_session) {
@@ -1355,7 +1350,7 @@ export default function InboxPage() {
             </div>
 
             {/* Right panel - Thread detail */}
-            {selectedThread && typeof selectedTutorId === "number" && (
+            {selectedThread && hasTutor && (
               <div className={cn(
                 "h-full border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
@@ -1382,7 +1377,7 @@ export default function InboxPage() {
         isOpen={showCompose}
         onClose={() => setShowCompose(false)}
         tutors={tutors}
-        fromTutorId={typeof selectedTutorId === "number" ? selectedTutorId : 0}
+        fromTutorId={tutorId ?? 0}
         replyTo={replyTo}
         onSend={handleSendMessage}
       />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, RefObject } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount } from '@/types';
@@ -465,4 +465,27 @@ export function useBrowserNotifications() {
   };
 
   return { permission, requestPermission, sendNotification };
+}
+
+/**
+ * Hook for detecting clicks outside of a referenced element
+ * Useful for closing dropdowns, modals, or popups
+ */
+export function useClickOutside<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  onClickOutside: () => void,
+  enabled: boolean = true
+) {
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClickOutside();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [ref, onClickOutside, enabled]);
 }
