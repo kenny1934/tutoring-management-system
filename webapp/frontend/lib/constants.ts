@@ -47,3 +47,6 @@ export const FLOATING_UI_MIDDLEWARE_CONFIG = {
   flipPadding: 10,
   shiftPadding: 10,
 } as const;
+
+// Current user constant (will be replaced with OAuth)
+export const CURRENT_USER_TUTOR = "Mr Kenny Chiu";

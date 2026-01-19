@@ -9,7 +9,8 @@ import { useTutors, useSessions } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { formatProposalDate } from "@/lib/formatters";
 import type { MakeupProposal, MakeupProposalSlot, Session } from "@/types";
 import {
   CalendarClock,
@@ -33,26 +34,12 @@ import {
   Eye,
 } from "lucide-react";
 
-// Current user constant (will be replaced with OAuth)
-const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
-
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
   currentTutorId: number;
   onSelectSlot?: () => void;
   className?: string;
   defaultExpanded?: boolean;
-}
-
-// Format date for display
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 // Format relative time
@@ -216,7 +203,7 @@ function SlotItem({
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
                 <Calendar className="h-4 w-4 text-[#a0704b]" />
-                {formatDate(slot.proposed_date)} at {slot.proposed_time_slot}
+                {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
               </div>
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <User className="h-4 w-4" />
@@ -235,7 +222,7 @@ function SlotItem({
 
             {/* Slot availability - students in this slot */}
             {slot.slot_status === "pending" && (
-              <div className="mt-3 p-2.5 bg-[#fef9f3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="mt-3 p-2.5 bg-[#fef9f3] dark:bg-[#2d2618] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] border-l-2 border-l-[#a0704b]">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
                   <Users className="h-3.5 w-3.5" />
                   STUDENTS IN SLOT ({studentsInSlot.length}/{slotCapacity})
@@ -332,7 +319,7 @@ function SlotItem({
         onConfirm={confirmApprove}
         onCancel={() => setShowApproveConfirm(false)}
         title="Approve Make-up Slot"
-        message={`Are you sure you want to approve this slot? This will schedule a make-up session on ${formatDate(slot.proposed_date)} at ${slot.proposed_time_slot}.`}
+        message={`Are you sure you want to approve this slot? This will schedule a make-up session on ${formatProposalDate(slot.proposed_date)} at ${slot.proposed_time_slot}.`}
         confirmText="Approve"
         variant="primary"
       />
@@ -540,7 +527,7 @@ export function ProposalCardFull({
                   <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3 flex-wrap">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {formatDate(session.session_date)} {session.time_slot}
+                      {formatProposalDate(session.session_date)} {session.time_slot}
                     </span>
                     <span className="flex items-center gap-1">
                       <User className="h-3 w-3" />
@@ -581,7 +568,7 @@ export function ProposalCardFull({
               <ChevronDown
                 className={cn(
                   "h-5 w-5 text-gray-400 transition-transform duration-200",
-                  !isExpanded && "-rotate-90"
+                  isExpanded && "rotate-180"
                 )}
               />
             </div>
@@ -628,7 +615,7 @@ export function ProposalCardFull({
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        Original: {formatDate(session.session_date)} at {session.time_slot}
+                        Original: {formatProposalDate(session.session_date)} at {session.time_slot}
                       </span>
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
