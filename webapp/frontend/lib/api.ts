@@ -917,6 +917,10 @@ export const proposalsAPI = {
     proposed_by?: number;
     status?: ProposalStatus;
     include_session?: boolean;
+    from_date?: string;
+    to_date?: string;
+    original_from_date?: string;
+    original_to_date?: string;
     limit?: number;
     offset?: number;
   } = {}) => {
@@ -925,6 +929,10 @@ export const proposalsAPI = {
     if (params.proposed_by) searchParams.append("proposed_by", params.proposed_by.toString());
     if (params.status) searchParams.append("status", params.status);
     if (params.include_session) searchParams.append("include_session", "true");
+    if (params.from_date) searchParams.append("from_date", params.from_date);
+    if (params.to_date) searchParams.append("to_date", params.to_date);
+    if (params.original_from_date) searchParams.append("original_from_date", params.original_from_date);
+    if (params.original_to_date) searchParams.append("original_to_date", params.original_to_date);
     if (params.limit) searchParams.append("limit", params.limit.toString());
     if (params.offset) searchParams.append("offset", params.offset.toString());
 

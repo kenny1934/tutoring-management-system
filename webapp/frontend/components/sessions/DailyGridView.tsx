@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
+import type { ProposedSession } from "@/lib/proposal-utils";
+import type { MakeupProposal } from "@/types";
 
 interface DailyGridViewProps {
   sessions: Session[];
@@ -26,6 +29,9 @@ interface DailyGridViewProps {
   onDateChange: (date: Date) => void;
   isMobile?: boolean;
   fillHeight?: boolean;
+  proposedSessions?: ProposedSession[];
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
 export function DailyGridView({
@@ -35,6 +41,9 @@ export function DailyGridView({
   onDateChange,
   isMobile = false,
   fillHeight = false,
+  proposedSessions = [],
+  onProposalClick,
+  sessionProposalMap,
 }: DailyGridViewProps) {
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
@@ -61,25 +70,63 @@ export function DailyGridView({
     return groups;
   }, [sessions]);
 
+  // Group proposed sessions by tutor (filtered by selected date)
+  const proposedByTutor = useMemo(() => {
+    const groups = new Map<string, ProposedSession[]>();
+    const selectedDateString = toDateString(selectedDate);
+    proposedSessions
+      .filter((ps) => ps.session_date === selectedDateString)
+      .forEach((ps) => {
+        const tutorId = ps.tutor_id?.toString() || "unknown";
+        if (!groups.has(tutorId)) {
+          groups.set(tutorId, []);
+        }
+        groups.get(tutorId)!.push(ps);
+      });
+    return groups;
+  }, [proposedSessions, selectedDate]);
+
   // Get tutors with sessions for this day (filtered by location in parent)
+  // Include tutors who have real sessions OR proposed sessions for the selected date
   const activeTutors = useMemo(() => {
     const tutorIds = new Set(sessions.map(s => s.tutor_id));
+    // Also include tutors who have proposed sessions for this date
+    proposedByTutor.forEach((_, tutorId) => {
+      const id = parseInt(tutorId);
+      if (!isNaN(id)) tutorIds.add(id);
+    });
     return tutors
       .filter(t => tutorIds.has(t.id))
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
-  }, [sessions, tutors]);
+  }, [sessions, tutors, proposedByTutor]);
 
-  // Calculate dynamic time range based on actual sessions
+  // Calculate dynamic time range based on actual sessions and proposed sessions for this date
   const { startHour, endHour } = useMemo(() => {
-    if (sessions.length === 0) {
+    // Get all proposed sessions for this date
+    const proposedForDate: ProposedSession[] = [];
+    proposedByTutor.forEach((psList) => proposedForDate.push(...psList));
+
+    if (sessions.length === 0 && proposedForDate.length === 0) {
       return { startHour: 10, endHour: 20 };
     }
 
     let minStartMinutes = Infinity;
     let maxEndMinutes = -Infinity;
 
+    // Include real sessions
     sessions.forEach((session) => {
       const parsed = parseTimeSlot(session.time_slot);
+      if (!parsed) return;
+
+      const startMins = timeToMinutes(parsed.start);
+      const endMins = timeToMinutes(parsed.end);
+      minStartMinutes = Math.min(minStartMinutes, startMins);
+      maxEndMinutes = Math.max(maxEndMinutes, endMins);
+    });
+
+    // Include proposed sessions for this date
+    proposedForDate.forEach((ps) => {
+      const parsed = parseTimeSlot(ps.time_slot);
       if (!parsed) return;
 
       const startMins = timeToMinutes(parsed.start);
@@ -97,7 +144,7 @@ export function DailyGridView({
     const calcEndHour = Math.min(20, Math.ceil(maxEndMinutes / 60));
 
     return { startHour: calcStartHour, endHour: calcEndHour };
-  }, [sessions]);
+  }, [sessions, proposedByTutor]);
 
   // Auto-expand first tutor with sessions (only on initial load)
   useEffect(() => {
@@ -719,6 +766,33 @@ export function DailyGridView({
                         );
                       });
                     })()}
+
+                    {/* Proposed Sessions for this tutor */}
+                    {!isCollapsed && (proposedByTutor.get(tutor.id.toString()) || []).map((ps) => {
+                      const top = getSessionTop(ps.time_slot);
+                      const height = calculateSessionHeight(ps.time_slot, pixelsPerMinute);
+                      return (
+                        <ProposedSessionCard
+                          key={ps.id}
+                          proposedSession={ps}
+                          onClick={() => {
+                            // Clear any open session popovers before opening proposal modal
+                            setOpenSessionId(null);
+                            setOpenMoreGroup(null);
+                            onProposalClick?.(ps.proposal);
+                          }}
+                          size="compact"
+                          style={{
+                            position: 'absolute',
+                            top: `${top}px`,
+                            height: `${height}px`,
+                            left: '2px',
+                            right: '2px',
+                            zIndex: 5,
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -756,6 +830,8 @@ export function DailyGridView({
             isOpen={true}
             onClose={() => setOpenSessionId(null)}
             clickPosition={popoverClickPosition}
+            sessionProposalMap={sessionProposalMap}
+            onProposalClick={onProposalClick}
           />
         );
       })()}

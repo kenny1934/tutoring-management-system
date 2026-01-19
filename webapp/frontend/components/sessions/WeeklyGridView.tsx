@@ -25,6 +25,9 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
+import type { ProposedSession } from "@/lib/proposal-utils";
+import type { MakeupProposal } from "@/types";
 
 interface WeeklyGridViewProps {
   sessions: Session[];
@@ -33,6 +36,9 @@ interface WeeklyGridViewProps {
   isMobile?: boolean;
   tutorFilter?: string;
   fillHeight?: boolean;
+  proposedSessions?: ProposedSession[];
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
 export function WeeklyGridView({
@@ -42,6 +48,9 @@ export function WeeklyGridView({
   isMobile = false,
   tutorFilter = "",
   fillHeight = false,
+  proposedSessions = [],
+  onProposalClick,
+  sessionProposalMap,
 }: WeeklyGridViewProps) {
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
@@ -106,6 +115,17 @@ export function WeeklyGridView({
     () => groupSessionsByDate(sessions),
     [sessions]
   );
+
+  // Group proposed sessions by date
+  const proposedByDate = useMemo(() => {
+    const map = new Map<string, ProposedSession[]>();
+    proposedSessions.forEach((ps) => {
+      const existing = map.get(ps.session_date) || [];
+      existing.push(ps);
+      map.set(ps.session_date, existing);
+    });
+    return map;
+  }, [proposedSessions]);
 
   // Calculate which days have sessions
   const daysWithSessions = useMemo(() => {
@@ -660,6 +680,33 @@ export function WeeklyGridView({
                                 );
                               })}
 
+                              {/* Proposed sessions for this time slot */}
+                              {(proposedByDate.get(dateKey) || [])
+                                .filter((ps) => {
+                                  const psParsed = parseTimeSlot(ps.time_slot);
+                                  if (!psParsed) return false;
+                                  const psTop = calculateSessionPosition(ps.time_slot, pixelsPerMinute);
+                                  const psHeight = calculateSessionHeight(ps.time_slot, pixelsPerMinute);
+                                  const psKey = `${dateKey}-${psTop}-${psHeight}`;
+                                  return psKey === key;
+                                })
+                                .map((ps) => (
+                                  <ProposedSessionCard
+                                    key={ps.id}
+                                    proposedSession={ps}
+                                    onClick={() => {
+                                      // Clear any open session popovers before opening proposal modal
+                                      setOpenSessionId(null);
+                                      setOpenMoreGroup(null);
+                                      onProposalClick?.(ps.proposal);
+                                    }}
+                                    size="compact"
+                                    showTutor={!tutorFilter}
+                                    widthPercent={widthPercent}
+                                    isMobile={isMobile}
+                                  />
+                                ))}
+
                               {hasMoreSessions && (
                                 <div
                                   ref={(el) => {
@@ -691,6 +738,61 @@ export function WeeklyGridView({
                         );
                       });
                     })()}
+
+                    {/* Standalone proposed sessions (those not overlapping with any real session group) */}
+                    {(() => {
+                      // Get all proposed sessions for this day
+                      const dayProposed = proposedByDate.get(dateKey) || [];
+                      if (dayProposed.length === 0) return null;
+
+                      // Build set of all existing time group keys
+                      const existingKeys = new Set<string>();
+                      daySessions.forEach((session) => {
+                        const parsed = parseTimeSlot(session.time_slot);
+                        if (!parsed) return;
+                        const top = calculateSessionPosition(session.time_slot, pixelsPerMinute);
+                        const height = calculateSessionHeight(session.time_slot, pixelsPerMinute);
+                        existingKeys.add(`${dateKey}-${top}-${height}`);
+                      });
+
+                      // Filter to proposed sessions that don't match any existing group
+                      const standaloneProposed = dayProposed.filter((ps) => {
+                        const psParsed = parseTimeSlot(ps.time_slot);
+                        if (!psParsed) return false;
+                        const psTop = calculateSessionPosition(ps.time_slot, pixelsPerMinute);
+                        const psHeight = calculateSessionHeight(ps.time_slot, pixelsPerMinute);
+                        const psKey = `${dateKey}-${psTop}-${psHeight}`;
+                        return !existingKeys.has(psKey);
+                      });
+
+                      return standaloneProposed.map((ps) => {
+                        const top = calculateSessionPosition(ps.time_slot, pixelsPerMinute);
+                        const height = calculateSessionHeight(ps.time_slot, pixelsPerMinute);
+                        return (
+                          <ProposedSessionCard
+                            key={ps.id}
+                            proposedSession={ps}
+                            onClick={() => {
+                              // Clear any open session popovers before opening proposal modal
+                              setOpenSessionId(null);
+                              setOpenMoreGroup(null);
+                              onProposalClick?.(ps.proposal);
+                            }}
+                            size="compact"
+                            showTutor={!tutorFilter}
+                            widthPercent={100}
+                            isMobile={isMobile}
+                            style={{
+                              position: 'absolute',
+                              top: `${top}px`,
+                              height: `${height}px`,
+                              left: 0,
+                              right: 0,
+                            }}
+                          />
+                        );
+                      });
+                    })()}
                   </div>
                 );
               })}
@@ -711,6 +813,8 @@ export function WeeklyGridView({
             onClose={() => setOpenSessionId(null)}
             clickPosition={popoverClickPosition}
             tutorFilter={tutorFilter}
+            sessionProposalMap={sessionProposalMap}
+            onProposalClick={onProposalClick}
           />
         );
       })()}

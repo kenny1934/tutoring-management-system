@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student } from "@/types";
+import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle, useProposals, useTutors } from "@/lib/hooks";
+import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
 import { studentsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import Link from "next/link";
@@ -18,11 +18,14 @@ import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
+import { createSessionProposalMap } from "@/lib/proposal-utils";
 import {
   useFloating,
   autoUpdate,
@@ -100,6 +103,31 @@ export default function StudentDetailPage() {
   }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
   const { data: calendarEvents = [] } = useCalendarEvents(60);
+
+  // Fetch all pending proposals and filter for this student's sessions
+  const { data: allProposals = [] } = useProposals({ status: 'pending', includeSession: true });
+
+  // Fetch tutors for current user ID lookup
+  const { data: tutors = [] } = useTutors();
+
+  // Get current user's tutor ID for proposal actions
+  const currentTutorId = useMemo(() => {
+    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return tutor?.id ?? 0;
+  }, [tutors]);
+
+  // Create map of session ID to proposal for sessions with pending proposals
+  const sessionProposalMap = useMemo(() => {
+    // Filter proposals to only those for this student's sessions
+    const studentSessionIds = new Set(sessions.map(s => s.id));
+    const studentProposals = allProposals.filter(p =>
+      studentSessionIds.has(p.original_session_id)
+    );
+    return createSessionProposalMap(studentProposals);
+  }, [allProposals, sessions]);
+
+  // Proposal modal state
+  const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);
 
   // Sync popover session with updated data from SWR (e.g., after marking attended)
   useEffect(() => {
@@ -472,6 +500,8 @@ export default function StudentDetailPage() {
                     setPopoverSession(session);
                   }}
                   selectedSessionId={popoverSession?.id}
+                  sessionProposalMap={sessionProposalMap}
+                  onProposalClick={setSelectedProposal}
                 />
               )}
 
@@ -507,6 +537,14 @@ export default function StudentDetailPage() {
           clickPosition={sessionClickPosition}
         />
       )}
+
+      {/* Proposal Detail Modal */}
+      <ProposalDetailModal
+        proposal={selectedProposal}
+        currentTutorId={currentTutorId}
+        isOpen={!!selectedProposal}
+        onClose={() => setSelectedProposal(null)}
+      />
 
       {/* Enrollment Detail Popover */}
       {popoverEnrollment && (
@@ -982,12 +1020,16 @@ function SessionsTab({
   isMobile,
   onSessionClick,
   selectedSessionId,
+  sessionProposalMap,
+  onProposalClick,
 }: {
   sessions: Session[];
   loading: boolean;
   isMobile: boolean;
   onSessionClick: (session: Session, e: React.MouseEvent) => void;
   selectedSessionId?: number;
+  sessionProposalMap?: Map<number, MakeupProposal>;
+  onProposalClick?: (proposal: MakeupProposal) => void;
 }) {
   if (loading) {
     return (
@@ -1069,6 +1111,17 @@ function SessionsTab({
                       </span>
                     )}
                   </>
+                )}
+                {/* Proposal indicator for pending makeup sessions */}
+                {sessionProposalMap?.has(session.id) && (
+                  <ProposalIndicatorBadge
+                    proposal={sessionProposalMap.get(session.id)!}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onProposalClick?.(sessionProposalMap.get(session.id)!);
+                    }}
+                    size="sm"
+                  />
                 )}
                 <Link
                   href={`/sessions/${session.id}`}

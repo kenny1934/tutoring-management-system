@@ -9,6 +9,7 @@ import {
   XCircle,
   UserX,
   Circle,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,4 +89,37 @@ export const getDisplayStatus = (session: { session_status: string; previous_ses
     return 'Attended (Trial)';
   }
   return session.session_status;
+};
+
+/**
+ * Configuration for proposal indicator badge shown on sessions with active proposals
+ */
+export interface ProposalIndicatorConfig {
+  Icon: LucideIcon;
+  badgeText: string;
+  className: string;
+  iconClassName: string;
+}
+
+/**
+ * Returns configuration for displaying a proposal indicator badge
+ * @param slotCount - Number of pending proposal slots
+ */
+export const getProposalIndicatorConfig = (slotCount: number): ProposalIndicatorConfig => {
+  return {
+    Icon: CalendarClock,
+    badgeText: `${slotCount} slot${slotCount !== 1 ? 's' : ''} proposed`,
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    iconClassName: 'text-amber-600 dark:text-amber-400',
+  };
+};
+
+/**
+ * Configuration for proposed session styling (ghost sessions)
+ */
+export const proposedSessionStyles = {
+  border: 'border-2 border-dashed border-gray-400 dark:border-gray-500',
+  background: 'bg-gray-100/50 dark:bg-gray-800/30',
+  badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  opacity: 'opacity-85',
 };

@@ -432,6 +432,47 @@ export function useProposalForSession(sessionId: number | null | undefined) {
 }
 
 /**
+ * Hook for fetching pending proposals within a date range
+ * Used by session views to show proposed sessions as ghost entries
+ */
+export function useProposalsInDateRange(
+  fromDate: string | null | undefined,
+  toDate: string | null | undefined
+) {
+  return useSWR<MakeupProposal[]>(
+    fromDate ? ['proposals-date-range', fromDate, toDate] : null,
+    () => proposalsAPI.getAll({
+      from_date: fromDate!,
+      to_date: toDate ?? undefined,
+      include_session: true,
+      status: 'pending',
+    }),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching pending proposals by original session date range
+ * Used to show "X slots proposed" badge on sessions that have active proposals
+ * This filters by the original session's date, not the proposed slot dates
+ */
+export function useProposalsForOriginalSessions(
+  fromDate: string | null | undefined,
+  toDate: string | null | undefined
+) {
+  return useSWR<MakeupProposal[]>(
+    fromDate ? ['proposals-original-sessions', fromDate, toDate] : null,
+    () => proposalsAPI.getAll({
+      original_from_date: fromDate!,
+      original_to_date: toDate ?? undefined,
+      include_session: true,
+      status: 'pending',
+    }),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
  * Hook for browser notifications
  * Handles permission state and sending OS-level notifications
  */
