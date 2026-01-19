@@ -877,6 +877,13 @@ export const messagesAPI = {
     });
   },
 
+  // Mark message as unread
+  markUnread: (messageId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean; was_read: boolean }>(`/messages/${messageId}/read?tutor_id=${tutorId}`, {
+      method: "DELETE",
+    });
+  },
+
   // Toggle like on a message
   toggleLike: (messageId: number, tutorId: number) => {
     return fetchAPI<{ success: boolean; is_liked: boolean; like_count: number }>(

@@ -183,9 +183,8 @@ async def get_message_threads(
         .filter(
             TutorMessage.reply_to_id.is_(None),
             or_(
-                TutorMessage.to_tutor_id == tutor_id,
-                TutorMessage.to_tutor_id.is_(None),
-                TutorMessage.from_tutor_id == tutor_id
+                TutorMessage.to_tutor_id == tutor_id,      # Direct messages to me
+                TutorMessage.to_tutor_id.is_(None),        # Broadcasts
             )
         )
     )
@@ -484,6 +483,22 @@ async def mark_as_read(
     db.commit()
 
     return {"success": True}
+
+
+@router.delete("/messages/{message_id}/read")
+async def mark_as_unread(
+    message_id: int,
+    tutor_id: int = Query(..., description="Tutor marking as unread"),
+    db: Session = Depends(get_db)
+):
+    """Mark a message as unread by removing the read receipt."""
+    deleted = db.query(MessageReadReceipt).filter(
+        MessageReadReceipt.message_id == message_id,
+        MessageReadReceipt.tutor_id == tutor_id
+    ).delete()
+    db.commit()
+
+    return {"success": True, "was_read": deleted > 0}
 
 
 @router.post("/messages/{message_id}/like")

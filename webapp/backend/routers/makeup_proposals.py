@@ -124,10 +124,10 @@ async def get_proposals(
         query = query.filter(MakeupProposal.proposed_by_tutor_id == proposed_by)
 
     if tutor_id:
-        # Tutor is either needs_input target OR has a pending slot
+        # Tutor is either needs_input target OR has any slot targeting them
+        # Note: Removed slot_status == 'pending' so resolved proposals also show in "For Me" tab
         slot_subquery = db.query(MakeupProposalSlot.proposal_id).filter(
-            MakeupProposalSlot.proposed_tutor_id == tutor_id,
-            MakeupProposalSlot.slot_status == 'pending'
+            MakeupProposalSlot.proposed_tutor_id == tutor_id
         ).subquery()
 
         query = query.filter(
@@ -328,6 +328,7 @@ View proposal: /proposals?id={proposal.id}""".strip()
         )
         db.add(message)
         messages_created.append(message)
+        target_tutor_ids = {data.needs_input_tutor_id}
     else:
         # For specific_slots: create message per unique slot tutor
         unique_tutor_ids = set(slot.proposed_tutor_id for slot in data.slots)
@@ -342,6 +343,21 @@ View proposal: /proposals?id={proposal.id}""".strip()
             )
             db.add(message)
             messages_created.append(message)
+        target_tutor_ids = unique_tutor_ids
+
+    # Also notify original session tutor if they're different from proposer and not already a target
+    original_tutor_id = original_session.tutor_id
+    if original_tutor_id and original_tutor_id != from_tutor_id and original_tutor_id not in target_tutor_ids:
+        fyi_message = TutorMessage(
+            from_tutor_id=from_tutor_id,
+            to_tutor_id=original_tutor_id,
+            subject=f"[FYI] {subject}",
+            message=f"A make-up has been proposed for your student's missed session.\n\n{message_body}",
+            priority="Normal",  # Lower priority since it's informational
+            category="MakeupConfirmation",
+        )
+        db.add(fyi_message)
+        messages_created.append(fyi_message)
 
     db.flush()  # Get message IDs
 
