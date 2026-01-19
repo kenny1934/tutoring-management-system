@@ -16,6 +16,7 @@ from schemas import (
     MakeupProposalCreate,
     MakeupProposalResponse,
     MakeupProposalSlotResponse,
+    MakeupProposalSlotUpdate,
     SlotApproveRequest,
     SlotRejectRequest,
     ProposalRejectRequest,
@@ -622,6 +623,88 @@ async def reject_slot(
     db.commit()
 
     # Reload and return
+    proposal = db.query(MakeupProposal).options(
+        joinedload(MakeupProposal.proposed_by_tutor),
+        joinedload(MakeupProposal.needs_input_tutor),
+        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.proposed_tutor),
+        joinedload(MakeupProposal.slots).joinedload(MakeupProposalSlot.resolved_by_tutor),
+    ).filter(MakeupProposal.id == proposal.id).first()
+
+    return _build_proposal_response(proposal, include_session=True, db=db)
+
+
+@router.patch("/makeup-proposals/slots/{slot_id}", response_model=MakeupProposalResponse)
+async def update_slot(
+    slot_id: int,
+    slot_data: MakeupProposalSlotUpdate,
+    tutor_id: int = Query(..., description="Requesting tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a proposal slot.
+
+    - Only the proposer or admin can edit
+    - Only pending proposals can be edited (all slots must be pending)
+    - Any provided fields will be updated, None fields are ignored
+    """
+    # Get the slot with proposal
+    slot = db.query(MakeupProposalSlot).options(
+        joinedload(MakeupProposalSlot.proposal).joinedload(MakeupProposal.slots),
+    ).filter(MakeupProposalSlot.id == slot_id).first()
+
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+
+    proposal = slot.proposal
+
+    # Check permissions: only proposer or admin can edit
+    is_proposer = proposal.proposed_by_tutor_id == tutor_id
+    acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
+    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
+
+    if not (is_proposer or is_admin):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the proposer or admin can edit this slot"
+        )
+
+    # Verify proposal is pending
+    if proposal.status != 'pending':
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot edit a {proposal.status} proposal"
+        )
+
+    # Verify ALL slots are pending (none approved/rejected)
+    for s in proposal.slots:
+        if s.slot_status != 'pending':
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot edit proposal - slot {s.id} is already {s.slot_status}"
+            )
+
+    # If changing tutor, verify the new tutor exists
+    if slot_data.proposed_tutor_id is not None:
+        new_tutor = db.query(Tutor).filter(Tutor.id == slot_data.proposed_tutor_id).first()
+        if not new_tutor:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Tutor with ID {slot_data.proposed_tutor_id} not found"
+            )
+
+    # Update only provided fields
+    if slot_data.proposed_date is not None:
+        slot.proposed_date = slot_data.proposed_date
+    if slot_data.proposed_time_slot is not None:
+        slot.proposed_time_slot = slot_data.proposed_time_slot
+    if slot_data.proposed_tutor_id is not None:
+        slot.proposed_tutor_id = slot_data.proposed_tutor_id
+    if slot_data.proposed_location is not None:
+        slot.proposed_location = slot_data.proposed_location
+
+    db.commit()
+
+    # Reload and return full proposal
     proposal = db.query(MakeupProposal).options(
         joinedload(MakeupProposal.proposed_by_tutor),
         joinedload(MakeupProposal.needs_input_tutor),
