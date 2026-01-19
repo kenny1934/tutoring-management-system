@@ -633,8 +633,8 @@ export function ScheduleMakeupModal({
 
   // Dynamic time slots based on selected date
   const availableTimeSlots = useMemo(() => {
-    // Helper to get fallback slots based on day of week
-    const getFallbackSlots = (dateStr: string) => {
+    // Helper to get default slots based on day of week
+    const getDefaultSlots = (dateStr: string) => {
       const date = new Date(dateStr + 'T00:00:00');
       const dayOfWeek = date.getDay();
       return (dayOfWeek === 0 || dayOfWeek === 6) ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
@@ -642,15 +642,15 @@ export function ScheduleMakeupModal({
 
     if (!selectedDate) return WEEKDAY_TIME_SLOTS; // Default to weekday slots
 
-    const daySessions = sessionsByDate.get(selectedDate) || [];
-    const slots = new Set<string>();
+    // Start with default slots for this day type
+    const defaultSlots = getDefaultSlots(selectedDate);
+    const slots = new Set<string>(defaultSlots);
 
-    // Get unique time slots from actual sessions
+    // Add any additional time slots from existing sessions
+    const daySessions = sessionsByDate.get(selectedDate) || [];
     daySessions.forEach(s => {
       if (s.time_slot) slots.add(s.time_slot);
     });
-
-    if (slots.size === 0) return getFallbackSlots(selectedDate);
 
     // Sort chronologically
     return Array.from(slots).sort((a, b) => {
@@ -817,11 +817,9 @@ export function ScheduleMakeupModal({
     setSelectedDate(dateString);
     setSelectedTimeSlot("");
 
-    // If there are sessions, also open day picker
-    if (sessionCount > 0) {
-      setDayPickerDate(dateString);
-      setShowDayPicker(true);
-    }
+    // Always update day picker to show the selected date
+    setDayPickerDate(dateString);
+    setShowDayPicker(true);
   };
 
   // Handle slot selection from day picker
