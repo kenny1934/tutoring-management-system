@@ -814,7 +814,17 @@ def _count_eligible_students(
 ) -> int:
     """
     Count students eligible for revision slots for this calendar event.
+    Excludes students already enrolled in revision slots for this event.
     """
+    # Get students already enrolled in revision slots for this calendar event
+    enrolled_statuses = ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+    already_enrolled_subquery = db.query(SessionLog.student_id).join(
+        ExamRevisionSlot, SessionLog.exam_revision_slot_id == ExamRevisionSlot.id
+    ).filter(
+        ExamRevisionSlot.calendar_event_id == calendar_event.id,
+        SessionLog.session_status.in_(enrolled_statuses)
+    ).distinct()
+
     # Build student filter based on calendar event criteria
     student_filters = []
     if calendar_event.school:
@@ -823,17 +833,6 @@ def _count_eligible_students(
         student_filters.append(Student.grade == calendar_event.grade)
     if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
         student_filters.append(Student.academic_stream == calendar_event.academic_stream)
-
-    # Base query for students with active enrollments
-    query = db.query(func.count(func.distinct(Student.id))).join(
-        Enrollment, Student.id == Enrollment.student_id
-    ).filter(
-        Enrollment.payment_status.in_(['Paid', 'Pending Payment']),
-        *student_filters
-    )
-
-    if location:
-        query = query.filter(Enrollment.location == location)
 
     # Get students who have pending sessions
     pending_statuses = [
@@ -860,12 +859,13 @@ def _count_eligible_students(
 
     student_ids_with_pending = student_ids_with_pending.distinct()
 
-    # Count students matching criteria who have pending sessions
+    # Count students matching criteria who have pending sessions, excluding already enrolled
     count = db.query(func.count(func.distinct(Student.id))).join(
         Enrollment, Student.id == Enrollment.student_id
     ).filter(
         Enrollment.payment_status.in_(['Paid', 'Pending Payment']),
         Student.id.in_(student_ids_with_pending),
+        ~Student.id.in_(already_enrolled_subquery),  # Exclude already enrolled students
         *student_filters
     )
 

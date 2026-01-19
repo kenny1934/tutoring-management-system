@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useCalendarEvents } from "@/lib/hooks";
+import { useRouter } from "next/navigation";
+import { useCalendarEvents, useExamsWithSlots } from "@/lib/hooks";
 import { CalendarEvent } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck } from "lucide-react";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
@@ -67,18 +68,32 @@ interface EventWithDaysUntil extends CalendarEvent {
   daysUntil?: number;
 }
 
+// Revision stats type for exam revision integration
+interface RevisionStats {
+  slots: number;
+  enrolled: number;
+  eligible: number;
+}
+
 // Popover component for test items - works for both upcoming list and selected date events
 function TestItemPopover({
   event,
   isMobile,
   variant = "upcoming",
+  stats,
 }: {
   event: EventWithDaysUntil;
   isMobile: boolean;
   variant?: "upcoming" | "selected-date";
+  stats?: RevisionStats;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
   const colors = EVENT_TYPE_COLORS[event.event_type || 'Test'] || EVENT_TYPE_COLORS.Test;
+
+  const handleExamClick = () => {
+    router.push(`/exams?exam=${event.id}`);
+  };
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
@@ -110,9 +125,9 @@ function TestItemPopover({
         <div
           ref={refs.setReference}
           {...getReferenceProps()}
+          onClick={handleExamClick}
           className={cn(
-            "px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
-            hasDescription && "cursor-pointer"
+            "px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
           )}
         >
           <div className="flex items-start justify-between gap-2">
@@ -131,15 +146,37 @@ function TestItemPopover({
                   {event.school} {event.grade}{event.academic_stream ? `(${event.academic_stream})` : ''}
                 </div>
               )}
+              {/* Revision stats */}
+              {stats && stats.slots > 0 && (
+                <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
+                  <span className="inline-flex items-center gap-0.5" title="Revision slots created">
+                    <GraduationCap className="h-3 w-3" />
+                    {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+                    <UserCheck className="h-3 w-3" />
+                    {stats.enrolled}
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400" title="Eligible students not yet enrolled">
+                    <Users className="h-3 w-3" />
+                    {stats.eligible}
+                  </span>
+                </div>
+              )}
             </div>
-            {event.daysUntil !== undefined && (
-              <span className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0",
-                getUrgencyColor(event.daysUntil)
-              )}>
-                {event.daysUntil === 0 ? 'Today' : event.daysUntil === 1 ? '1 day' : `${event.daysUntil} days`}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {event.daysUntil !== undefined && (
+                <span className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded-full",
+                  getUrgencyColor(event.daysUntil)
+                )}>
+                  {event.daysUntil === 0 ? 'Today' : event.daysUntil === 1 ? '1 day' : `${event.daysUntil} days`}
+                </span>
+              )}
+              <span title="Open in Exams page">
+                <ChevronRight className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
               </span>
-            )}
+            </div>
           </div>
         </div>
 
@@ -185,21 +222,43 @@ function TestItemPopover({
     <div
       ref={refs.setReference}
       {...getReferenceProps()}
+      onClick={handleExamClick}
       className={cn(
-        "px-2 py-1.5 rounded text-xs relative",
-        colors.bg,
-        hasDescription && "cursor-pointer"
+        "px-2 py-1.5 rounded text-xs relative cursor-pointer",
+        colors.bg
       )}
     >
-      <div className="flex items-center gap-1">
-        <div className={cn("font-medium", colors.text)}>{event.title}</div>
-        {hasDescription && (
-          <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
-        )}
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1 min-w-0">
+          <div className={cn("font-medium truncate", colors.text)}>{event.title}</div>
+          {hasDescription && (
+            <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
+          )}
+        </div>
+        <span title="Open in Exams page">
+          <ChevronRight className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
+        </span>
       </div>
       {event.school && event.grade && (
         <div className="text-gray-600 dark:text-gray-400 mt-0.5">
           {event.school} {event.grade}{event.academic_stream ? `(${event.academic_stream})` : ''}
+        </div>
+      )}
+      {/* Revision stats */}
+      {stats && stats.slots > 0 && (
+        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+          <span className="inline-flex items-center gap-0.5" title="Revision slots created">
+            <GraduationCap className="h-2.5 w-2.5" />
+            {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
+          </span>
+          <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+            <UserCheck className="h-2.5 w-2.5" />
+            {stats.enrolled}
+          </span>
+          <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400" title="Eligible students not yet enrolled">
+            <Users className="h-2.5 w-2.5" />
+            {stats.eligible}
+          </span>
         </div>
       )}
 
@@ -252,6 +311,12 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Fetch 60 days of events to cover current and next month
   const { data: events = [], isLoading, error } = useCalendarEvents(60);
 
+  // Fetch exam revision stats for the same date range
+  const { data: examsWithSlots = [] } = useExamsWithSlots({
+    from_date: toDateString(new Date()),
+    to_date: toDateString(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)), // 60 days
+  });
+
   // Group events by date
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -264,6 +329,19 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     });
     return map;
   }, [events]);
+
+  // Map calendar event IDs to their revision stats
+  const examStatsMap = useMemo(() => {
+    const map = new Map<number, RevisionStats>();
+    examsWithSlots.forEach(exam => {
+      map.set(exam.id, {
+        slots: exam.revision_slots.length,
+        enrolled: exam.total_enrolled,
+        eligible: exam.eligible_count,
+      });
+    });
+    return map;
+  }, [examsWithSlots]);
 
   // Get calendar dates for current month
   const calendarDates = useMemo(() => {
@@ -485,6 +563,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                   event={event}
                   isMobile={isMobile}
                   variant="selected-date"
+                  stats={examStatsMap.get(event.id)}
                 />
               ))}
             </div>
@@ -504,7 +583,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             /* Show upcoming list */
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {eventsWithDaysUntil.map((event) => (
-                <TestItemPopover key={event.id} event={event} isMobile={isMobile} />
+                <TestItemPopover key={event.id} event={event} isMobile={isMobile} stats={examStatsMap.get(event.id)} />
               ))}
             </div>
           )}

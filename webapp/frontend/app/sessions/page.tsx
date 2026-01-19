@@ -6,7 +6,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -1764,6 +1764,9 @@ export default function SessionsPage() {
                                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                               {session.time_slot}
                                             </span>
+                                            {session.exam_revision_slot_id && (
+                                              <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                                            )}
                                           </div>
 
                                           {/* Action buttons */}
@@ -2019,6 +2022,9 @@ export default function SessionsPage() {
                                       )}
                                       {session.school && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
+                                      )}
+                                      {session.exam_revision_slot_id && (
+                                        <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" title="Exam Revision" />
                                       )}
                                       {session.financial_status !== "Paid" && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
