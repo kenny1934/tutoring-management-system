@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
@@ -99,6 +99,10 @@ async def get_proposals(
     proposed_by: Optional[int] = Query(None, description="Filter by proposer"),
     status: Optional[str] = Query(None, description="Filter by status (pending, approved, rejected)"),
     include_session: bool = Query(False, description="Include original session details"),
+    from_date: Optional[date] = Query(None, description="Filter by slot proposed_date >= from_date"),
+    to_date: Optional[date] = Query(None, description="Filter by slot proposed_date <= to_date"),
+    original_from_date: Optional[date] = Query(None, description="Filter by original session date >= original_from_date"),
+    original_to_date: Optional[date] = Query(None, description="Filter by original session date <= original_to_date"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db)
@@ -109,6 +113,8 @@ async def get_proposals(
     - **tutor_id**: Get proposals where tutor is a target (has pending slots or is needs_input target)
     - **proposed_by**: Get proposals created by this tutor
     - **status**: Filter by proposal status
+    - **from_date/to_date**: Filter proposals that have slots within the date range
+    - **original_from_date/original_to_date**: Filter proposals by original session date
     """
     query = db.query(MakeupProposal).options(
         joinedload(MakeupProposal.proposed_by_tutor),
@@ -136,6 +142,36 @@ async def get_proposals(
                 MakeupProposal.id.in_(slot_subquery)
             )
         )
+
+    # Filter by slot date range (proposals with at least one slot in range)
+    if from_date or to_date:
+        date_filters = []
+        if from_date:
+            date_filters.append(MakeupProposalSlot.proposed_date >= from_date)
+        if to_date:
+            date_filters.append(MakeupProposalSlot.proposed_date <= to_date)
+
+        date_subquery = db.query(MakeupProposalSlot.proposal_id).filter(
+            and_(*date_filters)
+        ).subquery()
+
+        query = query.filter(MakeupProposal.id.in_(date_subquery))
+
+    # Filter by original session date range
+    if original_from_date or original_to_date:
+        original_date_filters = []
+        if original_from_date:
+            original_date_filters.append(SessionLog.session_date >= original_from_date)
+        if original_to_date:
+            original_date_filters.append(SessionLog.session_date <= original_to_date)
+
+        original_date_subquery = db.query(MakeupProposal.id).join(
+            SessionLog, MakeupProposal.original_session_id == SessionLog.id
+        ).filter(
+            and_(*original_date_filters)
+        ).subquery()
+
+        query = query.filter(MakeupProposal.id.in_(original_date_subquery))
 
     proposals = query.order_by(MakeupProposal.created_at.desc()).offset(offset).limit(limit).all()
 

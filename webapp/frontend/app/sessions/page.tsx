@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
-import { useSessions, useTutors, usePageTitle } from "@/lib/hooks";
+import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Session, Tutor } from "@/types";
+import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
 import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
@@ -30,8 +30,12 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
+import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
+import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
+import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
+import { proposalSlotsToSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
 
 // Key for storing scroll position in sessionStorage
 const SCROLL_POSITION_KEY = 'sessions-list-scroll-position';
@@ -109,9 +113,60 @@ export default function SessionsPage() {
   const { data: sessions = [], error, isLoading: loading } = useSessions(sessionFilters);
   const { data: tutors = [] } = useTutors();
 
+  // Get current user's tutor ID for proposal actions
+  const currentTutorId = useMemo(() => {
+    const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return tutor?.id ?? 0;
+  }, [tutors]);
+
+  // Fetch proposals for the current date range (for showing proposed sessions)
+  const proposalDateRange = useMemo(() => {
+    if (specialFilter === "pending-makeups") {
+      // Don't show proposed sessions in pending makeups view
+      return { from: null, to: null };
+    }
+    if (viewMode === "list" || viewMode === "daily") {
+      return { from: toDateString(selectedDate), to: toDateString(selectedDate) };
+    } else if (viewMode === "weekly") {
+      const { start, end } = getWeekBounds(selectedDate);
+      return { from: toDateString(start), to: toDateString(end) };
+    } else if (viewMode === "monthly") {
+      const { start, end } = getMonthBounds(selectedDate);
+      return { from: toDateString(start), to: toDateString(end) };
+    }
+    return { from: null, to: null };
+  }, [selectedDate, viewMode, specialFilter]);
+
+  // Fetch proposals where PROPOSED SLOTS are in the date range (for ghost session display)
+  const { data: proposalsForSlots = [] } = useProposalsInDateRange(
+    proposalDateRange.from,
+    proposalDateRange.to
+  );
+
+  // Fetch proposals where ORIGINAL SESSION is in the date range (for indicator badge on original sessions)
+  const { data: proposalsForOriginals = [] } = useProposalsForOriginalSessions(
+    proposalDateRange.from,
+    proposalDateRange.to
+  );
+
+  // Create lookup map: session_id -> proposal (for showing indicators on pending makeup sessions)
+  // Uses proposals fetched by original session date so badges show correctly
+  const sessionProposalMap = useMemo(() => {
+    return createSessionProposalMap(proposalsForOriginals);
+  }, [proposalsForOriginals]);
+
+  // Convert proposal slots to session-like objects for display
+  // Uses proposals fetched by slot date so ghost sessions appear on correct dates
+  const proposedSessions = useMemo(() => {
+    return proposalSlotsToSessions(proposalsForSlots);
+  }, [proposalsForSlots]);
+
   // Popover state for list view
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Proposal detail modal state
+  const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);
 
   // Sync popover session with updated data from SWR (e.g., after marking attended)
   useEffect(() => {
@@ -292,7 +347,7 @@ export default function SessionsPage() {
     setPopoverSession(session);
   };
 
-  // Group sessions by time slot
+  // Group sessions by time slot (including proposed sessions' time slots)
   const groupedSessions = useMemo(() => {
     const groups: Record<string, Session[]> = {};
 
@@ -303,6 +358,18 @@ export default function SessionsPage() {
       }
       groups[timeSlot].push(session);
     });
+
+    // Add empty entries for proposed sessions' time slots (for selected date)
+    // so they have a place to render in the list view
+    const selectedDateString = toDateString(selectedDate);
+    proposedSessions
+      .filter((ps) => ps.session_date === selectedDateString)
+      .forEach((ps) => {
+        const timeSlot = ps.time_slot;
+        if (timeSlot && !groups[timeSlot]) {
+          groups[timeSlot] = [];
+        }
+      });
 
     // Sort sessions within each group using main group priority
     Object.values(groups).forEach((groupSessions) => {
@@ -377,7 +444,7 @@ export default function SessionsPage() {
       const startB = timeB.split("-")[0];
       return startA.localeCompare(startB);
     });
-  }, [sessions]);
+  }, [sessions, selectedDate, proposedSessions]);
 
   // Group sessions by student for pending-makeups view
   const groupedByStudent = useMemo(() => {
@@ -1824,8 +1891,24 @@ export default function SessionsPage() {
                               <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             </motion.div>
                           </div>
-                          <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
-                            {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
+                          <div className="flex items-center gap-2">
+                            <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
+                              {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
+                            </div>
+                            {(() => {
+                              const proposedCount = proposedSessions.filter(
+                                (ps) => ps.time_slot === timeSlot && ps.session_date === toDateString(selectedDate)
+                              ).length;
+                              if (proposedCount > 0) {
+                                return (
+                                  <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full border border-dashed border-amber-400 dark:border-amber-600 text-xs font-medium flex items-center gap-1">
+                                    <CalendarClock className="h-3 w-3" />
+                                    {proposedCount} proposed
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1957,7 +2040,7 @@ export default function SessionsPage() {
                                     </div>
                                   </div>
 
-                                  {/* Right side - Status text */}
+                                  {/* Right side - Status text + Proposal Indicator */}
                                   <div className="flex flex-col items-end gap-0.5 flex-shrink-0 text-right">
                                     <p className={cn("text-sm font-medium truncate max-w-[80px] sm:max-w-none", statusConfig.textClass)}>
                                       {displayStatus}
@@ -1966,6 +2049,17 @@ export default function SessionsPage() {
                                       <p className="text-xs text-gray-600 dark:text-gray-400">
                                         {session.tutor_name}
                                       </p>
+                                    )}
+                                    {/* Show proposal indicator if session has pending proposal */}
+                                    {sessionProposalMap.has(session.id) && (
+                                      <ProposalIndicatorBadge
+                                        proposal={sessionProposalMap.get(session.id)!}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedProposal(sessionProposalMap.get(session.id)!);
+                                        }}
+                                        size="sm"
+                                      />
                                     )}
                                   </div>
                                 </div>
@@ -1993,6 +2087,17 @@ export default function SessionsPage() {
                           </div>
                         );
                             })}
+
+                            {/* Proposed Sessions for this time slot */}
+                            {proposedSessions
+                              .filter((ps) => ps.time_slot === timeSlot && ps.session_date === toDateString(selectedDate))
+                              .map((proposedSession, psIndex) => (
+                                <ProposedSessionRow
+                                  key={proposedSession.id}
+                                  proposedSession={proposedSession}
+                                  onClick={() => setSelectedProposal(proposedSession.proposal)}
+                                />
+                              ))}
                           </div>
                         </motion.div>
                       )}
@@ -2015,6 +2120,8 @@ export default function SessionsPage() {
             clickPosition={popoverClickPosition}
             tutorFilter={tutorFilter}
             onNavigate={saveScrollPosition}
+            sessionProposalMap={sessionProposalMap}
+            onProposalClick={setSelectedProposal}
           />
         )}
 
@@ -2059,6 +2166,14 @@ export default function SessionsPage() {
             onClose={() => { setQuickActionSession(null); setQuickActionType(null); }}
           />
         )}
+
+        {/* Proposal Detail Modal */}
+        <ProposalDetailModal
+          proposal={selectedProposal}
+          currentTutorId={currentTutorId}
+          isOpen={!!selectedProposal}
+          onClose={() => setSelectedProposal(null)}
+        />
 
         {/* Keyboard shortcut hint button (shows when panel is hidden) */}
         {!showShortcutHints && (
@@ -2169,6 +2284,9 @@ export default function SessionsPage() {
           isMobile={isMobile}
           tutorFilter={tutorFilter}
           fillHeight
+          proposedSessions={proposedSessions}
+          onProposalClick={setSelectedProposal}
+          sessionProposalMap={sessionProposalMap}
         />
       )}
 
@@ -2181,6 +2299,9 @@ export default function SessionsPage() {
           onDateChange={setSelectedDate}
           isMobile={isMobile}
           fillHeight
+          proposedSessions={proposedSessions}
+          onProposalClick={setSelectedProposal}
+          sessionProposalMap={sessionProposalMap}
         />
       )}
 
@@ -2193,8 +2314,19 @@ export default function SessionsPage() {
           onDateChange={setSelectedDate}
           onViewModeChange={setViewMode}
           isMobile={isMobile}
+          proposedSessions={proposedSessions}
+          onProposalClick={setSelectedProposal}
+          sessionProposalMap={sessionProposalMap}
         />
       )}
+
+      {/* Proposal Detail Modal - needed for Weekly/Daily/Monthly views */}
+      <ProposalDetailModal
+        proposal={selectedProposal}
+        currentTutorId={currentTutorId}
+        isOpen={!!selectedProposal}
+        onClose={() => setSelectedProposal(null)}
+      />
       </PageTransition>
     </DeskSurface>
   );

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
+import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
 import type { Session, Tutor } from "@/types";
 import {
   toDateString,
@@ -26,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
+import type { ProposedSession } from "@/lib/proposal-utils";
+import type { MakeupProposal } from "@/types";
 
 // Helper to get tutor initials
 const getTutorInitials = (name: string): string => {
@@ -52,8 +55,10 @@ interface DayCellData {
   isWeekend: boolean;
   isPast: boolean;
   sessions: Session[];
+  proposedSessions: ProposedSession[];
   tutorWorkloads: TutorWorkload[];
   totalSessions: number;
+  proposedCount: number;
   statusCounts: Map<string, number>;
   unpaidCount: number;
 }
@@ -65,6 +70,9 @@ interface MonthlyCalendarViewProps {
   onDateChange: (date: Date) => void;
   onViewModeChange?: (mode: "list" | "daily") => void;
   isMobile?: boolean;
+  proposedSessions?: ProposedSession[];
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
 export function MonthlyCalendarView({
@@ -74,6 +82,9 @@ export function MonthlyCalendarView({
   onDateChange,
   onViewModeChange,
   isMobile = false,
+  proposedSessions = [],
+  onProposalClick,
+  sessionProposalMap,
 }: MonthlyCalendarViewProps) {
   const { selectedLocation } = useLocation();
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
@@ -95,6 +106,19 @@ export function MonthlyCalendarView({
     return map;
   }, [sessions]);
 
+  // Build proposed sessions lookup by date
+  const proposedByDate = useMemo(() => {
+    const map = new Map<string, ProposedSession[]>();
+    proposedSessions.forEach((ps) => {
+      const dateKey = ps.session_date;
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(ps);
+    });
+    return map;
+  }, [proposedSessions]);
+
   // Build tutor lookup
   const tutorMap = useMemo(() => {
     const map = new Map<number, Tutor>();
@@ -110,6 +134,7 @@ export function MonthlyCalendarView({
     return calendarDates.map((date): DayCellData => {
       const dateString = toDateString(date);
       const daySessions = sessionsByDate.get(dateString) || [];
+      const dayProposedSessions = proposedByDate.get(dateString) || [];
       const dayOfWeek = date.getDay();
 
       // Calculate tutor workloads, status counts, and unpaid count
@@ -149,13 +174,15 @@ export function MonthlyCalendarView({
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
         isPast: date < today && !isSameDay(date, today),
         sessions: daySessions,
+        proposedSessions: dayProposedSessions,
         tutorWorkloads,
         totalSessions: daySessions.length,
+        proposedCount: dayProposedSessions.length,
         statusCounts,
         unpaidCount,
       };
     });
-  }, [selectedDate, sessionsByDate, tutorMap, today]);
+  }, [selectedDate, sessionsByDate, proposedByDate, tutorMap, today]);
 
   // Navigation handlers
   const goToPreviousMonth = () => {
@@ -172,7 +199,7 @@ export function MonthlyCalendarView({
 
   // Handle day cell click
   const handleDayClick = (dayData: DayCellData) => {
-    if (dayData.totalSessions > 0) {
+    if (dayData.totalSessions > 0 || dayData.proposedCount > 0) {
       setSelectedDayDate(dayData.dateString);
       setPopoverTab("list");
     }
@@ -304,6 +331,8 @@ export function MonthlyCalendarView({
             setOpenSessionId={setOpenSessionId}
             tutorMap={tutorMap}
             isMobile={isMobile}
+            onProposalClick={onProposalClick}
+            sessionProposalMap={sessionProposalMap}
           />
         )}
       </AnimatePresence>
@@ -322,9 +351,10 @@ interface DayCellProps {
 }
 
 function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntensity }: DayCellProps) {
-  const { date, isCurrentMonth, isToday, isWeekend, isPast, tutorWorkloads, totalSessions } = dayData;
+  const { date, isCurrentMonth, isToday, isWeekend, isPast, tutorWorkloads, totalSessions, proposedCount } = dayData;
   const dayOfWeek = date.getDay();
   const isFirstCol = dayOfWeek === 0;
+  const hasContent = totalSessions > 0 || proposedCount > 0;
 
   // Show max 3 tutors, then "+X more"
   const visibleTutors = tutorWorkloads.slice(0, isMobile ? 2 : 3);
@@ -332,17 +362,17 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
 
   return (
     <motion.div
-      whileHover={totalSessions > 0 ? { scale: 1.02 } : undefined}
+      whileHover={hasContent ? { scale: 1.02 } : undefined}
       onClick={onClick}
       className={cn(
         "flex flex-col p-1 sm:p-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors overflow-hidden",
         !isFirstCol && "border-l",
         !isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-50",
         isCurrentMonth && getLoadIntensity(totalSessions),
-        isWeekend && isCurrentMonth && !totalSessions && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/30",
+        isWeekend && isCurrentMonth && !hasContent && "bg-[#fef9f3]/50 dark:bg-[#2d2618]/30",
         isPast && isCurrentMonth && "opacity-70",
         isToday && "ring-2 ring-inset ring-[#d4a574] dark:ring-[#cd853f]",
-        totalSessions > 0 && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+        hasContent && "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
       )}
     >
       {/* Day Number + Weekday */}
@@ -426,6 +456,16 @@ function DayCell({ dayData, index, maxSessions, isMobile, onClick, getLoadIntens
           </div>
         </div>
       )}
+
+      {/* Proposed Sessions Indicator */}
+      {proposedCount > 0 && (
+        <div className="flex-shrink-0 pt-0.5">
+          <div className="flex items-center gap-0.5 text-[8px] text-amber-600 dark:text-amber-400">
+            <CalendarClock className="h-2.5 w-2.5" />
+            <span>{proposedCount} proposed</span>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -441,6 +481,8 @@ interface DayPopoverProps {
   setOpenSessionId: (id: number | null) => void;
   tutorMap: Map<number, Tutor>;
   isMobile: boolean;
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
 function DayPopover({
@@ -453,8 +495,10 @@ function DayPopover({
   setOpenSessionId,
   tutorMap,
   isMobile,
+  onProposalClick,
+  sessionProposalMap,
 }: DayPopoverProps) {
-  const { date, sessions } = dayData;
+  const { date, sessions, proposedSessions } = dayData;
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Bulk selection state
@@ -532,11 +576,31 @@ function DayPopover({
     return map;
   }, [sessions]);
 
-  const tutorIds = Array.from(sessionsByTutor.keys()).sort((a, b) => {
-    const tutorA = tutorMap.get(a);
-    const tutorB = tutorMap.get(b);
-    return getTutorSortName(tutorA?.tutor_name || "").localeCompare(getTutorSortName(tutorB?.tutor_name || ""));
-  });
+  // Group proposed sessions by tutor for grid view
+  const proposedByTutor = useMemo(() => {
+    const map = new Map<number, ProposedSession[]>();
+    proposedSessions.forEach((ps) => {
+      if (ps.tutor_id) {
+        if (!map.has(ps.tutor_id)) {
+          map.set(ps.tutor_id, []);
+        }
+        map.get(ps.tutor_id)!.push(ps);
+      }
+    });
+    return map;
+  }, [proposedSessions]);
+
+  // Combine tutor IDs from both real and proposed sessions
+  const tutorIds = useMemo(() => {
+    const allTutorIds = new Set<number>();
+    sessionsByTutor.forEach((_, tutorId) => allTutorIds.add(tutorId));
+    proposedByTutor.forEach((_, tutorId) => allTutorIds.add(tutorId));
+    return Array.from(allTutorIds).sort((a, b) => {
+      const tutorA = tutorMap.get(a);
+      const tutorB = tutorMap.get(b);
+      return getTutorSortName(tutorA?.tutor_name || "").localeCompare(getTutorSortName(tutorB?.tutor_name || ""));
+    });
+  }, [sessionsByTutor, proposedByTutor, tutorMap]);
 
   return (
     <motion.div
@@ -562,6 +626,12 @@ function DayPopover({
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1.5 py-0.5 rounded">
               {sessions.length} sessions
             </span>
+            {proposedSessions.length > 0 && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                <CalendarClock className="h-3 w-3" />
+                {proposedSessions.length} proposed
+              </span>
+            )}
             {/* Select All button */}
             {tab === "list" && sessions.length > 0 && (
               <button
@@ -704,6 +774,9 @@ function DayPopover({
               setPopoverClickPosition={setPopoverClickPosition}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
+              proposedSessions={proposedSessions}
+              onProposalClick={onProposalClick}
+              onClose={onClose}
             />
           ) : (
             <GridView
@@ -712,6 +785,9 @@ function DayPopover({
               sessionsByTutor={sessionsByTutor}
               setOpenSessionId={setOpenSessionId}
               setPopoverClickPosition={setPopoverClickPosition}
+              proposedByTutor={proposedByTutor}
+              onProposalClick={onProposalClick}
+              onClose={onClose}
             />
           )}
         </div>
@@ -726,6 +802,8 @@ function DayPopover({
               isOpen={true}
               onClose={() => setOpenSessionId(null)}
               clickPosition={popoverClickPosition}
+              sessionProposalMap={sessionProposalMap}
+              onProposalClick={onProposalClick}
             />
           );
         })()}
@@ -774,9 +852,12 @@ interface ListViewProps {
   setPopoverClickPosition: (pos: { x: number; y: number } | null) => void;
   selectedIds: Set<number>;
   onToggleSelect: (id: number) => void;
+  proposedSessions?: ProposedSession[];
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  onClose?: () => void;
 }
 
-function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPopoverClickPosition, selectedIds, onToggleSelect }: ListViewProps) {
+function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPopoverClickPosition, selectedIds, onToggleSelect, proposedSessions = [], onProposalClick, onClose }: ListViewProps) {
   // Sort sessions within each slot using main sessions page logic
   const getSortedSlotSessions = (sessions: Session[]) => {
     // Group by tutor
@@ -882,6 +963,80 @@ function ListView({ sortedTimeSlots, sessionsByTimeSlot, setOpenSessionId, setPo
           </div>
         );
       })}
+
+      {/* Proposed Sessions Section */}
+      {proposedSessions.length > 0 && (
+        <div>
+          {/* Proposed Sessions Header */}
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
+            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 px-2 flex items-center gap-1">
+              <CalendarClock className="h-3 w-3" />
+              Proposed Sessions
+            </span>
+            <div className="h-px flex-1 bg-amber-300 dark:bg-amber-700" />
+          </div>
+          {/* Proposed Session Cards */}
+          <div className="space-y-1.5">
+            {proposedSessions.map((ps) => (
+              <div
+                key={ps.id}
+                onClick={() => {
+                  // Clear any open session popovers before opening proposal modal
+                  setOpenSessionId(null);
+                  // Close the day popover before opening proposal modal
+                  onClose?.();
+                  onProposalClick?.(ps.proposal);
+                }}
+                className={cn(
+                  "relative flex items-center gap-2 pr-7 py-1.5 rounded-md cursor-pointer transition-all overflow-hidden",
+                  "bg-amber-50 dark:bg-amber-900/20 border-2 border-dashed border-amber-400 dark:border-amber-600",
+                  "hover:shadow-md hover:scale-[1.01]"
+                )}
+              >
+                {/* Main Content */}
+                <div className="flex-1 min-w-0 pl-3">
+                  {/* Top Row: Student ID + Time */}
+                  <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
+                    <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
+                      {ps.school_student_id || "N/A"}
+                    </span>
+                    <span>{ps.time_slot?.split('-')[0]}</span>
+                  </div>
+
+                  {/* Middle Row: Student Name + Grade + School */}
+                  <div className="flex items-center gap-1 text-xs font-semibold text-[#5d4e37] dark:text-[#e8d4b8]">
+                    <span className="truncate">{ps.student_name || "Unknown"}</span>
+                    {ps.grade && (
+                      <span
+                        className="text-[8px] px-1 py-0.5 rounded text-gray-800 whitespace-nowrap"
+                        style={{ backgroundColor: getGradeColor(ps.grade, ps.lang_stream) }}
+                      >
+                        {ps.grade}{ps.lang_stream || ''}
+                      </span>
+                    )}
+                    {ps.school && (
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                        {ps.school}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bottom Row: Tutor Name */}
+                  <div className="text-[10px] text-[#8b6f47] dark:text-[#cd853f] truncate">
+                    {ps.tutor_name || "No tutor"}
+                  </div>
+                </div>
+
+                {/* Proposed Badge */}
+                <div className="absolute inset-y-0 right-0 w-6 flex items-center justify-center bg-amber-500 dark:bg-amber-600">
+                  <CalendarClock className="h-3 w-3 text-white" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -893,23 +1048,23 @@ interface GridViewProps {
   sessionsByTutor: Map<number, Session[]>;
   setOpenSessionId: (id: number | null) => void;
   setPopoverClickPosition: (pos: { x: number; y: number } | null) => void;
+  proposedByTutor: Map<number, ProposedSession[]>;
+  onProposalClick?: (proposal: MakeupProposal) => void;
+  onClose?: () => void;
 }
 
-function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPopoverClickPosition }: GridViewProps) {
+function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPopoverClickPosition, proposedByTutor, onProposalClick, onClose }: GridViewProps) {
   const { selectedLocation } = useLocation();
-  // Calculate dynamic time slots based on actual sessions
+  // Calculate dynamic time slots based on actual sessions AND proposed sessions
   const timeSlots = useMemo(() => {
     // Collect all sessions from all tutors
     const allSessions: Session[] = [];
     sessionsByTutor.forEach(sessions => allSessions.push(...sessions));
 
-    if (allSessions.length === 0) {
-      return ["10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
-    }
-
     let minStartMinutes = Infinity;
     let maxEndMinutes = -Infinity;
 
+    // Include real sessions in time range
     allSessions.forEach(session => {
       const parsed = parseTimeSlot(session.time_slot);
       if (!parsed) return;
@@ -917,6 +1072,18 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
       const endMins = timeToMinutes(parsed.end);
       minStartMinutes = Math.min(minStartMinutes, startMins);
       maxEndMinutes = Math.max(maxEndMinutes, endMins);
+    });
+
+    // ALSO include proposed sessions in time range calculation
+    proposedByTutor.forEach(proposedSessions => {
+      proposedSessions.forEach(ps => {
+        const parsed = parseTimeSlot(ps.time_slot);
+        if (!parsed) return;
+        const startMins = timeToMinutes(parsed.start);
+        const endMins = timeToMinutes(parsed.end);
+        minStartMinutes = Math.min(minStartMinutes, startMins);
+        maxEndMinutes = Math.max(maxEndMinutes, endMins);
+      });
     });
 
     if (minStartMinutes === Infinity) {
@@ -929,7 +1096,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
     return Array.from({ length: endHour - startHour }, (_, i) =>
       `${(startHour + i).toString().padStart(2, '0')}:00`
     );
-  }, [sessionsByTutor]);
+  }, [sessionsByTutor, proposedByTutor]);
 
   return (
     <div className="p-3">
@@ -980,6 +1147,16 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
               const tutorSessions = sessionsByTutor.get(tutorId) || [];
               const sessionsAtTime = tutorSessions.filter((s) => {
                 const parsed = parseTimeSlot(s.time_slot);
+                if (!parsed) return false;
+                const startHour = parseInt(parsed.start.split(":")[0]);
+                const slotHour = parseInt(time.split(":")[0]);
+                return startHour === slotHour;
+              });
+
+              // Get proposed sessions for this tutor at this time
+              const tutorProposed = proposedByTutor.get(tutorId) || [];
+              const proposedAtTime = tutorProposed.filter((ps) => {
+                const parsed = parseTimeSlot(ps.time_slot);
                 if (!parsed) return false;
                 const startHour = parseInt(parsed.start.split(":")[0]);
                 const slotHour = parseInt(time.split(":")[0]);
@@ -1040,6 +1217,22 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                       </div>
                     );
                   })}
+                  {/* Proposed sessions for this tutor at this time */}
+                  {proposedAtTime.map((ps) => (
+                    <ProposedSessionCard
+                      key={ps.id}
+                      proposedSession={ps}
+                      onClick={() => {
+                        // Clear any open session popovers before opening proposal modal
+                        setOpenSessionId(null);
+                        // Close the day popover before opening proposal modal
+                        onClose?.();
+                        onProposalClick?.(ps.proposal);
+                      }}
+                      size="compact"
+                      showTutor={false}
+                    />
+                  ))}
                 </div>
               );
             })}

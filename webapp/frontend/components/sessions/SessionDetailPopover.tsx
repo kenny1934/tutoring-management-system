@@ -21,7 +21,7 @@ import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { buttonVariants } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
-import type { Session, UpcomingTestAlert } from "@/types";
+import type { Session, UpcomingTestAlert, MakeupProposal } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -39,6 +39,7 @@ import {
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
+import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 
 // Exercise item with copy, open, and print functionality
 function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
@@ -349,6 +350,8 @@ interface SessionDetailPopoverProps {
   clickPosition: { x: number; y: number } | null;
   tutorFilter?: string;
   onNavigate?: () => void;
+  sessionProposalMap?: Map<number, MakeupProposal>;
+  onProposalClick?: (proposal: MakeupProposal) => void;
 }
 
 export function SessionDetailPopover({
@@ -359,6 +362,8 @@ export function SessionDetailPopover({
   clickPosition,
   tutorFilter = "",
   onNavigate,
+  sessionProposalMap,
+  onProposalClick,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
 
@@ -716,6 +721,23 @@ export function SessionDetailPopover({
               <SessionStatusTag status={getDisplayStatus(session)} size="sm" className="max-w-[140px] min-w-0" />
             )}
           </div>
+
+          {/* Proposal Indicator (for sessions with active makeup proposals) */}
+          {sessionProposalMap?.has(session.id) && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Proposal:</span>
+              <ProposalIndicatorBadge
+                proposal={sessionProposalMap.get(session.id)!}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onProposalClick) {
+                    onProposalClick(sessionProposalMap.get(session.id)!);
+                    onClose();
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {/* Session Linking */}
           {session.rescheduled_to && (
