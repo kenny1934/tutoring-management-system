@@ -160,3 +160,17 @@ export function formatTimeAgo(timestamp: string): string {
 export function ratingToEmoji(rating: number): string {
   return "⭐".repeat(rating);
 }
+
+/**
+ * Format date for proposal display
+ * Example: "Sat, Jan 18, 2025"
+ */
+export function formatProposalDate(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}

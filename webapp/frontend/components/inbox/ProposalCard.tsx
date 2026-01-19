@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
+import { formatProposalDate } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { mutate } from "swr";
@@ -29,21 +30,6 @@ interface ProposalCardProps {
   className?: string;
 }
 
-// Format date for display
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
-  return date.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-// Format time for display
-function formatTime(time: string): string {
-  // Already in format like "3:00 PM"
-  return time;
-}
 
 // Slot status badge
 function SlotStatusBadge({ status, rejectionReason }: { status: string; rejectionReason?: string }) {
@@ -134,7 +120,7 @@ function SlotItem({
           <div className="space-y-1 text-sm">
             <div className="flex items-center gap-2 text-gray-900 dark:text-white font-medium">
               <Calendar className="h-4 w-4 text-[#a0704b]" />
-              {formatDate(slot.proposed_date)} at {formatTime(slot.proposed_time_slot)}
+              {formatProposalDate(slot.proposed_date)} at {slot.proposed_time_slot}
             </div>
             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
               <User className="h-4 w-4" />
@@ -352,7 +338,7 @@ export function ProposalCard({
                 )}
               </div>
               <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                <span>Original: {formatDate(session.session_date)} at {session.time_slot}</span>
+                <span>Original: {formatProposalDate(session.session_date)} at {session.time_slot}</span>
                 <span>with {session.tutor_name}</span>
               </div>
             </div>

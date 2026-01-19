@@ -9,6 +9,8 @@ import { ProposalCardFull } from "@/components/proposals/ProposalCardFull";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
+import { EmptyCloud } from "@/components/illustrations/EmptyStates";
+import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import type { MakeupProposal, ProposalStatus } from "@/types";
 import {
   CalendarClock,
@@ -24,9 +26,6 @@ import {
   ArrowDownWideNarrow,
   ArrowUpWideNarrow,
 } from "lucide-react";
-
-// Current user constant (will be replaced with OAuth)
-const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
 
 type TabType = "for-me" | "by-me";
 
@@ -302,13 +301,7 @@ export default function ProposalsPage() {
               "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
               "paper-texture"
             )}>
-              <div className="p-4 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-                {activeTab === "for-me" ? (
-                  <Inbox className="h-8 w-8 text-gray-400" />
-                ) : (
-                  <Send className="h-8 w-8 text-gray-400" />
-                )}
-              </div>
+              <EmptyCloud className="mb-2" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 No proposals found
               </h3>
