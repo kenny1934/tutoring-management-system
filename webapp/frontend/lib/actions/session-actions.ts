@@ -70,7 +70,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: CheckCircle2,
     colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
     isVisible: isNotAttended,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'PATCH',
@@ -85,7 +85,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: UserX,
     colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
     isVisible: isNotAttended,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'PATCH',
@@ -104,7 +104,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: CalendarClock,
     colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'PATCH',
@@ -119,7 +119,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: Ambulance,
     colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'PATCH',
@@ -134,7 +134,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: CloudRain,
     colorClass: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
     isVisible: isNotAttended,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'PATCH',
@@ -153,7 +153,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: CalendarPlus,
     colorClass: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
     isVisible: isPendingMakeup,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'POST',
@@ -172,7 +172,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
     iconColorClass: 'text-red-500 dark:text-red-400',
     isVisible: (s) => !hideCwHw(s),
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: false,
       method: 'POST',
@@ -188,7 +188,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
     iconColorClass: 'text-blue-500 dark:text-blue-400',
     isVisible: (s) => !hideCwHw(s),
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: false,
       method: 'POST',
@@ -207,7 +207,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: MessageSquarePlus,
     colorClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
     isVisible: () => true, // Always visible
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: false,
       method: 'POST',
@@ -225,7 +225,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: Undo2,
     colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
     isVisible: canUndo,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: false,
       method: 'PATCH',
@@ -244,7 +244,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: CalendarX2,
     colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
     isVisible: canCancelMakeup,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
       method: 'DELETE',
@@ -263,7 +263,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: Pencil,
     colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
     isVisible: () => true,
-    allowedRoles: ['tutor', 'admin', 'super_admin'],
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true, // Handled specially - opens modal
       method: 'PATCH',

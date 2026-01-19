@@ -2,9 +2,10 @@ import type { LucideIcon } from 'lucide-react';
 
 /**
  * User roles in the system.
- * Hierarchy: tutor < admin < super_admin
+ * Hierarchy: Tutor < Admin < Super Admin
+ * Note: Values match database column values exactly (case-sensitive)
  */
-export type UserRole = 'tutor' | 'admin' | 'super_admin';
+export type UserRole = 'Tutor' | 'Admin' | 'Super Admin';
 
 /**
  * Configuration for an action button.

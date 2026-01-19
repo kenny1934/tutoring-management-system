@@ -142,6 +142,9 @@ function SlotItem({
   const canAct = (isTargetTutor || isProposer || isAdmin) &&
     slot.slot_status === "pending" && proposalStatus === "pending";
 
+  // Determine the role badge to show (priority: target > proposer > admin)
+  const actingAs = isTargetTutor ? null : isProposer ? "proposer" : isAdmin ? "admin" : null;
+
   // Filter sessions for this specific slot
   const studentsInSlot = useMemo(() => {
     return slotSessions.filter(
@@ -264,6 +267,17 @@ function SlotItem({
           {/* Action buttons - expanded permissions */}
           {canAct && (
             <div className="flex flex-col gap-2">
+              {/* Role indicator when not the target tutor */}
+              {actingAs && (
+                <span className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full font-medium text-center",
+                  actingAs === "admin"
+                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                )}>
+                  {actingAs === "admin" ? "Acting as Admin" : "Acting as Proposer"}
+                </span>
+              )}
               <button
                 onClick={handleApprove}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm"
@@ -376,7 +390,7 @@ export function ProposalCardFull({
   const currentTutor = useMemo(() => {
     return tutors.find((t) => t.id === currentTutorId);
   }, [tutors, currentTutorId]);
-  const isAdmin = currentTutor?.role === 'admin' || currentTutor?.role === 'super_admin';
+  const isAdmin = currentTutor?.role === 'Admin' || currentTutor?.role === 'Super Admin';
 
   // Session info from the proposal
   const session = proposal.original_session;
