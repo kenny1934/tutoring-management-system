@@ -135,7 +135,7 @@ async def get_proposals(
         # Note: Removed slot_status == 'pending' so resolved proposals also show in "For Me" tab
         slot_subquery = db.query(MakeupProposalSlot.proposal_id).filter(
             MakeupProposalSlot.proposed_tutor_id == tutor_id
-        ).subquery()
+        ).scalar_subquery()
 
         query = query.filter(
             or_(
@@ -154,7 +154,7 @@ async def get_proposals(
 
         date_subquery = db.query(MakeupProposalSlot.proposal_id).filter(
             and_(*date_filters)
-        ).subquery()
+        ).scalar_subquery()
 
         query = query.filter(MakeupProposal.id.in_(date_subquery))
 
@@ -170,7 +170,7 @@ async def get_proposals(
             SessionLog, MakeupProposal.original_session_id == SessionLog.id
         ).filter(
             and_(*original_date_filters)
-        ).subquery()
+        ).scalar_subquery()
 
         query = query.filter(MakeupProposal.id.in_(original_date_subquery))
 
