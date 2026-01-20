@@ -22,7 +22,7 @@ import {
   parseTimeSlot,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
@@ -732,7 +732,7 @@ export function WeeklyGridView({
                                   }}
                                 >
                                   <p className="font-bold text-[9px] text-amber-800 dark:text-amber-200">
-                                    +{sessions.length - displayedSessions.length} more
+                                    +{sessions.filter(isCountableSession).length - displayedSessions.filter(isCountableSession).length} more
                                   </p>
                                 </div>
                               )}

@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
 import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap } from "lucide-react";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
@@ -1896,7 +1896,7 @@ export default function SessionsPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-3 py-1 rounded-full border-2 border-amber-600 dark:border-amber-700 font-bold text-xs sm:text-sm">
-                              {sessionsInSlot.length} session{sessionsInSlot.length !== 1 ? "s" : ""}
+                              {sessionsInSlot.filter(isCountableSession).length} session{sessionsInSlot.filter(isCountableSession).length !== 1 ? "s" : ""}
                             </div>
                             {(() => {
                               const proposedCount = proposedSessions.filter(
