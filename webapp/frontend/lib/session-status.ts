@@ -123,3 +123,23 @@ export const proposedSessionStyles = {
   badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   opacity: 'opacity-85',
 };
+
+/**
+ * Statuses that represent "non-sessions" - placeholders or historical records
+ * that shouldn't be counted as actual sessions in time slot counts.
+ * Note: "No Show" is still countable as it represents a real scheduled slot.
+ */
+export const NON_COUNTABLE_STATUSES = ['Cancelled'];
+
+export const NON_COUNTABLE_STATUS_PATTERNS = ['Pending Make-up', 'Make-up Booked'];
+
+/**
+ * Determines if a session should be counted in time slot counts.
+ * Excludes cancelled sessions and rescheduled sessions (pending/booked make-ups).
+ */
+export function isCountableSession(session: { session_status: string }): boolean {
+  const status = session.session_status;
+  if (NON_COUNTABLE_STATUSES.includes(status)) return false;
+  if (NON_COUNTABLE_STATUS_PATTERNS.some(pattern => status.includes(pattern))) return false;
+  return true;
+}

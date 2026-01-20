@@ -13,6 +13,7 @@ import {
 } from "./utils/sessionSorting";
 import { ZenSessionDetail } from "./ZenSessionDetail";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
+import { isCountableSession } from "@/lib/session-status";
 
 interface ZenSessionListProps {
   sessions: Session[];
@@ -262,7 +263,7 @@ export function ZenSessionList({
           >
             {group.timeSlot}{" "}
             <span style={{ color: "var(--zen-dim)", fontWeight: "normal" }}>
-              ({group.sessions.length} session{group.sessions.length !== 1 ? "s" : ""})
+              ({group.sessions.filter(isCountableSession).length} session{group.sessions.filter(isCountableSession).length !== 1 ? "s" : ""})
             </span>
           </div>
           <div

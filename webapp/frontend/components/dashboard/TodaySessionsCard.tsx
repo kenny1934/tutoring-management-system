@@ -7,7 +7,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder, isCountableSession } from "@/lib/session-status";
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain } from "lucide-react";
 import { parseTimeSlot } from "@/lib/calendar-utils";
@@ -583,7 +583,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
                     {group.timeSlot}
                   </span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({group.sessions.length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
+                    ({group.sessions.filter(isCountableSession).length}{group.proposedSessions.length > 0 && ` + ${group.proposedSessions.length} proposed`})
                   </span>
                 </div>
 

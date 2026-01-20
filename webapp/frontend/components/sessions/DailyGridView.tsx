@@ -15,7 +15,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionCard } from "@/components/sessions/ProposedSessionCard";
@@ -416,7 +416,7 @@ export function DailyGridView({
                           {tutor.tutor_name}
                         </p>
                         <p className="text-xs font-medium leading-tight text-[#a0704b] dark:text-[#cd853f]">
-                          {tutorSessions.length} session{tutorSessions.length !== 1 ? 's' : ''}
+                          {tutorSessions.filter(isCountableSession).length} session{tutorSessions.filter(isCountableSession).length !== 1 ? 's' : ''}
                         </p>
                       </div>
                     )}

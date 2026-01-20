@@ -24,7 +24,7 @@ import {
   timeToMinutes,
 } from "@/lib/calendar-utils";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName, getTutorFirstName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import type { ProposedSession } from "@/lib/proposal-utils";
@@ -624,7 +624,7 @@ function DayPopover({
               {getDayName(date, false)}, {getMonthName(date)} {date.getDate()}
             </span>
             <span className="text-xs text-[#8b6f47] dark:text-[#cd853f] bg-[#e8d4b8]/50 dark:bg-[#4a3f2f] px-1.5 py-0.5 rounded">
-              {sessions.length} sessions
+              {sessions.filter(isCountableSession).length} sessions
             </span>
             {proposedSessions.length > 0 && (
               <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded flex items-center gap-0.5">
@@ -1124,7 +1124,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                   {tutor ? getTutorFirstName(tutor.tutor_name) : "Unknown"}
                 </div>
                 <div className="text-[8px] text-[#8b6f47] dark:text-[#cd853f]">
-                  {sessionsByTutor.get(tutorId)?.length || 0} sessions
+                  {(sessionsByTutor.get(tutorId) || []).filter(isCountableSession).length} sessions
                 </div>
               </div>
             );

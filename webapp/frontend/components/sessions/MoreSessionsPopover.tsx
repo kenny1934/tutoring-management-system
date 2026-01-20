@@ -14,7 +14,7 @@ import {
 import { X, HandCoins } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
-import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { getGradeColor } from "@/lib/constants";
 import type { Session } from "@/types";
 
@@ -85,7 +85,7 @@ export function MoreSessionsPopover({
         >
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-bold text-gray-900 dark:text-gray-100">
-              {sessions.length} Sessions
+              {sessions.filter(isCountableSession).length} Sessions
             </h3>
             <button
               onClick={onClose}
