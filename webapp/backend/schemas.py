@@ -833,6 +833,7 @@ class ExamRevisionSlotCreate(BaseModel):
     tutor_id: int = Field(..., gt=0, description="ID of the tutor running the session")
     location: str = Field(..., max_length=100, description="Location of the session")
     notes: Optional[str] = Field(None, max_length=1000, description="Optional notes for this revision slot")
+    created_by: Optional[str] = Field(None, max_length=255, description="Email of user creating the slot")
 
 
 class ExamRevisionSlotUpdate(BaseModel):
@@ -842,6 +843,7 @@ class ExamRevisionSlotUpdate(BaseModel):
     tutor_id: Optional[int] = Field(None, gt=0)
     location: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=1000)
+    modified_by: Optional[str] = Field(None, max_length=255, description="Email of user modifying the slot")
 
 
 class ExamRevisionSlotResponse(BaseModel):
@@ -915,6 +917,7 @@ class EnrollStudentRequest(BaseModel):
     student_id: int = Field(..., gt=0, description="ID of the student to enroll")
     consume_session_id: int = Field(..., gt=0, description="ID of the pending session to consume")
     notes: Optional[str] = Field(None, max_length=500, description="Optional notes for the enrollment")
+    created_by: Optional[str] = Field(None, max_length=255, description="Email of user performing the enrollment")
 
 
 class EnrollStudentResponse(BaseModel):

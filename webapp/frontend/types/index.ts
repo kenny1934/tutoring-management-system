@@ -618,12 +618,14 @@ export interface ExamRevisionSlotCreate {
   tutor_id: number;
   location: string;
   notes?: string;
+  created_by?: string;
 }
 
 export interface EnrollStudentRequest {
   student_id: number;
   consume_session_id: number;
   notes?: string;
+  created_by?: string;
 }
 
 export interface EnrollStudentResponse {
