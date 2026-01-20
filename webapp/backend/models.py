@@ -2,7 +2,7 @@
 SQLAlchemy models for the tutoring management system database.
 These models map to the existing tables from database/init.sql
 """
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -129,6 +129,9 @@ class SessionLog(Base):
     Records attendance, status, and financial tracking for each session.
     """
     __tablename__ = "session_log"
+    __table_args__ = (
+        UniqueConstraint('exam_revision_slot_id', 'student_id', name='uq_revision_slot_student'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=True)

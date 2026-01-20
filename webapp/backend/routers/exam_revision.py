@@ -8,6 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import date, datetime
 from database import get_db
@@ -32,6 +33,15 @@ from schemas import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Session status constants
+ENROLLED_SESSION_STATUSES = ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+PENDING_MAKEUP_STATUSES = [
+    'Rescheduled - Pending Make-up',
+    'Sick Leave - Pending Make-up',
+    'Weather Cancelled - Pending Make-up'
+]
+SCHEDULABLE_STATUSES = ['Scheduled', 'Make-up Class']
 
 
 def _build_session_response(session: SessionLog) -> SessionResponse:
@@ -109,7 +119,7 @@ async def get_revision_slots(
         # Count enrolled sessions (those with active statuses)
         enrolled_count = len([
             s for s in slot.sessions
-            if s.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+            if s.session_status in ENROLLED_SESSION_STATUSES
         ])
         result.append(_build_slot_response(slot, enrolled_count))
 
@@ -158,7 +168,7 @@ async def create_revision_slot(
         tutor_id=request.tutor_id,
         location=request.location,
         notes=request.notes,
-        created_by="system@csmpro.app"  # TODO: get from auth
+        created_by=request.created_by or "system@csmpro.app"
     )
     db.add(slot)
     db.commit()
@@ -182,7 +192,7 @@ async def create_revision_slot(
         SessionLog.session_date == request.session_date,
         SessionLog.time_slot == request.time_slot,
         SessionLog.location == request.location,
-        SessionLog.session_status.in_(['Scheduled', 'Make-up Class']),
+        SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
         SessionLog.exam_revision_slot_id.is_(None),  # Not already linked to a revision slot
         *student_filters
     ).all()
@@ -225,7 +235,7 @@ async def get_revision_slot_detail(
     # Build enrolled students list
     enrolled_students = []
     for session in slot.sessions:
-        if session.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']:
+        if session.session_status in ENROLLED_SESSION_STATUSES:
             enrolled_students.append(EnrolledStudentInfo(
                 session_id=session.id,
                 student_id=session.student_id,
@@ -274,7 +284,7 @@ async def delete_revision_slot(
     # Check for enrolled students
     enrolled = [
         s for s in slot.sessions
-        if s.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+        if s.session_status in ENROLLED_SESSION_STATUSES
     ]
     if enrolled:
         raise HTTPException(
@@ -322,7 +332,7 @@ async def get_eligible_students(
     # Get IDs of already enrolled students
     already_enrolled_student_ids = {
         s.student_id for s in slot.sessions
-        if s.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+        if s.session_status in ENROLLED_SESSION_STATUSES
     }
 
     # Build student filter based on calendar event criteria
@@ -348,12 +358,8 @@ async def get_eligible_students(
 
     # For each student, find their pending sessions
     eligible_students = []
-    pending_statuses = [
-        'Rescheduled - Pending Make-up',
-        'Sick Leave - Pending Make-up',
-        'Weather Cancelled - Pending Make-up'
-    ]
-    schedulable_statuses = ['Scheduled', 'Make-up Class']
+    pending_statuses = PENDING_MAKEUP_STATUSES
+    schedulable_statuses = SCHEDULABLE_STATUSES
 
     for student in students:
         # Skip already enrolled students
@@ -455,12 +461,8 @@ async def get_eligible_students_by_exam(
 
     # For each student, find their pending sessions
     eligible_students = []
-    pending_statuses = [
-        'Rescheduled - Pending Make-up',
-        'Sick Leave - Pending Make-up',
-        'Weather Cancelled - Pending Make-up'
-    ]
-    schedulable_statuses = ['Scheduled', 'Make-up Class']
+    pending_statuses = PENDING_MAKEUP_STATUSES
+    schedulable_statuses = SCHEDULABLE_STATUSES
 
     for student in students:
         # Find pending make-up sessions
@@ -536,7 +538,7 @@ async def enroll_student(
     # Check if student is already enrolled
     already_enrolled = any(
         s.student_id == request.student_id and
-        s.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+        s.session_status in ENROLLED_SESSION_STATUSES
         for s in slot.sessions
     )
     if already_enrolled:
@@ -566,12 +568,8 @@ async def enroll_student(
         )
 
     # Validate the session can be consumed
-    pending_statuses = [
-        'Rescheduled - Pending Make-up',
-        'Sick Leave - Pending Make-up',
-        'Weather Cancelled - Pending Make-up'
-    ]
-    schedulable_statuses = ['Scheduled', 'Make-up Class']
+    pending_statuses = PENDING_MAKEUP_STATUSES
+    schedulable_statuses = SCHEDULABLE_STATUSES
 
     is_pending_makeup = (
         consume_session.session_status in pending_statuses and
@@ -601,6 +599,7 @@ async def enroll_student(
     ).first()
 
     # Create the revision session
+    modified_by = request.created_by or "system@csmpro.app"
     revision_session = SessionLog(
         enrollment_id=enrollment.id if enrollment else consume_session.enrollment_id,
         student_id=request.student_id,
@@ -613,11 +612,19 @@ async def enroll_student(
         make_up_for_id=consume_session.id,
         exam_revision_slot_id=slot.id,
         notes=request.notes,
-        last_modified_by="system@csmpro.app",
+        last_modified_by=modified_by,
         last_modified_time=datetime.now()
     )
     db.add(revision_session)
-    db.flush()  # Get the ID
+
+    try:
+        db.flush()  # Get the ID and check constraints
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Student is already enrolled in this revision slot"
+        )
 
     # Update the consumed session
     if is_pending_makeup:
@@ -632,7 +639,7 @@ async def enroll_student(
         consume_session.session_status = "Rescheduled - Make-up Booked"
         consume_session.rescheduled_to_id = revision_session.id
 
-    consume_session.last_modified_by = "system@csmpro.app"
+    consume_session.last_modified_by = modified_by
     consume_session.last_modified_time = datetime.now()
 
     db.commit()
@@ -767,7 +774,7 @@ async def get_exams_with_revision_slots(
         for slot in slots:
             enrolled_count = len([
                 s for s in slot.sessions
-                if s.session_status in ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+                if s.session_status in ENROLLED_SESSION_STATUSES
             ])
             total_enrolled += enrolled_count
             slot_responses.append(ExamRevisionSlotResponse(
@@ -817,7 +824,7 @@ def _count_eligible_students(
     Excludes students already enrolled in revision slots for this event.
     """
     # Get students already enrolled in revision slots for this calendar event
-    enrolled_statuses = ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
+    enrolled_statuses = ENROLLED_SESSION_STATUSES
     already_enrolled_subquery = db.query(SessionLog.student_id).join(
         ExamRevisionSlot, SessionLog.exam_revision_slot_id == ExamRevisionSlot.id
     ).filter(
@@ -835,11 +842,7 @@ def _count_eligible_students(
         student_filters.append(Student.academic_stream == calendar_event.academic_stream)
 
     # Get students who have pending sessions
-    pending_statuses = [
-        'Rescheduled - Pending Make-up',
-        'Sick Leave - Pending Make-up',
-        'Weather Cancelled - Pending Make-up'
-    ]
+    pending_statuses = PENDING_MAKEUP_STATUSES
 
     # Subquery for students with pending sessions
     student_ids_with_pending = db.query(SessionLog.student_id).filter(
@@ -849,7 +852,7 @@ def _count_eligible_students(
                 SessionLog.rescheduled_to_id.is_(None)
             ),
             and_(
-                SessionLog.session_status.in_(['Scheduled', 'Make-up Class']),
+                SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
                 SessionLog.session_date > date.today()
             )
         )

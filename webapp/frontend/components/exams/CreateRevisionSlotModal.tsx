@@ -84,6 +84,16 @@ export function CreateRevisionSlotModal({
     return selectedPresetSlot || timeSlotOptions[0] || "";
   }, [useCustomTime, customStartTime, customEndTime, selectedPresetSlot, timeSlotOptions]);
 
+  // Validate custom time (end time must be after start time)
+  const isTimeValid = useMemo(() => {
+    if (!useCustomTime) return true;
+    const [startH, startM] = customStartTime.split(':').map(Number);
+    const [endH, endM] = customEndTime.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return endMinutes > startMinutes;
+  }, [useCustomTime, customStartTime, customEndTime]);
+
   const [tutorId, setTutorId] = useState<number>(currentTutorId);
   const [location, setLocation] = useState<string>(
     selectedLocation !== "All Locations" ? selectedLocation : ""
@@ -101,6 +111,12 @@ export function CreateRevisionSlotModal({
     return filtered.sort((a, b) => a.tutor_name.localeCompare(b.tutor_name));
   }, [tutors, selectedLocation]);
 
+  // Get current user's email for audit trail
+  const currentUserEmail = useMemo(() => {
+    const tutor = tutors.find(t => t.id === currentTutorId);
+    return tutor?.user_email;
+  }, [tutors, currentTutorId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -114,6 +130,7 @@ export function CreateRevisionSlotModal({
         tutor_id: tutorId,
         location,
         notes: notes || undefined,
+        created_by: currentUserEmail,
       });
       // Optimistically update the cache
       addSlotToExamsCache(exam.id, result);
@@ -207,22 +224,33 @@ export function CreateRevisionSlotModal({
             </div>
 
             {useCustomTime ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="time"
-                  value={customStartTime}
-                  onChange={(e) => setCustomStartTime(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
-                  required
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="time"
-                  value={customEndTime}
-                  onChange={(e) => setCustomEndTime(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
-                  required
-                />
+              <div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={customStartTime}
+                    onChange={(e) => setCustomStartTime(e.target.value)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
+                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    )}
+                    required
+                  />
+                  <span className="text-gray-400">–</span>
+                  <input
+                    type="time"
+                    value={customEndTime}
+                    onChange={(e) => setCustomEndTime(e.target.value)}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
+                      !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    )}
+                    required
+                  />
+                </div>
+                {!isTimeValid && (
+                  <p className="mt-1 text-xs text-red-500">End time must be after start time</p>
+                )}
               </div>
             ) : (
               <select
@@ -305,7 +333,7 @@ export function CreateRevisionSlotModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !isTimeValid}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                 "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",

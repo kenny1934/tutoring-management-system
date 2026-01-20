@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
-import { useEligibleStudents } from "@/lib/hooks";
+import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
+import { useEligibleStudents, useTutors } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { removeFromEligibleCache, updateExamEnrollmentCount } from "@/lib/exam-revision-cache";
 import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
@@ -38,6 +38,13 @@ export function EnrollStudentModal({
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
   );
+  const { data: tutors = [] } = useTutors();
+
+  // Get current user's email for audit trail
+  const currentUserEmail = useMemo(() => {
+    const tutor = tutors.find(t => t.tutor_name === CURRENT_USER_TUTOR);
+    return tutor?.user_email;
+  }, [tutors]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
@@ -87,6 +94,7 @@ export function EnrollStudentModal({
       await examRevisionAPI.enrollStudent(slot.id, {
         student_id: student.student_id,
         consume_session_id: sessionId,
+        created_by: currentUserEmail,
       });
 
       // Optimistic cache updates
