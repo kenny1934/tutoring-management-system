@@ -78,7 +78,7 @@ async def get_communications(
         # Filter by students who have enrollments at this location
         student_ids_at_location = db.query(Enrollment.student_id).filter(
             Enrollment.location == location
-        ).distinct().subquery()
+        ).distinct().scalar_subquery()
         query = query.filter(ParentCommunication.student_id.in_(student_ids_at_location))
 
     if from_date:
@@ -134,13 +134,13 @@ async def get_student_contact_statuses(
         ).distinct()
         if location:
             student_ids = student_ids.filter(Enrollment.location == location)
-        student_ids = student_ids.subquery()
+        student_ids = student_ids.scalar_subquery()
         students_query = db.query(Student).filter(Student.id.in_(student_ids))
     elif location:
         # Get all students at this location
         student_ids = db.query(Enrollment.student_id).filter(
             Enrollment.location == location
-        ).distinct().subquery()
+        ).distinct().scalar_subquery()
         students_query = db.query(Student).filter(Student.id.in_(student_ids))
     else:
         students_query = db.query(Student)
@@ -252,7 +252,7 @@ async def get_calendar_events(
     if location:
         student_ids_at_location = db.query(Enrollment.student_id).filter(
             Enrollment.location == location
-        ).distinct().subquery()
+        ).distinct().scalar_subquery()
         query = query.filter(ParentCommunication.student_id.in_(student_ids_at_location))
 
     communications = query.order_by(ParentCommunication.contact_date).all()
@@ -304,7 +304,7 @@ async def get_pending_followups(
     if location:
         student_ids_at_location = db.query(Enrollment.student_id).filter(
             Enrollment.location == location
-        ).distinct().subquery()
+        ).distinct().scalar_subquery()
         query = query.filter(ParentCommunication.student_id.in_(student_ids_at_location))
 
     followups = query.order_by(ParentCommunication.follow_up_date).all()
