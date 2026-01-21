@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { toDateString, getDayName } from "@/lib/calendar-utils";
-import { useTutors } from "@/lib/hooks";
+import { useTutors, useLocations } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { addSlotToExamsCache } from "@/lib/exam-revision-cache";
 import { useLocation } from "@/contexts/LocationContext";
@@ -45,6 +45,7 @@ export function CreateRevisionSlotModal({
   currentTutorId,
 }: CreateRevisionSlotModalProps) {
   const { data: tutors = [] } = useTutors();
+  const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
 
   // Form state - Default to 2 days before exam or today, whichever is later
@@ -102,14 +103,18 @@ export function CreateRevisionSlotModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get available tutors for selection (filtered by location)
+  // Lock location dropdown when sidebar has specific location selected
+  const isLocationLocked = selectedLocation && selectedLocation !== "All Locations";
+
+  // Get available tutors for selection (filtered by modal's location dropdown)
   const availableTutors = useMemo(() => {
     let filtered = [...tutors];
-    if (selectedLocation && selectedLocation !== "All Locations") {
-      filtered = filtered.filter((t) => t.default_location === selectedLocation);
+    // Filter by the modal's location selection, not the sidebar
+    if (location) {
+      filtered = filtered.filter((t) => t.default_location === location);
     }
     return filtered.sort((a, b) => a.tutor_name.localeCompare(b.tutor_name));
-  }, [tutors, selectedLocation]);
+  }, [tutors, location]);
 
   // Get current user's email for audit trail
   const currentUserEmail = useMemo(() => {
@@ -134,6 +139,10 @@ export function CreateRevisionSlotModal({
       });
       // Optimistically update the cache
       addSlotToExamsCache(exam.id, result);
+      // Show warning if there are overlapping slots
+      if (result.warning) {
+        alert(`Warning: ${result.warning}`);
+      }
       onCreated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create revision slot");
@@ -298,13 +307,36 @@ export function CreateRevisionSlotModal({
               <MapPin className="h-4 w-4" />
               Location
             </label>
-            <input
-              type="text"
+            <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+              disabled={isLocationLocked}
+              className={cn(
+                "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
+                isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+              )}
               required
-            />
+            >
+              {isLocationLocked ? (
+                <option value={selectedLocation}>{selectedLocation}</option>
+              ) : (
+                <>
+                  <option value="">Select location...</option>
+                  {locations
+                    .filter((loc) => loc !== "Various" && loc !== "All Locations")
+                    .map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                </>
+              )}
+            </select>
+            {isLocationLocked && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Locked to sidebar location
+              </p>
+            )}
           </div>
 
           {/* Notes */}

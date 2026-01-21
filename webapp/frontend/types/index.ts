@@ -572,6 +572,7 @@ export interface ExamRevisionSlot {
   created_by?: string;
   enrolled_count: number;
   calendar_event?: CalendarEvent;
+  warning?: string;  // Overlap warning from creation
 }
 
 export interface EnrolledStudentInfo {

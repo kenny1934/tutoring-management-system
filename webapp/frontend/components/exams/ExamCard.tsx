@@ -261,8 +261,8 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
               </div>
             )}
 
-            {/* Eligible students section - show when there are eligible students and location is set */}
-            {exam.eligible_count > 0 && location && (
+            {/* Eligible students section - show when there are eligible students */}
+            {exam.eligible_count > 0 && (
               <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 overflow-hidden">
                 <button
                   onClick={() => setShowEligibleStudents(!showEligibleStudents)}
@@ -272,6 +272,7 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                     <Users className="h-4 w-4" />
                     <span>
                       {exam.eligible_count} eligible student{exam.eligible_count !== 1 ? "s" : ""} not yet enrolled
+                      {!location && " (all locations)"}
                     </span>
                   </div>
                   {showEligibleStudents ? (
@@ -299,7 +300,7 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                             key={student.student_id}
                             className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
                           >
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {student.school_student_id && (
                                 <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px]">
                                   {student.school_student_id}
@@ -337,18 +338,6 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                     )}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Show message if there are eligible students but no location selected */}
-            {exam.eligible_count > 0 && !location && (
-              <div className="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                  <Users className="h-4 w-4" />
-                  <span>
-                    {exam.eligible_count} eligible student{exam.eligible_count !== 1 ? "s" : ""} – select a location to view details
-                  </span>
-                </div>
               </div>
             )}
           </div>

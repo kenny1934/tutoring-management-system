@@ -1077,8 +1077,9 @@ export const examRevisionAPI = {
   },
 
   // Get eligible students by exam (calendar event) - doesn't require a slot to exist
-  getEligibleStudentsByExam: (eventId: number, location: string) => {
-    return fetchAPI<EligibleStudent[]>(`/exam-revision/calendar/${eventId}/eligible-students?location=${encodeURIComponent(location)}`);
+  getEligibleStudentsByExam: (eventId: number, location?: string | null) => {
+    const params = location ? `?location=${encodeURIComponent(location)}` : '';
+    return fetchAPI<EligibleStudent[]>(`/exam-revision/calendar/${eventId}/eligible-students${params}`);
   },
 
   // Enroll a student in a slot

@@ -861,6 +861,8 @@ class ExamRevisionSlotResponse(BaseModel):
     enrolled_count: int = Field(default=0, ge=0, description="Number of students enrolled")
     # Include calendar event info
     calendar_event: Optional['CalendarEventResponse'] = None
+    # Optional warning for overlapping slots
+    warning: Optional[str] = Field(None, description="Warning message if potential overlap detected")
 
     model_config = ConfigDict(from_attributes=True)
 
