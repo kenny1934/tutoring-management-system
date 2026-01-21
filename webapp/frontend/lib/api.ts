@@ -66,6 +66,17 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   }
 }
 
+// Helper to build query params from an object, filtering out null/undefined/empty values
+function buildQueryParams(obj: Record<string, unknown>): string {
+  const params = new URLSearchParams();
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value != null && value !== '') {
+      params.append(key, String(value));
+    }
+  });
+  return params.toString();
+}
+
 // Tutors API
 export const tutorsAPI = {
   getAll: () => {

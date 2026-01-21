@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, timedelta
+from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
 from schemas import EnrollmentResponse, EnrollmentUpdate, OverdueEnrollment
@@ -134,7 +135,6 @@ async def get_active_enrollments(
     all_enrollments = query.all()
 
     # Group by student_id and keep only the latest enrollment per student
-    from collections import defaultdict
     student_enrollments = defaultdict(list)
     for enrollment in all_enrollments:
         student_enrollments[enrollment.student_id].append(enrollment)
@@ -295,7 +295,6 @@ async def get_my_students(
     all_enrollments = query.all()
 
     # Group by student_id and keep only the latest enrollment per student
-    from collections import defaultdict
     student_enrollments = defaultdict(list)
     for enrollment in all_enrollments:
         student_enrollments[enrollment.student_id].append(enrollment)
