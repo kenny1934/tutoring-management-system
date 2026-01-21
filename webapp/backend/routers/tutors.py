@@ -2,7 +2,7 @@
 Tutors API endpoints.
 Provides read-only access to tutor information.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
 
