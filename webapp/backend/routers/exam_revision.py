@@ -60,7 +60,98 @@ def _build_session_response(session: SessionLog) -> SessionResponse:
     return data
 
 
-def _build_slot_response(slot: ExamRevisionSlot, enrolled_count: int = 0) -> ExamRevisionSlotResponse:
+def _build_student_filters_from_event(calendar_event: CalendarEvent) -> list:
+    """Build SQLAlchemy filter conditions for students matching calendar event criteria."""
+    filters = []
+    if calendar_event.school:
+        filters.append(Student.school == calendar_event.school)
+    if calendar_event.grade:
+        filters.append(Student.grade == calendar_event.grade)
+    # Academic stream matching for F4-F6
+    if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
+        filters.append(Student.academic_stream == calendar_event.academic_stream)
+    return filters
+
+
+def _get_consumable_sessions_query(
+    db: Session,
+    student_id: int,
+    location: Optional[str] = None
+):
+    """
+    Build query for sessions that can be consumed for revision enrollment.
+
+    Returns sessions that are either:
+    - Pending make-up sessions (any date, not already booked)
+    - Future scheduled/make-up sessions
+
+    If location is None, returns sessions from all locations.
+    """
+    query = db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.student_id == student_id,
+        or_(
+            and_(
+                SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES),
+                SessionLog.rescheduled_to_id.is_(None)
+            ),
+            and_(
+                SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
+                SessionLog.session_date > date.today()
+            )
+        )
+    )
+    if location:
+        query = query.filter(SessionLog.location == location)
+    return query
+
+
+def _is_session_consumable(session: SessionLog) -> bool:
+    """Check if a session can be consumed for revision enrollment."""
+    is_pending = (
+        session.session_status in PENDING_MAKEUP_STATUSES and
+        session.rescheduled_to_id is None
+    )
+    is_future = (
+        session.session_status in SCHEDULABLE_STATUSES and
+        session.session_date > date.today()
+    )
+    return is_pending or is_future
+
+
+def _parse_time_slot(time_slot: str) -> tuple[int, int]:
+    """
+    Parse a time slot string like "16:45 - 18:15" into start and end minutes from midnight.
+    Returns (start_minutes, end_minutes).
+    """
+    try:
+        parts = time_slot.split(' - ')
+        if len(parts) != 2:
+            return (0, 0)
+        start_h, start_m = map(int, parts[0].strip().split(':'))
+        end_h, end_m = map(int, parts[1].strip().split(':'))
+        return (start_h * 60 + start_m, end_h * 60 + end_m)
+    except (ValueError, IndexError):
+        return (0, 0)
+
+
+def _times_overlap(slot1: str, slot2: str) -> bool:
+    """Check if two time slots overlap."""
+    start1, end1 = _parse_time_slot(slot1)
+    start2, end2 = _parse_time_slot(slot2)
+    # If parsing failed, assume no overlap
+    if (start1, end1) == (0, 0) or (start2, end2) == (0, 0):
+        return False
+    # Overlap occurs when one slot starts before the other ends and vice versa
+    return start1 < end2 and start2 < end1
+
+
+def _build_slot_response(
+    slot: ExamRevisionSlot,
+    enrolled_count: int = 0,
+    warning: Optional[str] = None
+) -> ExamRevisionSlotResponse:
     """Build an ExamRevisionSlotResponse from an ExamRevisionSlot."""
     return ExamRevisionSlotResponse(
         id=slot.id,
@@ -74,7 +165,8 @@ def _build_slot_response(slot: ExamRevisionSlot, enrolled_count: int = 0) -> Exa
         created_at=slot.created_at,
         created_by=slot.created_by,
         enrolled_count=enrolled_count,
-        calendar_event=CalendarEventResponse.model_validate(slot.calendar_event) if slot.calendar_event else None
+        calendar_event=CalendarEventResponse.model_validate(slot.calendar_event) if slot.calendar_event else None,
+        warning=warning
     )
 
 
@@ -160,6 +252,18 @@ async def create_revision_slot(
             detail="A revision slot with these details already exists"
         )
 
+    # Check for overlapping slots (same date/location, overlapping time)
+    overlap_warning = None
+    other_slots = db.query(ExamRevisionSlot).filter(
+        ExamRevisionSlot.calendar_event_id == request.calendar_event_id,
+        ExamRevisionSlot.session_date == request.session_date,
+        ExamRevisionSlot.location == request.location
+    ).all()
+    overlapping = [s for s in other_slots if _times_overlap(request.time_slot, s.time_slot)]
+    if overlapping:
+        overlap_info = ", ".join([f"{s.time_slot} ({s.tutor.tutor_name if s.tutor else 'Unknown'})" for s in overlapping])
+        overlap_warning = f"Overlapping slot(s) at same location: {overlap_info}"
+
     # Create the slot
     slot = ExamRevisionSlot(
         calendar_event_id=request.calendar_event_id,
@@ -175,15 +279,7 @@ async def create_revision_slot(
     db.refresh(slot)
 
     # Auto-adopt existing matching sessions
-    # Build student filter based on calendar event criteria
-    student_filters = []
-    if calendar_event.school:
-        student_filters.append(Student.school == calendar_event.school)
-    if calendar_event.grade:
-        student_filters.append(Student.grade == calendar_event.grade)
-    # Academic stream matching for F4-F6
-    if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
-        student_filters.append(Student.academic_stream == calendar_event.academic_stream)
+    student_filters = _build_student_filters_from_event(calendar_event)
 
     # Find existing sessions at the same date/time/location
     existing_sessions = db.query(SessionLog).join(
@@ -212,7 +308,7 @@ async def create_revision_slot(
         joinedload(ExamRevisionSlot.tutor)
     ).filter(ExamRevisionSlot.id == slot.id).first()
 
-    return _build_slot_response(slot, adopted_count)
+    return _build_slot_response(slot, adopted_count, overlap_warning)
 
 
 @router.get("/exam-revision/slots/{slot_id}", response_model=ExamRevisionSlotDetailResponse)
@@ -336,14 +432,7 @@ async def get_eligible_students(
     }
 
     # Build student filter based on calendar event criteria
-    student_filters = []
-    if calendar_event.school:
-        student_filters.append(Student.school == calendar_event.school)
-    if calendar_event.grade:
-        student_filters.append(Student.grade == calendar_event.grade)
-    # Academic stream matching for F4-F6
-    if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
-        student_filters.append(Student.academic_stream == calendar_event.academic_stream)
+    student_filters = _build_student_filters_from_event(calendar_event)
 
     # Find students with active enrollments at this location
     enrolled_students_query = db.query(Student).join(
@@ -358,8 +447,6 @@ async def get_eligible_students(
 
     # For each student, find their pending sessions
     eligible_students = []
-    pending_statuses = PENDING_MAKEUP_STATUSES
-    schedulable_statuses = SCHEDULABLE_STATUSES
 
     for student in students:
         # Skip already enrolled students
@@ -367,23 +454,8 @@ async def get_eligible_students(
             continue
 
         # Find pending make-up sessions
-        pending_sessions = db.query(SessionLog).options(
-            joinedload(SessionLog.tutor)
-        ).filter(
-            SessionLog.student_id == student.id,
-            SessionLog.location == slot.location,
-            or_(
-                # Pending make-up sessions (any date)
-                and_(
-                    SessionLog.session_status.in_(pending_statuses),
-                    SessionLog.rescheduled_to_id.is_(None)  # Not already booked
-                ),
-                # Future scheduled/make-up sessions that could be used
-                and_(
-                    SessionLog.session_status.in_(schedulable_statuses),
-                    SessionLog.session_date > date.today()
-                )
-            )
+        pending_sessions = _get_consumable_sessions_query(
+            db, student.id, slot.location
         ).order_by(SessionLog.session_date).all()
 
         if pending_sessions:
@@ -417,7 +489,7 @@ async def get_eligible_students(
 @router.get("/exam-revision/calendar/{event_id}/eligible-students", response_model=List[EligibleStudentResponse])
 async def get_eligible_students_by_exam(
     event_id: int,
-    location: str = Query(..., description="Location to filter students by"),
+    location: Optional[str] = Query(None, description="Location to filter students by (optional - omit for all locations)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -427,7 +499,7 @@ async def get_eligible_students_by_exam(
 
     Eligibility criteria:
     1. Student's school, grade, academic_stream (if F4-F6) match the calendar event
-    2. Student has an active enrollment at the specified location
+    2. Student has an active enrollment (at the specified location if provided)
     3. Student has at least one pending make-up session OR unused scheduled/make-up session (future dated)
     """
     # Get the calendar event
@@ -439,50 +511,28 @@ async def get_eligible_students_by_exam(
         raise HTTPException(status_code=404, detail=f"Calendar event with ID {event_id} not found")
 
     # Build student filter based on calendar event criteria
-    student_filters = []
-    if calendar_event.school:
-        student_filters.append(Student.school == calendar_event.school)
-    if calendar_event.grade:
-        student_filters.append(Student.grade == calendar_event.grade)
-    # Academic stream matching for F4-F6
-    if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
-        student_filters.append(Student.academic_stream == calendar_event.academic_stream)
+    student_filters = _build_student_filters_from_event(calendar_event)
 
-    # Find students with active enrollments at this location
+    # Find students with active enrollments (optionally filtered by location)
     enrolled_students_query = db.query(Student).join(
         Enrollment, Student.id == Enrollment.student_id
     ).filter(
-        Enrollment.location == location,
         Enrollment.payment_status.in_(['Paid', 'Pending Payment']),  # Active enrollments
         *student_filters
-    ).distinct()
+    )
+    if location:
+        enrolled_students_query = enrolled_students_query.filter(Enrollment.location == location)
+    enrolled_students_query = enrolled_students_query.distinct()
 
     students = enrolled_students_query.all()
 
     # For each student, find their pending sessions
     eligible_students = []
-    pending_statuses = PENDING_MAKEUP_STATUSES
-    schedulable_statuses = SCHEDULABLE_STATUSES
 
     for student in students:
-        # Find pending make-up sessions
-        pending_sessions = db.query(SessionLog).options(
-            joinedload(SessionLog.tutor)
-        ).filter(
-            SessionLog.student_id == student.id,
-            SessionLog.location == location,
-            or_(
-                # Pending make-up sessions (any date)
-                and_(
-                    SessionLog.session_status.in_(pending_statuses),
-                    SessionLog.rescheduled_to_id.is_(None)  # Not already booked
-                ),
-                # Future scheduled/make-up sessions that could be used
-                and_(
-                    SessionLog.session_status.in_(schedulable_statuses),
-                    SessionLog.session_date > date.today()
-                )
-            )
+        # Find pending make-up sessions (optionally filtered by location)
+        pending_sessions = _get_consumable_sessions_query(
+            db, student.id, location
         ).order_by(SessionLog.session_date).all()
 
         if pending_sessions:
@@ -568,19 +618,7 @@ async def enroll_student(
         )
 
     # Validate the session can be consumed
-    pending_statuses = PENDING_MAKEUP_STATUSES
-    schedulable_statuses = SCHEDULABLE_STATUSES
-
-    is_pending_makeup = (
-        consume_session.session_status in pending_statuses and
-        consume_session.rescheduled_to_id is None
-    )
-    is_future_scheduled = (
-        consume_session.session_status in schedulable_statuses and
-        consume_session.session_date > date.today()
-    )
-
-    if not (is_pending_makeup or is_future_scheduled):
+    if not _is_session_consumable(consume_session):
         raise HTTPException(
             status_code=400,
             detail=f"Session cannot be consumed. Status: {consume_session.session_status}"
@@ -627,6 +665,10 @@ async def enroll_student(
         )
 
     # Update the consumed session
+    is_pending_makeup = (
+        consume_session.session_status in PENDING_MAKEUP_STATUSES and
+        consume_session.rescheduled_to_id is None
+    )
     if is_pending_makeup:
         # Change from "X - Pending Make-up" to "X - Make-up Booked"
         consume_session.session_status = consume_session.session_status.replace(
@@ -833,22 +875,15 @@ def _count_eligible_students(
     ).distinct()
 
     # Build student filter based on calendar event criteria
-    student_filters = []
-    if calendar_event.school:
-        student_filters.append(Student.school == calendar_event.school)
-    if calendar_event.grade:
-        student_filters.append(Student.grade == calendar_event.grade)
-    if calendar_event.academic_stream and calendar_event.grade in ['F4', 'F5', 'F6']:
-        student_filters.append(Student.academic_stream == calendar_event.academic_stream)
+    student_filters = _build_student_filters_from_event(calendar_event)
 
     # Get students who have pending sessions
-    pending_statuses = PENDING_MAKEUP_STATUSES
 
     # Subquery for students with pending sessions
     student_ids_with_pending = db.query(SessionLog.student_id).filter(
         or_(
             and_(
-                SessionLog.session_status.in_(pending_statuses),
+                SessionLog.session_status.in_(PENDING_MAKEUP_STATUSES),
                 SessionLog.rescheduled_to_id.is_(None)
             ),
             and_(

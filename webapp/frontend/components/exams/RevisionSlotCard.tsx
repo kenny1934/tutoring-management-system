@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { useRevisionSlotDetail, useSession } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
+import { removeSlotFromCache } from "@/lib/exam-revision-cache";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import type { ExamRevisionSlot } from "@/types";
@@ -58,6 +59,7 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh }: RevisionSlotCard
     setIsDeleting(true);
     try {
       await examRevisionAPI.deleteSlot(slot.id);
+      removeSlotFromCache(slot.id, slot.calendar_event_id);
       onRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete slot");

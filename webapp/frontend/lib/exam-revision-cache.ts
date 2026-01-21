@@ -62,3 +62,32 @@ export function removeFromEligibleCache(slotId: number, studentId: number) {
     { revalidate: false }
   );
 }
+
+/**
+ * Remove a deleted revision slot from all relevant caches.
+ * Call this after deleting a slot to update the UI immediately.
+ */
+export function removeSlotFromCache(slotId: number, examId: number) {
+  // Remove from exams-with-slots cache
+  mutate(
+    (key) => Array.isArray(key) && key[0] === 'exams-with-slots',
+    (currentData: ExamWithRevisionSlots[] | undefined) => {
+      if (!currentData) return currentData;
+      return currentData.map(exam =>
+        exam.id === examId
+          ? {
+              ...exam,
+              revision_slots: exam.revision_slots.filter(slot => slot.id !== slotId),
+            }
+          : exam
+      );
+    },
+    { revalidate: false }
+  );
+
+  // Clear slot detail cache
+  mutate(['revision-slot-detail', slotId], undefined, { revalidate: false });
+
+  // Clear eligible students cache for this slot
+  mutate(['eligible-students', slotId], undefined, { revalidate: false });
+}
