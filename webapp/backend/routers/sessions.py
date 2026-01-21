@@ -155,14 +155,45 @@ async def get_session_detail(
     session_data.lang_stream = session.student.lang_stream if session.student else None
     session_data.school = session.student.school if session.student else None
 
-    # Load exercises separately to avoid complex joins
-    exercises = db.query(SessionExercise).filter(
-        SessionExercise.session_id == session_id
+    # Load previous session (most recent attended session for same student, any tutor)
+    previous_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.student_id == session.student_id,
+        SessionLog.session_date < session.session_date,
+        SessionLog.session_status.in_(['Attended', 'Attended (Make-up)'])
+    ).order_by(SessionLog.session_date.desc()).first()
+
+    # Batch load linked sessions (rescheduled_to and make_up_for) in a single query
+    linked_ids = [id for id in [session.rescheduled_to_id, session.make_up_for_id] if id]
+    linked_sessions_map = {}
+    if linked_ids:
+        linked_sessions = db.query(SessionLog).options(
+            joinedload(SessionLog.tutor)
+        ).filter(SessionLog.id.in_(linked_ids)).all()
+        linked_sessions_map = {s.id: s for s in linked_sessions}
+
+    # Batch load exercises for all related sessions (main + previous) in a single query
+    session_ids_for_exercises = {session_id}
+    if previous_session:
+        session_ids_for_exercises.add(previous_session.id)
+
+    all_exercises = db.query(SessionExercise).filter(
+        SessionExercise.session_id.in_(session_ids_for_exercises)
     ).all()
 
+    # Group exercises by session ID
+    exercises_by_session = {}
+    for ex in all_exercises:
+        if ex.session_id not in exercises_by_session:
+            exercises_by_session[ex.session_id] = []
+        exercises_by_session[ex.session_id].append(ex)
+
+    # Set exercises for main session
     session_data.exercises = [
         SessionExerciseResponse.model_validate(exercise)
-        for exercise in exercises
+        for exercise in exercises_by_session.get(session_id, [])
     ]
 
     # Load homework to check from previous session (using homework_to_check view)
@@ -205,16 +236,7 @@ async def get_session_detail(
 
     session_data.homework_completion = homework_completion_list
 
-    # Load previous session (most recent attended session for same student, any tutor)
-    previous_session = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor)
-    ).filter(
-        SessionLog.student_id == session.student_id,
-        SessionLog.session_date < session.session_date,
-        SessionLog.session_status.in_(['Attended', 'Attended (Make-up)'])
-    ).order_by(SessionLog.session_date.desc()).first()
-
+    # Build previous session data with pre-loaded exercises
     if previous_session:
         prev_session_data = DetailedSessionResponse.model_validate(previous_session)
         prev_session_data.student_name = previous_session.student.student_name if previous_session.student else None
@@ -224,14 +246,10 @@ async def get_session_detail(
         prev_session_data.lang_stream = previous_session.student.lang_stream if previous_session.student else None
         prev_session_data.school = previous_session.student.school if previous_session.student else None
 
-        # Load exercises for previous session
-        prev_exercises = db.query(SessionExercise).filter(
-            SessionExercise.session_id == previous_session.id
-        ).all()
-
+        # Use pre-loaded exercises
         prev_session_data.exercises = [
             SessionExerciseResponse.model_validate(exercise)
-            for exercise in prev_exercises
+            for exercise in exercises_by_session.get(previous_session.id, [])
         ]
 
         session_data.previous_session = prev_session_data
@@ -256,20 +274,14 @@ async def get_session_detail(
     if nav_next:
         session_data.nav_next_id = nav_next.id
 
-    # Load linked sessions (rescheduled_to and make_up_for)
-    if session.rescheduled_to_id:
-        linked = db.query(SessionLog).options(
-            joinedload(SessionLog.tutor)
-        ).filter(SessionLog.id == session.rescheduled_to_id).first()
-        if linked:
-            session_data.rescheduled_to = _build_linked_session_info(linked, linked.tutor)
+    # Use pre-loaded linked sessions
+    if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions_map:
+        linked = linked_sessions_map[session.rescheduled_to_id]
+        session_data.rescheduled_to = _build_linked_session_info(linked, linked.tutor)
 
-    if session.make_up_for_id:
-        linked = db.query(SessionLog).options(
-            joinedload(SessionLog.tutor)
-        ).filter(SessionLog.id == session.make_up_for_id).first()
-        if linked:
-            session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)
+    if session.make_up_for_id and session.make_up_for_id in linked_sessions_map:
+        linked = linked_sessions_map[session.make_up_for_id]
+        session_data.make_up_for = _build_linked_session_info(linked, linked.tutor)
 
     return session_data
 
@@ -612,26 +624,62 @@ async def get_makeup_suggestions(
     start_date = date.today()
     end_date = start_date + timedelta(days=days_ahead)
 
-    # Get all sessions in the date range at same location with active statuses
-    active_statuses = ["Scheduled", "Make-up Class"]
-    sessions = db.query(SessionLog).options(
-        joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor)
-    ).filter(
-        SessionLog.location == location,
-        SessionLog.session_date >= start_date,
-        SessionLog.session_date <= end_date,
-        SessionLog.session_status.in_(active_statuses)
-    ).all()
-
-    # Get holidays in the range
+    # Get holidays in the range first (small query)
     holidays = db.query(Holiday).filter(
         Holiday.holiday_date >= start_date,
         Holiday.holiday_date <= end_date
     ).all()
     holiday_dates = {h.holiday_date for h in holidays}
 
-    # Group sessions by (date, time_slot, tutor_id)
+    # Optimized: First query to get slot counts and identify non-full slots (< 8 students)
+    # This filters out full slots at DB level instead of loading all sessions
+    active_statuses = ["Scheduled", "Make-up Class"]
+    slot_counts = db.query(
+        SessionLog.session_date,
+        SessionLog.time_slot,
+        SessionLog.tutor_id,
+        func.count(SessionLog.id).label('slot_count')
+    ).filter(
+        SessionLog.location == location,
+        SessionLog.session_date >= start_date,
+        SessionLog.session_date <= end_date,
+        SessionLog.session_status.in_(active_statuses),
+        ~SessionLog.session_date.in_(holiday_dates) if holiday_dates else True  # Skip holidays at DB level
+    ).group_by(
+        SessionLog.session_date,
+        SessionLog.time_slot,
+        SessionLog.tutor_id
+    ).having(
+        func.count(SessionLog.id) < 8  # Only non-full slots
+    ).all()
+
+    # Build set of valid (non-full) slot keys
+    valid_slot_keys = {(sc.session_date, sc.time_slot, sc.tutor_id) for sc in slot_counts}
+
+    # Now fetch only sessions that belong to non-full slots
+    # This significantly reduces data transfer when many slots are full
+    sessions = []
+    if valid_slot_keys:
+        # Build filter conditions for valid slots
+        from sqlalchemy import tuple_
+        slot_filter = tuple_(
+            SessionLog.session_date,
+            SessionLog.time_slot,
+            SessionLog.tutor_id
+        ).in_(valid_slot_keys)
+
+        sessions = db.query(SessionLog).options(
+            joinedload(SessionLog.student),
+            joinedload(SessionLog.tutor)
+        ).filter(
+            SessionLog.location == location,
+            SessionLog.session_date >= start_date,
+            SessionLog.session_date <= end_date,
+            SessionLog.session_status.in_(active_statuses),
+            slot_filter
+        ).all()
+
+    # Group sessions by (date, time_slot, tutor_id) - now a much smaller set
     from collections import defaultdict
     slots = defaultdict(list)
     for session in sessions:
@@ -649,16 +697,9 @@ async def get_makeup_suggestions(
             time_slots.add(session.time_slot)
 
     # Generate scored suggestions
+    # Note: Holidays and full slots already filtered at DB level
     suggestions = []
     for (slot_date, time_slot, tutor_id), slot_sessions in slots.items():
-        # Skip holidays
-        if slot_date in holiday_dates:
-            continue
-
-        # Skip if full (8 or more students)
-        if len(slot_sessions) >= 8:
-            continue
-
         tutor = tutor_map.get(tutor_id)
         if not tutor:
             continue
