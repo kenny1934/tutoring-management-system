@@ -34,13 +34,11 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, DAY_NAMES } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Session } from "@/types";
 import type { FileSelection } from "@/components/ui/folder-tree-modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
-
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Session selection with exercise type
 interface SessionSelection {
@@ -575,7 +573,7 @@ export function SessionSelectorModal({
             <>
               {/* Weekday headers */}
               <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                {WEEKDAY_NAMES.map((day, idx) => (
+                {DAY_NAMES.map((day, idx) => (
                   <div
                     key={day}
                     className={cn(

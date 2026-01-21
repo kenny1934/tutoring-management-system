@@ -50,3 +50,23 @@ export const FLOATING_UI_MIDDLEWARE_CONFIG = {
 
 // Current user constant (will be replaced with OAuth)
 export const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
+
+// Time slot constants for scheduling
+export const WEEKDAY_TIME_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"] as const;
+export const WEEKEND_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"] as const;
+export const ALL_TIME_SLOTS = [...WEEKEND_TIME_SLOTS.slice(0, 4), WEEKDAY_TIME_SLOTS[0], WEEKEND_TIME_SLOTS[4], WEEKDAY_TIME_SLOTS[1]] as const;
+
+/**
+ * Get appropriate time slots for a given day
+ */
+export function getTimeSlotsForDay(dayIndex: number): readonly string[] {
+  return dayIndex === 0 || dayIndex === 6 ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
+}
+
+/**
+ * Check if a date string represents a weekend
+ */
+export function isWeekend(dateStr: string): boolean {
+  const day = new Date(dateStr).getDay();
+  return day === 0 || day === 6;
+}

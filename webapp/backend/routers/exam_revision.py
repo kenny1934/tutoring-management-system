@@ -30,34 +30,11 @@ from schemas import (
     SessionResponse,
     SessionExerciseResponse,
 )
+from utils.response_builders import build_session_response as _build_session_response
+from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# Session status constants
-ENROLLED_SESSION_STATUSES = ['Scheduled', 'Make-up Class', 'Attended', 'Attended (Make-up)']
-PENDING_MAKEUP_STATUSES = [
-    'Rescheduled - Pending Make-up',
-    'Sick Leave - Pending Make-up',
-    'Weather Cancelled - Pending Make-up'
-]
-SCHEDULABLE_STATUSES = ['Scheduled', 'Make-up Class']
-
-
-def _build_session_response(session: SessionLog) -> SessionResponse:
-    """Build a SessionResponse from a SessionLog."""
-    data = SessionResponse.model_validate(session)
-    data.student_name = session.student.student_name if session.student else None
-    data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    data.school_student_id = session.student.school_student_id if session.student else None
-    data.grade = session.student.grade if session.student else None
-    data.lang_stream = session.student.lang_stream if session.student else None
-    data.school = session.student.school if session.student else None
-    data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ] if session.exercises else []
-    return data
 
 
 def _build_student_filters_from_event(calendar_event: CalendarEvent) -> list:
