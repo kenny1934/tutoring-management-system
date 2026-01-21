@@ -1464,7 +1464,7 @@ export default function SessionsPage() {
 
       {/* Session count */}
       <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
-        {sessions.length} sessions
+        {sessions.filter(isCountableSession).length} sessions
       </span>
     </>
   );
