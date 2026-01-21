@@ -548,18 +548,25 @@ export function ZenProvider({ children }: { children: ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Save state whenever it changes
+  // Save state whenever it changes (debounced to avoid excessive writes)
   useEffect(() => {
     if (!mounted) return;
-    saveState({
-      enabled,
-      theme: themeId,
-      themeOverrides,
-      commandHistory,
-      glowEnabled,
-      glowIntensity,
-      isExiting: false, // Never persist exit state
-    });
+
+    // Debounce localStorage saves by 500ms to avoid excessive writes
+    // during rapid changes like glow slider adjustments
+    const timer = setTimeout(() => {
+      saveState({
+        enabled,
+        theme: themeId,
+        themeOverrides,
+        commandHistory,
+        glowEnabled,
+        glowIntensity,
+        isExiting: false, // Never persist exit state
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [enabled, themeId, themeOverrides, commandHistory, glowEnabled, glowIntensity, mounted]);
 
   const theme = ZEN_THEMES[themeId] || ZEN_THEMES[DEFAULT_THEME];
