@@ -493,6 +493,7 @@ export default function StudentDetailPage() {
               {activeTab === "sessions" && (
                 <SessionsTab
                   sessions={sortedSessions}
+                  enrollments={enrollments}
                   loading={sessionsLoading}
                   isMobile={isMobile}
                   onSessionClick={(session, e) => {
@@ -1016,6 +1017,7 @@ function EditableInfoRow({
 // Sessions Tab Component
 function SessionsTab({
   sessions,
+  enrollments,
   loading,
   isMobile,
   onSessionClick,
@@ -1024,6 +1026,7 @@ function SessionsTab({
   onProposalClick,
 }: {
   sessions: Session[];
+  enrollments: Enrollment[];
   loading: boolean;
   isMobile: boolean;
   onSessionClick: (session: Session, e: React.MouseEvent) => void;
@@ -1031,6 +1034,43 @@ function SessionsTab({
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
 }) {
+  // Group sessions by enrollment
+  const sessionsByEnrollment = useMemo(() => {
+    const grouped = new Map<number, Session[]>();
+    sessions.forEach((session) => {
+      const enrollmentId = session.enrollment_id;
+      if (!grouped.has(enrollmentId)) {
+        grouped.set(enrollmentId, []);
+      }
+      grouped.get(enrollmentId)!.push(session);
+    });
+
+    // Sort sessions within each group by date (most recent first)
+    grouped.forEach((enrollmentSessions) => {
+      enrollmentSessions.sort((a, b) =>
+        new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+      );
+    });
+
+    return grouped;
+  }, [sessions]);
+
+  // Create enrollment lookup map
+  const enrollmentMap = useMemo(() => {
+    return new Map(enrollments.map(e => [e.id, e]));
+  }, [enrollments]);
+
+  // Sort enrollment groups by most recent session date
+  const sortedEnrollmentIds = useMemo(() => {
+    return Array.from(sessionsByEnrollment.entries())
+      .sort(([, sessionsA], [, sessionsB]) => {
+        const latestA = Math.max(...sessionsA.map(s => new Date(s.session_date).getTime()));
+        const latestB = Math.max(...sessionsB.map(s => new Date(s.session_date).getTime()));
+        return latestB - latestA;
+      })
+      .map(([id]) => id);
+  }, [sessionsByEnrollment]);
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -1057,90 +1097,124 @@ function SessionsTab({
     );
   }
 
+  // Render a single session card
+  const renderSessionCard = (session: Session, index: number) => {
+    const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
+    const StatusIcon = statusConfig.Icon;
+    const sessionDate = new Date(session.session_date + 'T00:00:00');
+
+    return (
+      <motion.div
+        key={session.id}
+        onClick={(e) => onSessionClick(session, e)}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+        className={cn(
+          "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] cursor-pointer",
+          statusConfig.bgTint,
+          !isMobile && "paper-texture",
+          selectedSessionId === session.id && "ring-2 ring-[#a0704b]"
+        )}
+      >
+        <div className="flex-1 p-3 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+            <span className="text-xs text-gray-400">•</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {session.time_slot}
+            </span>
+            {session.financial_status && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                {session.financial_status === "Paid" ? (
+                  <span className="flex items-center gap-0.5 text-xs text-green-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">Paid</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-0.5 text-xs text-red-600">
+                    <HandCoins className="h-3 w-3" />
+                    <span className="hidden sm:inline">Unpaid</span>
+                  </span>
+                )}
+              </>
+            )}
+            {/* Proposal indicator for pending makeup sessions */}
+            {sessionProposalMap?.has(session.id) && (
+              <ProposalIndicatorBadge
+                proposal={sessionProposalMap.get(session.id)!}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProposalClick?.(sessionProposalMap.get(session.id)!);
+                }}
+                size="sm"
+              />
+            )}
+            <Link
+              href={`/sessions/${session.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </Link>
+          </div>
+          {session.notes && (
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
+              {session.notes}
+            </p>
+          )}
+        </div>
+        <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.bgClass)}>
+          <StatusIcon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
-    <div className="space-y-2">
-      {sessions.map((session, index) => {
-        const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
-        const StatusIcon = statusConfig.Icon;
-        const sessionDate = new Date(session.session_date + 'T00:00:00');
+    <div className="space-y-6">
+      {sortedEnrollmentIds.map((enrollmentId) => {
+        const enrollment = enrollmentMap.get(enrollmentId);
+        const enrollmentSessions = sessionsByEnrollment.get(enrollmentId) || [];
 
         return (
-          <motion.div
-            key={session.id}
-            onClick={(e) => onSessionClick(session, e)}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
-            className={cn(
-              "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] cursor-pointer",
-              statusConfig.bgTint,
-              !isMobile && "paper-texture",
-              selectedSessionId === session.id && "ring-2 ring-[#a0704b]"
-            )}
-          >
-            <div className="flex-1 p-3 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </span>
-                <span className="text-xs text-gray-400">•</span>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {session.time_slot}
-                </span>
-                {session.tutor_name && (
-                  <>
-                    <span className="text-xs text-gray-400">•</span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400">
-                      {session.tutor_name}
-                    </span>
-                  </>
-                )}
-                {session.financial_status && (
-                  <>
-                    <span className="text-xs text-gray-400">•</span>
-                    {session.financial_status === "Paid" ? (
-                      <span className="flex items-center gap-0.5 text-xs text-green-600">
-                        <CheckCircle2 className="h-3 w-3" />
-                        <span className="hidden sm:inline">Paid</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-0.5 text-xs text-red-600">
-                        <HandCoins className="h-3 w-3" />
-                        <span className="hidden sm:inline">Unpaid</span>
-                      </span>
-                    )}
-                  </>
-                )}
-                {/* Proposal indicator for pending makeup sessions */}
-                {sessionProposalMap?.has(session.id) && (
-                  <ProposalIndicatorBadge
-                    proposal={sessionProposalMap.get(session.id)!}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onProposalClick?.(sessionProposalMap.get(session.id)!);
-                    }}
-                    size="sm"
-                  />
-                )}
-                <Link
-                  href={`/sessions/${session.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="ml-auto flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              </div>
-              {session.notes && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">
-                  {session.notes}
-                </p>
+          <div key={enrollmentId} className="space-y-2">
+            {/* Enrollment Header */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <Calendar className="h-4 w-4 text-[#a0704b]" />
+              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
+              </span>
+              {enrollment?.tutor_name && (
+                <>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {enrollment.tutor_name}
+                  </span>
+                </>
               )}
+              {enrollment?.location && (
+                <>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {enrollment.location}
+                  </span>
+                </>
+              )}
+              <span className="ml-auto text-xs text-gray-500">
+                {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
+              </span>
             </div>
-            <div className={cn("w-10 flex-shrink-0 flex items-center justify-center", statusConfig.bgClass)}>
-              <StatusIcon className={cn("h-4 w-4 text-white", statusConfig.iconClass)} />
+
+            {/* Session Cards */}
+            <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+              {enrollmentSessions.map((session, index) => renderSessionCard(session, index))}
             </div>
-          </motion.div>
+          </div>
         );
       })}
     </div>
