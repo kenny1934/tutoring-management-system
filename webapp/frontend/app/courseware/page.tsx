@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, Fragment, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Fuse from "fuse.js";
 import { motion } from "framer-motion";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -53,15 +54,41 @@ import { cn } from "@/lib/utils";
 import { CopyPathButton } from "@/components/ui/copy-path-button";
 import Link from "next/link";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
-import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import { getRecentDocuments, addRecentDocument, clearRecentDocuments, type RecentDocument } from "@/lib/shelv-storage";
-import { FolderTreeModal, type FileSelection, validatePageInput } from "@/components/ui/folder-tree-modal";
+import { type FileSelection, validatePageInput } from "@/components/ui/folder-tree-modal";
 import { getPageCount } from "@/lib/pdf-utils";
-import { SessionSelectorModal } from "@/components/sessions/SessionSelectorModal";
 import { HandwritingRemovalToolbar } from "@/components/ui/handwriting-removal-toolbar";
-import { BrowsePdfPreview } from "@/components/courseware/BrowsePdfPreview";
-import { BrowseSelectionPanel } from "@/components/courseware/BrowseSelectionPanel";
-import { SearchSelectionBar } from "@/components/courseware/SearchSelectionBar";
+
+// Dynamic imports for modals and tab-specific components
+const PdfPreviewModal = dynamic(
+  () => import("@/components/ui/pdf-preview-modal").then(mod => mod.PdfPreviewModal),
+  { ssr: false }
+);
+
+const FolderTreeModal = dynamic(
+  () => import("@/components/ui/folder-tree-modal").then(mod => mod.FolderTreeModal),
+  { ssr: false }
+);
+
+const SessionSelectorModal = dynamic(
+  () => import("@/components/sessions/SessionSelectorModal").then(mod => mod.SessionSelectorModal),
+  { ssr: false }
+);
+
+const BrowsePdfPreview = dynamic(
+  () => import("@/components/courseware/BrowsePdfPreview").then(mod => mod.BrowsePdfPreview),
+  { ssr: false }
+);
+
+const BrowseSelectionPanel = dynamic(
+  () => import("@/components/courseware/BrowseSelectionPanel").then(mod => mod.BrowseSelectionPanel),
+  { ssr: false }
+);
+
+const SearchSelectionBar = dynamic(
+  () => import("@/components/courseware/SearchSelectionBar").then(mod => mod.SearchSelectionBar),
+  { ssr: false }
+);
 import { CalendarPlus } from "lucide-react";
 import type { CoursewarePopularity, CoursewareUsageDetail } from "@/types";
 import { getDocumentPath, getTrendingPath, type ExtendedPaperlessDocument } from "@/lib/courseware-utils";

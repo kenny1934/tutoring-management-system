@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2 } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -14,10 +15,30 @@ import { PageTransition, IndexCard, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
-import { WeeklyGridView } from "@/components/sessions/WeeklyGridView";
-import { DailyGridView } from "@/components/sessions/DailyGridView";
-import { MonthlyCalendarView } from "@/components/sessions/MonthlyCalendarView";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
+
+// Loading skeleton for grid views
+const GridViewLoading = () => (
+  <div className="flex-1 flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+  </div>
+);
+
+// Dynamic imports for view components - only loaded when needed
+const WeeklyGridView = dynamic(
+  () => import("@/components/sessions/WeeklyGridView").then(mod => mod.WeeklyGridView),
+  { loading: GridViewLoading }
+);
+
+const DailyGridView = dynamic(
+  () => import("@/components/sessions/DailyGridView").then(mod => mod.DailyGridView),
+  { loading: GridViewLoading }
+);
+
+const MonthlyCalendarView = dynamic(
+  () => import("@/components/sessions/MonthlyCalendarView").then(mod => mod.MonthlyCalendarView),
+  { loading: GridViewLoading }
+);
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";

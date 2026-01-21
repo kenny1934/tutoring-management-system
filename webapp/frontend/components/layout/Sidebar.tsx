@@ -138,7 +138,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           // Mobile: Logo + Close button
           <>
             <div className="flex items-center gap-3">
-              <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" />
+              <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" priority />
               <div>
                 <span className="font-bold text-xl block">CSM Pro</span>
                 <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
@@ -166,6 +166,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 alt="CSM Pro"
                 width={36}
                 height={36}
+                priority
                 className={cn(
                   "transition-all duration-350 group-hover:scale-105",
                   isCollapsed ? "h-8 w-auto" : "h-9 w-auto"
