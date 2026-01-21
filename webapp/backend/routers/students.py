@@ -2,7 +2,7 @@
 Students API endpoints.
 Provides read-only access to student data.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select
 from typing import List, Optional
@@ -14,8 +14,9 @@ router = APIRouter()
 
 
 @router.get("/students/schools", response_model=List[str])
-async def get_unique_schools(db: Session = Depends(get_db)):
+async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
     """Get list of all unique school names for autocomplete."""
+    response.headers["Cache-Control"] = "private, max-age=300"
     schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().all()
     return sorted([s[0] for s in schools if s[0]])
 

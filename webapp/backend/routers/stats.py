@@ -2,7 +2,7 @@
 Stats API endpoints.
 Provides dashboard summary statistics.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_
 from typing import List, Optional, Dict, Any
@@ -15,12 +15,14 @@ router = APIRouter()
 
 
 @router.get("/locations", response_model=List[str])
-async def get_locations(db: Session = Depends(get_db)):
+async def get_locations(response: Response, db: Session = Depends(get_db)):
     """
     Get list of all unique locations from enrollments and sessions.
 
     Returns a sorted list of location names (e.g., ["MSA", "MSB"]).
     """
+    response.headers["Cache-Control"] = "private, max-age=300"
+
     # Get unique locations from enrollments
     enrollment_locations = db.query(Enrollment.location).filter(
         Enrollment.location.isnot(None)

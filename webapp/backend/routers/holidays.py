@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date
@@ -12,6 +12,7 @@ router = APIRouter()
 
 @router.get("/holidays", response_model=List[HolidayResponse])
 async def get_holidays(
+    response: Response,
     from_date: Optional[date] = Query(None, description="Filter holidays >= this date"),
     to_date: Optional[date] = Query(None, description="Filter holidays <= this date"),
     db: Session = Depends(get_db)
@@ -27,6 +28,7 @@ async def get_holidays(
     Returns:
         List of holidays matching the filters
     """
+    response.headers["Cache-Control"] = "private, max-age=300"
     query = db.query(Holiday)
 
     if from_date:

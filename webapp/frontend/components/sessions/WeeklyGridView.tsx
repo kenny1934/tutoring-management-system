@@ -55,7 +55,7 @@ export function WeeklyGridView({
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
-  const [expandedEmptyDays, setExpandedEmptyDays] = useState<Set<number>>(new Set());
+  const [expandedEmptyDays, setExpandedEmptyDays] = useState<Set<number>>(() => new Set());
   const [showAllDays, setShowAllDays] = useState(false);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());
