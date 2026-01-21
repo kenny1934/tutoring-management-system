@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { getGradeColor } from "@/lib/constants";
 import { useRevisionSlotDetail, useSession } from "@/lib/hooks";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { examRevisionAPI } from "@/lib/api";
 import { removeSlotFromCache } from "@/lib/exam-revision-cache";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -26,9 +26,10 @@ interface RevisionSlotCardProps {
   slot: ExamRevisionSlot;
   onEnroll: () => void;
   onRefresh: () => void;
+  showLocationPrefix?: boolean;
 }
 
-export function RevisionSlotCard({ slot, onEnroll, onRefresh }: RevisionSlotCardProps) {
+export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix }: RevisionSlotCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingId, setIsRemovingId] = useState<number | null>(null);
@@ -173,7 +174,7 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh }: RevisionSlotCard
             </div>
           ) : slotDetail?.enrolled_students.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-              No students enrolled yet
+              No students enrolled yet. Click &quot;Enroll&quot; above to add students.
             </p>
           ) : (
             <div className="space-y-1">
@@ -191,28 +192,8 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh }: RevisionSlotCard
                     selectedSessionId === student.session_id && isLoadingSession && "opacity-70"
                   )}
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                    {student.school_student_id && (
-                      <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px]">
-                        {student.school_student_id}
-                      </span>
-                    )}
-                    <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                      {student.student_name}
-                    </span>
-                    {student.grade && (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-                        style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-                      >
-                        {student.grade}{student.lang_stream || ''}
-                      </span>
-                    )}
-                    {student.school && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                        {student.school}
-                      </span>
-                    )}
+                  <div className="min-w-0">
+                    <StudentInfoBadges student={student} showLocationPrefix={showLocationPrefix} />
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {selectedSessionId === student.session_id && isLoadingSession ? (

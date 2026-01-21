@@ -877,6 +877,7 @@ class EnrolledStudentInfo(BaseModel):
     school: Optional[str] = Field(None, max_length=200)
     lang_stream: Optional[str] = Field(None, max_length=50)
     academic_stream: Optional[str] = Field(None, max_length=50)
+    home_location: Optional[str] = Field(None, max_length=200, description="Student's home location for display prefix")
     session_status: str = Field(..., max_length=50)
     consumed_session_id: Optional[int] = Field(None, gt=0, description="Original session that was consumed")
 
@@ -909,6 +910,7 @@ class EligibleStudentResponse(BaseModel):
     school: Optional[str] = Field(None, max_length=200)
     lang_stream: Optional[str] = Field(None, max_length=50)
     academic_stream: Optional[str] = Field(None, max_length=50)
+    home_location: Optional[str] = Field(None, max_length=200, description="Student's home location for display prefix")
     pending_sessions: List[PendingSessionInfo] = Field(default_factory=list, description="Sessions available to consume")
 
     model_config = ConfigDict(from_attributes=True)

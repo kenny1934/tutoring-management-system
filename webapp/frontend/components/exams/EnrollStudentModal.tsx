@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { useEligibleStudents, useTutors } from "@/lib/hooks";
+import { CURRENT_USER_TUTOR } from "@/lib/constants";
+import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { removeFromEligibleCache, updateExamEnrollmentCount } from "@/lib/exam-revision-cache";
-import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import type { ExamRevisionSlot, EligibleStudent } from "@/types";
 import {
   X,
   Loader2,
@@ -19,7 +19,6 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from "lucide-react";
 
 interface EnrollStudentModalProps {
@@ -27,6 +26,7 @@ interface EnrollStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEnrolled: () => void;
+  showLocationPrefix?: boolean;
 }
 
 export function EnrollStudentModal({
@@ -34,6 +34,7 @@ export function EnrollStudentModal({
   isOpen,
   onClose,
   onEnrolled,
+  showLocationPrefix,
 }: EnrollStudentModalProps) {
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
@@ -57,19 +58,11 @@ export function EnrollStudentModal({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Filter students by search
-  const filteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return eligibleStudents;
-
-    const query = searchQuery.toLowerCase();
-    return eligibleStudents.filter((student) => {
-      return (
-        student.student_name.toLowerCase().includes(query) ||
-        student.school_student_id?.toLowerCase().includes(query) ||
-        student.grade?.toLowerCase().includes(query) ||
-        student.school?.toLowerCase().includes(query)
-      );
-    });
-  }, [eligibleStudents, searchQuery]);
+  const filteredStudents = useFilteredList(
+    eligibleStudents,
+    searchQuery,
+    ['student_name', 'school_student_id', 'grade', 'school']
+  );
 
   const handleToggleStudent = (studentId: number) => {
     if (expandedStudentId === studentId) {
@@ -215,7 +208,7 @@ export function EnrollStudentModal({
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {searchQuery
                   ? "No matching students found"
-                  : "No eligible students for this revision slot"}
+                  : "No eligible students for this revision slot. Eligible students must match the exam's school/grade criteria and have pending sessions at this location."}
               </p>
             </div>
           ) : (
@@ -234,36 +227,7 @@ export function EnrollStudentModal({
                     onClick={() => handleToggleStudent(student.student_id)}
                     className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
                   >
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {student.school_student_id && (
-                        <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px]">
-                          {student.school_student_id}
-                        </span>
-                      )}
-                      <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                        {student.student_name}
-                      </span>
-                      <Link
-                        href={`/students/${student.student_id}?tab=sessions`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="text-[#a0704b] hover:text-[#8a5f3e] transition-colors"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                      {student.grade && (
-                        <span
-                          className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-                          style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-                        >
-                          {student.grade}{student.lang_stream || ''}
-                        </span>
-                      )}
-                      {student.school && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                          {student.school}
-                        </span>
-                      )}
-                    </div>
+                    <StudentInfoBadges student={student} showLink showLocationPrefix={showLocationPrefix} />
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
