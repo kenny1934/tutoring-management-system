@@ -41,7 +41,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
               <Menu className="h-6 w-6" />
             </button>
             <div className="flex items-center gap-2 ml-2">
-              <Image src="/logo.png" alt="CSM Pro" width={28} height={28} className="h-7 w-auto" />
+              <Image src="/logo.png" alt="CSM Pro" width={28} height={28} className="h-7 w-auto" priority />
               <span className="font-bold text-lg">CSM Pro</span>
             </div>
           </div>
