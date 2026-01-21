@@ -1271,7 +1271,7 @@ export default function SessionsPage() {
             </div>
           ) : (
             /* List View Skeleton */
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {[1, 2, 3].map((i) => (
                 <motion.div
                   key={i}
