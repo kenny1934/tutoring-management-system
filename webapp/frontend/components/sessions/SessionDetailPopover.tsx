@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState, useCallback } from "react";
+import { useMemo, useEffect, useState, useCallback, memo } from "react";
 import Link from "next/link";
 import {
   useFloating,
@@ -41,8 +41,8 @@ import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
 
-// Exercise item with copy, open, and print functionality
-function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
+// Exercise item with copy, open, and print functionality - memoized to prevent re-renders
+const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -158,7 +158,14 @@ function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?:
       )}
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if exercise data changes
+  return (
+    prevProps.exercise.pdf_name === nextProps.exercise.pdf_name &&
+    prevProps.exercise.page_start === nextProps.exercise.page_start &&
+    prevProps.exercise.page_end === nextProps.exercise.page_end
+  );
+});
 
 // Exercises list component
 function ExercisesList({ exercises, session }: {
@@ -171,11 +178,14 @@ function ExercisesList({ exercises, session }: {
   const [hwDownloadState, setHwDownloadState] = useState<'idle' | 'loading' | 'error'>('idle');
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
-  const cwExercises = exercises.filter(
-    (ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"
+  // Memoize filtered arrays to prevent recalculation on each render
+  const cwExercises = useMemo(
+    () => exercises.filter((ex) => ex.exercise_type === "Classwork" || ex.exercise_type === "CW"),
+    [exercises]
   );
-  const hwExercises = exercises.filter(
-    (ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"
+  const hwExercises = useMemo(
+    () => exercises.filter((ex) => ex.exercise_type === "Homework" || ex.exercise_type === "HW"),
+    [exercises]
   );
 
   // Generate filename components
@@ -287,8 +297,8 @@ function ExercisesList({ exercises, session }: {
             )}
           </div>
           <div className="space-y-0.5 pl-4">
-            {cwExercises.map((ex, i) => (
-              <ExerciseItem key={i} exercise={ex} />
+            {cwExercises.map((ex) => (
+              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
             ))}
           </div>
         </div>
@@ -332,8 +342,8 @@ function ExercisesList({ exercises, session }: {
             )}
           </div>
           <div className="space-y-0.5 pl-4">
-            {hwExercises.map((ex, i) => (
-              <ExerciseItem key={i} exercise={ex} />
+            {hwExercises.map((ex) => (
+              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
             ))}
           </div>
         </div>
@@ -963,8 +973,8 @@ export function SessionDetailPopover({
                       {/* Previous CW */}
                       {prevClasswork.length > 0 && (
                         <div className="mt-1 space-y-0.5">
-                          {prevClasswork.map((ex, i) => (
-                            <ExerciseItem key={i} exercise={ex} />
+                          {prevClasswork.map((ex) => (
+                            <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
                           ))}
                         </div>
                       )}
