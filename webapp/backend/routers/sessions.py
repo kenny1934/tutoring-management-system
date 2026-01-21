@@ -11,41 +11,10 @@ from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
 from datetime import date, timedelta, datetime
+from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def _build_linked_session_info(session: SessionLog, tutor: Tutor = None) -> LinkedSessionInfo:
-    """Build a LinkedSessionInfo object from a session."""
-    return LinkedSessionInfo(
-        id=session.id,
-        session_date=session.session_date,
-        time_slot=session.time_slot,
-        tutor_name=tutor.tutor_name if tutor else None,
-        session_status=session.session_status
-    )
-
-
-def _build_session_response(session: SessionLog) -> SessionResponse:
-    """
-    Build a SessionResponse from a SessionLog with student/tutor/exercise data.
-
-    Centralizes the common pattern of populating student fields, tutor name,
-    and exercises from the loaded session relationships.
-    """
-    data = SessionResponse.model_validate(session)
-    data.student_name = session.student.student_name if session.student else None
-    data.tutor_name = session.tutor.tutor_name if session.tutor else None
-    data.school_student_id = session.student.school_student_id if session.student else None
-    data.grade = session.student.grade if session.student else None
-    data.lang_stream = session.student.lang_stream if session.student else None
-    data.school = session.student.school if session.student else None
-    data.exercises = [
-        SessionExerciseResponse.model_validate(ex)
-        for ex in session.exercises
-    ]
-    return data
 
 
 @router.get("/sessions", response_model=List[SessionResponse])

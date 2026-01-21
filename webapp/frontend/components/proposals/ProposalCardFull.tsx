@@ -9,8 +9,8 @@ import { useTutors, useSessions, useLocations } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
-import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
-import { formatProposalDate } from "@/lib/formatters";
+import { getGradeColor, CURRENT_USER_TUTOR, ALL_TIME_SLOTS } from "@/lib/constants";
+import { formatProposalDate, formatTimeAgo } from "@/lib/formatters";
 import type { MakeupProposal, MakeupProposalSlot, Session, Tutor } from "@/types";
 import {
   CalendarClock,
@@ -35,39 +35,12 @@ import {
   Pencil,
   Save,
 } from "lucide-react";
-// All possible time slots (weekday + weekend)
-const TIME_SLOTS = [
-  "10:00 - 11:30",
-  "11:45 - 13:15",
-  "14:30 - 16:00",
-  "16:15 - 17:45",
-  "16:45 - 18:15",
-  "18:00 - 19:30",
-  "18:25 - 19:55",
-];
-
 interface ProposalCardFullProps {
   proposal: MakeupProposal;
   currentTutorId: number;
   onSelectSlot?: () => void;
   className?: string;
   defaultExpanded?: boolean;
-}
-
-// Format relative time
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // Slot status badge
@@ -311,7 +284,7 @@ function SlotItem({
                       onChange={(e) => setEditTime(e.target.value)}
                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-[#2a2a2a]"
                     >
-                      {TIME_SLOTS.map((ts) => (
+                      {ALL_TIME_SLOTS.map((ts) => (
                         <option key={ts} value={ts}>{ts}</option>
                       ))}
                     </select>
@@ -418,7 +391,7 @@ function SlotItem({
 
                 {slot.resolved_at && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {slot.slot_status === "approved" ? "Approved" : "Rejected"} {formatRelativeTime(slot.resolved_at)}
+                    {slot.slot_status === "approved" ? "Approved" : "Rejected"} {formatTimeAgo(slot.resolved_at)}
                     {slot.resolved_by_tutor_name && ` by ${slot.resolved_by_tutor_name}`}
                   </div>
                 )}

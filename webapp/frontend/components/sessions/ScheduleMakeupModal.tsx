@@ -20,7 +20,7 @@ import {
   getMonthBounds,
 } from "@/lib/calendar-utils";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { getGradeColor } from "@/lib/constants";
+import { getGradeColor, DAY_NAMES, WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft,
@@ -44,11 +44,7 @@ import {
 } from "lucide-react";
 import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
 
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// Fallback time slots when no sessions exist (based on day of week)
-const WEEKDAY_TIME_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"];
-const WEEKEND_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"];
+// Time slot constants imported from @/lib/constants
 
 // Scoring weights for make-up slot suggestions
 interface ScoringWeights {
@@ -1435,7 +1431,7 @@ export function ScheduleMakeupModal({
             <>
               {/* Weekday headers */}
               <div className="grid grid-cols-7 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                {WEEKDAY_NAMES.map((day, idx) => (
+                {DAY_NAMES.map((day, idx) => (
                   <div
                     key={day}
                     className={cn(

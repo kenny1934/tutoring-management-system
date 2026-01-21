@@ -7,6 +7,7 @@ import { useTutors, useLocations } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { addSlotToExamsCache } from "@/lib/exam-revision-cache";
 import { useLocation } from "@/contexts/LocationContext";
+import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
 import type { ExamWithRevisionSlots } from "@/types";
 import {
   X,
@@ -26,16 +27,6 @@ interface CreateRevisionSlotModalProps {
   onCreated: () => void;
   currentTutorId: number;
 }
-
-// Real time slots (matching ScheduleMakeupModal)
-const WEEKDAY_TIME_SLOTS = ["16:45 - 18:15", "18:25 - 19:55"];
-const WEEKEND_TIME_SLOTS = ["10:00 - 11:30", "11:45 - 13:15", "14:30 - 16:00", "16:15 - 17:45", "18:00 - 19:30"];
-
-// Check if a date is weekend
-const isWeekend = (dateStr: string) => {
-  const day = new Date(dateStr).getDay();
-  return day === 0 || day === 6;
-};
 
 export function CreateRevisionSlotModal({
   exam,

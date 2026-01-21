@@ -67,14 +67,14 @@ def _build_proposal_response(
     # Get original session if requested
     original_session = None
     if include_session and db and proposal.original_session:
-        from routers.sessions import _build_session_response
+        from utils.response_builders import build_session_response
         session = db.query(SessionLog).options(
             joinedload(SessionLog.student),
             joinedload(SessionLog.tutor),
             joinedload(SessionLog.exercises)
         ).filter(SessionLog.id == proposal.original_session_id).first()
         if session:
-            original_session = _build_session_response(session)
+            original_session = build_session_response(session)
 
     return MakeupProposalResponse(
         id=proposal.id,
