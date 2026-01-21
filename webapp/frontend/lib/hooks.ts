@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, RefObject } from 'react';
+import { useEffect, useState, useRef, RefObject, useMemo } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots } from '@/types';
@@ -19,6 +19,27 @@ export function useDebouncedValue<T>(value: T, delay: number): T {
   }, [value, delay]);
 
   return debouncedValue;
+}
+
+/**
+ * Hook for filtering a list by search query across multiple fields.
+ * Generic and reusable for any list type.
+ */
+export function useFilteredList<T extends Record<string, unknown>>(
+  items: T[],
+  searchQuery: string,
+  searchFields: (keyof T)[]
+): T[] {
+  return useMemo(() => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter(item =>
+      searchFields.some(field => {
+        const value = item[field];
+        return typeof value === 'string' && value.toLowerCase().includes(query);
+      })
+    );
+  }, [items, searchQuery, searchFields]);
 }
 
 /**

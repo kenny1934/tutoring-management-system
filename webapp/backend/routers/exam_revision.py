@@ -341,6 +341,7 @@ async def get_revision_slot_detail(
                 school=session.student.school if session.student else None,
                 lang_stream=session.student.lang_stream if session.student else None,
                 academic_stream=session.student.academic_stream if session.student else None,
+                home_location=session.student.home_location if session.student else None,
                 session_status=session.session_status,
                 consumed_session_id=session.make_up_for_id
             ))
@@ -467,6 +468,7 @@ async def get_eligible_students(
                 school=student.school,
                 lang_stream=student.lang_stream,
                 academic_stream=student.academic_stream,
+                home_location=student.home_location,
                 pending_sessions=[
                     PendingSessionInfo(
                         id=s.id,
@@ -544,6 +546,7 @@ async def get_eligible_students_by_exam(
                 school=student.school,
                 lang_stream=student.lang_stream,
                 academic_stream=student.academic_stream,
+                home_location=student.home_location,
                 pending_sessions=[
                     PendingSessionInfo(
                         id=s.id,

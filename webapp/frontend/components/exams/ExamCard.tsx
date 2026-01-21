@@ -1,25 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
-import { getGradeColor } from "@/lib/constants";
 import { useEligibleStudents, useEligibleStudentsByExam } from "@/lib/hooks";
 import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { ExamWithRevisionSlots, ExamRevisionSlot } from "@/types";
 import {
   ChevronDown,
   ChevronUp,
-  Calendar,
   School,
   GraduationCap,
   Users,
   Plus,
-  Clock,
   BookOpen,
-  ExternalLink,
   Loader2,
 } from "lucide-react";
 
@@ -256,6 +252,7 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                     slot={slot}
                     onEnroll={() => handleEnrollInSlot(slot)}
                     onRefresh={onRefresh}
+                    showLocationPrefix={!location}
                   />
                 ))}
               </div>
@@ -291,7 +288,7 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                       </div>
                     ) : eligibleStudents.length === 0 ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-                        No eligible students found
+                        No eligible students found. Students need pending make-ups to be eligible.
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -300,38 +297,16 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
                             key={student.student_id}
                             className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
                           >
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {student.school_student_id && (
-                                <span className="text-gray-500 dark:text-gray-400 font-mono text-[10px]">
-                                  {student.school_student_id}
+                            <StudentInfoBadges
+                              student={student}
+                              showLink
+                              showLocationPrefix={!location}
+                              trailing={
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto">
+                                  {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
                                 </span>
-                              )}
-                              <span className="font-semibold text-sm text-gray-900 dark:text-white">
-                                {student.student_name}
-                              </span>
-                              <Link
-                                href={`/students/${student.student_id}?tab=sessions`}
-                                className="text-[#a0704b] hover:text-[#8a5f3e] transition-colors"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </Link>
-                              {student.grade && (
-                                <span
-                                  className="text-[10px] px-1.5 py-0.5 rounded text-gray-800"
-                                  style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
-                                >
-                                  {student.grade}{student.lang_stream || ''}
-                                </span>
-                              )}
-                              {student.school && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                                  {student.school}
-                                </span>
-                              )}
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto">
-                                {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
-                              </span>
-                            </div>
+                              }
+                            />
                           </div>
                         ))}
                       </div>
@@ -358,6 +333,7 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
             setShowEnrollModal(false);
             setSelectedSlot(null);
           }}
+          showLocationPrefix={!location}
         />
       )}
     </div>

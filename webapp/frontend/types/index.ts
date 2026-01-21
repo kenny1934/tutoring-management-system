@@ -584,6 +584,7 @@ export interface EnrolledStudentInfo {
   school?: string;
   lang_stream?: string;
   academic_stream?: string;
+  home_location?: string;
   session_status: string;
   consumed_session_id?: number;
 }
@@ -609,6 +610,7 @@ export interface EligibleStudent {
   school?: string;
   lang_stream?: string;
   academic_stream?: string;
+  home_location?: string;
   pending_sessions: PendingSessionInfo[];
 }
 
