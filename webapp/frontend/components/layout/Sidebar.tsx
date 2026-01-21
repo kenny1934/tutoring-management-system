@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -137,7 +138,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           // Mobile: Logo + Close button
           <>
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="CSM Pro" className="h-9 w-auto" />
+              <Image src="/logo.png" alt="CSM Pro" width={36} height={36} className="h-9 w-auto" />
               <div>
                 <span className="font-bold text-xl block">CSM Pro</span>
                 <span className="text-[9px] text-foreground/60 leading-tight block">Class Session Manager for<br />Productive Resources Orchestration</span>
@@ -160,9 +161,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <div className="flex items-center gap-3 transition-all duration-350">
-              <img
+              <Image
                 src="/logo.png"
                 alt="CSM Pro"
+                width={36}
+                height={36}
                 className={cn(
                   "transition-all duration-350 group-hover:scale-105",
                   isCollapsed ? "h-8 w-auto" : "h-9 w-auto"
