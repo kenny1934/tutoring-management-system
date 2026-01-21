@@ -48,7 +48,7 @@ export function DailyGridView({
   const [openSessionId, setOpenSessionId] = useState<number | null>(null);
   const [openMoreGroup, setOpenMoreGroup] = useState<string | null>(null);
   const [containerHeight, setContainerHeight] = useState<number | null>(null);
-  const [expandedTutors, setExpandedTutors] = useState<Set<number>>(new Set());
+  const [expandedTutors, setExpandedTutors] = useState<Set<number>>(() => new Set());
   const [showAllTutors, setShowAllTutors] = useState(false);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
   const moreButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map());

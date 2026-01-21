@@ -2,7 +2,7 @@
 Tutors API endpoints.
 Provides read-only access to tutor information.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -15,6 +15,7 @@ router = APIRouter()
 
 @router.get("/tutors", response_model=List[TutorResponse])
 def get_tutors(
+    response: Response,
     db: Session = Depends(get_db)
 ):
     """
@@ -23,5 +24,6 @@ def get_tutors(
     Returns:
         List of tutors with basic information
     """
+    response.headers["Cache-Control"] = "private, max-age=300"
     tutors = db.query(Tutor).order_by(Tutor.tutor_name).all()
     return tutors

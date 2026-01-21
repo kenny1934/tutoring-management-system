@@ -397,10 +397,49 @@ async def get_contact_needed_count(
 ):
     """
     Get count of students who need to be contacted (for dashboard badge).
+    Optimized to use SQL aggregation instead of loading all student data.
     """
-    statuses = await get_student_contact_statuses(tutor_id, location, db)
-    count = sum(1 for s in statuses if s.contact_status == "Contact Needed")
-    return {"count": count}
+    _, warning_threshold = get_location_thresholds(db, location)
+    cutoff_date = date.today() - timedelta(days=warning_threshold)
+
+    # Build base student query based on filters
+    if tutor_id:
+        student_ids_query = db.query(Enrollment.student_id).filter(
+            Enrollment.tutor_id == tutor_id
+        ).distinct()
+        if location:
+            student_ids_query = student_ids_query.filter(Enrollment.location == location)
+    elif location:
+        student_ids_query = db.query(Enrollment.student_id).filter(
+            Enrollment.location == location
+        ).distinct()
+    else:
+        student_ids_query = db.query(Student.id)
+
+    student_ids_subquery = student_ids_query.scalar_subquery()
+
+    # Subquery to get max contact date per student
+    last_contact_subquery = db.query(
+        ParentCommunication.student_id,
+        func.max(ParentCommunication.contact_date).label('last_date')
+    ).group_by(ParentCommunication.student_id).subquery()
+
+    # Count students where either:
+    # 1. No contact record exists (never contacted) - LEFT JOIN will have NULL
+    # 2. Last contact was before the cutoff date
+    count = db.query(func.count(Student.id)).filter(
+        Student.id.in_(student_ids_subquery)
+    ).outerjoin(
+        last_contact_subquery,
+        Student.id == last_contact_subquery.c.student_id
+    ).filter(
+        or_(
+            last_contact_subquery.c.last_date == None,
+            last_contact_subquery.c.last_date < cutoff_date
+        )
+    ).scalar()
+
+    return {"count": count or 0}
 
 
 @router.get("/parent-communications/{communication_id}", response_model=ParentCommunicationResponse)
