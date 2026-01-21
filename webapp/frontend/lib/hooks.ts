@@ -1,10 +1,32 @@
-import { useEffect, useState, useRef, RefObject, useMemo } from 'react';
+import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, api } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
+
+/**
+ * Hook for visibility-aware polling intervals.
+ * Returns 0 (disabled) when the browser tab is hidden to save API calls.
+ * Resumes polling when the tab becomes visible again.
+ */
+export function useVisibilityAwareInterval(baseInterval: number): number {
+  const [isVisible, setIsVisible] = useState(() =>
+    typeof document !== 'undefined' ? !document.hidden : true
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handler = () => setIsVisible(!document.hidden);
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, []);
+
+  // Return 0 (disabled) when hidden, else normal interval
+  return isVisible ? baseInterval : 0;
+}
 
 /**
  * Hook for debouncing a value
@@ -348,15 +370,17 @@ export function useOverdueEnrollments(location?: string, tutorId?: number) {
 /**
  * Hook for fetching message threads for a tutor
  * Returns threads grouped by root message with replies
+ * Pauses polling when tab is hidden to save API calls
  */
 export function useMessageThreads(
   tutorId: number | null | undefined,
   category?: MessageCategory
 ) {
+  const refreshInterval = useVisibilityAwareInterval(60000);
   return useSWR<MessageThread[]>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
     () => messagesAPI.getThreads(tutorId!, category),
-    { refreshInterval: 60000, revalidateOnFocus: false }  // Poll every 60s, no refetch on tab switch
+    { refreshInterval, revalidateOnFocus: false }
   );
 }
 
@@ -373,12 +397,14 @@ export function useSentMessages(tutorId: number | null | undefined) {
 
 /**
  * Hook for fetching unread message count for a tutor
+ * Pauses polling when tab is hidden to save API calls
  */
 export function useUnreadMessageCount(tutorId: number | null | undefined) {
+  const refreshInterval = useVisibilityAwareInterval(30000);
   return useSWR<{ count: number }>(
     tutorId ? ['unread-count', tutorId] : null,
     () => messagesAPI.getUnreadCount(tutorId!),
-    { refreshInterval: 30000, revalidateOnFocus: false }  // Poll every 30s, no refetch on tab switch
+    { refreshInterval, revalidateOnFocus: false }
   );
 }
 
@@ -423,12 +449,14 @@ export function useProposals(params: {
 
 /**
  * Hook for fetching pending proposal count for notification bell
+ * Pauses polling when tab is hidden to save API calls
  */
 export function usePendingProposalCount(tutorId: number | null | undefined) {
+  const refreshInterval = useVisibilityAwareInterval(30000);
   return useSWR<PendingProposalCount>(
     tutorId ? ['pending-proposals-count', tutorId] : null,
     () => proposalsAPI.getPendingCount(tutorId!),
-    { refreshInterval: 30000, revalidateOnFocus: false }  // Poll every 30s
+    { refreshInterval, revalidateOnFocus: false }
   );
 }
 
