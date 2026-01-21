@@ -2,7 +2,7 @@
 SQLAlchemy models for the tutoring management system database.
 These models map to the existing tables from database/init.sql
 """
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -74,6 +74,14 @@ class Enrollment(Base):
     Each enrollment represents a course registration.
     """
     __tablename__ = "enrollments"
+    __table_args__ = (
+        # Performance indexes for frequently filtered columns
+        # Note: payment_status already indexed via idx_enrollments_extension_lookup
+        Index('idx_enrollment_first_lesson', 'first_lesson_date'),
+        Index('idx_enrollment_student', 'student_id'),
+        Index('idx_enrollment_tutor', 'tutor_id'),
+        Index('idx_enrollment_location', 'location'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
@@ -131,6 +139,11 @@ class SessionLog(Base):
     __tablename__ = "session_log"
     __table_args__ = (
         UniqueConstraint('exam_revision_slot_id', 'student_id', name='uq_revision_slot_student'),
+        # Performance indexes for frequently filtered columns
+        # Note: session_status already indexed via idx_location_date_status
+        Index('idx_session_log_student', 'student_id'),
+        Index('idx_session_log_tutor', 'tutor_id'),
+        Index('idx_session_log_enrollment', 'enrollment_id'),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -402,6 +415,10 @@ class ParentCommunication(Base):
     Each record represents a contact made by a tutor with a student's parent.
     """
     __tablename__ = "parent_communications"
+    # Note: Indexes already exist in init.sql:
+    # - idx_student_date(student_id, contact_date DESC)
+    # - idx_tutor_date(tutor_id, contact_date DESC)
+    # - idx_follow_up(follow_up_needed, follow_up_date)
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)

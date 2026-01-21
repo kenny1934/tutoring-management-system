@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { Menu, Search } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
@@ -40,7 +41,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
               <Menu className="h-6 w-6" />
             </button>
             <div className="flex items-center gap-2 ml-2">
-              <img src="/logo.png" alt="CSM Pro" className="h-7 w-auto" />
+              <Image src="/logo.png" alt="CSM Pro" width={28} height={28} className="h-7 w-auto" />
               <span className="font-bold text-lg">CSM Pro</span>
             </div>
           </div>
