@@ -365,9 +365,11 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       mutate();
       mutateExams();
       setTimeout(() => setLastSyncMessage(null), 3000);
-    } catch {
-      setLastSyncMessage('Sync failed');
-      setTimeout(() => setLastSyncMessage(null), 3000);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setLastSyncMessage(`Sync failed: ${errorMsg}`);
+      console.error('Calendar sync error:', error);
+      setTimeout(() => setLastSyncMessage(null), 5000);
     } finally {
       setIsSyncing(false);
     }
@@ -391,12 +393,15 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       // Expand fetch range to include the viewed month
       setFetchDaysBehind(daysBehind);
 
-      // Note: mutate() is called automatically by SWR when fetchDaysBehind changes
+      // Force immediate revalidation of both data sources
+      mutate();
       mutateExams();
       setTimeout(() => setLastSyncMessage(null), 3000);
-    } catch {
-      setLastSyncMessage('Sync failed');
-      setTimeout(() => setLastSyncMessage(null), 3000);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setLastSyncMessage(`Sync failed: ${errorMsg}`);
+      console.error('Calendar load older month error:', error);
+      setTimeout(() => setLastSyncMessage(null), 5000);
     } finally {
       setIsSyncing(false);
     }
@@ -449,8 +454,10 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       .slice(0, 8); // Show max 8 upcoming events
   }, [events]);
 
-  // Filter events for selected date
-  const selectedDateEvents = selectedDate ? (eventsByDate.get(selectedDate) || []) : [];
+  // Filter events for selected date, sorted by title ascending
+  const selectedDateEvents = selectedDate
+    ? (eventsByDate.get(selectedDate) || []).slice().sort((a, b) => a.title.localeCompare(b.title))
+    : [];
 
   // Navigation handlers
   const goToPrevMonth = () => {

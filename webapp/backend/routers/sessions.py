@@ -1410,7 +1410,7 @@ async def sync_calendar(
 async def get_calendar_events(
     days_ahead: int = Query(30, ge=1, le=365, description="Number of days ahead to fetch events"),
     include_past: bool = Query(False, description="Include past events"),
-    days_behind: int = Query(365, ge=1, le=730, description="Days in past if include_past=True"),
+    days_behind: int = Query(365, ge=0, le=730, description="Days in past if include_past=True"),
     db: Session = Depends(get_db)
 ):
     """
