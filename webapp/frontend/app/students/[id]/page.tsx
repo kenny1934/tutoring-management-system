@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle, useProposals, useTutors } from "@/lib/hooks";
+import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
 import { studentsAPI } from "@/lib/api";
 import { mutate } from "swr";
@@ -11,8 +11,10 @@ import {
   ArrowLeft, User, BookOpen, Calendar, FileText,
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
-  Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3
+  Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
+  Users, UserCheck, Star
 } from "lucide-react";
+import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,7 +40,7 @@ import {
 } from "@floating-ui/react";
 
 // Tab types
-type TabId = "profile" | "sessions" | "courseware" | "tests" | "notes";
+type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings";
 
 interface Tab {
   id: TabId;
@@ -51,7 +53,7 @@ const TABS: Tab[] = [
   { id: "sessions", label: "Sessions", icon: Calendar },
   { id: "courseware", label: "Courseware", icon: BookMarked },
   { id: "tests", label: "Tests", icon: BookOpen },
-  { id: "notes", label: "Notes", icon: FileText },
+  { id: "ratings", label: "Ratings", icon: Star },
 ];
 
 export default function StudentDetailPage() {
@@ -520,9 +522,16 @@ export default function StudentDetailPage() {
                 <TestsTab tests={filteredTests} student={student} isMobile={isMobile} />
               )}
 
-              {/* Notes Tab */}
-              {activeTab === "notes" && (
-                <NotesTab sessions={sortedSessions} isMobile={isMobile} />
+              {/* Ratings Tab */}
+              {activeTab === "ratings" && (
+                <RatingsTab
+                  sessions={sortedSessions}
+                  isMobile={isMobile}
+                  onSessionClick={(session, e) => {
+                    setSessionClickPosition({ x: e.clientX, y: e.clientY });
+                    setPopoverSession(session);
+                  }}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -1249,8 +1258,130 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
     return { upcomingTests: upcoming, pastTests: past };
   }, [tests]);
 
-  // Determine which tests to display
-  const displayedTests = showPast ? [...pastTests, ...upcomingTests] : upcomingTests;
+  // Calculate date range for fetching exam revision data
+  const examsDateRange = useMemo(() => {
+    if (tests.length === 0) return null;
+    const dates = tests.map(t => new Date(t.start_date));
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    minDate.setDate(minDate.getDate() - 7); // Buffer
+    maxDate.setDate(maxDate.getDate() + 7);
+    return {
+      from_date: minDate.toISOString().split('T')[0],
+      to_date: maxDate.toISOString().split('T')[0],
+    };
+  }, [tests]);
+
+  // Fetch exam revision stats
+  const { data: examsWithSlots = [] } = useExamsWithSlots(examsDateRange);
+
+  // Map exam IDs to revision stats
+  const examStatsMap = useMemo(() => {
+    const map = new Map<number, { slots: number; enrolled: number; eligible: number }>();
+    examsWithSlots.forEach(exam => {
+      map.set(exam.id, {
+        slots: exam.revision_slots.length,
+        enrolled: exam.total_enrolled,
+        eligible: exam.eligible_count,
+      });
+    });
+    return map;
+  }, [examsWithSlots]);
+
+  // Helper to render a test card
+  const renderTestCard = (test: CalendarEvent, index: number) => {
+    const testDate = new Date(test.start_date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((testDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const isPast = daysUntil < 0;
+
+    // Build URL to exam revision page with highlight param
+    const examUrl = `/exams?exam=${test.id}${isPast ? '&view=past' : ''}`;
+
+    return (
+      <motion.div
+        key={test.id}
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+      >
+        <Link
+          href={examUrl}
+          className={cn(
+            "block p-3 rounded-lg border transition-colors",
+            isPast
+              ? "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60 hover:opacity-80 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+              : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+            !isMobile && "paper-texture"
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-sm font-medium",
+                  isPast ? "text-gray-500" : "text-gray-900 dark:text-gray-100"
+                )}>
+                  {test.title}
+                </span>
+                {test.event_type && (
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded",
+                    test.event_type === 'Test' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
+                    test.event_type === 'Exam' ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" :
+                    "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                  )}>
+                    {test.event_type}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {testDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </p>
+              {test.description && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                  {test.description}
+                </p>
+              )}
+              {/* Revision slot stats */}
+              {(() => {
+                const stats = examStatsMap.get(test.id);
+                return stats && stats.slots > 0 ? (
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 mt-1.5">
+                    <span className="inline-flex items-center gap-0.5" title="Revision slots created">
+                      <GraduationCap className="h-3 w-3" />
+                      {stats.slots} slot{stats.slots !== 1 ? 's' : ''}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400" title="Students enrolled">
+                      <UserCheck className="h-3 w-3" />
+                      {stats.enrolled}
+                    </span>
+                    <span className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400" title="Eligible students not yet enrolled">
+                      <Users className="h-3 w-3" />
+                      {stats.eligible}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+            <span className={cn(
+              "text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
+              isPast
+                ? "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                : daysUntil === 0
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                  : daysUntil <= 3
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                    : "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+            )}>
+              {isPast ? 'Past' : daysUntil === 0 ? 'Today' : daysUntil === 1 ? '1 day' : `${daysUntil} days`}
+            </span>
+          </div>
+        </Link>
+      </motion.div>
+    );
+  };
 
   if (tests.length === 0) {
     return (
@@ -1299,75 +1430,26 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
         </div>
       )}
 
-      {/* Test list */}
+      {/* Test list - upcoming first */}
       <div className="space-y-2">
-      {displayedTests.map((test, index) => {
-        const testDate = new Date(test.start_date + 'T00:00:00');
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const daysUntil = Math.ceil((testDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        const isPast = daysUntil < 0;
-
-        return (
-          <motion.div
-            key={test.id}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
-            className={cn(
-              "p-3 rounded-lg border",
-              isPast
-                ? "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60"
-                : "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    "text-sm font-medium",
-                    isPast ? "text-gray-500" : "text-gray-900 dark:text-gray-100"
-                  )}>
-                    {test.title}
-                  </span>
-                  {test.event_type && (
-                    <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded",
-                      test.event_type === 'Test' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
-                      test.event_type === 'Exam' ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" :
-                      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
-                    )}>
-                      {test.event_type}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {testDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </p>
-                {test.description && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                    {test.description}
-                  </p>
-                )}
-              </div>
-              <span className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap",
-                isPast
-                  ? "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-                  : daysUntil === 0
-                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                    : daysUntil <= 3
-                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
-                      : "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-              )}>
-                {isPast ? 'Past' : daysUntil === 0 ? 'Today' : daysUntil === 1 ? '1 day' : `${daysUntil} days`}
-              </span>
-            </div>
-          </motion.div>
-        );
-      })}
+        {upcomingTests.map((test, index) => renderTestCard(test, index))}
       </div>
+
+      {/* Separator when showing past tests */}
+      {showPast && pastTests.length > 0 && upcomingTests.length > 0 && (
+        <div className="flex items-center gap-3 py-2">
+          <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+          <span className="text-xs text-gray-500 dark:text-gray-400">Past Tests</span>
+          <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+        </div>
+      )}
+
+      {/* Past tests */}
+      {showPast && pastTests.length > 0 && (
+        <div className="space-y-2">
+          {pastTests.map((test, index) => renderTestCard(test, upcomingTests.length + index))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1720,20 +1802,111 @@ function CoursewareTab({
   );
 }
 
-// Notes Tab Component
-function NotesTab({ sessions, isMobile }: { sessions: Session[]; isMobile: boolean }) {
-  // Extract notes from sessions
-  const sessionNotes = sessions.filter(s => s.notes && s.notes.trim().length > 0);
+// Ratings Tab Component
+function RatingsTab({
+  sessions,
+  isMobile,
+  onSessionClick,
+}: {
+  sessions: Session[];
+  isMobile: boolean;
+  onSessionClick?: (session: Session, e: React.MouseEvent) => void;
+}) {
+  const [filter, setFilter] = useState<'all' | 'rated' | 'notes'>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'rating'>('date');
 
-  if (sessionNotes.length === 0) {
+  // Filter sessions with rating OR notes
+  const ratedSessions = useMemo(() => {
+    return sessions.filter(s =>
+      (s.performance_rating && s.performance_rating.trim().length > 0) ||
+      (s.notes && s.notes.trim().length > 0)
+    );
+  }, [sessions]);
+
+  // Calculate summary stats
+  const stats = useMemo(() => {
+    const withRating = ratedSessions.filter(s => s.performance_rating && s.performance_rating.trim().length > 0);
+    const avgRating = withRating.length > 0
+      ? withRating.reduce((sum, s) => sum + parseStarRating(s.performance_rating), 0) / withRating.length
+      : 0;
+    const withNotes = ratedSessions.filter(s => s.notes && s.notes.trim().length > 0);
+    return {
+      total: ratedSessions.length,
+      rated: withRating.length,
+      withNotes: withNotes.length,
+      avgRating,
+    };
+  }, [ratedSessions]);
+
+  // Rating distribution histogram
+  const distribution = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0]; // Index 0-4 for 1-5 stars
+    ratedSessions.forEach(s => {
+      if (s.performance_rating) {
+        const rating = parseStarRating(s.performance_rating);
+        if (rating >= 1 && rating <= 5) counts[rating - 1]++;
+      }
+    });
+    const max = Math.max(...counts, 1);
+    return counts.map((count, i) => ({ stars: i + 1, count, pct: count / max }));
+  }, [ratedSessions]);
+
+  // Rating over time for trend graph (includes session ID for delta calc)
+  const ratingOverTime = useMemo(() => {
+    return ratedSessions
+      .filter(s => s.performance_rating?.trim())
+      .map(s => ({
+        id: s.id,
+        date: new Date(s.session_date),
+        rating: parseStarRating(s.performance_rating),
+      }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .slice(-12); // Last 12 rated sessions
+  }, [ratedSessions]);
+
+  // Map of session ID to rating delta from previous session
+  const ratingDeltas = useMemo(() => {
+    const deltas = new Map<number, number>();
+    const sortedByDate = ratedSessions
+      .filter(s => s.performance_rating?.trim())
+      .map(s => ({ id: s.id, date: new Date(s.session_date), rating: parseStarRating(s.performance_rating) }))
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    for (let i = 1; i < sortedByDate.length; i++) {
+      deltas.set(sortedByDate[i].id, sortedByDate[i].rating - sortedByDate[i - 1].rating);
+    }
+    return deltas;
+  }, [ratedSessions]);
+
+  // Apply filter and sort
+  const filteredSessions = useMemo(() => {
+    let result = ratedSessions;
+
+    if (filter === 'rated') {
+      result = result.filter(s => s.performance_rating?.trim());
+    } else if (filter === 'notes') {
+      result = result.filter(s => s.notes?.trim());
+    }
+
+    if (sortBy === 'rating') {
+      result = [...result].sort((a, b) =>
+        parseStarRating(b.performance_rating) - parseStarRating(a.performance_rating)
+      );
+    }
+    // Default sort is by date (already sorted from parent)
+
+    return result;
+  }, [ratedSessions, filter, sortBy]);
+
+  if (ratedSessions.length === 0) {
     return (
       <div className="flex justify-center py-12">
-        <StickyNote variant="blue" size="md" showTape={true}>
+        <StickyNote variant="yellow" size="md" showTape={true}>
           <div className="text-center">
-            <FileText className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No notes yet</p>
+            <Star className="h-10 w-10 mx-auto mb-3 text-amber-400" />
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No ratings yet</p>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-              Session notes will appear here
+              Session ratings and comments will appear here
             </p>
           </div>
         </StickyNote>
@@ -1742,39 +1915,176 @@ function NotesTab({ sessions, isMobile }: { sessions: Session[]; isMobile: boole
   }
 
   return (
-    <div className="space-y-3">
-      {sessionNotes.map((session, index) => {
-        const sessionDate = new Date(session.session_date + 'T00:00:00');
-        return (
-          <motion.div
-            key={session.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: isMobile ? 0 : index * 0.05, duration: 0.2 }}
-            className={cn(
-              "p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400",
-              !isMobile && "paper-texture"
-            )}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+    <div className="space-y-4">
+      {/* Stats Dashboard */}
+      <div className="p-4 rounded-xl bg-[#f5ede3] dark:bg-[#3d3628] border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex flex-col md:flex-row md:items-stretch gap-4">
+          {/* Left: Big average rating */}
+          <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/10 rounded-lg min-w-[120px]">
+            <div className="flex items-center gap-1">
+              <Star className="h-6 w-6 fill-amber-400 text-amber-400" />
+              <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {stats.avgRating.toFixed(1)}
               </span>
-              {session.tutor_name && (
-                <>
-                  <span className="text-xs text-amber-500">•</span>
-                  <span className="text-xs text-amber-600 dark:text-amber-400">
-                    {session.tutor_name}
-                  </span>
-                </>
-              )}
             </div>
-            <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
-              {session.notes}
-            </p>
-          </motion.div>
-        );
-      })}
+            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">average rating</span>
+            <div className="flex gap-3 mt-2 text-xs text-gray-600 dark:text-gray-400">
+              <span><strong className="text-gray-900 dark:text-gray-100">{stats.rated}</strong> rated</span>
+              <span><strong className="text-gray-900 dark:text-gray-100">{stats.withNotes}</strong> comments</span>
+            </div>
+          </div>
+
+          {/* Right: Charts */}
+          <div className="flex-1 flex flex-col gap-2">
+            {/* Distribution */}
+            <div className="flex-1 p-3 bg-white/30 dark:bg-black/10 rounded-lg">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">Distribution</div>
+              <div className="flex items-end justify-center gap-2 h-10">
+                {distribution.map((d, i) => (
+                  <div key={d.stars} className="flex flex-col items-center gap-1">
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: Math.max(d.pct * 32, d.count > 0 ? 4 : 0) }}
+                      transition={{ delay: i * 0.05, duration: 0.3, ease: "easeOut" }}
+                      className="w-5 bg-amber-400 rounded-t"
+                      title={`${d.stars} star: ${d.count}`}
+                    />
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400">{d.stars}★</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Trend (only if 2+ ratings) */}
+            {ratingOverTime.length >= 2 && (
+              <div className="flex-1 p-3 bg-white/30 dark:bg-black/10 rounded-lg">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">Trend (last {ratingOverTime.length})</div>
+                <svg viewBox="0 0 200 32" className="w-full h-8">
+                  {/* Grid lines */}
+                  <line x1="0" y1="8" x2="200" y2="8" stroke="#d1d5db" strokeWidth="0.5" strokeDasharray="2,2" />
+                  <line x1="0" y1="16" x2="200" y2="16" stroke="#d1d5db" strokeWidth="0.5" strokeDasharray="2,2" />
+                  <line x1="0" y1="24" x2="200" y2="24" stroke="#d1d5db" strokeWidth="0.5" strokeDasharray="2,2" />
+                  {/* Line */}
+                  <polyline
+                    fill="none"
+                    stroke="#f59e0b"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    points={ratingOverTime.map((d, i) =>
+                      `${(i / Math.max(ratingOverTime.length - 1, 1)) * 200},${32 - (d.rating / 5) * 32}`
+                    ).join(' ')}
+                  />
+                  {/* Data points */}
+                  {ratingOverTime.map((d, i) => (
+                    <circle
+                      key={i}
+                      cx={(i / Math.max(ratingOverTime.length - 1, 1)) * 200}
+                      cy={32 - (d.rating / 5) * 32}
+                      r="3"
+                      fill="#f59e0b"
+                    >
+                      <title>{d.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: {d.rating}★</title>
+                    </circle>
+                  ))}
+                </svg>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter/Sort Controls */}
+      <div className="flex items-center gap-2">
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as 'all' | 'rated' | 'notes')}
+          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
+          <option value="all">All ({stats.total})</option>
+          <option value="rated">Has rating ({stats.rated})</option>
+          <option value="notes">Has comment ({stats.withNotes})</option>
+        </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'date' | 'rating')}
+          className="text-xs px-2 py-1.5 rounded-lg border border-[#d4a574]/50 dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618] text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
+          <option value="date">By date</option>
+          <option value="rating">By rating</option>
+        </select>
+      </div>
+
+      {/* Session Cards */}
+      <div className="space-y-3">
+        {filteredSessions.map((session, index) => {
+          const sessionDate = new Date(session.session_date + 'T00:00:00');
+          const hasRating = session.performance_rating && session.performance_rating.trim().length > 0;
+          const hasNotes = session.notes && session.notes.trim().length > 0;
+          const delta = ratingDeltas.get(session.id);
+
+          return (
+            <motion.div
+              key={session.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: isMobile ? 0 : index * 0.05, duration: 0.2 }}
+              onClick={(e) => onSessionClick?.(session, e)}
+              className={cn(
+                "p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 cursor-pointer",
+                "hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors",
+                !isMobile && "paper-texture"
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  {/* Header: Date & Tutor */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                      {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    {session.tutor_name && (
+                      <>
+                        <span className="text-xs text-amber-500">•</span>
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          {session.tutor_name}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {/* Notes/Comments */}
+                  {hasNotes ? (
+                    <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                      {session.notes}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                      No comment
+                    </p>
+                  )}
+                </div>
+                {/* Rating with delta indicator */}
+                {hasRating && (
+                  <div className="flex-shrink-0 flex items-center gap-1.5">
+                    <StarRating rating={parseStarRating(session.performance_rating)} size="sm" />
+                    {delta !== undefined && delta !== 0 && (
+                      <span
+                        className={cn(
+                          "text-[10px] font-medium",
+                          delta > 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"
+                        )}
+                        title={`${delta > 0 ? '+' : ''}${delta} from previous`}
+                      >
+                        {delta > 0 ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
