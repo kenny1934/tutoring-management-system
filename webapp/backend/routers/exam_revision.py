@@ -813,9 +813,9 @@ async def get_exams_with_revision_slots(
                 enrolled_count=enrolled_count
             ))
 
-        # Calculate eligible count (students matching criteria with pending sessions)
-        # This is a simplified count - for full list, use the eligible-students endpoint
-        eligible_count = _count_eligible_students(db, event, location)
+        # Eligible count is lazy-loaded on the frontend when expanding a card
+        # to avoid N+1 queries (was calling _count_eligible_students per exam)
+        eligible_count = 0
 
         result.append(ExamWithRevisionSlotsResponse(
             id=event.id,
