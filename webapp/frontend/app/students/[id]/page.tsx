@@ -11,7 +11,7 @@ import {
   ArrowLeft, User, BookOpen, Calendar, FileText,
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
-  Palette, FlaskConical, Briefcase, ChevronDown, Tag
+  Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -102,7 +102,7 @@ export default function StudentDetailPage() {
     studentsAPI.getSchools().then(setAllSchools).catch(console.error);
   }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
-  const { data: calendarEvents = [] } = useCalendarEvents(60);
+  const { data: calendarEvents = [] } = useCalendarEvents(60, true); // Include past tests
 
   // Fetch all pending proposals and filter for this student's sessions
   const { data: allProposals = [] } = useProposals({ status: 'pending', includeSession: true });
@@ -1223,13 +1223,42 @@ function SessionsTab({
 
 // Tests Tab Component
 function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; student: Student; isMobile: boolean }) {
+  const [showPast, setShowPast] = useState(false);
+
+  // Separate past and upcoming tests
+  const { upcomingTests, pastTests } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcoming: CalendarEvent[] = [];
+    const past: CalendarEvent[] = [];
+
+    tests.forEach(test => {
+      const testDate = new Date(test.start_date + 'T00:00:00');
+      if (testDate < today) {
+        past.push(test);
+      } else {
+        upcoming.push(test);
+      }
+    });
+
+    // Sort both arrays by date
+    upcoming.sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+    past.sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()); // Most recent past first
+
+    return { upcomingTests: upcoming, pastTests: past };
+  }, [tests]);
+
+  // Determine which tests to display
+  const displayedTests = showPast ? [...pastTests, ...upcomingTests] : upcomingTests;
+
   if (tests.length === 0) {
     return (
       <div className="flex justify-center py-12">
         <StickyNote variant="green" size="md" showTape={true}>
           <div className="text-center">
             <BookOpen className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No upcoming tests</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No tests found</p>
             <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
               {student.school && student.grade
                 ? `No tests found for ${student.school} ${student.grade}`
@@ -1241,14 +1270,38 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
     );
   }
 
-  // Sort by date
-  const sortedTests = [...tests].sort((a, b) =>
-    new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-  );
-
   return (
-    <div className="space-y-2">
-      {sortedTests.map((test, index) => {
+    <div className="space-y-4">
+      {/* Header with stats and toggle */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {upcomingTests.length} upcoming{pastTests.length > 0 && `, ${pastTests.length} past`}
+        </span>
+        {pastTests.length > 0 && (
+          <button
+            onClick={() => setShowPast(!showPast)}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors",
+              showPast
+                ? "bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-500 text-gray-700 dark:text-gray-300"
+                : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+            )}
+          >
+            {showPast ? "Hide Past" : "Show Past"}
+          </button>
+        )}
+      </div>
+
+      {/* Empty state for upcoming when only past tests exist */}
+      {upcomingTests.length === 0 && !showPast && (
+        <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+          No upcoming tests. Click &quot;Show Past&quot; to view past tests.
+        </div>
+      )}
+
+      {/* Test list */}
+      <div className="space-y-2">
+      {displayedTests.map((test, index) => {
         const testDate = new Date(test.start_date + 'T00:00:00');
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1314,6 +1367,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
           </motion.div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -1340,6 +1394,92 @@ function CoursewareTab({
   loading: boolean;
   isMobile: boolean;
 }) {
+  // State for search, filters, and grouping
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCW, setShowCW] = useState(true);
+  const [showHW, setShowHW] = useState(true);
+  const [groupBy, setGroupBy] = useState<"session" | "pdf">("session");
+
+  // Compute statistics
+  const stats = useMemo(() => {
+    const cwCount = coursewareHistory.filter(e => e.exercise_type === "CW" || e.exercise_type === "Classwork").length;
+    const hwCount = coursewareHistory.length - cwCount;
+    const uniquePdfs = new Set(coursewareHistory.map(e => e.pdf_name)).size;
+    return { total: coursewareHistory.length, cwCount, hwCount, uniquePdfs };
+  }, [coursewareHistory]);
+
+  // Filter and search exercises
+  const filteredExercises = useMemo(() => {
+    return coursewareHistory.filter(ex => {
+      const isCW = ex.exercise_type === "CW" || ex.exercise_type === "Classwork";
+      if (isCW && !showCW) return false;
+      if (!isCW && !showHW) return false;
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const displayName = getDisplayName(ex.pdf_name).toLowerCase();
+        if (!displayName.includes(query) && !ex.remarks?.toLowerCase().includes(query)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [coursewareHistory, showCW, showHW, searchQuery]);
+
+  // Group by session
+  const exercisesBySession = useMemo(() => {
+    const grouped = new Map<number, CoursewareExercise[]>();
+    filteredExercises.forEach(ex => {
+      if (!grouped.has(ex.session_id)) {
+        grouped.set(ex.session_id, []);
+      }
+      grouped.get(ex.session_id)!.push(ex);
+    });
+    // Sort by session date (most recent first)
+    return new Map([...grouped.entries()].sort((a, b) => {
+      const dateA = a[1][0]?.session_date || "";
+      const dateB = b[1][0]?.session_date || "";
+      return dateB.localeCompare(dateA);
+    }));
+  }, [filteredExercises]);
+
+  // Group by PDF
+  const exercisesByPdf = useMemo(() => {
+    const grouped = new Map<string, CoursewareExercise[]>();
+    filteredExercises.forEach(ex => {
+      const key = ex.pdf_name;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(ex);
+    });
+    // Sort each group by date, sort groups by most recent
+    grouped.forEach(exercises => {
+      exercises.sort((a, b) => b.session_date.localeCompare(a.session_date));
+    });
+    return new Map([...grouped.entries()].sort((a, b) => {
+      const latestA = a[1][0]?.session_date || "";
+      const latestB = b[1][0]?.session_date || "";
+      return latestB.localeCompare(latestA);
+    }));
+  }, [filteredExercises]);
+
+  // Helper to render exercise type badge
+  const renderTypeBadge = (exerciseType: string, small = false) => {
+    const isCW = exerciseType === "CW" || exerciseType === "Classwork";
+    return (
+      <span className={cn(
+        "flex items-center gap-1 rounded font-medium",
+        small ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-xs",
+        isCW
+          ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
+          : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
+      )}>
+        {isCW ? <PenTool className={small ? "h-2.5 w-2.5" : "h-3 w-3"} /> : <Home className={small ? "h-2.5 w-2.5" : "h-3 w-3"} />}
+        {isCW ? "CW" : "HW"}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="space-y-2">
@@ -1367,74 +1507,215 @@ function CoursewareTab({
   }
 
   return (
-    <div className="space-y-3">
-      {coursewareHistory.map((exercise, index) => {
-        const sessionDate = new Date(exercise.session_date + 'T00:00:00');
-        const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
+    <div className="space-y-4">
+      {/* Progress Summary */}
+      <div className="flex items-center gap-4 px-4 py-3 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <BarChart3 className="h-5 w-5 text-[#a0704b]" />
+        <span className="text-sm">
+          <span className="font-semibold">{stats.total}</span> exercises
+        </span>
+        <span className="text-gray-400">•</span>
+        <span className="text-sm text-red-600 dark:text-red-400">
+          CW: {stats.cwCount}
+        </span>
+        <span className="text-gray-400">•</span>
+        <span className="text-sm text-blue-600 dark:text-blue-400">
+          HW: {stats.hwCount}
+        </span>
+        <span className="text-gray-400">•</span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {stats.uniquePdfs} unique PDF{stats.uniquePdfs !== 1 ? 's' : ''}
+        </span>
+      </div>
 
-        return (
-          <motion.div
-            key={`${exercise.session_id}-${exercise.id || index}`}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
-            className={cn(
-              "p-4 rounded-lg border-l-4",
-              isCW
-                ? "bg-red-50 dark:bg-red-900/10 border-red-400"
-                : "bg-blue-50 dark:bg-blue-900/10 border-blue-400",
-              !isMobile && "paper-texture"
-            )}
-          >
-            {/* Header: Date, Tutor, Session Link */}
-            <div className="flex items-center gap-2 mb-2 text-xs text-gray-500 dark:text-gray-400">
-              <span className="font-medium">
-                {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              {exercise.tutor_name && (
-                <>
-                  <span>•</span>
-                  <span>{exercise.tutor_name}</span>
-                </>
-              )}
-              <Link
-                href={`/sessions/${exercise.session_id}`}
-                className="ml-auto text-blue-600 dark:text-blue-400 hover:underline font-mono"
-              >
-                #{exercise.session_id}
-              </Link>
-            </div>
+      {/* Search and Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search exercises..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+          />
+        </div>
 
-            {/* Content: Type badge + PDF name + Pages */}
-            <div className="flex items-center gap-2">
-              <span className={cn(
-                "flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
-                isCW
-                  ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
-                  : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
-              )}>
-                {isCW ? <PenTool className="h-3 w-3" /> : <Home className="h-3 w-3" />}
-                {isCW ? "CW" : "HW"}
-              </span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
-                {getDisplayName(exercise.pdf_name)}
-              </span>
-              {exercise.page_start && (
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+        {/* Type filters */}
+        <button
+          onClick={() => setShowCW(!showCW)}
+          className={cn(
+            "px-3 py-2 text-xs font-medium rounded-lg border transition-colors",
+            showCW
+              ? "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+              : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+          )}
+        >
+          CW ({stats.cwCount})
+        </button>
+        <button
+          onClick={() => setShowHW(!showHW)}
+          className={cn(
+            "px-3 py-2 text-xs font-medium rounded-lg border transition-colors",
+            showHW
+              ? "bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300"
+              : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400"
+          )}
+        >
+          HW ({stats.hwCount})
+        </button>
+
+        {/* Group by dropdown */}
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as "session" | "pdf")}
+          className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+        >
+          <option value="session">By Session</option>
+          <option value="pdf">By PDF</option>
+        </select>
+      </div>
+
+      {/* Filtered results count */}
+      {filteredExercises.length !== coursewareHistory.length && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Showing {filteredExercises.length} of {coursewareHistory.length} exercises
+        </p>
+      )}
+
+      {/* No results */}
+      {filteredExercises.length === 0 && (
+        <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+          No exercises match your filters
+        </div>
+      )}
+
+      {/* Grouped by Session View */}
+      {groupBy === "session" && filteredExercises.length > 0 && (
+        <div className="space-y-4">
+          {Array.from(exercisesBySession.entries()).map(([sessionId, exercises]) => {
+            const firstEx = exercises[0];
+            const sessionDate = new Date(firstEx.session_date + 'T00:00:00');
+
+            return (
+              <div key={sessionId} className="space-y-2">
+                {/* Session Header */}
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <Calendar className="h-4 w-4 text-[#a0704b]" />
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                    {sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                  {firstEx.tutor_name && (
+                    <>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {firstEx.tutor_name}
+                      </span>
+                    </>
+                  )}
+                  <Link
+                    href={`/sessions/${sessionId}`}
+                    className="ml-auto flex items-center gap-1 text-xs text-[#a0704b] hover:underline font-mono"
+                  >
+                    #{sessionId}
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+
+                {/* Exercises in this session */}
+                <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  {exercises.map((exercise, index) => {
+                    const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
+
+                    return (
+                      <div
+                        key={`${exercise.session_id}-${exercise.id || index}`}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-lg",
+                          isCW
+                            ? "bg-red-50 dark:bg-red-900/10"
+                            : "bg-blue-50 dark:bg-blue-900/10"
+                        )}
+                      >
+                        {renderTypeBadge(exercise.exercise_type)}
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                          {getDisplayName(exercise.pdf_name)}
+                        </span>
+                        {exercise.page_start && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                            p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                          </span>
+                        )}
+                        {exercise.remarks && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]" title={exercise.remarks}>
+                            "{exercise.remarks}"
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Grouped by PDF View */}
+      {groupBy === "pdf" && filteredExercises.length > 0 && (
+        <div className="space-y-4">
+          {Array.from(exercisesByPdf.entries()).map(([pdfName, exercises]) => (
+            <div key={pdfName} className="space-y-2">
+              {/* PDF Header */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <BookMarked className="h-4 w-4 text-[#a0704b]" />
+                <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                  {getDisplayName(pdfName)}
                 </span>
-              )}
-            </div>
+                <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                  {exercises.length} time{exercises.length !== 1 ? 's' : ''}
+                </span>
+              </div>
 
-            {/* Remarks if any */}
-            {exercise.remarks && (
-              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                {exercise.remarks}
-              </p>
-            )}
-          </motion.div>
-        );
-      })}
+              {/* Instances of this PDF */}
+              <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                {exercises.map((exercise, index) => {
+                  const sessionDate = new Date(exercise.session_date + 'T00:00:00');
+
+                  return (
+                    <div
+                      key={`${exercise.session_id}-${exercise.id || index}`}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+                    >
+                      <span className="text-xs text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">
+                        {sessionDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      {renderTypeBadge(exercise.exercise_type, true)}
+                      {exercise.page_start && (
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          p{exercise.page_start}{exercise.page_end && exercise.page_end !== exercise.page_start ? `-${exercise.page_end}` : ''}
+                        </span>
+                      )}
+                      {exercise.tutor_name && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {exercise.tutor_name}
+                        </span>
+                      )}
+                      <Link
+                        href={`/sessions/${exercise.session_id}`}
+                        className="ml-auto text-xs text-[#a0704b] hover:underline font-mono flex-shrink-0"
+                      >
+                        #{exercise.session_id}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -310,15 +310,22 @@ export const sessionsAPI = {
 
 // Calendar API
 export const calendarAPI = {
-  getEvents: (daysAhead?: number) => {
-    const params = daysAhead ? `?days_ahead=${daysAhead}` : '';
-    return fetchAPI<CalendarEvent[]>(`/calendar/events${params}`);
+  getEvents: (daysAhead?: number, includePast?: boolean, daysBehind?: number) => {
+    const params = new URLSearchParams();
+    if (daysAhead) params.append('days_ahead', String(daysAhead));
+    if (includePast) params.append('include_past', 'true');
+    if (daysBehind) params.append('days_behind', String(daysBehind));
+    const queryString = params.toString();
+    return fetchAPI<CalendarEvent[]>(`/calendar/events${queryString ? '?' + queryString : ''}`);
   },
 
-  sync: (force?: boolean) => {
-    const params = force ? '?force=true' : '';
+  sync: (force?: boolean, daysBehind?: number) => {
+    const params = new URLSearchParams();
+    if (force) params.append('force', 'true');
+    if (daysBehind) params.append('days_behind', String(daysBehind));
+    const queryString = params.toString();
     return fetchAPI<{ success: boolean; events_synced: number; message: string }>(
-      `/calendar/sync${params}`,
+      `/calendar/sync${queryString ? '?' + queryString : ''}`,
       { method: 'POST' }
     );
   },

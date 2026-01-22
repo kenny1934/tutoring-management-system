@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useCalendarEvents, useExamsWithSlots } from "@/lib/hooks";
 import { CalendarEvent } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2 } from "lucide-react";
+import { calendarAPI } from "@/lib/api";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
@@ -307,15 +308,85 @@ interface TestCalendarProps {
 export function TestCalendar({ className, isMobile = false }: TestCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
+  const [fetchDaysBehind, setFetchDaysBehind] = useState(60); // Expandable when loading older months
 
-  // Fetch 60 days of events to cover current and next month
-  const { data: events = [], isLoading, error } = useCalendarEvents(60);
+  // Fetch 60 days ahead and dynamic days behind (expands when loading older months)
+  const { data: events = [], isLoading, error, mutate } = useCalendarEvents(60, true, fetchDaysBehind);
 
   // Fetch exam revision stats for the same date range
-  const { data: examsWithSlots = [] } = useExamsWithSlots({
+  const { data: examsWithSlots = [], mutate: mutateExams } = useExamsWithSlots({
     from_date: toDateString(new Date()),
     to_date: toDateString(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)), // 60 days
   });
+
+  // Check if current view month is within current fetch range
+  const isMonthInSyncRange = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const syncRangeStart = new Date(today);
+    syncRangeStart.setDate(syncRangeStart.getDate() - fetchDaysBehind); // Use dynamic range
+
+    const syncRangeEnd = new Date(today);
+    syncRangeEnd.setDate(syncRangeEnd.getDate() + 60); // 60 days ahead
+
+    // Get first and last day of viewed month
+    const viewMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const viewMonthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+
+    // Check if any day of the viewed month falls within fetch range
+    return viewMonthEnd >= syncRangeStart && viewMonthStart <= syncRangeEnd;
+  }, [currentMonth, fetchDaysBehind]);
+
+  // Manual sync handler
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setLastSyncMessage(null);
+    try {
+      const result = await calendarAPI.sync(true);
+      setLastSyncMessage(`Synced ${result.events_synced} events`);
+      // Refetch calendar data
+      mutate();
+      mutateExams();
+      setTimeout(() => setLastSyncMessage(null), 3000);
+    } catch {
+      setLastSyncMessage('Sync failed');
+      setTimeout(() => setLastSyncMessage(null), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Load events for older months on demand
+  const handleLoadOlderMonth = async () => {
+    setIsSyncing(true);
+    setLastSyncMessage(null);
+    try {
+      // Calculate days_behind to cover the viewed month
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const viewMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const daysBehind = Math.ceil((today.getTime() - viewMonthStart.getTime()) / (1000 * 60 * 60 * 24)) + 30;
+
+      // Sync events from Google Calendar
+      const result = await calendarAPI.sync(true, daysBehind);
+      setLastSyncMessage(`Synced ${result.events_synced} events`);
+
+      // Expand fetch range to include the viewed month
+      setFetchDaysBehind(daysBehind);
+
+      // Note: mutate() is called automatically by SWR when fetchDaysBehind changes
+      mutateExams();
+      setTimeout(() => setLastSyncMessage(null), 3000);
+    } catch {
+      setLastSyncMessage('Sync failed');
+      setTimeout(() => setLastSyncMessage(null), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Group events by date
   const eventsByDate = useMemo(() => {
@@ -438,6 +509,28 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           </Link>
         </div>
         <div className="flex items-center gap-1">
+          {/* Sync status message */}
+          {lastSyncMessage && (
+            <span className={cn(
+              "text-xs mr-1",
+              lastSyncMessage.includes('failed') ? "text-red-500" : "text-green-600 dark:text-green-400"
+            )}>
+              {lastSyncMessage}
+            </span>
+          )}
+          {/* Sync button */}
+          <button
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="p-1.5 hover:bg-[#d4a574]/20 rounded transition-colors disabled:opacity-50"
+            title="Sync calendar with Google"
+          >
+            {isSyncing ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+            ) : (
+              <RefreshCw className="h-4 w-4 text-gray-500" />
+            )}
+          </button>
           <button
             onClick={goToPrevMonth}
             className="p-1.5 hover:bg-[#d4a574]/20 rounded transition-colors"
@@ -463,6 +556,20 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       <div className="flex-shrink-0 text-center py-2 font-semibold text-gray-800 dark:text-gray-200">
         {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </div>
+
+      {/* Out of sync range warning with load button */}
+      {!isMonthInSyncRange && (
+        <div className="flex-shrink-0 mx-3 mb-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+          <span>Events may not be loaded.</span>
+          <button
+            onClick={handleLoadOlderMonth}
+            disabled={isSyncing}
+            className="underline hover:no-underline font-medium disabled:opacity-50"
+          >
+            {isSyncing ? 'Loading...' : 'Load events'}
+          </button>
+        </div>
+      )}
 
       {/* Calendar Grid */}
       <div className="flex-shrink-0 px-3 pb-2">
