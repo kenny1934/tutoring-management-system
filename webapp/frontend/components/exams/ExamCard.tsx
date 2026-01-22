@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { useEligibleStudents, useEligibleStudentsByExam } from "@/lib/hooks";
@@ -29,7 +29,7 @@ interface ExamCardProps {
   defaultExpanded?: boolean;
 }
 
-export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, highlighted, defaultExpanded }: ExamCardProps) {
+export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, highlighted, defaultExpanded }: ExamCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
   const [selectedSlot, setSelectedSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -258,63 +258,65 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
               </div>
             )}
 
-            {/* Eligible students section - show when there are eligible students */}
-            {exam.eligible_count > 0 && (
-              <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 overflow-hidden">
-                <button
-                  onClick={() => setShowEligibleStudents(!showEligibleStudents)}
-                  className="w-full p-3 flex items-center justify-between text-left hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors"
-                >
-                  <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-                    <Users className="h-4 w-4" />
-                    <span>
-                      {exam.eligible_count} eligible student{exam.eligible_count !== 1 ? "s" : ""} not yet enrolled
-                      {!location && " (all locations)"}
-                    </span>
-                  </div>
-                  {showEligibleStudents ? (
-                    <ChevronUp className="h-4 w-4 text-amber-500" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-amber-500" />
-                  )}
-                </button>
-
-                {/* Expanded eligible students list */}
-                {showEligibleStudents && (
-                  <div className="border-t border-amber-200 dark:border-amber-800 p-3">
-                    {loadingEligible ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
-                      </div>
-                    ) : eligibleStudents.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-                        No eligible students found. Students need pending make-ups to be eligible.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {eligibleStudents.map((student) => (
-                          <div
-                            key={student.student_id}
-                            className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
-                          >
-                            <StudentInfoBadges
-                              student={student}
-                              showLink
-                              showLocationPrefix={!location}
-                              trailing={
-                                <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto">
-                                  {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
-                                </span>
-                              }
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {/* Eligible students section - always show, count is lazy-loaded */}
+            <div className="mt-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 overflow-hidden">
+              <button
+                onClick={() => setShowEligibleStudents(!showEligibleStudents)}
+                className="w-full p-3 flex items-center justify-between text-left hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors"
+              >
+                <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                  <Users className="h-4 w-4" />
+                  <span>
+                    {showEligibleStudents
+                      ? loadingEligible
+                        ? "Loading eligible students..."
+                        : `${eligibleStudents.length} eligible student${eligibleStudents.length !== 1 ? "s" : ""} not yet enrolled`
+                      : "View eligible students"}
+                    {!location && showEligibleStudents && !loadingEligible && " (all locations)"}
+                  </span>
+                </div>
+                {showEligibleStudents ? (
+                  <ChevronUp className="h-4 w-4 text-amber-500" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-amber-500" />
                 )}
-              </div>
-            )}
+              </button>
+
+              {/* Expanded eligible students list */}
+              {showEligibleStudents && (
+                <div className="border-t border-amber-200 dark:border-amber-800 p-3">
+                  {loadingEligible ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-amber-600" />
+                    </div>
+                  ) : eligibleStudents.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                      No eligible students found. Students need pending make-ups to be eligible.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {eligibleStudents.map((student) => (
+                        <div
+                          key={student.student_id}
+                          className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
+                        >
+                          <StudentInfoBadges
+                            student={student}
+                            showLink
+                            showLocationPrefix={!location}
+                            trailing={
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto">
+                                {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
+                              </span>
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -338,4 +340,4 @@ export function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefre
       )}
     </div>
   );
-}
+});
