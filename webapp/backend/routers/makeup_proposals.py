@@ -384,7 +384,8 @@ View proposal: /proposals?id={proposal.id}""".strip()
 
     # Also notify original session tutor if they're different from proposer and not already a target
     original_tutor_id = original_session.tutor_id
-    if original_tutor_id and original_tutor_id != from_tutor_id and original_tutor_id not in target_tutor_ids:
+    notified_tutor_ids = target_tutor_ids.copy()
+    if original_tutor_id and original_tutor_id != from_tutor_id and original_tutor_id not in notified_tutor_ids:
         fyi_message = TutorMessage(
             from_tutor_id=from_tutor_id,
             to_tutor_id=original_tutor_id,
@@ -395,6 +396,23 @@ View proposal: /proposals?id={proposal.id}""".strip()
         )
         db.add(fyi_message)
         messages_created.append(fyi_message)
+        notified_tutor_ids.add(original_tutor_id)
+
+    # Also notify enrollment tutor if different from all others
+    enrollment_tutor_id = original_session.enrollment.tutor_id if original_session.enrollment else None
+    if (enrollment_tutor_id
+        and enrollment_tutor_id != from_tutor_id
+        and enrollment_tutor_id not in notified_tutor_ids):
+        enrollment_fyi_message = TutorMessage(
+            from_tutor_id=from_tutor_id,
+            to_tutor_id=enrollment_tutor_id,
+            subject=f"[FYI] {subject}",
+            message=f"A make-up has been proposed for your enrollment's session.\n\n{message_body}",
+            priority="Normal",
+            category="MakeupConfirmation",
+        )
+        db.add(enrollment_fyi_message)
+        messages_created.append(enrollment_fyi_message)
 
     db.flush()  # Get message IDs
 
@@ -470,6 +488,7 @@ async def approve_slot(
     original_session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
+        joinedload(SessionLog.enrollment),
     ).filter(SessionLog.id == proposal.original_session_id).first()
 
     if not original_session:
@@ -543,6 +562,91 @@ async def approve_slot(
     proposal.resolved_at = datetime.now()
     proposal.active_flag = None  # Clear flag to allow new proposals
 
+    # --- Send approval notifications ---
+    student = original_session.student
+    student_id = student.school_student_id or f"#{student.id}"
+    student_name = student.student_name
+    slot_tutor = slot.proposed_tutor
+    slot_tutor_name = slot_tutor.tutor_name if slot_tutor else "Unknown"
+    formatted_date = _format_date_with_day(slot.proposed_date)
+    approving_tutor_name = acting_tutor.tutor_name if acting_tutor else "Unknown"
+
+    approval_subject = f"[Approved] Make-up for {student_id} {student_name}"
+    approval_body = f"""Your make-up proposal has been approved!
+
+Student: {student_id} {student_name}
+New session: {formatted_date} {slot.proposed_time_slot} with {slot_tutor_name} @ {slot.proposed_location}
+
+Approved by: {approving_tutor_name}
+
+View proposal: /proposals?id={proposal.id}"""
+
+    # Track notified tutors to avoid duplicates
+    notified_tutor_ids = set()
+
+    # 1. Notify proposer (HIGH priority)
+    proposer_id = proposal.proposed_by_tutor_id
+    if proposer_id and proposer_id != tutor_id:  # Don't notify if they approved it themselves
+        proposer_message = TutorMessage(
+            from_tutor_id=tutor_id,
+            to_tutor_id=proposer_id,
+            subject=approval_subject,
+            message=approval_body,
+            priority="High",
+            category="MakeupConfirmation",
+        )
+        db.add(proposer_message)
+        notified_tutor_ids.add(proposer_id)
+
+    # 2. Notify original session tutor (FYI)
+    original_tutor_id = original_session.tutor_id
+    if (original_tutor_id
+        and original_tutor_id != tutor_id
+        and original_tutor_id not in notified_tutor_ids):
+        fyi_message = TutorMessage(
+            from_tutor_id=tutor_id,
+            to_tutor_id=original_tutor_id,
+            subject=f"[FYI] {approval_subject}",
+            message=f"A make-up for your student's session has been approved.\n\n{approval_body}",
+            priority="Normal",
+            category="MakeupConfirmation",
+        )
+        db.add(fyi_message)
+        notified_tutor_ids.add(original_tutor_id)
+
+    # 3. Notify enrollment tutor (FYI)
+    enrollment_tutor_id = original_session.enrollment.tutor_id if original_session.enrollment else None
+    if (enrollment_tutor_id
+        and enrollment_tutor_id != tutor_id
+        and enrollment_tutor_id not in notified_tutor_ids):
+        enrollment_fyi_message = TutorMessage(
+            from_tutor_id=tutor_id,
+            to_tutor_id=enrollment_tutor_id,
+            subject=f"[FYI] {approval_subject}",
+            message=f"A make-up for your enrollment's session has been approved.\n\n{approval_body}",
+            priority="Normal",
+            category="MakeupConfirmation",
+        )
+        db.add(enrollment_fyi_message)
+        notified_tutor_ids.add(enrollment_tutor_id)
+
+    # 4. Notify other target tutors whose slots weren't picked (FYI)
+    other_target_ids = set(s.proposed_tutor_id for s in proposal.slots if s.id != slot_id)
+    for other_tutor_id in other_target_ids:
+        if (other_tutor_id
+            and other_tutor_id != tutor_id
+            and other_tutor_id not in notified_tutor_ids):
+            other_message = TutorMessage(
+                from_tutor_id=tutor_id,
+                to_tutor_id=other_tutor_id,
+                subject=f"[FYI] {approval_subject}",
+                message=f"Another slot was selected for this make-up request.\n\n{approval_body}",
+                priority="Normal",
+                category="MakeupConfirmation",
+            )
+            db.add(other_message)
+            notified_tutor_ids.add(other_tutor_id)
+
     db.commit()
 
     # Reload and return
@@ -609,16 +713,118 @@ async def reject_slot(
     slot.rejection_reason = request.rejection_reason
 
     # Check if all slots are now rejected
-    all_slots = db.query(MakeupProposalSlot).filter(
+    all_slots = db.query(MakeupProposalSlot).options(
+        joinedload(MakeupProposalSlot.proposed_tutor),
+    ).filter(
         MakeupProposalSlot.proposal_id == proposal.id
     ).all()
 
     all_rejected = all(s.slot_status == 'rejected' for s in all_slots)
+    pending_count = sum(1 for s in all_slots if s.slot_status == 'pending')
+
+    # Get original session for notification details
+    original_session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.enrollment),
+    ).filter(SessionLog.id == proposal.original_session_id).first()
+
+    student = original_session.student if original_session else None
+    student_id = (student.school_student_id or f"#{student.id}") if student else "Unknown"
+    student_name = student.student_name if student else "Unknown"
+    slot_tutor = slot.proposed_tutor
+    slot_tutor_name = slot_tutor.tutor_name if slot_tutor else "Unknown"
+    formatted_slot_date = _format_date_with_day(slot.proposed_date)
+    rejecting_tutor_name = acting_tutor.tutor_name if acting_tutor else "Unknown"
+    rejection_reason = request.rejection_reason or "No reason provided"
+
+    proposer_id = proposal.proposed_by_tutor_id
 
     if all_rejected:
         proposal.status = 'rejected'
         proposal.resolved_at = datetime.now()
         proposal.active_flag = None  # Clear flag to allow new proposals
+
+        # --- Send full rejection notifications (proposer + FYI tutors) ---
+        rejection_subject = f"[Rejected] Make-up for {student_id} {student_name}"
+        original_date = _format_date_with_day(original_session.session_date) if original_session else "Unknown"
+        original_time = original_session.time_slot if original_session else ""
+        rejection_body = f"""All proposed slots were rejected. You may create a new proposal.
+
+Student: {student_id} {student_name}
+Original session: {original_date} {original_time}
+
+View proposal: /proposals?id={proposal.id}"""
+
+        notified_tutor_ids = set()
+
+        # 1. Notify proposer (HIGH priority)
+        if proposer_id and proposer_id != tutor_id:
+            proposer_message = TutorMessage(
+                from_tutor_id=tutor_id,
+                to_tutor_id=proposer_id,
+                subject=rejection_subject,
+                message=rejection_body,
+                priority="High",
+                category="MakeupConfirmation",
+            )
+            db.add(proposer_message)
+            notified_tutor_ids.add(proposer_id)
+
+        # 2. Notify original session tutor (FYI)
+        original_tutor_id = original_session.tutor_id if original_session else None
+        if (original_tutor_id
+            and original_tutor_id != tutor_id
+            and original_tutor_id not in notified_tutor_ids):
+            fyi_message = TutorMessage(
+                from_tutor_id=tutor_id,
+                to_tutor_id=original_tutor_id,
+                subject=f"[FYI] {rejection_subject}",
+                message=f"A make-up proposal for your student's session was rejected.\n\n{rejection_body}",
+                priority="Normal",
+                category="MakeupConfirmation",
+            )
+            db.add(fyi_message)
+            notified_tutor_ids.add(original_tutor_id)
+
+        # 3. Notify enrollment tutor (FYI)
+        enrollment_tutor_id = original_session.enrollment.tutor_id if original_session and original_session.enrollment else None
+        if (enrollment_tutor_id
+            and enrollment_tutor_id != tutor_id
+            and enrollment_tutor_id not in notified_tutor_ids):
+            enrollment_fyi_message = TutorMessage(
+                from_tutor_id=tutor_id,
+                to_tutor_id=enrollment_tutor_id,
+                subject=f"[FYI] {rejection_subject}",
+                message=f"A make-up proposal for your enrollment's session was rejected.\n\n{rejection_body}",
+                priority="Normal",
+                category="MakeupConfirmation",
+            )
+            db.add(enrollment_fyi_message)
+            notified_tutor_ids.add(enrollment_tutor_id)
+
+    else:
+        # --- Send partial rejection notification (proposer only) ---
+        if proposer_id and proposer_id != tutor_id:
+            partial_subject = f"[Slot Rejected] Make-up for {student_id} {student_name}"
+            partial_body = f"""One of your proposed slots was rejected.
+
+Rejected slot: {formatted_slot_date} {slot.proposed_time_slot} with {slot_tutor_name}
+Reason: {rejection_reason}
+
+{pending_count} slot(s) still pending.
+
+View proposal: /proposals?id={proposal.id}"""
+
+            partial_message = TutorMessage(
+                from_tutor_id=tutor_id,
+                to_tutor_id=proposer_id,
+                subject=partial_subject,
+                message=partial_body,
+                priority="Normal",
+                category="MakeupConfirmation",
+            )
+            db.add(partial_message)
 
     db.commit()
 
