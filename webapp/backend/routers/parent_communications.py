@@ -175,6 +175,9 @@ async def get_student_contact_statuses(
             ParentCommunication.follow_up_date == None,
             ParentCommunication.follow_up_date >= date.today()
         )
+    ).options(
+        joinedload(ParentCommunication.student),
+        joinedload(ParentCommunication.tutor)
     ).all()
     for record in followup_records:
         if record.student_id not in pending_followups:

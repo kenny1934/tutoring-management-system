@@ -69,6 +69,8 @@ def remove_colored_ink(image: np.ndarray,
     Remove colored ink (blue, red, green) from an image.
     Works by detecting pixels in specific HSV color ranges and replacing with white.
     """
+    if not CV2_AVAILABLE:
+        raise RuntimeError("OpenCV not available for color ink removal")
     # Convert to HSV for better color detection
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
@@ -116,6 +118,8 @@ def remove_pencil_marks(image: np.ndarray, threshold: int = 200) -> np.ndarray:
     Remove light pencil marks by thresholding grayscale intensity.
     Only removes light gray marks, preserving darker printed text.
     """
+    if not CV2_AVAILABLE:
+        raise RuntimeError("OpenCV not available for pencil mark removal")
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -178,6 +182,8 @@ def remove_black_handwriting(image: np.ndarray, mode: ProcessingMode, manual_str
     Returns:
         Processed image with black handwriting removed
     """
+    if not CV2_AVAILABLE:
+        raise RuntimeError("OpenCV not available for black handwriting removal")
     try:
         original_height, original_width = image.shape[:2]
         thresholds = get_mode_thresholds(mode)
@@ -290,6 +296,8 @@ def apply_morphological_cleanup(image: np.ndarray) -> np.ndarray:
     """
     Apply morphological operations to clean up small artifacts.
     """
+    if not CV2_AVAILABLE:
+        raise RuntimeError("OpenCV not available for morphological cleanup")
     # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
