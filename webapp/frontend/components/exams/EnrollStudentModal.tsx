@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
-import { removeFromEligibleCache, updateExamEnrollmentCount } from "@/lib/exam-revision-cache";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { ExamRevisionSlot, EligibleStudent } from "@/types";
 import {
@@ -89,10 +88,6 @@ export function EnrollStudentModal({
         consume_session_id: sessionId,
         created_by: currentUserEmail,
       });
-
-      // Optimistic cache updates
-      removeFromEligibleCache(slot.id, student.student_id);
-      updateExamEnrollmentCount(slot.calendar_event_id, slot.id);
 
       setSuccessMessage(`${student.student_name} enrolled successfully!`);
       setExpandedStudentId(null);

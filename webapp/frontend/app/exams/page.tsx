@@ -40,6 +40,13 @@ export default function ExamsPage() {
     return tutor?.id;
   }, [tutors]);
 
+  // Slot defaults interface for duplication
+  interface SlotDefaults {
+    tutor_id?: number;
+    location?: string;
+    notes?: string;
+  }
+
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
@@ -47,6 +54,7 @@ export default function ExamsPage() {
   const [gradeFilter, setGradeFilter] = useState<string>("");
   const [selectedExam, setSelectedExam] = useState<ExamWithRevisionSlots | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [slotDefaults, setSlotDefaults] = useState<SlotDefaults | undefined>(undefined);
   const [viewMode, setViewMode] = useState<ExamViewMode>(
     viewParam === 'past' ? 'past' : 'upcoming'
   );
@@ -127,9 +135,10 @@ export default function ExamsPage() {
     });
   }, [filteredExams, viewMode]);
 
-  // Handle creating a revision slot
-  const handleCreateSlot = useCallback((exam: ExamWithRevisionSlots) => {
+  // Handle creating a revision slot (with optional defaults for duplication)
+  const handleCreateSlot = useCallback((exam: ExamWithRevisionSlots, defaults?: SlotDefaults) => {
     setSelectedExam(exam);
+    setSlotDefaults(defaults);
     setShowCreateModal(true);
   }, []);
 
@@ -138,6 +147,7 @@ export default function ExamsPage() {
     mutate();
     setShowCreateModal(false);
     setSelectedExam(null);
+    setSlotDefaults(undefined);
   }, [mutate]);
 
   // Stable refresh callback
@@ -304,7 +314,7 @@ export default function ExamsPage() {
                     exam={exam}
                     currentTutorId={currentTutorId}
                     location={selectedLocation !== "All Locations" ? selectedLocation : null}
-                    onCreateSlot={() => handleCreateSlot(exam)}
+                    onCreateSlot={(defaults) => handleCreateSlot(exam, defaults)}
                     onRefresh={handleRefresh}
                     highlighted={isHighlighted}
                     defaultExpanded={isHighlighted}
@@ -323,9 +333,11 @@ export default function ExamsPage() {
             onClose={() => {
               setShowCreateModal(false);
               setSelectedExam(null);
+              setSlotDefaults(undefined);
             }}
             onCreated={handleSlotCreated}
             currentTutorId={currentTutorId}
+            defaults={slotDefaults}
           />
         )}
 

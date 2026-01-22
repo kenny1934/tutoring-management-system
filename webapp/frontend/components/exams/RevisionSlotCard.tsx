@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRevisionSlotDetail, useSession } from "@/lib/hooks";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { examRevisionAPI } from "@/lib/api";
-import { removeSlotFromCache } from "@/lib/exam-revision-cache";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import type { ExamRevisionSlot } from "@/types";
@@ -20,16 +19,20 @@ import {
   UserPlus,
   Trash2,
   Loader2,
+  Pencil,
+  Copy,
 } from "lucide-react";
 
 interface RevisionSlotCardProps {
   slot: ExamRevisionSlot;
   onEnroll: () => void;
+  onEdit: () => void;
+  onDuplicate: () => void;
   onRefresh: () => void;
   showLocationPrefix?: boolean;
 }
 
-export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix }: RevisionSlotCardProps) {
+export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onEnroll, onEdit, onDuplicate, onRefresh, showLocationPrefix }: RevisionSlotCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingId, setIsRemovingId] = useState<number | null>(null);
@@ -55,12 +58,16 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this revision slot?")) return;
+    const hasStudents = slot.enrolled_count > 0;
+    const message = hasStudents
+      ? `This slot has ${slot.enrolled_count} enrolled student(s). Deleting will unenroll them and revert their sessions. Continue?`
+      : "Are you sure you want to delete this revision slot?";
+
+    if (!confirm(message)) return;
 
     setIsDeleting(true);
     try {
-      await examRevisionAPI.deleteSlot(slot.id);
-      removeSlotFromCache(slot.id, slot.calendar_event_id);
+      await examRevisionAPI.deleteSlot(slot.id, hasStudents);
       onRefresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete slot");
@@ -135,7 +142,7 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix
         </button>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={onEnroll}
             className={cn(
@@ -146,22 +153,35 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix
             <UserPlus className="h-3 w-3" />
             Enroll
           </button>
-          {slot.enrolled_count === 0 && (
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className={cn(
-                "p-1 text-gray-400 hover:text-red-500 transition-colors",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </button>
-          )}
+          <button
+            onClick={onEdit}
+            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+            title="Edit slot"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onDuplicate}
+            className="p-1.5 text-gray-400 hover:text-purple-500 transition-colors"
+            title="Duplicate slot"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className={cn(
+              "p-1.5 text-gray-400 hover:text-red-500 transition-colors",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+            title={slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
+          >
+            {isDeleting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -246,4 +266,4 @@ export function RevisionSlotCard({ slot, onEnroll, onRefresh, showLocationPrefix
       />
     </div>
   );
-}
+});

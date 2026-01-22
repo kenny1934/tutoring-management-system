@@ -147,6 +147,39 @@ def _build_slot_response(
     )
 
 
+def _check_tutor_conflicts(
+    db: Session,
+    tutor_id: int,
+    session_date: date,
+    time_slot: str,
+) -> List[dict]:
+    """
+    Check if the tutor has regular sessions that conflict with the given date/time.
+    Returns a list of conflicting session details.
+    """
+    # Query regular sessions (not revision slots) for this tutor on this date
+    conflicting_sessions = db.query(SessionLog).options(
+        joinedload(SessionLog.student)
+    ).filter(
+        SessionLog.tutor_id == tutor_id,
+        SessionLog.session_date == session_date,
+        SessionLog.exam_revision_slot_id.is_(None),  # Regular sessions only
+        SessionLog.session_status.in_(['Scheduled', 'Make-up Class', 'Rescheduled'])
+    ).all()
+
+    conflicts = []
+    for session in conflicting_sessions:
+        if session.time_slot and _times_overlap(time_slot, session.time_slot):
+            conflicts.append({
+                "session_id": session.id,
+                "student_name": session.student.student_name if session.student else "Unknown",
+                "time_slot": session.time_slot,
+                "status": session.session_status,
+            })
+
+    return conflicts
+
+
 # ============================================
 # Revision Slot CRUD Endpoints
 # ============================================
@@ -240,6 +273,16 @@ async def create_revision_slot(
     if overlapping:
         overlap_info = ", ".join([f"{s.time_slot} ({s.tutor.tutor_name if s.tutor else 'Unknown'})" for s in overlapping])
         overlap_warning = f"Overlapping slot(s) at same location: {overlap_info}"
+
+    # Check for tutor conflicts with regular sessions
+    tutor_conflicts = _check_tutor_conflicts(db, request.tutor_id, request.session_date, request.time_slot)
+    if tutor_conflicts:
+        conflict_info = ", ".join([f"{c['student_name']} ({c['time_slot']})" for c in tutor_conflicts])
+        conflict_warning = f"Tutor has {len(tutor_conflicts)} conflicting session(s): {conflict_info}"
+        if overlap_warning:
+            overlap_warning = f"{overlap_warning}. {conflict_warning}"
+        else:
+            overlap_warning = conflict_warning
 
     # Create the slot
     slot = ExamRevisionSlot(
@@ -340,13 +383,121 @@ async def get_revision_slot_detail(
     )
 
 
-@router.delete("/exam-revision/slots/{slot_id}")
-async def delete_revision_slot(
+@router.patch("/exam-revision/slots/{slot_id}", response_model=ExamRevisionSlotResponse)
+async def update_revision_slot(
     slot_id: int,
+    update: ExamRevisionSlotUpdate,
     db: Session = Depends(get_db)
 ):
     """
-    Delete a revision slot. Can only delete empty slots (no enrolled students).
+    Update a revision slot's details.
+
+    If the slot has enrolled students, date/time/location changes are restricted.
+    Tutor and notes can always be updated.
+    """
+    slot = db.query(ExamRevisionSlot).options(
+        joinedload(ExamRevisionSlot.sessions),
+        joinedload(ExamRevisionSlot.tutor),
+        joinedload(ExamRevisionSlot.calendar_event)
+    ).filter(ExamRevisionSlot.id == slot_id).first()
+
+    if not slot:
+        raise HTTPException(status_code=404, detail=f"Revision slot with ID {slot_id} not found")
+
+    # Check for enrolled students
+    enrolled_count = len([
+        s for s in slot.sessions
+        if s.session_status in ENROLLED_SESSION_STATUSES
+    ])
+
+    # Restrict date/time/location changes if students are enrolled
+    restricted_fields_changed = any([
+        update.session_date is not None and update.session_date != slot.session_date,
+        update.time_slot is not None and update.time_slot != slot.time_slot,
+        update.location is not None and update.location != slot.location
+    ])
+
+    if enrolled_count > 0 and restricted_fields_changed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot change date, time, or location when {enrolled_count} student(s) are enrolled. Remove enrollments first."
+        )
+
+    # Validate tutor if changing
+    if update.tutor_id is not None:
+        tutor = db.query(Tutor).filter(Tutor.id == update.tutor_id).first()
+        if not tutor:
+            raise HTTPException(status_code=404, detail=f"Tutor with ID {update.tutor_id} not found")
+
+    # Check for duplicates if changing key fields
+    if any([update.session_date, update.time_slot, update.tutor_id, update.location]):
+        check_date = update.session_date if update.session_date else slot.session_date
+        check_time = update.time_slot if update.time_slot else slot.time_slot
+        check_tutor = update.tutor_id if update.tutor_id else slot.tutor_id
+        check_location = update.location if update.location else slot.location
+
+        existing = db.query(ExamRevisionSlot).filter(
+            ExamRevisionSlot.id != slot_id,
+            ExamRevisionSlot.calendar_event_id == slot.calendar_event_id,
+            ExamRevisionSlot.session_date == check_date,
+            ExamRevisionSlot.time_slot == check_time,
+            ExamRevisionSlot.tutor_id == check_tutor,
+            ExamRevisionSlot.location == check_location
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="A revision slot with these details already exists"
+            )
+
+    # Compute final values for conflict checking
+    final_date = update.session_date if update.session_date else slot.session_date
+    final_time = update.time_slot if update.time_slot else slot.time_slot
+    final_tutor = update.tutor_id if update.tutor_id else slot.tutor_id
+
+    # Check for tutor conflicts with regular sessions
+    warning = None
+    tutor_conflicts = _check_tutor_conflicts(db, final_tutor, final_date, final_time)
+    if tutor_conflicts:
+        conflict_info = ", ".join([f"{c['student_name']} ({c['time_slot']})" for c in tutor_conflicts])
+        warning = f"Tutor has {len(tutor_conflicts)} conflicting session(s): {conflict_info}"
+
+    # Apply updates
+    if update.session_date is not None:
+        slot.session_date = update.session_date
+    if update.time_slot is not None:
+        slot.time_slot = update.time_slot
+    if update.tutor_id is not None:
+        slot.tutor_id = update.tutor_id
+    if update.location is not None:
+        slot.location = update.location
+    if update.notes is not None:
+        slot.notes = update.notes if update.notes.strip() else None
+
+    db.commit()
+    db.refresh(slot)
+
+    # Reload with relationships
+    slot = db.query(ExamRevisionSlot).options(
+        joinedload(ExamRevisionSlot.calendar_event),
+        joinedload(ExamRevisionSlot.tutor),
+        joinedload(ExamRevisionSlot.sessions)
+    ).filter(ExamRevisionSlot.id == slot_id).first()
+
+    return _build_slot_response(slot, warning=warning)
+
+
+@router.delete("/exam-revision/slots/{slot_id}")
+async def delete_revision_slot(
+    slot_id: int,
+    force: bool = Query(False, description="Force delete: unenroll all students first"),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a revision slot.
+
+    By default, can only delete empty slots (no enrolled students).
+    With force=true, will unenroll all students (reverting their sessions) then delete.
     """
     slot = db.query(ExamRevisionSlot).options(
         joinedload(ExamRevisionSlot.sessions)
@@ -360,15 +511,42 @@ async def delete_revision_slot(
         s for s in slot.sessions
         if s.session_status in ENROLLED_SESSION_STATUSES
     ]
-    if enrolled:
+
+    if enrolled and not force:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot delete slot with {len(enrolled)} enrolled student(s). Remove enrollments first."
+            detail=f"Cannot delete slot with {len(enrolled)} enrolled student(s). Use force=true to unenroll and delete."
         )
+
+    # Force delete: unenroll all students first
+    unenrolled_count = 0
+    if enrolled and force:
+        for session in enrolled:
+            # Skip already attended sessions
+            if session.session_status in ['Attended', 'Attended (Make-up)']:
+                continue
+
+            # Revert the consumed session if it exists
+            if session.make_up_for_id:
+                consumed_session = db.query(SessionLog).filter(
+                    SessionLog.id == session.make_up_for_id
+                ).first()
+                if consumed_session:
+                    # Revert status from "Make-up Booked" to "Pending Make-up"
+                    consumed_session.session_status = consumed_session.session_status.replace(
+                        "Make-up Booked", "Pending Make-up"
+                    )
+                    consumed_session.rescheduled_to_id = None
+
+            # Delete the revision session
+            db.delete(session)
+            unenrolled_count += 1
 
     db.delete(slot)
     db.commit()
 
+    if unenrolled_count > 0:
+        return {"message": f"Revision slot {slot_id} deleted. {unenrolled_count} student(s) were unenrolled."}
     return {"message": f"Revision slot {slot_id} deleted successfully"}
 
 
