@@ -291,13 +291,14 @@ export default function TerminatedStudentsPage() {
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
-            {/* Toolbar */}
-            <div className={cn(
-              "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
-              "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
-              "rounded-lg px-3 sm:px-4 py-2",
-              !isMobile && "paper-texture"
-            )}>
+            {/* Toolbar - outer div is sticky container, inner div has visual styling */}
+            <div className="sticky top-0 z-30">
+              <div className={cn(
+                "flex flex-wrap items-center gap-2 sm:gap-3",
+                "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
+                "rounded-lg px-3 sm:px-4 py-2",
+                !isMobile && "paper-texture"
+              )}>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
               {/* Title and filters */}
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1">
@@ -407,6 +408,7 @@ export default function TerminatedStudentsPage() {
                 </div>
               )}
             </div>
+          </div>
           </div>
 
           {/* Click outside to close dropdown */}
