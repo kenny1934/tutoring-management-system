@@ -5,6 +5,7 @@ Provides read-only access to session log data.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from typing import List, Optional
 from datetime import date
 from database import get_db
@@ -523,6 +524,111 @@ async def mark_session_weather_cancelled(
     session_data = _build_session_response(session)
 
     return session_data
+
+
+# ============================================
+# Undo/Redo Endpoints
+# ============================================
+
+@router.patch("/sessions/{session_id}/undo", response_model=SessionResponse)
+async def undo_session_status(
+    session_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Undo the last status change on a session.
+
+    Reverts session_status to previous_session_status and clears the undo history.
+    Cannot undo if a make-up has been booked (use cancel-makeup instead).
+
+    Returns the session with `undone_from_status` field indicating what was undone.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Validate we have something to undo
+    if not session.previous_session_status:
+        raise HTTPException(
+            status_code=400,
+            detail="No previous status to revert to"
+        )
+
+    # Prevent undo when make-up is booked
+    if "Make-up Booked" in session.session_status:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot undo: a make-up session has been booked. Use 'Cancel Make-up' first."
+        )
+
+    # Store the status we're undoing from (for redo toast)
+    undone_from_status = session.session_status
+
+    # Revert to previous status
+    session.session_status = session.previous_session_status
+    session.previous_session_status = None  # Clear to prevent double-undo
+
+    # Clear attendance fields if undoing from Attended status
+    if undone_from_status in ("Attended", "Attended (Make-up)"):
+        session.attendance_marked_by = None
+        session.attendance_mark_time = None
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    response = _build_session_response(session)
+    # Convert to dict and add undone_from_status for redo toast
+    response_dict = response.model_dump()
+    response_dict["undone_from_status"] = undone_from_status
+    return response_dict
+
+
+@router.patch("/sessions/{session_id}/redo", response_model=SessionResponse)
+async def redo_session_status(
+    session_id: int,
+    status: str = Query(..., description="Status to restore"),
+    db: Session = Depends(get_db)
+):
+    """
+    Redo a recently undone status change (called from toast).
+
+    Restores the session to the specified status and stores current as previous.
+    """
+    session = db.query(SessionLog).options(
+        joinedload(SessionLog.student),
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.exercises)
+    ).filter(SessionLog.id == session_id).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Store current status as previous (for undo again if needed)
+    session.previous_session_status = session.session_status
+    session.session_status = status
+
+    # Re-set attendance fields if restoring to Attended
+    if status in ("Attended", "Attended (Make-up)"):
+        session.attendance_marked_by = "system@csmpro.app"
+        session.attendance_mark_time = datetime.now()
+
+    # Set audit columns
+    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_time = datetime.now()
+
+    db.commit()
+    db.refresh(session)
+
+    return _build_session_response(session)
 
 
 # ============================================

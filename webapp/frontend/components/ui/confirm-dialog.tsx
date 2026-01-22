@@ -98,7 +98,7 @@ export function ConfirmDialog({
             <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg">
               <button
                 type="button"
-                onClick={onCancel}
+                onClick={(e) => { e.stopPropagation(); onCancel(); }}
                 disabled={loading}
                 className={cn(
                   "px-4 py-2 text-sm font-medium rounded-md transition-colors",
@@ -111,7 +111,7 @@ export function ConfirmDialog({
               </button>
               <button
                 type="button"
-                onClick={onConfirm}
+                onClick={(e) => { e.stopPropagation(); onConfirm(); }}
                 disabled={loading}
                 className={confirmButtonClasses}
               >

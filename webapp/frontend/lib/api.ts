@@ -306,6 +306,19 @@ export const sessionsAPI = {
       method: 'DELETE',
     });
   },
+
+  // Undo/Redo
+  undoStatus: (id: number) => {
+    return fetchAPI<Session & { undone_from_status?: string }>(`/sessions/${id}/undo`, {
+      method: 'PATCH',
+    });
+  },
+
+  redoStatus: (id: number, status: string) => {
+    return fetchAPI<Session>(`/sessions/${id}/redo?status=${encodeURIComponent(status)}`, {
+      method: 'PATCH',
+    });
+  },
 };
 
 // Calendar API

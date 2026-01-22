@@ -42,9 +42,10 @@ const hideCwHw = (s: Session): boolean =>
 
 /**
  * Sessions that can be undone (have a previous status to revert to).
+ * Hidden when make-up is booked - user should use "Cancel Make-up" instead.
  */
 const canUndo = (s: Session): boolean =>
-  !!s.previous_session_status;
+  !!s.previous_session_status && !s.session_status?.includes('Make-up Booked');
 
 /**
  * Sessions where make-up can be cancelled.
@@ -227,11 +228,12 @@ export const sessionActions: ActionConfig<Session>[] = [
     isVisible: canUndo,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
-      enabled: false,
+      enabled: true,
       method: 'PATCH',
       endpoint: '/api/sessions/{id}/undo',
     },
     confirmMessage: 'Revert to previous status?',
+    // Note: successMessage handled specially with redo toast in ChalkboardHeader
   },
 
   // ----------------------------------------

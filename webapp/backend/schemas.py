@@ -194,6 +194,7 @@ class SessionResponse(SessionBase):
     rescheduled_to: Optional[LinkedSessionInfo] = None
     make_up_for: Optional[LinkedSessionInfo] = None
     exercises: List["SessionExerciseResponse"] = []
+    undone_from_status: Optional[str] = Field(None, max_length=100, description="Status before undo (for redo toast)")
 
     model_config = ConfigDict(from_attributes=True)
 
