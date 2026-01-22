@@ -93,7 +93,11 @@ function TestItemPopover({
   const colors = EVENT_TYPE_COLORS[event.event_type || 'Test'] || EVENT_TYPE_COLORS.Test;
 
   const handleExamClick = () => {
-    router.push(`/exams?exam=${event.id}`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const examDate = new Date(event.start_date);
+    const isPast = examDate < today;
+    router.push(`/exams?exam=${event.id}${isPast ? '&view=past' : ''}`);
   };
 
   const { refs, floatingStyles, context } = useFloating({
@@ -315,11 +319,21 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Fetch 60 days ahead and dynamic days behind (expands when loading older months)
   const { data: events = [], isLoading, error, mutate } = useCalendarEvents(60, true, fetchDaysBehind);
 
+  // Calculate exam revision date range based on fetchDaysBehind
+  const examsDateRange = useMemo(() => {
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setDate(fromDate.getDate() - fetchDaysBehind);
+    const toDate = new Date(today);
+    toDate.setDate(toDate.getDate() + 60);
+    return {
+      from_date: toDateString(fromDate),
+      to_date: toDateString(toDate),
+    };
+  }, [fetchDaysBehind]);
+
   // Fetch exam revision stats for the same date range
-  const { data: examsWithSlots = [], mutate: mutateExams } = useExamsWithSlots({
-    from_date: toDateString(new Date()),
-    to_date: toDateString(new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)), // 60 days
-  });
+  const { data: examsWithSlots = [], mutate: mutateExams } = useExamsWithSlots(examsDateRange);
 
   // Check if current view month is within current fetch range
   const isMonthInSyncRange = useMemo(() => {
@@ -345,7 +359,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     setIsSyncing(true);
     setLastSyncMessage(null);
     try {
-      const result = await calendarAPI.sync(true);
+      const result = await calendarAPI.sync(true, fetchDaysBehind);
       setLastSyncMessage(`Synced ${result.events_synced} events`);
       // Refetch calendar data
       mutate();
