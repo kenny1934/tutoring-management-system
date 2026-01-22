@@ -555,7 +555,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "for-me"
-                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820] rounded-tl-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >
@@ -572,7 +572,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
                 className={cn(
                   "flex-1 px-4 py-2.5 text-sm font-medium transition-colors",
                   activeTab === "by-me"
-                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820]"
+                    ? "text-[#a0704b] border-b-2 border-[#a0704b] bg-[#faf6f1] dark:bg-[#2d2820] rounded-tr-lg"
                     : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 )}
               >

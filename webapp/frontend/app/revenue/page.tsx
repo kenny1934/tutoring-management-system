@@ -136,9 +136,9 @@ export default function RevenuePage() {
 
   const isLoading = loadingSummary || loadingSessions;
 
-  // Toolbar classes (match students page pattern)
-  const toolbarClasses = cn(
-    "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
+  // Toolbar classes (match sessions page pattern - separate sticky container from visual styling)
+  const toolbarInnerClasses = cn(
+    "flex flex-wrap items-center gap-2 sm:gap-3",
     "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
@@ -148,9 +148,10 @@ export default function RevenuePage() {
     <DeskSurface fullHeight>
       <PageTransition className="flex-1 overflow-y-auto">
         <div className="flex flex-col gap-3 p-2 sm:p-4">
-          {/* Toolbar */}
-          <div className={toolbarClasses}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+          {/* Toolbar - outer div is sticky container, inner div has visual styling */}
+          <div className="sticky top-0 z-30">
+            <div className={toolbarInnerClasses}>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
               {/* Top row: Title + Tutor Selector */}
               <div className="flex items-center gap-2 sm:gap-3">
                 {/* Title */}
@@ -221,6 +222,7 @@ export default function RevenuePage() {
               </button>
               </div>
             </div>
+          </div>
           </div>
 
           {/* Loading state */}
