@@ -931,6 +931,26 @@ export default function InboxPage() {
     });
   }, [selectedCategory, sentAsThreads, threads, debouncedSearch]);
 
+  // Filter MakeupConfirmation threads for makeup-confirmation category
+  const makeupThreads = useMemo(() => {
+    if (selectedCategory !== "makeup-confirmation") return [];
+    let filtered = threads.filter(t => t.root_message.category === "MakeupConfirmation");
+
+    // Apply search filter if present
+    if (debouncedSearch.trim()) {
+      const query = debouncedSearch.toLowerCase();
+      filtered = filtered.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.from_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
+    return filtered;
+  }, [threads, selectedCategory, debouncedSearch]);
+
   // Calculate per-category unread counts from all threads (not filtered by category)
   const categoryUnreadCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1303,7 +1323,7 @@ export default function InboxPage() {
                   <AlertCircle className="h-6 w-6 mr-2" />
                   Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
                 </div>
-              ) : (selectedCategory === "makeup-confirmation" ? proposals.length === 0 : displayThreads.length === 0) ? (
+              ) : (selectedCategory === "makeup-confirmation" ? (proposals.length === 0 && makeupThreads.length === 0) : displayThreads.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
                   <div className="text-center">
                     {selectedCategory === "makeup-confirmation" ? (
@@ -1319,21 +1339,48 @@ export default function InboxPage() {
                   </div>
                 </div>
               ) : selectedCategory === "makeup-confirmation" ? (
-                // Proposals view for makeup confirmations
+                // Make-up category: show proposals + message threads
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {proposals.map((proposal) => (
-                    <ProposalCard
-                      key={proposal.id}
-                      proposal={proposal}
-                      currentTutorId={tutorId ?? 0}
-                      onSelectSlot={() => {
-                        // For needs_input proposals, open ScheduleMakeupModal
-                        if (proposal.original_session) {
-                          setMakeupModalSession(proposal.original_session);
-                        }
-                      }}
-                    />
-                  ))}
+                  {/* Pending proposals (actionable) */}
+                  {proposals.length > 0 && (
+                    <>
+                      <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Pending Confirmations
+                      </h3>
+                      {proposals.map((proposal) => (
+                        <ProposalCard
+                          key={proposal.id}
+                          proposal={proposal}
+                          currentTutorId={tutorId ?? 0}
+                          onSelectSlot={() => {
+                            // For needs_input proposals, open ScheduleMakeupModal
+                            if (proposal.original_session) {
+                              setMakeupModalSession(proposal.original_session);
+                            }
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {/* Message threads (informational notifications) */}
+                  {makeupThreads.length > 0 && (
+                    <>
+                      <h3 className={cn(
+                        "text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide",
+                        proposals.length > 0 && "mt-4"
+                      )}>
+                        Notifications
+                      </h3>
+                      {makeupThreads.map((thread) => (
+                        <ThreadItem
+                          key={thread.root_message.id}
+                          thread={thread}
+                          isSelected={selectedThread?.root_message.id === thread.root_message.id}
+                          onClick={() => setSelectedThread(thread)}
+                        />
+                      ))}
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">

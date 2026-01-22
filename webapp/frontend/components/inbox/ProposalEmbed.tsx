@@ -227,18 +227,14 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
     );
   }
 
-  // Error or not found
+  // Error or not found - proposal was likely cancelled
   if (error || !proposal) {
     return (
-      <div className="mt-3 p-3 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-[#faf6f1]/50 dark:bg-[#2d2820]/50">
-        <Link
-          href={`/proposals?id=${proposalId}`}
-          className="flex items-center gap-2 text-sm text-[#a0704b] hover:underline"
-        >
+      <div className="mt-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <CalendarClock className="h-4 w-4" />
-          View Proposal #{proposalId}
-          <ChevronRight className="h-3 w-3" />
-        </Link>
+          <span>This proposal has been cancelled or no longer exists.</span>
+        </div>
       </div>
     );
   }
