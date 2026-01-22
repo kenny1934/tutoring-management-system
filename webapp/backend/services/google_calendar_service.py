@@ -237,10 +237,11 @@ class GoogleCalendarService:
             return datetime.strptime(date_str, '%Y-%m-%d')
 
 
-def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int = 0) -> int:
+def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int = 0) -> dict:
     """
     Sync calendar events from Google Calendar to database.
     Only syncs if last sync was more than TTL minutes ago, unless force_sync=True.
+    Also detects and deletes orphaned events (deleted from Google Calendar).
 
     Args:
         db: Database session
@@ -248,7 +249,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
         days_behind: Number of days in the past to sync (0 = today onwards)
 
     Returns:
-        Number of events synced
+        Dict with 'synced' and 'deleted' counts
     """
     from models import CalendarEvent
 
@@ -262,11 +263,38 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
             time_since_sync = datetime.utcnow() - last_sync.last_synced_at
             if time_since_sync.total_seconds() / 60 < SYNC_TTL_MINUTES:
                 print(f"Skipping sync - last sync was {time_since_sync.total_seconds() / 60:.1f} minutes ago")
-                return 0
+                return {"synced": 0, "deleted": 0}
 
     # Fetch events from Google Calendar
     service = GoogleCalendarService()
     events = service.fetch_upcoming_events(days_behind=days_behind)
+
+    # Collect fetched event IDs for orphan detection
+    fetched_event_ids = {e['event_id'] for e in events}
+
+    # Calculate date range being synced (matches fetch_upcoming_events default)
+    now = datetime.utcnow()
+    if days_behind > 0:
+        sync_start = (now - timedelta(days=days_behind)).date()
+    else:
+        sync_start = now.date()
+    sync_end = (now + timedelta(days=90)).date()
+
+    # Find and delete orphaned events (not in Google Calendar anymore)
+    orphaned = db.query(CalendarEvent).filter(
+        CalendarEvent.start_date >= sync_start,
+        CalendarEvent.start_date <= sync_end,
+        ~CalendarEvent.event_id.in_(fetched_event_ids) if fetched_event_ids else False
+    ).all()
+
+    deleted_count = 0
+    for event in orphaned:
+        if len(event.revision_slots) == 0:
+            db.delete(event)
+            deleted_count += 1
+            print(f"Deleted orphaned event {event.id}: {event.title}")
+        else:
+            print(f"Warning: Orphaned event {event.id} '{event.title}' has {len(event.revision_slots)} revision slot(s) - skipping delete")
 
     # Update or insert events in database
     synced_count = 0
@@ -297,7 +325,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
         synced_count += 1
 
     db.commit()
-    return synced_count
+    return {"synced": synced_count, "deleted": deleted_count}
 
 
 def get_upcoming_tests_for_session(

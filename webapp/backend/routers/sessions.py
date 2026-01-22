@@ -1392,11 +1392,12 @@ async def sync_calendar(
     from services.google_calendar_service import sync_calendar_events
 
     try:
-        synced_count = sync_calendar_events(db=db, force_sync=force, days_behind=days_behind)
+        result = sync_calendar_events(db=db, force_sync=force, days_behind=days_behind)
         return {
             "success": True,
-            "events_synced": synced_count,
-            "message": f"Successfully synced {synced_count} calendar events"
+            "events_synced": result["synced"],
+            "events_deleted": result["deleted"],
+            "message": f"Synced {result['synced']} events, deleted {result['deleted']} orphaned events"
         }
     except Exception as e:
         raise HTTPException(

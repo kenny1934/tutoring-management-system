@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { useEligibleStudents, useEligibleStudentsByExam } from "@/lib/hooks";
 import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
+import { EditRevisionSlotModal } from "./EditRevisionSlotModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { ExamWithRevisionSlots, ExamRevisionSlot } from "@/types";
 import {
@@ -19,11 +20,17 @@ import {
   Loader2,
 } from "lucide-react";
 
+interface SlotDefaults {
+  tutor_id?: number;
+  location?: string;
+  notes?: string;
+}
+
 interface ExamCardProps {
   exam: ExamWithRevisionSlots;
   currentTutorId: number;
   location: string | null;
-  onCreateSlot: () => void;
+  onCreateSlot: (defaults?: SlotDefaults) => void;
   onRefresh: () => void;
   highlighted?: boolean;
   defaultExpanded?: boolean;
@@ -34,6 +41,8 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const [selectedSlot, setSelectedSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showEligibleStudents, setShowEligibleStudents] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<ExamRevisionSlot | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Fetch eligible students when expanded
   // Use slot-based hook when slots exist, otherwise use exam-based hook
@@ -70,10 +79,38 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   };
 
   // Handle enrollment in a slot
-  const handleEnrollInSlot = (slot: ExamRevisionSlot) => {
+  const handleEnrollInSlot = useCallback((slot: ExamRevisionSlot) => {
     setSelectedSlot(slot);
     setShowEnrollModal(true);
-  };
+  }, []);
+
+  // Handle editing a slot
+  const handleEditSlot = useCallback((slot: ExamRevisionSlot) => {
+    setEditingSlot(slot);
+    setShowEditModal(true);
+  }, []);
+
+  // Handle duplicating a slot (opens create modal with pre-filled defaults)
+  const handleDuplicateSlot = useCallback((slot: ExamRevisionSlot) => {
+    onCreateSlot({
+      tutor_id: slot.tutor_id,
+      location: slot.location,
+      notes: slot.notes || undefined,
+    });
+  }, [onCreateSlot]);
+
+  // Handle edit modal close
+  const handleEditModalClose = useCallback(() => {
+    setShowEditModal(false);
+    setEditingSlot(null);
+  }, []);
+
+  // Handle edit success
+  const handleEditSuccess = useCallback(() => {
+    setShowEditModal(false);
+    setEditingSlot(null);
+    onRefresh();
+  }, [onRefresh]);
 
   return (
     <div className={cn(
@@ -251,6 +288,8 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                     key={slot.id}
                     slot={slot}
                     onEnroll={() => handleEnrollInSlot(slot)}
+                    onEdit={() => handleEditSlot(slot)}
+                    onDuplicate={() => handleDuplicateSlot(slot)}
                     onRefresh={onRefresh}
                     showLocationPrefix={!location}
                   />
@@ -336,6 +375,17 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
             setSelectedSlot(null);
           }}
           showLocationPrefix={!location}
+        />
+      )}
+
+      {/* Edit Revision Slot Modal */}
+      {editingSlot && (
+        <EditRevisionSlotModal
+          slot={editingSlot}
+          isOpen={showEditModal}
+          onClose={handleEditModalClose}
+          onUpdated={handleEditSuccess}
+          currentTutorId={currentTutorId}
         />
       )}
     </div>

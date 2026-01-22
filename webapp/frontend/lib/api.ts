@@ -1095,9 +1095,18 @@ export const examRevisionAPI = {
     return fetchAPI<ExamRevisionSlotDetail>(`/exam-revision/slots/${slotId}`);
   },
 
-  // Delete an empty slot
-  deleteSlot: (slotId: number) => {
-    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}`, {
+  // Update a revision slot
+  updateSlot: (slotId: number, data: Partial<ExamRevisionSlotCreate>) => {
+    return fetchAPI<ExamRevisionSlot>(`/exam-revision/slots/${slotId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete a slot (use force=true to unenroll students and delete)
+  deleteSlot: (slotId: number, force: boolean = false) => {
+    const params = force ? "?force=true" : "";
+    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}${params}`, {
       method: "DELETE",
     });
   },

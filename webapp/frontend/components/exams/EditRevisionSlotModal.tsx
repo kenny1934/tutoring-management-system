@@ -2,12 +2,12 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { toDateString, getDayName } from "@/lib/calendar-utils";
+import { toDateString } from "@/lib/calendar-utils";
 import { useTutors, useLocations } from "@/lib/hooks";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
-import type { ExamWithRevisionSlots } from "@/types";
+import type { ExamRevisionSlot } from "@/types";
 import {
   X,
   Loader2,
@@ -17,63 +17,74 @@ import {
   User,
   FileText,
   AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 
-interface SlotDefaults {
-  tutor_id?: number;
-  location?: string;
-  notes?: string;
-}
-
-interface CreateRevisionSlotModalProps {
-  exam: ExamWithRevisionSlots;
+interface EditRevisionSlotModalProps {
+  slot: ExamRevisionSlot;
   isOpen: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onUpdated: () => void;
   currentTutorId: number;
-  defaults?: SlotDefaults;
 }
 
-export function CreateRevisionSlotModal({
-  exam,
+export function EditRevisionSlotModal({
+  slot,
   isOpen,
   onClose,
-  onCreated,
+  onUpdated,
   currentTutorId,
-  defaults,
-}: CreateRevisionSlotModalProps) {
+}: EditRevisionSlotModalProps) {
   const { data: tutors = [] } = useTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
 
-  // Form state - Default to 2 days before exam or today, whichever is later
-  const [sessionDate, setSessionDate] = useState<string>(() => {
-    const examDate = new Date(exam.start_date);
-    const twoDaysBefore = new Date(examDate);
-    twoDaysBefore.setDate(examDate.getDate() - 2);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return toDateString(twoDaysBefore < today ? today : twoDaysBefore);
+  // Check if slot has enrolled students (restricts certain edits)
+  const hasEnrolledStudents = slot.enrolled_count > 0;
+
+  // Form state - initialized from slot
+  const [sessionDate, setSessionDate] = useState<string>(slot.session_date);
+  const [tutorId, setTutorId] = useState<number>(slot.tutor_id);
+  const [location, setLocation] = useState<string>(slot.location);
+  const [notes, setNotes] = useState<string>(slot.notes || "");
+
+  // Time slot state - parse from existing slot
+  const [useCustomTime, setUseCustomTime] = useState(() => {
+    const presets = [...WEEKDAY_TIME_SLOTS, ...WEEKEND_TIME_SLOTS];
+    return !presets.includes(slot.time_slot);
   });
 
-  // Time slot state
-  const [useCustomTime, setUseCustomTime] = useState(false);
-  const [customStartTime, setCustomStartTime] = useState("15:00");
-  const [customEndTime, setCustomEndTime] = useState("16:30");
+  const [customStartTime, setCustomStartTime] = useState(() => {
+    const parts = slot.time_slot.split(" - ");
+    return parts[0] || "15:00";
+  });
+  const [customEndTime, setCustomEndTime] = useState(() => {
+    const parts = slot.time_slot.split(" - ");
+    return parts[1] || "16:30";
+  });
 
-  // Get time slots based on selected date (weekday vs weekend)
+  // Get time slots based on selected date
   const timeSlotOptions = useMemo(() => {
     return isWeekend(sessionDate) ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
   }, [sessionDate]);
 
-  const [selectedPresetSlot, setSelectedPresetSlot] = useState<string>("");
+  const [selectedPresetSlot, setSelectedPresetSlot] = useState<string>(() => {
+    if (timeSlotOptions.includes(slot.time_slot)) {
+      return slot.time_slot;
+    }
+    return timeSlotOptions[0] || "";
+  });
 
-  // Reset slot selection when date changes
+  // Reset preset slot when switching to presets or date changes
   useEffect(() => {
     if (!useCustomTime && timeSlotOptions.length > 0) {
-      setSelectedPresetSlot(timeSlotOptions[0]);
+      if (timeSlotOptions.includes(slot.time_slot)) {
+        setSelectedPresetSlot(slot.time_slot);
+      } else {
+        setSelectedPresetSlot(timeSlotOptions[0]);
+      }
     }
-  }, [timeSlotOptions, useCustomTime]);
+  }, [timeSlotOptions, useCustomTime, slot.time_slot]);
 
   // Compute final time slot value
   const timeSlot = useMemo(() => {
@@ -83,7 +94,7 @@ export function CreateRevisionSlotModal({
     return selectedPresetSlot || timeSlotOptions[0] || "";
   }, [useCustomTime, customStartTime, customEndTime, selectedPresetSlot, timeSlotOptions]);
 
-  // Validate custom time (end time must be after start time)
+  // Validate custom time
   const isTimeValid = useMemo(() => {
     if (!useCustomTime) return true;
     const [startH, startM] = customStartTime.split(':').map(Number);
@@ -93,21 +104,15 @@ export function CreateRevisionSlotModal({
     return endMinutes > startMinutes;
   }, [useCustomTime, customStartTime, customEndTime]);
 
-  const [tutorId, setTutorId] = useState<number>(defaults?.tutor_id ?? currentTutorId);
-  const [location, setLocation] = useState<string>(
-    defaults?.location ?? (selectedLocation !== "All Locations" ? selectedLocation : "")
-  );
-  const [notes, setNotes] = useState<string>(defaults?.notes ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Lock location dropdown when sidebar has specific location selected
   const isLocationLocked = selectedLocation && selectedLocation !== "All Locations";
 
-  // Get available tutors for selection (filtered by modal's location dropdown)
+  // Get available tutors for selection
   const availableTutors = useMemo(() => {
     let filtered = [...tutors];
-    // Filter by the modal's location selection, not the sidebar
     if (location) {
       filtered = filtered.filter((t) => t.default_location === location);
     }
@@ -120,28 +125,39 @@ export function CreateRevisionSlotModal({
     return tutor?.user_email;
   }, [tutors, currentTutorId]);
 
+  // Check what fields have changed
+  const hasDateTimeLocationChanges = useMemo(() => {
+    return (
+      sessionDate !== slot.session_date ||
+      timeSlot !== slot.time_slot ||
+      location !== slot.location
+    );
+  }, [sessionDate, timeSlot, location, slot]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
     try {
-      const result = await examRevisionAPI.createSlot({
-        calendar_event_id: exam.id,
-        session_date: sessionDate,
-        time_slot: timeSlot,
-        tutor_id: tutorId,
-        location,
-        notes: notes || undefined,
-        created_by: currentUserEmail,
-      });
-      // Show warning if there are conflicts
+      const updateData: Record<string, unknown> = {};
+
+      // Only include changed fields
+      if (sessionDate !== slot.session_date) updateData.session_date = sessionDate;
+      if (timeSlot !== slot.time_slot) updateData.time_slot = timeSlot;
+      if (tutorId !== slot.tutor_id) updateData.tutor_id = tutorId;
+      if (location !== slot.location) updateData.location = location;
+      if (notes !== (slot.notes || "")) updateData.notes = notes || null;
+      updateData.modified_by = currentUserEmail;
+
+      const result = await examRevisionAPI.updateSlot(slot.id, updateData);
+      // Show warning if there are tutor conflicts
       if (result.warning) {
         alert(`Warning: ${result.warning}`);
       }
-      onCreated(); // Parent will call mutate() to refresh data
+      onUpdated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create revision slot");
+      setError(err instanceof Error ? err.message : "Failed to update revision slot");
     } finally {
       setIsSubmitting(false);
     }
@@ -167,10 +183,10 @@ export function CreateRevisionSlotModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Create Revision Slot
+              Edit Revision Slot
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 truncate max-w-[300px]">
-              {exam.title}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+              {new Date(slot.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {slot.time_slot}
             </p>
           </div>
           <button
@@ -183,6 +199,17 @@ export function CreateRevisionSlotModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {/* Warning if enrolled students */}
+          {hasEnrolledStudents && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-medium">{slot.enrolled_count} student(s) enrolled.</span>
+                {" "}Date, time, and location cannot be changed. Remove enrollments first to edit those fields.
+              </div>
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
@@ -202,12 +229,13 @@ export function CreateRevisionSlotModal({
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
-              className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+              disabled={hasEnrolledStudents}
+              className={cn(
+                "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
+                hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
+              )}
               required
             />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Exam date: {new Date(exam.start_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
-            </p>
           </div>
 
           {/* Time Slot */}
@@ -217,18 +245,20 @@ export function CreateRevisionSlotModal({
                 <Clock className="h-4 w-4" />
                 Time Slot
               </label>
-              <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={useCustomTime}
-                  onChange={(e) => setUseCustomTime(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
-                />
-                Custom time
-              </label>
+              {!hasEnrolledStudents && (
+                <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useCustomTime}
+                    onChange={(e) => setUseCustomTime(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+                  />
+                  Custom time
+                </label>
+              )}
             </div>
 
-            {useCustomTime ? (
+            {useCustomTime && !hasEnrolledStudents ? (
               <div>
                 <div className="flex items-center gap-2">
                   <input
@@ -259,21 +289,27 @@ export function CreateRevisionSlotModal({
               </div>
             ) : (
               <select
-                value={selectedPresetSlot}
+                value={hasEnrolledStudents ? slot.time_slot : selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                disabled={hasEnrolledStudents}
+                className={cn(
+                  "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
+                  hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
+                )}
                 required
               >
-                {timeSlotOptions.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
+                {timeSlotOptions.map((slotOption) => (
+                  <option key={slotOption} value={slotOption}>
+                    {slotOption}
                   </option>
                 ))}
+                {!timeSlotOptions.includes(slot.time_slot) && (
+                  <option value={slot.time_slot}>
+                    {slot.time_slot} (current)
+                  </option>
+                )}
               </select>
             )}
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {isWeekend(sessionDate) ? "Weekend" : "Weekday"} slots shown
-            </p>
           </div>
 
           {/* Tutor */}
@@ -294,6 +330,11 @@ export function CreateRevisionSlotModal({
                   {tutor.id === currentTutorId ? " (you)" : ""}
                 </option>
               ))}
+              {!availableTutors.find(t => t.id === slot.tutor_id) && (
+                <option value={slot.tutor_id}>
+                  {slot.tutor_name} (current)
+                </option>
+              )}
             </select>
           </div>
 
@@ -306,31 +347,24 @@ export function CreateRevisionSlotModal({
             <select
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              disabled={isLocationLocked}
+              disabled={hasEnrolledStudents || isLocationLocked}
               className={cn(
                 "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
-                isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                (hasEnrolledStudents || isLocationLocked) && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
               )}
               required
             >
-              {isLocationLocked ? (
-                <option value={selectedLocation}>{selectedLocation}</option>
-              ) : (
-                <>
-                  <option value="">Select location...</option>
-                  {locations
-                    .filter((loc) => loc !== "Various" && loc !== "All Locations")
-                    .map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                </>
-              )}
+              {locations
+                .filter((loc) => loc !== "Various" && loc !== "All Locations")
+                .map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
             </select>
-            {isLocationLocked && (
+            {hasEnrolledStudents && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Locked to sidebar location
+                Remove enrollments to change location
               </p>
             )}
           </div>
@@ -371,10 +405,10 @@ export function CreateRevisionSlotModal({
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating...
+                  Saving...
                 </>
               ) : (
-                "Create Slot"
+                "Save Changes"
               )}
             </button>
           </div>
