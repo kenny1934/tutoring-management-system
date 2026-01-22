@@ -177,13 +177,14 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
+  const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;
-  const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled'].includes(effectiveLoadingAction || '');
+  const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'undo'].includes(effectiveLoadingAction || '');
 
   // Get visible actions for this session
   const visibleActions = sessionActions.filter((action) => action.isVisible(session));
@@ -316,6 +317,12 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
       return;
     }
 
+    // Handle "undo" action - show confirmation dialog
+    if (action.id === 'undo') {
+      setConfirmUndo(true);
+      return;
+    }
+
     if (onAction) {
       onAction(action.id, action);
     } else if (!action.api.enabled) {
@@ -345,6 +352,45 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
     } catch (error) {
       console.error("Failed to cancel make-up:", error);
       showToast("Failed to cancel make-up", "error");
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const handleUndo = async () => {
+    setLoadingAction('undo');
+    try {
+      const updatedSession = await sessionsAPI.undoStatus(session.id);
+      updateSessionInCache(updatedSession);
+
+      // Show toast with redo action (10 second duration when action is provided)
+      if (updatedSession.undone_from_status) {
+        const undoneFromStatus = updatedSession.undone_from_status;
+        const sessionId = session.id;
+        showToast(
+          `Reverted to ${updatedSession.session_status}`,
+          "success",
+          {
+            label: "Undo",
+            onClick: async () => {
+              try {
+                const redoneSession = await sessionsAPI.redoStatus(sessionId, undoneFromStatus);
+                updateSessionInCache(redoneSession);
+                showToast("Status restored", "success");
+              } catch (error) {
+                console.error("Failed to redo status:", error);
+                showToast("Failed to restore status", "error");
+              }
+            },
+          }
+        );
+      } else {
+        showToast("Status reverted", "success");
+      }
+      onAction?.('undo', sessionActions.find(a => a.id === 'undo')!);
+    } catch (error) {
+      console.error("Failed to undo status:", error);
+      showToast("Failed to undo status", "error");
     } finally {
       setLoadingAction(null);
     }
@@ -887,6 +933,21 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         confirmText="Cancel Make-up"
         variant="danger"
         loading={loadingAction === 'cancel-makeup'}
+      />
+
+      {/* Undo Status Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmUndo}
+        onConfirm={() => {
+          setConfirmUndo(false);
+          handleUndo();
+        }}
+        onCancel={() => setConfirmUndo(false)}
+        title="Undo Status Change"
+        message={`Revert session status from "${session.session_status}" to "${session.previous_session_status}"?`}
+        confirmText="Undo"
+        variant="warning"
+        loading={loadingAction === 'undo'}
       />
     </motion.div>
   );

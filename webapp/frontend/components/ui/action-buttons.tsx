@@ -83,7 +83,7 @@ export function ActionButtons<T>({
   };
 
   return (
-    <div className={cn("flex flex-wrap gap-1.5", className)}>
+    <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
       {visibleActions.map((action) => {
         const Icon = action.icon;
         const isEnabled = action.api.enabled;
@@ -146,6 +146,7 @@ export function SessionActionButtons({
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
+  const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -309,6 +310,12 @@ export function SessionActionButtons({
       return;
     }
 
+    // Handle "undo" action - show confirmation dialog
+    if (action.id === "undo") {
+      setConfirmUndo(true);
+      return;
+    }
+
     onAction?.(action.id, session);
   };
 
@@ -352,13 +359,53 @@ export function SessionActionButtons({
     }
   };
 
+  const handleUndo = async () => {
+    setLoadingAction("undo");
+    onLoadingChange?.(session.id, true, "undo");
+    try {
+      const updatedSession = await sessionsAPI.undoStatus(session.id);
+      updateSessionInCache(updatedSession);
+
+      if (updatedSession.undone_from_status) {
+        const undoneFromStatus = updatedSession.undone_from_status;
+        const sessionId = session.id;
+        showToast(
+          `Reverted to ${updatedSession.session_status}`,
+          "success",
+          {
+            label: "Undo",
+            onClick: async () => {
+              try {
+                const redoneSession = await sessionsAPI.redoStatus(sessionId, undoneFromStatus);
+                updateSessionInCache(redoneSession);
+                showToast("Status restored", "success");
+              } catch (error) {
+                console.error("Failed to redo status:", error);
+                showToast("Failed to restore status", "error");
+              }
+            },
+          }
+        );
+      } else {
+        showToast("Status reverted", "success");
+      }
+      onAction?.("undo", updatedSession);
+    } catch (error) {
+      console.error("Failed to undo status:", error);
+      showToast("Failed to undo status", "error");
+    } finally {
+      setLoadingAction(null);
+      onLoadingChange?.(session.id, false);
+    }
+  };
+
   return (
     <>
-      <div className={cn("flex flex-wrap gap-1.5", className)}>
+      <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
         {visibleActions.map((action) => {
           const Icon = action.icon;
           // Edit, CW, HW, Rate, Schedule-makeup, Cancel-makeup actions are always enabled (open modals/dialogs)
-          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "cancel-makeup"].includes(action.id) || action.api.enabled;
+          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "cancel-makeup", "undo"].includes(action.id) || action.api.enabled;
           const isLoading = effectiveLoadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
@@ -436,6 +483,21 @@ export function SessionActionButtons({
         confirmText="Cancel Make-up"
         variant="danger"
         loading={loadingAction === "cancel-makeup"}
+      />
+
+      {/* Undo Status Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmUndo}
+        onConfirm={() => {
+          setConfirmUndo(false);
+          handleUndo();
+        }}
+        onCancel={() => setConfirmUndo(false)}
+        title="Undo Status Change"
+        message={`Revert session status from "${session.session_status}" to "${session.previous_session_status}"?`}
+        confirmText="Undo"
+        variant="warning"
+        loading={loadingAction === "undo"}
       />
     </>
   );
