@@ -111,11 +111,15 @@ export function useLocations() {
 /**
  * Hook for fetching calendar events (tests/exams)
  * Returns cached data immediately, then revalidates in background
+ * @param daysAhead Number of days ahead to fetch (default: 30)
+ * @param includePast Include past events (default: false)
+ * @param daysBehind Days in the past to fetch when includePast=true (default: 365)
  */
-export function useCalendarEvents(daysAhead: number = 30) {
+export function useCalendarEvents(daysAhead: number = 30, includePast: boolean = false, daysBehind?: number) {
   return useSWR<CalendarEvent[]>(
-    ['calendar-events', daysAhead],
-    () => calendarAPI.getEvents(daysAhead)  );
+    ['calendar-events', daysAhead, includePast, daysBehind],
+    () => calendarAPI.getEvents(daysAhead, includePast, daysBehind)
+  );
 }
 
 /**

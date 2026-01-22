@@ -46,25 +46,34 @@ class GoogleCalendarService:
     def fetch_upcoming_events(
         self,
         days_ahead: int = 90,
-        max_results: int = 100
+        days_behind: int = 0,
+        max_results: int = 250
     ) -> List[Dict]:
         """
-        Fetch upcoming events from Google Calendar.
+        Fetch events from Google Calendar.
 
         Args:
             days_ahead: Number of days ahead to fetch events
+            days_behind: Number of days in the past to fetch events (0 = today onwards)
             max_results: Maximum number of events to retrieve
 
         Returns:
             List of calendar events with parsed information
         """
-        now = datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
-        time_max = (datetime.utcnow() + timedelta(days=days_ahead)).isoformat() + 'Z'
+        now = datetime.utcnow()
+
+        # Calculate time range
+        if days_behind > 0:
+            time_min = (now - timedelta(days=days_behind)).isoformat() + 'Z'
+        else:
+            time_min = now.isoformat() + 'Z'
+
+        time_max = (now + timedelta(days=days_ahead)).isoformat() + 'Z'
 
         try:
             events_result = self.service.events().list(
                 calendarId=self.calendar_id,
-                timeMin=now,
+                timeMin=time_min,
                 timeMax=time_max,
                 maxResults=max_results,
                 singleEvents=True,
@@ -228,7 +237,7 @@ class GoogleCalendarService:
             return datetime.strptime(date_str, '%Y-%m-%d')
 
 
-def sync_calendar_events(db: Session, force_sync: bool = False) -> int:
+def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int = 0) -> int:
     """
     Sync calendar events from Google Calendar to database.
     Only syncs if last sync was more than TTL minutes ago, unless force_sync=True.
@@ -236,6 +245,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False) -> int:
     Args:
         db: Database session
         force_sync: Force sync regardless of TTL
+        days_behind: Number of days in the past to sync (0 = today onwards)
 
     Returns:
         Number of events synced
@@ -256,7 +266,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False) -> int:
 
     # Fetch events from Google Calendar
     service = GoogleCalendarService()
-    events = service.fetch_upcoming_events()
+    events = service.fetch_upcoming_events(days_behind=days_behind)
 
     # Update or insert events in database
     synced_count = 0

@@ -1271,12 +1271,14 @@ async def get_upcoming_tests(
 @router.post("/calendar/sync")
 async def sync_calendar(
     force: bool = False,
+    days_behind: int = Query(0, ge=0, le=730, description="Days in past to sync"),
     db: Session = Depends(get_db)
 ):
     """
     Manually sync calendar events from Google Calendar.
 
     - **force**: If true, force sync even if last sync was recent
+    - **days_behind**: Days in the past to sync (default: 0, max: 730)
 
     Returns:
     - Number of events synced
@@ -1284,7 +1286,7 @@ async def sync_calendar(
     from services.google_calendar_service import sync_calendar_events
 
     try:
-        synced_count = sync_calendar_events(db=db, force_sync=force)
+        synced_count = sync_calendar_events(db=db, force_sync=force, days_behind=days_behind)
         return {
             "success": True,
             "events_synced": synced_count,
@@ -1299,13 +1301,17 @@ async def sync_calendar(
 
 @router.get("/calendar/events", response_model=List[CalendarEventResponse])
 async def get_calendar_events(
-    days_ahead: int = Query(30, ge=1, le=90, description="Number of days ahead to fetch events"),
+    days_ahead: int = Query(30, ge=1, le=365, description="Number of days ahead to fetch events"),
+    include_past: bool = Query(False, description="Include past events"),
+    days_behind: int = Query(365, ge=1, le=730, description="Days in past if include_past=True"),
     db: Session = Depends(get_db)
 ):
     """
-    Get all upcoming calendar events (tests/exams) within the specified date range.
+    Get calendar events (tests/exams) within the specified date range.
 
-    - **days_ahead**: Number of days ahead to fetch events (default: 30, max: 90)
+    - **days_ahead**: Number of days ahead to fetch events (default: 30, max: 365)
+    - **include_past**: Include past events (default: False)
+    - **days_behind**: Days in the past to include if include_past=True (default: 365)
 
     Returns:
     - List of calendar events sorted by start date
@@ -1314,15 +1320,20 @@ async def get_calendar_events(
     from models import CalendarEvent
 
     # Auto-sync calendar events (respects 15-min TTL)
+    # When include_past is True, also sync past events
     try:
-        sync_calendar_events(db=db, force_sync=False)
+        sync_calendar_events(db=db, force_sync=False, days_behind=days_behind if include_past else 0)
     except Exception as e:
         # Log but don't fail if sync fails
         logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
-    # Fetch all events within date range
-    start_date = date.today()
-    end_date = start_date + timedelta(days=days_ahead)
+    # Fetch events within date range
+    end_date = date.today() + timedelta(days=days_ahead)
+
+    if include_past:
+        start_date = date.today() - timedelta(days=days_behind)
+    else:
+        start_date = date.today()
 
     events = db.query(CalendarEvent).filter(
         CalendarEvent.start_date >= start_date,
