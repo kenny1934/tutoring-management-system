@@ -5,11 +5,17 @@ Parses event titles to extract school, grade, and event type information.
 
 import os
 import re
-from datetime import datetime, timedelta
+import time
+import threading
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+# Thread lock to prevent concurrent sync operations
+_sync_lock = threading.Lock()
 
 # Calendar configuration from environment
 CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "msamacau01@gmail.com")
@@ -47,41 +53,58 @@ class GoogleCalendarService:
         self,
         days_ahead: int = 90,
         days_behind: int = 0,
-        max_results: int = 250
+        max_results_per_page: int = 250
     ) -> List[Dict]:
         """
-        Fetch events from Google Calendar.
+        Fetch ALL events from Google Calendar using pagination.
 
         Args:
             days_ahead: Number of days ahead to fetch events
             days_behind: Number of days in the past to fetch events (0 = today onwards)
-            max_results: Maximum number of events to retrieve
+            max_results_per_page: Number of events per API page (max 2500)
 
         Returns:
             List of calendar events with parsed information
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Calculate time range
         if days_behind > 0:
-            time_min = (now - timedelta(days=days_behind)).isoformat() + 'Z'
+            time_min = (now - timedelta(days=days_behind)).isoformat()
         else:
-            time_min = now.isoformat() + 'Z'
+            time_min = now.isoformat()
 
-        time_max = (now + timedelta(days=days_ahead)).isoformat() + 'Z'
+        time_max = (now + timedelta(days=days_ahead)).isoformat()
+
+        all_events = []
+        page_token = None
 
         try:
-            events_result = self.service.events().list(
-                calendarId=self.calendar_id,
-                timeMin=time_min,
-                timeMax=time_max,
-                maxResults=max_results,
-                singleEvents=True,
-                orderBy='startTime'
-            ).execute()
+            while True:
+                events_result = self.service.events().list(
+                    calendarId=self.calendar_id,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                    maxResults=max_results_per_page,
+                    singleEvents=True,
+                    orderBy='startTime',
+                    pageToken=page_token
+                ).execute()
 
-            events = events_result.get('items', [])
-            return [self._parse_event(event) for event in events]
+                events = events_result.get('items', [])
+                all_events.extend([self._parse_event(event) for event in events])
+
+                # Check for more pages
+                page_token = events_result.get('nextPageToken')
+                if not page_token:
+                    break
+
+                # Safety limit to prevent infinite loops
+                if len(all_events) > 10000:
+                    print(f"[SYNC] Warning: Pagination safety limit reached ({len(all_events)} events)")
+                    break
+
+            return all_events
 
         except Exception as e:
             print(f"Error fetching calendar events: {e}")
@@ -243,6 +266,9 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
     Only syncs if last sync was more than TTL minutes ago, unless force_sync=True.
     Also detects and deletes orphaned events (deleted from Google Calendar).
 
+    Uses a threading lock to prevent concurrent sync operations.
+    Transaction order: upserts FIRST, then orphan deletion (for data safety).
+
     Args:
         db: Database session
         force_sync: Force sync regardless of TTL
@@ -253,103 +279,165 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
     """
     from models import CalendarEvent
 
-    # Check if sync is needed
-    if not force_sync:
-        last_sync = db.query(CalendarEvent).order_by(
-            CalendarEvent.last_synced_at.desc()
-        ).first()
+    # Prevent concurrent sync operations
+    if not _sync_lock.acquire(blocking=False):
+        print("[SYNC] Skipping - another sync is already in progress")
+        return {"synced": 0, "deleted": 0, "message": "Sync already in progress"}
 
-        if last_sync:
-            time_since_sync = datetime.utcnow() - last_sync.last_synced_at
-            if time_since_sync.total_seconds() / 60 < SYNC_TTL_MINUTES:
-                print(f"Skipping sync - last sync was {time_since_sync.total_seconds() / 60:.1f} minutes ago")
-                return {"synced": 0, "deleted": 0}
+    try:
+        # Check if sync is needed (within the lock to prevent race conditions)
+        if not force_sync:
+            last_sync = db.query(CalendarEvent).order_by(
+                CalendarEvent.last_synced_at.desc()
+            ).first()
 
-    # Fetch events from Google Calendar
-    service = GoogleCalendarService()
-    events = service.fetch_upcoming_events(days_behind=days_behind)
+            if last_sync and last_sync.last_synced_at:
+                # Make comparison timezone-aware
+                now_utc = datetime.now(timezone.utc)
+                last_sync_utc = last_sync.last_synced_at.replace(tzinfo=timezone.utc) if last_sync.last_synced_at.tzinfo is None else last_sync.last_synced_at
+                time_since_sync = now_utc - last_sync_utc
+                if time_since_sync.total_seconds() / 60 < SYNC_TTL_MINUTES:
+                    print(f"[SYNC] Skipping - last sync was {time_since_sync.total_seconds() / 60:.1f} minutes ago")
+                    return {"synced": 0, "deleted": 0}
 
-    # Collect fetched event IDs for orphan detection
-    fetched_event_ids = {e['event_id'] for e in events}
+        # Fetch events from Google Calendar
+        print(f"[SYNC] Starting Google Calendar fetch (days_behind={days_behind}, days_ahead=90)...")
+        api_start = time.time()
+        service = GoogleCalendarService()
+        events = service.fetch_upcoming_events(days_behind=days_behind)
+        print(f"[SYNC] Google API fetch: {time.time() - api_start:.2f}s, {len(events)} events")
 
-    # Calculate date range being synced (matches fetch_upcoming_events default)
-    now = datetime.utcnow()
-    if days_behind > 0:
-        sync_start = (now - timedelta(days=days_behind)).date()
-    else:
-        sync_start = now.date()
-    sync_end = (now + timedelta(days=90)).date()
+        # Collect fetched event IDs for orphan detection
+        fetched_event_ids = {e['event_id'] for e in events}
 
-    # Safety check: only run orphan detection if we got a reasonable number of events
-    # This prevents mass deletion if Google Calendar API fails or returns empty
-    MIN_EVENTS_FOR_ORPHAN_CHECK = 10
-    deleted_count = 0
+        # Calculate date range being synced
+        now = datetime.now(timezone.utc)
+        if days_behind > 0:
+            sync_start = (now - timedelta(days=days_behind)).date()
+        else:
+            sync_start = now.date()
+        sync_end = (now + timedelta(days=90)).date()
 
-    if len(fetched_event_ids) >= MIN_EVENTS_FOR_ORPHAN_CHECK:
-        # Find and delete orphaned events (not in Google Calendar anymore)
-        orphaned = db.query(CalendarEvent).filter(
-            CalendarEvent.start_date >= sync_start,
-            CalendarEvent.start_date <= sync_end,
-            ~CalendarEvent.event_id.in_(fetched_event_ids)
-        ).all()
+        # ============================================================
+        # STEP 1: UPSERT events FIRST (before orphan deletion for safety)
+        # ============================================================
+        print(f"[SYNC] Starting DB upserts for {len(events)} events...")
+        db_start = time.time()
 
-        for event in orphaned:
-            if len(event.revision_slots) == 0:
-                db.delete(event)
-                deleted_count += 1
-                print(f"Deleted orphaned event {event.id}: {event.title}")
-            else:
-                # Try to find a matching real event to migrate slots to
-                matching_event = db.query(CalendarEvent).filter(
-                    CalendarEvent.id != event.id,
-                    CalendarEvent.title == event.title,
-                    CalendarEvent.start_date == event.start_date,
-                    CalendarEvent.event_id.in_(fetched_event_ids)
-                ).first()
+        # Filter to valid events and log rejected ones
+        valid_events = [e for e in events if e.get('school') and e.get('grade')]
+        rejected_count = len(events) - len(valid_events)
+        print(f"[SYNC] Valid events: {len(valid_events)}, rejected: {rejected_count}")
 
-                if matching_event:
-                    # Migrate revision slots to the real event
-                    slot_count = len(event.revision_slots)
-                    for slot in event.revision_slots:
-                        slot.calendar_event_id = matching_event.id
+        if rejected_count > 0:
+            # Log rejected events for visibility
+            for e in events:
+                if not (e.get('school') and e.get('grade')):
+                    print(f"[SYNC] Rejected event (missing school/grade): '{e.get('title', 'Unknown')}'")
+
+        synced_count = 0
+        if valid_events:
+            sync_timestamp = datetime.now(timezone.utc)
+            commit_start = time.time()
+
+            # Process in chunks to avoid SQL statement size limits
+            CHUNK_SIZE = 100
+            for i in range(0, len(valid_events), CHUNK_SIZE):
+                chunk = valid_events[i:i + CHUNK_SIZE]
+
+                # Build VALUES clause with placeholders
+                values_parts = []
+                params = {}
+                for j, e in enumerate(chunk):
+                    prefix = f"p{j}_"
+                    values_parts.append(f"(:{prefix}event_id, :{prefix}title, :{prefix}description, :{prefix}start_date, :{prefix}end_date, :{prefix}school, :{prefix}grade, :{prefix}academic_stream, :{prefix}event_type, :{prefix}last_synced_at)")
+                    params[f"{prefix}event_id"] = e['event_id']
+                    params[f"{prefix}title"] = e['title']
+                    params[f"{prefix}description"] = e.get('description')
+                    params[f"{prefix}start_date"] = e['start_date']
+                    params[f"{prefix}end_date"] = e.get('end_date')
+                    params[f"{prefix}school"] = e['school']
+                    params[f"{prefix}grade"] = e['grade']
+                    params[f"{prefix}academic_stream"] = e.get('academic_stream')
+                    params[f"{prefix}event_type"] = e.get('event_type')
+                    params[f"{prefix}last_synced_at"] = sync_timestamp
+
+                # Build and execute single INSERT with all VALUES
+                sql = text(f"""
+                    INSERT INTO calendar_events
+                        (event_id, title, description, start_date, end_date, school, grade, academic_stream, event_type, last_synced_at)
+                    VALUES {', '.join(values_parts)}
+                    ON DUPLICATE KEY UPDATE
+                        title = VALUES(title),
+                        description = VALUES(description),
+                        start_date = VALUES(start_date),
+                        end_date = VALUES(end_date),
+                        school = VALUES(school),
+                        grade = VALUES(grade),
+                        academic_stream = VALUES(academic_stream),
+                        event_type = VALUES(event_type),
+                        last_synced_at = VALUES(last_synced_at)
+                """)
+                db.execute(sql, params)
+
+            print(f"[SYNC] Bulk upsert: {time.time() - commit_start:.2f}s")
+            synced_count = len(valid_events)
+
+        # ============================================================
+        # STEP 2: Delete orphans AFTER successful upsert (for data safety)
+        # ============================================================
+        MIN_EVENTS_FOR_ORPHAN_CHECK = 10
+        deleted_count = 0
+
+        fetched_count = len(fetched_event_ids)
+        if fetched_count >= MIN_EVENTS_FOR_ORPHAN_CHECK:
+            # Find orphaned events (in DB but not in Google Calendar anymore)
+            orphaned = db.query(CalendarEvent).filter(
+                CalendarEvent.start_date >= sync_start,
+                CalendarEvent.start_date <= sync_end,
+                ~CalendarEvent.event_id.in_(fetched_event_ids)
+            ).all()
+
+            for event in orphaned:
+                if len(event.revision_slots) == 0:
                     db.delete(event)
                     deleted_count += 1
-                    print(f"Migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
+                    print(f"[SYNC] Deleted orphaned event {event.id}: {event.title}")
                 else:
-                    print(f"Warning: Orphaned event {event.id} '{event.title}' has {len(event.revision_slots)} slot(s) - no match found, skipping")
-    else:
-        print(f"Skipping orphan detection - only {len(fetched_event_ids)} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
+                    # Try to find a matching real event to migrate slots to
+                    matching_event = db.query(CalendarEvent).filter(
+                        CalendarEvent.id != event.id,
+                        CalendarEvent.title == event.title,
+                        CalendarEvent.start_date == event.start_date,
+                        CalendarEvent.event_id.in_(fetched_event_ids)
+                    ).first()
 
-    # Update or insert events in database
-    synced_count = 0
-    for event_data in events:
-        # Skip events without parsed information
-        if not event_data['school'] or not event_data['grade']:
-            continue
-
-        # Check if event already exists
-        existing = db.query(CalendarEvent).filter(
-            CalendarEvent.event_id == event_data['event_id']
-        ).first()
-
-        if existing:
-            # Update existing event
-            for key, value in event_data.items():
-                if key != 'event_id':
-                    setattr(existing, key, value)
-            existing.last_synced_at = datetime.utcnow()
+                    if matching_event:
+                        # Migrate revision slots to the real event
+                        slot_count = len(event.revision_slots)
+                        for slot in event.revision_slots:
+                            slot.calendar_event_id = matching_event.id
+                        db.delete(event)
+                        deleted_count += 1
+                        print(f"[SYNC] Migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
+                    else:
+                        # Log with details for manual review - DO NOT delete to preserve revision slot data
+                        slot_info = [(s.id, s.student_id) for s in event.revision_slots]
+                        print(f"[SYNC] WARNING: Orphaned event {event.id} '{event.title}' (date: {event.start_date}) has {len(event.revision_slots)} revision slot(s): {slot_info} - preserving for manual review")
         else:
-            # Insert new event
-            new_event = CalendarEvent(
-                **event_data,
-                last_synced_at=datetime.utcnow()
-            )
-            db.add(new_event)
+            print(f"[SYNC] Skipping orphan detection - only {fetched_count} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
 
-        synced_count += 1
+        # Single commit at the end (after both upserts and orphan handling)
+        db.commit()
+        print(f"[SYNC] DB operations total: {time.time() - db_start:.2f}s, synced {synced_count}, deleted {deleted_count}")
+        return {"synced": synced_count, "deleted": deleted_count}
 
-    db.commit()
-    return {"synced": synced_count, "deleted": deleted_count}
+    except Exception as e:
+        db.rollback()
+        print(f"[SYNC] Error during sync: {e}")
+        raise
+    finally:
+        _sync_lock.release()
 
 
 def get_upcoming_tests_for_session(
