@@ -48,11 +48,12 @@ export function ContactCalendar({
     );
   }, [pendingFollowups]);
 
-  // Group events by date
+  // Group events by date (using local timezone)
   const eventsByDate = useMemo(() => {
     const grouped: Record<string, ParentCommunication[]> = {};
     events.forEach(event => {
-      const dateKey = event.contact_date.split('T')[0];
+      // Convert to local date to fix timezone issues (e.g., 8:13pm Jan 19 showing on Jan 20)
+      const dateKey = new Date(event.contact_date).toLocaleDateString('en-CA');
       if (!grouped[dateKey]) grouped[dateKey] = [];
       grouped[dateKey].push(event);
     });
@@ -91,7 +92,7 @@ export function ContactCalendar({
         day: prevMonthDays - i,
         isCurrentMonth: false,
         isToday: false,
-        dateKey: date.toISOString().split('T')[0],
+        dateKey: date.toLocaleDateString('en-CA'),
       });
     }
 
@@ -105,7 +106,7 @@ export function ContactCalendar({
         day: i,
         isCurrentMonth: true,
         isToday,
-        dateKey: date.toISOString().split('T')[0],
+        dateKey: date.toLocaleDateString('en-CA'),
       });
     }
 
@@ -118,7 +119,7 @@ export function ContactCalendar({
         day: i,
         isCurrentMonth: false,
         isToday: false,
-        dateKey: date.toISOString().split('T')[0],
+        dateKey: date.toLocaleDateString('en-CA'),
       });
     }
 
