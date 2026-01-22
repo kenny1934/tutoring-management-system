@@ -469,7 +469,7 @@ class CalendarEventResponse(BaseModel):
     id: int = Field(..., gt=0)
     event_id: str = Field(..., min_length=1, max_length=255)
     title: str = Field(..., min_length=1, max_length=500)
-    description: Optional[str] = Field(None, max_length=2000)
+    description: Optional[str] = None
     start_date: date
     end_date: Optional[date] = None
     school: Optional[str] = Field(None, max_length=200)
@@ -488,7 +488,7 @@ class UpcomingTestAlert(BaseModel):
     id: int = Field(..., gt=0)
     event_id: str = Field(..., min_length=1, max_length=255)
     title: str = Field(..., min_length=1, max_length=500)
-    description: Optional[str] = Field(None, max_length=2000)
+    description: Optional[str] = None
     start_date: str = Field(..., min_length=1)  # ISO format
     end_date: Optional[str] = Field(None, min_length=1)  # ISO format
     school: str = Field(..., max_length=200)

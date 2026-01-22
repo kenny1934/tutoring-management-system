@@ -280,21 +280,45 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
         sync_start = now.date()
     sync_end = (now + timedelta(days=90)).date()
 
-    # Find and delete orphaned events (not in Google Calendar anymore)
-    orphaned = db.query(CalendarEvent).filter(
-        CalendarEvent.start_date >= sync_start,
-        CalendarEvent.start_date <= sync_end,
-        ~CalendarEvent.event_id.in_(fetched_event_ids) if fetched_event_ids else False
-    ).all()
-
+    # Safety check: only run orphan detection if we got a reasonable number of events
+    # This prevents mass deletion if Google Calendar API fails or returns empty
+    MIN_EVENTS_FOR_ORPHAN_CHECK = 10
     deleted_count = 0
-    for event in orphaned:
-        if len(event.revision_slots) == 0:
-            db.delete(event)
-            deleted_count += 1
-            print(f"Deleted orphaned event {event.id}: {event.title}")
-        else:
-            print(f"Warning: Orphaned event {event.id} '{event.title}' has {len(event.revision_slots)} revision slot(s) - skipping delete")
+
+    if len(fetched_event_ids) >= MIN_EVENTS_FOR_ORPHAN_CHECK:
+        # Find and delete orphaned events (not in Google Calendar anymore)
+        orphaned = db.query(CalendarEvent).filter(
+            CalendarEvent.start_date >= sync_start,
+            CalendarEvent.start_date <= sync_end,
+            ~CalendarEvent.event_id.in_(fetched_event_ids)
+        ).all()
+
+        for event in orphaned:
+            if len(event.revision_slots) == 0:
+                db.delete(event)
+                deleted_count += 1
+                print(f"Deleted orphaned event {event.id}: {event.title}")
+            else:
+                # Try to find a matching real event to migrate slots to
+                matching_event = db.query(CalendarEvent).filter(
+                    CalendarEvent.id != event.id,
+                    CalendarEvent.title == event.title,
+                    CalendarEvent.start_date == event.start_date,
+                    CalendarEvent.event_id.in_(fetched_event_ids)
+                ).first()
+
+                if matching_event:
+                    # Migrate revision slots to the real event
+                    slot_count = len(event.revision_slots)
+                    for slot in event.revision_slots:
+                        slot.calendar_event_id = matching_event.id
+                    db.delete(event)
+                    deleted_count += 1
+                    print(f"Migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
+                else:
+                    print(f"Warning: Orphaned event {event.id} '{event.title}' has {len(event.revision_slots)} slot(s) - no match found, skipping")
+    else:
+        print(f"Skipping orphan detection - only {len(fetched_event_ids)} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
 
     # Update or insert events in database
     synced_count = 0
