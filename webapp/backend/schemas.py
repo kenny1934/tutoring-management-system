@@ -840,7 +840,6 @@ class ExtensionRequestApprove(BaseModel):
     """Schema for admin approving an extension request"""
     extension_granted_weeks: int = Field(..., ge=1, le=8, description="Weeks to grant (may differ from requested)")
     review_notes: Optional[str] = Field(None, max_length=500, description="Admin notes on approval")
-    reschedule_session: bool = Field(default=False, description="Whether to auto-reschedule the session")
 
 
 class ExtensionRequestReject(BaseModel):

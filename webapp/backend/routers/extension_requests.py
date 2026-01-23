@@ -336,7 +336,7 @@ async def approve_extension_request(
         raise HTTPException(status_code=404, detail=f"Admin tutor {admin_tutor_id} not found")
 
     # Check admin role
-    if admin_tutor.role != 'Admin':
+    if admin_tutor.role not in ('Admin', 'Super Admin'):
         raise HTTPException(status_code=403, detail="Only admins can approve extension requests")
 
     now = datetime.now()
@@ -365,14 +365,8 @@ async def approve_extension_request(
         else:
             enrollment.extension_notes = new_note
 
-    # Optionally reschedule the session
-    if approval.reschedule_session and extension_request.proposed_reschedule_date:
-        session = extension_request.session
-        if session:
-            session.session_date = extension_request.proposed_reschedule_date
-            if extension_request.proposed_reschedule_time:
-                session.time_slot = extension_request.proposed_reschedule_time
-            extension_request.session_rescheduled = True
+    # Note: Actual makeup scheduling is done separately through the normal flow
+    # The proposed_reschedule_date/time are kept as reference for the admin
 
     db.commit()
     db.refresh(extension_request)
@@ -412,7 +406,7 @@ async def reject_extension_request(
         raise HTTPException(status_code=404, detail=f"Admin tutor {admin_tutor_id} not found")
 
     # Check admin role
-    if admin_tutor.role != 'Admin':
+    if admin_tutor.role not in ('Admin', 'Super Admin'):
         raise HTTPException(status_code=403, detail="Only admins can reject extension requests")
 
     now = datetime.now()

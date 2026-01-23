@@ -367,6 +367,10 @@ interface ScheduleMakeupModalProps {
   proposerTutorId?: number;
   /** Callback after proposal is created */
   onProposed?: () => void;
+  /** Pre-fill date when opening (YYYY-MM-DD format) */
+  initialDate?: string;
+  /** Pre-fill time slot when opening */
+  initialTimeSlot?: string;
 }
 
 export function ScheduleMakeupModal({
@@ -376,6 +380,8 @@ export function ScheduleMakeupModal({
   onScheduled,
   proposerTutorId,
   onProposed,
+  initialDate,
+  initialTimeSlot,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { data: tutors } = useTutors();
@@ -566,10 +572,19 @@ export function ScheduleMakeupModal({
 
   // Initialize form with original session's tutor
   useEffect(() => {
-    if (isOpen && session.tutor_id) {
-      setSelectedTutorId(session.tutor_id);
+    if (isOpen) {
+      if (session.tutor_id) {
+        setSelectedTutorId(session.tutor_id);
+      }
+      // Pre-fill date/time if provided (e.g., from extension request)
+      if (initialDate) {
+        setSelectedDate(initialDate);
+      }
+      if (initialTimeSlot) {
+        setSelectedTimeSlot(initialTimeSlot);
+      }
     }
-  }, [isOpen, session.tutor_id]);
+  }, [isOpen, session.tutor_id, initialDate, initialTimeSlot]);
 
   // Reset form when modal closes
   useEffect(() => {
