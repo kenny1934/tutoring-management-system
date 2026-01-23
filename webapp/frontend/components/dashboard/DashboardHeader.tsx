@@ -16,19 +16,11 @@ import { useRole } from "@/contexts/RoleContext";
 import { useTutors } from "@/lib/hooks";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
+import { useDropdown } from "@/lib/ui-hooks";
+import { FloatingPortal } from "@floating-ui/react";
 
 // Maps the current user's display name to their tutor_name in the database
 const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
-import {
-  useFloating,
-  offset,
-  flip,
-  shift,
-  useClick,
-  useDismiss,
-  useInteractions,
-  FloatingPortal,
-} from "@floating-ui/react";
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -93,41 +85,14 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   }, [tutors, location]);
 
-  // Floating UI for tools dropdown
-  const { refs, floatingStyles, context } = useFloating({
-    open: toolsOpen,
-    onOpenChange: setToolsOpen,
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: "end" }),
-      shift({ padding: 8 }),
-    ],
-    placement: "bottom-start",
-  });
-
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
-
-  // Floating UI for leave dropdown
+  // Floating UI dropdowns
+  const { refs, floatingStyles, getReferenceProps, getFloatingProps } = useDropdown(toolsOpen, setToolsOpen);
   const {
     refs: leaveRefs,
     floatingStyles: leaveFloatingStyles,
-    context: leaveContext,
-  } = useFloating({
-    open: leaveOpen,
-    onOpenChange: setLeaveOpen,
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: "end" }),
-      shift({ padding: 8 }),
-    ],
-    placement: "bottom-start",
-  });
-
-  const leaveClick = useClick(leaveContext);
-  const leaveDismiss = useDismiss(leaveContext);
-  const { getReferenceProps: getLeaveReferenceProps, getFloatingProps: getLeaveFloatingProps } = useInteractions([leaveClick, leaveDismiss]);
+    getReferenceProps: getLeaveReferenceProps,
+    getFloatingProps: getLeaveFloatingProps,
+  } = useDropdown(leaveOpen, setLeaveOpen);
 
   return (
     <div className={cn(

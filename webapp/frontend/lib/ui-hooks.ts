@@ -197,3 +197,49 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
 
   return { fileActionState, handleOpenFile, handlePrintFile };
 }
+
+// ============================================================================
+// Floating UI Hooks
+// ============================================================================
+
+import {
+  useFloating,
+  offset,
+  flip,
+  shift,
+  useClick,
+  useDismiss,
+  useInteractions,
+  Placement,
+} from "@floating-ui/react";
+
+/**
+ * Hook for standard dropdown behavior with Floating UI.
+ * Handles click to toggle, dismiss on outside click/escape, and positioning.
+ *
+ * @param isOpen - Whether the dropdown is currently open
+ * @param onOpenChange - Callback when open state should change
+ * @param placement - Where to position the dropdown (default: "bottom-start")
+ */
+export function useDropdown(
+  isOpen: boolean,
+  onOpenChange: (open: boolean) => void,
+  placement: Placement = "bottom-start"
+) {
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange,
+    middleware: [
+      offset(8),
+      flip({ fallbackAxisSideDirection: "end" }),
+      shift({ padding: 8 }),
+    ],
+    placement,
+  });
+
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+
+  return { refs, floatingStyles, getReferenceProps, getFloatingProps };
+}
