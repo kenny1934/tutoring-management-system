@@ -244,7 +244,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
           {/* Description if available */}
           {exam.description && (
             <div className="px-4 py-3 bg-[#faf6f1]/50 dark:bg-[#2d2820]/50 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <p className="text-sm text-gray-600 dark:text-gray-400">{exam.description}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">{exam.description}</p>
             </div>
           )}
 

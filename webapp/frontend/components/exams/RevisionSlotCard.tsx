@@ -58,6 +58,9 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
 
   const slotDate = new Date(slot.session_date);
 
+  // Prefer detail data when available for freshness
+  const enrolledCount = slotDetail ? slotDetail.enrolled_students.length : slot.enrolled_count;
+
   const handleStudentClick = (e: React.MouseEvent, sessionId: number) => {
     e.stopPropagation();
     setClickPosition({ x: e.clientX, y: e.clientY });
@@ -133,21 +136,16 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             </span>
           </div>
 
-          {/* Enrolled count - prefer detail data when available for freshness */}
-          {(() => {
-            const enrolledCount = slotDetail ? slotDetail.enrolled_students.length : slot.enrolled_count;
-            return (
-              <div className={cn(
-                "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-                enrolledCount > 0
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-              )}>
-                <Users className="h-3 w-3" />
-                {enrolledCount}
-              </div>
-            );
-          })()}
+          {/* Enrolled count */}
+          <div className={cn(
+            "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+            enrolledCount > 0
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          )}>
+            <Users className="h-3 w-3" />
+            {enrolledCount}
+          </div>
 
           {/* Expand indicator */}
           {isExpanded ? (
