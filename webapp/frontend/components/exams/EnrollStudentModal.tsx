@@ -127,7 +127,7 @@ export function EnrollStudentModal({
 
       {/* Modal */}
       <div className={cn(
-        "relative z-10 w-full max-w-2xl min-w-[550px] max-h-[80vh] mx-4 rounded-xl overflow-hidden flex flex-col",
+        "relative z-10 w-[min(calc(100vw-2rem),36rem)] max-h-[80vh] rounded-xl overflow-hidden flex flex-col",
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "shadow-2xl paper-texture"
       )}>

@@ -121,6 +121,16 @@ export function timeToMinutes(time: string): number {
 }
 
 /**
+ * Validate that end time is after start time
+ * @param startTime - Start time in HH:MM format
+ * @param endTime - End time in HH:MM format
+ * @returns true if end time is after start time
+ */
+export function isTimeRangeValid(startTime: string, endTime: string): boolean {
+  return timeToMinutes(endTime) > timeToMinutes(startTime);
+}
+
+/**
  * Generate all time slots for a day (every 30 minutes from 08:00 to 22:00)
  * Returns simple time strings for grid rows: ["08:00", "08:30", "09:00", ...]
  */

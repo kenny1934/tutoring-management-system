@@ -2,12 +2,13 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { toDateString, getDayName } from "@/lib/calendar-utils";
+import { toDateString, getDayName, isTimeRangeValid } from "@/lib/calendar-utils";
 import { useTutors, useLocations } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
-import type { ExamWithRevisionSlots } from "@/types";
+import type { ExamWithRevisionSlots, SlotDefaults } from "@/types";
 import {
   X,
   Loader2,
@@ -18,12 +19,6 @@ import {
   FileText,
   AlertCircle,
 } from "lucide-react";
-
-interface SlotDefaults {
-  tutor_id?: number;
-  location?: string;
-  notes?: string;
-}
 
 interface CreateRevisionSlotModalProps {
   exam: ExamWithRevisionSlots;
@@ -42,6 +37,7 @@ export function CreateRevisionSlotModal({
   currentTutorId,
   defaults,
 }: CreateRevisionSlotModalProps) {
+  const { showToast } = useToast();
   const { data: tutors = [] } = useTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
@@ -86,11 +82,7 @@ export function CreateRevisionSlotModal({
   // Validate custom time (end time must be after start time)
   const isTimeValid = useMemo(() => {
     if (!useCustomTime) return true;
-    const [startH, startM] = customStartTime.split(':').map(Number);
-    const [endH, endM] = customEndTime.split(':').map(Number);
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-    return endMinutes > startMinutes;
+    return isTimeRangeValid(customStartTime, customEndTime);
   }, [useCustomTime, customStartTime, customEndTime]);
 
   const [tutorId, setTutorId] = useState<number>(defaults?.tutor_id ?? currentTutorId);
@@ -137,7 +129,7 @@ export function CreateRevisionSlotModal({
       });
       // Show warning if there are conflicts
       if (result.warning) {
-        alert(`Warning: ${result.warning}`);
+        showToast(result.warning, "info");
       }
       onCreated(); // Parent will call mutate() to refresh data
     } catch (err) {
@@ -159,7 +151,7 @@ export function CreateRevisionSlotModal({
 
       {/* Modal */}
       <div className={cn(
-        "relative z-10 w-full max-w-lg min-w-[400px] mx-4 rounded-xl overflow-hidden",
+        "relative z-10 w-[min(calc(100vw-2rem),28rem)] rounded-xl overflow-hidden",
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "shadow-2xl paper-texture"
       )}>
@@ -202,6 +194,7 @@ export function CreateRevisionSlotModal({
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
+              aria-label="Session date"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
             />
@@ -222,6 +215,7 @@ export function CreateRevisionSlotModal({
                   type="checkbox"
                   checked={useCustomTime}
                   onChange={(e) => setUseCustomTime(e.target.checked)}
+                  aria-label="Use custom time"
                   className="w-3.5 h-3.5 rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
                 />
                 Custom time
@@ -235,6 +229,7 @@ export function CreateRevisionSlotModal({
                     type="time"
                     value={customStartTime}
                     onChange={(e) => setCustomStartTime(e.target.value)}
+                    aria-label="Start time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -246,6 +241,7 @@ export function CreateRevisionSlotModal({
                     type="time"
                     value={customEndTime}
                     onChange={(e) => setCustomEndTime(e.target.value)}
+                    aria-label="End time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -261,6 +257,7 @@ export function CreateRevisionSlotModal({
               <select
                 value={selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
+                aria-label="Time slot"
                 className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
                 required
               >
@@ -285,6 +282,7 @@ export function CreateRevisionSlotModal({
             <select
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
+              aria-label="Tutor"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
             >
@@ -307,6 +305,7 @@ export function CreateRevisionSlotModal({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={isLocationLocked}
+              aria-label="Location"
               className={cn(
                 "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
                 isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
@@ -346,6 +345,7 @@ export function CreateRevisionSlotModal({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes about this revision slot..."
+              aria-label="Notes"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
             />
           </div>

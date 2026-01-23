@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { toDateString } from "@/lib/calendar-utils";
+import { toDateString, isTimeRangeValid } from "@/lib/calendar-utils";
 import { useTutors, useLocations } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
@@ -35,6 +36,7 @@ export function EditRevisionSlotModal({
   onUpdated,
   currentTutorId,
 }: EditRevisionSlotModalProps) {
+  const { showToast } = useToast();
   const { data: tutors = [] } = useTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
@@ -97,11 +99,7 @@ export function EditRevisionSlotModal({
   // Validate custom time
   const isTimeValid = useMemo(() => {
     if (!useCustomTime) return true;
-    const [startH, startM] = customStartTime.split(':').map(Number);
-    const [endH, endM] = customEndTime.split(':').map(Number);
-    const startMinutes = startH * 60 + startM;
-    const endMinutes = endH * 60 + endM;
-    return endMinutes > startMinutes;
+    return isTimeRangeValid(customStartTime, customEndTime);
   }, [useCustomTime, customStartTime, customEndTime]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -153,7 +151,7 @@ export function EditRevisionSlotModal({
       const result = await examRevisionAPI.updateSlot(slot.id, updateData);
       // Show warning if there are tutor conflicts
       if (result.warning) {
-        alert(`Warning: ${result.warning}`);
+        showToast(result.warning, "info");
       }
       onUpdated();
     } catch (err) {
@@ -175,7 +173,7 @@ export function EditRevisionSlotModal({
 
       {/* Modal */}
       <div className={cn(
-        "relative z-10 w-full max-w-lg min-w-[400px] mx-4 rounded-xl overflow-hidden",
+        "relative z-10 w-[min(calc(100vw-2rem),28rem)] rounded-xl overflow-hidden",
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "shadow-2xl paper-texture"
       )}>
@@ -230,6 +228,7 @@ export function EditRevisionSlotModal({
               onChange={(e) => setSessionDate(e.target.value)}
               min={toDateString(new Date())}
               disabled={hasEnrolledStudents}
+              aria-label="Session date"
               className={cn(
                 "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
                 hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
@@ -251,6 +250,7 @@ export function EditRevisionSlotModal({
                     type="checkbox"
                     checked={useCustomTime}
                     onChange={(e) => setUseCustomTime(e.target.checked)}
+                    aria-label="Use custom time"
                     className="w-3.5 h-3.5 rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
                   />
                   Custom time
@@ -265,6 +265,7 @@ export function EditRevisionSlotModal({
                     type="time"
                     value={customStartTime}
                     onChange={(e) => setCustomStartTime(e.target.value)}
+                    aria-label="Start time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -276,6 +277,7 @@ export function EditRevisionSlotModal({
                     type="time"
                     value={customEndTime}
                     onChange={(e) => setCustomEndTime(e.target.value)}
+                    aria-label="End time"
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -292,6 +294,7 @@ export function EditRevisionSlotModal({
                 value={hasEnrolledStudents ? slot.time_slot : selectedPresetSlot}
                 onChange={(e) => setSelectedPresetSlot(e.target.value)}
                 disabled={hasEnrolledStudents}
+                aria-label="Time slot"
                 className={cn(
                   "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
                   hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
@@ -321,6 +324,7 @@ export function EditRevisionSlotModal({
             <select
               value={tutorId}
               onChange={(e) => setTutorId(parseInt(e.target.value))}
+              aria-label="Tutor"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
             >
@@ -348,6 +352,7 @@ export function EditRevisionSlotModal({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={hasEnrolledStudents || isLocationLocked}
+              aria-label="Location"
               className={cn(
                 "w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]",
                 (hasEnrolledStudents || isLocationLocked) && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
@@ -380,6 +385,7 @@ export function EditRevisionSlotModal({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes about this revision slot..."
+              aria-label="Notes"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] resize-none"
             />
           </div>
