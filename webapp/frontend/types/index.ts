@@ -566,7 +566,8 @@ export type ExtensionRequestStatus = 'Pending' | 'Approved' | 'Rejected';
 export interface ExtensionRequest {
   id: number;
   session_id: number;
-  enrollment_id: number;
+  enrollment_id: number;  // Source enrollment (session belongs to this)
+  target_enrollment_id?: number;  // Enrollment to extend (student's current). NULL = same as enrollment_id
   student_id: number;
   tutor_id: number;
   requested_extension_weeks: number;
@@ -594,12 +595,17 @@ export interface ExtensionRequest {
 }
 
 export interface ExtensionRequestDetail extends ExtensionRequest {
-  // Enrollment context for admin review
+  // Source enrollment context (where the session is from)
   enrollment_first_lesson_date?: string;
   enrollment_lessons_paid?: number;
-  current_extension_weeks: number;
-  current_effective_end_date?: string;
-  projected_effective_end_date?: string;
+  source_effective_end_date?: string;
+  // Target enrollment context (the one to extend - may differ from source)
+  target_first_lesson_date?: string;
+  target_lessons_paid?: number;
+  current_extension_weeks: number;  // Target enrollment's current extensions
+  current_effective_end_date?: string;  // Target enrollment's current end date
+  projected_effective_end_date?: string;  // Target enrollment's end date if approved
+  // Session/makeup context
   pending_makeups_count: number;
   sessions_completed: number;
   admin_guidance?: string;

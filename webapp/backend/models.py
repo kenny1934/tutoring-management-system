@@ -235,7 +235,8 @@ class ExtensionRequest(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False, comment='The session that needs extension')
-    enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=False, comment='The enrollment to extend')
+    enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=False, comment='Source enrollment (session belongs to this)')
+    target_enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=True, comment='Enrollment to extend (student current). NULL = use enrollment_id for AppSheet compat')
     student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
 
@@ -262,6 +263,7 @@ class ExtensionRequest(Base):
     # Relationships
     session = relationship("SessionLog", foreign_keys=[session_id])
     enrollment = relationship("Enrollment", foreign_keys=[enrollment_id])
+    target_enrollment = relationship("Enrollment", foreign_keys=[target_enrollment_id])
     student = relationship("Student", foreign_keys=[student_id])
     tutor = relationship("Tutor", foreign_keys=[tutor_id])
 
