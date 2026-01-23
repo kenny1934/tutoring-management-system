@@ -1,45 +1,71 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
-import { extensionRequestsAPI } from "@/lib/api";
+import { extensionRequestsAPI, enrollmentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, AlertCircle, Send, Loader2 } from "lucide-react";
 import type { Session } from "@/types";
 
 interface ExtensionRequestModalProps {
   session: Session;
-  enrollmentId: number;
-  effectiveEndDate: string;
+  /** Enrollment ID - if not provided, will use session.enrollment_id */
+  enrollmentId?: number;
+  /** Effective end date - if not provided, will be fetched from enrollment */
+  effectiveEndDate?: string;
   isOpen: boolean;
   onClose: () => void;
   onRequestSubmitted?: () => void;
   tutorId: number;
+  /** True when opened via direct button (not from deadline exceeded error) */
+  isProactive?: boolean;
 }
 
 export function ExtensionRequestModal({
   session,
-  enrollmentId,
-  effectiveEndDate,
+  enrollmentId: propEnrollmentId,
+  effectiveEndDate: propEffectiveEndDate,
   isOpen,
   onClose,
   onRequestSubmitted,
   tutorId,
+  isProactive = false,
 }: ExtensionRequestModalProps) {
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [enrollmentId, setEnrollmentId] = useState<number | null>(propEnrollmentId ?? null);
+  const [effectiveEndDate, setEffectiveEndDate] = useState<string>(propEffectiveEndDate ?? "");
 
-  // Form state
-  const [weeksRequested, setWeeksRequested] = useState(2);
+  // Fetch enrollment data if not provided
+  useEffect(() => {
+    if (isOpen && !propEffectiveEndDate && session.enrollment_id) {
+      setIsLoading(true);
+      enrollmentsAPI.getById(session.enrollment_id)
+        .then((enrollment) => {
+          setEnrollmentId(enrollment.id);
+          setEffectiveEndDate(enrollment.effective_end_date || "");
+        })
+        .catch((error) => {
+          console.error("Failed to fetch enrollment data:", error);
+          showToast("Failed to load enrollment data", "error");
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [isOpen, propEffectiveEndDate, session.enrollment_id, showToast]);
+
+  // Form state - extension is always +1 week for single lesson
   const [reason, setReason] = useState("");
   const [proposedDate, setProposedDate] = useState("");
   const [proposedTime, setProposedTime] = useState("");
 
   const handleSubmit = async () => {
-    if (!reason.trim() || reason.length < 10) {
-      showToast("Please provide a reason (at least 10 characters)", "error");
+    if (!reason.trim()) {
+      showToast("Please provide a reason", "error");
       return;
     }
 
@@ -49,7 +75,7 @@ export function ExtensionRequestModal({
       await extensionRequestsAPI.create(
         {
           session_id: session.id,
-          requested_extension_weeks: weeksRequested,
+          requested_extension_weeks: 1, // Always +1 week for single lesson extension
           reason: reason.trim(),
           proposed_reschedule_date: proposedDate || undefined,
           proposed_reschedule_time: proposedTime || undefined,
@@ -62,7 +88,6 @@ export function ExtensionRequestModal({
       onClose();
 
       // Reset form
-      setWeeksRequested(2);
       setReason("");
       setProposedDate("");
       setProposedTime("");
@@ -97,10 +122,10 @@ export function ExtensionRequestModal({
       size="md"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting || isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || isLoading || !enrollmentId}>
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -116,19 +141,52 @@ export function ExtensionRequestModal({
         </div>
       }
     >
+      {isLoading ? (
+        <div className="space-y-5 animate-pulse">
+          {/* Loading skeleton */}
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <div className="h-5 w-5 rounded bg-gray-300 dark:bg-gray-600" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-32 rounded bg-gray-300 dark:bg-gray-600" />
+              <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-3 w-3/4 rounded bg-gray-200 dark:bg-gray-700" />
+            </div>
+          </div>
+          <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
+            <div className="h-3 w-20 rounded bg-gray-300 dark:bg-gray-600 mb-2" />
+            <div className="h-4 w-32 rounded bg-gray-300 dark:bg-gray-600 mb-2" />
+            <div className="h-3 w-40 rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-4 w-28 rounded bg-gray-300 dark:bg-gray-600" />
+            <div className="h-20 w-full rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
+        </div>
+      ) : (
       <div className="space-y-5">
         {/* Info Banner */}
         <div className="flex items-start gap-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
           <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-amber-800 dark:text-amber-200">
-              Enrollment deadline exceeded
+              {isProactive ? "Request Deadline Extension" : "Enrollment deadline exceeded"}
             </p>
             <p className="text-amber-700 dark:text-amber-300 mt-1">
-              The current enrollment ends on{" "}
-              <span className="font-semibold">{effectiveEndDate}</span>. To
-              schedule a makeup session past this date, you need an extension
-              approved by an admin.
+              {isProactive ? (
+                <>
+                  The enrollment ends on{" "}
+                  <span className="font-semibold">{effectiveEndDate || "Loading..."}</span>. Request a
+                  +1 week extension to schedule this pending makeup session at the
+                  student&apos;s regular time slot past the deadline.
+                </>
+              ) : (
+                <>
+                  The current enrollment ends on{" "}
+                  <span className="font-semibold">{effectiveEndDate || "Loading..."}</span>. To
+                  schedule this makeup at the regular time slot past the deadline,
+                  you need a +1 week extension approved by an admin.
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -153,25 +211,6 @@ export function ExtensionRequestModal({
           </div>
         </div>
 
-        {/* Weeks Requested */}
-        <div>
-          <label className={labelClass}>Extension Duration</label>
-          <select
-            value={weeksRequested}
-            onChange={(e) => setWeeksRequested(Number(e.target.value))}
-            className={inputClass}
-          >
-            <option value={1}>1 week</option>
-            <option value={2}>2 weeks (standard)</option>
-            <option value={3}>3 weeks</option>
-            <option value={4}>4 weeks</option>
-          </select>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Standard extensions are 1-2 weeks. Longer extensions may require
-            additional review.
-          </p>
-        </div>
-
         {/* Reason */}
         <div>
           <label className={labelClass}>
@@ -184,9 +223,6 @@ export function ExtensionRequestModal({
             rows={3}
             className={cn(inputClass, "resize-none")}
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {reason.length}/10 characters minimum
-          </p>
         </div>
 
         {/* Proposed Reschedule (Optional) */}
@@ -226,6 +262,7 @@ export function ExtensionRequestModal({
           </p>
         </div>
       </div>
+      )}
     </Modal>
   );
 }
