@@ -41,6 +41,7 @@ def _build_extension_request_response(
         id=request.id,
         session_id=request.session_id,
         enrollment_id=request.enrollment_id,
+        target_enrollment_id=request.target_enrollment_id,
         student_id=request.student_id,
         tutor_id=request.tutor_id,
         requested_extension_weeks=request.requested_extension_weeks,
@@ -74,29 +75,55 @@ def _build_extension_request_detail_response(
     """Build an ExtensionRequestDetailResponse with enrollment context."""
     base_response = _build_extension_request_response(request, db)
 
-    # Get enrollment details
-    enrollment = request.enrollment
+    # Source enrollment (where the session is from)
+    source_enrollment = request.enrollment
     enrollment_first_lesson_date = None
     enrollment_lessons_paid = None
+    source_effective_end_date = None
+
+    if source_enrollment:
+        enrollment_first_lesson_date = source_enrollment.first_lesson_date
+        enrollment_lessons_paid = source_enrollment.lessons_paid
+        # Calculate source enrollment's effective end date
+        if source_enrollment.first_lesson_date and source_enrollment.lessons_paid:
+            try:
+                source_ext = source_enrollment.deadline_extension_weeks or 0
+                result = db.execute(text("""
+                    SELECT calculate_effective_end_date(:first_lesson_date, :lessons_paid, :ext) as end_date
+                """), {
+                    "first_lesson_date": source_enrollment.first_lesson_date,
+                    "lessons_paid": source_enrollment.lessons_paid,
+                    "ext": source_ext
+                }).fetchone()
+                if result:
+                    source_effective_end_date = result.end_date
+            except Exception:
+                pass
+
+    # Target enrollment (the one to extend - may differ from source)
+    # Use target_enrollment if set, otherwise fall back to source enrollment
+    target_enrollment = request.target_enrollment if request.target_enrollment_id else source_enrollment
+    target_first_lesson_date = None
+    target_lessons_paid = None
     current_extension_weeks = 0
     current_effective_end_date = None
     projected_effective_end_date = None
 
-    if enrollment:
-        enrollment_first_lesson_date = enrollment.first_lesson_date
-        enrollment_lessons_paid = enrollment.lessons_paid
-        current_extension_weeks = enrollment.deadline_extension_weeks or 0
+    if target_enrollment:
+        target_first_lesson_date = target_enrollment.first_lesson_date
+        target_lessons_paid = target_enrollment.lessons_paid
+        current_extension_weeks = target_enrollment.deadline_extension_weeks or 0
 
-        # Calculate both effective end dates in a single query
-        if enrollment.first_lesson_date and enrollment.lessons_paid:
+        # Calculate target enrollment's effective end dates
+        if target_enrollment.first_lesson_date and target_enrollment.lessons_paid:
             try:
                 date_results = db.execute(text("""
                     SELECT
                         calculate_effective_end_date(:first_lesson_date, :lessons_paid, :current_ext) as current_end,
                         calculate_effective_end_date(:first_lesson_date, :lessons_paid, :projected_ext) as projected_end
                 """), {
-                    "first_lesson_date": enrollment.first_lesson_date,
-                    "lessons_paid": enrollment.lessons_paid,
+                    "first_lesson_date": target_enrollment.first_lesson_date,
+                    "lessons_paid": target_enrollment.lessons_paid,
                     "current_ext": current_extension_weeks,
                     "projected_ext": current_extension_weeks + request.requested_extension_weeks
                 }).fetchone()
@@ -106,12 +133,12 @@ def _build_extension_request_detail_response(
             except Exception:
                 pass  # SQL function might not exist in all environments
 
-    # Count pending makeups and completed sessions in a single query
+    # Count pending makeups and completed sessions (across ALL student enrollments)
     counts = db.query(
         func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
         func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
     ).filter(
-        SessionLog.enrollment_id == request.enrollment_id
+        SessionLog.student_id == request.student_id
     ).first()
 
     pending_makeups_count = counts.pending if counts else 0
@@ -126,6 +153,9 @@ def _build_extension_request_detail_response(
         **base_response.model_dump(),
         enrollment_first_lesson_date=enrollment_first_lesson_date,
         enrollment_lessons_paid=enrollment_lessons_paid,
+        source_effective_end_date=source_effective_end_date,
+        target_first_lesson_date=target_first_lesson_date,
+        target_lessons_paid=target_lessons_paid,
         current_extension_weeks=current_extension_weeks,
         current_effective_end_date=current_effective_end_date,
         projected_effective_end_date=projected_effective_end_date,
@@ -192,10 +222,25 @@ async def create_extension_request(
     if not tutor:
         raise HTTPException(status_code=404, detail=f"Tutor {tutor_id} not found")
 
+    # Find student's current regular enrollment (latest by first_lesson_date)
+    # Only Regular enrollments count - ignore One-Time and Trial
+    # This is the enrollment that should be extended
+    current_enrollment = db.query(Enrollment).filter(
+        Enrollment.student_id == session.student_id,
+        Enrollment.enrollment_type == 'Regular'
+    ).order_by(Enrollment.first_lesson_date.desc()).first()
+
+    # Determine target enrollment
+    # If current enrollment differs from session's enrollment, use current as target
+    target_enrollment_id = None
+    if current_enrollment and current_enrollment.id != session.enrollment_id:
+        target_enrollment_id = current_enrollment.id
+
     # Create the extension request
     extension_request = ExtensionRequest(
         session_id=request.session_id,
         enrollment_id=session.enrollment_id,
+        target_enrollment_id=target_enrollment_id,
         student_id=session.student_id,
         tutor_id=tutor_id,
         requested_extension_weeks=request.requested_extension_weeks,
@@ -214,6 +259,7 @@ async def create_extension_request(
     extension_request = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
         joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
         joinedload(ExtensionRequest.student),
         joinedload(ExtensionRequest.tutor),
     ).filter(ExtensionRequest.id == extension_request.id).first()
@@ -237,6 +283,7 @@ async def get_extension_requests(
     query = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
         joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
         joinedload(ExtensionRequest.student),
         joinedload(ExtensionRequest.tutor),
     )
@@ -288,6 +335,7 @@ async def get_extension_request(
     extension_request = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
         joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
         joinedload(ExtensionRequest.student),
         joinedload(ExtensionRequest.tutor),
     ).filter(ExtensionRequest.id == request_id).first()
@@ -310,13 +358,14 @@ async def approve_extension_request(
 
     This will:
     1. Update the extension request status to 'Approved'
-    2. Add the granted weeks to the enrollment's deadline_extension_weeks
+    2. Add the granted weeks to the TARGET enrollment's deadline_extension_weeks
+       (target = student's current enrollment, may differ from session's enrollment)
     3. Update the enrollment's extension audit trail
-    4. Optionally reschedule the session if reschedule_session=true
     """
     extension_request = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
         joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
         joinedload(ExtensionRequest.student),
         joinedload(ExtensionRequest.tutor),
     ).filter(ExtensionRequest.id == request_id).first()
@@ -348,22 +397,30 @@ async def approve_extension_request(
     extension_request.review_notes = approval.review_notes
     extension_request.extension_granted_weeks = approval.extension_granted_weeks
 
-    # Update enrollment
-    enrollment = extension_request.enrollment
-    if enrollment:
-        current_extension = enrollment.deadline_extension_weeks or 0
-        enrollment.deadline_extension_weeks = current_extension + approval.extension_granted_weeks
-        enrollment.last_extension_date = now.date()
-        enrollment.extension_granted_by = admin_tutor.user_email
+    # Determine which enrollment to extend
+    # Use target_enrollment if set (cross-enrollment case), otherwise fall back to source enrollment
+    # This fallback ensures backward compatibility with AppSheet requests (target_enrollment_id = NULL)
+    enrollment_to_extend = extension_request.target_enrollment if extension_request.target_enrollment_id else extension_request.enrollment
+    source_enrollment = extension_request.enrollment
+
+    if enrollment_to_extend:
+        current_extension = enrollment_to_extend.deadline_extension_weeks or 0
+        enrollment_to_extend.deadline_extension_weeks = current_extension + approval.extension_granted_weeks
+        enrollment_to_extend.last_extension_date = now.date()
+        enrollment_to_extend.extension_granted_by = admin_tutor.user_email
 
         # Append to extension notes
-        new_note = f"{now.strftime('%Y-%m-%d %H:%M')}: +{approval.extension_granted_weeks} weeks granted via request #{request_id}"
+        # Include source enrollment info if different from target
+        if extension_request.target_enrollment_id and source_enrollment:
+            new_note = f"{now.strftime('%Y-%m-%d %H:%M')}: +{approval.extension_granted_weeks} weeks granted via request #{request_id} (makeup from enrollment #{source_enrollment.id})"
+        else:
+            new_note = f"{now.strftime('%Y-%m-%d %H:%M')}: +{approval.extension_granted_weeks} weeks granted via request #{request_id}"
         if extension_request.reason:
             new_note += f" - {extension_request.reason[:100]}"
-        if enrollment.extension_notes:
-            enrollment.extension_notes = f"{enrollment.extension_notes}\n{new_note}"
+        if enrollment_to_extend.extension_notes:
+            enrollment_to_extend.extension_notes = f"{enrollment_to_extend.extension_notes}\n{new_note}"
         else:
-            enrollment.extension_notes = new_note
+            enrollment_to_extend.extension_notes = new_note
 
     # Note: Actual makeup scheduling is done separately through the normal flow
     # The proposed_reschedule_date/time are kept as reference for the admin
@@ -387,6 +444,7 @@ async def reject_extension_request(
     extension_request = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
         joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
         joinedload(ExtensionRequest.student),
         joinedload(ExtensionRequest.tutor),
     ).filter(ExtensionRequest.id == request_id).first()

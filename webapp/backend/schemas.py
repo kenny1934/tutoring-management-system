@@ -831,7 +831,7 @@ class ExtensionRequestCreate(BaseModel):
     """Schema for creating an extension request"""
     session_id: int = Field(..., gt=0, description="Session that needs extension")
     requested_extension_weeks: int = Field(..., ge=1, le=8, description="Number of weeks to extend (1-8)")
-    reason: str = Field(..., min_length=10, max_length=1000, description="Why extension is needed")
+    reason: str = Field(..., max_length=1000, description="Why extension is needed")
     proposed_reschedule_date: Optional[date] = Field(None, description="Proposed new date for the session")
     proposed_reschedule_time: Optional[str] = Field(None, max_length=100, description="Proposed time slot")
 
@@ -851,7 +851,8 @@ class ExtensionRequestResponse(BaseModel):
     """Response schema for an extension request"""
     id: int = Field(..., gt=0)
     session_id: int = Field(..., gt=0)
-    enrollment_id: int = Field(..., gt=0)
+    enrollment_id: int = Field(..., gt=0, description="Source enrollment (session belongs to this)")
+    target_enrollment_id: Optional[int] = Field(None, gt=0, description="Enrollment to extend (student's current). NULL = same as enrollment_id")
     student_id: int = Field(..., gt=0)
     tutor_id: int = Field(..., gt=0)
     requested_extension_weeks: int = Field(..., ge=1)
@@ -882,12 +883,17 @@ class ExtensionRequestResponse(BaseModel):
 
 class ExtensionRequestDetailResponse(ExtensionRequestResponse):
     """Detailed response with enrollment context for admin review"""
-    # Enrollment context
+    # Source enrollment context (where the session is from)
     enrollment_first_lesson_date: Optional[date] = None
     enrollment_lessons_paid: Optional[int] = None
-    current_extension_weeks: int = Field(default=0)
-    current_effective_end_date: Optional[date] = None
-    projected_effective_end_date: Optional[date] = None
+    source_effective_end_date: Optional[date] = Field(None, description="Source enrollment's effective end date")
+    # Target enrollment context (the one to extend - may differ from source)
+    target_first_lesson_date: Optional[date] = None
+    target_lessons_paid: Optional[int] = None
+    current_extension_weeks: int = Field(default=0, description="Target enrollment's current extensions")
+    current_effective_end_date: Optional[date] = Field(None, description="Target enrollment's current end date")
+    projected_effective_end_date: Optional[date] = Field(None, description="Target enrollment's end date if approved")
+    # Session/makeup context
     pending_makeups_count: int = Field(default=0)
     sessions_completed: int = Field(default=0)
     admin_guidance: Optional[str] = Field(None, max_length=200)

@@ -364,10 +364,23 @@ export function ExtensionRequestReviewModal({
               </div>
             </div>
 
+            {/* Cross-Enrollment Indicator - show when target differs from source */}
+            {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
+              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <div className="text-sm text-purple-800 dark:text-purple-200">
+                  <span className="font-medium">Cross-enrollment extension:</span>{" "}
+                  This makeup is from an older enrollment (#{request.enrollment_id}).
+                  The extension will apply to the student&apos;s current enrollment (#{request.target_enrollment_id}).
+                </div>
+              </div>
+            )}
+
             {/* Enrollment Context */}
             <div className="space-y-3">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Enrollment Context
+                {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
+                  ? "Current Enrollment Context (will be extended)"
+                  : "Enrollment Context"}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
