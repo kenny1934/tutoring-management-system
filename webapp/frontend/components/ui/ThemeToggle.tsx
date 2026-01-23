@@ -5,7 +5,12 @@ import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  /** Compact mode: just the toggle switch, no label */
+  compact?: boolean;
+}
+
+export function ThemeToggle({ compact = false }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -13,6 +18,44 @@ export function ThemeToggle() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isDark = theme === "dark";
+
+  const toggleButton = (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className={cn(
+        "relative w-12 h-7 rounded-full shadow-sm hover:scale-105 active:scale-95",
+        isDark ? "bg-primary" : "bg-foreground/20"
+      )}
+      style={{ transition: 'all 200ms var(--spring-expressive-default)' }}
+      aria-label="Toggle theme"
+    >
+      {/* Toggle knob - M3 Expressive */}
+      <div
+        className={cn(
+          "absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center",
+          isDark ? "left-5" : "left-0.5"
+        )}
+        style={{
+          transition: 'all 250ms var(--spring-expressive-default)'
+        }}
+      >
+        {mounted ? (
+          isDark ? (
+            <Moon className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Sun className="h-3.5 w-3.5 text-amber-500" />
+          )
+        ) : null}
+      </div>
+    </button>
+  );
+
+  // Compact mode: just the toggle switch
+  if (compact) {
+    return toggleButton;
+  }
 
   if (!mounted) {
     return (
@@ -22,8 +65,6 @@ export function ThemeToggle() {
       </div>
     );
   }
-
-  const isDark = theme === "dark";
 
   return (
     <div className="flex items-center justify-between">
@@ -35,32 +76,7 @@ export function ThemeToggle() {
         )}
         Theme
       </span>
-      <button
-        onClick={() => setTheme(isDark ? "light" : "dark")}
-        className={cn(
-          "relative w-12 h-7 rounded-full shadow-sm hover:scale-105 active:scale-95",
-          isDark ? "bg-primary" : "bg-foreground/20"
-        )}
-        style={{ transition: 'all 200ms var(--spring-expressive-default)' }}
-        aria-label="Toggle theme"
-      >
-        {/* Toggle knob - M3 Expressive */}
-        <div
-          className={cn(
-            "absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center",
-            isDark ? "left-5" : "left-0.5"
-          )}
-          style={{
-            transition: 'all 250ms var(--spring-expressive-default)'
-          }}
-        >
-          {isDark ? (
-            <Moon className="h-3.5 w-3.5 text-primary" />
-          ) : (
-            <Sun className="h-3.5 w-3.5 text-amber-500" />
-          )}
-        </div>
-      </button>
+      {toggleButton}
     </div>
   );
 }

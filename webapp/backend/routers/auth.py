@@ -3,7 +3,7 @@ Authentication router for Google OAuth.
 """
 
 import os
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     name: str
     role: str
     default_location: str | None = None
+    picture: str | None = None
 
 
 @router.get("/auth/google/login")
@@ -83,6 +84,7 @@ async def google_callback(
             "email": tutor.user_email,
             "name": tutor.tutor_name,
             "role": tutor.role,
+            "picture": user_info.get("picture"),  # Google profile picture
         })
 
         # Create redirect response with cookie
@@ -115,19 +117,31 @@ async def google_callback(
 
 @router.get("/auth/me", response_model=UserResponse)
 async def get_current_user_info(
+    request: Request,
     current_user: Tutor = Depends(get_current_user),
 ):
     """
     Get the currently authenticated user's info.
 
-    Returns user details including id, email, name, role, and default location.
+    Returns user details including id, email, name, role, default location, and profile picture.
     """
+    from auth.jwt_handler import verify_token
+
+    # Get picture from JWT token (stored during OAuth)
+    token = request.cookies.get("access_token")
+    picture = None
+    if token:
+        payload = verify_token(token)
+        if payload:
+            picture = payload.get("picture")
+
     return UserResponse(
         id=current_user.id,
         email=current_user.user_email,
         name=current_user.tutor_name,
         role=current_user.role,
         default_location=current_user.default_location,
+        picture=picture,
     )
 
 

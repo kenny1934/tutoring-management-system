@@ -400,9 +400,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               }}
               title="User settings"
             >
-              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
-                <span className="text-sm font-bold text-primary-foreground">{initials}</span>
-              </div>
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={displayName}
+                  className="h-10 w-10 rounded-full object-cover shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                  <span className="text-sm font-bold text-primary-foreground">{initials}</span>
+                </div>
+              )}
             </button>
           ) : (
             /* Expanded state: Avatar with name */
@@ -416,9 +425,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
               }}
             >
-              <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
-                <span className="text-base font-bold text-primary-foreground">{initials}</span>
-              </div>
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={displayName}
+                  className="h-11 w-11 rounded-full object-cover shadow-sm flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+                  <span className="text-base font-bold text-primary-foreground">{initials}</span>
+                </div>
+              )}
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
                 <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
@@ -441,7 +459,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           <div
             className={cn(
               "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-              "w-[300px] p-5 rounded-2xl shadow-2xl z-[9999]",
+              "w-[400px] p-5 rounded-2xl shadow-2xl z-[9999]",
               "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
               "border border-white/20 dark:border-white/10",
               "animate-in zoom-in-95 fade-in duration-200"
@@ -457,13 +475,22 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
             {/* User info header */}
             <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5">
-              <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-sm">
-                <span className="text-lg font-bold text-primary-foreground">
-                  {user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?"}
-                </span>
-              </div>
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name || "User"}
+                  className="h-12 w-12 rounded-full object-cover shadow-sm flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+                  <span className="text-lg font-bold text-primary-foreground">
+                    {user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?"}
+                  </span>
+                </div>
+              )}
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-foreground truncate">{user?.name || "Guest"}</p>
+                <p className="text-base font-semibold text-foreground">{user?.name || "Guest"}</p>
                 <p className="text-sm text-foreground/60">{effectiveRole || "Guest"}</p>
               </div>
               {/* Role Switcher for Super Admins */}

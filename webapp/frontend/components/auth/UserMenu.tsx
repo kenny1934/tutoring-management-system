@@ -49,17 +49,26 @@ export function UserMenu({ className = "" }: UserMenuProps) {
         "
       >
         {/* Avatar */}
-        <div
-          className="
-            w-8 h-8
-            rounded-full
-            bg-blue-500
-            flex items-center justify-center
-            text-white text-sm font-medium
-          "
-        >
-          {initials}
-        </div>
+        {user.picture ? (
+          <img
+            src={user.picture}
+            alt={user.name}
+            className="w-8 h-8 rounded-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div
+            className="
+              w-8 h-8
+              rounded-full
+              bg-amber-600
+              flex items-center justify-center
+              text-white text-sm font-medium
+            "
+          >
+            {initials}
+          </div>
+        )}
 
         {/* Name and role */}
         <div className="hidden sm:block text-left">
@@ -86,7 +95,7 @@ export function UserMenu({ className = "" }: UserMenuProps) {
         <div
           className="
             absolute right-0 top-full mt-1
-            w-56
+            w-72
             bg-white dark:bg-zinc-800
             border border-zinc-200 dark:border-zinc-700
             rounded-lg shadow-lg
@@ -96,14 +105,30 @@ export function UserMenu({ className = "" }: UserMenuProps) {
         >
           {/* User info section */}
           <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
-            <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              {user.name}
-            </div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              {user.email}
+            <div className="flex items-center gap-3">
+              {user.picture ? (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-amber-600 flex items-center justify-center text-white font-medium flex-shrink-0">
+                  {initials}
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {user.name}
+                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                  {user.email}
+                </div>
+              </div>
             </div>
             {user.default_location && (
-              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
                 Location: {user.default_location}
               </div>
             )}

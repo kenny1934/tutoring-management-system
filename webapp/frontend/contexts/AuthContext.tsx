@@ -18,6 +18,7 @@ export interface User {
   name: string;
   role: string;
   default_location: string | null;
+  picture: string | null;
 }
 
 /**
