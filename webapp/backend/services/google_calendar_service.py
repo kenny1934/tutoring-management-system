@@ -22,13 +22,33 @@ CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "msamacau01@gmail.com")
 API_KEY = os.getenv("GOOGLE_CALENDAR_API_KEY")
 SYNC_TTL_MINUTES = int(os.getenv("CALENDAR_SYNC_TTL_MINUTES", "15"))
 
-# Regex pattern for parsing event titles
+# Regex patterns for parsing event titles
 # Format: SCHOOL GRADE EVENT_TYPE
-# Examples: "TIS F2 Test", "PCMS F4(A) Exam", "SRL-E F3 Quiz"
+# Examples: "TIS F2 Test", "PCMS F4(A) Exam", "SRL-E F3 Quiz", "嶺南 F2 Test"
 # Supports: F4(A), F4A, F4 Art, F4 Science, F4 Commerce
+
+# Main pattern - accepts Unicode school names (Chinese etc.) via \w
 EVENT_TITLE_PATTERN = re.compile(
-    r'^([A-Z0-9\-]+)\s+(F[1-6](?:\([ASC]\))?(?:[ASC])?(?:\s+(?:Art|Science|Commerce))?)\s+(.+)$',
-    re.IGNORECASE
+    r'^([\w\-]+)\s+(F[1-6](?:\([ASC]\))?(?:[ASC])?(?:\s+(?:Art|Science|Commerce))?)\s+(.+)$',
+    re.IGNORECASE | re.UNICODE
+)
+
+# Fallback: Compact format "SCHOOL-F4 Event" (no space before grade)
+COMPACT_GRADE_PATTERN = re.compile(
+    r'^([\w]+)-(F[1-6])\s+(.+)$',
+    re.IGNORECASE | re.UNICODE
+)
+
+# Fallback: School with stream indicator + grade "SRL-E F4 Test" or "SRL-E (S) F4 Test"
+STREAM_GRADE_PATTERN = re.compile(
+    r'^([\w]+-[A-Z])\s*(?:\([A-Z]\)\s*)?(F[1-6])\s+(.+)$',
+    re.IGNORECASE | re.UNICODE
+)
+
+# Fallback: No grade format "SCHOOL EventType" (e.g., "CDSJ5-E Exam", "PCMS-CO Test")
+NO_GRADE_PATTERN = re.compile(
+    r'^([\w\-]+)\s+(.+)$',
+    re.IGNORECASE | re.UNICODE
 )
 
 
@@ -147,12 +167,12 @@ class GoogleCalendarService:
         """
         Parse event title to extract school, grade, academic stream, and event type.
 
-        Expected format: "SCHOOL GRADE EVENT_TYPE"
-        Examples:
-            - "TIS F2 Test" -> school=TIS, grade=F2, event_type=Test
-            - "PCMS F4(A) Exam" -> school=PCMS, grade=F4, academic_stream=A, event_type=Exam
-            - "PCMS F4A Exam" -> school=PCMS, grade=F4, academic_stream=A, event_type=Exam
-            - "SRL-E F6 Science Final Exam" -> school=SRL-E, grade=F6, academic_stream=S, event_type=Exam
+        Supports multiple formats:
+            - Standard: "TIS F2 Test" -> school=TIS, grade=F2, event_type=Test
+            - With stream: "PCMS F4(A) Exam" -> school=PCMS, grade=F4, academic_stream=A
+            - Chinese: "嶺南 F2 Test" -> school=嶺南, grade=F2, event_type=Test
+            - Compact: "SYMS-F4 Quiz" -> school=SYMS, grade=F4, event_type=Quiz
+            - No grade: "CDSJ5-E Exam" -> school=CDSJ5-E, grade=None, event_type=Exam
 
         Args:
             title: Event title string
@@ -160,61 +180,88 @@ class GoogleCalendarService:
         Returns:
             Dictionary with school, grade, academic_stream, and event_type
         """
+        title = title.strip()
+
+        # Strategy 1: Standard pattern with grade (handles Unicode school names)
         match = EVENT_TITLE_PATTERN.match(title)
+        if match:
+            school = match.group(1)
+            grade_with_stream = match.group(2).upper()
+            event_type_raw = match.group(3).strip()
 
-        if not match:
-            # If title doesn't match pattern, return empty parsed info
-            return {
-                'school': None,
-                'grade': None,
-                'academic_stream': None,
-                'event_type': None
-            }
+            # Extract academic stream if present
+            academic_stream = None
+            grade = None
 
-        school = match.group(1).upper()
-        grade_with_stream = match.group(2).upper()
-        event_type_raw = match.group(3).strip()
-
-        # Extract academic stream if present
-        # Handle multiple formats:
-        # 1. F4(A) - parentheses format
-        # 2. F4A - compact format
-        # 3. F4 ART/SCIENCE/COMMERCE - spelled out format
-        academic_stream = None
-        grade = None
-
-        # Try parentheses format: F4(A)
-        stream_match = re.match(r'(F[1-6])\(([ASC])\)', grade_with_stream)
-        if stream_match:
-            grade = stream_match.group(1)
-            academic_stream = stream_match.group(2)
-        else:
-            # Try compact format: F4A
-            stream_match = re.match(r'(F[1-6])([ASC])$', grade_with_stream)
+            # Try parentheses format: F4(A)
+            stream_match = re.match(r'(F[1-6])\(([ASC])\)', grade_with_stream)
             if stream_match:
                 grade = stream_match.group(1)
                 academic_stream = stream_match.group(2)
             else:
-                # Try spelled out format: F4 ART/SCIENCE/COMMERCE
-                stream_match = re.match(r'(F[1-6])\s+(ART|SCIENCE|COMMERCE)', grade_with_stream, re.IGNORECASE)
+                # Try compact format: F4A
+                stream_match = re.match(r'(F[1-6])([ASC])$', grade_with_stream)
                 if stream_match:
                     grade = stream_match.group(1)
-                    stream_name = stream_match.group(2).upper()
-                    # Map full names to letters
-                    stream_map = {'ART': 'A', 'SCIENCE': 'S', 'COMMERCE': 'C'}
-                    academic_stream = stream_map.get(stream_name)
+                    academic_stream = stream_match.group(2)
                 else:
-                    # No stream specified
-                    grade = grade_with_stream
+                    # Try spelled out format: F4 ART/SCIENCE/COMMERCE
+                    stream_match = re.match(r'(F[1-6])\s+(ART|SCIENCE|COMMERCE)', grade_with_stream, re.IGNORECASE)
+                    if stream_match:
+                        grade = stream_match.group(1)
+                        stream_name = stream_match.group(2).upper()
+                        stream_map = {'ART': 'A', 'SCIENCE': 'S', 'COMMERCE': 'C'}
+                        academic_stream = stream_map.get(stream_name)
+                    else:
+                        grade = grade_with_stream
 
-        # Normalize event type to Quiz, Test, or Exam
-        event_type = self._normalize_event_type(event_type_raw)
+            event_type = self._normalize_event_type(event_type_raw)
+            return {
+                'school': school,
+                'grade': grade,
+                'academic_stream': academic_stream,
+                'event_type': event_type
+            }
 
+        # Strategy 2: Compact format "SCHOOL-F4 Event"
+        compact = COMPACT_GRADE_PATTERN.match(title)
+        if compact:
+            return {
+                'school': compact.group(1),
+                'grade': compact.group(2).upper(),
+                'academic_stream': None,
+                'event_type': self._normalize_event_type(compact.group(3))
+            }
+
+        # Strategy 3: School with stream indicator + grade "SRL-E F4 Test"
+        stream = STREAM_GRADE_PATTERN.match(title)
+        if stream:
+            return {
+                'school': stream.group(1).upper(),
+                'grade': stream.group(2).upper(),
+                'academic_stream': None,
+                'event_type': self._normalize_event_type(stream.group(3))
+            }
+
+        # Strategy 4: No grade format "CDSJ5-E Exam" (school + event type only)
+        no_grade = NO_GRADE_PATTERN.match(title)
+        if no_grade:
+            event_type = self._normalize_event_type(no_grade.group(2))
+            # Only accept if event_type is valid (not just any words)
+            if event_type in ('Test', 'Quiz', 'Exam'):
+                return {
+                    'school': no_grade.group(1),
+                    'grade': None,
+                    'academic_stream': None,
+                    'event_type': event_type
+                }
+
+        # No match found
         return {
-            'school': school,
-            'grade': grade,
-            'academic_stream': academic_stream,
-            'event_type': event_type
+            'school': None,
+            'grade': None,
+            'academic_stream': None,
+            'event_type': None
         }
 
     def _normalize_event_type(self, event_type: str) -> str:
@@ -229,8 +276,8 @@ class GoogleCalendarService:
         """
         event_type_lower = event_type.lower().strip()
 
-        # Quiz variations
-        if 'quiz' in event_type_lower:
+        # Quiz variations (including CCP)
+        if any(q in event_type_lower for q in ['quiz', 'ccp']):
             return 'Quiz'
 
         # Exam variations
@@ -324,16 +371,16 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
         print(f"[SYNC] Starting DB upserts for {len(events)} events...")
         db_start = time.time()
 
-        # Filter to valid events and log rejected ones
-        valid_events = [e for e in events if e.get('school') and e.get('grade')]
+        # Filter to valid events and log rejected ones (only school is required, grade is optional)
+        valid_events = [e for e in events if e.get('school')]
         rejected_count = len(events) - len(valid_events)
         print(f"[SYNC] Valid events: {len(valid_events)}, rejected: {rejected_count}")
 
         if rejected_count > 0:
             # Log rejected events for visibility
             for e in events:
-                if not (e.get('school') and e.get('grade')):
-                    print(f"[SYNC] Rejected event (missing school/grade): '{e.get('title', 'Unknown')}'")
+                if not e.get('school'):
+                    print(f"[SYNC] Rejected event (missing school): '{e.get('title', 'Unknown')}'")
 
         synced_count = 0
         if valid_events:

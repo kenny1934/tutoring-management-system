@@ -118,7 +118,8 @@ export function useLocations() {
 export function useCalendarEvents(daysAhead: number = 30, includePast: boolean = false, daysBehind?: number) {
   return useSWR<CalendarEvent[]>(
     ['calendar-events', daysAhead, includePast, daysBehind],
-    () => calendarAPI.getEvents(daysAhead, includePast, daysBehind)
+    () => calendarAPI.getEvents(daysAhead, includePast, daysBehind),
+    { keepPreviousData: true }  // Keep existing data visible while fetching new range
   );
 }
 
