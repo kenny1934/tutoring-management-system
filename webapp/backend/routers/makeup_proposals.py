@@ -10,7 +10,7 @@ from datetime import datetime, date
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
-    Holiday
+    Holiday, ExamRevisionSlot, CalendarEvent
 )
 from schemas import (
     MakeupProposalCreate,
@@ -533,6 +533,27 @@ async def approve_slot(
         last_modified_by=f"tutor_{tutor_id}@csmpro.app",
         last_modified_time=datetime.now()
     )
+
+    # Auto-link to matching exam revision slot if student matches criteria
+    if original_session.student:
+        matching_revision_slot = db.query(ExamRevisionSlot).join(
+            CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
+        ).filter(
+            ExamRevisionSlot.session_date == slot.proposed_date,
+            ExamRevisionSlot.time_slot == slot.proposed_time_slot,
+            ExamRevisionSlot.location == slot.proposed_location,
+            or_(CalendarEvent.school.is_(None), CalendarEvent.school == original_session.student.school),
+            or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == original_session.student.grade),
+            or_(
+                CalendarEvent.academic_stream.is_(None),
+                original_session.student.grade not in ['F4', 'F5', 'F6'],
+                CalendarEvent.academic_stream == original_session.student.academic_stream
+            )
+        ).first()
+
+        if matching_revision_slot:
+            makeup_session.exam_revision_slot_id = matching_revision_slot.id
+
     db.add(makeup_session)
     db.flush()
 
