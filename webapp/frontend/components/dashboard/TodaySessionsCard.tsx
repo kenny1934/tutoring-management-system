@@ -3,14 +3,12 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSessions, useProposalsInDateRange, useTutors } from "@/lib/hooks";
+import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
-import { sessionsAPI } from "@/lib/api";
-import { updateSessionInCache } from "@/lib/session-cache";
-import { getSessionStatusConfig, getDisplayStatus, getStatusSortOrder, isCountableSession } from "@/lib/session-status";
+import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain } from "lucide-react";
-import { parseTimeSlot } from "@/lib/calendar-utils";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -23,7 +21,6 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { proposalSlotsToSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
-import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 
 // Format today's date as YYYY-MM-DD
 const getTodayString = (): string => {
@@ -39,23 +36,13 @@ interface TodaySessionsCardProps {
   isMobile?: boolean;
 }
 
-interface TimeSlotGroup {
-  timeSlot: string;
-  startTime: string;
-  sessions: Session[];
-  proposedSessions: ProposedSession[];
-}
-
 export function TodaySessionsCard({ className, isMobile = false }: TodaySessionsCardProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
   const todayString = getTodayString();
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
-  const [loadingSessionActions, setLoadingSessionActions] = useState<Map<number, string>>(new Map());
-  const [bulkActionLoading, setBulkActionLoading] = useState<string | null>(null);
 
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
@@ -98,411 +85,33 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
     }
   }, [sessions, popoverSession]);
 
-  // Group and sort sessions (same logic as main sessions page)
-  const { groupedSessions, stats, allSessionIds } = useMemo(() => {
-    // First, group by time slot
-    const groups: Record<string, Session[]> = {};
-    sessions.forEach((session) => {
-      const timeSlot = session.time_slot || "Unscheduled";
-      if (!groups[timeSlot]) {
-        groups[timeSlot] = [];
-      }
-      groups[timeSlot].push(session);
-    });
+  // Group and sort sessions
+  const { groupedSessions, stats, allSessionIds } = useGroupedSessions(sessions, proposedSessions);
 
-    // Sort sessions within each group using main group priority (from sessions/page.tsx)
-    Object.values(groups).forEach((groupSessions) => {
-      // Group by tutor first
-      const byTutor = new Map<string, Session[]>();
-      groupSessions.forEach(s => {
-        const tutor = s.tutor_name || '';
-        if (!byTutor.has(tutor)) byTutor.set(tutor, []);
-        byTutor.get(tutor)!.push(s);
-      });
-
-      // For each tutor, find main group and sort
-      const sortedSessions: Session[] = [];
-      const tutorNames = [...byTutor.keys()].sort((a, b) =>
-        getTutorSortName(a).localeCompare(getTutorSortName(b))
-      );
-
-      for (const tutor of tutorNames) {
-        const tutorSessions = byTutor.get(tutor)!;
-
-        // Find majority grade+lang_stream among Scheduled only
-        const scheduledSessions = tutorSessions.filter(s => s.session_status === 'Scheduled');
-        const gradeCounts = new Map<string, number>();
-        scheduledSessions.forEach(s => {
-          const key = `${s.grade || ''}${s.lang_stream || ''}`;
-          gradeCounts.set(key, (gradeCounts.get(key) || 0) + 1);
-        });
-        const mainGroup = [...gradeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
-
-        // Sort with main group priority
-        tutorSessions.sort((a, b) => {
-          const getPriority = (s: Session) => {
-            const gradeKey = `${s.grade || ''}${s.lang_stream || ''}`;
-            const isMainGroup = gradeKey === mainGroup && mainGroup !== '';
-            const status = s.session_status || '';
-
-            if (status === 'Trial Class') return 0;
-            if (isMainGroup && status === 'Scheduled') return 1;
-            if (isMainGroup && status === 'Attended') return 2;
-            if (status === 'Scheduled') return 3;
-            if (status === 'Attended') return 4;
-            if (status === 'Make-up Class') return 5;
-            if (status === 'Attended (Make-up)') return 6;
-            return 10 + getStatusSortOrder(status);
-          };
-
-          const priorityA = getPriority(a);
-          const priorityB = getPriority(b);
-          if (priorityA !== priorityB) return priorityA - priorityB;
-
-          // Within same priority (especially main group), sort by school then student_id
-          if (priorityA <= 2) {
-            const schoolCompare = (a.school || '').localeCompare(b.school || '');
-            if (schoolCompare !== 0) return schoolCompare;
-          }
-          return (a.school_student_id || '').localeCompare(b.school_student_id || '');
-        });
-
-        sortedSessions.push(...tutorSessions);
-      }
-
-      // Replace original array contents
-      groupSessions.length = 0;
-      groupSessions.push(...sortedSessions);
-    });
-
-    // Group proposed sessions by time slot
-    const proposedBySlot: Record<string, ProposedSession[]> = {};
-    proposedSessions.forEach((ps) => {
-      const slot = ps.time_slot || "Unscheduled";
-      if (!proposedBySlot[slot]) {
-        proposedBySlot[slot] = [];
-      }
-      proposedBySlot[slot].push(ps);
-    });
-
-    // Add time slots from proposed sessions that don't have real sessions
-    Object.keys(proposedBySlot).forEach((slot) => {
-      if (!groups[slot]) {
-        groups[slot] = [];
-      }
-    });
-
-    // Re-sort including new proposed-only time slots
-    const allSortedEntries = Object.entries(groups).sort(([timeA], [timeB]) => {
-      if (timeA === "Unscheduled") return 1;
-      if (timeB === "Unscheduled") return -1;
-      const startA = timeA.split("-")[0];
-      const startB = timeB.split("-")[0];
-      return startA.localeCompare(startB);
-    });
-
-    const groupedArray: TimeSlotGroup[] = allSortedEntries.map(([slot, sessionsInSlot]) => {
-      const parsed = parseTimeSlot(slot);
-      return {
-        timeSlot: slot,
-        startTime: parsed?.start || slot,
-        sessions: sessionsInSlot,
-        proposedSessions: proposedBySlot[slot] || [],
-      };
-    });
-
-    // Collect all session IDs for select all
-    const allIds = sessions.map(s => s.id);
-
-    // Calculate stats (proposed sessions don't count toward stats)
-    const completed = sessions.filter(s =>
-      s.session_status === 'Attended' ||
-      s.session_status === 'Attended (Make-up)'
-    ).length;
-
-    const cancelled = sessions.filter(s =>
-      s.session_status === 'Cancelled' ||
-      s.session_status === 'No Show' ||
-      s.session_status.includes('Pending Make-up') ||
-      s.session_status.includes('Make-up Booked')
-    ).length;
-
-    return {
-      groupedSessions: groupedArray,
-      allSessionIds: allIds,
-      stats: {
-        total: sessions.length,
-        completed,
-        upcoming: sessions.length - completed - cancelled,
-        cancelled,
-      }
-    };
-  }, [sessions, proposedSessions]);
-
-  // Compute which bulk actions are available based on selected sessions
-  const selectedSessions = useMemo(() =>
-    sessions.filter(s => selectedIds.has(s.id)),
-    [sessions, selectedIds]
-  );
-
-  const bulkActionsAvailable = useMemo(() => ({
-    attended: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
-    noShow: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
-    reschedule: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
-    sickLeave: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
-    weatherCancelled: selectedSessions.length > 0 && selectedSessions.every(canBeMarked),
-  }), [selectedSessions]);
-
-  // Bulk selection handlers
-  const toggleSelect = useCallback((id: number) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedIds(prev => {
-      if (prev.size === allSessionIds.length) {
-        return new Set();
-      }
-      return new Set(allSessionIds);
-    });
-  }, [allSessionIds]);
-
-  const clearSelection = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+  // Bulk selection state
+  const {
+    selectedIds,
+    toggleSelect,
+    toggleSelectAll,
+    clearSelection,
+    hasSelection,
+    isAllSelected,
+  } = useBulkSelection(allSessionIds);
 
   // Bulk action handlers
-  const handleBulkAttended = useCallback(async () => {
-    if (selectedSessions.length === 0) return;
-    setBulkActionLoading('attended');
-
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      for (const s of selectedSessions) {
-        next.set(s.id, 'attended');
-      }
-      return next;
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const session of selectedSessions) {
-      try {
-        const updatedSession = await sessionsAPI.markAttended(session.id);
-        updateSessionInCache(updatedSession);
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to mark session ${session.id} as attended:`, error);
-        failCount++;
-      }
-      setLoadingSessionActions(prev => {
-        const next = new Map(prev);
-        next.delete(session.id);
-        return next;
-      });
-    }
-
-    setBulkActionLoading(null);
-    clearSelection();
-
-    if (failCount === 0) {
-      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as attended`, 'success');
-    } else {
-      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
-    }
-  }, [selectedSessions, clearSelection, showToast]);
-
-  const handleBulkNoShow = useCallback(async () => {
-    if (selectedSessions.length === 0) return;
-    setBulkActionLoading('no-show');
-
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      for (const s of selectedSessions) {
-        next.set(s.id, 'no-show');
-      }
-      return next;
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const session of selectedSessions) {
-      try {
-        const updatedSession = await sessionsAPI.markNoShow(session.id);
-        updateSessionInCache(updatedSession);
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to mark session ${session.id} as no show:`, error);
-        failCount++;
-      }
-      setLoadingSessionActions(prev => {
-        const next = new Map(prev);
-        next.delete(session.id);
-        return next;
-      });
-    }
-
-    setBulkActionLoading(null);
-    clearSelection();
-
-    if (failCount === 0) {
-      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as no show`, 'success');
-    } else {
-      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
-    }
-  }, [selectedSessions, clearSelection, showToast]);
-
-  const handleBulkReschedule = useCallback(async () => {
-    if (selectedSessions.length === 0) return;
-    setBulkActionLoading('reschedule');
-
-    const markableSessions = selectedSessions.filter(canBeMarked);
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      for (const s of markableSessions) {
-        next.set(s.id, 'reschedule');
-      }
-      return next;
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const session of markableSessions) {
-      try {
-        const updatedSession = await sessionsAPI.markRescheduled(session.id);
-        updateSessionInCache(updatedSession);
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to mark session ${session.id} as rescheduled:`, error);
-        failCount++;
-      }
-      setLoadingSessionActions(prev => {
-        const next = new Map(prev);
-        next.delete(session.id);
-        return next;
-      });
-    }
-
-    setBulkActionLoading(null);
-    clearSelection();
-
-    if (failCount === 0) {
-      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as rescheduled`, 'success');
-    } else {
-      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
-    }
-  }, [selectedSessions, clearSelection, showToast]);
-
-  const handleBulkSickLeave = useCallback(async () => {
-    if (selectedSessions.length === 0) return;
-    setBulkActionLoading('sick-leave');
-
-    const markableSessions = selectedSessions.filter(canBeMarked);
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      for (const s of markableSessions) {
-        next.set(s.id, 'sick-leave');
-      }
-      return next;
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const session of markableSessions) {
-      try {
-        const updatedSession = await sessionsAPI.markSickLeave(session.id);
-        updateSessionInCache(updatedSession);
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to mark session ${session.id} as sick leave:`, error);
-        failCount++;
-      }
-      setLoadingSessionActions(prev => {
-        const next = new Map(prev);
-        next.delete(session.id);
-        return next;
-      });
-    }
-
-    setBulkActionLoading(null);
-    clearSelection();
-
-    if (failCount === 0) {
-      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as sick leave`, 'success');
-    } else {
-      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
-    }
-  }, [selectedSessions, clearSelection, showToast]);
-
-  const handleBulkWeatherCancelled = useCallback(async () => {
-    if (selectedSessions.length === 0) return;
-    setBulkActionLoading('weather-cancelled');
-
-    const markableSessions = selectedSessions.filter(canBeMarked);
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      for (const s of markableSessions) {
-        next.set(s.id, 'weather-cancelled');
-      }
-      return next;
-    });
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const session of markableSessions) {
-      try {
-        const updatedSession = await sessionsAPI.markWeatherCancelled(session.id);
-        updateSessionInCache(updatedSession);
-        successCount++;
-      } catch (error) {
-        console.error(`Failed to mark session ${session.id} as weather cancelled:`, error);
-        failCount++;
-      }
-      setLoadingSessionActions(prev => {
-        const next = new Map(prev);
-        next.delete(session.id);
-        return next;
-      });
-    }
-
-    setBulkActionLoading(null);
-    clearSelection();
-
-    if (failCount === 0) {
-      showToast(`${successCount} session${successCount !== 1 ? 's' : ''} marked as weather cancelled`, 'success');
-    } else {
-      showToast(`${successCount} succeeded, ${failCount} failed`, failCount > successCount ? 'error' : 'info');
-    }
-  }, [selectedSessions, clearSelection, showToast]);
-
-  // Handler for action buttons to update loading state
-  const handleActionLoadingChange = useCallback((sessionId: number, isLoading: boolean, actionId?: string) => {
-    setLoadingSessionActions(prev => {
-      const next = new Map(prev);
-      if (isLoading && actionId) {
-        next.set(sessionId, actionId);
-      } else {
-        next.delete(sessionId);
-      }
-      return next;
-    });
-  }, []);
-
-  const isAllSelected = selectedIds.size === allSessionIds.length && allSessionIds.length > 0;
-  const hasSelection = selectedIds.size > 0;
+  const {
+    bulkActionLoading,
+    loadingSessionActions,
+    selectedSessions,
+    bulkActionsAvailable,
+    handleBulkAction,
+    handleActionLoadingChange,
+  } = useBulkSessionActions({
+    sessions,
+    selectedIds,
+    clearSelection,
+    showToast,
+  });
 
   if (isLoading) {
     return (
@@ -633,7 +242,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               {/* Attendance actions - conditional based on selected sessions */}
               {bulkActionsAvailable.attended && (
                 <button
-                  onClick={handleBulkAttended}
+                  onClick={() => handleBulkAction('attended')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
@@ -647,7 +256,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               )}
               {bulkActionsAvailable.noShow && (
                 <button
-                  onClick={handleBulkNoShow}
+                  onClick={() => handleBulkAction('no-show')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400",
@@ -661,7 +270,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               )}
               {bulkActionsAvailable.reschedule && (
                 <button
-                  onClick={handleBulkReschedule}
+                  onClick={() => handleBulkAction('reschedule')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
@@ -675,7 +284,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               )}
               {bulkActionsAvailable.sickLeave && (
                 <button
-                  onClick={handleBulkSickLeave}
+                  onClick={() => handleBulkAction('sick-leave')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
@@ -689,7 +298,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
               )}
               {bulkActionsAvailable.weatherCancelled && (
                 <button
-                  onClick={handleBulkWeatherCancelled}
+                  onClick={() => handleBulkAction('weather-cancelled')}
                   disabled={bulkActionLoading !== null}
                   className={cn(
                     "flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400",
