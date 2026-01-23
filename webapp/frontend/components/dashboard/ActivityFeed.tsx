@@ -135,9 +135,29 @@ export function ActivityFeed({ className, isMobile = false }: ActivityFeedProps)
     );
   }
 
-  // Hide if no events
+  // Show empty state if no events
   if (!events.length) {
-    return null;
+    return (
+      <div
+        className={cn(
+          "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
+          !isMobile && "paper-texture",
+          className
+        )}
+      >
+        <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-[#a0704b] dark:text-[#cd853f]" />
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Clock className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
+          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No recent activity</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Session updates will appear here</p>
+        </div>
+      </div>
+    );
   }
 
   return (
