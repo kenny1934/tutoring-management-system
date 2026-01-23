@@ -444,7 +444,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   const today = toDateString(new Date());
   const currentMonthNum = currentMonth.getMonth();
 
-  if (isLoading) {
+  // Only show skeleton on initial load (no cached data yet)
+  // When loading older months, keepPreviousData keeps existing events visible
+  if (isLoading && events.length === 0) {
     return (
       <div className={cn(
         "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4",
