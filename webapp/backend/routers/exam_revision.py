@@ -180,6 +180,49 @@ def _check_tutor_conflicts(
     return conflicts
 
 
+def _check_student_conflicts(
+    db: Session,
+    student_id: int,
+    session_date: date,
+    time_slot: str,
+    exclude_session_id: Optional[int] = None
+) -> List[dict]:
+    """
+    Check if the student has existing sessions that conflict with the given date/time.
+    Returns a list of conflicting session details.
+
+    Args:
+        db: Database session
+        student_id: Student to check
+        session_date: Date of the proposed session
+        time_slot: Time slot of the proposed session
+        exclude_session_id: Optional session ID to exclude (e.g., the session being consumed)
+    """
+    query = db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.student_id == student_id,
+        SessionLog.session_date == session_date,
+        SessionLog.session_status.in_(['Scheduled', 'Make-up Class', 'Rescheduled'])
+    )
+
+    if exclude_session_id:
+        query = query.filter(SessionLog.id != exclude_session_id)
+
+    existing_sessions = query.all()
+    conflicts = []
+    for session in existing_sessions:
+        if session.time_slot and _times_overlap(time_slot, session.time_slot):
+            conflicts.append({
+                "session_id": session.id,
+                "tutor_name": session.tutor.tutor_name if session.tutor else "Unknown",
+                "time_slot": session.time_slot,
+                "location": session.location,
+            })
+
+    return conflicts
+
+
 # ============================================
 # Revision Slot CRUD Endpoints
 # ============================================
@@ -477,6 +520,31 @@ async def update_revision_slot(
     db.commit()
     db.refresh(slot)
 
+    # Auto-adopt existing sessions if date/time/location changed
+    adopted_count = 0
+    if any([update.session_date, update.time_slot, update.location]):
+        calendar_event = slot.calendar_event
+        student_filters = _build_student_filters_from_event(calendar_event)
+
+        existing_sessions = db.query(SessionLog).join(
+            Student, SessionLog.student_id == Student.id
+        ).filter(
+            SessionLog.session_date == slot.session_date,
+            SessionLog.time_slot == slot.time_slot,
+            SessionLog.location == slot.location,
+            SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
+            SessionLog.exam_revision_slot_id.is_(None),
+            *student_filters
+        ).all()
+
+        for session in existing_sessions:
+            session.exam_revision_slot_id = slot.id
+            adopted_count += 1
+
+        if adopted_count > 0:
+            db.commit()
+            logger.info(f"Auto-adopted {adopted_count} existing sessions into revision slot {slot.id} after update")
+
     # Reload with relationships
     slot = db.query(ExamRevisionSlot).options(
         joinedload(ExamRevisionSlot.calendar_event),
@@ -484,7 +552,7 @@ async def update_revision_slot(
         joinedload(ExamRevisionSlot.sessions)
     ).filter(ExamRevisionSlot.id == slot_id).first()
 
-    return _build_slot_response(slot, warning=warning)
+    return _build_slot_response(slot, adopted_count, warning)
 
 
 @router.delete("/exam-revision/slots/{slot_id}")
@@ -787,6 +855,19 @@ async def enroll_student(
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {request.student_id} not found")
 
+    # Check for student time conflicts (warning, not blocking)
+    student_conflicts = _check_student_conflicts(
+        db, request.student_id, slot.session_date, slot.time_slot,
+        exclude_session_id=request.consume_session_id
+    )
+    student_warning = None
+    if student_conflicts:
+        conflict_info = ", ".join([
+            f"{c['tutor_name']} at {c['location']} ({c['time_slot']})"
+            for c in student_conflicts
+        ])
+        student_warning = f"Student has {len(student_conflicts)} conflicting session(s): {conflict_info}"
+
     # Find the student's enrollment at this location
     enrollment = db.query(Enrollment).filter(
         Enrollment.student_id == request.student_id,
@@ -814,35 +895,42 @@ async def enroll_student(
     db.add(revision_session)
 
     try:
-        db.flush()  # Get the ID and check constraints
+        db.flush()  # Get the ID and check unique constraint
+
+        # Update the consumed session (inside same transaction)
+        is_pending_makeup = (
+            consume_session.session_status in PENDING_MAKEUP_STATUSES and
+            consume_session.rescheduled_to_id is None
+        )
+        if is_pending_makeup:
+            # Change from "X - Pending Make-up" to "X - Make-up Booked"
+            consume_session.session_status = consume_session.session_status.replace(
+                "Pending Make-up", "Make-up Booked"
+            )
+            consume_session.rescheduled_to_id = revision_session.id
+        else:
+            # For future scheduled sessions, mark as rescheduled
+            consume_session.previous_session_status = consume_session.session_status
+            consume_session.session_status = "Rescheduled - Make-up Booked"
+            consume_session.rescheduled_to_id = revision_session.id
+
+        consume_session.last_modified_by = modified_by
+        consume_session.last_modified_time = datetime.now()
+
+        db.commit()
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=400,
             detail="Student is already enrolled in this revision slot"
         )
-
-    # Update the consumed session
-    is_pending_makeup = (
-        consume_session.session_status in PENDING_MAKEUP_STATUSES and
-        consume_session.rescheduled_to_id is None
-    )
-    if is_pending_makeup:
-        # Change from "X - Pending Make-up" to "X - Make-up Booked"
-        consume_session.session_status = consume_session.session_status.replace(
-            "Pending Make-up", "Make-up Booked"
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to complete enrollment"
         )
-        consume_session.rescheduled_to_id = revision_session.id
-    else:
-        # For future scheduled sessions, mark as rescheduled
-        consume_session.previous_session_status = consume_session.session_status
-        consume_session.session_status = "Rescheduled - Make-up Booked"
-        consume_session.rescheduled_to_id = revision_session.id
-
-    consume_session.last_modified_by = modified_by
-    consume_session.last_modified_time = datetime.now()
-
-    db.commit()
 
     # Refresh and load relationships for response
     revision_session = db.query(SessionLog).options(
@@ -859,7 +947,8 @@ async def enroll_student(
 
     return EnrollStudentResponse(
         revision_session=_build_session_response(revision_session),
-        consumed_session=_build_session_response(consume_session)
+        consumed_session=_build_session_response(consume_session),
+        warning=student_warning
     )
 
 

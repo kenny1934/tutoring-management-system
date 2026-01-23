@@ -635,6 +635,7 @@ export interface EnrollStudentRequest {
 export interface EnrollStudentResponse {
   revision_session: Session;
   consumed_session: Session;
+  warning?: string;
 }
 
 export interface ExamWithRevisionSlots {
