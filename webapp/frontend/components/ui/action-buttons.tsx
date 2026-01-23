@@ -10,6 +10,7 @@ import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
 import { sessionsAPI } from "@/lib/api";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
+import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
@@ -145,6 +146,7 @@ export function SessionActionButtons({
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -202,6 +204,12 @@ export function SessionActionButtons({
     // Special handling for schedule-makeup action - open makeup modal
     if (action.id === "schedule-makeup") {
       setIsMakeupModalOpen(true);
+      return;
+    }
+
+    // Special handling for request-extension action - open modal immediately (modal fetches data)
+    if (action.id === "request-extension") {
+      setIsExtensionModalOpen(true);
       return;
     }
 
@@ -404,8 +412,8 @@ export function SessionActionButtons({
       <div className={cn("flex flex-wrap gap-1.5", className)} onClick={(e) => e.stopPropagation()}>
         {visibleActions.map((action) => {
           const Icon = action.icon;
-          // Edit, CW, HW, Rate, Schedule-makeup, Cancel-makeup actions are always enabled (open modals/dialogs)
-          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "cancel-makeup", "undo"].includes(action.id) || action.api.enabled;
+          // Edit, CW, HW, Rate, Schedule-makeup, Request-extension, Cancel-makeup actions are always enabled (open modals/dialogs)
+          const isEnabled = ["edit", "cw", "hw", "rate", "schedule-makeup", "request-extension", "cancel-makeup", "undo"].includes(action.id) || action.api.enabled;
           const isLoading = effectiveLoadingAction === action.id;
           const label = showLabels
             ? action.shortLabel || action.label
@@ -467,6 +475,21 @@ export function SessionActionButtons({
           isOpen={isMakeupModalOpen}
           onClose={() => setIsMakeupModalOpen(false)}
           proposerTutorId={currentTutorId}
+        />
+      )}
+
+      {/* Extension Request Modal */}
+      {isExtensionModalOpen && (currentTutorId || session.tutor_id) && (
+        <ExtensionRequestModal
+          session={session}
+          isOpen={isExtensionModalOpen}
+          onClose={() => setIsExtensionModalOpen(false)}
+          onRequestSubmitted={() => {
+            setIsExtensionModalOpen(false);
+            showToast("Extension request submitted successfully", "success");
+          }}
+          tutorId={(currentTutorId || session.tutor_id)!}
+          isProactive={true}
         />
       )}
 

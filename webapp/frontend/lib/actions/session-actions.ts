@@ -11,6 +11,7 @@ import {
   MessageSquarePlus,
   Undo2,
   Pencil,
+  Clock,
 } from 'lucide-react';
 import type { Session } from '@/types';
 import type { ActionConfig } from './types';
@@ -159,6 +160,20 @@ export const sessionActions: ActionConfig<Session>[] = [
       enabled: true,
       method: 'POST',
       endpoint: '/api/sessions/{id}/schedule-makeup',
+    },
+  },
+  {
+    id: 'request-extension',
+    label: 'Request Extension',
+    shortLabel: 'Extension',
+    icon: Clock,
+    colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+    isVisible: isPendingMakeup,
+    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
+    api: {
+      enabled: false, // Handled via modal
+      method: 'POST',
+      endpoint: '/api/extension-requests',
     },
   },
 

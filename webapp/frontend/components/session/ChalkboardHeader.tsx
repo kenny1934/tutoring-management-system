@@ -26,6 +26,8 @@ import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
+import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
+import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 
 // Muted dusty chalk palette (top-down view colors)
@@ -43,6 +45,7 @@ const ACTION_TO_COLOR: Record<string, keyof typeof CHALK_PALETTE> = {
   edit: "white",
   attended: "green",
   "schedule-makeup": "green",
+  "request-extension": "blue",
   "cancel-makeup": "red",
   "no-show": "red",
   "sick-leave": "orange",
@@ -176,6 +179,8 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+  const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -229,6 +234,18 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
     // Special handling for cancel-makeup action - show confirm dialog
     if (action.id === 'cancel-makeup') {
       setConfirmCancelMakeup(true);
+      return;
+    }
+
+    // Special handling for schedule-makeup action - open makeup modal
+    if (action.id === 'schedule-makeup') {
+      setIsMakeupModalOpen(true);
+      return;
+    }
+
+    // Special handling for request-extension action - open modal immediately (modal fetches data)
+    if (action.id === 'request-extension') {
+      setIsExtensionModalOpen(true);
       return;
     }
 
@@ -503,7 +520,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup'].includes(action.id) && !action.api.enabled}
+              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled}
               loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
@@ -919,6 +936,31 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         isOpen={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
       />
+
+      {/* Schedule Makeup Modal */}
+      {isMakeupModalOpen && (
+        <ScheduleMakeupModal
+          session={session}
+          isOpen={isMakeupModalOpen}
+          onClose={() => setIsMakeupModalOpen(false)}
+          proposerTutorId={session.tutor_id}
+        />
+      )}
+
+      {/* Extension Request Modal */}
+      {isExtensionModalOpen && session.tutor_id && (
+        <ExtensionRequestModal
+          session={session}
+          isOpen={isExtensionModalOpen}
+          onClose={() => setIsExtensionModalOpen(false)}
+          onRequestSubmitted={() => {
+            setIsExtensionModalOpen(false);
+            showToast("Extension request submitted successfully", "success");
+          }}
+          tutorId={session.tutor_id}
+          isProactive={true}
+        />
+      )}
 
       {/* Cancel Make-up Confirm Dialog */}
       <ConfirmDialog
