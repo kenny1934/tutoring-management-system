@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, memo } from "react";
 import Link from "next/link";
 import { useSessions, useProposalsInDateRange, useTutors } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
@@ -407,7 +407,7 @@ interface SessionRowProps {
   onLoadingChange?: (sessionId: number, isLoading: boolean, actionId?: string) => void;
 }
 
-function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
+const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowClick, isLoading, loadingActionId, onLoadingChange }: SessionRowProps) {
   const { selectedLocation } = useLocation();
   const displayStatus = getDisplayStatus(session);
   const config = getSessionStatusConfig(displayStatus);
@@ -508,7 +508,7 @@ function SessionRow({ session, isAlternate, isSelected, onToggleSelect, onRowCli
       />
     </div>
   );
-}
+});
 
 // Proposed session row component (ghost styling)
 interface ProposedSessionRowProps {

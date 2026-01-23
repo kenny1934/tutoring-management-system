@@ -29,6 +29,7 @@ interface DashboardHeaderProps {
   pendingPayments?: number;
   stats?: DashboardStats | null;
   tutorId?: number;
+  isStatsLoading?: boolean;
 }
 
 // Random greeting emojis
@@ -45,7 +46,7 @@ const quickLinks = [
 ];
 
 
-export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId }: DashboardHeaderProps) {
+export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
@@ -144,14 +145,28 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       </div>
 
       {/* Stats Row with Bell */}
-      {stats && (
-        <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-          <HeaderStats stats={stats} />
-          <div className="px-4 sm:px-6">
-            <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} />
+      <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        {isStatsLoading && !stats ? (
+          <div className="flex-1 px-4 sm:px-6 py-3">
+            <div className="flex gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full shimmer-sepia" />
+                  <div className="space-y-1">
+                    <div className="w-16 h-4 rounded shimmer-sepia" />
+                    <div className="w-10 h-3 rounded shimmer-sepia" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        ) : stats ? (
+          <HeaderStats stats={stats} />
+        ) : null}
+        <div className="px-4 sm:px-6">
+          <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} />
         </div>
-      )}
+      </div>
 
       {/* Daily Puzzle */}
       <DailyPuzzle className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]" />
