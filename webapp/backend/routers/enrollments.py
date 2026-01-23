@@ -11,6 +11,7 @@ from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
 from schemas import EnrollmentResponse, EnrollmentUpdate, OverdueEnrollment
+from auth.dependencies import require_admin
 
 router = APIRouter()
 
@@ -412,9 +413,10 @@ async def get_enrollment_detail(
 async def update_enrollment(
     enrollment_id: int,
     enrollment_update: EnrollmentUpdate,
+    admin: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Update an enrollment's information."""
+    """Update an enrollment's information. Admin only."""
     enrollment = db.query(Enrollment).options(
         joinedload(Enrollment.student),
         joinedload(Enrollment.tutor),

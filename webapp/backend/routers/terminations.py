@@ -18,6 +18,7 @@ from schemas import (
     TerminationStatsResponse,
     QuarterOption
 )
+from auth.dependencies import require_admin
 
 router = APIRouter()
 
@@ -154,11 +155,12 @@ async def get_terminated_students(
 async def update_termination_record(
     student_id: int,
     data: TerminationRecordUpdate,
+    admin: Tutor = Depends(require_admin),
     updated_by: str = Query(..., description="Email of user making the update"),
     db: Session = Depends(get_db)
 ):
     """
-    Create or update a termination record for a student.
+    Create or update a termination record for a student. Admin only.
     Uses UPSERT behavior - creates if not exists, updates if exists.
     """
     # Verify student exists
