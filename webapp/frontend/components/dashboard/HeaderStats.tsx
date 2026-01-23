@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Users, Calendar, DollarSign, Search, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
+import { useActiveStudents } from "@/lib/hooks";
 import type { DashboardStats } from "@/types";
 import {
   useFloating,
@@ -23,23 +24,13 @@ interface HeaderStatsProps {
   stats: DashboardStats;
 }
 
-interface StudentBasic {
-  id: number;
-  school_student_id: string | null;
-  student_name: string;
-  grade: string | null;
-  lang_stream: string | null;
-  school: string | null;
-  home_location: string | null;
-}
-
-
 export function HeaderStats({ stats }: HeaderStatsProps) {
   const { selectedLocation } = useLocation();
   const [isStudentsOpen, setIsStudentsOpen] = useState(false);
-  const [students, setStudents] = useState<StudentBasic[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Fetch active students only when popover is open (SWR caches results)
+  const { data: students = [], isLoading } = useActiveStudents(selectedLocation, isStudentsOpen);
 
   // Floating UI for students popover
   const { refs, floatingStyles, context } = useFloating({
@@ -58,35 +49,6 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
   const dismiss = useDismiss(context);
   const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
 
-  // Fetch active students when popover opens
-  useEffect(() => {
-    if (isStudentsOpen && students.length === 0) {
-      const fetchStudents = async () => {
-        setIsLoading(true);
-        try {
-          const params = new URLSearchParams();
-          if (selectedLocation && selectedLocation !== "All Locations") {
-            params.set("location", selectedLocation);
-          }
-          const response = await fetch(`/api/active-students?${params}`);
-          if (response.ok) {
-            const data = await response.json();
-            setStudents(data);
-          }
-        } catch (error) {
-          console.error("Failed to fetch active students:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchStudents();
-    }
-  }, [isStudentsOpen, selectedLocation, students.length]);
-
-  // Reset students when location changes
-  useEffect(() => {
-    setStudents([]);
-  }, [selectedLocation]);
 
   // Filter students by search term
   const filteredStudents = useMemo(() => {
@@ -201,7 +163,7 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
                           {student.grade && (
                             <span
                               className="text-[11px] px-1.5 py-0.5 rounded font-semibold text-gray-800 whitespace-nowrap flex-shrink-0"
-                              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream) }}
+                              style={{ backgroundColor: getGradeColor(student.grade, student.lang_stream ?? undefined) }}
                             >
                               {student.grade}{student.lang_stream || ""}
                             </span>
