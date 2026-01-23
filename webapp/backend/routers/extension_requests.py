@@ -5,7 +5,7 @@ makeup sessions past the enrollment end date.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text, func
+from sqlalchemy import text, func, case
 from typing import List, Optional
 from datetime import datetime, date
 from database import get_db
@@ -34,6 +34,9 @@ def _build_extension_request_response(
     if request.session:
         original_session_date = request.session.session_date
 
+    # Get student info for display
+    student = request.student
+
     return ExtensionRequestResponse(
         id=request.id,
         session_id=request.session_id,
@@ -52,9 +55,15 @@ def _build_extension_request_response(
         review_notes=request.review_notes,
         extension_granted_weeks=request.extension_granted_weeks,
         session_rescheduled=request.session_rescheduled or False,
-        student_name=request.student.student_name if request.student else None,
+        student_name=student.student_name if student else None,
         tutor_name=request.tutor.tutor_name if request.tutor else None,
         original_session_date=original_session_date,
+        # Student info for display
+        school_student_id=student.school_student_id if student else None,
+        grade=student.grade if student else None,
+        lang_stream=student.lang_stream if student else None,
+        school=student.school if student else None,
+        location=student.home_location if student else None,
     )
 
 
@@ -78,54 +87,35 @@ def _build_extension_request_detail_response(
         enrollment_lessons_paid = enrollment.lessons_paid
         current_extension_weeks = enrollment.deadline_extension_weeks or 0
 
-        # Calculate current and projected effective end dates using SQL function
+        # Calculate both effective end dates in a single query
         if enrollment.first_lesson_date and enrollment.lessons_paid:
             try:
-                current_end_result = db.execute(text("""
-                    SELECT calculate_effective_end_date(
-                        :first_lesson_date,
-                        :lessons_paid,
-                        :extension_weeks
-                    ) as effective_end_date
+                date_results = db.execute(text("""
+                    SELECT
+                        calculate_effective_end_date(:first_lesson_date, :lessons_paid, :current_ext) as current_end,
+                        calculate_effective_end_date(:first_lesson_date, :lessons_paid, :projected_ext) as projected_end
                 """), {
                     "first_lesson_date": enrollment.first_lesson_date,
                     "lessons_paid": enrollment.lessons_paid,
-                    "extension_weeks": current_extension_weeks
+                    "current_ext": current_extension_weeks,
+                    "projected_ext": current_extension_weeks + request.requested_extension_weeks
                 }).fetchone()
-                if current_end_result:
-                    current_effective_end_date = current_end_result.effective_end_date
-
-                projected_end_result = db.execute(text("""
-                    SELECT calculate_effective_end_date(
-                        :first_lesson_date,
-                        :lessons_paid,
-                        :extension_weeks
-                    ) as effective_end_date
-                """), {
-                    "first_lesson_date": enrollment.first_lesson_date,
-                    "lessons_paid": enrollment.lessons_paid,
-                    "extension_weeks": current_extension_weeks + request.requested_extension_weeks
-                }).fetchone()
-                if projected_end_result:
-                    projected_effective_end_date = projected_end_result.effective_end_date
+                if date_results:
+                    current_effective_end_date = date_results.current_end
+                    projected_effective_end_date = date_results.projected_end
             except Exception:
                 pass  # SQL function might not exist in all environments
 
-    # Count pending makeups for this enrollment
-    pending_makeups_count = db.query(func.count(SessionLog.id)).filter(
-        SessionLog.enrollment_id == request.enrollment_id,
-        SessionLog.session_status.in_([
-            'Rescheduled - Pending Make-up',
-            'Sick Leave - Pending Make-up',
-            'Weather Cancelled - Pending Make-up'
-        ])
-    ).scalar() or 0
+    # Count pending makeups and completed sessions in a single query
+    counts = db.query(
+        func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
+        func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
+    ).filter(
+        SessionLog.enrollment_id == request.enrollment_id
+    ).first()
 
-    # Count completed sessions
-    sessions_completed = db.query(func.count(SessionLog.id)).filter(
-        SessionLog.enrollment_id == request.enrollment_id,
-        SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show'])
-    ).scalar() or 0
+    pending_makeups_count = counts.pending if counts else 0
+    sessions_completed = counts.completed if counts else 0
 
     # Generate admin guidance
     admin_guidance = _generate_admin_guidance(

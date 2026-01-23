@@ -585,6 +585,12 @@ export interface ExtensionRequest {
   student_name?: string;
   tutor_name?: string;
   original_session_date?: string;
+  // Student info for display
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  location?: string;
 }
 
 export interface ExtensionRequestDetail extends ExtensionRequest {
@@ -597,6 +603,8 @@ export interface ExtensionRequestDetail extends ExtensionRequest {
   pending_makeups_count: number;
   sessions_completed: number;
   admin_guidance?: string;
+  // UI loading state flag
+  _isLoading?: boolean;
 }
 
 export interface ExtensionRequestCreate {
