@@ -4,14 +4,17 @@ Allows tutors to propose make-up slots for confirmation by other tutors.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, text
+import logging
 from typing import List, Optional
 from datetime import datetime, date
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
-    Holiday, ExamRevisionSlot, CalendarEvent
+    Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
 )
+
+logger = logging.getLogger(__name__)
 from schemas import (
     MakeupProposalCreate,
     MakeupProposalResponse,
@@ -503,6 +506,58 @@ async def approve_slot(
             status_code=400,
             detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
         )
+
+    # Validate: enrollment deadline - ONLY for regular slot
+    # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
+    # past the enrollment end date. Non-regular slots are allowed past deadline.
+    if original_session.enrollment_id:
+        enrollment = original_session.enrollment
+        if not enrollment:
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.id == original_session.enrollment_id
+            ).first()
+
+        if enrollment and enrollment.assigned_day and enrollment.assigned_time:
+            # Check if this is the regular slot
+            proposed_day = slot.proposed_date.strftime('%a')
+            is_regular_slot = (
+                proposed_day == enrollment.assigned_day and
+                slot.proposed_time_slot == enrollment.assigned_time
+            )
+
+            if is_regular_slot and enrollment.first_lesson_date and enrollment.lessons_paid:
+                try:
+                    effective_end_result = db.execute(text("""
+                        SELECT calculate_effective_end_date(
+                            :first_lesson_date,
+                            :lessons_paid,
+                            COALESCE(:extension_weeks, 0)
+                        ) as effective_end_date
+                    """), {
+                        "first_lesson_date": enrollment.first_lesson_date,
+                        "lessons_paid": enrollment.lessons_paid,
+                        "extension_weeks": enrollment.deadline_extension_weeks or 0
+                    }).fetchone()
+
+                    if effective_end_result and effective_end_result.effective_end_date:
+                        effective_end_date = effective_end_result.effective_end_date
+                        if slot.proposed_date > effective_end_date:
+                            raise HTTPException(
+                                status_code=400,
+                                detail={
+                                    "error": "ENROLLMENT_DEADLINE_EXCEEDED",
+                                    "message": f"Cannot schedule makeup to regular slot ({enrollment.assigned_day} {enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                    "effective_end_date": str(effective_end_date),
+                                    "enrollment_id": enrollment.id,
+                                    "session_id": original_session.id,
+                                    "extension_required": True
+                                }
+                            )
+                except HTTPException:
+                    raise  # Re-raise HTTPExceptions
+                except Exception as e:
+                    # Log but don't block if SQL function doesn't exist
+                    logger.warning(f"Could not check enrollment deadline: {e}")
 
     # Validate: student doesn't have conflicting session
     existing_session = db.query(SessionLog).filter(

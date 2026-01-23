@@ -15,6 +15,21 @@ from schemas import EnrollmentResponse, EnrollmentUpdate, OverdueEnrollment
 router = APIRouter()
 
 
+def calculate_effective_end_date(enrollment: Enrollment) -> Optional[date]:
+    """Calculate effective end date based on first lesson + lessons paid + extensions.
+
+    Formula: first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
+    """
+    if not enrollment.first_lesson_date:
+        return None
+
+    weeks_paid = enrollment.lessons_paid or 0
+    extension_weeks = enrollment.deadline_extension_weeks or 0
+    total_weeks = weeks_paid + extension_weeks
+
+    return enrollment.first_lesson_date + timedelta(weeks=total_weeks)
+
+
 @router.get("/enrollments", response_model=List[EnrollmentResponse])
 async def get_enrollments(
     student_id: Optional[int] = Query(None, description="Filter by student ID"),
@@ -90,6 +105,7 @@ async def get_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
         result.append(enrollment_data)
 
     return result
@@ -387,6 +403,7 @@ async def get_enrollment_detail(
     enrollment_data.school = enrollment.student.school if enrollment.student else None
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
 
     return enrollment_data
 
@@ -428,5 +445,6 @@ async def update_enrollment(
     enrollment_data.school = enrollment.student.school if enrollment.student else None
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
 
     return enrollment_data

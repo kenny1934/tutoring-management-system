@@ -13,7 +13,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -498,6 +498,28 @@ export function EnrollmentDetailPopover({
               </span>
               <span className="text-gray-900 dark:text-gray-100">
                 {new Date(enrollment.first_lesson_date).toLocaleDateString()}
+              </span>
+            </div>
+          )}
+
+          {/* Effective End Date */}
+          {enrollment.effective_end_date && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                <CalendarX className="h-3.5 w-3.5" />
+                Ends:
+              </span>
+              <span className={cn(
+                new Date(enrollment.effective_end_date) < new Date()
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-gray-900 dark:text-gray-100"
+              )}>
+                {new Date(enrollment.effective_end_date).toLocaleDateString()}
+                {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
+                  <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
+                    (+{enrollment.deadline_extension_weeks}w)
+                  </span>
+                )}
               </span>
             </div>
           )}

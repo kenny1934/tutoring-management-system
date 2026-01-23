@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
-import { useTutors, useHolidays } from "@/lib/hooks";
+import { useTutors, useHolidays, useEnrollment } from "@/lib/hooks";
 import { sessionsAPI, proposalsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
@@ -41,8 +41,17 @@ import {
   Plus,
   Trash2,
   MessageSquare,
+  Clock,
 } from "lucide-react";
 import type { Session, MakeupSlotSuggestion, MakeupScoreBreakdown, Tutor, MakeupProposalSlotCreate } from "@/types";
+import { ExtensionRequestModal } from "./ExtensionRequestModal";
+
+// Interface for enrollment deadline exceeded error
+interface DeadlineExceededError {
+  effective_end_date: string;
+  enrollment_id: number;
+  session_id: number;
+}
 
 // Time slot constants imported from @/lib/constants
 
@@ -180,6 +189,8 @@ interface SuggestionCardProps {
   canAddMore: boolean;
   weights: ScoringWeights;
   isSaving: boolean;
+  isPastDeadline?: boolean;
+  onRequestExtension?: () => void;
 }
 
 const SuggestionCard = React.memo(function SuggestionCard({
@@ -192,6 +203,8 @@ const SuggestionCard = React.memo(function SuggestionCard({
   canAddMore,
   weights,
   isSaving,
+  isPastDeadline,
+  onRequestExtension,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
 
@@ -292,22 +305,43 @@ const SuggestionCard = React.memo(function SuggestionCard({
               )}
             </Button>
           ) : (
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBook();
-              }}
-              disabled={isSaving}
-              className="w-full h-8 text-xs"
-            >
-              {isSaving ? (
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              ) : (
-                <Check className="h-3 w-3 mr-1" />
+            <>
+              {isPastDeadline && (
+                <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    <span>Past enrollment deadline</span>
+                  </div>
+                  {onRequestExtension && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestExtension();
+                      }}
+                      className="mt-1 text-amber-600 dark:text-amber-400 underline hover:text-amber-700 dark:hover:text-amber-300"
+                    >
+                      Request Extension
+                    </button>
+                  )}
+                </div>
               )}
-              Book This Slot
-            </Button>
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBook();
+                }}
+                disabled={isSaving || isPastDeadline}
+                className="w-full h-8 text-xs"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <Check className="h-3 w-3 mr-1" />
+                )}
+                Book This Slot
+              </Button>
+            </>
           )}
         </div>
       )}
@@ -345,6 +379,8 @@ export function ScheduleMakeupModal({
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { data: tutors } = useTutors();
+  const { data: enrollment } = useEnrollment(session.enrollment_id);
+  const effectiveEndDate = enrollment?.effective_end_date;
   const today = getToday();
 
   // Form selection state
@@ -397,6 +433,39 @@ export function ScheduleMakeupModal({
   // Saving/validation state
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [deadlineError, setDeadlineError] = useState<DeadlineExceededError | null>(null);
+
+  // Helper to get day name from date string (abbreviated to match DB format)
+  const getDayName = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  };
+
+  // Early deadline warning - ONLY for regular slot past deadline
+  // Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
+  // past the enrollment end date. Non-regular slots are allowed past deadline.
+  const earlyDeadlineWarning = useMemo(() => {
+    if (!selectedDate || !effectiveEndDate) return false;
+    if (selectedDate <= effectiveEndDate) return false; // Not past deadline
+
+    // Check if this is the regular slot
+    const selectedDayName = getDayName(selectedDate);
+    const isRegularDay = selectedDayName === enrollment?.assigned_day;
+    const isRegularTime = selectedTimeSlot === enrollment?.assigned_time;
+
+    return isRegularDay && isRegularTime;
+  }, [selectedDate, effectiveEndDate, selectedTimeSlot, enrollment?.assigned_day, enrollment?.assigned_time]);
+
+  // Check if a suggestion would violate the regular slot deadline
+  const isSuggestionPastDeadline = useCallback((suggestion: MakeupSlotSuggestion) => {
+    if (!effectiveEndDate || !enrollment?.assigned_day || !enrollment?.assigned_time) return false;
+    if (suggestion.session_date <= effectiveEndDate) return false;
+
+    const dayName = getDayName(suggestion.session_date);
+    return dayName === enrollment.assigned_day && suggestion.time_slot === enrollment.assigned_time;
+  }, [effectiveEndDate, enrollment?.assigned_day, enrollment?.assigned_time]);
+
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
 
   // Expanded items state
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
@@ -597,6 +666,11 @@ export function ScheduleMakeupModal({
       const totalStudents = displaySessions.length;
       const availableSpots = totalCapacity - totalStudents;
 
+      // Only mark as past deadline if it's the regular day AND past deadline
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+      const isRegularDay = dayName === enrollment?.assigned_day;
+      const isPastDeadline = effectiveEndDate && isRegularDay ? dateString > effectiveEndDate : false;
+
       return {
         date,
         dateString,
@@ -604,6 +678,7 @@ export function ScheduleMakeupModal({
         isToday: isSameDay(date, today),
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
         isHoliday: holidayDates.has(dateString),
+        isPastDeadline,
         isSelected: dateString === selectedDate,
         sessions: displaySessions,
         sessionCount: displaySessions.length,
@@ -615,7 +690,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayDates, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots]);
+  }, [viewDate, sessionsByDate, today, holidayDates, effectiveEndDate, enrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -709,7 +784,22 @@ export function ScheduleMakeupModal({
       onClose();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to schedule make-up";
-      setValidationError(message);
+
+      // Check if this is an enrollment deadline exceeded error
+      if (message.includes("ENROLLMENT_DEADLINE_EXCEEDED") || message.includes("enrollment end date")) {
+        // Try to parse the error details from the message
+        // Backend returns: "Cannot schedule past enrollment end date (YYYY-MM-DD)"
+        const dateMatch = message.match(/\((\d{4}-\d{2}-\d{2})\)/);
+        setDeadlineError({
+          effective_end_date: dateMatch ? dateMatch[1] : "",
+          enrollment_id: session.enrollment_id,
+          session_id: session.id,
+        });
+        setValidationError(`Enrollment deadline exceeded. The enrollment ends on ${dateMatch ? dateMatch[1] : "this date"}.`);
+      } else {
+        setDeadlineError(null);
+        setValidationError(message);
+      }
       showToast(message, "error");
     } finally {
       setIsSaving(false);
@@ -1009,7 +1099,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid}>
+            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1167,9 +1257,31 @@ export function ScheduleMakeupModal({
 
         {/* Validation Error */}
         {validationError && (
-          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span>{validationError}</span>
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <span>{validationError}</span>
+            </div>
+            {/* Show Request Extension button for deadline exceeded errors */}
+            {deadlineError && (
+              <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-red-500 dark:text-red-400">
+                    <Clock className="h-3 w-3 inline mr-1" />
+                    Enrollment ends: {deadlineError.effective_end_date}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowExtensionModal(true)}
+                    className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                  >
+                    <Clock className="h-3 w-3 mr-1" />
+                    Request Extension
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1337,6 +1449,8 @@ export function ScheduleMakeupModal({
                         canAddMore={proposalSlots.length < 3}
                         weights={weights}
                         isSaving={isSaving}
+                        isPastDeadline={isSuggestionPastDeadline(suggestion)}
+                        onRequestExtension={() => setShowExtensionModal(true)}
                       />
                     );
                   })}
@@ -1456,21 +1570,29 @@ export function ScheduleMakeupModal({
                       key={dayData.dateString}
                       onClick={() => handleDateClick(dayData.dateString, dayData.isHoliday, dayData.allSessions.length)}
                       className={cn(
-                        "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer",
+                        "p-1 min-h-[50px] border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors cursor-pointer relative",
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
                         dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10 cursor-not-allowed",
+                        !dayData.isHoliday && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
                         dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
                         !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}
                     >
+                      {/* Past deadline indicator */}
+                      {!dayData.isHoliday && dayData.isPastDeadline && dayData.isCurrentMonth && (
+                        <div className="absolute top-0.5 right-0.5" title="Past enrollment deadline">
+                          <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
+                        </div>
+                      )}
                       {/* Date number - always visible */}
                       <div className={cn(
                         "text-[10px] font-semibold",
                         dayData.isToday && "text-blue-500",
                         dayData.isHoliday && "text-rose-500",
-                        !dayData.isToday && !dayData.isHoliday && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
+                        !dayData.isHoliday && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
+                        !dayData.isToday && !dayData.isHoliday && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
                       )}>
                         {dayData.date.getDate()}
                       </div>
@@ -1531,6 +1653,42 @@ export function ScheduleMakeupModal({
                 </p>
               )}
             </div>
+
+            {/* Early deadline warning - shown when scheduling to regular slot past deadline */}
+            {earlyDeadlineWarning && !deadlineError && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      This is the student&apos;s regular slot ({enrollment?.assigned_day} {enrollment?.assigned_time}) past the enrollment deadline
+                    </p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                      Enrollment ends: {effectiveEndDate}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowExtensionModal(true)}
+                    className="text-xs border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800"
+                  >
+                    <Clock className="h-3 w-3 mr-1" />
+                    Request Extension
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedDate("")}
+                    className="text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
+                  >
+                    Pick Different Date
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Time Slot */}
             <div>
@@ -1968,6 +2126,22 @@ export function ScheduleMakeupModal({
         variant="default"
         loading={isSaving}
       />
+
+      {/* Extension Request Modal */}
+      {deadlineError && proposerTutorId && (
+        <ExtensionRequestModal
+          session={session}
+          enrollmentId={deadlineError.enrollment_id}
+          effectiveEndDate={deadlineError.effective_end_date}
+          isOpen={showExtensionModal}
+          onClose={() => setShowExtensionModal(false)}
+          onRequestSubmitted={() => {
+            setShowExtensionModal(false);
+            showToast("Extension request submitted. You'll be notified when reviewed.", "success");
+          }}
+          tutorId={proposerTutorId}
+        />
+      )}
     </Modal>
   );
 }

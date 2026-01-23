@@ -5,11 +5,11 @@ Provides read-only access to session log data.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
 from datetime import date, timedelta, datetime
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
@@ -926,6 +926,56 @@ async def schedule_makeup(
             detail=f"Cannot schedule on holiday: {holiday.holiday_name}"
         )
 
+    # Check enrollment deadline - ONLY for regular slot
+    # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
+    # past the enrollment end date. Non-regular slots are allowed past deadline.
+    if original_session.enrollment_id:
+        enrollment = db.query(Enrollment).filter(
+            Enrollment.id == original_session.enrollment_id
+        ).first()
+
+        if enrollment and enrollment.assigned_day and enrollment.assigned_time:
+            # Check if this is the regular slot
+            proposed_day = request.session_date.strftime('%a')
+            is_regular_slot = (
+                proposed_day == enrollment.assigned_day and
+                request.time_slot == enrollment.assigned_time
+            )
+
+            if is_regular_slot and enrollment.first_lesson_date and enrollment.lessons_paid:
+                try:
+                    effective_end_result = db.execute(text("""
+                        SELECT calculate_effective_end_date(
+                            :first_lesson_date,
+                            :lessons_paid,
+                            COALESCE(:extension_weeks, 0)
+                        ) as effective_end_date
+                    """), {
+                        "first_lesson_date": enrollment.first_lesson_date,
+                        "lessons_paid": enrollment.lessons_paid,
+                        "extension_weeks": enrollment.deadline_extension_weeks or 0
+                    }).fetchone()
+
+                    if effective_end_result and effective_end_result.effective_end_date:
+                        effective_end_date = effective_end_result.effective_end_date
+                        if request.session_date > effective_end_date:
+                            raise HTTPException(
+                                status_code=400,
+                                detail={
+                                    "error": "ENROLLMENT_DEADLINE_EXCEEDED",
+                                    "message": f"Cannot schedule makeup to regular slot ({enrollment.assigned_day} {enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                    "effective_end_date": str(effective_end_date),
+                                    "enrollment_id": enrollment.id,
+                                    "session_id": session_id,
+                                    "extension_required": True
+                                }
+                            )
+                except HTTPException:
+                    raise  # Re-raise HTTPExceptions
+                except Exception as e:
+                    # Log but don't block if SQL function doesn't exist
+                    logger.warning(f"Could not check enrollment deadline: {e}")
+
     # Check for student conflict at the target slot
     # Allow if the existing session is also in "Pending Make-up" status (that slot is free)
     existing_session = db.query(SessionLog).filter(
@@ -1283,6 +1333,57 @@ async def update_session(
 
     # Update fields that are provided (not None)
     if request.session_date is not None:
+        # Validate enrollment deadline - ONLY when moving TO regular slot
+        # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
+        # past the enrollment end date. Non-regular slots are allowed past deadline.
+        if session.enrollment_id and request.session_date != session.session_date:
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.id == session.enrollment_id
+            ).first()
+
+            if enrollment and enrollment.assigned_day and enrollment.assigned_time:
+                # Determine the effective time slot (new one if changing, otherwise current)
+                proposed_time = request.time_slot if request.time_slot else session.time_slot
+                proposed_day = request.session_date.strftime('%a')
+                is_regular_slot = (
+                    proposed_day == enrollment.assigned_day and
+                    proposed_time == enrollment.assigned_time
+                )
+
+                if is_regular_slot and enrollment.first_lesson_date and enrollment.lessons_paid:
+                    try:
+                        effective_end_result = db.execute(text("""
+                            SELECT calculate_effective_end_date(
+                                :first_lesson_date,
+                                :lessons_paid,
+                                COALESCE(:extension_weeks, 0)
+                            ) as effective_end_date
+                        """), {
+                            "first_lesson_date": enrollment.first_lesson_date,
+                            "lessons_paid": enrollment.lessons_paid,
+                            "extension_weeks": enrollment.deadline_extension_weeks or 0
+                        }).fetchone()
+
+                        if effective_end_result and effective_end_result.effective_end_date:
+                            effective_end_date = effective_end_result.effective_end_date
+                            if request.session_date > effective_end_date:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail={
+                                        "error": "ENROLLMENT_DEADLINE_EXCEEDED",
+                                        "message": f"Cannot move session to regular slot ({enrollment.assigned_day} {enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                        "effective_end_date": str(effective_end_date),
+                                        "enrollment_id": enrollment.id,
+                                        "session_id": session_id,
+                                        "extension_required": True
+                                    }
+                                )
+                    except HTTPException:
+                        raise  # Re-raise HTTPExceptions
+                    except Exception as e:
+                        # Log but don't block if SQL function doesn't exist
+                        logger.warning(f"Could not check enrollment deadline: {e}")
+
         session.session_date = request.session_date
 
     if request.time_slot is not None:

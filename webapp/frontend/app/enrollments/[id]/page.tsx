@@ -541,6 +541,26 @@ export default function EnrollmentDetailPage() {
                       </div>
                     )}
 
+                    {/* Effective End Date */}
+                    {enrollment.effective_end_date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">Enrollment Ends</span>
+                        <span className={cn(
+                          "text-sm font-medium",
+                          new Date(enrollment.effective_end_date) < new Date()
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-gray-900 dark:text-gray-100"
+                        )}>
+                          {formatShortDate(enrollment.effective_end_date)}
+                          {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
+                            <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">
+                              (+{enrollment.deadline_extension_weeks}w ext)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Enrollment Type */}
                     {enrollment.enrollment_type && (
                       <div className="flex items-center justify-between">

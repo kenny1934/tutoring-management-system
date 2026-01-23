@@ -39,6 +39,13 @@ import type {
   EnrollStudentRequest,
   EnrollStudentResponse,
   ExamWithRevisionSlots,
+  ExtensionRequest,
+  ExtensionRequestDetail,
+  ExtensionRequestCreate,
+  ExtensionRequestApprove,
+  ExtensionRequestReject,
+  PendingExtensionRequestCount,
+  ExtensionRequestStatus,
 } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -56,7 +63,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      // Handle both string and object detail (structured errors like ENROLLMENT_DEADLINE_EXCEEDED)
+      const detailMessage = typeof error.detail === 'object'
+        ? (error.detail.message || JSON.stringify(error.detail))
+        : error.detail;
+      throw new Error(detailMessage || `HTTP error! status: ${response.status}`);
     }
 
     return await response.json();
@@ -1062,6 +1073,78 @@ export const proposalsAPI = {
   },
 };
 
+// Extension Requests API
+export const extensionRequestsAPI = {
+  // Create an extension request
+  create: (data: ExtensionRequestCreate, tutorId: number) => {
+    return fetchAPI<ExtensionRequest>(`/extension-requests?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Get extension requests with optional filters
+  getAll: (params: {
+    tutor_id?: number;
+    status?: ExtensionRequestStatus;
+    enrollment_id?: number;
+    include_resolved?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const searchParams = new URLSearchParams();
+    if (params.tutor_id) searchParams.append("tutor_id", params.tutor_id.toString());
+    if (params.status) searchParams.append("status", params.status);
+    if (params.enrollment_id) searchParams.append("enrollment_id", params.enrollment_id.toString());
+    if (params.include_resolved) searchParams.append("include_resolved", "true");
+    if (params.limit) searchParams.append("limit", params.limit.toString());
+    if (params.offset) searchParams.append("offset", params.offset.toString());
+
+    const query = searchParams.toString();
+    return fetchAPI<ExtensionRequest[]>(`/extension-requests${query ? `?${query}` : ""}`);
+  },
+
+  // Get pending extension request count for admin badge
+  getPendingCount: () => {
+    return fetchAPI<PendingExtensionRequestCount>(`/extension-requests/pending-count`);
+  },
+
+  // Get single extension request with full context
+  getById: (requestId: number) => {
+    return fetchAPI<ExtensionRequestDetail>(`/extension-requests/${requestId}`);
+  },
+
+  // Approve an extension request (admin only)
+  approve: (
+    requestId: number,
+    adminTutorId: number,
+    data: ExtensionRequestApprove
+  ) => {
+    return fetchAPI<ExtensionRequest>(
+      `/extension-requests/${requestId}/approve?admin_tutor_id=${adminTutorId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  // Reject an extension request (admin only)
+  reject: (
+    requestId: number,
+    adminTutorId: number,
+    data: ExtensionRequestReject
+  ) => {
+    return fetchAPI<ExtensionRequest>(
+      `/extension-requests/${requestId}/reject?admin_tutor_id=${adminTutorId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+};
+
 // Exam Revision Slots API
 export const examRevisionAPI = {
   // Get revision slots with filters
@@ -1175,5 +1258,6 @@ export const api = {
   terminations: terminationsAPI,
   messages: messagesAPI,
   proposals: proposalsAPI,
+  extensionRequests: extensionRequestsAPI,
   examRevision: examRevisionAPI,
 };
