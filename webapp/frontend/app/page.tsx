@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useLocation } from "@/contexts/LocationContext";
 import { useDashboardStats, usePageTitle } from "@/lib/hooks";
-import { GradeDistributionChart } from "@/components/dashboard/GradeDistributionChart";
-import { SchoolDistributionChart } from "@/components/dashboard/SchoolDistributionChart";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
+
+// Lazy load chart components - Recharts adds ~30kb to bundle
+const GradeDistributionChart = dynamic(
+  () => import("@/components/dashboard/GradeDistributionChart").then(mod => mod.GradeDistributionChart),
+  { ssr: false, loading: () => <div className="h-64 shimmer-sepia rounded-lg" /> }
+);
+const SchoolDistributionChart = dynamic(
+  () => import("@/components/dashboard/SchoolDistributionChart").then(mod => mod.SchoolDistributionChart),
+  { ssr: false, loading: () => <div className="h-64 shimmer-sepia rounded-lg" /> }
+);
 import { TodaySessionsCard } from "@/components/dashboard/TodaySessionsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";

@@ -53,9 +53,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const { viewMode } = useRole();
   const { data: tutors = [] } = useTutors();
 
-  // Random emoji - memoized so it doesn't change on every render
+  // Daily emoji - deterministic based on date to avoid hydration mismatch
   const greetingEmoji = useMemo(() => {
-    return greetingEmojis[Math.floor(Math.random() * greetingEmojis.length)];
+    const today = new Date();
+    const dayIndex = today.getFullYear() * 366 + today.getMonth() * 31 + today.getDate();
+    return greetingEmojis[dayIndex % greetingEmojis.length];
   }, []);
 
   // Derive tutor ID from tutors list if not provided

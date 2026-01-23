@@ -119,7 +119,7 @@ export function useCalendarEvents(daysAhead: number = 30, includePast: boolean =
   return useSWR<CalendarEvent[]>(
     ['calendar-events', daysAhead, includePast, daysBehind],
     () => calendarAPI.getEvents(daysAhead, includePast, daysBehind),
-    { keepPreviousData: true }  // Keep existing data visible while fetching new range
+    { keepPreviousData: true, revalidateOnFocus: false }
   );
 }
 
@@ -171,7 +171,9 @@ export function useMyStudents(tutorId: number | null | undefined, location?: str
 export function useAllStudents(location?: string) {
   return useSWR<Enrollment[]>(
     ['all-students', location || 'all'],
-    () => enrollmentsAPI.getActive(location)  );
+    () => enrollmentsAPI.getActive(location),
+    { revalidateOnFocus: false }
+  );
 }
 
 /**
@@ -217,7 +219,9 @@ export function useDashboardStats(location?: string) {
 
   return useSWR<DashboardStats>(
     key,
-    () => api.stats.getDashboard(location)  );
+    () => api.stats.getDashboard(location),
+    { revalidateOnFocus: false }
+  );
 }
 
 /**
@@ -231,7 +235,9 @@ export function useActivityFeed(location?: string) {
 
   return useSWR<ActivityEvent[]>(
     key,
-    () => api.stats.getActivityFeed(location)  );
+    () => api.stats.getActivityFeed(location),
+    { revalidateOnFocus: false }
+  );
 }
 
 /**
@@ -312,7 +318,8 @@ export function useHolidays(from_date?: string, to_date?: string) {
   const key = ['holidays', from_date, to_date].filter(Boolean);
   return useSWR<Holiday[]>(
     key,
-    () => holidaysAPI.getHolidays(from_date, to_date)
+    () => holidaysAPI.getHolidays(from_date, to_date),
+    { revalidateOnFocus: false }  // Holiday data is essentially static
   );
 }
 
