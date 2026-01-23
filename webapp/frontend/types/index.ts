@@ -46,6 +46,7 @@ export interface Enrollment {
   school_student_id?: string;
   deadline_extension_weeks?: number;
   last_modified_time?: string;
+  effective_end_date?: string;
   student?: Student;
 }
 
@@ -559,6 +560,67 @@ export interface PendingProposalCount {
   count: number;
 }
 
+// Extension Request types
+export type ExtensionRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface ExtensionRequest {
+  id: number;
+  session_id: number;
+  enrollment_id: number;
+  student_id: number;
+  tutor_id: number;
+  requested_extension_weeks: number;
+  reason: string;
+  proposed_reschedule_date?: string;
+  proposed_reschedule_time?: string;
+  request_status: ExtensionRequestStatus;
+  requested_by: string;
+  requested_at: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  review_notes?: string;
+  extension_granted_weeks?: number;
+  session_rescheduled: boolean;
+  // Joined fields
+  student_name?: string;
+  tutor_name?: string;
+  original_session_date?: string;
+}
+
+export interface ExtensionRequestDetail extends ExtensionRequest {
+  // Enrollment context for admin review
+  enrollment_first_lesson_date?: string;
+  enrollment_lessons_paid?: number;
+  current_extension_weeks: number;
+  current_effective_end_date?: string;
+  projected_effective_end_date?: string;
+  pending_makeups_count: number;
+  sessions_completed: number;
+  admin_guidance?: string;
+}
+
+export interface ExtensionRequestCreate {
+  session_id: number;
+  requested_extension_weeks: number;
+  reason: string;
+  proposed_reschedule_date?: string;
+  proposed_reschedule_time?: string;
+}
+
+export interface ExtensionRequestApprove {
+  extension_granted_weeks: number;
+  review_notes?: string;
+  reschedule_session?: boolean;
+}
+
+export interface ExtensionRequestReject {
+  review_notes: string;
+}
+
+export interface PendingExtensionRequestCount {
+  count: number;
+}
+
 // Exam Revision Slot types
 export interface ExamRevisionSlot {
   id: number;
@@ -612,6 +674,7 @@ export interface EligibleStudent {
   lang_stream?: string;
   academic_stream?: string;
   home_location?: string;
+  enrollment_tutor_name?: string;
   pending_sessions: PendingSessionInfo[];
 }
 

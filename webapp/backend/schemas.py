@@ -112,6 +112,7 @@ class EnrollmentResponse(EnrollmentBase):
     lang_stream: Optional[str] = Field(None, max_length=50)
     deadline_extension_weeks: Optional[int] = Field(0, ge=0)
     last_modified_time: Optional[datetime] = None
+    effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -823,6 +824,78 @@ class PendingProposalCount(BaseModel):
 
 
 # ============================================
+# Extension Request Schemas
+# ============================================
+
+class ExtensionRequestCreate(BaseModel):
+    """Schema for creating an extension request"""
+    session_id: int = Field(..., gt=0, description="Session that needs extension")
+    requested_extension_weeks: int = Field(..., ge=1, le=8, description="Number of weeks to extend (1-8)")
+    reason: str = Field(..., min_length=10, max_length=1000, description="Why extension is needed")
+    proposed_reschedule_date: Optional[date] = Field(None, description="Proposed new date for the session")
+    proposed_reschedule_time: Optional[str] = Field(None, max_length=100, description="Proposed time slot")
+
+
+class ExtensionRequestApprove(BaseModel):
+    """Schema for admin approving an extension request"""
+    extension_granted_weeks: int = Field(..., ge=1, le=8, description="Weeks to grant (may differ from requested)")
+    review_notes: Optional[str] = Field(None, max_length=500, description="Admin notes on approval")
+    reschedule_session: bool = Field(default=False, description="Whether to auto-reschedule the session")
+
+
+class ExtensionRequestReject(BaseModel):
+    """Schema for admin rejecting an extension request"""
+    review_notes: str = Field(..., min_length=5, max_length=500, description="Reason for rejection (required)")
+
+
+class ExtensionRequestResponse(BaseModel):
+    """Response schema for an extension request"""
+    id: int = Field(..., gt=0)
+    session_id: int = Field(..., gt=0)
+    enrollment_id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    tutor_id: int = Field(..., gt=0)
+    requested_extension_weeks: int = Field(..., ge=1)
+    reason: str
+    proposed_reschedule_date: Optional[date] = None
+    proposed_reschedule_time: Optional[str] = None
+    request_status: str = Field(..., max_length=20)  # Pending, Approved, Rejected
+    requested_by: str
+    requested_at: datetime
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_notes: Optional[str] = None
+    extension_granted_weeks: Optional[int] = None
+    session_rescheduled: bool = False
+    # Joined fields
+    student_name: Optional[str] = Field(None, max_length=255)
+    tutor_name: Optional[str] = Field(None, max_length=255)
+    original_session_date: Optional[date] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ExtensionRequestDetailResponse(ExtensionRequestResponse):
+    """Detailed response with enrollment context for admin review"""
+    # Enrollment context
+    enrollment_first_lesson_date: Optional[date] = None
+    enrollment_lessons_paid: Optional[int] = None
+    current_extension_weeks: int = Field(default=0)
+    current_effective_end_date: Optional[date] = None
+    projected_effective_end_date: Optional[date] = None
+    pending_makeups_count: int = Field(default=0)
+    sessions_completed: int = Field(default=0)
+    admin_guidance: Optional[str] = Field(None, max_length=200)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PendingExtensionRequestCount(BaseModel):
+    """Count of pending extension requests for admin badge"""
+    count: int = Field(default=0, ge=0)
+
+
+# ============================================
 # Exam Revision Slot Schemas
 # ============================================
 
@@ -912,6 +985,7 @@ class EligibleStudentResponse(BaseModel):
     lang_stream: Optional[str] = Field(None, max_length=50)
     academic_stream: Optional[str] = Field(None, max_length=50)
     home_location: Optional[str] = Field(None, max_length=200, description="Student's home location for display prefix")
+    enrollment_tutor_name: Optional[str] = Field(None, description="Tutor from student's enrollment")
     pending_sessions: List[PendingSessionInfo] = Field(default_factory=list, description="Sessions available to consume")
 
     model_config = ConfigDict(from_attributes=True)

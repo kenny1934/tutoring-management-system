@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { getDaysUntil } from "@/lib/calendar-utils";
 import { useEligibleStudents, useEligibleStudentsByExam } from "@/lib/hooks";
@@ -37,6 +37,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const [showEligibleStudents, setShowEligibleStudents] = useState(false);
   const [editingSlot, setEditingSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [tutorFilter, setTutorFilter] = useState<string>("");
 
   // Fetch eligible students when expanded
   // Use slot-based hook when slots exist, otherwise use exam-based hook
@@ -52,6 +53,21 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   // Use slot-based data when slots exist, otherwise use exam-based data
   const eligibleStudents = firstSlotId ? eligibleBySlot : eligibleByExam;
   const loadingEligible = firstSlotId ? loadingBySlot : loadingByExam;
+
+  // Extract unique tutors from eligible students for filtering
+  const uniqueTutors = useMemo(() => {
+    const tutors = new Set<string>();
+    eligibleStudents.forEach(s => {
+      if (s.enrollment_tutor_name) tutors.add(s.enrollment_tutor_name);
+    });
+    return Array.from(tutors).sort();
+  }, [eligibleStudents]);
+
+  // Filter students by selected tutor
+  const filteredEligible = useMemo(() => {
+    if (!tutorFilter) return eligibleStudents;
+    return eligibleStudents.filter(s => s.enrollment_tutor_name === tutorFilter);
+  }, [eligibleStudents, tutorFilter]);
 
   const examDate = new Date(exam.start_date);
   const daysUntil = getDaysUntil(exam.start_date);
@@ -335,23 +351,47 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {eligibleStudents.map((student) => (
-                        <div
-                          key={student.student_id}
-                          className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
-                        >
-                          <StudentInfoBadges
-                            student={student}
-                            showLink
-                            showLocationPrefix={!location}
-                            trailing={
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto">
-                                {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
-                              </span>
-                            }
-                          />
+                      {/* Tutor filter */}
+                      {uniqueTutors.length > 1 && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <select
+                            value={tutorFilter}
+                            onChange={(e) => setTutorFilter(e.target.value)}
+                            className="text-xs px-2 py-1 border border-amber-200 dark:border-amber-700 rounded bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
+                          >
+                            <option value="">All Tutors ({eligibleStudents.length})</option>
+                            {uniqueTutors.map((tutor) => (
+                              <option key={tutor} value={tutor}>{tutor}</option>
+                            ))}
+                          </select>
+                          {tutorFilter && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                              {filteredEligible.length} student{filteredEligible.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
                         </div>
-                      ))}
+                      )}
+                      {filteredEligible.map((student) => {
+                        const primaryTutor = student.enrollment_tutor_name;
+                        return (
+                          <div
+                            key={student.student_id}
+                            className="px-3 py-2 rounded-lg bg-white dark:bg-[#1a1a1a] border border-amber-200/50 dark:border-amber-800/50"
+                          >
+                            <StudentInfoBadges
+                              student={student}
+                              showLink
+                              showLocationPrefix={!location}
+                              trailing={
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-auto flex items-center gap-1.5">
+                                  {primaryTutor && <span className="text-gray-500 dark:text-gray-400">{primaryTutor}</span>}
+                                  <span>• {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}</span>
+                                </span>
+                              }
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
