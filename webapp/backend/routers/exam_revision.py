@@ -669,6 +669,15 @@ async def get_eligible_students(
 
     students = enrolled_students_query.all()
 
+    # Batch query enrollments with tutors (O(1) instead of N+1)
+    student_ids = [s.id for s in students]
+    enrollments = db.query(Enrollment).filter(
+        Enrollment.student_id.in_(student_ids),
+        Enrollment.location == slot.location,
+        Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
+    ).options(joinedload(Enrollment.tutor)).all()
+    enrollment_map = {e.student_id: e for e in enrollments}
+
     # For each student, find their pending sessions
     eligible_students = []
 
@@ -683,6 +692,7 @@ async def get_eligible_students(
         ).order_by(SessionLog.session_date).all()
 
         if pending_sessions:
+            enrollment = enrollment_map.get(student.id)
             eligible_students.append(EligibleStudentResponse(
                 student_id=student.id,
                 student_name=student.student_name,
@@ -692,6 +702,7 @@ async def get_eligible_students(
                 lang_stream=student.lang_stream,
                 academic_stream=student.academic_stream,
                 home_location=student.home_location,
+                enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
                 pending_sessions=[
                     PendingSessionInfo(
                         id=s.id,
@@ -705,8 +716,8 @@ async def get_eligible_students(
                 ]
             ))
 
-    # Sort by student name
-    eligible_students.sort(key=lambda s: s.student_name)
+    # Sort by student ID
+    eligible_students.sort(key=lambda s: s.school_student_id or "")
 
     return eligible_students
 
@@ -751,6 +762,17 @@ async def get_eligible_students_by_exam(
 
     students = enrolled_students_query.all()
 
+    # Batch query enrollments with tutors (O(1) instead of N+1)
+    student_ids = [s.id for s in students]
+    enrollment_query = db.query(Enrollment).filter(
+        Enrollment.student_id.in_(student_ids),
+        Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
+    )
+    if location:
+        enrollment_query = enrollment_query.filter(Enrollment.location == location)
+    enrollments = enrollment_query.options(joinedload(Enrollment.tutor)).all()
+    enrollment_map = {e.student_id: e for e in enrollments}
+
     # For each student, find their pending sessions
     eligible_students = []
 
@@ -761,6 +783,7 @@ async def get_eligible_students_by_exam(
         ).order_by(SessionLog.session_date).all()
 
         if pending_sessions:
+            enrollment = enrollment_map.get(student.id)
             eligible_students.append(EligibleStudentResponse(
                 student_id=student.id,
                 student_name=student.student_name,
@@ -770,6 +793,7 @@ async def get_eligible_students_by_exam(
                 lang_stream=student.lang_stream,
                 academic_stream=student.academic_stream,
                 home_location=student.home_location,
+                enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
                 pending_sessions=[
                     PendingSessionInfo(
                         id=s.id,
@@ -783,8 +807,8 @@ async def get_eligible_students_by_exam(
                 ]
             ))
 
-    # Sort by student name
-    eligible_students.sort(key=lambda s: s.student_name)
+    # Sort by student ID
+    eligible_students.sort(key=lambda s: s.school_student_id or "")
 
     return eligible_students
 
