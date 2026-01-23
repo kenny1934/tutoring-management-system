@@ -16,20 +16,25 @@ export function LayoutShell({ children }: LayoutShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
 
-  // In Zen mode, render children without sidebar/shell
+  // Zen mode: render without any shell
   if (pathname?.startsWith("/zen")) {
     return <>{children}</>;
   }
 
+  const isLoginPage = pathname === "/login";
+
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={() => setIsMobileMenuOpen(false)}
-      />
+      {!isLoginPage && (
+        <Sidebar
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header with Hamburger - only visible on mobile */}
+        {/* Mobile Header with Hamburger - only visible on mobile, hidden on login */}
+        {!isLoginPage && (
         <header className="flex md:hidden items-center justify-between h-14 px-4 border-b border-white/10 dark:border-white/5 bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)] backdrop-blur-md">
           {/* Left: Hamburger + Logo */}
           <div className="flex items-center">
@@ -55,6 +60,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
             <Search className="h-5 w-5" />
           </button>
         </header>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 overflow-auto bg-background">

@@ -9,6 +9,8 @@ from sqlalchemy import text
 from typing import List
 from pydantic import BaseModel
 from database import get_db
+from models import Tutor
+from auth.dependencies import require_admin
 
 router = APIRouter()
 
@@ -51,11 +53,12 @@ async def get_path_aliases(db: Session = Depends(get_db)):
 @router.post("/path-aliases", response_model=PathAliasDefinition)
 async def create_path_alias(
     request: CreatePathAliasRequest,
+    admin: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
     Create a new path alias definition.
-    Admin only - no auth check yet (will be added with OAuth).
+    Admin only.
     """
     # Check if alias already exists
     check_query = text("SELECT id FROM path_alias_definitions WHERE alias = :alias")
@@ -90,11 +93,12 @@ async def create_path_alias(
 @router.delete("/path-aliases/{alias_id}")
 async def delete_path_alias(
     alias_id: int,
+    admin: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
     Delete a path alias definition.
-    Admin only - no auth check yet (will be added with OAuth).
+    Admin only.
     """
     # Check if exists
     check_query = text("SELECT id FROM path_alias_definitions WHERE id = :id")

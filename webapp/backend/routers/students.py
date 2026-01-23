@@ -9,6 +9,7 @@ from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate
+from auth.dependencies import require_admin
 
 router = APIRouter()
 
@@ -139,9 +140,10 @@ async def get_student_detail(
 async def update_student(
     student_id: int,
     student_update: StudentUpdate,
+    admin: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Update a student's information."""
+    """Update a student's information. Admin only."""
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail=f"Student {student_id} not found")

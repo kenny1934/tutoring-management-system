@@ -54,6 +54,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/a
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      credentials: "include", // Include cookies for authentication
       headers: {
         "Content-Type": "application/json",
         ...options?.headers,
@@ -622,6 +623,7 @@ export const documentProcessingAPI = {
   ): Promise<HandwritingRemovalResponse> {
     const response = await fetch(`${API_BASE_URL}/document-processing/remove-handwriting`, {
       method: 'POST',
+      credentials: 'include', // Include cookies for authentication
       headers: {
         'Content-Type': 'application/json',
       },

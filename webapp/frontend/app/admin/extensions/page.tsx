@@ -1,24 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { ExtensionRequestsList } from "@/components/admin/ExtensionRequestsList";
-import { useTutors } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
 import { Clock } from "lucide-react";
 
-// Current user constant (will be replaced with OAuth)
-const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
-
 export default function AdminExtensionsPage() {
-  // Get tutors list to find current tutor ID
-  const { data: tutors = [], isLoading } = useTutors();
+  const { user, isLoading, isAdmin } = useAuth();
 
-  // Derive current tutor ID from tutors list
-  const currentTutorId = useMemo(() => {
-    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return currentTutor?.id;
-  }, [tutors]);
+  // Get current tutor ID from authenticated user
+  const currentTutorId = user?.id;
 
   return (
     <PageTransition>
@@ -61,6 +53,14 @@ export default function AdminExtensionsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : !user ? (
+            <div className="text-center py-12 text-foreground/60">
+              Please sign in to view extension requests
+            </div>
+          ) : !isAdmin ? (
+            <div className="text-center py-12 text-foreground/60">
+              Admin access required to manage extension requests
             </div>
           ) : currentTutorId ? (
             <ExtensionRequestsList adminTutorId={currentTutorId} />

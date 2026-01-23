@@ -1,23 +1,22 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useToast } from "@/contexts/ToastContext";
 import { api } from "@/lib/api";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
-import { useUnreadMessageCount, useTutors } from "@/lib/hooks";
-
-// Current user constant (will be replaced with OAuth)
-const CURRENT_USER_TUTOR = "Mr Kenny Chiu";
+import { useUnreadMessageCount } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -42,29 +41,19 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user, isAdmin, effectiveRole, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
-  
-  // Get tutors list to find current tutor ID and role
-  const { data: tutors = [] } = useTutors();
 
-  // Derive current tutor ID and role from tutors list
-  const currentTutorId = useMemo(() => {
-    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return currentTutor?.id;
-  }, [tutors]);
+  // Get current tutor ID from authenticated user
+  const currentTutorId = user?.id;
 
-  const currentTutorRole = useMemo(() => {
-    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
-    return currentTutor?.role;
-  }, [tutors]);
-
-  // Check if user has admin privileges
-  const isAdminOrAbove = currentTutorRole === 'Admin' || currentTutorRole === 'Super Admin';
+  // Check if user has admin privileges (uses effective role for impersonation)
+  const isAdminOrAbove = isAdmin;
 
   // Fetch unread message count for Inbox badge
   const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
@@ -390,45 +379,54 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
       {/* User info with settings button */}
       <div className="border-t border-white/10 dark:border-white/5 p-4">
-        {/* Collapsed state: Avatar only */}
-        {!isMobile && isCollapsed ? (
-          <button
-            onClick={() => setIsUserMenuOpen(true)}
-            className={cn(
-              "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
-              "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
-            )}
-            style={{
-              transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-            }}
-            title="User settings"
-          >
-            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
-              <span className="text-sm font-bold text-primary-foreground">KC</span>
-            </div>
-          </button>
-        ) : (
-          /* Expanded state: Avatar with name */
-          <button
-            onClick={() => setIsUserMenuOpen(true)}
-            className={cn(
-              "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
-              "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
-            )}
-            style={{
-              transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-            }}
-          >
-            <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
-              <span className="text-base font-bold text-primary-foreground">KC</span>
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
-              <p className="text-xs font-medium text-foreground/60">{currentTutorRole || 'Admin'}</p>
-            </div>
-            <Settings className="h-4 w-4 text-foreground/50" />
-          </button>
-        )}
+        {/* Get user initials */}
+        {(() => {
+          const initials = user?.name
+            ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+            : "?";
+          const displayName = user?.name || "Guest";
+          const displayRole = effectiveRole || "Guest";
+
+          return !isMobile && isCollapsed ? (
+            /* Collapsed state: Avatar only */
+            <button
+              onClick={() => setIsUserMenuOpen(true)}
+              className={cn(
+                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
+              )}
+              style={{
+                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+              }}
+              title="User settings"
+            >
+              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                <span className="text-sm font-bold text-primary-foreground">{initials}</span>
+              </div>
+            </button>
+          ) : (
+            /* Expanded state: Avatar with name */
+            <button
+              onClick={() => setIsUserMenuOpen(true)}
+              className={cn(
+                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
+              )}
+              style={{
+                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+              }}
+            >
+              <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+                <span className="text-base font-bold text-primary-foreground">{initials}</span>
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
+              </div>
+              <Settings className="h-4 w-4 text-foreground/50" />
+            </button>
+          );
+        })()}
       </div>
 
       {/* User Settings Modal */}
@@ -460,12 +458,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             {/* User info header */}
             <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5">
               <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-sm">
-                <span className="text-lg font-bold text-primary-foreground">KC</span>
+                <span className="text-lg font-bold text-primary-foreground">
+                  {user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?"}
+                </span>
               </div>
-              <div>
-                <p className="text-base font-semibold text-foreground">Kenny Chiu</p>
-                <p className="text-sm text-foreground/60">{currentTutorRole || 'Admin'}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-semibold text-foreground truncate">{user?.name || "Guest"}</p>
+                <p className="text-sm text-foreground/60">{effectiveRole || "Guest"}</p>
               </div>
+              {/* Role Switcher for Super Admins */}
+              <RoleSwitcher />
             </div>
 
             {/* Theme Toggle */}
@@ -537,6 +539,20 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               <Settings className="h-4 w-4 text-foreground/60" />
               Settings
             </Link>
+
+            {/* Logout Button */}
+            {user && (
+              <button
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  logout();
+                }}
+                className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors rounded-lg -mx-1 w-full mt-1"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            )}
           </div>
         </>,
         document.body

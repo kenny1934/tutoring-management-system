@@ -3,6 +3,8 @@
 import { ReactNode } from "react";
 import { SWRConfig } from "swr";
 import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthGuard } from "@/components/auth";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { CommandPaletteProvider } from "@/contexts/CommandPaletteContext";
@@ -22,19 +24,23 @@ export function Providers({ children }: { children: ReactNode }) {
       }}
     >
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        <LocationProvider>
-          <RoleProvider>
-            <ZenProvider>
-              <CommandPaletteProvider>
-                <ToastProvider>
-                  {children}
-                  <CommandPalette />
-                  <ZenActivator />
-                </ToastProvider>
-              </CommandPaletteProvider>
-            </ZenProvider>
-          </RoleProvider>
-        </LocationProvider>
+        <AuthProvider>
+          <AuthGuard>
+            <LocationProvider>
+              <RoleProvider>
+                <ZenProvider>
+                  <CommandPaletteProvider>
+                    <ToastProvider>
+                      {children}
+                      <CommandPalette />
+                      <ZenActivator />
+                    </ToastProvider>
+                  </CommandPaletteProvider>
+                </ZenProvider>
+              </RoleProvider>
+            </LocationProvider>
+          </AuthGuard>
+        </AuthProvider>
       </ThemeProvider>
     </SWRConfig>
   );

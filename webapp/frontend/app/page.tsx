@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useDashboardStats, usePageTitle } from "@/lib/hooks";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
@@ -25,6 +26,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { selectedLocation } = useLocation();
   const { data: stats, isLoading, error } = useDashboardStats(selectedLocation);
   const [isMobile, setIsMobile] = useState(false);
@@ -75,7 +77,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.3 }}
         >
           <DashboardHeader
-            userName="Kenny"
+            userName={user?.name ?? "Guest"}
             location={selectedLocation}
             isMobile={isMobile}
             pendingPayments={stats?.pending_payment_enrollments ?? 0}

@@ -78,9 +78,10 @@ async def health_check():
 
 
 # Import routers (will be created next)
-from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests
+from routers import students, enrollments, sessions, stats, tutors, revenue, courseware, path_aliases, paperless, holidays, document_processing, parent_communications, terminations, messages, makeup_proposals, exam_revision, extension_requests, auth
 
 # Register routers
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(students.router, prefix="/api", tags=["students"])
 app.include_router(enrollments.router, prefix="/api", tags=["enrollments"])
 app.include_router(sessions.router, prefix="/api", tags=["sessions"])
