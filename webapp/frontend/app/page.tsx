@@ -110,7 +110,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Today's Sessions + Test Calendar */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Today's schedule">
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: -0.5 }}
             animate={{ opacity: 1, y: 0, rotate: -0.5 }}
@@ -129,7 +129,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Distribution Charts */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2" role="region" aria-label="Student analytics">
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: -0.3 }}
             animate={{ opacity: 1, y: 0, rotate: -0.3 }}
@@ -166,6 +166,8 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0, rotate: -0.4 }}
           whileHover={{ y: -2, rotate: -0.4, boxShadow: "0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08)" }}
           transition={{ delay: 0.35, duration: 0.3, ease: "easeOut" }}
+          role="complementary"
+          aria-label="Recent activity"
         >
           <ActivityFeed isMobile={isMobile} />
         </motion.div>

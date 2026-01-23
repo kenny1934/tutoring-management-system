@@ -24,7 +24,7 @@ const TOP_N = 6; // Show top 6 schools, group rest as "Others"
 export function SchoolDistributionChart() {
   const router = useRouter();
   const { selectedLocation } = useLocation();
-  const { data: enrollments = [], isLoading: loading, error } = useAllStudents(selectedLocation);
+  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation);
 
   // Handle click on pie slice - navigate to students page with school filter
   const handleSliceClick = (data: { name: string }) => {
@@ -73,8 +73,14 @@ export function SchoolDistributionChart() {
           <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
       ) : error ? (
-        <div className="h-[250px] flex items-center justify-center">
-          <div className="text-center text-red-500 dark:text-red-400 text-sm">Error: {error?.message}</div>
+        <div className="h-[250px] flex flex-col items-center justify-center gap-3">
+          <div className="text-red-500 dark:text-red-400 text-sm">Failed to load data</div>
+          <button
+            onClick={() => mutate()}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+          >
+            Try again
+          </button>
         </div>
       ) : chartData.length === 0 ? (
         <div className="h-[250px] flex items-center justify-center">
