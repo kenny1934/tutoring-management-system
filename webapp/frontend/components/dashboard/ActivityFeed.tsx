@@ -237,12 +237,12 @@ export function ActivityFeed({ className, isMobile = false }: ActivityFeedProps)
                 <Link
                   key={event.id}
                   href={event.link}
-                  className="block hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
+                  className="block hover:bg-[#f5ede3]/50 dark:hover:bg-[#3d3628]/50 hover:translate-x-0.5 -mx-2 px-2 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   {content}
                 </Link>
               ) : (
-                <div key={event.id}>{content}</div>
+                <div key={event.id} className="-mx-2 px-2 py-1 rounded-lg transition-colors hover:bg-[#f5ede3]/30 dark:hover:bg-[#3d3628]/30">{content}</div>
               );
             })}
           </div>
