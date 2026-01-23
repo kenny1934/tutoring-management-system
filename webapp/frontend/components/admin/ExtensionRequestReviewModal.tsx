@@ -9,20 +9,18 @@ import { cn } from "@/lib/utils";
 import {
   Calendar,
   Clock,
-  User,
-  Users,
   AlertCircle,
   CheckCircle,
   XCircle,
   Loader2,
   CalendarCheck,
-  CalendarX,
   Info,
 } from "lucide-react";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { ExtensionRequestDetail } from "@/types";
 
 interface ExtensionRequestReviewModalProps {
-  request: ExtensionRequestDetail;
+  request: ExtensionRequestDetail & { _isLoading?: boolean };
   isOpen: boolean;
   onClose: () => void;
   onApproved?: () => void;
@@ -140,12 +138,13 @@ export function ExtensionRequestReviewModal({
               <Button
                 variant="outline"
                 onClick={() => setMode("reject")}
+                disabled={request._isLoading}
                 className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <XCircle className="h-4 w-4 mr-2" />
                 Reject
               </Button>
-              <Button onClick={() => setMode("approve")}>
+              <Button onClick={() => setMode("approve")} disabled={request._isLoading}>
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Approve
               </Button>
@@ -206,7 +205,9 @@ export function ExtensionRequestReviewModal({
     >
       <div className="space-y-5">
         {/* Admin Guidance Banner */}
-        {request.admin_guidance && (
+        {request._isLoading ? (
+          <div className="h-9 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-700" />
+        ) : request.admin_guidance && (
           <div
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
@@ -226,9 +227,18 @@ export function ExtensionRequestReviewModal({
                 <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                   Student
                 </div>
-                <div className="font-medium text-gray-900 dark:text-gray-100">
-                  {request.student_name}
-                </div>
+                <StudentInfoBadges
+                  student={{
+                    student_id: request.student_id,
+                    student_name: request.student_name || "Unknown",
+                    school_student_id: request.school_student_id,
+                    grade: request.grade,
+                    lang_stream: request.lang_stream,
+                    school: request.school,
+                    home_location: request.location,
+                  }}
+                  showLink
+                />
               </div>
               <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
                 <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
@@ -285,7 +295,11 @@ export function ExtensionRequestReviewModal({
                     Current Extensions
                   </div>
                   <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request.current_extension_weeks} weeks
+                    {request._isLoading ? (
+                      <div className="h-5 w-16 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    ) : (
+                      `${request.current_extension_weeks} weeks`
+                    )}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
@@ -293,7 +307,11 @@ export function ExtensionRequestReviewModal({
                     Pending Makeups
                   </div>
                   <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request.pending_makeups_count}
+                    {request._isLoading ? (
+                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    ) : (
+                      request.pending_makeups_count
+                    )}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
@@ -301,7 +319,11 @@ export function ExtensionRequestReviewModal({
                     Sessions Done
                   </div>
                   <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request.sessions_completed}
+                    {request._isLoading ? (
+                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    ) : (
+                      request.sessions_completed
+                    )}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
@@ -309,7 +331,11 @@ export function ExtensionRequestReviewModal({
                     Lessons Paid
                   </div>
                   <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request.enrollment_lessons_paid || "N/A"}
+                    {request._isLoading ? (
+                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    ) : (
+                      request.enrollment_lessons_paid || "N/A"
+                    )}
                   </div>
                 </div>
               </div>
@@ -320,17 +346,25 @@ export function ExtensionRequestReviewModal({
                   <span className="text-gray-500 dark:text-gray-400">
                     Current End Date
                   </span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {request.current_effective_end_date || "N/A"}
-                  </span>
+                  {request._isLoading ? (
+                    <div className="h-5 w-20 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                  ) : (
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {request.current_effective_end_date || "N/A"}
+                    </span>
+                  )}
                 </div>
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 flex items-center justify-between">
                   <span className="text-green-600 dark:text-green-400">
                     If Approved
                   </span>
-                  <span className="font-medium text-green-700 dark:text-green-300">
-                    {request.projected_effective_end_date || "N/A"}
-                  </span>
+                  {request._isLoading ? (
+                    <div className="h-5 w-20 rounded animate-pulse bg-green-200 dark:bg-green-800" />
+                  ) : (
+                    <span className="font-medium text-green-700 dark:text-green-300">
+                      {request.projected_effective_end_date || "N/A"}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

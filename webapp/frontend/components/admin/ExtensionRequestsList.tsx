@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import useSWR from "swr";
 import { extensionRequestsAPI } from "@/lib/api";
 import { ExtensionRequestReviewModal } from "./ExtensionRequestReviewModal";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { useLocation } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
 import {
   Clock,
   Calendar,
-  User,
   AlertCircle,
   CheckCircle,
   XCircle,
@@ -16,9 +17,13 @@ import {
   Loader2,
   RefreshCw,
   Filter,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ExtensionRequest, ExtensionRequestDetail, ExtensionRequestStatus } from "@/types";
+
+type SortOption = 'requested_at' | 'student_name' | 'student_id';
+type SortDirection = 'asc' | 'desc';
 
 interface ExtensionRequestsListProps {
   adminTutorId: number;
@@ -27,10 +32,12 @@ interface ExtensionRequestsListProps {
 export function ExtensionRequestsList({
   adminTutorId,
 }: ExtensionRequestsListProps) {
+  const { selectedLocation } = useLocation();
   const [statusFilter, setStatusFilter] = useState<ExtensionRequestStatus | "all">("Pending");
-  const [selectedRequest, setSelectedRequest] = useState<ExtensionRequestDetail | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>('requested_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [selectedRequest, setSelectedRequest] = useState<(ExtensionRequestDetail & { _isLoading?: boolean }) | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // Fetch extension requests
   const {
@@ -50,15 +57,33 @@ export function ExtensionRequestsList({
   );
 
   const handleViewRequest = async (request: ExtensionRequest) => {
-    setIsLoadingDetail(true);
+    // INSTANT: Show modal immediately with list data
+    setSelectedRequest({
+      ...request,
+      enrollment_first_lesson_date: undefined,
+      enrollment_lessons_paid: undefined,
+      current_extension_weeks: 0,
+      current_effective_end_date: undefined,
+      projected_effective_end_date: undefined,
+      pending_makeups_count: 0,
+      sessions_completed: 0,
+      admin_guidance: undefined,
+      _isLoading: true,
+    } as ExtensionRequestDetail & { _isLoading?: boolean });
+    setIsModalOpen(true);
+
+    // ASYNC: Fetch supplementary data in background
     try {
       const detail = await extensionRequestsAPI.getById(request.id);
-      setSelectedRequest(detail);
-      setIsModalOpen(true);
+      setSelectedRequest({
+        ...request,
+        ...detail,
+        _isLoading: false,
+      } as ExtensionRequestDetail & { _isLoading?: boolean });
     } catch (error) {
       console.error("Failed to load request details:", error);
-    } finally {
-      setIsLoadingDetail(false);
+      // Keep modal open but mark loading as done
+      setSelectedRequest(prev => prev ? { ...prev, _isLoading: false } : null);
     }
   };
 
@@ -95,6 +120,32 @@ export function ExtensionRequestsList({
 
   const pendingCount = requests?.filter((r) => r.request_status === "Pending").length || 0;
 
+  // Sort requests
+  const sortedRequests = useMemo(() => {
+    if (!requests) return [];
+    return [...requests].sort((a, b) => {
+      const multiplier = sortDirection === 'asc' ? 1 : -1;
+      switch (sortOption) {
+        case 'student_name':
+          return (a.student_name || '').localeCompare(b.student_name || '') * multiplier;
+        case 'student_id':
+          return (a.school_student_id || '').localeCompare(b.school_student_id || '') * multiplier;
+        case 'requested_at':
+        default:
+          return (new Date(a.requested_at).getTime() - new Date(b.requested_at).getTime()) * multiplier;
+      }
+    });
+  }, [requests, sortOption, sortDirection]);
+
+  const handleSortClick = (option: SortOption) => {
+    if (sortOption === option) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortOption(option);
+      setSortDirection(option === 'requested_at' ? 'desc' : 'asc');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -124,31 +175,89 @@ export function ExtensionRequestsList({
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        <Filter className="h-4 w-4 text-gray-400" />
-        <div className="flex gap-1">
-          {(["Pending", "Approved", "Rejected", "all"] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={cn(
-                "px-3 py-1.5 text-sm rounded-md transition-colors",
-                statusFilter === status
-                  ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-              )}
-            >
-              {status === "all" ? "All" : status}
-            </button>
-          ))}
+      {/* Filters and Sort */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-400" />
+          <div className="flex gap-1">
+            {(["Pending", "Approved", "Rejected", "all"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "px-3 py-1.5 text-sm rounded-md transition-colors",
+                  statusFilter === status
+                    ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 font-medium"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+              >
+                {status === "all" ? "All" : status}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sort buttons */}
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="h-4 w-4 text-gray-400" />
+          <div className="flex gap-1">
+            {([
+              { value: 'requested_at', label: 'Date' },
+              { value: 'student_name', label: 'Name' },
+              { value: 'student_id', label: 'ID' },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => handleSortClick(value)}
+                className={cn(
+                  "px-2 py-1 text-xs rounded-md transition-colors flex items-center gap-1",
+                  sortOption === value
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-medium"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                )}
+              >
+                {label}
+                {sortOption === value && (
+                  <span className="text-[10px]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* Loading State - Skeleton Cards */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-3">
+                  {/* Student info skeleton */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-16 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-4 w-32 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-4 w-12 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-5 w-20 rounded-full animate-pulse bg-amber-100 dark:bg-amber-900/30" />
+                  </div>
+                  {/* Extension info skeleton */}
+                  <div className="h-4 w-48 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                  {/* Reason skeleton */}
+                  <div className="h-3 w-64 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="space-y-1 text-right">
+                    <div className="h-3 w-24 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-3 w-20 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
+                  </div>
+                  <div className="h-5 w-5 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -160,7 +269,7 @@ export function ExtensionRequestsList({
       )}
 
       {/* Empty State */}
-      {!isLoading && !error && requests?.length === 0 && (
+      {!isLoading && !error && sortedRequests.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
           <p>No {statusFilter !== "all" ? statusFilter.toLowerCase() : ""} extension requests</p>
@@ -168,35 +277,47 @@ export function ExtensionRequestsList({
       )}
 
       {/* Requests List */}
-      {!isLoading && !error && requests && requests.length > 0 && (
+      {!isLoading && !error && sortedRequests.length > 0 && (
         <div className="space-y-2">
-          {requests.map((request) => (
+          {sortedRequests.map((request) => (
             <div
               key={request.id}
               className={cn(
                 "p-4 rounded-lg border transition-colors cursor-pointer",
                 "bg-white dark:bg-gray-900",
                 "border-gray-200 dark:border-gray-700",
-                "hover:border-amber-300 dark:hover:border-amber-700",
-                isLoadingDetail && "opacity-50 pointer-events-none"
+                "hover:border-amber-300 dark:hover:border-amber-700"
               )}
               onClick={() => handleViewRequest(request)}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {request.student_name}
-                    </span>
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full",
-                        getStatusStyle(request.request_status)
-                      )}
-                    >
-                      {getStatusIcon(request.request_status)}
-                      {request.request_status}
-                    </span>
+                  {/* Student info with badges */}
+                  <div className="mb-2">
+                    <StudentInfoBadges
+                      student={{
+                        student_id: request.student_id,
+                        student_name: request.student_name || "Unknown",
+                        school_student_id: request.school_student_id,
+                        grade: request.grade,
+                        lang_stream: request.lang_stream,
+                        school: request.school,
+                        home_location: request.location,
+                      }}
+                      showLink
+                      showLocationPrefix={selectedLocation === "All Locations"}
+                      trailing={
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full",
+                            getStatusStyle(request.request_status)
+                          )}
+                        >
+                          {getStatusIcon(request.request_status)}
+                          {request.request_status}
+                        </span>
+                      }
+                    />
                   </div>
 
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">

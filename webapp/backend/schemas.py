@@ -871,6 +871,12 @@ class ExtensionRequestResponse(BaseModel):
     student_name: Optional[str] = Field(None, max_length=255)
     tutor_name: Optional[str] = Field(None, max_length=255)
     original_session_date: Optional[date] = None
+    # Student info for display
+    school_student_id: Optional[str] = Field(None, max_length=50)
+    grade: Optional[str] = Field(None, max_length=10)
+    lang_stream: Optional[str] = Field(None, max_length=10)
+    school: Optional[str] = Field(None, max_length=255)
+    location: Optional[str] = Field(None, max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
 
