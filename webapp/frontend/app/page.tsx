@@ -32,39 +32,8 @@ export default function DashboardPage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  if (isLoading) {
-    return (
-      <DeskSurface>
-        <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
-          {/* Header Skeleton (taller now - includes stats row) */}
-          <div className={cn(
-            "h-44 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
-            !isMobile && "paper-texture"
-          )} />
-
-          {/* Today's Sessions + Calendar Skeleton */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {[1, 2].map((i) => (
-              <div key={i} className={cn(
-                "h-56 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
-                !isMobile && "paper-texture"
-              )} />
-            ))}
-          </div>
-
-          {/* Charts Skeleton */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {[1, 2].map((i) => (
-              <div key={i} className={cn(
-                "h-64 rounded-xl shimmer-sepia border border-[#e8d4b8] dark:border-[#6b5a4a]",
-                !isMobile && "paper-texture"
-              )} />
-            ))}
-          </div>
-        </PageTransition>
-      </DeskSurface>
-    );
-  }
+  // Note: We don't block on isLoading - let child components render and fetch data in parallel
+  // This eliminates the waterfall pattern where stats had to complete before other fetches started
 
   if (error) {
     return (
@@ -87,10 +56,6 @@ export default function DashboardPage() {
     );
   }
 
-  if (!stats) {
-    return null;
-  }
-
   return (
     <DeskSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
@@ -104,8 +69,9 @@ export default function DashboardPage() {
             userName="Kenny"
             location={selectedLocation}
             isMobile={isMobile}
-            pendingPayments={stats.pending_payment_enrollments}
+            pendingPayments={stats?.pending_payment_enrollments ?? 0}
             stats={stats}
+            isStatsLoading={isLoading}
           />
         </motion.div>
 
