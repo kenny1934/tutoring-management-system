@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { extensionRequestsAPI } from "@/lib/api";
 import { ExtensionRequestReviewModal } from "./ExtensionRequestReviewModal";
@@ -22,6 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ExtensionRequest, ExtensionRequestDetail, ExtensionRequestStatus } from "@/types";
 
+const ITEMS_PER_PAGE = 50;
+
 type SortOption = 'requested_at' | 'student_name' | 'student_id';
 type SortDirection = 'asc' | 'desc';
 
@@ -38,6 +40,12 @@ export function ExtensionRequestsList({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [selectedRequest, setSelectedRequest] = useState<(ExtensionRequestDetail & { _isLoading?: boolean }) | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(ITEMS_PER_PAGE);
+
+  // Reset display limit when filter changes
+  useEffect(() => {
+    setDisplayLimit(ITEMS_PER_PAGE);
+  }, [statusFilter]);
 
   // Fetch extension requests
   const {
@@ -51,7 +59,7 @@ export function ExtensionRequestsList({
       extensionRequestsAPI.getAll({
         status: statusFilter === "all" ? undefined : statusFilter,
         include_resolved: statusFilter === "all",
-        limit: 100,
+        limit: 200,
       }),
     { refreshInterval: 30000 } // Refresh every 30 seconds
   );
@@ -137,6 +145,11 @@ export function ExtensionRequestsList({
     });
   }, [requests, sortOption, sortDirection]);
 
+  // Pagination
+  const displayedRequests = sortedRequests.slice(0, displayLimit);
+  const hasMore = sortedRequests.length > displayLimit;
+  const remainingCount = sortedRequests.length - displayLimit;
+
   const handleSortClick = (option: SortOption) => {
     if (sortOption === option) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -157,6 +170,11 @@ export function ExtensionRequestsList({
           {pendingCount > 0 && (
             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
               {pendingCount} pending
+            </span>
+          )}
+          {sortedRequests.length > 0 && statusFilter !== "Pending" && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {displayedRequests.length} of {sortedRequests.length}
             </span>
           )}
         </div>
@@ -279,7 +297,7 @@ export function ExtensionRequestsList({
       {/* Requests List */}
       {!isLoading && !error && sortedRequests.length > 0 && (
         <div className="space-y-2">
-          {sortedRequests.map((request) => (
+          {displayedRequests.map((request) => (
             <div
               key={request.id}
               className={cn(
@@ -369,6 +387,16 @@ export function ExtensionRequestsList({
               )}
             </div>
           ))}
+
+          {/* Load More Button */}
+          {hasMore && (
+            <button
+              onClick={() => setDisplayLimit(prev => prev + ITEMS_PER_PAGE)}
+              className="w-full py-3 text-sm font-medium text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors border border-dashed border-amber-300 dark:border-amber-700"
+            >
+              Show {remainingCount} more request{remainingCount !== 1 ? "s" : ""}
+            </button>
+          )}
         </div>
       )}
 

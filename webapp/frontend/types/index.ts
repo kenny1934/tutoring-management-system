@@ -618,7 +618,6 @@ export interface ExtensionRequestCreate {
 export interface ExtensionRequestApprove {
   extension_granted_weeks: number;
   review_notes?: string;
-  reschedule_session?: boolean;
 }
 
 export interface ExtensionRequestReject {

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
-import { extensionRequestsAPI } from "@/lib/api";
+import { extensionRequestsAPI, sessionsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -15,9 +15,11 @@ import {
   Loader2,
   CalendarCheck,
   Info,
+  CalendarPlus,
 } from "lucide-react";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
-import type { ExtensionRequestDetail } from "@/types";
+import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
+import type { ExtensionRequestDetail, Session } from "@/types";
 
 interface ExtensionRequestReviewModalProps {
   request: ExtensionRequestDetail & { _isLoading?: boolean };
@@ -38,17 +40,43 @@ export function ExtensionRequestReviewModal({
 }: ExtensionRequestReviewModalProps) {
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mode, setMode] = useState<"review" | "approve" | "reject">("review");
+
+  // Determine initial mode based on request status
+  const getInitialMode = (): "review" | "approve" | "reject" | "approved" | "rejected" => {
+    if (request.request_status === "Approved") return "approved";
+    if (request.request_status === "Rejected") return "rejected";
+    return "review";
+  };
+
+  const [mode, setMode] = useState<"review" | "approve" | "reject" | "approved" | "rejected">(getInitialMode);
 
   // Approval form state
   const [weeksToGrant, setWeeksToGrant] = useState(
     request.requested_extension_weeks
   );
   const [approvalNotes, setApprovalNotes] = useState("");
-  const [rescheduleSession, setRescheduleSession] = useState(false);
 
   // Rejection form state
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Post-approval makeup scheduling state
+  const [sessionForMakeup, setSessionForMakeup] = useState<Session | null>(null);
+  const [showMakeupModal, setShowMakeupModal] = useState(false);
+  const [isFetchingSession, setIsFetchingSession] = useState(false);
+
+  // Reset mode when request changes (e.g., opening different request)
+  React.useEffect(() => {
+    setMode(getInitialMode());
+    setSessionForMakeup(null);
+    setWeeksToGrant(request.requested_extension_weeks);
+  }, [request.id, request.request_status]);
+
+  // Pre-fetch session for approved requests to show rescheduled info
+  React.useEffect(() => {
+    if (isOpen && request.request_status === "Approved" && !sessionForMakeup) {
+      sessionsAPI.getById(request.session_id).then(setSessionForMakeup).catch(console.error);
+    }
+  }, [isOpen, request.session_id, request.request_status]);
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -57,12 +85,10 @@ export function ExtensionRequestReviewModal({
       await extensionRequestsAPI.approve(request.id, adminTutorId, {
         extension_granted_weeks: weeksToGrant,
         review_notes: approvalNotes || undefined,
-        reschedule_session: rescheduleSession,
       });
 
       showToast("Extension request approved", "success");
-      onApproved?.();
-      onClose();
+      setMode("approved");
     } catch (error) {
       console.error("Failed to approve extension request:", error);
       showToast(
@@ -72,6 +98,25 @@ export function ExtensionRequestReviewModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleScheduleMakeup = async () => {
+    setIsFetchingSession(true);
+    try {
+      const session = await sessionsAPI.getById(request.session_id);
+      setSessionForMakeup(session);
+      setShowMakeupModal(true);
+    } catch (error) {
+      console.error("Failed to fetch session:", error);
+      showToast("Failed to load session for scheduling", "error");
+    } finally {
+      setIsFetchingSession(false);
+    }
+  };
+
+  const handleCloseApproved = () => {
+    onApproved?.();
+    onClose();
   };
 
   const handleReject = async () => {
@@ -123,6 +168,7 @@ export function ExtensionRequestReviewModal({
   };
 
   return (
+    <>
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -173,7 +219,7 @@ export function ExtensionRequestReviewModal({
               )}
             </Button>
           </div>
-        ) : (
+        ) : mode === "reject" ? (
           <div className="flex justify-end gap-3">
             <Button
               variant="outline"
@@ -200,23 +246,57 @@ export function ExtensionRequestReviewModal({
               )}
             </Button>
           </div>
+        ) : mode === "approved" ? (
+          <div className="flex justify-between w-full">
+            <Button variant="outline" onClick={handleCloseApproved}>
+              Close
+            </Button>
+            {request.proposed_reschedule_date && !sessionForMakeup?.rescheduled_to_id && (
+              <Button
+                onClick={handleScheduleMakeup}
+                disabled={isFetchingSession}
+              >
+                {isFetchingSession ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Schedule Makeup Now
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        ) : (
+          // mode === "rejected"
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         )
       }
     >
       <div className="space-y-5">
         {/* Admin Guidance Banner */}
-        {request._isLoading ? (
-          <div className="h-9 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-700" />
-        ) : request.admin_guidance && (
-          <div
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
-              getGuidanceStyle(request.admin_guidance)
-            )}
-          >
-            <Info className="h-4 w-4 flex-shrink-0" />
-            {request.admin_guidance}
-          </div>
+        {/* Admin Guidance - only show for pending requests (review mode) */}
+        {mode === "review" && (
+          request._isLoading ? (
+            <div className="h-9 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-700" />
+          ) : request.admin_guidance && (
+            <div
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium",
+                getGuidanceStyle(request.admin_guidance)
+              )}
+            >
+              <Info className="h-4 w-4 flex-shrink-0" />
+              {request.admin_guidance}
+            </div>
+          )
         )}
 
         {mode === "review" && (
@@ -425,22 +505,15 @@ export function ExtensionRequestReviewModal({
             </div>
 
             {request.proposed_reschedule_date && (
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="reschedule-session"
-                  checked={rescheduleSession}
-                  onChange={(e) => setRescheduleSession(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                />
-                <label
-                  htmlFor="reschedule-session"
-                  className="text-sm text-gray-700 dark:text-gray-300"
-                >
-                  Also reschedule session to {request.proposed_reschedule_date}
-                  {request.proposed_reschedule_time &&
-                    ` at ${request.proposed_reschedule_time}`}
-                </label>
+              <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <div className="text-sm text-purple-700 dark:text-purple-300">
+                  <span className="font-medium">Proposed reschedule:</span>{" "}
+                  {request.proposed_reschedule_date}
+                  {request.proposed_reschedule_time && ` at ${request.proposed_reschedule_time}`}
+                </div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  Schedule makeup manually after approval
+                </div>
               </div>
             )}
           </>
@@ -471,7 +544,261 @@ export function ExtensionRequestReviewModal({
             </div>
           </>
         )}
+
+        {mode === "approved" && (
+          <>
+            <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-green-800 dark:text-green-200 font-medium">
+                    Extension Approved
+                  </div>
+                  <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                    Deadline extended by {request.extension_granted_weeks || weeksToGrant} week{(request.extension_granted_weeks || weeksToGrant) !== 1 ? "s" : ""}
+                  </div>
+                  {request.reviewed_at && (
+                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      Approved on {new Date(request.reviewed_at).toLocaleDateString()}
+                      {request.reviewed_by && ` by ${request.reviewed_by}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Student & Tutor Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  Student
+                </div>
+                <StudentInfoBadges
+                  student={{
+                    student_id: request.student_id,
+                    student_name: request.student_name || "Unknown",
+                    school_student_id: request.school_student_id,
+                    grade: request.grade,
+                    lang_stream: request.lang_stream,
+                    school: request.school,
+                    home_location: request.location,
+                  }}
+                  showLink
+                />
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  Requested By
+                </div>
+                <div className="font-medium text-gray-900 dark:text-gray-100">
+                  {request.tutor_name}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {new Date(request.requested_at).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Session & Extension Details */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  <Calendar className="h-4 w-4" />
+                  Original Session
+                </div>
+                <div className="text-blue-900 dark:text-blue-100">
+                  {request.original_session_date}
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                  <Clock className="h-4 w-4" />
+                  Extension Requested
+                </div>
+                <div className="text-amber-900 dark:text-amber-100">
+                  {request.requested_extension_weeks} week{request.requested_extension_weeks !== 1 ? "s" : ""}
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor's Reason */}
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Reason for Extension
+              </div>
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                {request.reason}
+              </div>
+            </div>
+
+            {/* Show rescheduled session info if available */}
+            {sessionForMakeup?.rescheduled_to_id && sessionForMakeup.rescheduled_to && (
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3">
+                  <CalendarCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                      Session has been rescheduled
+                    </div>
+                    <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      New date: {sessionForMakeup.rescheduled_to.session_date}
+                      {sessionForMakeup.rescheduled_to.time_slot && ` at ${sessionForMakeup.rescheduled_to.time_slot}`}
+                    </div>
+                    <a
+                      href={`/sessions/${sessionForMakeup.rescheduled_to_id}`}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1 inline-block"
+                    >
+                      View rescheduled session →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show proposed date if session not yet rescheduled */}
+            {request.proposed_reschedule_date && !sessionForMakeup?.rescheduled_to_id && (
+              <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <div className="text-sm text-purple-700 dark:text-purple-300">
+                  <span className="font-medium">Tutor&apos;s proposed date:</span>{" "}
+                  {request.proposed_reschedule_date}
+                  {request.proposed_reschedule_time && ` at ${request.proposed_reschedule_time}`}
+                </div>
+                <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  Click &quot;Schedule Makeup Now&quot; to open the scheduler with this date pre-filled
+                </div>
+              </div>
+            )}
+
+            {request.review_notes && (
+              <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  Admin Notes
+                </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  {request.review_notes}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {mode === "rejected" && (
+          <>
+            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <div className="flex items-start gap-3">
+                <XCircle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-red-800 dark:text-red-200 font-medium">
+                    Request Rejected
+                  </div>
+                  <div className="text-sm text-red-700 dark:text-red-300 mt-1">
+                    Extension request was denied
+                  </div>
+                  {request.reviewed_at && (
+                    <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      Rejected on {new Date(request.reviewed_at).toLocaleDateString()}
+                      {request.reviewed_by && ` by ${request.reviewed_by}`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Student & Tutor Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  Student
+                </div>
+                <StudentInfoBadges
+                  student={{
+                    student_id: request.student_id,
+                    student_name: request.student_name || "Unknown",
+                    school_student_id: request.school_student_id,
+                    grade: request.grade,
+                    lang_stream: request.lang_stream,
+                    school: request.school,
+                    home_location: request.location,
+                  }}
+                  showLink
+                />
+              </div>
+              <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                  Requested By
+                </div>
+                <div className="font-medium text-gray-900 dark:text-gray-100">
+                  {request.tutor_name}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {new Date(request.requested_at).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+
+            {/* Session & Extension Details */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  <Calendar className="h-4 w-4" />
+                  Original Session
+                </div>
+                <div className="text-blue-900 dark:text-blue-100">
+                  {request.original_session_date}
+                </div>
+              </div>
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                  <Clock className="h-4 w-4" />
+                  Extension Requested
+                </div>
+                <div className="text-amber-900 dark:text-amber-100">
+                  {request.requested_extension_weeks} week{request.requested_extension_weeks !== 1 ? "s" : ""}
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor's Reason */}
+            <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                Reason for Extension
+              </div>
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                {request.reason}
+              </div>
+            </div>
+
+            {/* Rejection reason */}
+            {request.review_notes && (
+              <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30">
+                <div className="text-xs text-red-600 dark:text-red-400 uppercase tracking-wide mb-1">
+                  Rejection Reason
+                </div>
+                <div className="text-sm text-red-800 dark:text-red-200">
+                  {request.review_notes}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </Modal>
+
+    {/* Makeup scheduling modal - rendered outside to avoid nesting */}
+    {showMakeupModal && sessionForMakeup && (
+      <ScheduleMakeupModal
+        session={sessionForMakeup}
+        isOpen={showMakeupModal}
+        onClose={() => setShowMakeupModal(false)}
+        onScheduled={() => {
+          setShowMakeupModal(false);
+          onApproved?.();
+          onClose();
+        }}
+        initialDate={request.proposed_reschedule_date}
+        initialTimeSlot={request.proposed_reschedule_time}
+      />
+    )}
+    </>
   );
 }
