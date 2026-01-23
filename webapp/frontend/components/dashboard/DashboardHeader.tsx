@@ -147,17 +147,22 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Stats Row with Bell */}
       <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         {isStatsLoading && !stats ? (
-          <div className="flex-1 px-4 sm:px-6 py-3">
-            <div className="flex gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full shimmer-sepia" />
-                  <div className="space-y-1">
-                    <div className="w-16 h-4 rounded shimmer-sepia" />
-                    <div className="w-10 h-3 rounded shimmer-sepia" />
-                  </div>
+          <div className="px-4 sm:px-6 py-2.5">
+            <div className="flex items-center gap-4 sm:gap-8">
+              {/* Skeleton pills matching HeaderStats layout */}
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="w-4 h-4 rounded shimmer-sepia" />
+                  <div className="w-6 h-4 rounded shimmer-sepia" />
+                  <div className="hidden sm:block w-14 h-4 rounded shimmer-sepia" />
                 </div>
               ))}
+              {/* Revenue stat (no border) */}
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded shimmer-sepia" />
+                <div className="w-10 h-4 rounded shimmer-sepia" />
+                <div className="hidden sm:block w-16 h-4 rounded shimmer-sepia" />
+              </div>
             </div>
           </div>
         ) : stats ? (
