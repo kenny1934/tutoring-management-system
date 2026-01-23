@@ -223,6 +223,49 @@ class PlannedReschedule(Base):
     notes = Column(Text)
 
 
+class ExtensionRequest(Base):
+    """
+    Stores tutor requests for enrollment deadline extensions.
+    Used when a session needs to be scheduled past the enrollment end date.
+
+    Workflow: Tutor creates request -> Admin reviews -> Approve/Reject
+    On approval: enrollment.deadline_extension_weeks is updated.
+    """
+    __tablename__ = "extension_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("session_log.id"), nullable=False, comment='The session that needs extension')
+    enrollment_id = Column(Integer, ForeignKey("enrollments.id"), nullable=False, comment='The enrollment to extend')
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+
+    # Request details
+    requested_extension_weeks = Column(Integer, default=1, comment='How many weeks of extension requested (1-2 typical)')
+    reason = Column(Text, nullable=False, comment='Why is extension needed')
+    proposed_reschedule_date = Column(Date, nullable=True, comment='When tutor wants to reschedule this session')
+    proposed_reschedule_time = Column(String(100), nullable=True, comment='Proposed time for rescheduled session')
+
+    # Workflow status
+    request_status = Column(String(20), default='Pending', comment='Pending, Approved, Rejected')
+
+    # Audit trail
+    requested_by = Column(String(255), nullable=False, comment='Tutor email who made request')
+    requested_at = Column(DateTime, server_default=func.now())
+    reviewed_by = Column(String(255), nullable=True, comment='Admin who approved/rejected')
+    reviewed_at = Column(DateTime, nullable=True)
+    review_notes = Column(Text, nullable=True, comment='Admin notes on approval/rejection')
+
+    # Extension tracking (if approved)
+    extension_granted_weeks = Column(Integer, nullable=True, comment='Actual weeks granted (may differ from requested)')
+    session_rescheduled = Column(Boolean, default=False, comment='Whether the session was rescheduled as part of approval')
+
+    # Relationships
+    session = relationship("SessionLog", foreign_keys=[session_id])
+    enrollment = relationship("Enrollment", foreign_keys=[enrollment_id])
+    student = relationship("Student", foreign_keys=[student_id])
+    tutor = relationship("Tutor", foreign_keys=[tutor_id])
+
+
 class SessionExercise(Base):
     """
     Session exercises tracking classwork (CW) and homework (HW) assignments.

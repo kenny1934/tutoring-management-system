@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { useTutors, useLocations } from "@/lib/hooks";
+import { useTutors, useLocations, useEnrollment } from "@/lib/hooks";
 import { getSessionStatusConfig } from "@/lib/session-status";
-import { Plus, Trash2, PenTool, Home, ChevronDown } from "lucide-react";
+import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -16,6 +16,15 @@ import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks } from "@/
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ratingToEmoji } from "@/lib/formatters";
 import { parseTimeSlot } from "@/lib/calendar-utils";
+import { useToast } from "@/contexts/ToastContext";
+import { ExtensionRequestModal } from "./ExtensionRequestModal";
+
+// Interface for enrollment deadline exceeded error
+interface DeadlineExceededError {
+  effective_end_date: string;
+  enrollment_id: number;
+  session_id: number;
+}
 
 // Available session statuses
 const SESSION_STATUSES = [
@@ -77,8 +86,16 @@ export function EditSessionModal({
 }: EditSessionModalProps) {
   const { data: tutors } = useTutors();
   const { data: locations } = useLocations();
+  const { data: enrollment } = useEnrollment(session.enrollment_id);
+  const effectiveEndDate = enrollment?.effective_end_date;
+  const { showToast } = useToast();
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Error and loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const [deadlineError, setDeadlineError] = useState<DeadlineExceededError | null>(null);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -171,6 +188,33 @@ export function EditSessionModal({
     );
   }, [tutors, form.location]);
 
+  // Helper to get day name from date string (abbreviated to match DB format)
+  const getDayName = (dateStr: string) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  };
+
+  // Format time slot from form fields
+  const formTimeSlot = form.time_slot_start && form.time_slot_end
+    ? `${form.time_slot_start} - ${form.time_slot_end}`
+    : '';
+
+  // Early deadline warning - ONLY for regular slot past deadline
+  // Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
+  // past the enrollment end date. Non-regular slots are allowed past deadline.
+  const showEarlyDeadlineWarning = useMemo(() => {
+    if (!effectiveEndDate || !form.session_date) return false;
+    if (form.session_date === session.session_date) return false; // No change
+    if (form.session_date <= effectiveEndDate) return false; // Not past deadline
+
+    // Check if this is the regular slot
+    const selectedDayName = getDayName(form.session_date);
+    const isRegularDay = selectedDayName === enrollment?.assigned_day;
+    const isRegularTime = formTimeSlot === enrollment?.assigned_time;
+
+    return isRegularDay && isRegularTime;
+  }, [form.session_date, formTimeSlot, session.session_date, effectiveEndDate, enrollment?.assigned_day, enrollment?.assigned_time]);
+
   const handleSave = async () => {
     const sessionId = session.id;
     const currentForm = { ...form };
@@ -211,12 +255,6 @@ export function EditSessionModal({
       exercises: optimisticExercises,
     };
 
-    // Update cache IMMEDIATELY (optimistic)
-    updateSessionInCache(optimisticSession);
-
-    // Close modal
-    onClose();
-
     // Save exercises - split by type for API, mode-aware
     const cwExercises = currentForm.exercises
       .filter((ex) => ex.exercise_type === "CW")
@@ -238,7 +276,20 @@ export function EditSessionModal({
         remarks: combineExerciseRemarks(ex.page_mode === 'custom' ? ex.complex_pages : '', ex.remarks) || null,
       }));
 
-    // Save in background - will update cache again with server state
+    // Check if date is being changed - if so, we need to handle potential deadline errors
+    const isDateChanging = currentForm.session_date !== session.session_date;
+
+    // If date is changing, don't do optimistic update (wait for API response)
+    if (!isDateChanging) {
+      // Update cache IMMEDIATELY (optimistic)
+      updateSessionInCache(optimisticSession);
+      // Close modal
+      onClose();
+    }
+
+    setIsSaving(true);
+    setDeadlineError(null);
+
     try {
       // Update session fields
       let updatedSession = await sessionsAPI.updateSession(sessionId, updates);
@@ -256,9 +307,40 @@ export function EditSessionModal({
       if (onSave) {
         onSave(sessionId, updates);
       }
+
+      // If date was changing and we succeeded, now close the modal
+      if (isDateChanging) {
+        onClose();
+      }
     } catch (error) {
-      console.error("Failed to save session:", error);
-      // Could rollback cache or show toast here
+      const message = error instanceof Error ? error.message : "Failed to save session";
+
+      // Check if this is an enrollment deadline exceeded error
+      if (message.includes("ENROLLMENT_DEADLINE_EXCEEDED") || message.includes("enrollment end date")) {
+        // Parse the error details from the message
+        const dateMatch = message.match(/\((\d{4}-\d{2}-\d{2})\)/);
+        setDeadlineError({
+          effective_end_date: dateMatch ? dateMatch[1] : "",
+          enrollment_id: session.enrollment_id,
+          session_id: session.id,
+        });
+        showToast("Cannot move session past enrollment end date", "error");
+
+        // If we did optimistic update (date wasn't changing), rollback
+        if (!isDateChanging) {
+          updateSessionInCache(session); // Rollback to original
+        }
+      } else {
+        console.error("Failed to save session:", error);
+        showToast(message, "error");
+
+        // Rollback cache if we did optimistic update
+        if (!isDateChanging) {
+          updateSessionInCache(session);
+        }
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -381,6 +463,69 @@ export function EditSessionModal({
             />
           </div>
         </div>
+
+        {/* Early Deadline Warning - shown when moving to regular slot past deadline */}
+        {showEarlyDeadlineWarning && !deadlineError && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  This is the student&apos;s regular slot ({enrollment?.assigned_day} {enrollment?.assigned_time}) past the enrollment deadline
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  Enrollment ends: {effectiveEndDate}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowExtensionModal(true)}
+                className="text-xs border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800"
+              >
+                <Clock className="h-3 w-3 mr-1" />
+                Request Extension
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => updateField("session_date", session.session_date)}
+                className="text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800"
+              >
+                Revert Date
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Deadline Error Alert */}
+        {deadlineError && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <span>Cannot move session past enrollment end date ({deadlineError.effective_end_date})</span>
+            </div>
+            <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-red-500 dark:text-red-400">
+                  <Clock className="h-3 w-3 inline mr-1" />
+                  Enrollment ends: {deadlineError.effective_end_date}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowExtensionModal(true)}
+                  className="text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-900/20"
+                >
+                  <Clock className="h-3 w-3 mr-1" />
+                  Request Extension
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Location & Tutor Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -723,6 +868,23 @@ export function EditSessionModal({
           )}
         </div>
       </div>
+
+      {/* Extension Request Modal */}
+      {deadlineError && session.tutor_id && (
+        <ExtensionRequestModal
+          session={session}
+          enrollmentId={deadlineError.enrollment_id}
+          effectiveEndDate={deadlineError.effective_end_date}
+          isOpen={showExtensionModal}
+          onClose={() => setShowExtensionModal(false)}
+          onRequestSubmitted={() => {
+            setShowExtensionModal(false);
+            setDeadlineError(null);
+            showToast("Extension request submitted. You'll be notified when reviewed.", "success");
+          }}
+          tutorId={session.tutor_id}
+        />
+      )}
     </Modal>
   );
 }

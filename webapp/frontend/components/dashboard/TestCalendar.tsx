@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useCalendarEvents, useExamsWithSlots } from "@/lib/hooks";
 import { CalendarEvent } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { calendarAPI } from "@/lib/api";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
@@ -364,12 +365,12 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       // Refetch calendar data
       mutate();
       mutateExams();
-      setTimeout(() => setLastSyncMessage(null), 3000);
+      setTimeout(() => setLastSyncMessage(null), 6000);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setLastSyncMessage(`Sync failed: ${errorMsg}`);
       console.error('Calendar sync error:', error);
-      setTimeout(() => setLastSyncMessage(null), 5000);
+      setTimeout(() => setLastSyncMessage(null), 10000);
     } finally {
       setIsSyncing(false);
     }
@@ -396,12 +397,12 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       // Force immediate revalidation of both data sources
       mutate();
       mutateExams();
-      setTimeout(() => setLastSyncMessage(null), 3000);
+      setTimeout(() => setLastSyncMessage(null), 6000);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setLastSyncMessage(`Sync failed: ${errorMsg}`);
       console.error('Calendar load older month error:', error);
-      setTimeout(() => setLastSyncMessage(null), 5000);
+      setTimeout(() => setLastSyncMessage(null), 10000);
     } finally {
       setIsSyncing(false);
     }
@@ -531,14 +532,26 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         </div>
         <div className="flex items-center gap-1">
           {/* Sync status message */}
-          {lastSyncMessage && (
-            <span className={cn(
-              "text-xs mr-1",
-              lastSyncMessage.includes('failed') ? "text-red-500" : "text-green-600 dark:text-green-400"
-            )}>
-              {lastSyncMessage}
-            </span>
-          )}
+          <AnimatePresence>
+            {lastSyncMessage && (
+              <motion.span
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                className={cn(
+                  "text-xs mr-1 flex items-center gap-1",
+                  lastSyncMessage.includes('failed') ? "text-red-500" : "text-green-600 dark:text-green-400"
+                )}
+              >
+                {lastSyncMessage.includes('failed') ? (
+                  <AlertTriangle className="h-3 w-3" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+                {lastSyncMessage}
+              </motion.span>
+            )}
+          </AnimatePresence>
           {/* Sync button */}
           <button
             onClick={handleManualSync}
