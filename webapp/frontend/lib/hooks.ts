@@ -145,6 +145,31 @@ export function useStudent(id: number | null | undefined) {
 }
 
 /**
+ * Hook for fetching active students list (for HeaderStats popover)
+ * Only fetches when enabled=true (popover is open)
+ */
+export function useActiveStudents(location?: string, enabled: boolean = true) {
+  const params = location && location !== "All Locations" ? `?location=${location}` : "";
+  return useSWR<Array<{
+    id: number;
+    school_student_id: string | null;
+    student_name: string;
+    grade: string | null;
+    lang_stream: string | null;
+    school: string | null;
+    home_location: string | null;
+  }>>(
+    enabled ? ['active-students', location || 'all'] : null,
+    async () => {
+      const response = await fetch(`/api/active-students${params}`);
+      if (!response.ok) throw new Error('Failed to fetch active students');
+      return response.json();
+    },
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
  * Hook for fetching enrollments for a student
  * Returns null key when studentId is falsy to skip fetching
  */
