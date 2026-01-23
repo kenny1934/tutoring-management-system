@@ -5,11 +5,11 @@ Provides read-only access to session log data.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
 from datetime import date, timedelta, datetime
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
@@ -967,6 +967,28 @@ async def schedule_makeup(
         last_modified_by="system@csmpro.app",
         last_modified_time=datetime.now()
     )
+
+    # Auto-link to matching exam revision slot if student matches criteria
+    student = db.query(Student).filter(Student.id == original_session.student_id).first()
+    if student:
+        matching_slot = db.query(ExamRevisionSlot).join(
+            CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
+        ).filter(
+            ExamRevisionSlot.session_date == request.session_date,
+            ExamRevisionSlot.time_slot == request.time_slot,
+            ExamRevisionSlot.location == request.location,
+            or_(CalendarEvent.school.is_(None), CalendarEvent.school == student.school),
+            or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == student.grade),
+            or_(
+                CalendarEvent.academic_stream.is_(None),
+                student.grade not in ['F4', 'F5', 'F6'],
+                CalendarEvent.academic_stream == student.academic_stream
+            )
+        ).first()
+
+        if matching_slot:
+            makeup_session.exam_revision_slot_id = matching_slot.id
+
     db.add(makeup_session)
     db.flush()  # Get the ID
 
@@ -1286,6 +1308,41 @@ async def update_session(
     # Set audit columns
     session.last_modified_by = "system@csmpro.app"
     session.last_modified_time = datetime.now()
+
+    # Handle revision slot linking when date/time/location changes
+    if any([request.session_date, request.time_slot, request.location]):
+        # Check if session already linked - verify it still matches
+        if session.exam_revision_slot_id:
+            current_slot = db.query(ExamRevisionSlot).filter(
+                ExamRevisionSlot.id == session.exam_revision_slot_id
+            ).first()
+            # Auto-unlink if no longer matches
+            if current_slot and (
+                current_slot.session_date != session.session_date or
+                current_slot.time_slot != session.time_slot or
+                current_slot.location != session.location
+            ):
+                session.exam_revision_slot_id = None
+
+        # Try to auto-link if not linked
+        if session.exam_revision_slot_id is None and session.student:
+            matching_slot = db.query(ExamRevisionSlot).join(
+                CalendarEvent, ExamRevisionSlot.calendar_event_id == CalendarEvent.id
+            ).filter(
+                ExamRevisionSlot.session_date == session.session_date,
+                ExamRevisionSlot.time_slot == session.time_slot,
+                ExamRevisionSlot.location == session.location,
+                or_(CalendarEvent.school.is_(None), CalendarEvent.school == session.student.school),
+                or_(CalendarEvent.grade.is_(None), CalendarEvent.grade == session.student.grade),
+                or_(
+                    CalendarEvent.academic_stream.is_(None),
+                    session.student.grade not in ['F4', 'F5', 'F6'],
+                    CalendarEvent.academic_stream == session.student.academic_stream
+                )
+            ).first()
+
+            if matching_slot:
+                session.exam_revision_slot_id = matching_slot.id
 
     db.commit()
     db.refresh(session)

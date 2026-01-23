@@ -8,7 +8,8 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { examRevisionAPI } from "@/lib/api";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
-import type { ExamRevisionSlot } from "@/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import type { ExamRevisionSlot, EnrolledStudentInfo } from "@/types";
 import {
   Calendar,
   Clock,
@@ -39,6 +40,10 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingId, setIsRemovingId] = useState<number | null>(null);
 
+  // Confirmation dialog states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [studentToRemove, setStudentToRemove] = useState<EnrolledStudentInfo | null>(null);
+
   // Session detail popover state
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
@@ -59,17 +64,16 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
     setSelectedSessionId(sessionId);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     const hasStudents = slot.enrolled_count > 0;
-    const message = hasStudents
-      ? `This slot has ${slot.enrolled_count} enrolled student(s). Deleting will unenroll them and revert their sessions. Continue?`
-      : "Are you sure you want to delete this revision slot?";
-
-    if (!confirm(message)) return;
-
     setIsDeleting(true);
     try {
       await examRevisionAPI.deleteSlot(slot.id, hasStudents);
+      setShowDeleteConfirm(false);
       onRefresh();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to delete slot", "error");
@@ -78,12 +82,17 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
     }
   };
 
-  const handleRemoveEnrollment = async (sessionId: number) => {
-    if (!confirm("Remove this student from the revision slot?")) return;
+  const handleRemoveClick = (student: EnrolledStudentInfo) => {
+    setStudentToRemove(student);
+  };
 
-    setIsRemovingId(sessionId);
+  const handleRemoveConfirm = async () => {
+    if (!studentToRemove) return;
+
+    setIsRemovingId(studentToRemove.session_id);
     try {
-      await examRevisionAPI.removeEnrollment(slot.id, sessionId);
+      await examRevisionAPI.removeEnrollment(slot.id, studentToRemove.session_id);
+      setStudentToRemove(null);
       mutate();
       onRefresh();
     } catch (err) {
@@ -124,16 +133,21 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             </span>
           </div>
 
-          {/* Enrolled count */}
-          <div className={cn(
-            "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
-            slot.enrolled_count > 0
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-              : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-          )}>
-            <Users className="h-3 w-3" />
-            {slot.enrolled_count}
-          </div>
+          {/* Enrolled count - prefer detail data when available for freshness */}
+          {(() => {
+            const enrolledCount = slotDetail ? slotDetail.enrolled_students.length : slot.enrolled_count;
+            return (
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                enrolledCount > 0
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+              )}>
+                <Users className="h-3 w-3" />
+                {enrolledCount}
+              </div>
+            );
+          })()}
 
           {/* Expand indicator */}
           {isExpanded ? (
@@ -170,7 +184,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             <Copy className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
             disabled={isDeleting}
             className={cn(
               "p-1.5 text-gray-400 hover:text-red-500 transition-colors",
@@ -226,7 +240,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveEnrollment(student.session_id);
+                        handleRemoveClick(student);
                       }}
                       disabled={isRemovingId === student.session_id}
                       className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
@@ -265,6 +279,47 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
           setClickPosition(null);
         }}
         clickPosition={clickPosition}
+      />
+
+      {/* Delete Slot Confirmation */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(false)}
+        title="Delete Revision Slot"
+        message={
+          slot.enrolled_count > 0
+            ? `This will affect ${slot.enrolled_count} enrolled student(s):`
+            : "Are you sure you want to delete this revision slot?"
+        }
+        consequences={
+          slot.enrolled_count > 0
+            ? [
+                "Their revision sessions will be cancelled",
+                "Their original sessions will revert to Pending Make-up",
+              ]
+            : undefined
+        }
+        confirmText="Delete Slot"
+        variant="danger"
+        loading={isDeleting}
+      />
+
+      {/* Remove Enrollment Confirmation */}
+      <ConfirmDialog
+        isOpen={!!studentToRemove}
+        onConfirm={handleRemoveConfirm}
+        onCancel={() => setStudentToRemove(null)}
+        title="Remove Student from Revision"
+        message={`This will reverse the enrollment for ${studentToRemove?.student_name || "this student"}:`}
+        consequences={[
+          "The revision session will be cancelled",
+          "The original session will revert to Pending Make-up status",
+          "They will need to be re-enrolled or rescheduled separately",
+        ]}
+        confirmText="Remove Student"
+        variant="danger"
+        loading={isRemovingId === studentToRemove?.session_id}
       />
     </div>
   );
