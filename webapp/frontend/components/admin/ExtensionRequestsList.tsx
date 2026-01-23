@@ -20,6 +20,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import type { ExtensionRequest, ExtensionRequestDetail, ExtensionRequestStatus } from "@/types";
 
 const ITEMS_PER_PAGE = 50;
@@ -411,6 +412,9 @@ export function ExtensionRequestsList({
           adminTutorId={adminTutorId}
         />
       )}
+
+      {/* Scroll to top button */}
+      <ScrollToTopButton threshold={400} />
     </div>
   );
 }
