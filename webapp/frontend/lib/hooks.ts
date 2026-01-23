@@ -191,7 +191,9 @@ export function useStudentSessions(studentId: number | null | undefined, limit: 
 export function useEnrollment(id: number | null | undefined) {
   return useSWR<Enrollment>(
     id ? ['enrollment', id] : null,
-    () => enrollmentsAPI.getById(id!)  );
+    () => enrollmentsAPI.getById(id!),
+    { revalidateOnFocus: false }  // Enrollment data rarely changes, skip refocus revalidation
+  );
 }
 
 /**
