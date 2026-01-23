@@ -1531,3 +1531,183 @@ html {
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+/* ===== LOGIN PAGE ANIMATIONS ===== */
+
+@keyframes warm-gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(10px, -15px);
+  }
+  50% {
+    transform: translate(5px, -25px);
+  }
+  75% {
+    transform: translate(-5px, -10px);
+  }
+}
+
+@keyframes aurora-drift {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.6;
+  }
+  25% {
+    transform: translate(30px, -20px) scale(1.05);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(15px, -40px) scale(1.1);
+    opacity: 0.7;
+  }
+  75% {
+    transform: translate(-15px, -25px) scale(1.02);
+    opacity: 0.9;
+  }
+}
+
+@keyframes particle-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  25% {
+    transform: translate(5px, -10px) scale(1.2);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-3px, -20px) scale(0.8);
+    opacity: 0.8;
+  }
+  75% {
+    transform: translate(8px, -15px) scale(1.1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: rotate(-0.3deg) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-0.3deg) scale(1);
+  }
+}
+
+@keyframes warm-glow {
+  0%, 100% {
+    box-shadow: 0 4px 20px rgba(217,119,6,0.15);
+  }
+  50% {
+    box-shadow: 0 4px 30px rgba(217,119,6,0.3);
+  }
+}
+
+@keyframes border-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes button-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Login card shadow styles */
+.login-card {
+  box-shadow:
+    0 8px 32px rgba(139,122,106,0.12),
+    0 2px 8px rgba(139,122,106,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.dark .login-card {
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.35),
+    0 2px 8px rgba(0,0,0,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Login button glow on idle */
+.login-button {
+  box-shadow: 0 4px 15px rgba(217,119,6,0.12);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-button:hover {
+  box-shadow: 0 8px 30px rgba(217,119,6,0.25);
+}
+
+.dark .login-button {
+  box-shadow: 0 4px 15px rgba(217,119,6,0.08);
+}
+
+.dark .login-button:hover {
+  box-shadow: 0 8px 30px rgba(217,119,6,0.15);
+}
+
+/* Respect reduced motion preference for login animations */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes warm-gradient {
+    0%, 100% { background-position: 0% 50%; }
+  }
+  @keyframes gentle-float {
+    0%, 100% { transform: translate(0, 0); }
+  }
+  @keyframes aurora-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  }
+  @keyframes particle-float {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  }
+  @keyframes fade-up {
+    from, to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scale-in {
+    from, to { opacity: 1; transform: rotate(-0.3deg) scale(1); }
+  }
+  @keyframes warm-glow {
+    0%, 100% { box-shadow: 0 4px 20px rgba(217,119,6,0.15); }
+  }
+  @keyframes border-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+  }
+  @keyframes button-shimmer {
+    0%, 100% { transform: translateX(-100%); }
+  }
+}
