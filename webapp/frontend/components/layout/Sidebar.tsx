@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, MapPin, Eye, X, Settings, ChevronUp, ChevronRight, Inbox } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -26,6 +27,14 @@ const navigation = [
   { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];
 
+// Admin navigation items - only visible to Admin and Super Admin
+const adminNavigation = [
+  { name: "Extensions", href: "/admin/extensions", icon: Clock },
+  // Future admin items:
+  // { name: "Audit Log", href: "/admin/audit", icon: FileText },
+  // { name: "User Management", href: "/admin/users", icon: UserCog },
+];
+
 interface SidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -38,15 +47,24 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
-  // Get tutors list to find current tutor ID
+  const [adminExpanded, setAdminExpanded] = useState(true);
+  
+  // Get tutors list to find current tutor ID and role
   const { data: tutors = [] } = useTutors();
 
-  // Derive current tutor ID from tutors list
+  // Derive current tutor ID and role from tutors list
   const currentTutorId = useMemo(() => {
     const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
     return currentTutor?.id;
   }, [tutors]);
+
+  const currentTutorRole = useMemo(() => {
+    const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
+    return currentTutor?.role;
+  }, [tutors]);
+
+  // Check if user has admin privileges
+  const isAdminOrAbove = currentTutorRole === 'Admin' || currentTutorRole === 'Super Admin';
 
   // Fetch unread message count for Inbox badge
   const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
@@ -259,6 +277,89 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           );
         })}
 
+        {/* Admin Section - Only visible to Admin/Super Admin */}
+        {isAdminOrAbove && (() => {
+          const showExpanded = isMobile || !isCollapsed;
+          return (
+            <div className="mt-2 pt-2 border-t border-white/10 dark:border-white/5">
+              {/* Admin Header - Clickable to expand/collapse */}
+              <button
+                onClick={() => setAdminExpanded(!adminExpanded)}
+                className={cn(
+                  "w-full flex items-center rounded-2xl text-sm font-medium transition-colors",
+                  showExpanded ? "gap-3 px-4 py-3" : "justify-center p-3",
+                  "text-foreground/70 hover:bg-foreground/8"
+                )}
+              >
+                <Shield className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                {showExpanded && (
+                  <>
+                    <span className="flex-1 text-left">Admin</span>
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      adminExpanded && "rotate-180"
+                    )} />
+                  </>
+                )}
+              </button>
+
+              {/* Admin Submenu Items */}
+              {adminExpanded && showExpanded && (
+                <div className="mt-1 ml-3 space-y-1">
+                  {adminNavigation.map((item) => {
+                    const isActive = pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={handleNavClick}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors",
+                          isActive
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Collapsed state flyout */}
+              {!showExpanded && adminExpanded && (
+                <div className="mt-1 space-y-1">
+                  {adminNavigation.map((item) => {
+                    const isActive = pathname.startsWith(item.href);
+                    return (
+                      <div
+                        key={item.name}
+                        className="tooltip-wrapper"
+                        data-tooltip={item.name}
+                      >
+                        <Link
+                          href={item.href}
+                          onClick={handleNavClick}
+                          className={cn(
+                            "flex items-center justify-center p-2.5 rounded-xl transition-colors",
+                            isActive
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground/60 hover:bg-foreground/5"
+                          )}
+                        >
+                          <item.icon className="h-5 w-5" />
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Notification Bell - only when NOT on dashboard */}
         {!isOnDashboard && (
           <div className={cn(
@@ -280,197 +381,166 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         )}
       </nav>
 
-      {/* Filters - show when expanded or mobile */}
+      {/* Mini-Calendar - show when expanded or mobile */}
       {(isMobile || !isCollapsed) && (
-        <div className="border-t border-white/10 dark:border-white/5 p-3 space-y-3">
-          {/* Weekly Mini-Calendar */}
+        <div className="border-t border-white/10 dark:border-white/5 p-3">
           <WeeklyMiniCalendar />
-
-          {/* Theme Toggle */}
-          <ThemeToggle />
-
-          {/* Location Selector */}
-          <div>
-            <label className="text-xs text-foreground/70 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
-              <MapPin className="h-4 w-4" />
-              Location
-            </label>
-            <select
-              value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
-              className="w-full px-3 py-2 backdrop-blur-sm border border-white/10 dark:border-white/5 rounded-xl text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 hover:border-border transition-all bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)]"
-              style={{
-                transition: 'all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-              }}
-              suppressHydrationWarning
-            >
-              {locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* View Mode Toggle */}
-          <div>
-            <label className="text-xs text-foreground/70 mb-2 flex items-center gap-2 font-semibold uppercase tracking-wide">
-              <Eye className="h-4 w-4" />
-              View Mode
-            </label>
-            <div className="flex gap-1.5 bg-foreground/5 border border-border/30 rounded-xl p-1.5">
-              <button
-                onClick={() => setViewMode("center-view")}
-                className={cn(
-                  "flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg",
-                  viewMode === "center-view"
-                    ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
-                    : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.01] active:scale-[0.98]"
-                )}
-                style={{ transition: 'all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)' }}
-                suppressHydrationWarning
-              >
-                Center
-              </button>
-              <button
-                onClick={() => setViewMode("my-view")}
-                className={cn(
-                  "flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg",
-                  viewMode === "my-view"
-                    ? "bg-primary text-primary-foreground shadow-sm scale-[1.02]"
-                    : "text-foreground/70 hover:bg-foreground/8 hover:scale-[1.01] active:scale-[0.98]"
-                )}
-                style={{ transition: 'all 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00)' }}
-                suppressHydrationWarning
-              >
-                My View
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* User info with dropdown menu (expanded or collapsed) */}
-      <div className="border-t border-white/10 dark:border-white/5 p-4 relative">
-        {/* Collapsed state: Avatar with compact dropdown */}
+      {/* User info with settings button */}
+      <div className="border-t border-white/10 dark:border-white/5 p-4">
+        {/* Collapsed state: Avatar only */}
         {!isMobile && isCollapsed ? (
-          <div className="relative">
-            <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className={cn(
-                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                isUserMenuOpen && "ring-2 ring-primary/30"
-              )}
-              style={{
-                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-              }}
-              title="User menu"
-            >
-              <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
-                <span className="text-sm font-bold text-primary-foreground">KC</span>
-              </div>
-            </button>
-
-            {/* Compact popup to the right - icon only */}
-            {isUserMenuOpen && (
-              <div
-                className={cn(
-                  "absolute left-full top-1/2 ml-3 rounded-full shadow-lg border backdrop-blur-md",
-                  "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
-                  "border-white/20 dark:border-white/10"
-                )}
-                style={{
-                  animation: 'slideInRight 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards',
-                }}
-              >
-                <Link
-                  href="/settings"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    handleNavClick();
-                  }}
-                  className="flex items-center justify-center w-10 h-10 text-foreground/70 hover:text-foreground hover:bg-foreground/10 transition-colors rounded-full"
-                  title="Settings"
-                >
-                  <Settings className="h-5 w-5" />
-                </Link>
-
-                {/* Caret pointing left to avatar */}
-                <div
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 rotate-45",
-                    "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
-                    "border-l border-b border-white/20 dark:border-white/10"
-                  )}
-                />
-              </div>
+          <button
+            onClick={() => setIsUserMenuOpen(true)}
+            className={cn(
+              "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+              "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
             )}
-          </div>
+            style={{
+              transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+            }}
+            title="User settings"
+          >
+            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+              <span className="text-sm font-bold text-primary-foreground">KC</span>
+            </div>
+          </button>
         ) : (
-          /* Expanded state: Avatar with dropdown to the right */
-          <div className="relative">
-            <button
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className={cn(
-                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                isUserMenuOpen && "ring-2 ring-primary/30"
-              )}
-              style={{
-                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-              }}
-            >
-              <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
-                <span className="text-base font-bold text-primary-foreground">KC</span>
-              </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
-                <p className="text-xs font-medium text-foreground/60">Admin</p>
-              </div>
-              <ChevronRight className={cn(
-                "h-4 w-4 text-foreground/50 transition-transform",
-                isUserMenuOpen && "rotate-180"
-              )} />
-            </button>
-
-            {/* User dropdown menu - positioned to the RIGHT of sidebar */}
-            {isUserMenuOpen && (
-              <div
-                className={cn(
-                  "absolute left-full top-1/2 ml-3 py-2 px-1 rounded-xl shadow-lg border backdrop-blur-md min-w-[140px]",
-                  "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
-                  "border-white/20 dark:border-white/10"
-                )}
-                style={{
-                  animation: 'slideInRight 200ms cubic-bezier(0.38, 1.21, 0.22, 1.00) forwards',
-                }}
-              >
-                <Link
-                  href="/settings"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    if (onMobileClose) onMobileClose();
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg"
-                >
-                  <Settings className="h-4 w-4 text-foreground/60" />
-                  Settings
-                </Link>
-
-                {/* Caret pointing left to avatar */}
-                <div
-                  className={cn(
-                    "absolute top-1/2 -translate-y-1/2 -left-1.5 w-3 h-3 rotate-45",
-                    "bg-[rgba(254,249,243,0.95)] dark:bg-[rgba(45,38,24,0.95)]",
-                    "border-l border-b border-white/20 dark:border-white/10"
-                  )}
-                />
-              </div>
+          /* Expanded state: Avatar with name */
+          <button
+            onClick={() => setIsUserMenuOpen(true)}
+            className={cn(
+              "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+              "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
             )}
-          </div>
+            style={{
+              transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+            }}
+          >
+            <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+              <span className="text-base font-bold text-primary-foreground">KC</span>
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-sm font-semibold text-foreground truncate">Kenny Chiu</p>
+              <p className="text-xs font-medium text-foreground/60">{currentTutorRole || 'Admin'}</p>
+            </div>
+            <Settings className="h-4 w-4 text-foreground/50" />
+          </button>
         )}
       </div>
+
+      {/* User Settings Modal */}
+      {isUserMenuOpen && mounted && createPortal(
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-[9998] animate-in fade-in duration-200"
+            onClick={() => setIsUserMenuOpen(false)}
+          />
+          {/* Modal */}
+          <div
+            className={cn(
+              "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+              "w-[300px] p-5 rounded-2xl shadow-2xl z-[9999]",
+              "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
+              "border border-white/20 dark:border-white/10",
+              "animate-in zoom-in-95 fade-in duration-200"
+            )}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setIsUserMenuOpen(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-foreground/10 transition-colors"
+            >
+              <X className="h-4 w-4 text-foreground/50" />
+            </button>
+
+            {/* User info header */}
+            <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5">
+              <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                <span className="text-lg font-bold text-primary-foreground">KC</span>
+              </div>
+              <div>
+                <p className="text-base font-semibold text-foreground">Kenny Chiu</p>
+                <p className="text-sm text-foreground/60">{currentTutorRole || 'Admin'}</p>
+              </div>
+            </div>
+
+            {/* Theme Toggle */}
+            <div className="py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground/80">Theme</span>
+                <ThemeToggle compact />
+              </div>
+            </div>
+
+            {/* Location Selector */}
+            <div className="py-3">
+              <label className="text-sm font-medium text-foreground/80 mb-2 block">Location</label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/10 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                suppressHydrationWarning
+              >
+                {locations.map((location) => (
+                  <option key={location} value={location} className="bg-background text-foreground">{location}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="py-3">
+              <label className="text-sm font-medium text-foreground/80 mb-2 block">View Mode</label>
+              <div className="flex gap-1 bg-foreground/5 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("center-view")}
+                  className={cn(
+                    "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all",
+                    viewMode === "center-view"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground/70 hover:bg-foreground/10"
+                  )}
+                  suppressHydrationWarning
+                >
+                  Center
+                </button>
+                <button
+                  onClick={() => setViewMode("my-view")}
+                  className={cn(
+                    "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all",
+                    viewMode === "my-view"
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground/70 hover:bg-foreground/10"
+                  )}
+                  suppressHydrationWarning
+                >
+                  My View
+                </button>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="my-3 border-t border-white/10 dark:border-white/5" />
+
+            {/* Settings Link */}
+            <Link
+              href="/settings"
+              onClick={() => {
+                setIsUserMenuOpen(false);
+                if (onMobileClose) onMobileClose();
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
+            >
+              <Settings className="h-4 w-4 text-foreground/60" />
+              Settings
+            </Link>
+          </div>
+        </>,
+        document.body
+      )}
     </>
   );
 
