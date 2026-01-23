@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCalendarEvents, useExamsWithSlots, useHolidays } from "@/lib/hooks";
+import { useCalendarSync } from "@/lib/hooks/index";
 import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { calendarAPI } from "@/lib/api";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
 import {
@@ -76,6 +76,43 @@ interface RevisionStats {
   slots: number;
   enrolled: number;
   eligible: number;
+}
+
+// Shared popover content for both variants
+function EventPopoverContent({
+  event,
+  colors,
+}: {
+  event: CalendarEvent;
+  colors: { bg: string; text: string; dot: string };
+}) {
+  return (
+    <div
+      className={cn(
+        "z-[9999]",
+        "bg-[#fef9f3] dark:bg-[#2d2618]",
+        "border-2 border-[#d4a574] dark:border-[#8b6f47]",
+        "rounded-lg shadow-lg",
+        "p-3 w-64",
+        "paper-texture"
+      )}
+    >
+      <div className={cn("font-bold text-sm mb-1", colors.text)}>
+        {event.title}
+      </div>
+      {event.school && event.grade && (
+        <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+          {event.school} {event.grade}{event.academic_stream ? ` (${event.academic_stream})` : ''}
+          {' • '}
+          {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+        </div>
+      )}
+      <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
+        <span className="font-medium text-gray-600 dark:text-gray-400">Syllabus:</span>
+        <div className="mt-1">{event.description}</div>
+      </div>
+    </div>
+  );
 }
 
 // Popover component for test items - works for both upcoming list and selected date events
@@ -190,33 +227,8 @@ function TestItemPopover({
         {/* Popover */}
         {isOpen && hasDescription && (
           <FloatingPortal>
-            <div
-              ref={refs.setFloating}
-              style={floatingStyles}
-              {...getFloatingProps()}
-              className={cn(
-                "z-[9999]",
-                "bg-[#fef9f3] dark:bg-[#2d2618]",
-                "border-2 border-[#d4a574] dark:border-[#8b6f47]",
-                "rounded-lg shadow-lg",
-                "p-3 w-64",
-                "paper-texture"
-              )}
-            >
-              <div className={cn("font-bold text-sm mb-1", colors.text)}>
-                {event.title}
-              </div>
-              {event.school && event.grade && (
-                <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  {event.school} {event.grade}{event.academic_stream ? ` (${event.academic_stream})` : ''}
-                  {' • '}
-                  {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </div>
-              )}
-              <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
-                <span className="font-medium text-gray-600 dark:text-gray-400">Syllabus:</span>
-                <div className="mt-1">{event.description}</div>
-              </div>
+            <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}>
+              <EventPopoverContent event={event} colors={colors} />
             </div>
           </FloatingPortal>
         )}
@@ -272,33 +284,8 @@ function TestItemPopover({
       {/* Popover */}
       {isOpen && hasDescription && (
         <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={floatingStyles}
-            {...getFloatingProps()}
-            className={cn(
-              "z-[9999]",
-              "bg-[#fef9f3] dark:bg-[#2d2618]",
-              "border-2 border-[#d4a574] dark:border-[#8b6f47]",
-              "rounded-lg shadow-lg",
-              "p-3 w-64",
-              "paper-texture"
-            )}
-          >
-            <div className={cn("font-bold text-sm mb-1", colors.text)}>
-              {event.title}
-            </div>
-            {event.school && event.grade && (
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                {event.school} {event.grade}{event.academic_stream ? ` (${event.academic_stream})` : ''}
-                {' • '}
-                {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </div>
-            )}
-            <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
-              <span className="font-medium text-gray-600 dark:text-gray-400">Syllabus:</span>
-              <div className="mt-1">{event.description}</div>
-            </div>
+          <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}>
+            <EventPopoverContent event={event} colors={colors} />
           </div>
         </FloatingPortal>
       )}
@@ -314,9 +301,14 @@ interface TestCalendarProps {
 export function TestCalendar({ className, isMobile = false }: TestCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
-  const [fetchDaysBehind, setFetchDaysBehind] = useState(60); // Expandable when loading older months
+
+  // Ref to hold mutators for sync callback (avoids circular dependency)
+  const refreshDataRef = useRef<() => void>(() => {});
+
+  // Calendar sync state and handlers
+  const { isSyncing, lastSyncMessage, fetchDaysBehind, handleManualSync, handleLoadOlderMonth } = useCalendarSync({
+    onSyncComplete: () => refreshDataRef.current(),
+  });
 
   // Fetch 60 days ahead and dynamic days behind (expands when loading older months)
   const { data: events = [], isLoading, error, mutate } = useCalendarEvents(60, true, fetchDaysBehind);
@@ -337,6 +329,12 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Fetch exam revision stats for the same date range
   const { data: examsWithSlots = [], mutate: mutateExams } = useExamsWithSlots(examsDateRange);
 
+  // Update refresh ref with current mutators
+  refreshDataRef.current = () => {
+    mutate();
+    mutateExams();
+  };
+
   // Check if current view month is within current fetch range
   const isMonthInSyncRange = useMemo(() => {
     const today = new Date();
@@ -355,59 +353,6 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     // Check if any day of the viewed month falls within fetch range
     return viewMonthEnd >= syncRangeStart && viewMonthStart <= syncRangeEnd;
   }, [currentMonth, fetchDaysBehind]);
-
-  // Manual sync handler
-  const handleManualSync = async () => {
-    setIsSyncing(true);
-    setLastSyncMessage(null);
-    try {
-      const result = await calendarAPI.sync(true, fetchDaysBehind);
-      setLastSyncMessage(`Synced ${result.events_synced} events`);
-      // Refetch calendar data
-      mutate();
-      mutateExams();
-      setTimeout(() => setLastSyncMessage(null), 6000);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setLastSyncMessage(`Sync failed: ${errorMsg}`);
-      console.error('Calendar sync error:', error);
-      setTimeout(() => setLastSyncMessage(null), 10000);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Load events for older months on demand
-  const handleLoadOlderMonth = async () => {
-    setIsSyncing(true);
-    setLastSyncMessage(null);
-    try {
-      // Calculate days_behind to cover the viewed month
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const viewMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      const daysBehind = Math.ceil((today.getTime() - viewMonthStart.getTime()) / (1000 * 60 * 60 * 24)) + 30;
-
-      // Sync events from Google Calendar
-      const result = await calendarAPI.sync(true, daysBehind);
-      setLastSyncMessage(`Synced ${result.events_synced} events`);
-
-      // Expand fetch range to include the viewed month
-      setFetchDaysBehind(daysBehind);
-
-      // Force immediate revalidation of both data sources
-      mutate();
-      mutateExams();
-      setTimeout(() => setLastSyncMessage(null), 6000);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      setLastSyncMessage(`Sync failed: ${errorMsg}`);
-      console.error('Calendar load older month error:', error);
-      setTimeout(() => setLastSyncMessage(null), 10000);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // Group events by date
   const eventsByDate = useMemo(() => {
@@ -618,7 +563,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         <div className="flex-shrink-0 mx-3 mb-2 flex items-center justify-center gap-2 py-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
           <span>Events may not be loaded.</span>
           <button
-            onClick={handleLoadOlderMonth}
+            onClick={() => handleLoadOlderMonth(currentMonth)}
             disabled={isSyncing}
             className="underline hover:no-underline font-medium disabled:opacity-50"
           >
