@@ -525,7 +525,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col h-[520px] card-hover",
+      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[520px] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
