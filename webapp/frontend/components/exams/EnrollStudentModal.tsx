@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
@@ -57,6 +57,20 @@ export function EnrollStudentModal({
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Escape key handler
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !enrollingStudent) {
+        onClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, enrollingStudent, onClose]);
 
   // Filter students by search
   const filteredStudents = useFilteredList(

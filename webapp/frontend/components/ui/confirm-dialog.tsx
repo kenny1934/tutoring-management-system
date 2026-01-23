@@ -17,6 +17,8 @@ interface ConfirmDialogProps {
   onCancel: () => void;
   title: string;
   message: string;
+  /** Optional list of consequences to display as bullet points */
+  consequences?: string[];
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'default';
@@ -29,6 +31,7 @@ export function ConfirmDialog({
   onCancel,
   title,
   message,
+  consequences,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   variant = 'default',
@@ -91,6 +94,13 @@ export function ConfirmDialog({
                   <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                     {message}
                   </p>
+                  {consequences && consequences.length > 0 && (
+                    <ul className="mt-2 text-sm text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
+                      {consequences.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>
