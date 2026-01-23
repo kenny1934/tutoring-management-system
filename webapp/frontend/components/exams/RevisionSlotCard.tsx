@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRevisionSlotDetail, useSession } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { examRevisionAPI } from "@/lib/api";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -33,6 +34,7 @@ interface RevisionSlotCardProps {
 }
 
 export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onEnroll, onEdit, onDuplicate, onRefresh, showLocationPrefix }: RevisionSlotCardProps) {
+  const { showToast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRemovingId, setIsRemovingId] = useState<number | null>(null);
@@ -70,7 +72,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
       await examRevisionAPI.deleteSlot(slot.id, hasStudents);
       onRefresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete slot");
+      showToast(err instanceof Error ? err.message : "Failed to delete slot", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -85,7 +87,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
       mutate();
       onRefresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to remove enrollment");
+      showToast(err instanceof Error ? err.message : "Failed to remove enrollment", "error");
     } finally {
       setIsRemovingId(null);
     }

@@ -161,6 +161,7 @@ export interface Session {
   lang_stream?: string;
   school?: string;
   previous_session_status?: string;
+  undone_from_status?: string;  // Only set in undo response for redo toast
   rescheduled_to_id?: number;
   make_up_for_id?: number;
   exam_revision_slot_id?: number;  // Links session to exam revision slot
@@ -650,4 +651,11 @@ export interface ExamWithRevisionSlots {
   revision_slots: ExamRevisionSlot[];
   total_enrolled: number;
   eligible_count: number;
+}
+
+// Slot defaults for exam revision slot creation
+export interface SlotDefaults {
+  tutor_id?: number;
+  location?: string;
+  notes?: string;
 }

@@ -12,7 +12,7 @@ import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
-import type { ExamWithRevisionSlots } from "@/types";
+import type { ExamWithRevisionSlots, SlotDefaults } from "@/types";
 import {
   GraduationCap,
   ArrowLeft,
@@ -39,13 +39,6 @@ export default function ExamsPage() {
     const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
     return tutor?.id;
   }, [tutors]);
-
-  // Slot defaults interface for duplication
-  interface SlotDefaults {
-    tutor_id?: number;
-    location?: string;
-    notes?: string;
-  }
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
@@ -243,6 +236,7 @@ export default function ExamsPage() {
                 placeholder="Search exams..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search exams"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
               />
             </div>
@@ -251,6 +245,7 @@ export default function ExamsPage() {
             <select
               value={schoolFilter}
               onChange={(e) => setSchoolFilter(e.target.value)}
+              aria-label="Filter by school"
               className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Schools</option>
@@ -265,6 +260,7 @@ export default function ExamsPage() {
             <select
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
+              aria-label="Filter by grade"
               className="px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300"
             >
               <option value="">All Grades</option>

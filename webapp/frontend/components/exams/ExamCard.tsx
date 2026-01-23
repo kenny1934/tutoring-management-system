@@ -8,7 +8,7 @@ import { RevisionSlotCard } from "./RevisionSlotCard";
 import { EnrollStudentModal } from "./EnrollStudentModal";
 import { EditRevisionSlotModal } from "./EditRevisionSlotModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
-import type { ExamWithRevisionSlots, ExamRevisionSlot } from "@/types";
+import type { ExamWithRevisionSlots, ExamRevisionSlot, SlotDefaults } from "@/types";
 import {
   ChevronDown,
   ChevronUp,
@@ -19,12 +19,6 @@ import {
   BookOpen,
   Loader2,
 } from "lucide-react";
-
-interface SlotDefaults {
-  tutor_id?: number;
-  location?: string;
-  notes?: string;
-}
 
 interface ExamCardProps {
   exam: ExamWithRevisionSlots;
@@ -64,7 +58,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
   const isPast = daysUntil < 0;
 
   // Get event type badge color
-  const getEventTypeBadge = () => {
+  const getEventTypeBadge = useCallback(() => {
     const type = exam.event_type?.toLowerCase() || "";
     if (type.includes("final") || type.includes("exam")) {
       return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
@@ -76,7 +70,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
       return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
     }
     return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
-  };
+  }, [exam.event_type]);
 
   // Handle enrollment in a slot
   const handleEnrollInSlot = useCallback((slot: ExamRevisionSlot) => {
