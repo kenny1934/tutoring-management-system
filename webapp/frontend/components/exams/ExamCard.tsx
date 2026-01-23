@@ -304,7 +304,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                       ? loadingEligible
                         ? "Loading eligible students..."
                         : `${eligibleStudents.length} eligible student${eligibleStudents.length !== 1 ? "s" : ""} not yet enrolled`
-                      : "View eligible students"}
+                      : `Eligible students (${exam.eligible_count})`}
                     {!location && showEligibleStudents && !loadingEligible && " (all locations)"}
                   </span>
                 </div>
