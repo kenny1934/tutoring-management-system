@@ -3,10 +3,10 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCalendarEvents, useExamsWithSlots } from "@/lib/hooks";
-import { CalendarEvent } from "@/types";
+import { useCalendarEvents, useExamsWithSlots, useHolidays } from "@/lib/hooks";
+import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { calendarAPI } from "@/lib/api";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
@@ -29,6 +29,7 @@ const EVENT_TYPE_COLORS: Record<string, { bg: string; text: string; dot: string 
   Test: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300", dot: "bg-red-500" },
   Exam: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", dot: "bg-purple-500" },
   Quiz: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300", dot: "bg-green-500" },
+  Holiday: { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-500 dark:text-rose-400", dot: "bg-rose-400" },
 };
 
 // Days until urgency colors
@@ -439,6 +440,24 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     return getMonthCalendarDates(currentMonth.getFullYear(), currentMonth.getMonth());
   }, [currentMonth]);
 
+  // Fetch holidays for visible date range
+  const holidayDateRange = useMemo(() => {
+    if (calendarDates.length === 0) return { from: "", to: "" };
+    return {
+      from: toDateString(calendarDates[0]),
+      to: toDateString(calendarDates[calendarDates.length - 1]),
+    };
+  }, [calendarDates]);
+
+  const { data: holidays = [] } = useHolidays(holidayDateRange.from, holidayDateRange.to);
+
+  // Create holiday lookup map for O(1) access
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, Holiday>();
+    holidays.forEach(h => map.set(h.holiday_date, h));
+    return map;
+  }, [holidays]);
+
   // Calculate days until for each event
   const eventsWithDaysUntil = useMemo(() => {
     const today = new Date();
@@ -459,6 +478,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   const selectedDateEvents = selectedDate
     ? (eventsByDate.get(selectedDate) || []).slice().sort((a, b) => a.title.localeCompare(b.title))
     : [];
+
+  // Get holiday for selected date
+  const selectedDateHoliday = selectedDate ? holidayMap.get(selectedDate) : undefined;
 
   // Navigation handlers
   const goToPrevMonth = () => {
@@ -625,11 +647,13 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             const isSelected = dateStr === selectedDate;
             const dayEvents = eventsByDate.get(dateStr) || [];
             const hasEvents = dayEvents.length > 0;
+            const holiday = holidayMap.get(dateStr);
 
             return (
               <button
                 key={i}
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                title={holiday?.holiday_name}
                 className={cn(
                   "relative h-8 rounded text-sm transition-colors",
                   isCurrentMonth
@@ -637,8 +661,10 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                     : "text-gray-400 dark:text-gray-600",
                   isToday && "font-bold",
                   isSelected && "bg-[#a0704b] text-white",
+                  !isSelected && holiday && "bg-rose-500/10",
                   !isSelected && hasEvents && "hover:bg-[#d4a574]/30",
-                  !isSelected && !hasEvents && "hover:bg-gray-100 dark:hover:bg-gray-800"
+                  !isSelected && !hasEvents && !holiday && "hover:bg-gray-100 dark:hover:bg-gray-800",
+                  !isSelected && holiday && "hover:bg-rose-500/20"
                 )}
               >
                 <span className={cn(
@@ -647,6 +673,13 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 )}>
                   {date.getDate()}
                 </span>
+
+                {/* Holiday indicator */}
+                {holiday && !isSelected && (
+                  <div className="absolute top-0.5 right-0.5">
+                    <CalendarDays className="h-2 w-2 text-rose-400" />
+                  </div>
+                )}
 
                 {/* Event dots */}
                 {hasEvents && !isSelected && (
@@ -695,9 +728,17 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
         {/* Content - either upcoming or selected date events */}
         <div className="flex-1 overflow-y-auto min-h-0">
-          {selectedDate && selectedDateEvents.length > 0 ? (
-            /* Show selected date events */
-            <div className="divide-y divide-gray-100 dark:divide-gray-800 p-2 space-y-1.5">
+          {selectedDate && (selectedDateEvents.length > 0 || selectedDateHoliday) ? (
+            /* Show selected date events and/or holiday */
+            <div className="p-2 space-y-1.5">
+              {/* Holiday banner */}
+              {selectedDateHoliday && (
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400">
+                  <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="text-xs font-medium">{selectedDateHoliday.holiday_name || "Holiday"}</span>
+                </div>
+              )}
+              {/* Events */}
               {selectedDateEvents.map((event) => (
                 <TestItemPopover
                   key={event.id}
@@ -708,8 +749,8 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 />
               ))}
             </div>
-          ) : selectedDate && selectedDateEvents.length === 0 ? (
-            /* Selected date has no events */
+          ) : selectedDate && selectedDateEvents.length === 0 && !selectedDateHoliday ? (
+            /* Selected date has no events and no holiday */
             <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
               No events on this date
             </div>
