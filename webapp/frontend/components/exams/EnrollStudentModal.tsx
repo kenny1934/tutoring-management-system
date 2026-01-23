@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
+import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import type { ExamRevisionSlot, EligibleStudent } from "@/types";
@@ -35,6 +36,7 @@ export function EnrollStudentModal({
   onEnrolled,
   showLocationPrefix,
 }: EnrollStudentModalProps) {
+  const { showToast } = useToast();
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
   );
@@ -83,11 +85,16 @@ export function EnrollStudentModal({
     setEnrollingStudent(student.student_id);
 
     try {
-      await examRevisionAPI.enrollStudent(slot.id, {
+      const response = await examRevisionAPI.enrollStudent(slot.id, {
         student_id: student.student_id,
         consume_session_id: sessionId,
         created_by: currentUserEmail,
       });
+
+      // Show warning if there's a student time conflict
+      if (response.warning) {
+        showToast(response.warning, "info");
+      }
 
       setSuccessMessage(`${student.student_name} enrolled successfully!`);
       setExpandedStudentId(null);

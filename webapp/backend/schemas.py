@@ -929,6 +929,7 @@ class EnrollStudentResponse(BaseModel):
     """Response after enrolling a student"""
     revision_session: SessionResponse
     consumed_session: SessionResponse
+    warning: Optional[str] = Field(None, description="Warning about conflicts (e.g., student time conflicts)")
 
 
 class ExamWithRevisionSlotsResponse(BaseModel):
