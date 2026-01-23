@@ -194,7 +194,7 @@ export function useEnrollment(id: number | null | undefined) {
   return useSWR<Enrollment>(
     id ? ['enrollment', id] : null,
     () => enrollmentsAPI.getById(id!),
-    { revalidateOnFocus: false }  // Enrollment data rarely changes, skip refocus revalidation
+    { revalidateOnFocus: false, revalidateIfStale: false }  // Only fetch when modal opens, not on page load
   );
 }
 
