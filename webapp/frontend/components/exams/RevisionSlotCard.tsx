@@ -163,7 +163,8 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             onClick={onEnroll}
             className={cn(
               "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors",
-              "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400"
+              "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400",
+              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
             )}
           >
             <UserPlus className="h-3 w-3" />
@@ -171,14 +172,14 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
           </button>
           <button
             onClick={onEdit}
-            className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
+            className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
             title="Edit slot"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onDuplicate}
-            className="p-1.5 text-gray-400 hover:text-purple-500 transition-colors"
+            className="p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
             title="Duplicate slot"
           >
             <Copy className="h-3.5 w-3.5" />
@@ -187,7 +188,8 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
             onClick={handleDeleteClick}
             disabled={isDeleting}
             className={cn(
-              "p-1.5 text-gray-400 hover:text-red-500 transition-colors",
+              "p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
+              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
             title={slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
@@ -209,9 +211,15 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
               <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
             </div>
           ) : slotDetail?.enrolled_students.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
-              No students enrolled yet. Click &quot;Enroll&quot; above to add students.
-            </p>
+            <div className="flex flex-col items-center justify-center py-6 text-center">
+              <Users className="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No students enrolled yet
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                Click &quot;Enroll&quot; to add students to this revision slot
+              </p>
+            </div>
           ) : (
             <div className="space-y-1">
               <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">

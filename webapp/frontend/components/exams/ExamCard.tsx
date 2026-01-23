@@ -262,7 +262,8 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                 }}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-                  "bg-[#a0704b] hover:bg-[#8a5f3e] text-white"
+                  "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",
+                  "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
                 )}
               >
                 <Plus className="h-4 w-4" />
@@ -272,8 +273,14 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
 
             {/* Slots */}
             {exam.revision_slots.length === 0 ? (
-              <div className="text-center py-6 text-sm text-gray-500 dark:text-gray-400">
-                No revision slots created yet
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <BookOpen className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No revision slots created yet
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  Click &quot;Create Slot&quot; to schedule a revision session
+                </p>
               </div>
             ) : (
               <div className="space-y-2">

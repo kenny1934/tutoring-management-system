@@ -15,6 +15,7 @@ import {
   Calendar,
   Clock,
   User,
+  Users,
   AlertCircle,
   CheckCircle,
   ChevronDown,
@@ -208,6 +209,7 @@ export function EnrollStudentModal({
               placeholder="Search students..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search students"
               className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
             />
           </div>
@@ -220,12 +222,18 @@ export function EnrollStudentModal({
               <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
             </div>
           ) : filteredStudents.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Users className="h-10 w-10 text-gray-300 dark:text-gray-600 mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {searchQuery
                   ? "No matching students found"
-                  : "No eligible students for this revision slot. Eligible students must match the exam's school/grade criteria and have pending sessions at this location."}
+                  : "No eligible students for this revision slot"}
               </p>
+              {!searchQuery && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-xs">
+                  Eligible students must match the exam&apos;s school/grade criteria and have pending sessions at this location
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
