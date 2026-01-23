@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { api } from "@/lib/api";
 import { SchoolAccent } from "@/components/illustrations/CardAccents";
 import { useLocation } from "@/contexts/LocationContext";
-import type { Enrollment } from "@/types";
+import { useAllStudents } from "@/lib/hooks";
 
 // Warm sepia palette matching dashboard theme
 const COLORS = [
@@ -25,32 +24,13 @@ const TOP_N = 6; // Show top 6 schools, group rest as "Others"
 export function SchoolDistributionChart() {
   const router = useRouter();
   const { selectedLocation } = useLocation();
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: enrollments = [], isLoading: loading, error } = useAllStudents(selectedLocation);
 
   // Handle click on pie slice - navigate to students page with school filter
   const handleSliceClick = (data: { name: string }) => {
     if (data.name === "Unknown" || data.name === "Others") return;
     router.push(`/students?school=${encodeURIComponent(data.name)}`);
   };
-
-  useEffect(() => {
-    async function fetchEnrollments() {
-      try {
-        setLoading(true);
-        const data = await api.enrollments.getActive(selectedLocation);
-        setEnrollments(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load data");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchEnrollments();
-  }, [selectedLocation]);
 
   const chartData = useMemo(() => {
     const schoolCounts: Record<string, number> = {};
@@ -94,7 +74,7 @@ export function SchoolDistributionChart() {
         </div>
       ) : error ? (
         <div className="h-[250px] flex items-center justify-center">
-          <div className="text-center text-red-500 dark:text-red-400 text-sm">Error: {error}</div>
+          <div className="text-center text-red-500 dark:text-red-400 text-sm">Error: {error?.message}</div>
         </div>
       ) : chartData.length === 0 ? (
         <div className="h-[250px] flex items-center justify-center">
