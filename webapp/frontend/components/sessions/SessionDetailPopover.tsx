@@ -724,6 +724,24 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {/* Enrollment */}
+          {session.enrollment_id && (
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Enrollment:</span>
+              <Link
+                href={`/enrollments/${session.enrollment_id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate?.();
+                  onClose();
+                }}
+                className="font-medium text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
+              >
+                #{session.enrollment_id}
+              </Link>
+            </div>
+          )}
+
           {session.financial_status && (
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Payment:</span>
