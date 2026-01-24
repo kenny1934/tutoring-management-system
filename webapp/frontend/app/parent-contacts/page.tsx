@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -21,7 +22,6 @@ import { parentCommunicationsAPI, type ParentCommunication, type StudentContactS
 import { Users, Plus, Loader2, RefreshCw, LayoutList, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
-import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 
 export default function ParentContactsPage() {
   usePageTitle("Parent Contacts");
@@ -32,6 +32,15 @@ export default function ParentContactsPage() {
   const { viewMode } = useRole();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
+  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+
+  // Calculate current tutor ID (respects impersonation)
+  const currentTutorId = useMemo(() => {
+    if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id;
+  }, [isImpersonating, effectiveRole, impersonatedTutor?.id, user?.id]);
 
   // State from URL params
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(() => {
@@ -116,17 +125,19 @@ export default function ParentContactsPage() {
     { revalidateOnFocus: false }
   );
 
-  // Auto-select first tutor for tutor view mode
+  // Force tutor ID based on role
   useEffect(() => {
-    if (viewMode === 'my-view' && selectedTutorId === null && tutors.length > 0) {
-      const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
-        : tutors;
-      if (filteredTutors.length > 0) {
-        setSelectedTutorId(filteredTutors[0].id);
-      }
+    if (!isAdmin && currentTutorId) {
+      // Non-admins always see their own data
+      setSelectedTutorId(currentTutorId);
+    } else if (isAdmin && viewMode === 'my-view' && currentTutorId) {
+      // Admins in my-view default to their own data
+      setSelectedTutorId(currentTutorId);
+    } else if (isAdmin && viewMode === 'center-view') {
+      // Admins in center-view reset to all tutors
+      setSelectedTutorId(ALL_TUTORS);
     }
-  }, [selectedTutorId, tutors, effectiveLocation, viewMode]);
+  }, [isAdmin, viewMode, currentTutorId]);
 
   // Detect mobile
   useEffect(() => {
@@ -265,7 +276,6 @@ export default function ParentContactsPage() {
 
   return (
     <DeskSurface fullHeight>
-      <AdminPageGuard accessDeniedMessage="Admin access required to view parent contacts">
       <PageTransition className="flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden">
           {/* Toolbar */}
@@ -282,8 +292,8 @@ export default function ParentContactsPage() {
 
                 <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-                {/* Tutor Selector - show for center-view (admin mode) */}
-                {viewMode === 'center-view' && (
+                {/* Tutor Selector - show for admins only */}
+                {isAdmin && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -482,7 +492,6 @@ export default function ParentContactsPage() {
         variant="danger"
         loading={isDeleting}
       />
-      </AdminPageGuard>
     </DeskSurface>
   );
 }
