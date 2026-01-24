@@ -192,6 +192,7 @@ class SessionLog(Base):
     tutor = relationship("Tutor", back_populates="sessions")
     exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
     exam_revision_slot = relationship("ExamRevisionSlot", back_populates="sessions")
+    extension_request = relationship("ExtensionRequest", back_populates="session", uselist=False)
 
 
 class Holiday(Base):
@@ -261,7 +262,7 @@ class ExtensionRequest(Base):
     session_rescheduled = Column(Boolean, default=False, comment='Whether the session was rescheduled as part of approval')
 
     # Relationships
-    session = relationship("SessionLog", foreign_keys=[session_id])
+    session = relationship("SessionLog", foreign_keys=[session_id], back_populates="extension_request")
     enrollment = relationship("Enrollment", foreign_keys=[enrollment_id])
     target_enrollment = relationship("Enrollment", foreign_keys=[target_enrollment_id])
     student = relationship("Student", foreign_keys=[student_id])

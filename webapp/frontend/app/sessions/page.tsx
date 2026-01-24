@@ -1788,6 +1788,9 @@ export default function SessionsPage() {
                                             {session.exam_revision_slot_id && (
                                               <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" title="Exam Revision" />
                                             )}
+                                            {session.extension_request_id && (
+                                              <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+                                            )}
                                           </div>
 
                                           {/* Action buttons */}
@@ -2046,6 +2049,9 @@ export default function SessionsPage() {
                                       )}
                                       {session.exam_revision_slot_id && (
                                         <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" title="Exam Revision" />
+                                      )}
+                                      {session.extension_request_id && (
+                                        <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" title={`Extension ${session.extension_request_status}`} />
                                       )}
                                       {session.financial_status !== "Paid" && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">

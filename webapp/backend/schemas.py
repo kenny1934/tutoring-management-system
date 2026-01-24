@@ -192,6 +192,8 @@ class SessionResponse(SessionBase):
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)
     exam_revision_slot_id: Optional[int] = Field(None, gt=0, description="Links session to exam revision slot")
+    extension_request_id: Optional[int] = Field(None, gt=0, description="ID of extension request for this session")
+    extension_request_status: Optional[str] = Field(None, max_length=50, description="Status: Pending, Approved, Rejected")
     rescheduled_to: Optional[LinkedSessionInfo] = None
     make_up_for: Optional[LinkedSessionInfo] = None
     exercises: List["SessionExerciseResponse"] = []

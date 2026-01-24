@@ -807,6 +807,48 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                   )}
                 </motion.div>
               )}
+
+              {/* Exam Revision Badge */}
+              {session.exam_revision_slot_id && (
+                <>
+                  <span className="text-white/50">•</span>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.5, duration: 0.25, ease: [0.38, 1.21, 0.22, 1.00] }}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/80 text-white"
+                    title="Exam Revision Session"
+                  >
+                    <GraduationCap className="h-3 w-3" />
+                    <span className="hidden sm:inline">Exam Revision</span>
+                  </motion.div>
+                </>
+              )}
+
+              {/* Extension Request Badge */}
+              {session.extension_request_id && (
+                <>
+                  <span className="text-white/50">•</span>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.5, duration: 0.25, ease: [0.38, 1.21, 0.22, 1.00] }}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                      session.extension_request_status === "Pending"
+                        ? "bg-amber-500/80 text-white"
+                        : session.extension_request_status === "Approved"
+                        ? "bg-green-500/80 text-white"
+                        : "bg-red-500/80 text-white"
+                    )}
+                    title={`Extension Request: ${session.extension_request_status}`}
+                  >
+                    <Clock className="h-3 w-3" />
+                    <span className="hidden sm:inline">Extension {session.extension_request_status}</span>
+                    <span className="sm:hidden">{session.extension_request_status}</span>
+                  </motion.div>
+                </>
+              )}
             </motion.div>
           </div>
 

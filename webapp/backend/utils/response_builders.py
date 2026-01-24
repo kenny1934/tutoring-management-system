@@ -32,6 +32,10 @@ def build_session_response(session: SessionLog) -> SessionResponse:
         SessionExerciseResponse.model_validate(ex)
         for ex in session.exercises
     ] if session.exercises else []
+    # Extension request info (if exists)
+    if session.extension_request:
+        data.extension_request_id = session.extension_request.id
+        data.extension_request_status = session.extension_request.request_status
     return data
 
 

@@ -8,7 +8,7 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -34,9 +34,10 @@ const getTodayString = (): string => {
 interface TodaySessionsCardProps {
   className?: string;
   isMobile?: boolean;
+  tutorId?: number;
 }
 
-export function TodaySessionsCard({ className, isMobile = false }: TodaySessionsCardProps) {
+export function TodaySessionsCard({ className, isMobile = false, tutorId }: TodaySessionsCardProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
   const todayString = getTodayString();
@@ -47,6 +48,7 @@ export function TodaySessionsCard({ className, isMobile = false }: TodaySessions
   const { data: sessions = [], isLoading } = useSessions({
     date: todayString,
     location: selectedLocation === "All Locations" ? undefined : selectedLocation,
+    tutor_id: tutorId,  // Filter by tutor in "My View" mode
     limit: 500,  // Ensure all daily sessions are fetched (default is 100)
   });
 
@@ -476,6 +478,16 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
               <HandCoins className="h-2.5 w-2.5" />
               <span className="hidden xs:inline">Unpaid</span>
             </span>
+          )}
+
+          {/* Exam Revision indicator */}
+          {session.exam_revision_slot_id && (
+            <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+          )}
+
+          {/* Extension Request indicator */}
+          {session.extension_request_id && (
+            <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
           )}
         </div>
 
