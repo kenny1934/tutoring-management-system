@@ -6,7 +6,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
-import { useTutors, useHolidays, useEnrollment } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { sessionsAPI, proposalsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
@@ -190,6 +191,8 @@ interface SuggestionCardProps {
   weights: ScoringWeights;
   isSaving: boolean;
   isPastDeadline?: boolean;
+  is60DayExceeded?: boolean;
+  isSuperAdmin?: boolean;
   onRequestExtension?: () => void;
 }
 
@@ -204,6 +207,8 @@ const SuggestionCard = React.memo(function SuggestionCard({
   weights,
   isSaving,
   isPastDeadline,
+  is60DayExceeded,
+  isSuperAdmin,
   onRequestExtension,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
@@ -285,27 +290,62 @@ const SuggestionCard = React.memo(function SuggestionCard({
 
           {/* Book / Add to Proposal Button */}
           {mode === "propose" ? (
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAddToProposal?.();
-              }}
-              disabled={!canAddMore}
-              className="w-full h-8 text-xs"
-              variant={canAddMore ? "default" : "outline"}
-            >
-              {canAddMore ? (
-                <>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add to Proposal
-                </>
-              ) : (
-                "3 Slots Selected"
+            <>
+              {is60DayExceeded && (
+                <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                  <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                  </div>
+                </div>
               )}
-            </Button>
+              {isPastDeadline && (
+                <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    <span>Past enrollment deadline</span>
+                  </div>
+                </div>
+              )}
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToProposal?.();
+                }}
+                disabled={!canAddMore || (is60DayExceeded && !isSuperAdmin) || isPastDeadline}
+                className="w-full h-8 text-xs"
+                variant={canAddMore && !(is60DayExceeded && !isSuperAdmin) && !isPastDeadline ? "default" : "outline"}
+              >
+                {is60DayExceeded && !isSuperAdmin ? (
+                  "Past 60-day limit"
+                ) : isPastDeadline ? (
+                  "Past deadline"
+                ) : canAddMore ? (
+                  <>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add to Proposal
+                  </>
+                ) : (
+                  "3 Slots Selected"
+                )}
+              </Button>
+            </>
           ) : (
             <>
+              {is60DayExceeded && (
+                <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                  <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                  </div>
+                  <div className={`mt-1 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} text-[10px]`}>
+                    {isSuperAdmin
+                      ? 'Super Admin can proceed despite 60-day limit.'
+                      : 'Makeups must be scheduled within 60 days of the original session.'}
+                  </div>
+                </div>
+              )}
               {isPastDeadline && (
                 <div className="mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
                   <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
@@ -331,7 +371,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isSaving || isPastDeadline}
+                disabled={isSaving || isPastDeadline || (is60DayExceeded && !isSuperAdmin)}
                 className="w-full h-8 text-xs"
               >
                 {isSaving ? (
@@ -371,6 +411,8 @@ interface ScheduleMakeupModalProps {
   initialDate?: string;
   /** Pre-fill time slot when opening */
   initialTimeSlot?: string;
+  /** When true, pre-fills notes with "Rescheduled via extension request" */
+  viaExtensionRequest?: boolean;
 }
 
 export function ScheduleMakeupModal({
@@ -382,18 +424,53 @@ export function ScheduleMakeupModal({
   onProposed,
   initialDate,
   initialTimeSlot,
+  viaExtensionRequest,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
+  const { effectiveRole } = useAuth();
+  const isSuperAdmin = effectiveRole === "Super Admin";
   const { data: tutors } = useTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
-  const effectiveEndDate = enrollment?.effective_end_date;
+
+  // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
+  // This is needed for cross-enrollment makeups: when a session from old enrollment A needs
+  // to be scheduled, the deadline should be checked against the student's current enrollment B
+  const { data: studentEnrollments } = useStudentEnrollments(session.student_id);
+  const currentEnrollment = useMemo(() => {
+    if (!studentEnrollments) return null;
+    // Filter to Regular enrollments only, then find the latest by first_lesson_date
+    const regularEnrollments = studentEnrollments.filter(e => e.enrollment_type === 'Regular');
+    if (regularEnrollments.length === 0) return null;
+    return regularEnrollments.reduce((latest, e) => {
+      if (!latest) return e;
+      if (!e.first_lesson_date) return latest;
+      if (!latest.first_lesson_date) return e;
+      return e.first_lesson_date > latest.first_lesson_date ? e : latest;
+    }, null as typeof regularEnrollments[0] | null);
+  }, [studentEnrollments]);
+
+  // Use current enrollment for deadline checks (cross-enrollment aware)
+  const effectiveEndDate = currentEnrollment?.effective_end_date;
   const today = getToday();
+
+  // 60-day makeup restriction
+  // Use root_original_session_date from API (computed on backend by tracing makeup chain)
+  // Falls back to session.session_date if not available
+  const rootOriginalDate = session.root_original_session_date || session.session_date;
+
+  // Calculate the last allowed date (60 days from original)
+  const lastAllowedDate60Day = useMemo(() => {
+    if (!rootOriginalDate) return null;
+    const d = new Date(rootOriginalDate + 'T00:00:00');
+    d.setDate(d.getDate() + 60);
+    return d.toISOString().split('T')[0];
+  }, [rootOriginalDate]);
 
   // Form selection state
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [selectedTutorId, setSelectedTutorId] = useState<number | null>(null);
-  const [makeupNotes, setMakeupNotes] = useState("");
+  const [makeupNotes, setMakeupNotes] = useState(viaExtensionRequest ? "Rescheduled via extension request" : "");
 
   // Propose mode state
   const [mode, setMode] = useState<"book" | "propose">("book");
@@ -450,26 +527,49 @@ export function ScheduleMakeupModal({
   // Early deadline warning - ONLY for regular slot past deadline
   // Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
   // past the enrollment end date. Non-regular slots are allowed past deadline.
+  // Uses CURRENT enrollment (not session's enrollment) for cross-enrollment makeups.
   const earlyDeadlineWarning = useMemo(() => {
     if (!selectedDate || !effectiveEndDate) return false;
     if (selectedDate <= effectiveEndDate) return false; // Not past deadline
 
-    // Check if this is the regular slot
+    // Check if this is the regular slot (of the CURRENT enrollment)
     const selectedDayName = getDayName(selectedDate);
-    const isRegularDay = selectedDayName === enrollment?.assigned_day;
-    const isRegularTime = selectedTimeSlot === enrollment?.assigned_time;
+    const isRegularDay = selectedDayName === currentEnrollment?.assigned_day;
+    const isRegularTime = selectedTimeSlot === currentEnrollment?.assigned_time;
 
     return isRegularDay && isRegularTime;
-  }, [selectedDate, effectiveEndDate, selectedTimeSlot, enrollment?.assigned_day, enrollment?.assigned_time]);
+  }, [selectedDate, effectiveEndDate, selectedTimeSlot, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
   // Check if a suggestion would violate the regular slot deadline
+  // Uses CURRENT enrollment (not session's enrollment) for cross-enrollment makeups.
   const isSuggestionPastDeadline = useCallback((suggestion: MakeupSlotSuggestion) => {
-    if (!effectiveEndDate || !enrollment?.assigned_day || !enrollment?.assigned_time) return false;
+    if (!effectiveEndDate || !currentEnrollment?.assigned_day || !currentEnrollment?.assigned_time) return false;
     if (suggestion.session_date <= effectiveEndDate) return false;
 
     const dayName = getDayName(suggestion.session_date);
-    return dayName === enrollment.assigned_day && suggestion.time_slot === enrollment.assigned_time;
-  }, [effectiveEndDate, enrollment?.assigned_day, enrollment?.assigned_time]);
+    return dayName === currentEnrollment.assigned_day && suggestion.time_slot === currentEnrollment.assigned_time;
+  }, [effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
+
+  // 60-day rule check for selected date
+  const is60DayExceeded = useMemo(() => {
+    if (!selectedDate || !lastAllowedDate60Day) return false;
+    return selectedDate > lastAllowedDate60Day;
+  }, [selectedDate, lastAllowedDate60Day]);
+
+  // Check if a suggestion would violate the 60-day rule
+  const isSuggestion60DayExceeded = useCallback((suggestion: MakeupSlotSuggestion) => {
+    if (!lastAllowedDate60Day) return false;
+    return suggestion.session_date > lastAllowedDate60Day;
+  }, [lastAllowedDate60Day]);
+
+  // Check if a date/slot would be blocked (for day picker panel)
+  const isSlotBlocked = useCallback((date: string, slotTimeSlot: string) => {
+    const exceeds60Day = !!(lastAllowedDate60Day && date > lastAllowedDate60Day);
+    const dayName = getDayName(date);
+    const pastDeadline = !!(effectiveEndDate && date > effectiveEndDate &&
+      dayName === currentEnrollment?.assigned_day && slotTimeSlot === currentEnrollment?.assigned_time);
+    return { exceeds60Day, pastDeadline };
+  }, [lastAllowedDate60Day, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
 
@@ -682,9 +782,13 @@ export function ScheduleMakeupModal({
       const availableSpots = totalCapacity - totalStudents;
 
       // Only mark as past deadline if it's the regular day AND past deadline
+      // Uses CURRENT enrollment for cross-enrollment makeups
       const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-      const isRegularDay = dayName === enrollment?.assigned_day;
+      const isRegularDay = dayName === currentEnrollment?.assigned_day;
       const isPastDeadline = effectiveEndDate && isRegularDay ? dateString > effectiveEndDate : false;
+
+      // 60-day rule: check if date is more than 60 days from root original session
+      const isPast60Days = lastAllowedDate60Day ? dateString > lastAllowedDate60Day : false;
 
       return {
         date,
@@ -694,6 +798,7 @@ export function ScheduleMakeupModal({
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
         isHoliday: holidayDates.has(dateString),
         isPastDeadline,
+        isPast60Days,
         isSelected: dateString === selectedDate,
         sessions: displaySessions,
         sessionCount: displaySessions.length,
@@ -705,7 +810,7 @@ export function ScheduleMakeupModal({
         availableSpots,
       };
     });
-  }, [viewDate, sessionsByDate, today, holidayDates, effectiveEndDate, enrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots]);
+  }, [viewDate, sessionsByDate, today, holidayDates, effectiveEndDate, currentEnrollment?.assigned_day, selectedDate, showAllTutors, selectedTutorId, filterTimeSlots, lastAllowedDate60Day]);
 
   // Get the effective time slot
   const effectiveTimeSlot = useCustomTime
@@ -1114,7 +1219,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning}>
+            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1465,6 +1570,8 @@ export function ScheduleMakeupModal({
                         weights={weights}
                         isSaving={isSaving}
                         isPastDeadline={isSuggestionPastDeadline(suggestion)}
+                        is60DayExceeded={isSuggestion60DayExceeded(suggestion)}
+                        isSuperAdmin={isSuperAdmin}
                         onRequestExtension={() => setShowExtensionModal(true)}
                       />
                     );
@@ -1589,14 +1696,21 @@ export function ScheduleMakeupModal({
                         !isFirstCol && "border-l",
                         !dayData.isCurrentMonth && "bg-gray-50 dark:bg-[#1f1f1f] opacity-40",
                         dayData.isHoliday && "bg-rose-50 dark:bg-rose-900/10 cursor-not-allowed",
-                        !dayData.isHoliday && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
+                        !dayData.isHoliday && dayData.isPast60Days && "bg-red-50 dark:bg-red-900/20",
+                        !dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && "bg-amber-50 dark:bg-amber-900/20",
                         dayData.isSelected && "ring-2 ring-inset ring-[#a0704b] dark:ring-[#cd853f] bg-[#f5ede3] dark:bg-[#3d3628]",
                         !dayData.isSelected && !dayData.isHoliday && dayData.isCurrentMonth && "hover:bg-[#fef9f3] dark:hover:bg-[#2d2618]",
                         dayData.isToday && "ring-1 ring-inset ring-blue-400"
                       )}
                     >
+                      {/* 60-day exceeded indicator - takes priority over deadline */}
+                      {!dayData.isHoliday && dayData.isPast60Days && dayData.isCurrentMonth && (
+                        <div className="absolute top-0.5 right-0.5" title="Past 60-day makeup limit">
+                          <AlertTriangle className="h-2.5 w-2.5 text-red-500" />
+                        </div>
+                      )}
                       {/* Past deadline indicator */}
-                      {!dayData.isHoliday && dayData.isPastDeadline && dayData.isCurrentMonth && (
+                      {!dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && dayData.isCurrentMonth && (
                         <div className="absolute top-0.5 right-0.5" title="Past enrollment deadline">
                           <AlertTriangle className="h-2.5 w-2.5 text-amber-500" />
                         </div>
@@ -1606,8 +1720,9 @@ export function ScheduleMakeupModal({
                         "text-[10px] font-semibold",
                         dayData.isToday && "text-blue-500",
                         dayData.isHoliday && "text-rose-500",
-                        !dayData.isHoliday && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
-                        !dayData.isToday && !dayData.isHoliday && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
+                        !dayData.isHoliday && dayData.isPast60Days && "text-red-600 dark:text-red-400",
+                        !dayData.isHoliday && !dayData.isPast60Days && dayData.isPastDeadline && "text-amber-600 dark:text-amber-400",
+                        !dayData.isToday && !dayData.isHoliday && !dayData.isPast60Days && !dayData.isPastDeadline && dayData.isCurrentMonth && "text-[#5d4e37] dark:text-[#e8d4b8]"
                       )}>
                         {dayData.date.getDate()}
                       </div>
@@ -1669,6 +1784,56 @@ export function ScheduleMakeupModal({
               )}
             </div>
 
+            {/* 60-day makeup limit warning - Super Admin can override */}
+            {is60DayExceeded && (
+              <div className={cn(
+                "p-3 border rounded-lg",
+                isSuperAdmin
+                  ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700"
+                  : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700"
+              )}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className={cn(
+                    "h-4 w-4 mt-0.5 flex-shrink-0",
+                    isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                  )} />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      "text-sm",
+                      isSuperAdmin ? "text-orange-800 dark:text-orange-200" : "text-red-800 dark:text-red-200"
+                    )}>
+                      {isSuperAdmin
+                        ? "Super Admin Override: Exceeds 60-day limit"
+                        : "This date exceeds the 60-day makeup limit"}
+                    </p>
+                    <p className={cn(
+                      "text-xs mt-0.5",
+                      isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
+                    )}>
+                      Makeups must be scheduled within 60 days of the original session ({rootOriginalDate}).
+                      Last allowed date: {lastAllowedDate60Day}
+                      {isSuperAdmin && " — You can proceed as Super Admin."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedDate("")}
+                    className={cn(
+                      "text-xs",
+                      isSuperAdmin
+                        ? "text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800"
+                        : "text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800"
+                    )}
+                  >
+                    Pick Different Date
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Early deadline warning - shown when scheduling to regular slot past deadline */}
             {earlyDeadlineWarning && !deadlineError && (
               <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
@@ -1676,7 +1841,7 @@ export function ScheduleMakeupModal({
                   <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-amber-800 dark:text-amber-200">
-                      This is the student&apos;s regular slot ({enrollment?.assigned_day} {enrollment?.assigned_time}) past the enrollment deadline
+                      This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
                     </p>
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                       Enrollment ends: {effectiveEndDate}
@@ -1844,11 +2009,15 @@ export function ScheduleMakeupModal({
                     location,
                   });
                 }}
-                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8}
+                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (is60DayExceeded && !isSuperAdmin) || earlyDeadlineWarning}
                 className="w-full"
-                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 ? "default" : "outline"}
+                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(is60DayExceeded && !isSuperAdmin) && !earlyDeadlineWarning ? "default" : "outline"}
               >
-                {proposalSlots.length >= 3 ? (
+                {is60DayExceeded && !isSuperAdmin ? (
+                  "Past 60-day limit"
+                ) : earlyDeadlineWarning ? (
+                  "Past deadline"
+                ) : proposalSlots.length >= 3 ? (
                   "3 Slots Selected"
                 ) : studentsInSlot.length >= 8 ? (
                   "Slot is Full"
@@ -1938,6 +2107,8 @@ export function ScheduleMakeupModal({
                         {slotTutors.map(({ tutorId, tutorName, studentCount, sessions }) => {
                           const isSelected = selectedDayPickerSlot?.timeSlot === timeSlot && selectedDayPickerSlot?.tutorId === tutorId;
                           const isFull = studentCount >= 8;
+                          // Compute block status for this slot
+                          const slotBlockStatus = dayPickerDate ? isSlotBlocked(dayPickerDate, timeSlot) : { exceeds60Day: false, pastDeadline: false };
 
                           return (
                             <div
@@ -2014,28 +2185,47 @@ export function ScheduleMakeupModal({
                               </div>
 
                               {/* Book / Add to Proposal Button - Shown when selected */}
-                              {isSelected && (
+                              {isSelected && dayPickerDate && (
                                 <div className="px-2.5 pb-2.5 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#fef9f3] dark:bg-[#2d2618]">
+                                  {/* Warning banners */}
+                                  {slotBlockStatus.exceeds60Day && (
+                                    <div className={`mt-2 mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
+                                      <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
+                                        <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                                        <span>{isSuperAdmin ? 'Override: Past 60-day limit' : 'Past 60-day makeup limit'}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {slotBlockStatus.pastDeadline && (
+                                    <div className="mt-2 mb-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
+                                      <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                                        <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                                        <span>Past enrollment deadline</span>
+                                      </div>
+                                    </div>
+                                  )}
                                   {mode === "propose" ? (
                                     <Button
                                       size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (dayPickerDate) {
-                                          addProposalSlot({
-                                            date: dayPickerDate,
-                                            timeSlot,
-                                            tutorId,
-                                            tutorName,
-                                            location,
-                                          });
-                                        }
+                                        addProposalSlot({
+                                          date: dayPickerDate,
+                                          timeSlot,
+                                          tutorId,
+                                          tutorName,
+                                          location,
+                                        });
                                       }}
-                                      disabled={proposalSlots.length >= 3 || isFull}
+                                      disabled={proposalSlots.length >= 3 || isFull || (slotBlockStatus.exceeds60Day && !isSuperAdmin) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
-                                      variant={proposalSlots.length < 3 && !isFull ? "default" : "outline"}
+                                      variant={proposalSlots.length < 3 && !isFull && !(slotBlockStatus.exceeds60Day && !isSuperAdmin) && !slotBlockStatus.pastDeadline ? "default" : "outline"}
                                     >
-                                      {proposalSlots.length >= 3 ? (
+                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? (
+                                        "Past 60-day limit"
+                                      ) : slotBlockStatus.pastDeadline ? (
+                                        "Past deadline"
+                                      ) : proposalSlots.length >= 3 ? (
                                         "3 Slots Selected"
                                       ) : isFull ? (
                                         "Slot is Full"
@@ -2053,7 +2243,7 @@ export function ScheduleMakeupModal({
                                         e.stopPropagation();
                                         setConfirmBooking({ timeSlot, tutorId, tutorName });
                                       }}
-                                      disabled={isSaving || isFull}
+                                      disabled={isSaving || isFull || (slotBlockStatus.exceeds60Day && !isSuperAdmin) || slotBlockStatus.pastDeadline}
                                       className="w-full mt-2 h-8 text-xs"
                                     >
                                       {isSaving ? (
@@ -2061,7 +2251,7 @@ export function ScheduleMakeupModal({
                                       ) : (
                                         <Check className="h-3 w-3 mr-1" />
                                       )}
-                                      {isFull ? "Slot is Full" : "Book This Slot"}
+                                      {slotBlockStatus.exceeds60Day && !isSuperAdmin ? "Past 60-day limit" : slotBlockStatus.pastDeadline ? "Past deadline" : isFull ? "Slot is Full" : "Book This Slot"}
                                     </Button>
                                   )}
                                 </div>
