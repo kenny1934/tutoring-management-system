@@ -9,6 +9,7 @@ from typing import List, Optional
 from decimal import Decimal
 from database import get_db
 from models import Tutor
+from auth.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -47,15 +48,27 @@ def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
 
 @router.get("/revenue/monthly-summary")
 async def get_monthly_revenue_summary(
-    tutor_id: int = Query(..., gt=0, description="Tutor ID"),
+    tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get monthly revenue summary for a tutor.
 
     Returns combined salary data: basic_salary + session revenue.
+
+    Non-admins can only view their own revenue (tutor_id is ignored).
+    Admins can view any tutor's revenue.
     """
+    is_admin = current_user.role in ('Admin', 'Super Admin')
+
+    # Non-admins can only see their own revenue
+    if not is_admin:
+        tutor_id = current_user.id
+    elif tutor_id is None:
+        tutor_id = current_user.id
+
     # Get tutor's basic salary
     tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
     if not tutor:
@@ -102,15 +115,27 @@ async def get_monthly_revenue_summary(
 
 @router.get("/revenue/session-details")
 async def get_session_revenue_details(
-    tutor_id: int = Query(..., gt=0, description="Tutor ID"),
+    tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get session-level revenue details for a tutor in a given month.
 
     Returns list of individual sessions with revenue breakdown.
+
+    Non-admins can only view their own revenue details (tutor_id is ignored).
+    Admins can view any tutor's details.
     """
+    is_admin = current_user.role in ('Admin', 'Super Admin')
+
+    # Non-admins can only see their own revenue
+    if not is_admin:
+        tutor_id = current_user.id
+    elif tutor_id is None:
+        tutor_id = current_user.id
+
     # Verify tutor exists
     tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
     if not tutor:

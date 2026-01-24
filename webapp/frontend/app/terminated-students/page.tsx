@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 
 // Type for pending changes
 interface PendingChange {
@@ -288,6 +289,7 @@ export default function TerminatedStudentsPage() {
 
   return (
     <DeskSurface>
+      <AdminPageGuard accessDeniedMessage="Admin access required to view terminated students">
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
@@ -634,6 +636,7 @@ export default function TerminatedStudentsPage() {
           </div>
         )}
       </PageTransition>
+      </AdminPageGuard>
     </DeskSurface>
   );
 }

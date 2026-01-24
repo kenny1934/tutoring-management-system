@@ -13,6 +13,7 @@ from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompleti
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
 from datetime import date, timedelta, datetime
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
+from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -290,6 +291,7 @@ async def get_session_detail(
 @router.patch("/sessions/{session_id}/attended", response_model=SessionResponse)
 async def mark_session_attended(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -301,6 +303,7 @@ async def mark_session_attended(
     - Make-up Class -> Attended (Make-up)
 
     Also sets attendance tracking fields and audit columns.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -310,6 +313,12 @@ async def mark_session_attended(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership: tutor can only modify their own sessions, admins can modify any
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate current status allows marking as attended
     valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
@@ -334,11 +343,11 @@ async def mark_session_attended(
     session.session_status = new_status
 
     # Set attendance tracking fields
-    session.attendance_marked_by = "system@csmpro.app"  # TODO: get from auth when available
+    session.attendance_marked_by = current_user.user_email
     session.attendance_mark_time = datetime.now()
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"  # TODO: get from auth when available
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -353,12 +362,14 @@ async def mark_session_attended(
 @router.patch("/sessions/{session_id}/no-show", response_model=SessionResponse)
 async def mark_session_no_show(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Mark a session as No Show.
 
     Updates session status to 'No Show' from valid starting statuses.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -368,6 +379,12 @@ async def mark_session_no_show(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate current status
     valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
@@ -382,7 +399,7 @@ async def mark_session_no_show(
     session.session_status = "No Show"
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -397,12 +414,14 @@ async def mark_session_no_show(
 @router.patch("/sessions/{session_id}/reschedule", response_model=SessionResponse)
 async def mark_session_rescheduled(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Mark a session as Rescheduled - Pending Make-up.
 
     Updates session status to indicate it needs a make-up class scheduled.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -412,6 +431,12 @@ async def mark_session_rescheduled(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate current status
     valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
@@ -426,7 +451,7 @@ async def mark_session_rescheduled(
     session.session_status = "Rescheduled - Pending Make-up"
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -441,12 +466,14 @@ async def mark_session_rescheduled(
 @router.patch("/sessions/{session_id}/sick-leave", response_model=SessionResponse)
 async def mark_session_sick_leave(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Mark a session as Sick Leave - Pending Make-up.
 
     Updates session status to indicate student was sick and needs make-up.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -456,6 +483,12 @@ async def mark_session_sick_leave(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate current status
     valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
@@ -470,7 +503,7 @@ async def mark_session_sick_leave(
     session.session_status = "Sick Leave - Pending Make-up"
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -485,12 +518,14 @@ async def mark_session_sick_leave(
 @router.patch("/sessions/{session_id}/weather-cancelled", response_model=SessionResponse)
 async def mark_session_weather_cancelled(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Mark a session as Weather Cancelled - Pending Make-up.
 
     Updates session status to indicate class was cancelled due to weather.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -500,6 +535,12 @@ async def mark_session_weather_cancelled(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate current status
     valid_statuses = ["Scheduled", "Trial Class", "Make-up Class"]
@@ -514,7 +555,7 @@ async def mark_session_weather_cancelled(
     session.session_status = "Weather Cancelled - Pending Make-up"
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -533,6 +574,7 @@ async def mark_session_weather_cancelled(
 @router.patch("/sessions/{session_id}/undo", response_model=SessionResponse)
 async def undo_session_status(
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -540,6 +582,7 @@ async def undo_session_status(
 
     Reverts session_status to previous_session_status and clears the undo history.
     Cannot undo if a make-up has been booked (use cancel-makeup instead).
+    Requires authentication. Tutors can only modify their own sessions.
 
     Returns the session with `undone_from_status` field indicating what was undone.
     """
@@ -551,6 +594,12 @@ async def undo_session_status(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Validate we have something to undo
     if not session.previous_session_status:
@@ -579,7 +628,7 @@ async def undo_session_status(
         session.attendance_mark_time = None
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -596,12 +645,14 @@ async def undo_session_status(
 async def redo_session_status(
     session_id: int,
     status: str = Query(..., description="Status to restore"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Redo a recently undone status change (called from toast).
 
     Restores the session to the specified status and stores current as previous.
+    Requires authentication. Tutors can only modify their own sessions.
     """
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
@@ -612,17 +663,23 @@ async def redo_session_status(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
+
     # Store current status as previous (for undo again if needed)
     session.previous_session_status = session.session_status
     session.session_status = status
 
     # Re-set attendance fields if restoring to Attended
     if status in ("Attended", "Attended (Make-up)"):
-        session.attendance_marked_by = "system@csmpro.app"
+        session.attendance_marked_by = current_user.user_email
         session.attendance_mark_time = datetime.now()
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -878,6 +935,7 @@ async def get_makeup_suggestions(
 async def schedule_makeup(
     session_id: int,
     request: ScheduleMakeupRequest,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -885,6 +943,7 @@ async def schedule_makeup(
 
     Creates a new session with status "Make-up Class" and links it to the original.
     Updates the original session status from "X - Pending Make-up" to "X - Make-up Booked".
+    Requires authentication. Tutors can only schedule makeups for their own sessions.
 
     Validates:
     - Original session is in "Pending Make-up" status
@@ -901,6 +960,12 @@ async def schedule_makeup(
 
     if not original_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership - only original session owner or admin can schedule makeup
+    is_owner = original_session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only schedule makeups for your own sessions")
 
     # Validate status
     if "Pending Make-up" not in original_session.session_status:
@@ -1017,7 +1082,7 @@ async def schedule_makeup(
         financial_status="Unpaid",  # Inherits from original or set to Unpaid
         make_up_for_id=original_session.id,
         notes=request.notes,  # Optional reason for scheduling
-        last_modified_by="system@csmpro.app",
+        last_modified_by=current_user.user_email,
         last_modified_time=datetime.now()
     )
 
@@ -1053,7 +1118,7 @@ async def schedule_makeup(
         "Pending Make-up", "Make-up Booked"
     )
     original_session.rescheduled_to_id = makeup_session.id
-    original_session.last_modified_by = "system@csmpro.app"
+    original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = datetime.now()
 
     db.commit()
@@ -1086,6 +1151,7 @@ async def schedule_makeup(
 @router.delete("/sessions/{makeup_session_id}/cancel-makeup", response_model=SessionResponse)
 async def cancel_makeup(
     makeup_session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1093,6 +1159,7 @@ async def cancel_makeup(
 
     Deletes the make-up session and reverts the original session status
     from "X - Make-up Booked" back to "X - Pending Make-up".
+    Requires authentication. Tutors can only cancel makeups for their own sessions.
 
     Can only cancel make-up sessions that haven't been attended yet.
     """
@@ -1101,6 +1168,12 @@ async def cancel_makeup(
 
     if not makeup_session:
         raise HTTPException(status_code=404, detail=f"Session with ID {makeup_session_id} not found")
+
+    # Check ownership - only makeup session owner or admin can cancel
+    is_owner = makeup_session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only cancel makeups for your own sessions")
 
     # Validate this is a make-up session
     if makeup_session.session_status != "Make-up Class":
@@ -1134,7 +1207,7 @@ async def cancel_makeup(
         "Make-up Booked", "Pending Make-up"
     )
     original_session.rescheduled_to_id = None
-    original_session.last_modified_by = "system@csmpro.app"
+    original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = datetime.now()
 
     # Delete the makeup session
@@ -1150,12 +1223,14 @@ async def cancel_makeup(
 async def save_session_exercises(
     session_id: int,
     request: ExerciseSaveRequest,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Save exercises (CW or HW) for a session.
 
     Replaces all exercises of the specified type with the new list.
+    Requires authentication. Tutors can only modify their own sessions.
 
     - **session_id**: The session's database ID
     - **exercise_type**: Type of exercises ("CW" or "HW")
@@ -1169,6 +1244,12 @@ async def save_session_exercises(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Delete existing exercises of this type
     db.query(SessionExercise).filter(
@@ -1190,13 +1271,13 @@ async def save_session_exercises(
             answer_page_start=ex.answer_page_start,
             answer_page_end=ex.answer_page_end,
             answer_remarks=ex.answer_remarks,
-            created_by="system@csmpro.app",  # TODO: get from auth when available
+            created_by=current_user.user_email,
             created_at=datetime.now()
         )
         db.add(new_exercise)
 
     # Update audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -1211,6 +1292,7 @@ async def save_session_exercises(
 @router.post("/sessions/bulk-assign-exercises", response_model=BulkExerciseAssignResponse)
 async def bulk_assign_exercises(
     request: BulkExerciseAssignRequest,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1218,6 +1300,7 @@ async def bulk_assign_exercises(
 
     Creates the same exercise (CW or HW) for each specified session.
     Useful for assigning the same courseware to multiple sessions in bulk.
+    Requires authentication. Tutors can only assign to their own sessions.
 
     - **session_ids**: List of session IDs to assign the exercise to
     - **exercise_type**: Type of exercise ("CW" or "HW")
@@ -1239,6 +1322,16 @@ async def bulk_assign_exercises(
             detail=f"Sessions not found: {sorted(missing_ids)}"
         )
 
+    # Check ownership - tutors can only assign to their own sessions
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not is_admin:
+        for session in sessions:
+            if session.tutor_id != current_user.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"You can only assign exercises to your own sessions (session {session.id} belongs to another tutor)"
+                )
+
     # Create exercises for each session
     created_count = 0
     for session_id in request.session_ids:
@@ -1249,7 +1342,7 @@ async def bulk_assign_exercises(
             page_start=request.page_start,
             page_end=request.page_end,
             remarks=request.remarks,
-            created_by="system@csmpro.app",  # TODO: get from auth when available
+            created_by=current_user.user_email,
             created_at=datetime.now()
         )
         db.add(new_exercise)
@@ -1267,12 +1360,14 @@ async def bulk_assign_exercises(
 async def rate_session(
     session_id: int,
     request: RateSessionRequest,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Rate a session and add notes.
 
     Updates the performance_rating (emoji stars) and notes fields.
+    Requires authentication. Tutors can only rate their own sessions.
 
     - **session_id**: The session's database ID
     - **performance_rating**: Rating as emoji stars (e.g., "⭐⭐⭐")
@@ -1287,12 +1382,18 @@ async def rate_session(
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only rate your own sessions")
+
     # Update rating and notes
     session.performance_rating = request.performance_rating
     session.notes = request.notes
 
     # Update audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     db.commit()
@@ -1308,6 +1409,7 @@ async def rate_session(
 async def update_session(
     session_id: int,
     request: SessionUpdate,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1315,6 +1417,7 @@ async def update_session(
 
     Updates any provided fields (non-None values).
     Tracks previous status if session_status changes.
+    Requires authentication. Tutors can only modify their own sessions.
 
     - **session_id**: The session's database ID
     - **session_date**: New session date
@@ -1333,6 +1436,12 @@ async def update_session(
 
     if not session:
         raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+
+    # Check ownership
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
     # Update fields that are provided (not None)
     if request.session_date is not None:
@@ -1410,7 +1519,7 @@ async def update_session(
         session.notes = request.notes
 
     # Set audit columns
-    session.last_modified_by = "system@csmpro.app"
+    session.last_modified_by = current_user.user_email
     session.last_modified_time = datetime.now()
 
     # Handle revision slot linking when date/time/location changes
@@ -1539,10 +1648,13 @@ async def get_upcoming_tests(
 async def sync_calendar(
     force: bool = False,
     days_behind: int = Query(0, ge=0, le=730, description="Days in past to sync"),
+    admin: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
     Manually sync calendar events from Google Calendar.
+
+    Requires admin access.
 
     - **force**: If true, force sync even if last sync was recent
     - **days_behind**: Days in the past to sync (default: 0, max: 730)

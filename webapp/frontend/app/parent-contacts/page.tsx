@@ -21,6 +21,7 @@ import { parentCommunicationsAPI, type ParentCommunication, type StudentContactS
 import { Users, Plus, Loader2, RefreshCw, LayoutList, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
+import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 
 export default function ParentContactsPage() {
   usePageTitle("Parent Contacts");
@@ -264,6 +265,7 @@ export default function ParentContactsPage() {
 
   return (
     <DeskSurface fullHeight>
+      <AdminPageGuard accessDeniedMessage="Admin access required to view parent contacts">
       <PageTransition className="flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-col gap-3 p-2 sm:p-4 h-full overflow-hidden">
           {/* Toolbar */}
@@ -480,6 +482,7 @@ export default function ParentContactsPage() {
         variant="danger"
         loading={isDeleting}
       />
+      </AdminPageGuard>
     </DeskSurface>
   );
 }
