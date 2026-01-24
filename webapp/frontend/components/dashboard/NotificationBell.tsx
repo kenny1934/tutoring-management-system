@@ -22,6 +22,7 @@ interface NotificationBellProps {
   pendingPayments: number;
   location?: string;
   tutorId?: number;
+  showOverduePayments?: boolean;
 }
 
 interface NotificationItem {
@@ -33,7 +34,7 @@ interface NotificationItem {
   href: string;
 }
 
-export function NotificationBell({ pendingPayments, location, tutorId }: NotificationBellProps) {
+export function NotificationBell({ pendingPayments, location, tutorId, showOverduePayments = false }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Fetch calendar events for upcoming tests
@@ -69,7 +70,7 @@ export function NotificationBell({ pendingPayments, location, tutorId }: Notific
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
 
-    if (pendingPayments > 0) {
+    if (showOverduePayments && pendingPayments > 0) {
       items.push({
         id: "payments",
         icon: <CreditCard className="h-4 w-4" />,
