@@ -22,6 +22,12 @@ Session Log - Conversion Data*.csv
 config/database.json
 secrets/
 
+# Python virtual environments
+analysis_env/
+venv/
+.venv/
+env/
+
 # Node modules and dependencies
 node_modules/
 npm-debug.log*
