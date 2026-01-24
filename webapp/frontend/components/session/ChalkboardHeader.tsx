@@ -22,6 +22,7 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Session } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
@@ -186,13 +187,18 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
+  const { effectiveRole } = useAuth();
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;
   const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'undo'].includes(effectiveLoadingAction || '');
 
-  // Get visible actions for this session
-  const visibleActions = sessionActions.filter((action) => action.isVisible(session));
+  // Get visible actions for this session (filtered by visibility and role)
+  const visibleActions = sessionActions.filter((action) => {
+    if (!action.isVisible(session)) return false;
+    if (effectiveRole && !action.allowedRoles.includes(effectiveRole)) return false;
+    return true;
+  });
 
   // Check if session has CW/HW exercises or rating (for active state on chalk buttons)
   const hasCW = session.exercises?.some(
