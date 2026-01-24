@@ -13,6 +13,7 @@ import { HeaderStats } from "./HeaderStats";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTutors } from "@/lib/hooks";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
@@ -51,6 +52,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const { viewMode } = useRole();
+  const { isAdmin } = useAuth();
   const { data: tutors = [] } = useTutors();
 
   // Daily emoji - deterministic based on date to avoid hydration mismatch
@@ -171,7 +173,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
           <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
         <div className="px-4 sm:px-6">
-          <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} />
+          <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
         </div>
       </div>
 
