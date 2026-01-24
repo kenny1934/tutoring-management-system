@@ -41,7 +41,7 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, isAdmin, effectiveRole, logout } = useAuth();
+  const { user, isAdmin, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -49,8 +49,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
 
-  // Get current tutor ID from authenticated user
-  const currentTutorId = user?.id;
+  // Get effective tutor ID (respects impersonation)
+  const currentTutorId = (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id)
+    ? impersonatedTutor.id
+    : user?.id;
 
   // Check if user has admin privileges (uses effective role for impersonation)
   const isAdminOrAbove = isAdmin;
@@ -130,11 +132,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   }, [mounted, isOnDashboard, selectedLocation]);
 
   // Set tutor's default location on mount if not admin
+  // Skip this when impersonating - location is set by RoleSwitcher
   useEffect(() => {
-    if (!isAdminOrAbove && user?.default_location && mounted) {
+    if (!isAdminOrAbove && !isImpersonating && user?.default_location && mounted) {
       setSelectedLocation(user.default_location);
     }
-  }, [isAdminOrAbove, user?.default_location, mounted, setSelectedLocation]);
+  }, [isAdminOrAbove, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
 
   // Close mobile menu on navigation
   const handleNavClick = () => {
@@ -420,10 +423,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       <div className="border-t border-white/10 dark:border-white/5 p-4">
         {/* Get user initials */}
         {(() => {
-          const initials = user?.name
-            ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-            : "?";
-          const displayName = user?.name || "Guest";
+          // When impersonating a specific tutor, show their name
+          const displayName = impersonatedTutor?.name || user?.name || "Guest";
+          const initials = displayName
+            .split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
           const displayRole = effectiveRole || "Guest";
 
           return !isMobile && isCollapsed ? (
@@ -431,8 +434,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             <button
               onClick={() => setIsUserMenuOpen(true)}
               className={cn(
-                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
+                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                isImpersonating
+                  ? "border-amber-400 dark:border-amber-600"
+                  : "border-white/10 dark:border-white/5"
               )}
               style={{
                 transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
@@ -457,8 +463,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             <button
               onClick={() => setIsUserMenuOpen(true)}
               className={cn(
-                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border border-white/10 dark:border-white/5 hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]"
+                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                isImpersonating
+                  ? "border-amber-400 dark:border-amber-600"
+                  : "border-white/10 dark:border-white/5"
               )}
               style={{
                 transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
@@ -501,7 +510,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               "w-[400px] p-5 rounded-2xl shadow-2xl z-[9999]",
               "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
               "border border-white/20 dark:border-white/10",
-              "animate-in zoom-in-95 fade-in duration-200"
+              "animate-in zoom-in-95 fade-in duration-200",
+              isImpersonating && "mt-3" // Shift down when impersonation banner is visible
             )}
           >
             {/* Close button */}

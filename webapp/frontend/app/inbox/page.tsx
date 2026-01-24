@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
-import { useTutors, usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useTutors } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
-import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSelector";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
@@ -845,7 +845,8 @@ export default function InboxPage() {
 
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
-  const { data: tutors = [] } = useTutors();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { data: tutors = [] } = useTutors();  // For ComposeModal recipient selection
   const { showToast } = useToast();
 
   // Get initial category from URL param
@@ -859,8 +860,15 @@ export default function InboxPage() {
     return "inbox";
   }, [searchParams]);
 
+  // Effective tutor ID: own ID, or impersonated tutor ID for Super Admin
+  const effectiveTutorId = useMemo(() => {
+    if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    return user?.id ?? null;
+  }, [isImpersonating, effectiveRole, impersonatedTutor, user?.id]);
+
   // State
-  const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [showCompose, setShowCompose] = useState(false);
@@ -871,8 +879,8 @@ export default function InboxPage() {
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
 
   // Derived value for tutor selection check
-  const hasTutor = typeof selectedTutorId === "number";
-  const tutorId = hasTutor ? selectedTutorId : null;
+  const hasTutor = typeof effectiveTutorId === "number";
+  const tutorId = hasTutor ? effectiveTutorId : null;
 
   // Get category filter
   const categoryFilter = useMemo(() => {
@@ -897,7 +905,7 @@ export default function InboxPage() {
 
   // Fetch proposals for makeup-confirmation category
   const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useProposals({
-    tutorId: selectedCategory === "makeup-confirmation" && hasTutor ? selectedTutorId : undefined,
+    tutorId: selectedCategory === "makeup-confirmation" && hasTutor ? effectiveTutorId : undefined,
     status: "pending",
     includeSession: true,
   });
@@ -988,19 +996,6 @@ export default function InboxPage() {
       }
     }
   }, [displayThreads, selectedThreadId]);
-
-  // Auto-select first tutor
-  useEffect(() => {
-    if (selectedTutorId === null && tutors.length > 0) {
-      const effectiveLocation = selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
-      const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
-        : tutors;
-      if (filteredTutors.length > 0) {
-        setSelectedTutorId(filteredTutors[0].id);
-      }
-    }
-  }, [selectedTutorId, tutors, selectedLocation]);
 
   // Detect mobile
   useEffect(() => {
@@ -1189,9 +1184,9 @@ export default function InboxPage() {
                 <Inbox className="h-6 w-6 text-[#a0704b]" />
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Inbox</h1>
-                  {hasTutor && tutors.length > 0 && (
+                  {isImpersonating && impersonatedTutor && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Viewing as: {tutors.find(t => t.id === selectedTutorId)?.tutor_name || "Unknown"}
+                      Viewing as: {impersonatedTutor.name}
                     </p>
                   )}
                 </div>
@@ -1202,15 +1197,9 @@ export default function InboxPage() {
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <TutorSelector
-                  value={selectedTutorId}
-                  onChange={setSelectedTutorId}
-                  showAllTutors={false}
-                  className="w-36"
-                />
                 <button
                   onClick={handleCompose}
-                  disabled={typeof selectedTutorId !== "number"}
+                  disabled={!hasTutor}
                   className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50"
                 >
                   <PenSquare className="h-4 w-4" />
@@ -1299,7 +1288,7 @@ export default function InboxPage() {
                         for (const thread of unreadThreads) {
                           const allMsgs = [thread.root_message, ...thread.replies];
                           for (const m of allMsgs) {
-                            if (!m.is_read && hasTutor && m.from_tutor_id !== selectedTutorId) {
+                            if (!m.is_read && hasTutor && m.from_tutor_id !== effectiveTutorId) {
                               await handleMarkRead(m.id);
                             }
                           }
@@ -1404,7 +1393,7 @@ export default function InboxPage() {
               )}>
                 <ThreadDetailPanel
                   thread={selectedThread}
-                  currentTutorId={selectedTutorId}
+                  currentTutorId={effectiveTutorId}
                   onClose={() => setSelectedThread(null)}
                   onReply={handleReply}
                   onLike={handleLike}
