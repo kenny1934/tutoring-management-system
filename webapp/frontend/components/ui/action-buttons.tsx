@@ -443,13 +443,15 @@ export function SessionActionButtons({
         })}
       </div>
 
-      {/* Edit Session Modal */}
-      <EditSessionModal
-        session={session}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleSave}
-      />
+      {/* Edit Session Modal - conditionally rendered to prevent N+1 enrollment API calls */}
+      {isEditModalOpen && (
+        <EditSessionModal
+          session={session}
+          isOpen={true}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSave}
+        />
+      )}
 
       {/* Exercise Modal for CW/HW */}
       {exerciseModalType && (
@@ -461,12 +463,14 @@ export function SessionActionButtons({
         />
       )}
 
-      {/* Rate Session Modal */}
-      <RateSessionModal
-        session={session}
-        isOpen={isRateModalOpen}
-        onClose={() => setIsRateModalOpen(false)}
-      />
+      {/* Rate Session Modal - conditionally rendered for performance */}
+      {isRateModalOpen && (
+        <RateSessionModal
+          session={session}
+          isOpen={true}
+          onClose={() => setIsRateModalOpen(false)}
+        />
+      )}
 
       {/* Schedule Makeup Modal */}
       {isMakeupModalOpen && (
