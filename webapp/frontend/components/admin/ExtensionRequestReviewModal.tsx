@@ -814,6 +814,7 @@ export function ExtensionRequestReviewModal({
         }}
         initialDate={request.proposed_reschedule_date}
         initialTimeSlot={request.proposed_reschedule_time}
+        viaExtensionRequest
       />
     )}
     </>

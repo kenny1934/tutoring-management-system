@@ -4,11 +4,37 @@ Shared response builder functions.
 Centralizes the common patterns for building API response objects
 from SQLAlchemy models with loaded relationships.
 """
+from typing import Optional
+from sqlalchemy.orm import Session
 from models import SessionLog, Tutor
 from schemas import SessionResponse, SessionExerciseResponse, LinkedSessionInfo
 
 
-def build_session_response(session: SessionLog) -> SessionResponse:
+def _find_root_original_session_date(session: SessionLog, db: Session):
+    """
+    Trace back through make_up_for_id chain to find the root original session's date.
+
+    Returns None if not a makeup session or if chain traversal fails.
+    """
+    if not session.make_up_for_id:
+        return None
+
+    visited = set()
+    current = session
+
+    while current.make_up_for_id and current.id not in visited:
+        visited.add(current.id)
+        parent = db.query(SessionLog).filter(
+            SessionLog.id == current.make_up_for_id
+        ).first()
+        if not parent:
+            break
+        current = parent
+
+    return current.session_date
+
+
+def build_session_response(session: SessionLog, db: Optional[Session] = None) -> SessionResponse:
     """
     Build a SessionResponse from a SessionLog with student/tutor/exercise data.
 
@@ -36,6 +62,9 @@ def build_session_response(session: SessionLog) -> SessionResponse:
     if session.extension_request:
         data.extension_request_id = session.extension_request.id
         data.extension_request_status = session.extension_request.request_status
+    # Compute root original session date for makeup sessions (for 60-day rule)
+    if db and session.make_up_for_id:
+        data.root_original_session_date = _find_root_original_session_date(session, db)
     return data
 
 

@@ -191,6 +191,7 @@ class SessionResponse(SessionBase):
     previous_session_status: Optional[str] = Field(None, max_length=100)
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)
+    root_original_session_date: Optional[date] = Field(None, description="For makeup sessions: date of the root original session (tracing through makeup chain)")
     exam_revision_slot_id: Optional[int] = Field(None, gt=0, description="Links session to exam revision slot")
     extension_request_id: Optional[int] = Field(None, gt=0, description="ID of extension request for this session")
     extension_request_status: Optional[str] = Field(None, max_length=50, description="Status: Pending, Approved, Rejected")
@@ -482,8 +483,33 @@ class CalendarEventResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_synced_at: datetime
+    revision_slot_count: int = Field(default=0, ge=0, description="Number of revision slots linked to this event")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CalendarEventCreate(BaseModel):
+    """Schema for creating a calendar event with Google sync"""
+    title: str = Field(..., min_length=1, max_length=500, description="Event title (e.g., 'TIS F2 Test')")
+    description: Optional[str] = Field(None, max_length=2000)
+    start_date: date = Field(..., description="Event start date")
+    end_date: Optional[date] = Field(None, description="Event end date (defaults to start_date)")
+    school: Optional[str] = Field(None, max_length=200, description="School code (e.g., 'TIS')")
+    grade: Optional[str] = Field(None, max_length=20, description="Grade (e.g., 'F2')")
+    academic_stream: Optional[str] = Field(None, max_length=50, pattern="^[ASC]?$", description="Academic stream: A(rt), S(cience), C(ommerce)")
+    event_type: Optional[str] = Field(None, max_length=50, description="Event type: Test, Quiz, Exam")
+
+
+class CalendarEventUpdate(BaseModel):
+    """Schema for updating a calendar event with Google sync"""
+    title: Optional[str] = Field(None, min_length=1, max_length=500)
+    description: Optional[str] = Field(None, max_length=2000)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    school: Optional[str] = Field(None, max_length=200)
+    grade: Optional[str] = Field(None, max_length=20)
+    academic_stream: Optional[str] = Field(None, max_length=50, pattern="^[ASC]?$")
+    event_type: Optional[str] = Field(None, max_length=50)
 
 
 class UpcomingTestAlert(BaseModel):
@@ -720,6 +746,35 @@ class ThreadResponse(BaseModel):
 class UnreadCountResponse(BaseModel):
     """Unread message count response"""
     count: int = Field(default=0, ge=0)
+
+
+class PaginatedThreadsResponse(BaseModel):
+    """Paginated thread list response with metadata"""
+    threads: List[ThreadResponse] = []
+    total_count: int = Field(default=0, ge=0)
+    has_more: bool = False
+    limit: int = Field(default=20, ge=1)
+    offset: int = Field(default=0, ge=0)
+
+
+class PaginatedMessagesResponse(BaseModel):
+    """Paginated message list response with metadata"""
+    messages: List[MessageResponse] = []
+    total_count: int = Field(default=0, ge=0)
+    has_more: bool = False
+    limit: int = Field(default=50, ge=1)
+    offset: int = Field(default=0, ge=0)
+
+
+class ArchiveRequest(BaseModel):
+    """Request to archive/unarchive messages (bulk operation)"""
+    message_ids: List[int] = Field(..., min_length=1, max_length=100)
+
+
+class ArchiveResponse(BaseModel):
+    """Response for archive operations"""
+    success: bool = True
+    count: int = Field(default=0, ge=0, description="Number of messages archived/unarchived")
 
 
 # ============================================

@@ -8,14 +8,19 @@ from sqlalchemy import and_, or_, func
 from typing import List, Optional
 from datetime import datetime
 from database import get_db
-from models import TutorMessage, MessageReadReceipt, MessageLike, Tutor, MakeupProposal
+from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, Tutor, MakeupProposal
 from schemas import (
     MessageCreate,
     MessageUpdate,
     MessageResponse,
     ThreadResponse,
-    UnreadCountResponse
+    UnreadCountResponse,
+    PaginatedThreadsResponse,
+    PaginatedMessagesResponse,
+    ArchiveRequest,
+    ArchiveResponse
 )
+from utils.rate_limiter import check_user_rate_limit
 
 router = APIRouter()
 
@@ -162,10 +167,11 @@ def batch_build_message_responses(
     ]
 
 
-@router.get("/messages", response_model=List[ThreadResponse])
+@router.get("/messages", response_model=PaginatedThreadsResponse)
 async def get_message_threads(
     tutor_id: int = Query(..., description="Current tutor ID (required for read status)"),
     category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search in subject, message, or tutor names"),
     limit: int = Query(20, ge=1, le=50, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
@@ -173,15 +179,18 @@ async def get_message_threads(
     """Get message threads with batched queries for performance."""
     from sqlalchemy import desc
 
-    # 1. Fetch root messages
-    query = (
+    # Subquery for archived message IDs for this tutor
+    archived_ids_subq = db.query(MessageArchive.message_id).filter(
+        MessageArchive.tutor_id == tutor_id
+    ).subquery()
+
+    # Base query for root messages (excluding archived)
+    base_query = (
         db.query(TutorMessage)
-        .options(
-            joinedload(TutorMessage.from_tutor),
-            joinedload(TutorMessage.to_tutor)
-        )
+        .outerjoin(Tutor, TutorMessage.from_tutor_id == Tutor.id)
         .filter(
             TutorMessage.reply_to_id.is_(None),
+            ~TutorMessage.id.in_(archived_ids_subq),  # Exclude archived
             or_(
                 TutorMessage.to_tutor_id == tutor_id,      # Direct messages to me
                 TutorMessage.to_tutor_id.is_(None),        # Broadcasts
@@ -189,12 +198,40 @@ async def get_message_threads(
         )
     )
     if category:
-        query = query.filter(TutorMessage.category == category)
+        base_query = base_query.filter(TutorMessage.category == category)
 
+    # Apply search filter
+    if search:
+        search_pattern = f"%{search}%"
+        base_query = base_query.filter(
+            or_(
+                TutorMessage.subject.ilike(search_pattern),
+                TutorMessage.message.ilike(search_pattern),
+                Tutor.tutor_name.ilike(search_pattern)
+            )
+        )
+
+    # Get total count BEFORE pagination
+    total_count = base_query.count()
+
+    # Fetch paginated root messages with eager loading
+    query = (
+        base_query
+        .options(
+            joinedload(TutorMessage.from_tutor),
+            joinedload(TutorMessage.to_tutor)
+        )
+    )
     root_messages = query.order_by(TutorMessage.created_at.desc()).offset(offset).limit(limit).all()
 
     if not root_messages:
-        return []
+        return PaginatedThreadsResponse(
+            threads=[],
+            total_count=total_count,
+            has_more=False,
+            limit=limit,
+            offset=offset
+        )
 
     root_ids = [m.id for m in root_messages]
 
@@ -299,7 +336,13 @@ async def get_message_threads(
             total_unread=unread_count
         ))
 
-    return threads
+    return PaginatedThreadsResponse(
+        threads=threads,
+        total_count=total_count,
+        has_more=(offset + len(threads)) < total_count,
+        limit=limit,
+        offset=offset
+    )
 
 
 @router.get("/messages/sent", response_model=List[MessageResponse])
@@ -417,6 +460,9 @@ async def create_message(
     db: Session = Depends(get_db)
 ):
     """Create a new message or reply."""
+    # Rate limit check - most critical endpoint for spam prevention
+    check_user_rate_limit(from_tutor_id, "message_create")
+
     # Verify sender exists
     sender = db.query(Tutor).filter(Tutor.id == from_tutor_id).first()
     if not sender:
@@ -465,6 +511,218 @@ async def create_message(
     return build_message_response(new_message, from_tutor_id, db)
 
 
+# ============================================
+# Archive Endpoints (must be before {message_id} routes)
+# ============================================
+
+@router.post("/messages/archive", response_model=ArchiveResponse)
+async def archive_messages(
+    request: ArchiveRequest,
+    tutor_id: int = Query(..., description="Tutor archiving messages"),
+    db: Session = Depends(get_db)
+):
+    """Archive multiple messages for the current tutor (bulk operation)."""
+    from sqlalchemy.dialects.mysql import insert
+
+    # Use INSERT IGNORE for idempotency (ignores duplicates)
+    count = 0
+    for message_id in request.message_ids:
+        stmt = insert(MessageArchive).values(
+            message_id=message_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
+    return ArchiveResponse(success=True, count=count)
+
+
+@router.delete("/messages/archive", response_model=ArchiveResponse)
+async def unarchive_messages(
+    request: ArchiveRequest,
+    tutor_id: int = Query(..., description="Tutor unarchiving messages"),
+    db: Session = Depends(get_db)
+):
+    """Unarchive multiple messages for the current tutor."""
+    count = db.query(MessageArchive).filter(
+        MessageArchive.message_id.in_(request.message_ids),
+        MessageArchive.tutor_id == tutor_id
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    return ArchiveResponse(success=True, count=count)
+
+
+@router.get("/messages/archived", response_model=PaginatedThreadsResponse)
+async def get_archived_messages(
+    tutor_id: int = Query(..., description="Current tutor ID"),
+    limit: int = Query(20, ge=1, le=50, description="Maximum threads to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    db: Session = Depends(get_db)
+):
+    """Get archived message threads for the current tutor."""
+    from sqlalchemy import desc
+
+    # Get archived message IDs for this tutor
+    archived_ids_subq = db.query(MessageArchive.message_id).filter(
+        MessageArchive.tutor_id == tutor_id
+    ).subquery()
+
+    # Base query for archived root messages
+    base_query = (
+        db.query(TutorMessage)
+        .filter(
+            TutorMessage.reply_to_id.is_(None),
+            TutorMessage.id.in_(archived_ids_subq),
+            or_(
+                TutorMessage.to_tutor_id == tutor_id,
+                TutorMessage.to_tutor_id.is_(None),
+            )
+        )
+    )
+
+    # Get total count BEFORE pagination
+    total_count = base_query.count()
+
+    # Fetch paginated root messages with eager loading
+    root_messages = (
+        base_query
+        .options(
+            joinedload(TutorMessage.from_tutor),
+            joinedload(TutorMessage.to_tutor)
+        )
+        .order_by(desc(TutorMessage.created_at))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    if not root_messages:
+        return PaginatedThreadsResponse(
+            threads=[],
+            total_count=total_count,
+            has_more=False,
+            limit=limit,
+            offset=offset
+        )
+
+    root_ids = [m.id for m in root_messages]
+
+    # Batch fetch ALL replies for these roots
+    all_replies = (
+        db.query(TutorMessage)
+        .options(
+            joinedload(TutorMessage.from_tutor),
+            joinedload(TutorMessage.to_tutor)
+        )
+        .filter(TutorMessage.reply_to_id.in_(root_ids))
+        .order_by(TutorMessage.created_at.asc())
+        .all()
+    )
+
+    # Group replies by root_id
+    replies_by_root = {}
+    for reply in all_replies:
+        replies_by_root.setdefault(reply.reply_to_id, []).append(reply)
+
+    # Collect ALL message IDs
+    all_message_ids = root_ids + [r.id for r in all_replies]
+
+    # Batch fetch read receipts
+    read_receipts = db.query(MessageReadReceipt.message_id).filter(
+        MessageReadReceipt.message_id.in_(all_message_ids),
+        MessageReadReceipt.tutor_id == tutor_id
+    ).all()
+    read_ids = set(r.message_id for r in read_receipts)
+
+    # Batch fetch like counts
+    like_counts = db.query(
+        MessageLike.message_id,
+        func.count(MessageLike.id).label('count')
+    ).filter(
+        MessageLike.message_id.in_(all_message_ids),
+        MessageLike.action_type == "LIKE"
+    ).group_by(MessageLike.message_id).all()
+    like_count_map = {lc.message_id: lc.count for lc in like_counts}
+
+    # Batch fetch "liked by me"
+    my_likes_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(
+            MessageLike.message_id.in_(all_message_ids),
+            MessageLike.tutor_id == tutor_id
+        )
+        .subquery()
+    )
+    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
+        my_likes_subq.c.rn == 1
+    ).all()
+    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
+
+    # Batch fetch reply counts
+    reply_counts = db.query(
+        TutorMessage.reply_to_id,
+        func.count(TutorMessage.id).label('count')
+    ).filter(
+        TutorMessage.reply_to_id.in_(all_message_ids)
+    ).group_by(TutorMessage.reply_to_id).all()
+    reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
+
+    # Helper to build MessageResponse
+    def build_response(msg: TutorMessage) -> MessageResponse:
+        return MessageResponse(
+            id=msg.id,
+            from_tutor_id=msg.from_tutor_id,
+            from_tutor_name=msg.from_tutor.tutor_name if msg.from_tutor else None,
+            to_tutor_id=msg.to_tutor_id,
+            to_tutor_name=msg.to_tutor.tutor_name if msg.to_tutor else "All",
+            subject=msg.subject,
+            message=msg.message,
+            priority=msg.priority or "Normal",
+            category=msg.category,
+            created_at=msg.created_at,
+            updated_at=msg.updated_at,
+            reply_to_id=msg.reply_to_id,
+            is_read=msg.id in read_ids,
+            like_count=like_count_map.get(msg.id, 0),
+            is_liked_by_me=msg.id in liked_by_me,
+            reply_count=reply_count_map.get(msg.id, 0)
+        )
+
+    # Build thread responses
+    threads = []
+    for root in root_messages:
+        replies = replies_by_root.get(root.id, [])
+        all_ids_in_thread = [root.id] + [r.id for r in replies]
+        unread_count = sum(1 for mid in all_ids_in_thread if mid not in read_ids)
+
+        threads.append(ThreadResponse(
+            root_message=build_response(root),
+            replies=[build_response(r) for r in replies],
+            total_unread=unread_count
+        ))
+
+    return PaginatedThreadsResponse(
+        threads=threads,
+        total_count=total_count,
+        has_more=(offset + len(threads)) < total_count,
+        limit=limit,
+        offset=offset
+    )
+
+
+# ============================================
+# Message ID Routes (must be after /archive routes)
+# ============================================
+
 @router.post("/messages/{message_id}/read")
 async def mark_as_read(
     message_id: int,
@@ -472,6 +730,8 @@ async def mark_as_read(
     db: Session = Depends(get_db)
 ):
     """Mark a message as read by the current tutor."""
+    check_user_rate_limit(tutor_id, "message_read")
+
     from sqlalchemy.dialects.mysql import insert
 
     # Use INSERT IGNORE to avoid checking if already read (single query)
@@ -492,6 +752,8 @@ async def mark_as_unread(
     db: Session = Depends(get_db)
 ):
     """Mark a message as unread by removing the read receipt."""
+    check_user_rate_limit(tutor_id, "message_read")
+
     deleted = db.query(MessageReadReceipt).filter(
         MessageReadReceipt.message_id == message_id,
         MessageReadReceipt.tutor_id == tutor_id
@@ -508,6 +770,8 @@ async def toggle_like(
     db: Session = Depends(get_db)
 ):
     """Toggle like on a message."""
+    check_user_rate_limit(tutor_id, "message_like")
+
     # Get current like status (skip message existence check - FK will catch it)
     current_like = db.query(MessageLike.action_type).filter(
         MessageLike.message_id == message_id,
@@ -550,6 +814,8 @@ async def update_message(
     db: Session = Depends(get_db)
 ):
     """Update a message (only by the sender)."""
+    check_user_rate_limit(tutor_id, "message_update")
+
     message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -586,6 +852,8 @@ async def delete_message(
     db: Session = Depends(get_db)
 ):
     """Delete a message (only by the sender)."""
+    check_user_rate_limit(tutor_id, "message_delete")
+
     message = db.query(TutorMessage).filter(TutorMessage.id == message_id).first()
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")

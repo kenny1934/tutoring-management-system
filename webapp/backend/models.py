@@ -546,6 +546,7 @@ class TutorMessage(Base):
     replies = relationship("TutorMessage", backref="parent", remote_side=[id], foreign_keys=[reply_to_id])
     read_receipts = relationship("MessageReadReceipt", back_populates="message", cascade="all, delete-orphan")
     likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
+    archives = relationship("MessageArchive", back_populates="message", cascade="all, delete-orphan")
 
 
 class MessageReadReceipt(Base):
@@ -579,6 +580,23 @@ class MessageLike(Base):
 
     # Relationships
     message = relationship("TutorMessage", back_populates="likes")
+    tutor = relationship("Tutor")
+
+
+class MessageArchive(Base):
+    """
+    Tracks archived messages per tutor.
+    Similar pattern to MessageReadReceipt for per-user archiving.
+    """
+    __tablename__ = "message_archives"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    archived_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="archives")
     tutor = relationship("Tutor")
 
 

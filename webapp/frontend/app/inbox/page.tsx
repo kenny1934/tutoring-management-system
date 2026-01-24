@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreads, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useTutors } from "@/lib/hooks";
+import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useTutors, useArchivedMessages } from "@/lib/hooks";
+import { useSwipeGesture } from "@/lib/hooks/useSwipeGesture";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -43,6 +44,8 @@ import {
   Trash2,
   CalendarClock,
   Circle,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 
 // Category definition
@@ -63,6 +66,7 @@ const CATEGORIES: Category[] = [
   { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
   { id: "makeup-confirmation", label: "Make-up", icon: <CalendarClock className="h-4 w-4" />, filter: "MakeupConfirmation" },
   { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
+  { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
 ];
 
 // Priority configuration - single source of truth
@@ -459,7 +463,7 @@ const ThreadItem = React.memo(function ThreadItem({
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+        "w-full text-left p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors min-h-[64px] lg:min-h-0",
         isSelected
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
           : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
@@ -555,6 +559,10 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onMarkUnread,
   onEdit,
   onDelete,
+  onArchive,
+  onUnarchive,
+  isArchived = false,
+  isMobile = false,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -565,9 +573,19 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onMarkUnread: (msgId: number) => void;
   onEdit: (msgId: number, newText: string) => Promise<void>;
   onDelete: (msgId: number) => Promise<void>;
+  onArchive: (msgId: number) => Promise<void>;
+  onUnarchive: (msgId: number) => Promise<void>;
+  isArchived?: boolean;
+  isMobile?: boolean;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
+
+  // Swipe gesture for mobile - swipe right to close
+  const swipeHandlers = useSwipeGesture({
+    onSwipeRight: isMobile ? onClose : undefined,
+    threshold: 80,
+  });
 
   // Edit state
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -636,12 +654,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]">
+    <div
+      className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]"
+      {...(isMobile ? swipeHandlers : {})}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden"
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -675,6 +696,23 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         >
           <Circle className="h-4 w-4" />
         </button>
+        {isArchived ? (
+          <button
+            onClick={() => onUnarchive(msg.id)}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+            title="Unarchive"
+          >
+            <ArchiveRestore className="h-4 w-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => onArchive(msg.id)}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+            title="Archive"
+          >
+            <Archive className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={() => onReply(msg)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
@@ -888,17 +926,31 @@ export default function InboxPage() {
     return cat?.filter;
   }, [selectedCategory]);
 
-  // Fetch data
-  const { data: threads = [], isLoading: loadingThreads, error: threadsError } = useMessageThreads(
-    selectedCategory === "sent" ? null : tutorId,
-    categoryFilter
-  );
+  // Fetch data with pagination and server-side search
+  const {
+    data: threads,
+    isLoading: loadingThreads,
+    isLoadingMore,
+    error: threadsError,
+    hasMore,
+    totalCount,
+    loadMore
+  } = useMessageThreadsPaginated({
+    tutorId: (selectedCategory === "sent" || selectedCategory === "archived") ? null : tutorId,
+    category: categoryFilter,
+    search: debouncedSearch || undefined,
+    pageSize: 20,
+  });
 
   // Fetch ALL threads (no category filter) for sidebar badge counts
   const { data: allThreads = [] } = useMessageThreads(tutorId, undefined);
 
   const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
     selectedCategory === "sent" ? tutorId : null
+  );
+
+  const { data: archivedThreads = [], isLoading: loadingArchived } = useArchivedMessages(
+    selectedCategory === "archived" ? tutorId : null
   );
 
   const { data: unreadCount } = useUnreadMessageCount(tutorId);
@@ -922,22 +974,38 @@ export default function InboxPage() {
     }));
   }, [sentMessages]);
 
-  // Determine which data to show (with search filtering)
+  // Determine which data to show
+  // Search is now server-side for threads, but still client-side for sent/archived
   const displayThreads = useMemo(() => {
-    const baseThreads = selectedCategory === "sent" ? sentAsThreads : threads;
-    if (!debouncedSearch.trim()) return baseThreads;
-
-    const query = debouncedSearch.toLowerCase();
-    return baseThreads.filter(thread => {
-      const msg = thread.root_message;
-      return (
-        msg.subject?.toLowerCase().includes(query) ||
-        msg.message.toLowerCase().includes(query) ||
-        msg.from_tutor_name?.toLowerCase().includes(query) ||
-        msg.to_tutor_name?.toLowerCase().includes(query)
-      );
-    });
-  }, [selectedCategory, sentAsThreads, threads, debouncedSearch]);
+    if (selectedCategory === "sent") {
+      // Client-side filtering for sent messages (not paginated)
+      if (!debouncedSearch.trim()) return sentAsThreads;
+      const query = debouncedSearch.toLowerCase();
+      return sentAsThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.to_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
+    if (selectedCategory === "archived") {
+      // Client-side filtering for archived messages
+      if (!debouncedSearch.trim()) return archivedThreads;
+      const query = debouncedSearch.toLowerCase();
+      return archivedThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.from_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
+    // For inbox/other categories, threads already filtered server-side
+    return threads;
+  }, [selectedCategory, sentAsThreads, archivedThreads, threads, debouncedSearch]);
 
   // Filter MakeupConfirmation threads for makeup-confirmation category
   const makeupThreads = useMemo(() => {
@@ -1173,6 +1241,42 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast]);
 
+  const handleArchive = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+
+    // Close thread panel first
+    setSelectedThread(null);
+
+    try {
+      await messagesAPI.archive([messageId], tutorId);
+      showToast("Message archived!", "success");
+      // Revalidate both inbox and archived lists
+      mutate(isAnyMessageKey);
+      mutate(['archived-messages', tutorId]);
+    } catch (error) {
+      showToast("Failed to archive message", "error");
+      throw error;
+    }
+  }, [tutorId, showToast]);
+
+  const handleUnarchive = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+
+    // Close thread panel first
+    setSelectedThread(null);
+
+    try {
+      await messagesAPI.unarchive([messageId], tutorId);
+      showToast("Message unarchived!", "success");
+      // Revalidate both inbox and archived lists
+      mutate(isAnyMessageKey);
+      mutate(['archived-messages', tutorId]);
+    } catch (error) {
+      showToast("Failed to unarchive message", "error");
+      throw error;
+    }
+  }, [tutorId, showToast]);
+
   return (
     <DeskSurface fullHeight>
       <PageTransition className="h-full">
@@ -1231,7 +1335,7 @@ export default function InboxPage() {
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
                       className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors min-h-[44px]",
                         categoryCollapsed && "justify-center px-2",
                         selectedCategory === cat.id
                           ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
@@ -1381,6 +1485,25 @@ export default function InboxPage() {
                       onClick={() => setSelectedThread(thread)}
                     />
                   ))}
+                  {/* Load More button for paginated threads (not for sent or archived) */}
+                  {selectedCategory !== "sent" && selectedCategory !== "archived" && hasMore && displayThreads.length > 0 && (
+                    <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                      <button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        className="w-full py-2 px-4 text-sm text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5ebe0] dark:hover:bg-[#3a3a3a] rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading more...
+                          </>
+                        ) : (
+                          <>Load more ({totalCount - displayThreads.length} remaining)</>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1401,6 +1524,10 @@ export default function InboxPage() {
                   onMarkUnread={handleMarkUnread}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  onArchive={handleArchive}
+                  onUnarchive={handleUnarchive}
+                  isArchived={selectedCategory === "archived"}
+                  isMobile={isMobile}
                 />
               </div>
             )}

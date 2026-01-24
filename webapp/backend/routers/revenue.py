@@ -2,7 +2,7 @@
 Revenue API endpoints.
 Provides monthly revenue and salary data for tutors.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
@@ -172,6 +172,7 @@ async def get_location_monthly_summary(
     location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
     current_user: Tutor = Depends(get_current_user),
+    response: Response = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -184,6 +185,10 @@ async def get_location_monthly_summary(
     Returns total revenue, session count, and average revenue per session.
     Only accessible by admins.
     """
+    # Add cache header - revenue data is stable within a day
+    if response:
+        response.headers["Cache-Control"] = "private, max-age=3600"  # 1 hour
+
     # Only admins can view location-wide revenue
     is_admin = current_user.role in ('Admin', 'Super Admin')
     if not is_admin:
