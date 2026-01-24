@@ -28,6 +28,14 @@ export const AVAILABLE_ROLES = ["Super Admin", "Admin", "Tutor"] as const;
 export type Role = (typeof AVAILABLE_ROLES)[number];
 
 /**
+ * Impersonated tutor info (for tutor-specific impersonation)
+ */
+export interface ImpersonatedTutor {
+  id: number;
+  name: string;
+}
+
+/**
  * Auth context value
  */
 interface AuthContextType {
@@ -40,8 +48,12 @@ interface AuthContextType {
   effectiveRole: string | null;
   /** Whether currently impersonating a different role */
   isImpersonating: boolean;
+  /** The impersonated tutor (when impersonating as a specific tutor) */
+  impersonatedTutor: ImpersonatedTutor | null;
   /** Set impersonated role (Super Admin only) */
   setImpersonatedRole: (role: Role | null) => void;
+  /** Set impersonated tutor (Super Admin only, when role is "Tutor") */
+  setImpersonatedTutor: (tutor: ImpersonatedTutor | null) => void;
   login: () => void;
   logout: () => Promise<void>;
   refetch: () => Promise<void>;
@@ -51,6 +63,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 const IMPERSONATION_KEY = "csm_impersonated_role";
+const IMPERSONATED_TUTOR_KEY = "csm_impersonated_tutor";
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -60,12 +73,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [impersonatedRole, setImpersonatedRoleState] = useState<Role | null>(null);
+  const [impersonatedTutor, setImpersonatedTutorState] = useState<ImpersonatedTutor | null>(null);
 
-  // Load impersonated role from sessionStorage on mount
+  // Load impersonated role and tutor from sessionStorage on mount
   useEffect(() => {
-    const stored = sessionStorage.getItem(IMPERSONATION_KEY);
-    if (stored && AVAILABLE_ROLES.includes(stored as Role)) {
-      setImpersonatedRoleState(stored as Role);
+    const storedRole = sessionStorage.getItem(IMPERSONATION_KEY);
+    if (storedRole && AVAILABLE_ROLES.includes(storedRole as Role)) {
+      setImpersonatedRoleState(storedRole as Role);
+    }
+
+    const storedTutor = sessionStorage.getItem(IMPERSONATED_TUTOR_KEY);
+    if (storedTutor) {
+      try {
+        const tutor = JSON.parse(storedTutor) as ImpersonatedTutor;
+        if (tutor.id && tutor.name) {
+          setImpersonatedTutorState(tutor);
+        }
+      } catch {
+        sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
+      }
     }
   }, []);
 
@@ -83,7 +109,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(null);
         // Clear impersonation on auth failure
         setImpersonatedRoleState(null);
+        setImpersonatedTutorState(null);
         sessionStorage.removeItem(IMPERSONATION_KEY);
+        sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
       }
     } catch (error) {
       console.error("Failed to fetch user:", error);
@@ -114,7 +142,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
       // Clear impersonation on logout
       setImpersonatedRoleState(null);
+      setImpersonatedTutorState(null);
       sessionStorage.removeItem(IMPERSONATION_KEY);
+      sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
       // Redirect to login page
       window.location.href = "/login";
     }
@@ -127,10 +157,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
     setImpersonatedRoleState(role);
+    // Clear impersonated tutor when role changes
+    setImpersonatedTutorState(null);
+    sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
     if (role) {
       sessionStorage.setItem(IMPERSONATION_KEY, role);
     } else {
       sessionStorage.removeItem(IMPERSONATION_KEY);
+    }
+  }, [user?.role]);
+
+  // Set impersonated tutor (only Super Admins can do this, when impersonating as Tutor)
+  const setImpersonatedTutor = useCallback((tutor: ImpersonatedTutor | null) => {
+    if (user?.role !== "Super Admin") {
+      console.warn("Only Super Admins can impersonate tutors");
+      return;
+    }
+    setImpersonatedTutorState(tutor);
+    if (tutor) {
+      sessionStorage.setItem(IMPERSONATED_TUTOR_KEY, JSON.stringify(tutor));
+    } else {
+      sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
     }
   }, [user?.role]);
 
@@ -157,7 +204,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isSuperAdmin,
         effectiveRole,
         isImpersonating,
+        impersonatedTutor,
         setImpersonatedRole,
+        setImpersonatedTutor,
         login,
         logout,
         refetch: fetchUser,

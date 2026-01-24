@@ -4,7 +4,7 @@ Provides dashboard summary statistics.
 """
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, extract, and_, or_, case
+from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta, time
 from database import get_db
@@ -147,18 +147,18 @@ async def get_dashboard_stats(
 
     # Active students: filter by enrollment ownership (tutor_id) not session tutor
     if tutor_id:
-        # Get student IDs from active enrollments owned by this tutor
-        owned_student_ids_subquery = db.query(Enrollment.student_id).filter(
+        # Build subquery for owned students - stays in SQL, no Python materialization
+        owned_students_subq = db.query(Enrollment.student_id).filter(
             Enrollment.tutor_id == tutor_id,
             Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
-        ).distinct()
+        )
         if location:
-            owned_student_ids_subquery = owned_student_ids_subquery.filter(Enrollment.location == location)
-        owned_student_ids = [row[0] for row in owned_student_ids_subquery.all()]
+            owned_students_subq = owned_students_subq.filter(Enrollment.location == location)
+        owned_students_subq = owned_students_subq.distinct().subquery()
 
-        # Count active students from those owned, with sessions in ±14 day window
+        # Count active students using SQL subquery - single database round-trip
         active_students_query = db.query(func.count(func.distinct(SessionLog.student_id))).filter(
-            SessionLog.student_id.in_(owned_student_ids),
+            SessionLog.student_id.in_(select(owned_students_subq.c.student_id)),
             SessionLog.session_date >= active_window_start,
             SessionLog.session_date <= active_window_end,
             ~SessionLog.session_status.in_(['Cancelled', 'No Show'])
@@ -210,22 +210,23 @@ async def get_active_students(
     if location:
         active_student_ids_query = active_student_ids_query.filter(SessionLog.location == location)
 
-    # Filter by enrollment ownership (tutor_id) not session tutor
+    # Filter by enrollment ownership (tutor_id) using SQL subquery - no Python materialization
     if tutor_id:
-        owned_student_ids_subquery = db.query(Enrollment.student_id).filter(
+        owned_students_subq = db.query(Enrollment.student_id).filter(
             Enrollment.tutor_id == tutor_id,
             Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
-        ).distinct()
+        )
         if location:
-            owned_student_ids_subquery = owned_student_ids_subquery.filter(Enrollment.location == location)
-        owned_student_ids = [row[0] for row in owned_student_ids_subquery.all()]
-        active_student_ids_query = active_student_ids_query.filter(SessionLog.student_id.in_(owned_student_ids))
+            owned_students_subq = owned_students_subq.filter(Enrollment.location == location)
+        owned_students_subq = owned_students_subq.distinct().subquery()
+        active_student_ids_query = active_student_ids_query.filter(
+            SessionLog.student_id.in_(select(owned_students_subq.c.student_id))
+        )
 
-    active_ids = [row[0] for row in active_student_ids_query.all()]
-
-    # Fetch student details, sorted by id descending
+    # Use subquery for final student fetch - single round-trip
+    active_ids_subq = active_student_ids_query.subquery()
     students = db.query(Student).filter(
-        Student.id.in_(active_ids)
+        Student.id.in_(select(active_ids_subq.c.student_id))
     ).order_by(Student.id.desc()).all()
 
     return students

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { useTutors, useLocations, useEnrollment } from "@/lib/hooks";
+import { useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { ratingToEmoji } from "@/lib/formatters";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ExtensionRequestModal } from "./ExtensionRequestModal";
 
 // Interface for enrollment deadline exceeded error
@@ -87,7 +88,42 @@ export function EditSessionModal({
   const { data: tutors } = useTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
-  const effectiveEndDate = enrollment?.effective_end_date;
+  const { effectiveRole } = useAuth();
+  const isSuperAdmin = effectiveRole === "Super Admin";
+
+  // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
+  // This is needed for cross-enrollment makeups: when editing a session from old enrollment A,
+  // the deadline should be checked against the student's current enrollment B
+  const { data: studentEnrollments } = useStudentEnrollments(session.student_id);
+  const currentEnrollment = useMemo(() => {
+    if (!studentEnrollments) return null;
+    // Filter to Regular enrollments only, then find the latest by first_lesson_date
+    const regularEnrollments = studentEnrollments.filter(e => e.enrollment_type === 'Regular');
+    if (regularEnrollments.length === 0) return null;
+    return regularEnrollments.reduce((latest, e) => {
+      if (!latest) return e;
+      if (!e.first_lesson_date) return latest;
+      if (!latest.first_lesson_date) return e;
+      return e.first_lesson_date > latest.first_lesson_date ? e : latest;
+    }, null as typeof regularEnrollments[0] | null);
+  }, [studentEnrollments]);
+
+  // Use current enrollment for deadline checks (cross-enrollment aware)
+  const effectiveEndDate = currentEnrollment?.effective_end_date;
+
+  // 60-day makeup restriction (only applies to makeup sessions)
+  // Use root_original_session_date from API (computed on backend by tracing makeup chain)
+  const rootOriginalDate = session.root_original_session_date || session.session_date;
+  const isMakeupSession = !!session.make_up_for_id;
+
+  // Calculate the last allowed date (60 days from original)
+  const lastAllowedDate60Day = useMemo(() => {
+    if (!isMakeupSession || !rootOriginalDate) return null;
+    const d = new Date(rootOriginalDate + 'T00:00:00');
+    d.setDate(d.getDate() + 60);
+    return d.toISOString().split('T')[0];
+  }, [isMakeupSession, rootOriginalDate]);
+
   const { showToast } = useToast();
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -202,18 +238,64 @@ export function EditSessionModal({
   // Early deadline warning - ONLY for regular slot past deadline
   // Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
   // past the enrollment end date. Non-regular slots are allowed past deadline.
+  // Uses CURRENT enrollment (not session's enrollment) for cross-enrollment makeups.
   const showEarlyDeadlineWarning = useMemo(() => {
     if (!effectiveEndDate || !form.session_date) return false;
     if (form.session_date === session.session_date) return false; // No change
     if (form.session_date <= effectiveEndDate) return false; // Not past deadline
 
-    // Check if this is the regular slot
+    // Check if this is the regular slot (of the CURRENT enrollment)
     const selectedDayName = getDayName(form.session_date);
-    const isRegularDay = selectedDayName === enrollment?.assigned_day;
-    const isRegularTime = formTimeSlot === enrollment?.assigned_time;
+    const isRegularDay = selectedDayName === currentEnrollment?.assigned_day;
+    const isRegularTime = formTimeSlot === currentEnrollment?.assigned_time;
 
     return isRegularDay && isRegularTime;
-  }, [form.session_date, formTimeSlot, session.session_date, effectiveEndDate, enrollment?.assigned_day, enrollment?.assigned_time]);
+  }, [form.session_date, formTimeSlot, session.session_date, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
+
+  // 60-day rule check for makeup sessions
+  const is60DayExceeded = useMemo(() => {
+    if (!isMakeupSession || !lastAllowedDate60Day || !form.session_date) return false;
+    if (form.session_date === session.session_date) return false; // No change
+    return form.session_date > lastAllowedDate60Day;
+  }, [isMakeupSession, lastAllowedDate60Day, form.session_date, session.session_date]);
+
+  // Check if session is pending makeup
+  const isPendingMakeup = session.session_status.includes("Pending Make-up");
+
+  // Filter status dropdown to prevent non-Super Admin from bypassing business logic
+  const allowedStatuses = useMemo(() => {
+    if (isSuperAdmin) return SESSION_STATUSES;
+
+    let statuses = [...SESSION_STATUSES];
+
+    // Block "Make-up Class" unless session is already that status
+    if (session.session_status !== "Make-up Class") {
+      statuses = statuses.filter(s => s !== "Make-up Class");
+    }
+
+    // For pending makeup sessions, block statuses that would give credit without proper makeup flow
+    if (isPendingMakeup) {
+      const blockedFromPending = ["Scheduled", "Attended", "Trial Class"];
+      statuses = statuses.filter(s => !blockedFromPending.includes(s));
+    }
+
+    return statuses;
+  }, [isSuperAdmin, session.session_status, isPendingMakeup]);
+
+  // Show warning when Super Admin makes a dangerous status transition
+  const dangerousStatuses = ["Scheduled", "Attended", "Trial Class", "Make-up Class"];
+  const showStatusOverrideWarning = useMemo(() => {
+    if (!isSuperAdmin) return false;
+    // Warning for: setting to Make-up Class on non-makeup session
+    if (form.session_status === "Make-up Class" && session.session_status !== "Make-up Class") {
+      return true;
+    }
+    // Warning for: changing pending makeup to a status that gives credit
+    if (isPendingMakeup && dangerousStatuses.includes(form.session_status)) {
+      return true;
+    }
+    return false;
+  }, [isSuperAdmin, form.session_status, session.session_status, isPendingMakeup]);
 
   const handleSave = async () => {
     const sessionId = session.id;
@@ -403,7 +485,7 @@ export function EditSessionModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={isSaving || showEarlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
             Save Changes
           </Button>
         </div>
@@ -464,6 +546,60 @@ export function EditSessionModal({
           </div>
         </div>
 
+        {/* 60-day makeup limit warning - hard block for non-Super Admin, override warning for Super Admin */}
+        {is60DayExceeded && (
+          <div className={`p-3 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle className={`h-4 w-4 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} />
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${isSuperAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
+                  {isSuperAdmin
+                    ? 'This date exceeds the 60-day makeup limit (Super Admin override available)'
+                    : 'This date exceeds the 60-day makeup limit'}
+                </p>
+                <p className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5`}>
+                  Makeups must be scheduled within 60 days of the original session ({rootOriginalDate}).
+                  Last allowed date: {lastAllowedDate60Day}
+                </p>
+                {isSuperAdmin && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">
+                    As Super Admin, you may proceed with this override.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => updateField("session_date", session.session_date)}
+                className={`text-xs ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-800' : 'text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800'}`}
+              >
+                Revert Date
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Super Admin warning for dangerous status transitions */}
+        {showStatusOverrideWarning && (
+          <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-orange-800 dark:text-orange-200">
+                  You are changing this session to &quot;{form.session_status}&quot; (Super Admin override)
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
+                  {isPendingMakeup
+                    ? "This will bypass the makeup scheduling workflow. The session will no longer be tracked as pending makeup."
+                    : "This bypasses the normal makeup scheduling workflow. The 60-day restriction cannot be enforced without a linked original session."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Early Deadline Warning - shown when moving to regular slot past deadline */}
         {showEarlyDeadlineWarning && !deadlineError && (
           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
@@ -471,7 +607,7 @@ export function EditSessionModal({
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
-                  This is the student&apos;s regular slot ({enrollment?.assigned_day} {enrollment?.assigned_time}) past the enrollment deadline
+                  This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
                   Enrollment ends: {effectiveEndDate}
@@ -600,7 +736,7 @@ export function EditSessionModal({
               {/* Dropdown Panel */}
               {statusDropdownOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 max-h-60 overflow-y-auto">
-                  {SESSION_STATUSES.map((status) => {
+                  {allowedStatuses.map((status) => {
                     const config = getSessionStatusConfig(status);
                     const StatusIcon = config.Icon;
                     const isSelected = form.session_status === status;

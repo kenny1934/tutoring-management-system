@@ -165,6 +165,7 @@ export interface Session {
   undone_from_status?: string;  // Only set in undo response for redo toast
   rescheduled_to_id?: number;
   make_up_for_id?: number;
+  root_original_session_date?: string;  // For makeup sessions: date of the root original session (for 60-day rule)
   exam_revision_slot_id?: number;  // Links session to exam revision slot
   extension_request_id?: number;  // ID of extension request for this session
   extension_request_status?: 'Pending' | 'Approved' | 'Rejected';  // Status of extension request
@@ -266,7 +267,21 @@ export interface CalendarEvent {
   created_at: string;
   updated_at: string;
   last_synced_at: string;
+  revision_slot_count?: number;  // Number of revision slots linked to this event
 }
+
+export interface CalendarEventCreate {
+  title: string;
+  description?: string;
+  start_date: string;  // ISO format (YYYY-MM-DD)
+  end_date?: string;
+  school?: string;
+  grade?: string;
+  academic_stream?: string;  // 'A' | 'S' | 'C'
+  event_type?: string;  // 'Test' | 'Quiz' | 'Exam'
+}
+
+export type CalendarEventUpdate = Partial<CalendarEventCreate>;
 
 // Revenue types
 export interface MonthlyRevenueSummary {
@@ -446,6 +461,22 @@ export interface MessageThread {
   root_message: Message;
   replies: Message[];
   total_unread: number;
+}
+
+export interface PaginatedThreadsResponse {
+  threads: MessageThread[];
+  total_count: number;
+  has_more: boolean;
+  limit: number;
+  offset: number;
+}
+
+export interface PaginatedMessagesResponse {
+  messages: Message[];
+  total_count: number;
+  has_more: boolean;
+  limit: number;
+  offset: number;
 }
 
 export interface MessageCreate {

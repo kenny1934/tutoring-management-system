@@ -562,6 +562,37 @@ async def approve_slot(
                 # Log but don't block if SQL function doesn't exist
                 logger.warning(f"Could not check enrollment deadline: {e}")
 
+    # 60-day makeup restriction (Super Admin can override)
+    # Makeup must be scheduled within 60 days of the ROOT original session
+    is_super_admin = current_user.role == "Super Admin"
+    if not is_super_admin:
+        # Trace back through make_up_for_id chain to find the root original session
+        root_original = original_session
+        visited = set()
+        while root_original.make_up_for_id and root_original.id not in visited:
+            visited.add(root_original.id)
+            parent = db.query(SessionLog).filter(
+                SessionLog.id == root_original.make_up_for_id
+            ).first()
+            if not parent:
+                break
+            root_original = parent
+
+        days_since_original = (slot.proposed_date - root_original.session_date).days
+
+        if days_since_original > 60:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "MAKEUP_60_DAY_EXCEEDED",
+                    "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                    "original_session_id": root_original.id,
+                    "original_session_date": str(root_original.session_date),
+                    "days_difference": days_since_original,
+                    "max_allowed_days": 60
+                }
+            )
+
     # Validate: student doesn't have conflicting session
     existing_session = db.query(SessionLog).filter(
         SessionLog.student_id == original_session.student_id,
