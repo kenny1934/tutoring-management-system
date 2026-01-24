@@ -12,7 +12,7 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star
+  Users, UserCheck, Star, ArrowUp, ArrowDown
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -1024,6 +1024,9 @@ function EditableInfoRow({
 }
 
 // Sessions Tab Component
+type SessionViewMode = 'by-enrollment' | 'by-date';
+type SortOrder = 'asc' | 'desc';
+
 function SessionsTab({
   sessions,
   enrollments,
@@ -1043,6 +1046,14 @@ function SessionsTab({
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
 }) {
+  // View mode and sort order state
+  const [viewMode, setViewMode] = useState<SessionViewMode>('by-enrollment');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  // Enrollment popover state
+  const [clickedEnrollment, setClickedEnrollment] = useState<Enrollment | null>(null);
+  const [enrollmentClickPosition, setEnrollmentClickPosition] = useState<{ x: number; y: number } | null>(null);
+
   // Group sessions by enrollment
   const sessionsByEnrollment = useMemo(() => {
     const grouped = new Map<number, Session[]>();
@@ -1069,16 +1080,32 @@ function SessionsTab({
     return new Map(enrollments.map(e => [e.id, e]));
   }, [enrollments]);
 
-  // Sort enrollment groups by most recent session date
+  // Sort enrollment groups by enrollment start date (first_lesson_date)
   const sortedEnrollmentIds = useMemo(() => {
     return Array.from(sessionsByEnrollment.entries())
-      .sort(([, sessionsA], [, sessionsB]) => {
-        const latestA = Math.max(...sessionsA.map(s => new Date(s.session_date).getTime()));
-        const latestB = Math.max(...sessionsB.map(s => new Date(s.session_date).getTime()));
-        return latestB - latestA;
+      .sort(([idA], [idB]) => {
+        const enrollmentA = enrollmentMap.get(idA);
+        const enrollmentB = enrollmentMap.get(idB);
+        const dateA = enrollmentA?.first_lesson_date
+          ? new Date(enrollmentA.first_lesson_date).getTime()
+          : 0;
+        const dateB = enrollmentB?.first_lesson_date
+          ? new Date(enrollmentB.first_lesson_date).getTime()
+          : 0;
+        return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
       })
       .map(([id]) => id);
-  }, [sessionsByEnrollment]);
+  }, [sessionsByEnrollment, enrollmentMap, sortOrder]);
+
+  // Flat sorted sessions for by-date view
+  const sortedSessions = useMemo(() => {
+    if (viewMode !== 'by-date') return sessions;
+    return [...sessions].sort((a, b) => {
+      const dateA = new Date(a.session_date).getTime();
+      const dateB = new Date(b.session_date).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+  }, [sessions, viewMode, sortOrder]);
 
   if (loading) {
     return (
@@ -1185,47 +1212,118 @@ function SessionsTab({
   };
 
   return (
-    <div className="space-y-6">
-      {sortedEnrollmentIds.map((enrollmentId) => {
-        const enrollment = enrollmentMap.get(enrollmentId);
-        const enrollmentSessions = sessionsByEnrollment.get(enrollmentId) || [];
+    <div className="space-y-4">
+      {/* View Mode Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <button
+            onClick={() => setViewMode('by-enrollment')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              viewMode === 'by-enrollment'
+                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            By Enrollment
+          </button>
+          <button
+            onClick={() => setViewMode('by-date')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              viewMode === 'by-date'
+                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            By Date
+          </button>
+        </div>
 
-        return (
-          <div key={enrollmentId} className="space-y-2">
-            {/* Enrollment Header */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
-              <Calendar className="h-4 w-4 text-[#a0704b]" />
-              <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
-              </span>
-              {enrollment?.tutor_name && (
-                <>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {enrollment.tutor_name}
-                  </span>
-                </>
-              )}
-              {enrollment?.location && (
-                <>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                    {enrollment.location}
-                  </span>
-                </>
-              )}
-              <span className="ml-auto text-xs text-gray-500">
-                {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
-              </span>
-            </div>
+        {/* Sort Order Toggle (shown in both modes) */}
+        <button
+          onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
+        >
+          {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+          {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+        </button>
+      </div>
 
-            {/* Session Cards */}
-            <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
-              {enrollmentSessions.map((session, index) => renderSessionCard(session, index))}
-            </div>
-          </div>
-        );
-      })}
+      {/* Sessions List */}
+      {viewMode === 'by-enrollment' ? (
+        // Grouped by enrollment view
+        <div className="space-y-6">
+          {sortedEnrollmentIds.map((enrollmentId) => {
+            const enrollment = enrollmentMap.get(enrollmentId);
+            const enrollmentSessions = sessionsByEnrollment.get(enrollmentId) || [];
+
+            return (
+              <div key={enrollmentId} className="space-y-2">
+                {/* Enrollment Header - Clickable */}
+                <button
+                  onClick={(e) => {
+                    if (enrollment) {
+                      e.stopPropagation();
+                      setClickedEnrollment(enrollment);
+                      setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] w-full text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
+                >
+                  <Calendar className="h-4 w-4 text-[#a0704b]" />
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                    {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
+                  </span>
+                  {enrollment?.tutor_name && (
+                    <>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {enrollment.tutor_name}
+                      </span>
+                    </>
+                  )}
+                  {enrollment?.location && (
+                    <>
+                      <span className="text-gray-400">•</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                        {enrollment.location}
+                      </span>
+                    </>
+                  )}
+                  <span className="ml-auto text-xs text-gray-500">
+                    {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
+                  </span>
+                </button>
+
+                {/* Session Cards */}
+                <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  {enrollmentSessions.map((session, index) => renderSessionCard(session, index))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        // Flat list by date view
+        <div className="space-y-2">
+          {sortedSessions.map((session, index) => renderSessionCard(session, index))}
+        </div>
+      )}
+
+      {/* Enrollment Detail Popover */}
+      {clickedEnrollment && enrollmentClickPosition && (
+        <EnrollmentDetailPopover
+          enrollment={clickedEnrollment}
+          isOpen={true}
+          onClose={() => {
+            setClickedEnrollment(null);
+            setEnrollmentClickPosition(null);
+          }}
+          clickPosition={enrollmentClickPosition}
+          isMobile={isMobile}
+        />
+      )}
     </div>
   );
 }
@@ -2262,6 +2360,16 @@ function EnrollmentDetailPopover({
               <Calendar className="h-4 w-4 text-indigo-500" />
               <span className="text-sm text-gray-700 dark:text-gray-300">
                 Started: {formatShortDate(enrollment.first_lesson_date)}
+              </span>
+            </div>
+          )}
+
+          {/* End Date */}
+          {enrollment.effective_end_date && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-red-500" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                Ends: {formatShortDate(enrollment.effective_end_date)}
               </span>
             </div>
           )}
