@@ -148,8 +148,7 @@ export function useStudent(id: number | null | undefined) {
  * Hook for fetching active students list (for HeaderStats popover)
  * Only fetches when enabled=true (popover is open)
  */
-export function useActiveStudents(location?: string, enabled: boolean = true) {
-  const params = location && location !== "All Locations" ? `?location=${location}` : "";
+export function useActiveStudents(location?: string, tutorId?: number, enabled: boolean = true) {
   return useSWR<Array<{
     id: number;
     school_student_id: string | null;
@@ -159,12 +158,8 @@ export function useActiveStudents(location?: string, enabled: boolean = true) {
     school: string | null;
     home_location: string | null;
   }>>(
-    enabled ? ['active-students', location || 'all'] : null,
-    async () => {
-      const response = await fetch(`/api/active-students${params}`);
-      if (!response.ok) throw new Error('Failed to fetch active students');
-      return response.json();
-    },
+    enabled ? ['active-students', location || 'all', tutorId || 'all'] : null,
+    () => api.stats.getActiveStudents(location, tutorId),
     { revalidateOnFocus: false }
   );
 }
@@ -190,13 +185,17 @@ export function useMyStudents(tutorId: number | null | undefined, location?: str
 }
 
 /**
- * Hook for fetching all active enrollments in a location (no tutor filter)
- * Used for "All Tutors" mode in My Students view
+ * Hook for fetching all active enrollments in a location
+ * Used for "All Tutors" mode in My Students view and dashboard charts
+ * @param location - Filter by location
+ * @param tutorId - Filter by tutor (for 'My View' mode) - uses getMyStudents
  */
-export function useAllStudents(location?: string) {
+export function useAllStudents(location?: string, tutorId?: number) {
   return useSWR<Enrollment[]>(
-    ['all-students', location || 'all'],
-    () => enrollmentsAPI.getActive(location),
+    ['all-students', location || 'all', tutorId || 'all'],
+    () => tutorId
+      ? enrollmentsAPI.getMyStudents(tutorId, location)
+      : enrollmentsAPI.getActive(location),
     { revalidateOnFocus: false }
   );
 }
@@ -236,15 +235,15 @@ export function useEnrollmentSessions(enrollmentId: number | null | undefined) {
 /**
  * Hook for fetching dashboard stats with caching
  * Returns cached data immediately for instant navigation
+ * @param location - Filter by location
+ * @param tutorId - Filter by tutor (for 'My View' mode)
  */
-export function useDashboardStats(location?: string) {
-  const key = location && location !== "All Locations"
-    ? ['dashboard-stats', location]
-    : ['dashboard-stats'];
+export function useDashboardStats(location?: string, tutorId?: number) {
+  const key = ['dashboard-stats', location || 'all', tutorId || 'all'];
 
   return useSWR<DashboardStats>(
     key,
-    () => api.stats.getDashboard(location),
+    () => api.stats.getDashboard(location, tutorId),
     { revalidateOnFocus: false }
   );
 }
@@ -252,15 +251,15 @@ export function useDashboardStats(location?: string) {
 /**
  * Hook for fetching activity feed events
  * Returns recent activity (sessions, payments, enrollments)
+ * @param location - Filter by location
+ * @param tutorId - Filter by tutor (for 'My View' mode)
  */
-export function useActivityFeed(location?: string) {
-  const key = location && location !== "All Locations"
-    ? ['activity-feed', location]
-    : ['activity-feed'];
+export function useActivityFeed(location?: string, tutorId?: number) {
+  const key = ['activity-feed', location || 'all', tutorId || 'all'];
 
   return useSWR<ActivityEvent[]>(
     key,
-    () => api.stats.getActivityFeed(location),
+    () => api.stats.getActivityFeed(location, tutorId),
     { revalidateOnFocus: false }
   );
 }
@@ -285,6 +284,43 @@ export function useMonthlyRevenueSummary(tutorId: number | null | undefined, per
   return useSWR<MonthlyRevenueSummary>(
     tutorId && period ? ['revenue-summary', tutorId, period] : null,
     () => revenueAPI.getMonthlySummary(tutorId!, period!)
+  );
+}
+
+/**
+ * Hook for fetching current month's revenue summary for a tutor (My View)
+ * Automatically uses current month as the period
+ * @param tutorId - The tutor ID to fetch revenue for (undefined skips fetching)
+ * @param enabled - Whether to enable fetching (default true, set false to prevent API calls)
+ */
+export function useCurrentMonthRevenue(tutorId: number | undefined, enabled: boolean = true) {
+  const period = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  return useSWR<MonthlyRevenueSummary>(
+    enabled && tutorId ? ['current-month-revenue', tutorId, period] : null,
+    () => revenueAPI.getMonthlySummary(tutorId!, period),
+    { revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching current month's revenue aggregated by location (Center View)
+ * @param location - Location to aggregate (null for all locations)
+ * @param enabled - Whether to enable fetching (default true, set false to prevent API calls)
+ */
+export function useLocationMonthlyRevenue(location: string | null, enabled: boolean = true) {
+  const period = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  return useSWR<{ location: string; period: string; total_revenue: number; sessions_count: number; avg_revenue_per_session: number }>(
+    enabled ? ['location-month-revenue', location || 'all', period] : null,
+    () => revenueAPI.getLocationMonthlySummary(location, period),
+    { revalidateOnFocus: false }
   );
 }
 

@@ -49,6 +49,7 @@ async def get_locations(response: Response, db: Session = Depends(get_db)):
 @router.get("/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
     location: Optional[str] = Query(None, description="Filter stats by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter stats by tutor (for 'My View' mode)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -83,6 +84,8 @@ async def get_dashboard_stats(
     )
     if location:
         enrollment_query = enrollment_query.filter(Enrollment.location == location)
+    if tutor_id:
+        enrollment_query = enrollment_query.filter(Enrollment.tutor_id == tutor_id)
     enrollment_stats = enrollment_query.first()
 
     total_enrollments = enrollment_stats.total or 0
@@ -134,12 +137,37 @@ async def get_dashboard_stats(
     )
     if location:
         session_query = session_query.filter(SessionLog.location == location)
+    if tutor_id:
+        session_query = session_query.filter(SessionLog.tutor_id == tutor_id)
     session_stats = session_query.first()
 
     sessions_this_month = int(session_stats.this_month or 0)
     sessions_this_week = int(session_stats.this_week or 0)
     paid_sessions_this_month = int(session_stats.paid_sessions or 0)
-    active_students = int(session_stats.active_students or 0)
+
+    # Active students: filter by enrollment ownership (tutor_id) not session tutor
+    if tutor_id:
+        # Get student IDs from active enrollments owned by this tutor
+        owned_student_ids_subquery = db.query(Enrollment.student_id).filter(
+            Enrollment.tutor_id == tutor_id,
+            Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
+        ).distinct()
+        if location:
+            owned_student_ids_subquery = owned_student_ids_subquery.filter(Enrollment.location == location)
+        owned_student_ids = [row[0] for row in owned_student_ids_subquery.all()]
+
+        # Count active students from those owned, with sessions in ±14 day window
+        active_students_query = db.query(func.count(func.distinct(SessionLog.student_id))).filter(
+            SessionLog.student_id.in_(owned_student_ids),
+            SessionLog.session_date >= active_window_start,
+            SessionLog.session_date <= active_window_end,
+            ~SessionLog.session_status.in_(['Cancelled', 'No Show'])
+        )
+        if location:
+            active_students_query = active_students_query.filter(SessionLog.location == location)
+        active_students = active_students_query.scalar() or 0
+    else:
+        active_students = int(session_stats.active_students or 0)
 
     # Estimate revenue this month (paid sessions * 400 base rate)
     revenue_this_month = paid_sessions_this_month * 400
@@ -159,6 +187,7 @@ async def get_dashboard_stats(
 @router.get("/active-students", response_model=List[StudentBasic])
 async def get_active_students(
     location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -180,6 +209,17 @@ async def get_active_students(
     )
     if location:
         active_student_ids_query = active_student_ids_query.filter(SessionLog.location == location)
+
+    # Filter by enrollment ownership (tutor_id) not session tutor
+    if tutor_id:
+        owned_student_ids_subquery = db.query(Enrollment.student_id).filter(
+            Enrollment.tutor_id == tutor_id,
+            Enrollment.payment_status.in_(['Paid', 'Pending Payment'])
+        ).distinct()
+        if location:
+            owned_student_ids_subquery = owned_student_ids_subquery.filter(Enrollment.location == location)
+        owned_student_ids = [row[0] for row in owned_student_ids_subquery.all()]
+        active_student_ids_query = active_student_ids_query.filter(SessionLog.student_id.in_(owned_student_ids))
 
     active_ids = [row[0] for row in active_student_ids_query.all()]
 
@@ -296,6 +336,7 @@ async def global_search(
 @router.get("/activity-feed", response_model=List[ActivityEvent])
 async def get_activity_feed(
     location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
     limit: int = Query(10, ge=1, le=50, description="Max events to return"),
     db: Session = Depends(get_db)
 ):
@@ -329,6 +370,8 @@ async def get_activity_feed(
     )
     if location and location != "All Locations":
         sessions_query = sessions_query.filter(SessionLog.location == location)
+    if tutor_id:
+        sessions_query = sessions_query.filter(SessionLog.tutor_id == tutor_id)
 
     for s in sessions_query.all():
         if 'Make-up Booked' in s.session_status:
@@ -382,6 +425,8 @@ async def get_activity_feed(
     )
     if location and location != "All Locations":
         enrollments_query = enrollments_query.filter(Enrollment.location == location)
+    if tutor_id:
+        enrollments_query = enrollments_query.filter(Enrollment.tutor_id == tutor_id)
 
     for e in enrollments_query.all():
         # Payment received

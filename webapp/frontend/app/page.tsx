@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
+import { useRole } from "@/contexts/RoleContext";
 import { useDashboardStats, usePageTitle } from "@/lib/hooks";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
 
@@ -28,8 +29,14 @@ import { cn } from "@/lib/utils";
 export default function DashboardPage() {
   const { user } = useAuth();
   const { selectedLocation } = useLocation();
-  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation);
+  const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
+
+  // Determine effective tutor ID based on view mode
+  // "my-view" shows only the logged-in tutor's data
+  const effectiveTutorId = viewMode === 'my-view' ? user?.id : undefined;
+
+  const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId);
 
   usePageTitle("Dashboard");
 
@@ -83,6 +90,7 @@ export default function DashboardPage() {
             pendingPayments={stats?.pending_payment_enrollments ?? 0}
             stats={stats}
             isStatsLoading={isLoading}
+            tutorId={effectiveTutorId}
           />
         </motion.div>
 
@@ -93,7 +101,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0, rotate: -0.5 }}
             transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
           >
-            <TodaySessionsCard isMobile={isMobile} />
+            <TodaySessionsCard isMobile={isMobile} tutorId={effectiveTutorId} />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: 0.7 }}
@@ -119,7 +127,7 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
-            <GradeDistributionChart />
+            <GradeDistributionChart tutorId={effectiveTutorId} />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: 0.5 }}
@@ -133,7 +141,7 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
-            <SchoolDistributionChart />
+            <SchoolDistributionChart tutorId={effectiveTutorId} />
           </motion.div>
         </div>
 
@@ -146,7 +154,7 @@ export default function DashboardPage() {
           role="complementary"
           aria-label="Recent activity"
         >
-          <ActivityFeed isMobile={isMobile} />
+          <ActivityFeed isMobile={isMobile} tutorId={effectiveTutorId} />
         </motion.div>
       </PageTransition>
     </DeskSurface>

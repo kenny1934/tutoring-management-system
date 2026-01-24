@@ -89,11 +89,13 @@ const formatRelativeTime = (date: Date): string => {
 interface ActivityFeedProps {
   className?: string;
   isMobile?: boolean;
+  tutorId?: number;
 }
 
-export function ActivityFeed({ className, isMobile = false }: ActivityFeedProps) {
+export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityFeedProps) {
   const { selectedLocation } = useLocation();
-  const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation);
+  // Pass tutorId to filter for "My View" mode
+  const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation, tutorId);
 
   // Map API events to component format with Date objects
   const events = useMemo(() => {

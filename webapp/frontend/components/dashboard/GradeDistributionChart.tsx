@@ -17,10 +17,15 @@ const COLORS = [
   "#b8860b", // dark goldenrod
 ];
 
-export function GradeDistributionChart() {
+interface GradeDistributionChartProps {
+  tutorId?: number;
+}
+
+export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps) {
   const router = useRouter();
   const { selectedLocation } = useLocation();
-  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation);
+  // Pass tutorId to filter for "My View" mode
+  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation, tutorId);
 
   // Handle click on pie slice - navigate to students page with grade filter
   const handleSliceClick = (data: { name: string }) => {

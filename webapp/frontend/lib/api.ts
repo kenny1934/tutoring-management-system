@@ -385,9 +385,12 @@ export interface SearchResults {
 
 // Stats API
 export const statsAPI = {
-  getDashboard: (location?: string) => {
-    const params = location && location !== "All Locations" ? `?location=${location}` : "";
-    return fetchAPI<DashboardStats>(`/stats${params}`);
+  getDashboard: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") params.set("location", location);
+    if (tutorId) params.set("tutor_id", tutorId.toString());
+    const query = params.toString();
+    return fetchAPI<DashboardStats>(`/stats${query ? `?${query}` : ""}`);
   },
 
   getLocations: () => {
@@ -400,9 +403,28 @@ export const statsAPI = {
     return fetchAPI<SearchResults>(`/search?${params.toString()}`);
   },
 
-  getActivityFeed: (location?: string) => {
-    const params = location && location !== "All Locations" ? `?location=${location}` : "";
-    return fetchAPI<ActivityEvent[]>(`/activity-feed${params}`);
+  getActivityFeed: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") params.set("location", location);
+    if (tutorId) params.set("tutor_id", tutorId.toString());
+    const query = params.toString();
+    return fetchAPI<ActivityEvent[]>(`/activity-feed${query ? `?${query}` : ""}`);
+  },
+
+  getActiveStudents: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") params.set("location", location);
+    if (tutorId) params.set("tutor_id", tutorId.toString());
+    const query = params.toString();
+    return fetchAPI<Array<{
+      id: number;
+      school_student_id: string | null;
+      student_name: string;
+      grade: string | null;
+      lang_stream: string | null;
+      school: string | null;
+      home_location: string | null;
+    }>>(`/active-students${query ? `?${query}` : ""}`);
   },
 };
 
@@ -422,6 +444,18 @@ export const revenueAPI = {
       period,
     });
     return fetchAPI<SessionRevenueDetail[]>(`/revenue/session-details?${params}`);
+  },
+
+  getLocationMonthlySummary: (location: string | null, period: string) => {
+    const params = new URLSearchParams({ period });
+    if (location) params.set("location", location);
+    return fetchAPI<{
+      location: string;
+      period: string;
+      total_revenue: number;
+      sessions_count: number;
+      avg_revenue_per_session: number;
+    }>(`/revenue/location-monthly-summary?${params.toString()}`);
   },
 };
 

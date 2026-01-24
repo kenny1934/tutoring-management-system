@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Users, Calendar, DollarSign, Search, X, Loader2 } from "lucide-react";
+import { Users, Calendar, DollarSign, Search, X, Loader2, Eye, EyeOff, Check } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
-import { useActiveStudents } from "@/lib/hooks";
+import { useActiveStudents, useCurrentMonthRevenue, useLocationMonthlyRevenue } from "@/lib/hooks";
 import type { DashboardStats } from "@/types";
 import {
   useFloating,
@@ -22,15 +22,42 @@ import {
 
 interface HeaderStatsProps {
   stats: DashboardStats;
+  tutorId?: number;
 }
 
-export function HeaderStats({ stats }: HeaderStatsProps) {
+export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
   const { selectedLocation } = useLocation();
   const [isStudentsOpen, setIsStudentsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Revenue visibility state
+  const [isRevenueVisible, setIsRevenueVisible] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
   // Fetch active students only when popover is open (SWR caches results)
-  const { data: students = [], isLoading } = useActiveStudents(selectedLocation, isStudentsOpen);
+  // Pass tutorId to filter for "My View" mode
+  const { data: students = [], isLoading } = useActiveStudents(selectedLocation, tutorId, isStudentsOpen);
+
+  // Determine view mode: tutorId present = My View, otherwise = Center View
+  const isCenterView = !tutorId;
+
+  // My View: fetch tutor's personal revenue (only when visible)
+  const { data: tutorRevenueData, isLoading: tutorRevenueLoading } = useCurrentMonthRevenue(
+    tutorId,
+    isRevenueVisible && !isCenterView
+  );
+
+  // Center View: fetch location-aggregated revenue (only when visible)
+  const { data: locationRevenueData, isLoading: locationRevenueLoading } = useLocationMonthlyRevenue(
+    selectedLocation === "All Locations" ? null : selectedLocation,
+    isRevenueVisible && isCenterView
+  );
+
+  // Combine loading states and revenue values
+  const revenueLoading = isCenterView ? locationRevenueLoading : tutorRevenueLoading;
+  const realRevenue = isCenterView
+    ? (locationRevenueData?.total_revenue ?? 0)
+    : (tutorRevenueData?.session_revenue ?? 0);
 
   // Floating UI for students popover
   const { refs, floatingStyles, context } = useFloating({
@@ -212,12 +239,63 @@ export function HeaderStats({ stats }: HeaderStatsProps) {
           </span>
         </Link>
 
-        {/* Revenue stat */}
+        {/* Revenue stat - hidden by default with eye toggle */}
         <div className="flex items-center gap-1.5 text-sm">
           <DollarSign className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">
-            ${stats.revenue_this_month?.toLocaleString() || "0"}
-          </span>
+
+          {isRevenueVisible ? (
+            // Revenue visible state
+            <>
+              <span className="font-bold text-[#a0704b] dark:text-[#cd853f]">
+                {revenueLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin inline" />
+                ) : (
+                  `$${realRevenue.toLocaleString()}`
+                )}
+              </span>
+              <button
+                onClick={() => setIsRevenueVisible(false)}
+                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title="Hide revenue"
+              >
+                <EyeOff className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+              </button>
+            </>
+          ) : showConfirmation ? (
+            // Confirmation state
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Show?</span>
+              <button
+                onClick={() => { setIsRevenueVisible(true); setShowConfirmation(false); }}
+                className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                title="Confirm"
+              >
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              </button>
+              <button
+                onClick={() => setShowConfirmation(false)}
+                className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                title="Cancel"
+              >
+                <X className="h-3.5 w-3.5 text-red-500" />
+              </button>
+            </div>
+          ) : (
+            // Hidden state (default)
+            <>
+              <span className="font-bold text-[#a0704b]/30 dark:text-[#cd853f]/30">
+                $••••
+              </span>
+              <button
+                onClick={() => setShowConfirmation(true)}
+                className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title="Show revenue"
+              >
+                <Eye className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+              </button>
+            </>
+          )}
+
           <span className="hidden sm:inline text-gray-500 dark:text-gray-400 font-medium">
             This Month
           </span>
