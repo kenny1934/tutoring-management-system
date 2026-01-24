@@ -165,3 +165,58 @@ async def get_session_revenue_details(
         }
         for row in results
     ]
+
+
+@router.get("/revenue/location-monthly-summary")
+async def get_location_monthly_summary(
+    location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
+    period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get aggregated revenue for all tutors at a location for a given month.
+    Used for "Center View" mode on dashboard.
+
+    - **location**: Location to aggregate (omit for all locations)
+    - **period**: Period in YYYY-MM format
+
+    Returns total revenue, session count, and average revenue per session.
+    Only accessible by admins.
+    """
+    # Only admins can view location-wide revenue
+    is_admin = current_user.role in ('Admin', 'Super Admin')
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required for location-wide revenue")
+
+    # Query session_costs view, aggregate by location
+    if location:
+        query = text("""
+            SELECT
+                COALESCE(SUM(cost_per_session), 0) as total_revenue,
+                COUNT(*) as sessions_count,
+                COALESCE(AVG(cost_per_session), 0) as avg_revenue_per_session
+            FROM session_costs
+            WHERE location = :location
+              AND session_period = :period
+        """)
+        result = db.execute(query, {"location": location, "period": period}).fetchone()
+    else:
+        # All locations
+        query = text("""
+            SELECT
+                COALESCE(SUM(cost_per_session), 0) as total_revenue,
+                COUNT(*) as sessions_count,
+                COALESCE(AVG(cost_per_session), 0) as avg_revenue_per_session
+            FROM session_costs
+            WHERE session_period = :period
+        """)
+        result = db.execute(query, {"period": period}).fetchone()
+
+    return {
+        "location": location or "All Locations",
+        "period": period,
+        "total_revenue": float(result.total_revenue or 0),
+        "sessions_count": result.sessions_count or 0,
+        "avg_revenue_per_session": float(result.avg_revenue_per_session or 0)
+    }

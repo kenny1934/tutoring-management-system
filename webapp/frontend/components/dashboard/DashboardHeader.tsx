@@ -168,7 +168,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             </div>
           </div>
         ) : stats ? (
-          <HeaderStats stats={stats} />
+          <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
         <div className="px-4 sm:px-6">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} />

@@ -21,10 +21,15 @@ const COLORS = [
 
 const TOP_N = 6; // Show top 6 schools, group rest as "Others"
 
-export function SchoolDistributionChart() {
+interface SchoolDistributionChartProps {
+  tutorId?: number;
+}
+
+export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProps) {
   const router = useRouter();
   const { selectedLocation } = useLocation();
-  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation);
+  // Pass tutorId to filter for "My View" mode
+  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation, tutorId);
 
   // Handle click on pie slice - navigate to students page with school filter
   const handleSliceClick = (data: { name: string }) => {
