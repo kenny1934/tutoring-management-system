@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -16,7 +17,6 @@ import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
-import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 
 // Type for pending changes
 interface PendingChange {
@@ -31,6 +31,7 @@ export default function TerminatedStudentsPage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
+  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -75,18 +76,28 @@ export default function TerminatedStudentsPage() {
 
   // Determine effective tutor ID for API calls
   const effectiveTutorId = useMemo(() => {
-    if (viewMode === 'my-view' && tutors.length > 0) {
-      // In my-view, filter to first tutor or selected
-      const filteredTutors = effectiveLocation
-        ? tutors.filter(t => t.default_location === effectiveLocation)
-        : tutors;
-      if (typeof selectedTutorId === 'number') return selectedTutorId;
-      if (filteredTutors.length > 0) return filteredTutors[0].id;
+    // Tutors always see only their own data
+    if (!isAdmin) {
+      // Handle impersonation
+      if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+        return impersonatedTutor.id;
+      }
+      return user?.id;
     }
+
+    // Admin in my-view sees own data
+    if (viewMode === 'my-view') {
+      if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+        return impersonatedTutor.id;
+      }
+      return user?.id;
+    }
+
+    // Admin in center-view can select any tutor
     if (selectedTutorId === ALL_TUTORS) return undefined;
     if (typeof selectedTutorId === 'number') return selectedTutorId;
     return undefined;
-  }, [selectedTutorId, viewMode, tutors, effectiveLocation]);
+  }, [isAdmin, viewMode, selectedTutorId, user?.id, isImpersonating, effectiveRole, impersonatedTutor]);
 
   // Fetch available quarters
   const { data: quarters = [], isLoading: loadingQuarters } = useTerminationQuarters(effectiveLocation);
@@ -289,7 +300,6 @@ export default function TerminatedStudentsPage() {
 
   return (
     <DeskSurface>
-      <AdminPageGuard accessDeniedMessage="Admin access required to view terminated students">
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
@@ -359,8 +369,8 @@ export default function TerminatedStudentsPage() {
                   )}
                 </div>
 
-                {/* Tutor Selector (center-view only) */}
-                {viewMode === 'center-view' && (
+                {/* Tutor Selector (admin in center-view only) */}
+                {isAdmin && viewMode === 'center-view' && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -636,7 +646,6 @@ export default function TerminatedStudentsPage() {
           </div>
         )}
       </PageTransition>
-      </AdminPageGuard>
     </DeskSurface>
   );
 }
