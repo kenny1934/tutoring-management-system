@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, api } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -449,17 +449,134 @@ export function useOverdueEnrollments(location?: string, tutorId?: number) {
  * Hook for fetching message threads for a tutor
  * Returns threads grouped by root message with replies
  * Pauses polling when tab is hidden to save API calls
+ *
+ * NOTE: This hook fetches all threads for the category (no pagination).
+ * For paginated access with Load More, use useMessageThreadsPaginated.
  */
 export function useMessageThreads(
   tutorId: number | null | undefined,
   category?: MessageCategory
 ) {
   const refreshInterval = useVisibilityAwareInterval(60000);
-  return useSWR<MessageThread[]>(
+  const result = useSWR<PaginatedThreadsResponse>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
-    () => messagesAPI.getThreads(tutorId!, category),
+    () => messagesAPI.getThreads(tutorId!, category, 50), // Max allowed by backend
     { refreshInterval, revalidateOnFocus: false }
   );
+
+  // Return threads array for backward compatibility
+  return {
+    ...result,
+    data: result.data?.threads ?? []
+  };
+}
+
+/**
+ * Options for the paginated message threads hook
+ */
+export interface UseMessageThreadsPaginatedOptions {
+  tutorId: number | null | undefined;
+  category?: MessageCategory;
+  search?: string;
+  pageSize?: number;
+}
+
+/**
+ * Result type for paginated hooks
+ */
+export interface PaginatedResult<T> {
+  data: T[];
+  isLoading: boolean;
+  isLoadingMore: boolean;
+  error: Error | undefined;
+  hasMore: boolean;
+  totalCount: number;
+  loadMore: () => void;
+  refresh: () => void;
+}
+
+/**
+ * Hook for fetching message threads with pagination and server-side search.
+ * Supports "Load More" pattern for infinite scrolling.
+ */
+export function useMessageThreadsPaginated(
+  options: UseMessageThreadsPaginatedOptions
+): PaginatedResult<MessageThread> {
+  const { tutorId, category, search, pageSize = 20 } = options;
+  const [allData, setAllData] = useState<MessageThread[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const refreshInterval = useVisibilityAwareInterval(60000);
+
+  // Reset when search/category/tutorId changes
+  useEffect(() => {
+    setIsTransitioning(true);  // Show loading spinner during transition
+    setAllData([]);
+    setOffset(0);
+    setHasMore(true);
+    setTotalCount(0);
+  }, [search, category, tutorId]);
+
+  // Fetch current page
+  const { data, isLoading, error, mutate } = useSWR<PaginatedThreadsResponse>(
+    tutorId ? ['message-threads-paginated', tutorId, category || 'all', search || '', offset, pageSize] : null,
+    () => messagesAPI.getThreads(tutorId!, category, pageSize, offset, search),
+    {
+      refreshInterval: offset === 0 ? refreshInterval : 0, // Only poll first page
+      revalidateOnFocus: false,
+      onSuccess: (response) => {
+        setIsTransitioning(false);  // Clear transition state when data arrives
+        if (offset === 0) {
+          setAllData(response.threads);
+        } else {
+          setAllData(prev => [...prev, ...response.threads]);
+        }
+        setHasMore(response.has_more);
+        setTotalCount(response.total_count);
+        setIsLoadingMore(false);
+      }
+    }
+  );
+
+  // Sync cached data immediately when SWR returns from cache
+  // onSuccess only fires after fetch, not for cache hits
+  useEffect(() => {
+    if (data && offset === 0 && !isLoading) {
+      setAllData(data.threads);
+      setHasMore(data.has_more);
+      setTotalCount(data.total_count);
+      setIsTransitioning(false);
+    }
+  }, [data, offset, isLoading]);
+
+  const loadMore = useCallback(() => {
+    if (hasMore && !isLoadingMore && !isLoading) {
+      setIsLoadingMore(true);
+      setOffset(prev => prev + pageSize);
+    }
+  }, [hasMore, isLoadingMore, isLoading, pageSize]);
+
+  const refresh = useCallback(() => {
+    setAllData([]);
+    setOffset(0);
+    setHasMore(true);
+    mutate();
+  }, [mutate]);
+
+  return {
+    data: allData,
+    isLoading: (isLoading && offset === 0) || isTransitioning,
+    isLoadingMore,
+    error,
+    hasMore,
+    totalCount,
+    loadMore,
+    refresh
+  };
 }
 
 /**
@@ -497,6 +614,22 @@ export function useMessageThread(
     messageId && tutorId ? ['message-thread', messageId, tutorId] : null,
     () => messagesAPI.getThread(messageId!, tutorId!)
   );
+}
+
+/**
+ * Hook for fetching archived message threads for a tutor
+ */
+export function useArchivedMessages(tutorId: number | null | undefined) {
+  const result = useSWR<PaginatedThreadsResponse>(
+    tutorId ? ['archived-messages', tutorId] : null,
+    () => messagesAPI.getArchived(tutorId!, 50), // Max allowed by backend
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    ...result,
+    data: result.data?.threads ?? []
+  };
 }
 
 // ============================================
