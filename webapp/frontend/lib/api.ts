@@ -9,6 +9,8 @@ import type {
   SessionFilters,
   UpcomingTestAlert,
   CalendarEvent,
+  CalendarEventCreate,
+  CalendarEventUpdate,
   ActivityEvent,
   MonthlyRevenueSummary,
   SessionRevenueDetail,
@@ -25,6 +27,7 @@ import type {
   MessageThread,
   MessageCreate,
   MessageCategory,
+  PaginatedThreadsResponse,
   MakeupSlotSuggestion,
   ScheduleMakeupRequest,
   ScheduleMakeupResponse,
@@ -354,6 +357,23 @@ export const calendarAPI = {
       { method: 'POST' }
     );
   },
+
+  createEvent: (data: CalendarEventCreate) =>
+    fetchAPI<CalendarEvent>('/calendar/events', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateEvent: (id: number, data: CalendarEventUpdate) =>
+    fetchAPI<CalendarEvent>(`/calendar/events/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEvent: (id: number) =>
+    fetchAPI<{ message: string }>(`/calendar/events/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 // Search result types
@@ -915,18 +935,20 @@ export const terminationsAPI = {
 
 // Messages API
 export const messagesAPI = {
-  // Get message threads for a tutor
+  // Get message threads for a tutor (paginated with search)
   getThreads: (
     tutorId: number,
     category?: MessageCategory,
     limit?: number,
-    offset?: number
+    offset?: number,
+    search?: string
   ) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
     if (category) params.append("category", category);
     if (limit) params.append("limit", limit.toString());
     if (offset) params.append("offset", offset.toString());
-    return fetchAPI<MessageThread[]>(`/messages?${params}`);
+    if (search) params.append("search", search);
+    return fetchAPI<PaginatedThreadsResponse>(`/messages?${params}`);
   },
 
   // Get sent messages for a tutor
@@ -991,6 +1013,36 @@ export const messagesAPI = {
       `/messages/${messageId}?tutor_id=${tutorId}`,
       { method: "DELETE" }
     );
+  },
+
+  // Archive messages (bulk)
+  archive: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<{ success: boolean; count: number }>(
+      `/messages/archive?tutor_id=${tutorId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ message_ids: messageIds }),
+      }
+    );
+  },
+
+  // Unarchive messages (bulk)
+  unarchive: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<{ success: boolean; count: number }>(
+      `/messages/archive?tutor_id=${tutorId}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ message_ids: messageIds }),
+      }
+    );
+  },
+
+  // Get archived threads
+  getArchived: (tutorId: number, limit?: number, offset?: number) => {
+    const params = new URLSearchParams({ tutor_id: tutorId.toString() });
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+    return fetchAPI<PaginatedThreadsResponse>(`/messages/archived?${params}`);
   },
 };
 

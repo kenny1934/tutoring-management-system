@@ -10,8 +10,8 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse
-from datetime import date, timedelta, datetime
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate
+from datetime import date, timedelta, datetime, timezone
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin
 
@@ -109,7 +109,7 @@ async def get_sessions(
     # Build response with related data
     result = []
     for session in sessions:
-        session_data = _build_session_response(session)
+        session_data = _build_session_response(session, db)
 
         # Add linked session info
         if session.rescheduled_to_id and session.rescheduled_to_id in linked_sessions:
@@ -361,7 +361,7 @@ async def mark_session_attended(
     db.refresh(session)
 
     # Build response with related data
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -413,7 +413,7 @@ async def mark_session_no_show(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -465,7 +465,7 @@ async def mark_session_rescheduled(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -517,7 +517,7 @@ async def mark_session_sick_leave(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -569,7 +569,7 @@ async def mark_session_weather_cancelled(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -641,7 +641,7 @@ async def undo_session_status(
     db.commit()
     db.refresh(session)
 
-    response = _build_session_response(session)
+    response = _build_session_response(session, db)
     # Convert to dict and add undone_from_status for redo toast
     response_dict = response.model_dump()
     response_dict["undone_from_status"] = undone_from_status
@@ -692,12 +692,37 @@ async def redo_session_status(
     db.commit()
     db.refresh(session)
 
-    return _build_session_response(session)
+    return _build_session_response(session, db)
 
 
 # ============================================
 # Make-up Scheduling Endpoints
 # ============================================
+
+def _find_root_original_session(session: SessionLog, db: Session) -> SessionLog:
+    """
+    Trace back through make_up_for_id chain to find the root original session.
+
+    This handles chains like: Session A (original) ← Session B (makeup) ← Session C (makeup of B)
+    When called with Session C, returns Session A.
+
+    If no chain (not a makeup), returns the input session.
+    Uses visited set to prevent infinite loops in case of data corruption.
+    """
+    visited = set()
+    current = session
+
+    while current.make_up_for_id and current.id not in visited:
+        visited.add(current.id)
+        parent = db.query(SessionLog).filter(
+            SessionLog.id == current.make_up_for_id
+        ).first()
+        if not parent:
+            break
+        current = parent
+
+    return current
+
 
 def _get_makeup_raw_data(
     original_session: SessionLog,
@@ -988,6 +1013,26 @@ async def schedule_makeup(
             detail="Make-up already scheduled for this session"
         )
 
+    # 60-day makeup restriction (Super Admin can override)
+    # Makeup must be scheduled within 60 days of the ROOT original session
+    # (tracing back through make_up_for_id chain for re-rescheduled sessions)
+    is_super_admin = current_user.role == "Super Admin"
+    root_original = _find_root_original_session(original_session, db)
+    days_since_original = (request.session_date - root_original.session_date).days
+
+    if days_since_original > 60 and not is_super_admin:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "MAKEUP_60_DAY_EXCEEDED",
+                "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                "original_session_id": root_original.id,
+                "original_session_date": str(root_original.session_date),
+                "days_difference": days_since_original,
+                "max_allowed_days": 60
+            }
+        )
+
     # Check for holiday
     holiday = db.query(Holiday).filter(
         Holiday.holiday_date == request.session_date
@@ -1142,8 +1187,8 @@ async def schedule_makeup(
     ).filter(SessionLog.id == makeup_session.id).first()
 
     # Build responses
-    makeup_response = _build_session_response(makeup_session)
-    original_response = _build_session_response(original_session)
+    makeup_response = _build_session_response(makeup_session, db)
+    original_response = _build_session_response(original_session, db)
 
     # Add linked session info
     original_response.rescheduled_to = _build_linked_session_info(makeup_session, makeup_session.tutor)
@@ -1223,7 +1268,7 @@ async def cancel_makeup(
     db.commit()
     db.refresh(original_session)
 
-    return _build_session_response(original_session)
+    return _build_session_response(original_session, db)
 
 
 @router.put("/sessions/{session_id}/exercises", response_model=SessionResponse)
@@ -1291,7 +1336,7 @@ async def save_session_exercises(
     db.refresh(session)
 
     # Build response (refresh loads exercises relationship)
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -1407,7 +1452,7 @@ async def rate_session(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -1455,21 +1500,25 @@ async def update_session(
         # Validate enrollment deadline - ONLY when moving TO regular slot
         # Business rule: Only block scheduling to the student's regular slot (assigned_day + assigned_time)
         # past the enrollment end date. Non-regular slots are allowed past deadline.
-        if session.enrollment_id and request.session_date != session.session_date:
-            enrollment = db.query(Enrollment).filter(
-                Enrollment.id == session.enrollment_id
-            ).first()
+        # IMPORTANT: Check against student's CURRENT enrollment (latest by first_lesson_date),
+        # not the session's enrollment, to handle cross-enrollment makeups correctly.
+        # Only Regular enrollments count - ignore One-Time and Trial
+        if session.student_id and request.session_date != session.session_date:
+            current_enrollment = db.query(Enrollment).filter(
+                Enrollment.student_id == session.student_id,
+                Enrollment.enrollment_type == 'Regular'
+            ).order_by(Enrollment.first_lesson_date.desc()).first()
 
-            if enrollment and enrollment.assigned_day and enrollment.assigned_time:
+            if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
                 # Determine the effective time slot (new one if changing, otherwise current)
                 proposed_time = request.time_slot if request.time_slot else session.time_slot
                 proposed_day = request.session_date.strftime('%a')
                 is_regular_slot = (
-                    proposed_day == enrollment.assigned_day and
-                    proposed_time == enrollment.assigned_time
+                    proposed_day == current_enrollment.assigned_day and
+                    proposed_time == current_enrollment.assigned_time
                 )
 
-                if is_regular_slot and enrollment.first_lesson_date and enrollment.lessons_paid:
+                if is_regular_slot and current_enrollment.first_lesson_date and current_enrollment.lessons_paid:
                     try:
                         effective_end_result = db.execute(text("""
                             SELECT calculate_effective_end_date(
@@ -1478,9 +1527,9 @@ async def update_session(
                                 COALESCE(:extension_weeks, 0)
                             ) as effective_end_date
                         """), {
-                            "first_lesson_date": enrollment.first_lesson_date,
-                            "lessons_paid": enrollment.lessons_paid,
-                            "extension_weeks": enrollment.deadline_extension_weeks or 0
+                            "first_lesson_date": current_enrollment.first_lesson_date,
+                            "lessons_paid": current_enrollment.lessons_paid,
+                            "extension_weeks": current_enrollment.deadline_extension_weeks or 0
                         }).fetchone()
 
                         if effective_end_result and effective_end_result.effective_end_date:
@@ -1490,9 +1539,9 @@ async def update_session(
                                     status_code=400,
                                     detail={
                                         "error": "ENROLLMENT_DEADLINE_EXCEEDED",
-                                        "message": f"Cannot move session to regular slot ({enrollment.assigned_day} {enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
+                                        "message": f"Cannot move session to regular slot ({current_enrollment.assigned_day} {current_enrollment.assigned_time}) past enrollment end date ({effective_end_date}). Request a deadline extension first.",
                                         "effective_end_date": str(effective_end_date),
-                                        "enrollment_id": enrollment.id,
+                                        "enrollment_id": current_enrollment.id,
                                         "session_id": session_id,
                                         "extension_required": True
                                     }
@@ -1502,6 +1551,27 @@ async def update_session(
                     except Exception as e:
                         # Log but don't block if SQL function doesn't exist
                         logger.warning(f"Could not check enrollment deadline: {e}")
+
+            # 60-day makeup restriction (Super Admin can override)
+            # Only applies to makeup sessions (those with make_up_for_id)
+            if session.make_up_for_id:
+                is_super_admin = current_user.role == "Super Admin"
+                if not is_super_admin:
+                    root_original = _find_root_original_session(session, db)
+                    days_since_original = (request.session_date - root_original.session_date).days
+
+                    if days_since_original > 60:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "error": "MAKEUP_60_DAY_EXCEEDED",
+                                "message": f"Makeup must be within 60 days of original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                                "original_session_id": root_original.id,
+                                "original_session_date": str(root_original.session_date),
+                                "days_difference": days_since_original,
+                                "max_allowed_days": 60
+                            }
+                        )
 
         session.session_date = request.session_date
 
@@ -1568,7 +1638,7 @@ async def update_session(
     db.refresh(session)
 
     # Build response
-    session_data = _build_session_response(session)
+    session_data = _build_session_response(session, db)
 
     return session_data
 
@@ -1727,4 +1797,182 @@ async def get_calendar_events(
         CalendarEvent.start_date <= end_date
     ).order_by(CalendarEvent.start_date).all()
 
+    # Add revision slot counts
+    for event in events:
+        event.revision_slot_count = len(event.revision_slots) if event.revision_slots else 0
+
     return events
+
+
+@router.post("/calendar/events", response_model=CalendarEventResponse)
+async def create_calendar_event(
+    request: CalendarEventCreate,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new calendar event with Google Calendar sync.
+
+    Requires admin role. The event will be:
+    1. Created in Google Calendar first
+    2. Then saved to local database with the Google event_id
+
+    If Google Calendar sync fails, the event is NOT created.
+    """
+    from services.google_calendar_service import GoogleCalendarService
+
+    try:
+        # Create in Google Calendar first (requires Service Account)
+        calendar_service = GoogleCalendarService(use_oauth=True)
+        google_event_id = calendar_service.create_event(
+            title=request.title,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            description=request.description
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Google Calendar write not configured: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to create event in Google Calendar: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create event in Google Calendar: {str(e)}"
+        )
+
+    # Save to local database with Google event_id
+    event = CalendarEvent(
+        event_id=google_event_id,
+        title=request.title,
+        description=request.description,
+        start_date=request.start_date,
+        end_date=request.end_date or request.start_date,
+        school=request.school,
+        grade=request.grade,
+        academic_stream=request.academic_stream,
+        event_type=request.event_type,
+        last_synced_at=datetime.now(timezone.utc)
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    event.revision_slot_count = 0
+    logger.info(f"Created calendar event {event.id} (Google: {google_event_id}) by {current_user.user_email}")
+    return event
+
+
+@router.patch("/calendar/events/{event_id}", response_model=CalendarEventResponse)
+async def update_calendar_event(
+    event_id: int,
+    request: CalendarEventUpdate,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a calendar event with Google Calendar sync.
+
+    Requires admin role. The event will be:
+    1. Updated in Google Calendar first
+    2. Then updated in local database
+
+    If Google Calendar sync fails, the local update is NOT applied.
+    """
+    from services.google_calendar_service import GoogleCalendarService
+
+    event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+
+    # Get update fields
+    updates = request.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    try:
+        # Update in Google Calendar first
+        calendar_service = GoogleCalendarService(use_oauth=True)
+        calendar_service.update_event(
+            event_id=event.event_id,
+            title=updates.get('title'),
+            start_date=updates.get('start_date'),
+            end_date=updates.get('end_date'),
+            description=updates.get('description')
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Google Calendar write not configured: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to update event in Google Calendar: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update event in Google Calendar: {str(e)}"
+        )
+
+    # Update local database
+    for field, value in updates.items():
+        setattr(event, field, value)
+    event.last_synced_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(event)
+
+    event.revision_slot_count = len(event.revision_slots) if event.revision_slots else 0
+    logger.info(f"Updated calendar event {event.id} by {current_user.user_email}")
+    return event
+
+
+@router.delete("/calendar/events/{event_id}")
+async def delete_calendar_event(
+    event_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a calendar event with Google Calendar sync.
+
+    Requires admin role. The event will be:
+    1. Checked for linked revision slots (deletion blocked if any exist)
+    2. Deleted from Google Calendar
+    3. Deleted from local database
+
+    Returns error if the event has revision slots - they must be removed first.
+    """
+    from services.google_calendar_service import GoogleCalendarService
+
+    event = db.query(CalendarEvent).options(
+        joinedload(CalendarEvent.revision_slots)
+    ).filter(CalendarEvent.id == event_id).first()
+
+    if not event:
+        raise HTTPException(status_code=404, detail="Calendar event not found")
+
+    # Block deletion if event has revision slots
+    if event.revision_slots and len(event.revision_slots) > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete: event has {len(event.revision_slots)} revision slot(s). Remove them first."
+        )
+
+    try:
+        # Delete from Google Calendar first
+        calendar_service = GoogleCalendarService(use_oauth=True)
+        calendar_service.delete_event(event.event_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Google Calendar write not configured: {str(e)}"
+        )
+    except Exception as e:
+        # Log warning but continue - event might already be deleted in Google
+        logger.warning(f"Failed to delete from Google Calendar (continuing): {e}")
+
+    # Delete from local database
+    db.delete(event)
+    db.commit()
+
+    logger.info(f"Deleted calendar event {event_id} by {current_user.user_email}")
+    return {"message": "Event deleted successfully"}

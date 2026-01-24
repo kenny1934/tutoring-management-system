@@ -32,7 +32,7 @@ export function useCalendarSync({
     try {
       const result = await calendarAPI.sync(true, fetchDaysBehind);
       setLastSyncMessage(`Synced ${result.events_synced} events`);
-      onSyncComplete?.();
+      await onSyncComplete?.();
       setTimeout(() => setLastSyncMessage(null), 6000);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -61,7 +61,7 @@ export function useCalendarSync({
       // Expand fetch range to include the viewed month
       setFetchDaysBehind(daysBehind);
 
-      onSyncComplete?.();
+      await onSyncComplete?.();
       setTimeout(() => setLastSyncMessage(null), 6000);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';

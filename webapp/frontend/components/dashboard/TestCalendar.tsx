@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCalendarEvents, useExamsWithSlots, useHolidays } from "@/lib/hooks";
 import { useCalendarSync } from "@/lib/hooks/index";
+import { useAuth } from "@/contexts/AuthContext";
 import { CalendarEvent, Holiday } from "@/types";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, CalendarDays, AlertTriangle, BookOpen, GraduationCap, Users, UserCheck, RefreshCw, Loader2, Check, Plus, Pencil, Trash2 } from "lucide-react";
+import { CalendarEventModal } from "./CalendarEventModal";
 import { motion, AnimatePresence } from "framer-motion";
 import { NoUpcomingTests } from "@/components/illustrations/EmptyStates";
 import { TestsAccent } from "@/components/illustrations/CardAccents";
@@ -78,7 +80,7 @@ interface RevisionStats {
   eligible: number;
 }
 
-// Shared popover content for both variants
+// Shared popover content for syllabus preview (read-only)
 function EventPopoverContent({
   event,
   colors,
@@ -89,7 +91,6 @@ function EventPopoverContent({
   return (
     <div
       className={cn(
-        "z-[9999]",
         "bg-[#fef9f3] dark:bg-[#2d2618]",
         "border-2 border-[#d4a574] dark:border-[#8b6f47]",
         "rounded-lg shadow-lg",
@@ -121,11 +122,15 @@ function TestItemPopover({
   isMobile,
   variant = "upcoming",
   stats,
+  canManageEvents,
+  onEdit,
 }: {
   event: EventWithDaysUntil;
   isMobile: boolean;
   variant?: "upcoming" | "selected-date";
   stats?: RevisionStats;
+  canManageEvents?: boolean;
+  onEdit?: (event: CalendarEvent) => void;  // Only used in selected-date variant
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
@@ -209,6 +214,18 @@ function TestItemPopover({
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {canManageEvents && onEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(event);
+                  }}
+                  className="p-0.5 rounded hover:bg-[#d4a574]/30 transition-colors"
+                  title="Edit event"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                </button>
+              )}
               {event.daysUntil !== undefined && (
                 <span className={cn(
                   "text-xs font-medium px-2 py-0.5 rounded-full",
@@ -227,7 +244,7 @@ function TestItemPopover({
         {/* Popover */}
         {isOpen && hasDescription && (
           <FloatingPortal>
-            <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}>
+            <div ref={refs.setFloating} style={{ ...floatingStyles, zIndex: 9998 }} {...getFloatingProps()}>
               <EventPopoverContent event={event} colors={colors} />
             </div>
           </FloatingPortal>
@@ -254,9 +271,23 @@ function TestItemPopover({
             <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
           )}
         </div>
-        <span title="Open in Exams page">
-          <ChevronRight className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f] flex-shrink-0" />
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {canManageEvents && onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(event);
+              }}
+              className="p-0.5 rounded hover:bg-[#d4a574]/30 transition-colors"
+              title="Edit event"
+            >
+              <Pencil className="h-3 w-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" />
+            </button>
+          )}
+          <span title="Open in Exams page">
+            <ChevronRight className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
+          </span>
+        </div>
       </div>
       {event.school && event.grade && (
         <div className="text-gray-600 dark:text-gray-400 mt-0.5">
@@ -284,7 +315,7 @@ function TestItemPopover({
       {/* Popover */}
       {isOpen && hasDescription && (
         <FloatingPortal>
-          <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}>
+          <div ref={refs.setFloating} style={{ ...floatingStyles, zIndex: 9998 }} {...getFloatingProps()}>
             <EventPopoverContent event={event} colors={colors} />
           </div>
         </FloatingPortal>
@@ -302,12 +333,26 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   const [currentMonth, setCurrentMonth] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // Modal state for CRUD
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>(undefined);
+  const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
+
+  // All authenticated users can manage calendar events (collaborative calendar)
+  const { user } = useAuth();
+  const canManageEvents = !!user;
+
   // Ref to hold mutators for sync callback (avoids circular dependency)
-  const refreshDataRef = useRef<() => void>(() => {});
+  const refreshDataRef = useRef<() => Promise<void>>(async () => {});
+
+  // Memoize the callback to prevent unnecessary recreations that destabilize useCalendarSync
+  const memoizedOnSyncComplete = useCallback(() => {
+    refreshDataRef.current();
+  }, []);
 
   // Calendar sync state and handlers
   const { isSyncing, lastSyncMessage, fetchDaysBehind, handleManualSync, handleLoadOlderMonth } = useCalendarSync({
-    onSyncComplete: () => refreshDataRef.current(),
+    onSyncComplete: memoizedOnSyncComplete,
   });
 
   // Fetch 60 days ahead and dynamic days behind (expands when loading older months)
@@ -329,10 +374,16 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   // Fetch exam revision stats for the same date range
   const { data: examsWithSlots = [], mutate: mutateExams } = useExamsWithSlots(examsDateRange);
 
-  // Update refresh ref with current mutators
-  refreshDataRef.current = () => {
-    mutate();
-    mutateExams();
+  // Update refresh ref with current mutators - async with proper error handling
+  refreshDataRef.current = async () => {
+    try {
+      await Promise.all([
+        mutate(),
+        mutateExams(),
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh calendar data:', error);
+    }
   };
 
   // Check if current view month is within current fetch range
@@ -441,6 +492,52 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     setSelectedDate(toDateString(new Date()));
   };
 
+  // Modal handlers for CRUD
+  const handleOpenCreate = (date?: string) => {
+    setEditingEvent(undefined);
+    setPrefilledDate(date);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (event: CalendarEvent) => {
+    setEditingEvent(event);
+    setPrefilledDate(undefined);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingEvent(undefined);
+    setPrefilledDate(undefined);
+  };
+
+  const handleModalSuccess = (eventData?: CalendarEvent, action?: 'create' | 'update' | 'delete') => {
+    if (eventData && action) {
+      // Optimistically update the cache - UI updates immediately
+      mutate(
+        (currentEvents = []) => {
+          switch (action) {
+            case 'create':
+              return [...currentEvents, eventData].sort((a, b) =>
+                a.start_date.localeCompare(b.start_date)
+              );
+            case 'update':
+              return currentEvents.map(e =>
+                e.id === eventData.id ? eventData : e
+              );
+            case 'delete':
+              return currentEvents.filter(e => e.id !== eventData.id);
+            default:
+              return currentEvents;
+          }
+        },
+        { revalidate: false }  // Don't revalidate - optimistic data is already correct from API response
+      );
+    }
+    // Note: We don't revalidate or call mutateExams() here because it can hang.
+    // The optimistic update is sufficient - data will be correct from API response.
+  };
+
   const today = toDateString(new Date());
   const currentMonthNum = currentMonth.getMonth();
 
@@ -498,6 +595,17 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             <GraduationCap className="h-3 w-3" />
             Revision
           </Link>
+          {/* Create event button (admin only) */}
+          {canManageEvents && (
+            <button
+              onClick={() => handleOpenCreate()}
+              className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
+              title="Create new calendar event"
+            >
+              <Plus className="h-3 w-3" />
+              Add
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-1">
           {/* Sync status message */}
@@ -693,13 +801,34 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                   isMobile={isMobile}
                   variant="selected-date"
                   stats={examStatsMap.get(event.id)}
+                  canManageEvents={canManageEvents}
+                  onEdit={handleOpenEdit}
                 />
               ))}
+              {/* Add event button for admin when viewing selected date */}
+              {canManageEvents && (
+                <button
+                  onClick={() => handleOpenCreate(selectedDate!)}
+                  className="w-full mt-1 py-1.5 text-xs font-medium rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-400 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 transition-colors flex items-center justify-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add event
+                </button>
+              )}
             </div>
           ) : selectedDate && selectedDateEvents.length === 0 && !selectedDateHoliday ? (
             /* Selected date has no events and no holiday */
-            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              No events on this date
+            <div className="px-3 py-4 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No events on this date</p>
+              {canManageEvents && (
+                <button
+                  onClick={() => handleOpenCreate(selectedDate)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add event
+                </button>
+              )}
             </div>
           ) : eventsWithDaysUntil.length === 0 ? (
             /* No upcoming events */
@@ -712,12 +841,28 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             /* Show upcoming list */
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {eventsWithDaysUntil.map((event) => (
-                <TestItemPopover key={event.id} event={event} isMobile={isMobile} stats={examStatsMap.get(event.id)} />
+                <TestItemPopover
+                  key={event.id}
+                  event={event}
+                  isMobile={isMobile}
+                  stats={examStatsMap.get(event.id)}
+                  canManageEvents={canManageEvents}
+                  onEdit={handleOpenEdit}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {/* Calendar Event Modal */}
+      <CalendarEventModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSuccess={handleModalSuccess}
+        event={editingEvent}
+        prefilledDate={prefilledDate}
+      />
     </div>
   );
 }

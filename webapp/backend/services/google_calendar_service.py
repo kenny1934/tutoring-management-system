@@ -1,18 +1,24 @@
 """
 Google Calendar service for fetching and caching test/exam events.
 Parses event titles to extract school, grade, and event type information.
+Supports both read (API key) and write (OAuth refresh token) operations.
 """
 
 import os
 import re
 import time
+import json
 import threading
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import datetime, timedelta, timezone, date
 from typing import List, Optional, Dict
 from googleapiclient.discovery import build
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 # Thread lock to prevent concurrent sync operations
 _sync_lock = threading.Lock()
@@ -21,6 +27,12 @@ _sync_lock = threading.Lock()
 CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "msamacau01@gmail.com")
 API_KEY = os.getenv("GOOGLE_CALENDAR_API_KEY")
 SYNC_TTL_MINUTES = int(os.getenv("CALENDAR_SYNC_TTL_MINUTES", "15"))
+
+# OAuth credentials for write access (reuses existing OAuth client)
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_CALENDAR_REFRESH_TOKEN = os.getenv("GOOGLE_CALENDAR_REFRESH_TOKEN")
+SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 
 # Regex patterns for parsing event titles
 # Format: SCHOOL GRADE EVENT_TYPE
@@ -53,21 +65,50 @@ NO_GRADE_PATTERN = re.compile(
 
 
 class GoogleCalendarService:
-    """Service for interacting with Google Calendar API"""
+    """Service for interacting with Google Calendar API.
 
-    def __init__(self, api_key: Optional[str] = None):
+    Supports two authentication modes:
+    - API Key (read-only): For fetching events from public calendars
+    - OAuth Refresh Token (read/write): For creating, updating, deleting events
+    """
+
+    def __init__(self, api_key: Optional[str] = None, use_oauth: bool = False):
         """
         Initialize the Google Calendar service.
 
         Args:
             api_key: Google Calendar API key for public calendar access
+            use_oauth: If True, use OAuth refresh token for write access
         """
-        self.api_key = api_key or API_KEY
-        if not self.api_key:
-            raise ValueError("GOOGLE_CALENDAR_API_KEY environment variable is required")
-
-        self.service = build('calendar', 'v3', developerKey=self.api_key)
         self.calendar_id = CALENDAR_ID
+        self.use_oauth = use_oauth
+
+        if use_oauth:
+            if not all([GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALENDAR_REFRESH_TOKEN]):
+                raise ValueError(
+                    "Calendar write requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and "
+                    "GOOGLE_CALENDAR_REFRESH_TOKEN environment variables"
+                )
+
+            # Create credentials from refresh token
+            credentials = Credentials(
+                token=None,  # Will be refreshed automatically
+                refresh_token=GOOGLE_CALENDAR_REFRESH_TOKEN,
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=GOOGLE_CLIENT_ID,
+                client_secret=GOOGLE_CLIENT_SECRET,
+                scopes=SCOPES
+            )
+
+            # Refresh to get a valid access token
+            credentials.refresh(Request())
+
+            self.service = build('calendar', 'v3', credentials=credentials)
+        else:
+            self.api_key = api_key or API_KEY
+            if not self.api_key:
+                raise ValueError("GOOGLE_CALENDAR_API_KEY environment variable is required")
+            self.service = build('calendar', 'v3', developerKey=self.api_key)
 
     def fetch_upcoming_events(
         self,
@@ -305,6 +346,136 @@ class GoogleCalendarService:
         else:
             # Date format: "2025-10-27"
             return datetime.strptime(date_str, '%Y-%m-%d')
+
+    # ============================================
+    # Write Operations (require Service Account)
+    # ============================================
+
+    def create_event(
+        self,
+        title: str,
+        start_date: date,
+        end_date: Optional[date] = None,
+        description: Optional[str] = None
+    ) -> str:
+        """
+        Create an event in Google Calendar.
+
+        Args:
+            title: Event title/summary
+            start_date: Start date of the event
+            end_date: End date (defaults to start_date for single-day events)
+            description: Optional event description
+
+        Returns:
+            Google Calendar event ID
+
+        Raises:
+            ValueError: If Service Account is not configured
+        """
+        if not self.use_oauth:
+            raise ValueError("Write operations require Service Account authentication")
+
+        # For all-day events, Google Calendar expects end_date to be the day AFTER
+        # the actual end (exclusive). For single-day events, set end to next day.
+        actual_end = (end_date or start_date) + timedelta(days=1)
+
+        event = {
+            'summary': title,
+            'start': {'date': start_date.isoformat()},
+            'end': {'date': actual_end.isoformat()},
+        }
+
+        if description:
+            event['description'] = description
+
+        result = self.service.events().insert(
+            calendarId=self.calendar_id,
+            body=event
+        ).execute()
+
+        logger.info(f"Created Google Calendar event: {result['id']} - {title}")
+        return result['id']
+
+    def update_event(
+        self,
+        event_id: str,
+        title: Optional[str] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        description: Optional[str] = None
+    ) -> None:
+        """
+        Update an existing event in Google Calendar.
+
+        Args:
+            event_id: Google Calendar event ID
+            title: New title (optional)
+            start_date: New start date (optional)
+            end_date: New end date (optional)
+            description: New description (optional, pass empty string to clear)
+
+        Raises:
+            ValueError: If Service Account is not configured
+        """
+        if not self.use_oauth:
+            raise ValueError("Write operations require Service Account authentication")
+
+        # Fetch current event
+        event = self.service.events().get(
+            calendarId=self.calendar_id,
+            eventId=event_id
+        ).execute()
+
+        # Apply updates
+        if title is not None:
+            event['summary'] = title
+
+        if description is not None:
+            event['description'] = description
+
+        if start_date is not None:
+            event['start'] = {'date': start_date.isoformat()}
+            # If only start changed but not end, adjust end to match
+            if end_date is None and 'date' in event.get('end', {}):
+                # Get current end, adjust based on new start
+                current_end = datetime.strptime(event['end']['date'], '%Y-%m-%d').date()
+                current_start = datetime.strptime(event['start']['date'], '%Y-%m-%d').date() if 'date' in event.get('start', {}) else start_date
+                # Keep duration
+                duration = current_end - current_start
+                event['end'] = {'date': (start_date + duration).isoformat()}
+
+        if end_date is not None:
+            # Google Calendar expects exclusive end date
+            event['end'] = {'date': (end_date + timedelta(days=1)).isoformat()}
+
+        self.service.events().update(
+            calendarId=self.calendar_id,
+            eventId=event_id,
+            body=event
+        ).execute()
+
+        logger.info(f"Updated Google Calendar event: {event_id}")
+
+    def delete_event(self, event_id: str) -> None:
+        """
+        Delete an event from Google Calendar.
+
+        Args:
+            event_id: Google Calendar event ID
+
+        Raises:
+            ValueError: If Service Account is not configured
+        """
+        if not self.use_oauth:
+            raise ValueError("Write operations require Service Account authentication")
+
+        self.service.events().delete(
+            calendarId=self.calendar_id,
+            eventId=event_id
+        ).execute()
+
+        logger.info(f"Deleted Google Calendar event: {event_id}")
 
 
 def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int = 0) -> dict:
