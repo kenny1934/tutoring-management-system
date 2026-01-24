@@ -50,7 +50,7 @@ export default function RevenuePage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+  const { user, isAdmin, isLoading: authLoading, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
 
   // State from URL params - admins can select any tutor, non-admins use their own ID
@@ -59,8 +59,13 @@ export default function RevenuePage() {
     return tutor ? parseInt(tutor) : null;
   });
 
-  // Non-admins always use their own tutor ID
-  const effectiveTutorId = isAdmin ? selectedTutorId : (user?.id ?? null);
+  // In center-view, admins can select tutors; in my-view, everyone sees their own
+  // When impersonating a tutor, use the impersonated tutor's ID
+  const effectiveTutorId = (isAdmin && viewMode === 'center-view')
+    ? selectedTutorId
+    : (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id)
+      ? impersonatedTutor.id
+      : (user?.id ?? null);
 
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
     return searchParams.get('period') || getCurrentPeriod();
@@ -170,8 +175,8 @@ export default function RevenuePage() {
 
                 <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-                {/* Tutor Selector - show for center-view (admin mode) */}
-                {viewMode === 'center-view' && (
+                {/* Tutor Selector - show for admins in center-view only */}
+                {viewMode === 'center-view' && isAdmin && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}

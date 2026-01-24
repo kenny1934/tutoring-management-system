@@ -286,7 +286,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     icon: Pencil,
     colorClass: 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
     isVisible: () => true,
-    allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
+    allowedRoles: ['Admin', 'Super Admin'],
     api: {
       enabled: true, // Handled specially - opens modal
       method: 'PATCH',

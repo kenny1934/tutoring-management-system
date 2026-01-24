@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ActionConfig, ActionButtonsProps } from "@/lib/actions/types";
 import type { Session } from "@/types";
 import { sessionActions } from "@/lib/actions";
@@ -151,14 +152,17 @@ export function SessionActionButtons({
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
+  const { effectiveRole } = useAuth();
 
   // Combine internal loadingAction with external loadingActionId
   const effectiveLoadingAction = loadingActionId || loadingAction;
 
-  // Filter actions by visibility and optionally by role
+  // Filter actions by visibility and role (uses effectiveRole from context, respects impersonation)
   const visibleActions = sessionActions.filter((action) => {
     if (!action.isVisible(session)) return false;
-    if (userRole && !action.allowedRoles.includes(userRole)) return false;
+    // Use effectiveRole from context, or fallback to userRole prop if provided
+    const roleToCheck = effectiveRole || userRole;
+    if (roleToCheck && !action.allowedRoles.includes(roleToCheck)) return false;
     return true;
   });
 
