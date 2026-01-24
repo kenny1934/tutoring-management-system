@@ -58,10 +58,10 @@ logs/
 # Python backend
 webapp/backend/venv/
 webapp/backend/.venv/
-webapp/backend/__pycache__/
-webapp/backend/*.pyc
-webapp/backend/*.pyo
-webapp/backend/*.pyd
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
 webapp/backend/.Python
 webapp/backend/pip-log.txt
 webapp/backend/pip-delete-this-directory.txt
