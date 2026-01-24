@@ -4,6 +4,8 @@ import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallba
 import dynamic from "next/dynamic";
 import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
+import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
@@ -72,6 +74,8 @@ export default function SessionsPage() {
   usePageTitle("Sessions");
 
   const { selectedLocation } = useLocation();
+  const { viewMode: roleViewMode } = useRole();  // center-view or my-view
+  const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
@@ -88,6 +92,26 @@ export default function SessionsPage() {
   const [tutorFilter, setTutorFilter] = useState(() => {
     return searchParams.get('tutor') || "";
   });
+
+  // Get the effective user ID (respects impersonation)
+  const effectiveUserId = useMemo(() => {
+    if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+      return impersonatedTutor.id.toString();
+    }
+    return user?.id?.toString() || "";
+  }, [isImpersonating, effectiveRole, impersonatedTutor, user?.id]);
+
+  // Sync tutor filter with center/my view mode
+  useEffect(() => {
+    if (roleViewMode === 'my-view') {
+      // In my-view, default to own tutor
+      setTutorFilter(effectiveUserId);
+    } else {
+      // In center-view, show all tutors
+      setTutorFilter("");
+    }
+  }, [roleViewMode, effectiveUserId]);
+
   // Special filter modes (e.g., "pending-makeups")
   const [specialFilter, setSpecialFilter] = useState(() => {
     return searchParams.get('filter') || "";
