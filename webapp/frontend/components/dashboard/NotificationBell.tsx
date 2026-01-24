@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useCalendarEvents, useUnreadMessageCount, usePendingProposalCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount } from "@/lib/hooks";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, BookOpen, Users, ChevronRight, MessageSquare, CalendarClock } from "lucide-react";
+import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -37,13 +37,10 @@ interface NotificationItem {
 export function NotificationBell({ pendingPayments, location, tutorId, showOverduePayments = false }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch calendar events for upcoming tests
-  const { data: events = [] } = useCalendarEvents(7);
-
   // Fetch contact-needed count
   const { data: contactNeeded } = useSWR(
-    ['contact-needed-count', location],
-    () => parentCommunicationsAPI.getContactNeededCount(undefined, location)
+    ['contact-needed-count', tutorId, location],
+    () => parentCommunicationsAPI.getContactNeededCount(tutorId, location)
   );
 
   // Fetch unread message count
@@ -51,20 +48,6 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
 
   // Fetch pending proposals count
   const { data: pendingProposals } = usePendingProposalCount(tutorId);
-
-  // Count tests this week
-  const testsThisWeek = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return events.filter((event) => {
-      const eventDate = new Date(event.start_date + "T00:00:00");
-      const daysUntil = Math.ceil(
-        (eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return daysUntil >= 0 && daysUntil <= 7;
-    }).length;
-  }, [events]);
 
   // Build notification items
   const notifications = useMemo(() => {
@@ -78,17 +61,6 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: pendingPayments,
         severity: "danger",
         href: "/overdue-payments",
-      });
-    }
-
-    if (testsThisWeek > 0) {
-      items.push({
-        id: "tests",
-        icon: <BookOpen className="h-4 w-4" />,
-        label: "Tests This Week",
-        count: testsThisWeek,
-        severity: "warning",
-        href: "#tests-calendar",
       });
     }
 
@@ -126,7 +98,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [pendingPayments, testsThisWeek, contactNeeded, unreadMessages, pendingProposals]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
