@@ -129,6 +129,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     fetchStats();
   }, [mounted, isOnDashboard, selectedLocation]);
 
+  // Set tutor's default location on mount if not admin
+  useEffect(() => {
+    if (!isAdminOrAbove && user?.default_location && mounted) {
+      setSelectedLocation(user.default_location);
+    }
+  }, [isAdminOrAbove, user?.default_location, mounted, setSelectedLocation]);
+
   // Close mobile menu on navigation
   const handleNavClick = () => {
     if (onMobileClose) {
@@ -377,6 +384,38 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
       )}
 
+      {/* View Mode Toggle - show when expanded or mobile */}
+      {(isMobile || !isCollapsed) && (
+        <div className="border-t border-white/10 dark:border-white/5 px-3 py-2">
+          <div className="flex gap-1 bg-foreground/5 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode("center-view")}
+              className={cn(
+                "flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all",
+                viewMode === "center-view"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-foreground/70 hover:bg-foreground/10"
+              )}
+              suppressHydrationWarning
+            >
+              Center
+            </button>
+            <button
+              onClick={() => setViewMode("my-view")}
+              className={cn(
+                "flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all",
+                viewMode === "my-view"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-foreground/70 hover:bg-foreground/10"
+              )}
+              suppressHydrationWarning
+            >
+              My View
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* User info with settings button */}
       <div className="border-t border-white/10 dark:border-white/5 p-4">
         {/* Get user initials */}
@@ -505,51 +544,22 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               </div>
             </div>
 
-            {/* Location Selector */}
-            <div className="py-3">
-              <label className="text-sm font-medium text-foreground/80 mb-2 block">Location</label>
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/10 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-                suppressHydrationWarning
-              >
-                {locations.map((location) => (
-                  <option key={location} value={location} className="bg-background text-foreground">{location}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="py-3">
-              <label className="text-sm font-medium text-foreground/80 mb-2 block">View Mode</label>
-              <div className="flex gap-1 bg-foreground/5 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode("center-view")}
-                  className={cn(
-                    "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all",
-                    viewMode === "center-view"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-foreground/70 hover:bg-foreground/10"
-                  )}
+            {/* Location Selector - Admin only */}
+            {isAdminOrAbove && (
+              <div className="py-3">
+                <label className="text-sm font-medium text-foreground/80 mb-2 block">Location</label>
+                <select
+                  value={selectedLocation}
+                  onChange={(e) => setSelectedLocation(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-foreground/10 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   suppressHydrationWarning
                 >
-                  Center
-                </button>
-                <button
-                  onClick={() => setViewMode("my-view")}
-                  className={cn(
-                    "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all",
-                    viewMode === "my-view"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-foreground/70 hover:bg-foreground/10"
-                  )}
-                  suppressHydrationWarning
-                >
-                  My View
-                </button>
+                  {locations.map((location) => (
+                    <option key={location} value={location} className="bg-background text-foreground">{location}</option>
+                  ))}
+                </select>
               </div>
-            </div>
+            )}
 
             {/* Divider */}
             <div className="my-3 border-t border-white/10 dark:border-white/5" />

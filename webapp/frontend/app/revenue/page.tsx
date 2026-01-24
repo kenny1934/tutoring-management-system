@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMonthlyRevenueSummary, useSessionRevenueDetails, useTutors, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue } from "@/components/selectors/TutorSelector";
@@ -49,13 +50,17 @@ export default function RevenuePage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const { data: tutors = [] } = useTutors();
 
-  // State from URL params
+  // State from URL params - admins can select any tutor, non-admins use their own ID
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(() => {
     const tutor = searchParams.get('tutor');
     return tutor ? parseInt(tutor) : null;
   });
+
+  // Non-admins always use their own tutor ID
+  const effectiveTutorId = isAdmin ? selectedTutorId : (user?.id ?? null);
 
   const [selectedPeriod, setSelectedPeriod] = useState<string>(() => {
     return searchParams.get('period') || getCurrentPeriod();
@@ -93,9 +98,9 @@ export default function RevenuePage() {
     setPopoverSession(null);
   };
 
-  // Auto-select first tutor for tutors (my-view mode) or when no tutor selected
+  // Auto-select first tutor for admins when no tutor selected
   useEffect(() => {
-    if (selectedTutorId === null && tutors.length > 0) {
+    if (isAdmin && selectedTutorId === null && tutors.length > 0) {
       // Filter tutors by location if needed
       const filteredTutors = selectedLocation && selectedLocation !== "All Locations"
         ? tutors.filter(t => t.default_location === selectedLocation)
@@ -104,7 +109,7 @@ export default function RevenuePage() {
         setSelectedTutorId(filteredTutors[0].id);
       }
     }
-  }, [selectedTutorId, tutors, selectedLocation, viewMode]);
+  }, [isAdmin, selectedTutorId, tutors, selectedLocation]);
 
   // Detect mobile
   useEffect(() => {
@@ -114,8 +119,9 @@ export default function RevenuePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Sync state to URL
+  // Sync state to URL (only for admins who can change tutor selection)
   useEffect(() => {
+    if (!isAdmin) return; // Non-admins don't need URL sync for tutor
     const params = new URLSearchParams();
     if (selectedTutorId && typeof selectedTutorId === 'number') {
       params.set('tutor', selectedTutorId.toString());
@@ -125,10 +131,10 @@ export default function RevenuePage() {
     }
     const query = params.toString();
     router.replace(`/revenue${query ? `?${query}` : ''}`, { scroll: false });
-  }, [selectedTutorId, selectedPeriod, router]);
+  }, [isAdmin, selectedTutorId, selectedPeriod, router]);
 
-  // Fetch data
-  const tutorIdForQuery = typeof selectedTutorId === 'number' ? selectedTutorId : null;
+  // Fetch data - use effectiveTutorId which respects role-based access
+  const tutorIdForQuery = typeof effectiveTutorId === 'number' ? effectiveTutorId : null;
   const { data: summary, isLoading: loadingSummary, error: summaryError } =
     useMonthlyRevenueSummary(tutorIdForQuery, selectedPeriod);
   const { data: sessions = [], isLoading: loadingSessions } =
@@ -235,8 +241,18 @@ export default function RevenuePage() {
             </div>
           )}
 
-          {/* No tutor selected message */}
-          {!selectedTutorId && !isLoading && (
+          {/* Auth loading state */}
+          {authLoading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b] dark:text-[#cd853f]" />
+                <p className="text-sm text-gray-600 dark:text-gray-400">Checking authentication...</p>
+              </div>
+            </div>
+          )}
+
+          {/* No tutor selected message - only show for admins */}
+          {!authLoading && isAdmin && !effectiveTutorId && !isLoading && (
             <div className="flex justify-center py-12">
               <StickyNote variant="yellow" size="lg" showTape>
                 <div className="text-center">
@@ -430,7 +446,7 @@ export default function RevenuePage() {
           )}
 
           {/* No sessions message */}
-          {selectedTutorId && sessions.length === 0 && !isLoading && summary && (
+          {effectiveTutorId && sessions.length === 0 && !isLoading && summary && (
             <div className="flex justify-center py-8">
               <StickyNote variant="blue" size="md" showTape>
                 <div className="text-center">

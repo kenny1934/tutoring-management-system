@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Tutor
+from models import Tutor, SessionLog
 from .jwt_handler import verify_token
 
 
@@ -150,3 +150,41 @@ def require_ownership_or_admin(tutor_id: int):
         return current_user
 
     return ownership_checker
+
+
+def get_session_with_owner_check(
+    session_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SessionLog:
+    """
+    Get a session and verify the current user owns it or is an admin.
+
+    Returns the session if authorized, raises 403 if not.
+
+    Usage:
+        @router.patch("/{session_id}/attended")
+        def mark_attended(
+            session: SessionLog = Depends(get_session_with_owner_check),
+            db: Session = Depends(get_db),
+        ):
+            # session is already loaded and ownership verified
+            ...
+    """
+    session = db.query(SessionLog).filter(SessionLog.id == session_id).first()
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    is_owner = session.tutor_id == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+
+    if not (is_owner or is_admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only modify your own sessions",
+        )
+
+    return session

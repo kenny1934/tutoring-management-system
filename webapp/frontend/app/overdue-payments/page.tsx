@@ -14,6 +14,7 @@ import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check } fro
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { OverdueEnrollment } from "@/types";
+import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -214,6 +215,7 @@ export default function OverduePaymentsPage() {
 
   return (
     <DeskSurface>
+      <AdminPageGuard accessDeniedMessage="Admin access required to view overdue payments">
       <PageTransition>
         <div className="min-h-screen">
           <div className="flex flex-col gap-3 p-2 sm:p-4">
@@ -424,6 +426,7 @@ export default function OverduePaymentsPage() {
           </div>
         )}
       </PageTransition>
+      </AdminPageGuard>
     </DeskSurface>
   );
 }

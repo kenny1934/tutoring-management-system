@@ -13,6 +13,7 @@ from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
     Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
 )
+from auth.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 from schemas import (
@@ -232,7 +233,7 @@ async def get_proposal(
 @router.post("/makeup-proposals", response_model=MakeupProposalResponse)
 async def create_proposal(
     data: MakeupProposalCreate,
-    from_tutor_id: int = Query(..., description="Proposer tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -241,10 +242,9 @@ async def create_proposal(
     For specific_slots: Include 1-3 slot options.
     For needs_input: Specify the target tutor who will select a slot.
     """
-    # Verify proposer exists
-    proposer = db.query(Tutor).filter(Tutor.id == from_tutor_id).first()
-    if not proposer:
-        raise HTTPException(status_code=404, detail="Proposer tutor not found")
+    # Use authenticated user as proposer
+    proposer = current_user
+    from_tutor_id = current_user.id
 
     # Verify original session exists and is in Pending Make-up status
     original_session = db.query(SessionLog).options(
@@ -439,7 +439,7 @@ View proposal: /proposals?id={proposal.id}""".strip()
 @router.post("/makeup-proposals/slots/{slot_id}/approve", response_model=MakeupProposalResponse)
 async def approve_slot(
     slot_id: int,
-    tutor_id: int = Query(..., description="Approving tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -450,6 +450,8 @@ async def approve_slot(
     - Auto-rejects sibling slots
     - Updates proposal status to 'approved'
     """
+    tutor_id = current_user.id
+
     # Get the slot with proposal
     slot = db.query(MakeupProposalSlot).options(
         joinedload(MakeupProposalSlot.proposal).joinedload(MakeupProposal.original_session),
@@ -464,8 +466,8 @@ async def approve_slot(
     # Check permissions: target tutor, proposer, or admin/super_admin
     is_target_tutor = slot.proposed_tutor_id == tutor_id
     is_proposer = proposal.proposed_by_tutor_id == tutor_id
-    acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
+    acting_tutor = current_user
+    is_admin = acting_tutor.role in ['Admin', 'Super Admin']
 
     if not (is_target_tutor or is_proposer or is_admin):
         raise HTTPException(
@@ -741,7 +743,7 @@ View proposal: /proposals?id={proposal.id}"""
 async def reject_slot(
     slot_id: int,
     request: SlotRejectRequest,
-    tutor_id: int = Query(..., description="Rejecting tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -750,6 +752,8 @@ async def reject_slot(
     - Only the slot's target tutor can reject
     - If all slots are rejected, the proposal is rejected
     """
+    tutor_id = current_user.id
+
     slot = db.query(MakeupProposalSlot).options(
         joinedload(MakeupProposalSlot.proposal),
     ).filter(MakeupProposalSlot.id == slot_id).first()
@@ -762,8 +766,8 @@ async def reject_slot(
     # Check permissions: target tutor, proposer, or admin/super_admin
     is_target_tutor = slot.proposed_tutor_id == tutor_id
     is_proposer = proposal.proposed_by_tutor_id == tutor_id
-    acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
+    acting_tutor = current_user
+    is_admin = acting_tutor.role in ['Admin', 'Super Admin']
 
     if not (is_target_tutor or is_proposer or is_admin):
         raise HTTPException(
@@ -920,7 +924,7 @@ View proposal: /proposals?id={proposal.id}"""
 async def update_slot(
     slot_id: int,
     slot_data: MakeupProposalSlotUpdate,
-    tutor_id: int = Query(..., description="Requesting tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -930,6 +934,8 @@ async def update_slot(
     - Only pending proposals can be edited (all slots must be pending)
     - Any provided fields will be updated, None fields are ignored
     """
+    tutor_id = current_user.id
+
     # Get the slot with proposal
     slot = db.query(MakeupProposalSlot).options(
         joinedload(MakeupProposalSlot.proposal).joinedload(MakeupProposal.slots),
@@ -942,8 +948,8 @@ async def update_slot(
 
     # Check permissions: only proposer or admin can edit
     is_proposer = proposal.proposed_by_tutor_id == tutor_id
-    acting_tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    is_admin = acting_tutor and acting_tutor.role in ['Admin', 'Super Admin']
+    acting_tutor = current_user
+    is_admin = acting_tutor.role in ['Admin', 'Super Admin']
 
     if not (is_proposer or is_admin):
         raise HTTPException(
@@ -1002,14 +1008,16 @@ async def update_slot(
 async def reject_proposal(
     proposal_id: int,
     request: ProposalRejectRequest,
-    tutor_id: int = Query(..., description="Rejecting tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Reject an entire proposal (for needs_input type).
 
-    - Only the needs_input target tutor can reject
+    - Only the needs_input target tutor or admin can reject
     """
+    tutor_id = current_user.id
+
     proposal = db.query(MakeupProposal).options(
         joinedload(MakeupProposal.slots),
     ).filter(MakeupProposal.id == proposal_id).first()
@@ -1023,10 +1031,13 @@ async def reject_proposal(
             detail="Use slot-level rejection for specific_slots proposals"
         )
 
-    if proposal.needs_input_tutor_id != tutor_id:
+    # Check permissions: needs_input target tutor or admin
+    is_target = proposal.needs_input_tutor_id == tutor_id
+    is_admin = current_user.role in ['Admin', 'Super Admin']
+    if not (is_target or is_admin):
         raise HTTPException(
             status_code=403,
-            detail="Only the target tutor can reject this proposal"
+            detail="Only the target tutor or admin can reject this proposal"
         )
 
     if proposal.status != 'pending':
@@ -1058,15 +1069,17 @@ async def reject_proposal(
 @router.delete("/makeup-proposals/{proposal_id}")
 async def cancel_proposal(
     proposal_id: int,
-    tutor_id: int = Query(..., description="Requesting tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Cancel a proposal (by the proposer).
+    Cancel a proposal (by the proposer or admin).
 
-    - Only the proposer can cancel
+    - Only the proposer or admin can cancel
     - Only pending proposals can be cancelled
     """
+    tutor_id = current_user.id
+
     proposal = db.query(MakeupProposal).filter(
         MakeupProposal.id == proposal_id
     ).first()
@@ -1074,10 +1087,13 @@ async def cancel_proposal(
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
-    if proposal.proposed_by_tutor_id != tutor_id:
+    # Check permissions: proposer or admin
+    is_proposer = proposal.proposed_by_tutor_id == tutor_id
+    is_admin = current_user.role in ['Admin', 'Super Admin']
+    if not (is_proposer or is_admin):
         raise HTTPException(
             status_code=403,
-            detail="Only the proposer can cancel this proposal"
+            detail="Only the proposer or admin can cancel this proposal"
         )
 
     if proposal.status != 'pending':

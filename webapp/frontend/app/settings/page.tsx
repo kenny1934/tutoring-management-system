@@ -7,17 +7,15 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { PathMappingSettings } from "@/components/settings/PathMappingSettings";
 import { PathAliasAdmin } from "@/components/admin/PathAliasAdmin";
-import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle } from "@/lib/hooks";
 
 type SettingsSection = "path-mappings" | "path-aliases-admin" | null;
 
 export default function SettingsPage() {
   usePageTitle("Settings");
-  const { viewMode } = useRole();
+  const { isAdmin } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingsSection>(null);
-
-  const isAdmin = viewMode === "center-view";
 
   const settingsItems = [
     {

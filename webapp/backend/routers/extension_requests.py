@@ -20,6 +20,7 @@ from schemas import (
     ExtensionRequestDetailResponse,
     PendingExtensionRequestCount,
 )
+from auth.dependencies import get_current_user, require_admin
 
 router = APIRouter()
 
@@ -185,14 +186,15 @@ def _generate_admin_guidance(
 @router.post("/extension-requests", response_model=ExtensionRequestResponse)
 async def create_extension_request(
     request: ExtensionRequestCreate,
-    tutor_id: int = Query(..., description="ID of the tutor making the request"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Create a new extension request.
 
     Tutors use this when they need to schedule a makeup session past the
-    enrollment's effective end date.
+    enrollment's effective end date. Requires authentication.
+    The requesting tutor is determined from the authenticated user.
     """
     # Get the session
     session = db.query(SessionLog).options(
@@ -217,10 +219,8 @@ async def create_extension_request(
             detail="A pending extension request already exists for this session"
         )
 
-    # Get tutor info
-    tutor = db.query(Tutor).filter(Tutor.id == tutor_id).first()
-    if not tutor:
-        raise HTTPException(status_code=404, detail=f"Tutor {tutor_id} not found")
+    # Use current authenticated user as the requesting tutor
+    tutor = current_user
 
     # Find student's current regular enrollment (latest by first_lesson_date)
     # Only Regular enrollments count - ignore One-Time and Trial
@@ -242,7 +242,7 @@ async def create_extension_request(
         enrollment_id=session.enrollment_id,
         target_enrollment_id=target_enrollment_id,
         student_id=session.student_id,
-        tutor_id=tutor_id,
+        tutor_id=tutor.id,
         requested_extension_weeks=request.requested_extension_weeks,
         reason=request.reason,
         proposed_reschedule_date=request.proposed_reschedule_date,
@@ -350,11 +350,11 @@ async def get_extension_request(
 async def approve_extension_request(
     request_id: int,
     approval: ExtensionRequestApprove,
-    admin_tutor_id: int = Query(..., description="ID of the admin approving"),
+    admin_tutor: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
-    Approve an extension request.
+    Approve an extension request. Requires admin access.
 
     This will:
     1. Update the extension request status to 'Approved'
@@ -378,15 +378,6 @@ async def approve_extension_request(
             status_code=400,
             detail=f"Request is already {extension_request.request_status}"
         )
-
-    # Get admin tutor info
-    admin_tutor = db.query(Tutor).filter(Tutor.id == admin_tutor_id).first()
-    if not admin_tutor:
-        raise HTTPException(status_code=404, detail=f"Admin tutor {admin_tutor_id} not found")
-
-    # Check admin role
-    if admin_tutor.role not in ('Admin', 'Super Admin'):
-        raise HTTPException(status_code=403, detail="Only admins can approve extension requests")
 
     now = datetime.now()
 
@@ -435,11 +426,11 @@ async def approve_extension_request(
 async def reject_extension_request(
     request_id: int,
     rejection: ExtensionRequestReject,
-    admin_tutor_id: int = Query(..., description="ID of the admin rejecting"),
+    admin_tutor: Tutor = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
     """
-    Reject an extension request.
+    Reject an extension request. Requires admin access.
     """
     extension_request = db.query(ExtensionRequest).options(
         joinedload(ExtensionRequest.session),
@@ -457,15 +448,6 @@ async def reject_extension_request(
             status_code=400,
             detail=f"Request is already {extension_request.request_status}"
         )
-
-    # Get admin tutor info
-    admin_tutor = db.query(Tutor).filter(Tutor.id == admin_tutor_id).first()
-    if not admin_tutor:
-        raise HTTPException(status_code=404, detail=f"Admin tutor {admin_tutor_id} not found")
-
-    # Check admin role
-    if admin_tutor.role not in ('Admin', 'Super Admin'):
-        raise HTTPException(status_code=403, detail="Only admins can reject extension requests")
 
     now = datetime.now()
 
