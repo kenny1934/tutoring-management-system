@@ -11,7 +11,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, HandCoins } from "lucide-react";
+import { X, HandCoins, GraduationCap, Clock } from "lucide-react";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
@@ -142,6 +142,12 @@ export function MoreSessionsPopover({
                       )}
                       {session.school && (
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
+                      )}
+                      {session.exam_revision_slot_id && (
+                        <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                      )}
+                      {session.extension_request_id && (
+                        <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
                       )}
                     </p>
                   </div>

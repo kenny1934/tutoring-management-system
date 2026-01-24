@@ -28,6 +28,7 @@ interface ExtensionRequestReviewModalProps {
   onApproved?: () => void;
   onRejected?: () => void;
   adminTutorId: number;
+  readOnly?: boolean;  // When true, hides approve/reject buttons (view-only mode for non-admins)
 }
 
 export function ExtensionRequestReviewModal({
@@ -37,6 +38,7 @@ export function ExtensionRequestReviewModal({
   onApproved,
   onRejected,
   adminTutorId,
+  readOnly = false,
 }: ExtensionRequestReviewModalProps) {
   const { showToast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -180,21 +182,23 @@ export function ExtensionRequestReviewModal({
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setMode("reject")}
-                disabled={request._isLoading}
-                className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject
-              </Button>
-              <Button onClick={() => setMode("approve")} disabled={request._isLoading}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setMode("reject")}
+                  disabled={request._isLoading}
+                  className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Reject
+                </Button>
+                <Button onClick={() => setMode("approve")} disabled={request._isLoading}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approve
+                </Button>
+              </div>
+            )}
           </div>
         ) : mode === "approve" ? (
           <div className="flex justify-end gap-3">

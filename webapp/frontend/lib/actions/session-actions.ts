@@ -35,6 +35,12 @@ const isPendingMakeup = (s: Session): boolean =>
   s.session_status?.includes('Pending Make-up') ?? false;
 
 /**
+ * Sessions eligible for extension request (pending make-up without existing request).
+ */
+const canRequestExtension = (s: Session): boolean =>
+  isPendingMakeup(s) && !s.extension_request_id;
+
+/**
  * Sessions where CW/HW buttons should be hidden.
  * These are sessions that won't have classwork assigned.
  */
@@ -168,7 +174,7 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Extension',
     icon: Clock,
     colorClass: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
-    isVisible: isPendingMakeup,
+    isVisible: canRequestExtension,
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: false, // Handled via modal

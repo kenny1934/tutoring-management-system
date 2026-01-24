@@ -166,6 +166,8 @@ export interface Session {
   rescheduled_to_id?: number;
   make_up_for_id?: number;
   exam_revision_slot_id?: number;  // Links session to exam revision slot
+  extension_request_id?: number;  // ID of extension request for this session
+  extension_request_status?: 'Pending' | 'Approved' | 'Rejected';  // Status of extension request
   rescheduled_to?: LinkedSessionInfo;
   make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;

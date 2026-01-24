@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
-import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home, GraduationCap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
@@ -1213,6 +1213,12 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                               {session.school}
                             </span>
                           )}
+                          {session.exam_revision_slot_id && (
+                            <GraduationCap className="h-2.5 w-2.5 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                          )}
+                          {session.extension_request_id && (
+                            <Clock className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+                          )}
                         </div>
                       </div>
                     );
@@ -1317,6 +1323,12 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
             <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">
               {session.school}
             </span>
+          )}
+          {session.exam_revision_slot_id && (
+            <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+          )}
+          {session.extension_request_id && (
+            <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
           )}
         </div>
 

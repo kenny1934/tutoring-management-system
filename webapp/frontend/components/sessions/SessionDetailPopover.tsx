@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -23,7 +23,7 @@ import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { cn } from "@/lib/utils";
 import type { Session, UpcomingTestAlert, MakeupProposal } from "@/types";
 import { parseTimeSlot } from "@/lib/calendar-utils";
-import { sessionsAPI, api } from "@/lib/api";
+import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import { ExerciseModal } from "./ExerciseModal";
@@ -40,6 +40,8 @@ import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
 import { ProposalIndicatorBadge } from "./ProposalIndicatorBadge";
+import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
+import type { ExtensionRequestDetail } from "@/types";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
 const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
@@ -383,6 +385,11 @@ export function SessionDetailPopover({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
+  // Extension request modal state
+  const [extensionRequest, setExtensionRequest] = useState<ExtensionRequestDetail | null>(null);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [isLoadingExtension, setIsLoadingExtension] = useState(false);
+
   // Tests and Recap section state (using SWR for caching)
   const [testsExpanded, setTestsExpanded] = useState(false);
   const [recapExpanded, setRecapExpanded] = useState(false);
@@ -402,6 +409,22 @@ export function SessionDetailPopover({
     if (!s) return false;
     return ['Scheduled', 'Trial Class', 'Make-up Class'].includes(s.session_status);
   }, []);
+
+  // Handler to open extension request modal
+  const handleOpenExtensionRequest = useCallback(async () => {
+    if (!session?.extension_request_id) return;
+    setIsLoadingExtension(true);
+    try {
+      const detail = await extensionRequestsAPI.getById(session.extension_request_id);
+      setExtensionRequest(detail);
+      setIsExtensionModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch extension request:", error);
+      showToast("Failed to load extension request", "error");
+    } finally {
+      setIsLoadingExtension(false);
+    }
+  }, [session?.extension_request_id, showToast]);
 
   // Keyboard shortcuts handler
   useEffect(() => {
@@ -766,6 +789,35 @@ export function SessionDetailPopover({
             </div>
           )}
 
+          {/* Extension Request Indicator */}
+          {session.extension_request_id && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">Extension:</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenExtensionRequest();
+                }}
+                disabled={isLoadingExtension}
+                className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full transition-colors",
+                  session.extension_request_status === "Pending"
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                    : session.extension_request_status === "Approved"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                )}
+              >
+                {isLoadingExtension ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Clock className="h-3 w-3" />
+                )}
+                {session.extension_request_status}
+              </button>
+            </div>
+          )}
+
           {/* Session Linking */}
           {session.rescheduled_to && (
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
@@ -1065,6 +1117,18 @@ export function SessionDetailPopover({
           session={session}
           isOpen={true}
           onClose={() => setIsEditModalOpen(false)}
+        />
+      )}
+      {isExtensionModalOpen && extensionRequest && (
+        <ExtensionRequestReviewModal
+          request={extensionRequest}
+          isOpen={true}
+          onClose={() => {
+            setIsExtensionModalOpen(false);
+            setExtensionRequest(null);
+          }}
+          adminTutorId={0}
+          readOnly={true}
         />
       )}
     </FloatingPortal>

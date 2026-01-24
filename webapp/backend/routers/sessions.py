@@ -50,7 +50,8 @@ async def get_sessions(
     query = db.query(SessionLog).options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
-        joinedload(SessionLog.exercises)
+        joinedload(SessionLog.exercises),
+        joinedload(SessionLog.extension_request)
     )
 
     # Apply filters
@@ -142,7 +143,8 @@ async def get_session_detail(
     # Load session with basic relationships only
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
-        joinedload(SessionLog.tutor)
+        joinedload(SessionLog.tutor),
+        joinedload(SessionLog.extension_request)
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -156,6 +158,11 @@ async def get_session_detail(
     session_data.grade = session.student.grade if session.student else None
     session_data.lang_stream = session.student.lang_stream if session.student else None
     session_data.school = session.student.school if session.student else None
+
+    # Extension request info
+    if session.extension_request:
+        session_data.extension_request_id = session.extension_request.id
+        session_data.extension_request_status = session.extension_request.request_status
 
     # Load previous session (most recent attended session for same student, any tutor)
     previous_session = db.query(SessionLog).options(
