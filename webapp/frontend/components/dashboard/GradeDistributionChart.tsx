@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { GradeAccent } from "@/components/illustrations/CardAccents";
-import { useLocation } from "@/contexts/LocationContext";
-import { useAllStudents } from "@/lib/hooks";
+import type { ActiveStudent } from "@/types";
 
 // Warm sepia palette matching dashboard theme
 const COLORS = [
@@ -18,14 +17,19 @@ const COLORS = [
 ];
 
 interface GradeDistributionChartProps {
-  tutorId?: number;
+  students?: ActiveStudent[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps) {
+export const GradeDistributionChart = memo(function GradeDistributionChart({
+  students = [],
+  isLoading = false,
+  error = null,
+  onRetry
+}: GradeDistributionChartProps) {
   const router = useRouter();
-  const { selectedLocation } = useLocation();
-  // Pass tutorId to filter for "My View" mode
-  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation, tutorId);
 
   // Handle click on pie slice - navigate to students page with grade filter
   const handleSliceClick = (data: { name: string }) => {
@@ -36,8 +40,8 @@ export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps)
   const chartData = useMemo(() => {
     const gradeCounts: Record<string, number> = {};
 
-    enrollments.forEach((enrollment) => {
-      const grade = enrollment.grade || "Unknown";
+    students.forEach((student) => {
+      const grade = student.grade || "Unknown";
       gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
     });
 
@@ -51,7 +55,7 @@ export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps)
         const gradeOrder = ["F1", "F2", "F3", "F4", "F5", "F6", "Unknown"];
         return gradeOrder.indexOf(a.name) - gradeOrder.indexOf(b.name);
       });
-  }, [enrollments]);
+  }, [students]);
 
   return (
     <div>
@@ -62,19 +66,21 @@ export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps)
       </div>
 
       {/* Chart */}
-      {loading ? (
+      {isLoading ? (
         <div className="h-[250px] flex items-center justify-center">
           <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
       ) : error ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
           <div className="text-red-500 dark:text-red-400 text-sm">Failed to load data</div>
-          <button
-            onClick={() => mutate()}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
-          >
-            Try again
-          </button>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+            >
+              Try again
+            </button>
+          )}
         </div>
       ) : chartData.length === 0 ? (
         <div className="h-[250px] flex items-center justify-center">
@@ -120,4 +126,4 @@ export function GradeDistributionChart({ tutorId }: GradeDistributionChartProps)
       )}
     </div>
   );
-}
+});

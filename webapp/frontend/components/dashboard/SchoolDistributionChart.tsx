@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { SchoolAccent } from "@/components/illustrations/CardAccents";
-import { useLocation } from "@/contexts/LocationContext";
-import { useAllStudents } from "@/lib/hooks";
+import type { ActiveStudent } from "@/types";
 
 // Warm sepia palette matching dashboard theme
 const COLORS = [
@@ -22,14 +21,19 @@ const COLORS = [
 const TOP_N = 6; // Show top 6 schools, group rest as "Others"
 
 interface SchoolDistributionChartProps {
-  tutorId?: number;
+  students?: ActiveStudent[];
+  isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProps) {
+export const SchoolDistributionChart = memo(function SchoolDistributionChart({
+  students = [],
+  isLoading = false,
+  error = null,
+  onRetry
+}: SchoolDistributionChartProps) {
   const router = useRouter();
-  const { selectedLocation } = useLocation();
-  // Pass tutorId to filter for "My View" mode
-  const { data: enrollments = [], isLoading: loading, error, mutate } = useAllStudents(selectedLocation, tutorId);
 
   // Handle click on pie slice - navigate to students page with school filter
   const handleSliceClick = (data: { name: string }) => {
@@ -40,8 +44,8 @@ export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProp
   const chartData = useMemo(() => {
     const schoolCounts: Record<string, number> = {};
 
-    enrollments.forEach((enrollment) => {
-      const school = enrollment.school || "Unknown";
+    students.forEach((student) => {
+      const school = student.school || "Unknown";
       schoolCounts[school] = (schoolCounts[school] || 0) + 1;
     });
 
@@ -62,7 +66,7 @@ export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProp
     const othersCount = sorted.slice(TOP_N).reduce((sum, s) => sum + s.value, 0);
 
     return [...topSchools, { name: "Others", value: othersCount }];
-  }, [enrollments]);
+  }, [students]);
 
   return (
     <div>
@@ -73,19 +77,21 @@ export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProp
       </div>
 
       {/* Chart */}
-      {loading ? (
+      {isLoading ? (
         <div className="h-[250px] flex items-center justify-center">
           <div className="h-24 w-24 rounded-full shimmer-sepia" />
         </div>
       ) : error ? (
         <div className="h-[250px] flex flex-col items-center justify-center gap-3">
           <div className="text-red-500 dark:text-red-400 text-sm">Failed to load data</div>
-          <button
-            onClick={() => mutate()}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
-          >
-            Try again
-          </button>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="px-3 py-1.5 text-xs font-medium rounded-md bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+            >
+              Try again
+            </button>
+          )}
         </div>
       ) : chartData.length === 0 ? (
         <div className="h-[250px] flex items-center justify-center">
@@ -131,4 +137,4 @@ export function SchoolDistributionChart({ tutorId }: SchoolDistributionChartProp
       )}
     </div>
   );
-}
+});

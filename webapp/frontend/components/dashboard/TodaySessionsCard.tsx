@@ -45,12 +45,20 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
 
-  const { data: sessions = [], isLoading } = useSessions({
+  // Fetch ALL sessions for today (single cache key, shared across view modes)
+  // This enables instant view switching - no API call needed when toggling views
+  const { data: allSessions = [], isLoading } = useSessions({
     date: todayString,
     location: selectedLocation === "All Locations" ? undefined : selectedLocation,
-    tutor_id: tutorId,  // Filter by tutor in "My View" mode
     limit: 500,  // Ensure all daily sessions are fetched (default is 100)
+    // Note: tutor_id NOT passed - we filter client-side for instant view switching
   });
+
+  // Filter client-side based on view mode (instant, no API call)
+  const sessions = useMemo(() => {
+    if (!tutorId) return allSessions;  // Center View: show all
+    return allSessions.filter(s => s.tutor_id === tutorId);  // My View: filter by tutor
+  }, [allSessions, tutorId]);
 
   // Fetch proposals for today (only proposals with slots on today's date)
   const { data: proposals = [] } = useProposalsInDateRange(todayString, todayString);

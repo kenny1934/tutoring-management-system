@@ -167,11 +167,14 @@ export function useActiveStudents(location?: string, tutorId?: number, enabled: 
 /**
  * Hook for fetching enrollments for a student
  * Returns null key when studentId is falsy to skip fetching
+ * Note: revalidateOnFocus disabled to prevent N+1 API calls when switching view modes
  */
 export function useStudentEnrollments(studentId: number | null | undefined) {
   return useSWR<Enrollment[]>(
     studentId ? ['enrollments', studentId] : null,
-    () => enrollmentsAPI.getAll(studentId!)  );
+    () => enrollmentsAPI.getAll(studentId!),
+    { revalidateOnFocus: false }
+  );
 }
 
 /**

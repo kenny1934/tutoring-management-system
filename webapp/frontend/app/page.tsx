@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
-import { useDashboardStats, usePageTitle } from "@/lib/hooks";
+import { useDashboardStats, useAllStudents, usePageTitle } from "@/lib/hooks";
 import { TestCalendar } from "@/components/dashboard/TestCalendar";
 
 // Lazy load chart components - Recharts adds ~30kb to bundle
@@ -27,16 +27,34 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, impersonatedTutor } = useAuth();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const [isMobile, setIsMobile] = useState(false);
 
-  // Determine effective tutor ID based on view mode
-  // "my-view" shows only the logged-in tutor's data
-  const effectiveTutorId = viewMode === 'my-view' ? user?.id : undefined;
+  // Determine effective tutor ID based on view mode and impersonation
+  // When impersonating a specific tutor, use their ID
+  // Otherwise, "my-view" shows only the logged-in tutor's data
+  const effectiveTutorId = viewMode === 'my-view'
+    ? impersonatedTutor?.id ?? user?.id
+    : undefined;
 
   const { data: stats, isLoading, error } = useDashboardStats(selectedLocation, effectiveTutorId);
+
+  // Fetch ALL students once (single cache key, shared across view modes)
+  // This enables instant view switching - no API call needed when toggling views
+  const {
+    data: allStudents = [],
+    isLoading: studentsLoading,
+    error: studentsError,
+    mutate: mutateStudents
+  } = useAllStudents(selectedLocation);  // No tutorId - fetch all, filter client-side
+
+  // Filter client-side based on view mode (instant, no API call)
+  const filteredStudents = useMemo(() => {
+    if (!effectiveTutorId) return allStudents;  // Center View: show all
+    return allStudents.filter(s => s.tutor_id === effectiveTutorId);  // My View: filter by tutor
+  }, [allStudents, effectiveTutorId]);
 
   usePageTitle("Dashboard");
 
@@ -127,7 +145,12 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
-            <GradeDistributionChart tutorId={effectiveTutorId} />
+            <GradeDistributionChart
+              students={filteredStudents}
+              isLoading={studentsLoading}
+              error={studentsError}
+              onRetry={mutateStudents}
+            />
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: 0.5 }}
@@ -141,7 +164,12 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
-            <SchoolDistributionChart tutorId={effectiveTutorId} />
+            <SchoolDistributionChart
+              students={filteredStudents}
+              isLoading={studentsLoading}
+              error={studentsError}
+              onRetry={mutateStudents}
+            />
           </motion.div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 
 type ViewMode = "my-view" | "center-view";
 
@@ -25,12 +25,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const handleSetViewMode = (mode: ViewMode) => {
+  const handleSetViewMode = useCallback((mode: ViewMode) => {
     setViewMode(mode);
     if (typeof window !== "undefined") {
       localStorage.setItem("viewMode", mode);
     }
-  };
+  }, []);
 
   return (
     <RoleContext.Provider
