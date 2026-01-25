@@ -14,7 +14,6 @@ import {
   GraduationCap,
   FileText,
   Trash2,
-  AlertTriangle,
   Tag,
 } from "lucide-react";
 
@@ -557,96 +556,85 @@ export function CalendarEventModal({
             </div>
           )}
 
-          {/* Delete Confirmation */}
-          {showDeleteConfirm && (
-            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">
-                    Delete this event?
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    This will also remove it from Google Calendar. This action cannot be undone.
-                  </p>
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      {isDeleting ? "Deleting..." : "Delete"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDeleteConfirm(false)}
-                      disabled={isDeleting}
-                      className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </form>
 
         {/* Actions - fixed at bottom */}
         <div className="flex-shrink-0 flex justify-between gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
           {/* Delete button (edit mode only) */}
-          {isEditMode && !showDeleteConfirm && (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={isSubmitting || isDeleting || hasRevisionSlots}
-              title={hasRevisionSlots ? `Cannot delete: event has ${event?.revision_slot_count} revision slot(s)` : undefined}
-              className={cn(
-                "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5",
-                hasRevisionSlots
-                  ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                  : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-              )}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
+          {isEditMode && (
+            showDeleteConfirm ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium text-sm hover:bg-red-700 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {isDeleting ? "Deleting..." : "Confirm Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isSubmitting || isDeleting || hasRevisionSlots}
+                title={hasRevisionSlots ? `Cannot delete: event has ${event?.revision_slot_count} revision slot(s)` : undefined}
+                className={cn(
+                  "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5",
+                  hasRevisionSlots
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                    : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                )}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+            )
           )}
 
-          <div className={cn("flex gap-3", !isEditMode && "ml-auto")}>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting || isDeleting}
-              className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="calendar-event-form"
-              onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting || isDeleting}
-              className={cn(
-                "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2",
-                "bg-[#d4a574] text-white hover:bg-[#c4956a]",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
-              )}
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isSubmitting
-                ? "Saving..."
-                : isEditMode
-                ? "Save Changes"
-                : "Create Event"}
-            </button>
-          </div>
+          {!showDeleteConfirm && (
+            <div className={cn("flex gap-3", !isEditMode && "ml-auto")}>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting || isDeleting}
+                className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="calendar-event-form"
+                onClick={handleSubmit}
+                disabled={!canSubmit || isSubmitting || isDeleting}
+                className={cn(
+                  "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2",
+                  "bg-[#d4a574] text-white hover:bg-[#c4956a]",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
+              >
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSubmitting
+                  ? "Saving..."
+                  : isEditMode
+                  ? "Save Changes"
+                  : "Create Event"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>,
