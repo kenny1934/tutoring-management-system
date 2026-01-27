@@ -486,56 +486,136 @@ export function ExtensionRequestReviewModal({
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
-                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    Current Extensions
+              {/* Cross-enrollment: Show both source and target stats */}
+              {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id ? (
+                <>
+                  {/* Source Enrollment Stats */}
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Source Enrollment (#{request.enrollment_id})
                   </div>
-                  <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request._isLoading ? (
-                      <div className="h-5 w-16 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    ) : (
-                      `${request.current_extension_weeks} weeks`
-                    )}
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                    <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Pending Makeups</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          request.source_pending_makeups_count ?? 0
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Sessions Done</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          request.source_sessions_completed ?? 0
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Enrollment Stats */}
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                    Target Enrollment (#{request.target_enrollment_id})
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Current Extensions</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-16 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          `${request.current_extension_weeks} weeks`
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Pending Makeups</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          request.pending_makeups_count
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Sessions Done</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          request.sessions_completed
+                        )}
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                      <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">Lessons Paid</div>
+                      <div className="font-bold text-gray-900 dark:text-gray-100">
+                        {request._isLoading ? (
+                          <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                        ) : (
+                          request.enrollment_lessons_paid || "N/A"
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Single enrollment: Show combined stats */
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
+                      Current Extensions
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-gray-100">
+                      {request._isLoading ? (
+                        <div className="h-5 w-16 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                      ) : (
+                        `${request.current_extension_weeks} weeks`
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
+                      Pending Makeups
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-gray-100">
+                      {request._isLoading ? (
+                        <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                      ) : (
+                        request.pending_makeups_count
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
+                      Sessions Done
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-gray-100">
+                      {request._isLoading ? (
+                        <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                      ) : (
+                        request.sessions_completed
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
+                      Lessons Paid
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-gray-100">
+                      {request._isLoading ? (
+                        <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
+                      ) : (
+                        request.enrollment_lessons_paid || "N/A"
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
-                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    Pending Makeups
-                  </div>
-                  <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request._isLoading ? (
-                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    ) : (
-                      request.pending_makeups_count
-                    )}
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
-                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    Sessions Done
-                  </div>
-                  <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request._isLoading ? (
-                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    ) : (
-                      request.sessions_completed
-                    )}
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
-                  <div className="text-gray-500 dark:text-gray-400 text-xs mb-1">
-                    Lessons Paid
-                  </div>
-                  <div className="font-bold text-gray-900 dark:text-gray-100">
-                    {request._isLoading ? (
-                      <div className="h-5 w-8 mx-auto rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    ) : (
-                      request.enrollment_lessons_paid || "N/A"
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
 
               {/* Deadline Display */}
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -995,6 +1075,7 @@ export function ExtensionRequestReviewModal({
         initialDate={request.proposed_reschedule_date}
         initialTimeSlot={request.proposed_reschedule_time}
         viaExtensionRequest
+        extensionRequestId={request.id}
       />
     )}
 

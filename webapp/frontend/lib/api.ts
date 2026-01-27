@@ -1231,6 +1231,16 @@ export const extensionRequestsAPI = {
       }
     );
   },
+
+  // Mark extension request session as rescheduled (after scheduling makeup)
+  markRescheduled: (requestId: number) => {
+    return fetchAPI<ExtensionRequest>(
+      `/extension-requests/${requestId}/mark-rescheduled`,
+      {
+        method: "PATCH",
+      }
+    );
+  },
 };
 
 // Exam Revision Slots API

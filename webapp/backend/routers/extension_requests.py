@@ -134,23 +134,40 @@ def _build_extension_request_detail_response(
             except Exception:
                 pass  # SQL function might not exist in all environments
 
-    # Count pending makeups and completed sessions for the target enrollment
-    session_query = db.query(
-        func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
-        func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
-    ).filter(
-        SessionLog.student_id == request.student_id
-    )
-    if target_enrollment:
-        session_query = session_query.filter(SessionLog.enrollment_id == target_enrollment.id)
-    counts = session_query.first()
+    # Count pending makeups and completed sessions for SOURCE enrollment
+    source_pending_makeups_count = 0
+    source_sessions_completed = 0
+    if source_enrollment:
+        source_counts = db.query(
+            func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
+            func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
+        ).filter(
+            SessionLog.student_id == request.student_id,
+            SessionLog.enrollment_id == source_enrollment.id
+        ).first()
+        source_pending_makeups_count = source_counts.pending if source_counts else 0
+        source_sessions_completed = source_counts.completed if source_counts else 0
 
-    pending_makeups_count = counts.pending if counts else 0
-    sessions_completed = counts.completed if counts else 0
+    # Count pending makeups and completed sessions for TARGET enrollment
+    pending_makeups_count = 0
+    sessions_completed = 0
+    if target_enrollment:
+        target_counts = db.query(
+            func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
+            func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
+        ).filter(
+            SessionLog.student_id == request.student_id,
+            SessionLog.enrollment_id == target_enrollment.id
+        ).first()
+        pending_makeups_count = target_counts.pending if target_counts else 0
+        sessions_completed = target_counts.completed if target_counts else 0
+
+    # For admin guidance, consider makeups on BOTH enrollments
+    total_pending_makeups = source_pending_makeups_count + (pending_makeups_count if target_enrollment and target_enrollment.id != source_enrollment.id else 0)
 
     # Generate admin guidance
     admin_guidance = _generate_admin_guidance(
-        request, current_extension_weeks, pending_makeups_count
+        request, current_extension_weeks, total_pending_makeups
     )
 
     return ExtensionRequestDetailResponse(
@@ -158,6 +175,8 @@ def _build_extension_request_detail_response(
         enrollment_first_lesson_date=enrollment_first_lesson_date,
         enrollment_lessons_paid=enrollment_lessons_paid,
         source_effective_end_date=source_effective_end_date,
+        source_pending_makeups_count=source_pending_makeups_count,
+        source_sessions_completed=source_sessions_completed,
         target_first_lesson_date=target_first_lesson_date,
         target_lessons_paid=target_lessons_paid,
         current_extension_weeks=current_extension_weeks,
@@ -225,19 +244,37 @@ async def create_extension_request(
     # Use current authenticated user as the requesting tutor
     tutor = current_user
 
-    # Find student's current regular enrollment (latest by first_lesson_date)
-    # Only Regular enrollments count - ignore One-Time and Trial
-    # This is the enrollment that should be extended
-    current_enrollment = db.query(Enrollment).filter(
-        Enrollment.student_id == session.student_id,
-        Enrollment.enrollment_type == 'Regular'
-    ).order_by(Enrollment.first_lesson_date.desc()).first()
-
-    # Determine target enrollment
-    # If current enrollment differs from session's enrollment, use current as target
+    # Determine target enrollment (which enrollment to extend)
+    # If provided in request, validate and use it. Otherwise auto-detect.
     target_enrollment_id = None
-    if current_enrollment and current_enrollment.id != session.enrollment_id:
-        target_enrollment_id = current_enrollment.id
+
+    if request.target_enrollment_id:
+        # Validate provided target enrollment belongs to same student
+        target_enrollment = db.query(Enrollment).filter(
+            Enrollment.id == request.target_enrollment_id,
+            Enrollment.student_id == session.student_id
+        ).first()
+
+        if not target_enrollment:
+            raise HTTPException(
+                status_code=400,
+                detail="Target enrollment not found or does not belong to this student"
+            )
+
+        # Set target if different from source
+        if target_enrollment.id != session.enrollment_id:
+            target_enrollment_id = target_enrollment.id
+    else:
+        # Auto-detect: Find student's current regular enrollment (latest by first_lesson_date)
+        # Only Regular enrollments count - ignore One-Time and Trial
+        current_enrollment = db.query(Enrollment).filter(
+            Enrollment.student_id == session.student_id,
+            Enrollment.enrollment_type == 'Regular'
+        ).order_by(Enrollment.first_lesson_date.desc()).first()
+
+        # If current enrollment differs from session's enrollment, use current as target
+        if current_enrollment and current_enrollment.id != session.enrollment_id:
+            target_enrollment_id = current_enrollment.id
 
     # Create the extension request
     extension_request = ExtensionRequest(
@@ -459,6 +496,40 @@ async def reject_extension_request(
     extension_request.reviewed_by = admin_tutor.user_email
     extension_request.reviewed_at = now
     extension_request.review_notes = rejection.review_notes
+
+    db.commit()
+    db.refresh(extension_request)
+
+    return _build_extension_request_response(extension_request, db)
+
+
+@router.patch("/extension-requests/{request_id}/mark-rescheduled", response_model=ExtensionRequestResponse)
+async def mark_session_rescheduled(
+    request_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Mark an extension request's session as rescheduled.
+    Called when a makeup is scheduled via the extension request flow.
+    """
+    extension_request = db.query(ExtensionRequest).options(
+        joinedload(ExtensionRequest.session),
+        joinedload(ExtensionRequest.enrollment),
+        joinedload(ExtensionRequest.target_enrollment),
+        joinedload(ExtensionRequest.student),
+        joinedload(ExtensionRequest.tutor),
+    ).filter(ExtensionRequest.id == request_id).first()
+
+    if not extension_request:
+        raise HTTPException(status_code=404, detail=f"Extension request {request_id} not found")
+
+    if extension_request.request_status != 'Approved':
+        raise HTTPException(
+            status_code=400,
+            detail=f"Can only mark rescheduled on approved requests (current: {extension_request.request_status})"
+        )
+
+    extension_request.session_rescheduled = True
 
     db.commit()
     db.refresh(extension_request)
