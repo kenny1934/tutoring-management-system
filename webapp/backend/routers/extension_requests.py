@@ -134,13 +134,16 @@ def _build_extension_request_detail_response(
             except Exception:
                 pass  # SQL function might not exist in all environments
 
-    # Count pending makeups and completed sessions (across ALL student enrollments)
-    counts = db.query(
+    # Count pending makeups and completed sessions for the target enrollment
+    session_query = db.query(
         func.count(case((SessionLog.session_status.like('%Pending Make-up%'), SessionLog.id))).label('pending'),
         func.count(case((SessionLog.session_status.in_(['Attended', 'Attended (Make-up)', 'No Show']), SessionLog.id))).label('completed')
     ).filter(
         SessionLog.student_id == request.student_id
-    ).first()
+    )
+    if target_enrollment:
+        session_query = session_query.filter(SessionLog.enrollment_id == target_enrollment.id)
+    counts = session_query.first()
 
     pending_makeups_count = counts.pending if counts else 0
     sessions_completed = counts.completed if counts else 0
