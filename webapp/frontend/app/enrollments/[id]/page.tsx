@@ -9,7 +9,7 @@ import { tutorsAPI, enrollmentsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import {
   ArrowLeft, User, BookOpen, Calendar, MapPin, Clock, CreditCard,
-  ExternalLink, X, CheckCircle2, HandCoins, Pencil
+  ExternalLink, X, CheckCircle2, HandCoins, Pencil, CalendarClock, History
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { useLocation } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
@@ -36,10 +37,16 @@ export default function EnrollmentDetailPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const { selectedLocation } = useLocation();
+  const { effectiveRole } = useAuth();
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
+  const [isEditingExtension, setIsEditingExtension] = useState(false);
+  const [extensionForm, setExtensionForm] = useState({ weeks: 0, reason: "" });
+  const [isSavingExtension, setIsSavingExtension] = useState(false);
+  const [showExtensionHistory, setShowExtensionHistory] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Enrollment>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -102,13 +109,55 @@ export default function EnrollmentDetailPage() {
       setIsSaving(false);
     }
   };
-  
+
+  const handleSaveExtension = async () => {
+    if (!enrollment) return;
+    setIsSavingExtension(true);
+    setSaveError(null);
+
+    try {
+      const updatedEnrollment = await enrollmentsAPI.updateExtension(enrollment.id, {
+        deadline_extension_weeks: extensionForm.weeks,
+        reason: extensionForm.reason,
+      });
+      mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
+      setIsEditingExtension(false);
+      setExtensionForm({ weeks: 0, reason: "" });
+    } catch (error) {
+      console.error('Failed to save extension:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save extension');
+    } finally {
+      setIsSavingExtension(false);
+    }
+  };
+
+  const handleEditExtension = () => {
+    if (enrollment) {
+      setExtensionForm({
+        weeks: enrollment.deadline_extension_weeks || 0,
+        reason: "",
+      });
+      setIsEditingExtension(true);
+    }
+  };
+
   // Fetch enrollment data
   const { data: enrollment, error: enrollmentError, isLoading: enrollmentLoading } = useEnrollment(enrollmentId);
 
   // Fetch locations for dropdown
   const { data: locations = [] } = useLocations();
   const locationOptions = locations.filter(loc => loc !== "Various");
+
+  // Calculate preview effective end date when extension weeks change
+  const previewEffectiveEndDate = useMemo(() => {
+    if (!enrollment?.first_lesson_date || !isEditingExtension) return null;
+    const firstLesson = new Date(enrollment.first_lesson_date + "T00:00:00Z");
+    const lessonsPaid = enrollment.lessons_paid || 0;
+    const totalWeeks = lessonsPaid + extensionForm.weeks;
+    const endDate = new Date(firstLesson);
+    endDate.setUTCDate(endDate.getUTCDate() + totalWeeks * 7);
+    return endDate.toISOString().split("T")[0];
+  }, [enrollment?.first_lesson_date, enrollment?.lessons_paid, extensionForm.weeks, isEditingExtension]);
 
   // Filter tutors by selected location and sort by first name (ignoring Mr/Ms)
   const filteredTutors = useMemo(() => {
@@ -783,6 +832,152 @@ export default function EnrollmentDetailPage() {
               </div>
             </motion.div>
           </div>
+
+          {/* Deadline Extension Section - Admin Only */}
+          {isAdmin && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, duration: 0.3 }}
+              className={cn(
+                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4",
+                !isMobile && "paper-texture"
+              )}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Deadline Extension
+                </h3>
+                {!isEditingExtension && (
+                  <button
+                    onClick={handleEditExtension}
+                    className="text-xs px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors flex items-center gap-1"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </button>
+                )}
+              </div>
+
+              {isEditingExtension ? (
+                /* Edit Mode */
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Extension Weeks
+                    </label>
+                    <select
+                      value={extensionForm.weeks}
+                      onChange={(e) => setExtensionForm({ ...extensionForm, weeks: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#a0704b] focus:border-transparent"
+                    >
+                      {[...Array(53)].map((_, i) => (
+                        <option key={i} value={i}>{i} week{i !== 1 ? 's' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Preview of new end date */}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">New Effective End Date:</span>
+                      <span className="font-medium text-blue-700 dark:text-blue-300">
+                        {previewEffectiveEndDate || 'N/A'}
+                      </span>
+                    </div>
+                    {enrollment.effective_end_date && previewEffectiveEndDate !== enrollment.effective_end_date && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        (Currently: {enrollment.effective_end_date})
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Reason <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={extensionForm.reason}
+                      onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
+                      placeholder="Enter reason for extension (required for audit trail)"
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-[#a0704b] focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setIsEditingExtension(false)}
+                      className="px-4 py-2 text-sm rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveExtension}
+                      disabled={isSavingExtension || !extensionForm.reason.trim()}
+                      className="px-4 py-2 text-sm rounded-md bg-[#a0704b] hover:bg-[#8a5f3d] text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isSavingExtension ? (
+                        <>
+                          <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Extension'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* View Mode */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Extension Weeks</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {enrollment.deadline_extension_weeks || 0} week{(enrollment.deadline_extension_weeks || 0) !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Effective End Date</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {enrollment.effective_end_date || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {enrollment.last_extension_date && (
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Last extended on {enrollment.last_extension_date} by {enrollment.extension_granted_by || 'Unknown'}
+                      </p>
+                    </div>
+                  )}
+
+                  {enrollment.extension_notes && (
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        onClick={() => setShowExtensionHistory(!showExtensionHistory)}
+                        className="text-xs text-[#a0704b] hover:text-[#8a5f3d] flex items-center gap-1"
+                      >
+                        <History className="h-3 w-3" />
+                        {showExtensionHistory ? 'Hide' : 'View'} Extension History
+                      </button>
+
+                      {showExtensionHistory && (
+                        <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg max-h-48 overflow-y-auto">
+                          <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+                            {enrollment.extension_notes}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Session History */}
           <motion.div

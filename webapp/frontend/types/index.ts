@@ -45,6 +45,9 @@ export interface Enrollment {
   lang_stream?: string;
   school_student_id?: string;
   deadline_extension_weeks?: number;
+  extension_notes?: string;
+  last_extension_date?: string;
+  extension_granted_by?: string;
   last_modified_time?: string;
   effective_end_date?: string;
   student?: Student;
