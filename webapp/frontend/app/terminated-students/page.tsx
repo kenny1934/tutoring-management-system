@@ -466,7 +466,7 @@ export default function TerminatedStudentsPage() {
                     <div className="text-sm text-muted-foreground">Closing</div>
                   </div>
                   <div className="text-center p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.location_stats.term_rate}%</div>
+                    <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.location_stats.term_rate.toFixed(2)}%</div>
                     <div className="text-sm text-muted-foreground">Term Rate</div>
                   </div>
                 </div>
@@ -771,7 +771,7 @@ function TutorStatsRow({ stats }: { stats: TutorTerminationStats }) {
       <td className="px-4 py-3 text-right">{stats.terminated}</td>
       <td className="px-4 py-3 text-right">{stats.closing}</td>
       <td className={cn("px-4 py-3 text-right font-medium", termRateColor)}>
-        {stats.term_rate}%
+        {stats.term_rate.toFixed(2)}%
       </td>
     </tr>
   );
