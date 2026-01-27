@@ -50,6 +50,38 @@ def _build_student_filters_from_event(calendar_event: CalendarEvent) -> list:
     return filters
 
 
+def _adopt_matching_sessions(
+    db: Session,
+    slot: ExamRevisionSlot,
+    calendar_event: CalendarEvent
+) -> int:
+    """
+    Adopt unlinked sessions that match the slot's date/time/location and student criteria.
+
+    This handles sessions created outside the webapp (e.g., via AppSheet) that weren't
+    auto-linked at creation time. Uses ENROLLED_SESSION_STATUSES to include attended sessions.
+
+    Returns the count of adopted sessions.
+    """
+    student_filters = _build_student_filters_from_event(calendar_event)
+
+    unlinked_sessions = db.query(SessionLog).join(
+        Student, SessionLog.student_id == Student.id
+    ).filter(
+        SessionLog.session_date == slot.session_date,
+        SessionLog.time_slot == slot.time_slot,
+        SessionLog.location == slot.location,
+        SessionLog.session_status.in_(ENROLLED_SESSION_STATUSES),
+        SessionLog.exam_revision_slot_id.is_(None),
+        *student_filters
+    ).all()
+
+    for session in unlinked_sessions:
+        session.exam_revision_slot_id = slot.id
+
+    return len(unlinked_sessions)
+
+
 def _get_consumable_sessions_query(
     db: Session,
     student_id: int,
@@ -341,26 +373,8 @@ async def create_revision_slot(
     db.commit()
     db.refresh(slot)
 
-    # Auto-adopt existing matching sessions
-    student_filters = _build_student_filters_from_event(calendar_event)
-
-    # Find existing sessions at the same date/time/location
-    existing_sessions = db.query(SessionLog).join(
-        Student, SessionLog.student_id == Student.id
-    ).filter(
-        SessionLog.session_date == request.session_date,
-        SessionLog.time_slot == request.time_slot,
-        SessionLog.location == request.location,
-        SessionLog.session_status.in_(SCHEDULABLE_STATUSES),
-        SessionLog.exam_revision_slot_id.is_(None),  # Not already linked to a revision slot
-        *student_filters
-    ).all()
-
-    adopted_count = 0
-    for session in existing_sessions:
-        session.exam_revision_slot_id = slot.id
-        adopted_count += 1
-
+    # Auto-adopt existing matching sessions (uses ENROLLED_SESSION_STATUSES to include attended)
+    adopted_count = _adopt_matching_sessions(db, slot, calendar_event)
     if adopted_count > 0:
         db.commit()
         logger.info(f"Auto-adopted {adopted_count} existing sessions into revision slot {slot.id}")
@@ -381,15 +395,32 @@ async def get_revision_slot_detail(
 ):
     """
     Get detailed information for a revision slot including enrolled students.
+
+    Auto-adopts any unlinked sessions that match the slot's criteria (self-healing
+    for sessions created outside the webapp, e.g., via AppSheet).
     """
+    slot = db.query(ExamRevisionSlot).options(
+        joinedload(ExamRevisionSlot.calendar_event),
+        joinedload(ExamRevisionSlot.tutor),
+    ).filter(ExamRevisionSlot.id == slot_id).first()
+
+    if not slot:
+        raise HTTPException(status_code=404, detail=f"Revision slot with ID {slot_id} not found")
+
+    # Auto-adopt any unlinked sessions that match this slot's criteria
+    # This handles sessions created outside the webapp (e.g., via AppSheet)
+    if slot.calendar_event:
+        adopted_count = _adopt_matching_sessions(db, slot, slot.calendar_event)
+        if adopted_count > 0:
+            db.commit()
+            logger.info(f"Auto-adopted {adopted_count} sessions into revision slot {slot_id} on view")
+
+    # Reload with sessions relationship for building the response
     slot = db.query(ExamRevisionSlot).options(
         joinedload(ExamRevisionSlot.calendar_event),
         joinedload(ExamRevisionSlot.tutor),
         joinedload(ExamRevisionSlot.sessions).joinedload(SessionLog.student)
     ).filter(ExamRevisionSlot.id == slot_id).first()
-
-    if not slot:
-        raise HTTPException(status_code=404, detail=f"Revision slot with ID {slot_id} not found")
 
     # Build enrolled students list
     enrolled_students = []
@@ -424,6 +455,41 @@ async def get_revision_slot_detail(
         calendar_event=CalendarEventResponse.model_validate(slot.calendar_event) if slot.calendar_event else None,
         enrolled_students=enrolled_students
     )
+
+
+@router.post("/exam-revision/slots/{slot_id}/sync")
+async def sync_revision_slot(
+    slot_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually sync a revision slot to adopt any matching unlinked sessions.
+
+    Useful for fixing data inconsistencies when sessions were created outside
+    the webapp (e.g., via AppSheet or direct database modifications).
+
+    Returns the count of adopted sessions.
+    """
+    slot = db.query(ExamRevisionSlot).options(
+        joinedload(ExamRevisionSlot.calendar_event)
+    ).filter(ExamRevisionSlot.id == slot_id).first()
+
+    if not slot:
+        raise HTTPException(status_code=404, detail=f"Revision slot with ID {slot_id} not found")
+
+    if not slot.calendar_event:
+        return {"adopted_count": 0, "message": "Slot has no calendar event"}
+
+    adopted_count = _adopt_matching_sessions(db, slot, slot.calendar_event)
+
+    if adopted_count > 0:
+        db.commit()
+        logger.info(f"Sync adopted {adopted_count} sessions into revision slot {slot_id}")
+
+    return {
+        "adopted_count": adopted_count,
+        "message": f"Adopted {adopted_count} session(s)" if adopted_count > 0 else "No unlinked sessions found"
+    }
 
 
 @router.patch("/exam-revision/slots/{slot_id}", response_model=ExamRevisionSlotResponse)
