@@ -2,7 +2,7 @@
 Stats API endpoints.
 Provides dashboard summary statistics.
 """
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_, case, select
 from typing import List, Optional, Dict, Any
@@ -10,6 +10,7 @@ from datetime import date, datetime, timedelta, time
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor
 from schemas import DashboardStats, StudentBasic, ActivityEvent
+from auth.dependencies import get_current_user, is_office_ip
 
 router = APIRouter()
 
@@ -234,8 +235,10 @@ async def get_active_students(
 
 @router.get("/search")
 async def global_search(
+    request: Request,
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(5, ge=1, le=10, description="Results per category"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
@@ -246,14 +249,31 @@ async def global_search(
     """
     search_term = f"%{q}%"
 
-    # Search students by name, school_student_id, or school
+    # Get effective role (respects Super Admin impersonation)
+    effective_role = current_user.role
+    if current_user.role == "Super Admin":
+        impersonated_role = request.headers.get("X-Effective-Role")
+        if impersonated_role in ("Admin", "Tutor"):
+            effective_role = impersonated_role
+
+    # Check if user can see/search phone numbers
+    can_see_phone = (
+        effective_role in ("Admin", "Super Admin") or
+        is_office_ip(request, db)
+    )
+
+    # Search students by name, school_student_id, school, and optionally phone
     # Use func.coalesce to handle NULL values safely
+    student_conditions = [
+        Student.student_name.ilike(search_term),
+        func.coalesce(Student.school_student_id, '').ilike(search_term),
+        func.coalesce(Student.school, '').ilike(search_term)
+    ]
+    if can_see_phone:
+        student_conditions.append(func.coalesce(Student.phone, '').ilike(search_term))
+
     students = db.query(Student).filter(
-        or_(
-            Student.student_name.ilike(search_term),
-            func.coalesce(Student.school_student_id, '').ilike(search_term),
-            func.coalesce(Student.school, '').ilike(search_term)
-        )
+        or_(*student_conditions)
     ).limit(limit).all()
 
     # Search recent sessions (join with student to search by student name)
@@ -306,6 +326,7 @@ async def global_search(
                 "school_student_id": s.school_student_id,
                 "school": s.school,
                 "grade": s.grade,
+                "phone": s.phone if can_see_phone else None,
             }
             for s in students
         ],

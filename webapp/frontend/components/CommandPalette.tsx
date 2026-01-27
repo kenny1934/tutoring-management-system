@@ -251,7 +251,7 @@ export function CommandPalette() {
             id: `student-${s.id}`,
             type: "student",
             title: s.student_name,
-            subtitle: [s.school_student_id, s.school, s.grade].filter(Boolean).join(" · "),
+            subtitle: [s.school_student_id, s.phone, s.school, s.grade].filter(Boolean).join(" · "),
             href: `/students/${s.id}`,
             icon: User,
           });

@@ -498,6 +498,20 @@ class LocationSettings(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class OfficeIPWhitelist(Base):
+    """
+    Whitelist of office IP addresses for sensitive data access control.
+    Phone numbers are only visible to tutors when accessing from these IPs.
+    """
+    __tablename__ = "office_ip_whitelist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip_address = Column(String(45), unique=True, nullable=False)  # Supports IPv6
+    location = Column(String(50), nullable=True)  # Optional: MSA, MSB
+    description = Column(String(200), nullable=True)  # e.g., "Main office router"
+    created_at = Column(DateTime, server_default=func.now())
+
+
 class TerminationRecord(Base):
     """
     Termination records for quarterly reporting.

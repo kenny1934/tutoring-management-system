@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Tutor, SessionLog
+from models import Tutor, SessionLog, OfficeIPWhitelist
 from .jwt_handler import verify_token
 
 
@@ -188,3 +188,34 @@ def get_session_with_owner_check(
         )
 
     return session
+
+
+def is_office_ip(request: Request, db: Session) -> bool:
+    """
+    Check if the request originates from a whitelisted office IP.
+
+    Used for restricting sensitive data (like phone numbers) to office access only.
+    Handles X-Forwarded-For header for requests behind proxies/load balancers.
+
+    Returns:
+        True if the client IP is in the office_ip_whitelist table.
+    """
+    # Get client IP - check X-Forwarded-For first (for proxy/load balancer setups)
+    forwarded_for = request.headers.get("X-Forwarded-For", "")
+    if forwarded_for:
+        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+        # The first one is the original client
+        client_ip = forwarded_for.split(",")[0].strip()
+    else:
+        # Direct connection - use client.host
+        client_ip = request.client.host if request.client else None
+
+    if not client_ip:
+        return False
+
+    # Check against whitelist
+    whitelisted = db.query(OfficeIPWhitelist).filter(
+        OfficeIPWhitelist.ip_address == client_ip
+    ).first()
+
+    return whitelisted is not None
