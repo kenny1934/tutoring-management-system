@@ -56,10 +56,23 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/a
 // Generic fetch wrapper with error handling
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   try {
+    // Build headers with optional impersonation role
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    // Add impersonation header if Super Admin is impersonating another role
+    if (typeof window !== "undefined") {
+      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
+      if (effectiveRole) {
+        headers["X-Effective-Role"] = effectiveRole;
+      }
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       credentials: "include", // Include cookies for authentication
       headers: {
-        "Content-Type": "application/json",
+        ...headers,
         ...options?.headers,
       },
       ...options,
@@ -391,6 +404,7 @@ export interface SearchResults {
     school_student_id: string | null;
     school: string | null;
     grade: string | null;
+    phone: string | null;
   }>;
   sessions: Array<{
     id: number;

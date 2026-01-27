@@ -2,14 +2,14 @@
 Students API endpoints.
 Provides read-only access to student data.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate
-from auth.dependencies import require_admin
+from auth.dependencies import require_admin, get_current_user, is_office_ip
 
 router = APIRouter()
 
@@ -24,6 +24,7 @@ async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
 
 @router.get("/students", response_model=List[StudentResponse])
 async def get_students(
+    request: Request,
     search: Optional[str] = Query(None, description="Search by student name or ID"),
     grade: Optional[str] = Query(None, description="Filter by grade"),
     school: Optional[str] = Query(None, description="Filter by school"),
@@ -33,6 +34,7 @@ async def get_students(
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -67,12 +69,30 @@ async def get_students(
         .outerjoin(enrollment_count_subq, Student.id == enrollment_count_subq.c.student_id)
     )
 
+    # Get effective role (respects Super Admin impersonation)
+    effective_role = current_user.role
+    if current_user.role == "Super Admin":
+        impersonated_role = request.headers.get("X-Effective-Role")
+        if impersonated_role in ("Admin", "Tutor"):
+            effective_role = impersonated_role
+
+    # Check if user can see/search phone numbers (admins always, tutors only from office IP)
+    can_see_phone = (
+        effective_role in ("Admin", "Super Admin") or
+        is_office_ip(request, db)
+    )
+
     # Apply filters
     if search:
-        query = query.filter(
-            (Student.student_name.ilike(f"%{search}%")) |
-            (Student.school_student_id.ilike(f"%{search}%"))
-        )
+        # Base search fields
+        search_conditions = [
+            Student.student_name.ilike(f"%{search}%"),
+            Student.school_student_id.ilike(f"%{search}%")
+        ]
+        # Add phone search if user has permission
+        if can_see_phone:
+            search_conditions.append(Student.phone.ilike(f"%{search}%"))
+        query = query.filter(or_(*search_conditions))
 
     if grade:
         query = query.filter(Student.grade == grade)
@@ -107,6 +127,9 @@ async def get_students(
     for student, enrollment_count in students_with_counts:
         student_data = StudentResponse.model_validate(student)
         student_data.enrollment_count = enrollment_count
+        # Redact phone if not allowed
+        if not can_see_phone:
+            student_data.phone = None
         result.append(student_data)
 
     return result
@@ -114,7 +137,9 @@ async def get_students(
 
 @router.get("/students/{student_id}", response_model=StudentDetailResponse)
 async def get_student_detail(
+    request: Request,
     student_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -133,6 +158,22 @@ async def get_student_detail(
     response = StudentDetailResponse.model_validate(student)
     for i, enrollment in enumerate(student.enrollments):
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+
+    # Get effective role (respects Super Admin impersonation)
+    effective_role = current_user.role
+    if current_user.role == "Super Admin":
+        impersonated_role = request.headers.get("X-Effective-Role")
+        if impersonated_role in ("Admin", "Tutor"):
+            effective_role = impersonated_role
+
+    # Redact phone if tutor is not accessing from office IP
+    can_see_phone = (
+        effective_role in ("Admin", "Super Admin") or
+        is_office_ip(request, db)
+    )
+    if not can_see_phone:
+        response.phone = None
+
     return response
 
 

@@ -685,7 +685,12 @@ function ProfileTab({
             <>
               <InfoRow label="Name" value={student.student_name} />
               <InfoRow label="Student ID" value={student.school_student_id} mono />
-              <InfoRow label="Phone" value={student.phone} icon={Phone} />
+              <InfoRow
+                label="Phone"
+                value={student.phone || "Available at office"}
+                icon={Phone}
+                className={!student.phone ? "text-gray-400 italic" : undefined}
+              />
               <InfoRow label="Location" value={student.home_location} icon={MapPin} />
             </>
           )}
