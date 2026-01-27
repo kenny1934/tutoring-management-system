@@ -53,6 +53,7 @@ export function ExtensionRequestsList({
     data: requests,
     error,
     isLoading,
+    isValidating,
     mutate,
   } = useSWR(
     ["extension-requests", statusFilter],
@@ -184,10 +185,10 @@ export function ExtensionRequestsList({
             variant="outline"
             size="sm"
             onClick={() => mutate()}
-            disabled={isLoading}
+            disabled={isValidating}
           >
             <RefreshCw
-              className={cn("h-4 w-4 mr-1", isLoading && "animate-spin")}
+              className={cn("h-4 w-4 mr-1", isValidating && "animate-spin")}
             />
             Refresh
           </Button>

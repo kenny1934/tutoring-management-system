@@ -201,6 +201,7 @@ async def get_active_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
         result.append(enrollment_data)
 
     return result
@@ -372,6 +373,7 @@ async def get_my_students(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
         result.append(enrollment_data)
 
     return result

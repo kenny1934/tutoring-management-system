@@ -497,7 +497,7 @@ export function EnrollmentDetailPopover({
                 Started:
               </span>
               <span className="text-gray-900 dark:text-gray-100">
-                {new Date(enrollment.first_lesson_date).toLocaleDateString()}
+                {new Date(enrollment.first_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
             </div>
           )}
@@ -514,7 +514,7 @@ export function EnrollmentDetailPopover({
                   ? "text-red-600 dark:text-red-400"
                   : "text-gray-900 dark:text-gray-100"
               )}>
-                {new Date(enrollment.effective_end_date).toLocaleDateString()}
+                {new Date(enrollment.effective_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 {(enrollment.deadline_extension_weeks ?? 0) > 0 && (
                   <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
                     (+{enrollment.deadline_extension_weeks}w)

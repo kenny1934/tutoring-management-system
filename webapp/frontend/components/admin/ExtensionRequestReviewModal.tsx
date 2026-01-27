@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/ToastContext";
-import { extensionRequestsAPI, sessionsAPI } from "@/lib/api";
+import { extensionRequestsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -16,10 +16,13 @@ import {
   CalendarCheck,
   Info,
   CalendarPlus,
+  ExternalLink,
 } from "lucide-react";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
-import type { ExtensionRequestDetail, Session } from "@/types";
+import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
+import type { ExtensionRequestDetail, Session, Enrollment } from "@/types";
 
 interface ExtensionRequestReviewModalProps {
   request: ExtensionRequestDetail & { _isLoading?: boolean };
@@ -66,6 +69,17 @@ export function ExtensionRequestReviewModal({
   const [showMakeupModal, setShowMakeupModal] = useState(false);
   const [isFetchingSession, setIsFetchingSession] = useState(false);
 
+  // Session popover state
+  const [showSessionPopover, setShowSessionPopover] = useState(false);
+  const [sessionClickPos, setSessionClickPos] = useState<{ x: number; y: number } | null>(null);
+
+  // Enrollment popover state
+  const [sourceEnrollment, setSourceEnrollment] = useState<Enrollment | null>(null);
+  const [targetEnrollment, setTargetEnrollment] = useState<Enrollment | null>(null);
+  const [showEnrollmentPopover, setShowEnrollmentPopover] = useState<'source' | 'target' | null>(null);
+  const [enrollmentClickPos, setEnrollmentClickPos] = useState<{ x: number; y: number } | null>(null);
+  const [isFetchingEnrollment, setIsFetchingEnrollment] = useState(false);
+
   // Reset mode when request changes (e.g., opening different request)
   React.useEffect(() => {
     setMode(getInitialMode());
@@ -79,6 +93,53 @@ export function ExtensionRequestReviewModal({
       sessionsAPI.getById(request.session_id).then(setSessionForMakeup).catch(console.error);
     }
   }, [isOpen, request.session_id, request.request_status]);
+
+  // Reset enrollment state when request changes
+  React.useEffect(() => {
+    setSourceEnrollment(null);
+    setTargetEnrollment(null);
+    setShowEnrollmentPopover(null);
+    setShowSessionPopover(false);
+  }, [request.id]);
+
+  const handleSessionClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessionClickPos({ x: e.clientX, y: e.clientY });
+    if (!sessionForMakeup) {
+      setIsFetchingSession(true);
+      try {
+        const session = await sessionsAPI.getById(request.session_id);
+        setSessionForMakeup(session);
+      } catch (error) {
+        console.error("Failed to fetch session:", error);
+      } finally {
+        setIsFetchingSession(false);
+      }
+    }
+    setShowSessionPopover(true);
+  };
+
+  const handleEnrollmentClick = async (e: React.MouseEvent, type: 'source' | 'target') => {
+    e.stopPropagation();
+    setEnrollmentClickPos({ x: e.clientX, y: e.clientY });
+    const enrollmentId = type === 'source' ? request.enrollment_id : (request.target_enrollment_id || request.enrollment_id);
+
+    // Check if already fetched
+    const cached = type === 'source' ? sourceEnrollment : targetEnrollment;
+    if (!cached || cached.id !== enrollmentId) {
+      setIsFetchingEnrollment(true);
+      try {
+        const enrollment = await enrollmentsAPI.getById(enrollmentId);
+        if (type === 'source') setSourceEnrollment(enrollment);
+        else setTargetEnrollment(enrollment);
+      } catch (error) {
+        console.error("Failed to fetch enrollment:", error);
+      } finally {
+        setIsFetchingEnrollment(false);
+      }
+    }
+    setShowEnrollmentPopover(type);
+  };
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -344,9 +405,13 @@ export function ExtensionRequestReviewModal({
                   <Calendar className="h-4 w-4" />
                   Original Session
                 </div>
-                <div className="text-blue-900 dark:text-blue-100">
+                <button
+                  onClick={handleSessionClick}
+                  className="text-blue-900 dark:text-blue-100 hover:underline flex items-center gap-1"
+                >
                   {request.original_session_date}
-                </div>
+                  <ExternalLink className="h-3 w-3" />
+                </button>
               </div>
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
@@ -381,10 +446,45 @@ export function ExtensionRequestReviewModal({
 
             {/* Enrollment Context */}
             <div className="space-y-3">
-              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
-                  ? "Current Enrollment Context (will be extended)"
-                  : "Enrollment Context"}
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
+                    ? "Current Enrollment Context (will be extended)"
+                    : "Enrollment Context"}
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    onClick={(e) => handleEnrollmentClick(e, 'source')}
+                    disabled={isFetchingEnrollment}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    {isFetchingEnrollment && showEnrollmentPopover === 'source' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3 w-3" />
+                    )}
+                    {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
+                      ? "Source Enrollment"
+                      : "View Enrollment"}
+                  </button>
+                  {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
+                    <>
+                      <span className="text-gray-400">→</span>
+                      <button
+                        onClick={(e) => handleEnrollmentClick(e, 'target')}
+                        disabled={isFetchingEnrollment}
+                        className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        {isFetchingEnrollment && showEnrollmentPopover === 'target' ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-3 w-3" />
+                        )}
+                        Target Enrollment
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 text-center">
@@ -623,9 +723,13 @@ export function ExtensionRequestReviewModal({
                   <Calendar className="h-4 w-4" />
                   Original Session
                 </div>
-                <div className="text-blue-900 dark:text-blue-100">
+                <button
+                  onClick={handleSessionClick}
+                  className="text-blue-900 dark:text-blue-100 hover:underline flex items-center gap-1"
+                >
                   {request.original_session_date}
-                </div>
+                  <ExternalLink className="h-3 w-3" />
+                </button>
               </div>
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
@@ -646,6 +750,42 @@ export function ExtensionRequestReviewModal({
               <div className="text-sm text-gray-700 dark:text-gray-300">
                 {request.reason}
               </div>
+            </div>
+
+            {/* Enrollment Links */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500 dark:text-gray-400">View:</span>
+              <button
+                onClick={(e) => handleEnrollmentClick(e, 'source')}
+                disabled={isFetchingEnrollment}
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                {isFetchingEnrollment && showEnrollmentPopover === 'source' ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3 w-3" />
+                )}
+                {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
+                  ? "Source Enrollment"
+                  : "Enrollment"}
+              </button>
+              {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
+                <>
+                  <span className="text-gray-400">→</span>
+                  <button
+                    onClick={(e) => handleEnrollmentClick(e, 'target')}
+                    disabled={isFetchingEnrollment}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    {isFetchingEnrollment && showEnrollmentPopover === 'target' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3 w-3" />
+                    )}
+                    Target Enrollment
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Show rescheduled session info if available */}
@@ -760,9 +900,13 @@ export function ExtensionRequestReviewModal({
                   <Calendar className="h-4 w-4" />
                   Original Session
                 </div>
-                <div className="text-blue-900 dark:text-blue-100">
+                <button
+                  onClick={handleSessionClick}
+                  className="text-blue-900 dark:text-blue-100 hover:underline flex items-center gap-1"
+                >
                   {request.original_session_date}
-                </div>
+                  <ExternalLink className="h-3 w-3" />
+                </button>
               </div>
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
@@ -783,6 +927,42 @@ export function ExtensionRequestReviewModal({
               <div className="text-sm text-gray-700 dark:text-gray-300">
                 {request.reason}
               </div>
+            </div>
+
+            {/* Enrollment Links */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500 dark:text-gray-400">View:</span>
+              <button
+                onClick={(e) => handleEnrollmentClick(e, 'source')}
+                disabled={isFetchingEnrollment}
+                className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                {isFetchingEnrollment && showEnrollmentPopover === 'source' ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ExternalLink className="h-3 w-3" />
+                )}
+                {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id
+                  ? "Source Enrollment"
+                  : "Enrollment"}
+              </button>
+              {request.target_enrollment_id && request.target_enrollment_id !== request.enrollment_id && (
+                <>
+                  <span className="text-gray-400">→</span>
+                  <button
+                    onClick={(e) => handleEnrollmentClick(e, 'target')}
+                    disabled={isFetchingEnrollment}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    {isFetchingEnrollment && showEnrollmentPopover === 'target' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ExternalLink className="h-3 w-3" />
+                    )}
+                    Target Enrollment
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Rejection reason */}
@@ -817,6 +997,23 @@ export function ExtensionRequestReviewModal({
         viaExtensionRequest
       />
     )}
+
+    {/* Session Detail Popover */}
+    <SessionDetailPopover
+      session={sessionForMakeup}
+      isOpen={showSessionPopover}
+      isLoading={isFetchingSession}
+      onClose={() => setShowSessionPopover(false)}
+      clickPosition={sessionClickPos}
+    />
+
+    {/* Enrollment Detail Popover */}
+    <EnrollmentDetailPopover
+      enrollment={showEnrollmentPopover === 'source' ? sourceEnrollment : targetEnrollment}
+      isOpen={!!showEnrollmentPopover}
+      onClose={() => setShowEnrollmentPopover(null)}
+      clickPosition={enrollmentClickPos}
+    />
     </>
   );
 }
