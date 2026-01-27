@@ -891,6 +891,7 @@ class ExtensionRequestCreate(BaseModel):
     reason: str = Field(..., max_length=1000, description="Why extension is needed")
     proposed_reschedule_date: Optional[date] = Field(None, description="Proposed new date for the session")
     proposed_reschedule_time: Optional[str] = Field(None, max_length=100, description="Proposed time slot")
+    target_enrollment_id: Optional[int] = Field(None, gt=0, description="Enrollment to extend (for concurrent enrollments). If not provided, auto-detects latest Regular enrollment.")
 
 
 class ExtensionRequestApprove(BaseModel):
@@ -944,15 +945,17 @@ class ExtensionRequestDetailResponse(ExtensionRequestResponse):
     enrollment_first_lesson_date: Optional[date] = None
     enrollment_lessons_paid: Optional[int] = None
     source_effective_end_date: Optional[date] = Field(None, description="Source enrollment's effective end date")
+    source_pending_makeups_count: int = Field(default=0, description="Pending makeups on source enrollment")
+    source_sessions_completed: int = Field(default=0, description="Sessions completed on source enrollment")
     # Target enrollment context (the one to extend - may differ from source)
     target_first_lesson_date: Optional[date] = None
     target_lessons_paid: Optional[int] = None
     current_extension_weeks: int = Field(default=0, description="Target enrollment's current extensions")
     current_effective_end_date: Optional[date] = Field(None, description="Target enrollment's current end date")
     projected_effective_end_date: Optional[date] = Field(None, description="Target enrollment's end date if approved")
-    # Session/makeup context
-    pending_makeups_count: int = Field(default=0)
-    sessions_completed: int = Field(default=0)
+    # Session/makeup context (target enrollment - kept for backward compatibility)
+    pending_makeups_count: int = Field(default=0, description="Pending makeups on target enrollment")
+    sessions_completed: int = Field(default=0, description="Sessions completed on target enrollment")
     admin_guidance: Optional[str] = Field(None, max_length=200)
 
     model_config = ConfigDict(from_attributes=True)

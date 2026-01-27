@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
-import { sessionsAPI, proposalsAPI } from "@/lib/api";
+import { sessionsAPI, proposalsAPI, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
   toDateString,
@@ -413,6 +413,8 @@ interface ScheduleMakeupModalProps {
   initialTimeSlot?: string;
   /** When true, pre-fills notes with "Rescheduled via extension request" */
   viaExtensionRequest?: boolean;
+  /** Extension request ID to mark as rescheduled after successful booking */
+  extensionRequestId?: number;
 }
 
 export function ScheduleMakeupModal({
@@ -425,6 +427,7 @@ export function ScheduleMakeupModal({
   initialDate,
   initialTimeSlot,
   viaExtensionRequest,
+  extensionRequestId,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { effectiveRole } = useAuth();
@@ -880,6 +883,16 @@ export function ScheduleMakeupModal({
       const response = await sessionsAPI.scheduleMakeup(session.id, requestParams);
       updateSessionInCache(response.original_session);
       addSessionToCache(response.makeup_session); // Add new session to cache directly
+
+      // Mark extension request as rescheduled if this was via extension request flow
+      if (extensionRequestId) {
+        try {
+          await extensionRequestsAPI.markRescheduled(extensionRequestId);
+        } catch (err) {
+          console.error("Failed to mark extension request as rescheduled:", err);
+          // Non-critical - don't fail the whole operation
+        }
+      }
 
       // Show toast with Undo action (inline to avoid closure issues after modal unmounts)
       const makeupId = response.makeup_session.id;

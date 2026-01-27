@@ -632,15 +632,17 @@ export interface ExtensionRequestDetail extends ExtensionRequest {
   enrollment_first_lesson_date?: string;
   enrollment_lessons_paid?: number;
   source_effective_end_date?: string;
+  source_pending_makeups_count: number;  // Pending makeups on source enrollment
+  source_sessions_completed: number;  // Sessions completed on source enrollment
   // Target enrollment context (the one to extend - may differ from source)
   target_first_lesson_date?: string;
   target_lessons_paid?: number;
   current_extension_weeks: number;  // Target enrollment's current extensions
   current_effective_end_date?: string;  // Target enrollment's current end date
   projected_effective_end_date?: string;  // Target enrollment's end date if approved
-  // Session/makeup context
-  pending_makeups_count: number;
-  sessions_completed: number;
+  // Session/makeup context (target enrollment)
+  pending_makeups_count: number;  // Pending makeups on target enrollment
+  sessions_completed: number;  // Sessions completed on target enrollment
   admin_guidance?: string;
   // UI loading state flag
   _isLoading?: boolean;
@@ -652,6 +654,7 @@ export interface ExtensionRequestCreate {
   reason: string;
   proposed_reschedule_date?: string;
   proposed_reschedule_time?: string;
+  target_enrollment_id?: number;  // For concurrent enrollments - which enrollment to extend
 }
 
 export interface ExtensionRequestApprove {
