@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount
-from schemas import EnrollmentResponse, EnrollmentUpdate, OverdueEnrollment
+from schemas import EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment
 from auth.dependencies import require_admin
 
 router = APIRouter()
@@ -441,6 +441,72 @@ async def update_enrollment(
     ).filter(Enrollment.id == enrollment_id).first()
 
     # Manually set relationship fields (same as GET endpoint)
+    enrollment_data = EnrollmentResponse.model_validate(enrollment)
+    enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
+    enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
+    enrollment_data.discount_name = enrollment.discount.discount_name if enrollment.discount else None
+    enrollment_data.grade = enrollment.student.grade if enrollment.student else None
+    enrollment_data.school = enrollment.student.school if enrollment.student else None
+    enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
+    enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+
+    return enrollment_data
+
+
+@router.patch("/enrollments/{enrollment_id}/extension", response_model=EnrollmentResponse)
+async def update_enrollment_extension(
+    enrollment_id: int,
+    extension_update: EnrollmentExtensionUpdate,
+    admin: Tutor = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update enrollment deadline extension. Admin only.
+
+    This endpoint allows admins to directly set the deadline extension weeks
+    with an audit trail. The extension_notes field is appended with each change.
+    """
+    from datetime import datetime
+
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor),
+        joinedload(Enrollment.discount)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    # Build audit entry
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d %H:%M")
+    old_weeks = enrollment.deadline_extension_weeks or 0
+    new_weeks = extension_update.deadline_extension_weeks
+
+    audit_entry = f"[{timestamp}] {admin.user_email}: Set to {new_weeks} weeks (was {old_weeks})\nReason: {extension_update.reason}"
+
+    # Append to existing notes or create new (append to match AppSheet behavior)
+    if enrollment.extension_notes:
+        enrollment.extension_notes = f"{enrollment.extension_notes}\n---\n{audit_entry}"
+    else:
+        enrollment.extension_notes = audit_entry
+
+    # Update extension fields
+    enrollment.deadline_extension_weeks = new_weeks
+    enrollment.last_extension_date = now.date()
+    enrollment.extension_granted_by = admin.user_email
+
+    db.commit()
+
+    # Re-query with joins to ensure relationships are loaded
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor),
+        joinedload(Enrollment.discount)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    # Build response
     enrollment_data = EnrollmentResponse.model_validate(enrollment)
     enrollment_data.student_name = enrollment.student.student_name if enrollment.student else None
     enrollment_data.tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None

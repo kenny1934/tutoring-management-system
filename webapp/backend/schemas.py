@@ -111,6 +111,9 @@ class EnrollmentResponse(EnrollmentBase):
     school_student_id: Optional[str] = Field(None, max_length=100)
     lang_stream: Optional[str] = Field(None, max_length=50)
     deadline_extension_weeks: Optional[int] = Field(0, ge=0)
+    extension_notes: Optional[str] = Field(None, description="Audit trail of extension history")
+    last_extension_date: Optional[date] = Field(None, description="Date when last extension was granted")
+    extension_granted_by: Optional[str] = Field(None, max_length=255, description="Email of admin who granted extension")
     last_modified_time: Optional[datetime] = None
     effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
 
@@ -128,6 +131,12 @@ class EnrollmentUpdate(BaseModel):
     first_lesson_date: Optional[date] = None
     payment_status: Optional[str] = Field(None, max_length=50)
     enrollment_type: Optional[str] = Field(None, max_length=50)
+
+
+class EnrollmentExtensionUpdate(BaseModel):
+    """Schema for admin to directly set deadline extension weeks"""
+    deadline_extension_weeks: int = Field(..., ge=0, le=52, description="Number of weeks to extend deadline")
+    reason: str = Field(..., min_length=1, max_length=1000, description="Reason for extension (required for audit)")
 
 
 class OverdueEnrollment(BaseModel):

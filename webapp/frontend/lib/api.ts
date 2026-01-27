@@ -156,6 +156,13 @@ export const enrollmentsAPI = {
     });
   },
 
+  updateExtension: (id: number, data: { deadline_extension_weeks: number; reason: string }) => {
+    return fetchAPI<Enrollment>(`/enrollments/${id}/extension`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   getMyStudents: (tutorId: number, location?: string) => {
     const params = new URLSearchParams();
     params.append("tutor_id", tutorId.toString());
