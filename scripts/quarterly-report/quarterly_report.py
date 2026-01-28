@@ -84,25 +84,44 @@ SessionLocal = sessionmaker(bind=engine)
 
 API_BASE_URL = "http://localhost:8000/api"
 
-# Quarter definitions (month ranges)
+# Custom Quarter definitions (start_month, start_day, end_month, end_day)
+# Q4 crosses the year boundary: Oct 22 - Jan 21 of next year
 QUARTERS = {
-    "Q1": (1, 3),   # Jan - Mar
-    "Q2": (4, 6),   # Apr - Jun
-    "Q3": (7, 9),   # Jul - Sep
-    "Q4": (10, 12), # Oct - Dec
+    "Q1": (1, 22, 4, 21),   # Jan 22 - Apr 21
+    "Q2": (4, 22, 7, 21),   # Apr 22 - Jul 21
+    "Q3": (7, 22, 10, 21),  # Jul 22 - Oct 21
+    "Q4": (10, 22, 1, 21),  # Oct 22 - Jan 21 (next year)
 }
+
+OPENING_PERIOD_DAYS = 7  # Jan 22-28, Apr 22-28, Jul 22-28, Oct 22-28
 
 
 def get_quarter_dates(year, quarter):
-    """Get key dates for a quarter."""
-    start_month, end_month = QUARTERS[quarter]
-    opening_start = datetime(year, start_month, 1).date()
-    opening_end = datetime(year, start_month, 7).date()
+    """
+    Get key dates for a quarter.
 
-    if end_month == 12:
-        closing_end = datetime(year, 12, 31).date()
+    Args:
+        year: The reporting year for the quarter
+        quarter: Quarter string ("Q1", "Q2", "Q3", "Q4")
+
+    Returns:
+        tuple: (opening_start, opening_end, closing_end) as date objects
+
+    Note: For Q4, the year parameter is the start year.
+          Q4 2025 runs from Oct 22, 2025 to Jan 21, 2026.
+    """
+    start_month, start_day, end_month, end_day = QUARTERS[quarter]
+
+    # Opening period start and end
+    opening_start = datetime(year, start_month, start_day).date()
+    opening_end = datetime(year, start_month, start_day + OPENING_PERIOD_DAYS - 1).date()
+
+    # Closing end date
+    if quarter == "Q4":
+        # Q4 ends in January of the NEXT year
+        closing_end = datetime(year + 1, end_month, end_day).date()
     else:
-        closing_end = (datetime(year, end_month + 1, 1) - timedelta(days=1)).date()
+        closing_end = datetime(year, end_month, end_day).date()
 
     return opening_start, opening_end, closing_end
 

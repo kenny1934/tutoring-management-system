@@ -22,27 +22,82 @@ from auth.dependencies import require_admin
 
 router = APIRouter()
 
-# Quarter definitions (month ranges)
+# Custom Quarter definitions (start_month, start_day, end_month, end_day)
+# Q4 crosses the year boundary: Oct 22 - Jan 21 of next year
 QUARTERS = {
-    1: (1, 3),   # Jan - Mar
-    2: (4, 6),   # Apr - Jun
-    3: (7, 9),   # Jul - Sep
-    4: (10, 12), # Oct - Dec
+    1: (1, 22, 4, 21),   # Jan 22 - Apr 21
+    2: (4, 22, 7, 21),   # Apr 22 - Jul 21
+    3: (7, 22, 10, 21),  # Jul 22 - Oct 21
+    4: (10, 22, 1, 21),  # Oct 22 - Jan 21 (next year)
 }
+
+OPENING_PERIOD_DAYS = 7  # Jan 22-28, Apr 22-28, Jul 22-28, Oct 22-28
 
 
 def get_quarter_dates(year: int, quarter: int):
-    """Get key dates for a quarter."""
-    start_month, end_month = QUARTERS[quarter]
-    opening_start = date(year, start_month, 1)
-    opening_end = date(year, start_month, 7)
+    """
+    Get key dates for a quarter.
 
-    if end_month == 12:
-        closing_end = date(year, 12, 31)
+    Args:
+        year: The reporting year for the quarter
+        quarter: Quarter number (1-4)
+
+    Returns:
+        tuple: (opening_start, opening_end, closing_end)
+
+    Note: For Q4, the year parameter is the start year.
+          Q4 2025 runs from Oct 22, 2025 to Jan 21, 2026.
+    """
+    start_month, start_day, end_month, end_day = QUARTERS[quarter]
+
+    # Opening period start and end
+    opening_start = date(year, start_month, start_day)
+    opening_end = date(year, start_month, start_day + OPENING_PERIOD_DAYS - 1)
+
+    # Closing end date
+    if quarter == 4:
+        # Q4 ends in January of the NEXT year
+        closing_end = date(year + 1, end_month, end_day)
     else:
-        closing_end = date(year, end_month + 1, 1) - timedelta(days=1)
+        closing_end = date(year, end_month, end_day)
 
     return opening_start, opening_end, closing_end
+
+
+def get_quarter_for_date(d: date) -> tuple:
+    """
+    Get the custom quarter and reporting year for a given date.
+
+    Args:
+        d: The date to classify
+
+    Returns:
+        tuple: (quarter_number, reporting_year)
+
+    Examples:
+        - Jan 15, 2026 -> (4, 2025)  # Part of Q4 2025
+        - Jan 25, 2026 -> (1, 2026)  # Part of Q1 2026
+        - Oct 25, 2025 -> (4, 2025)  # Part of Q4 2025
+    """
+    month = d.month
+    day = d.day
+    year = d.year
+
+    # Oct 22 or later -> Q4 of current year
+    if (month == 10 and day >= 22) or month > 10:
+        return 4, year
+    # Jul 22 to Oct 21 -> Q3
+    elif (month == 7 and day >= 22) or (month > 7 and month < 10) or (month == 10 and day < 22):
+        return 3, year
+    # Apr 22 to Jul 21 -> Q2
+    elif (month == 4 and day >= 22) or (month > 4 and month < 7) or (month == 7 and day < 22):
+        return 2, year
+    # Jan 22 to Apr 21 -> Q1
+    elif (month == 1 and day >= 22) or (month > 1 and month < 4) or (month == 4 and day < 22):
+        return 1, year
+    # Jan 1-21 -> Q4 of PREVIOUS year
+    else:
+        return 4, year - 1
 
 
 @router.get("/terminations/quarters", response_model=List[QuarterOption])
