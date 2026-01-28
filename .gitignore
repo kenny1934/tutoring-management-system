@@ -119,3 +119,4 @@ security-report.md
 scripts/quarterly-report/client_secrets.json
 scripts/quarterly-report/sheets_token.json
 scripts/quarterly-report/*.csv
+quarterly_report_*.csv
