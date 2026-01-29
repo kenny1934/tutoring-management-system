@@ -52,6 +52,24 @@ class Student(Base):
     parent_communications = relationship("ParentCommunication", back_populates="student")
 
 
+class StudentCoupon(Base):
+    """
+    Student discount coupons synced from company system.
+    Company system is the source of truth - we don't decrement locally.
+    """
+    __tablename__ = "student_coupons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id"), unique=True, nullable=False)
+    available_coupons = Column(Integer, default=0, comment="Number of discount coupons available")
+    coupon_value = Column(DECIMAL(10, 2), default=300, comment="Value per coupon (usually $300)")
+    last_synced_at = Column(DateTime, comment="When synced from company system")
+    notes = Column(Text, comment="Any special notes about coupons")
+
+    # Relationship
+    student = relationship("Student", backref="coupon")
+
+
 class Discount(Base):
     """
     Discount codes and promotions.

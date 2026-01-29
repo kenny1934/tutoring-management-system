@@ -6,106 +6,185 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { formatTimeAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
+import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
 
 interface RenewalCardProps {
   renewal: RenewalListItem;
   onClick: (enrollmentId: number) => void;
+  onQuickRenew: (enrollmentId: number) => void;
+  expandedFeePanel: number | null;
+  onToggleFeePanel: (enrollmentId: number | null) => void;
 }
 
-function RenewalCard({ renewal, onClick }: RenewalCardProps) {
+function RenewalCard({ renewal, onClick, onQuickRenew, expandedFeePanel, onToggleFeePanel }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
   const isUrgent = renewal.days_until_expiry <= 3 && renewal.days_until_expiry >= 0;
+  const isFeePanelOpen = expandedFeePanel === renewal.id;
+
+  const handleRenewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onQuickRenew(renewal.id);
+  };
+
+  const handleCopyFeeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFeePanel(isFeePanelOpen ? null : renewal.id);
+  };
 
   return (
     <div
-      onClick={() => onClick(renewal.id)}
       className={cn(
-        "p-4 rounded-lg border transition-all hover:shadow-md cursor-pointer",
+        "rounded-lg border transition-all overflow-hidden",
         "bg-white dark:bg-gray-900",
         isExpired
           ? "border-red-300 dark:border-red-800 hover:border-red-400 dark:hover:border-red-700"
           : isUrgent
           ? "border-orange-300 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-700"
-          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+          : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600",
+        !isFeePanelOpen && "hover:shadow-md"
       )}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          {/* Student info */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono text-foreground/50">
-              {renewal.school_student_id || `#${renewal.student_id}`}
-            </span>
-            <span className="font-semibold text-foreground">
-              {renewal.student_name}
-            </span>
-            {renewal.grade && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-foreground/70">
-                {renewal.grade}
+      {/* Main card content - clickable */}
+      <div
+        onClick={() => onClick(renewal.id)}
+        className="p-4 cursor-pointer group"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            {/* Student info */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-mono text-foreground/50">
+                {renewal.school_student_id || `#${renewal.student_id}`}
               </span>
-            )}
-          </div>
-
-          {/* Schedule info */}
-          <div className="text-sm text-foreground/70 mb-2">
-            {renewal.assigned_day} {renewal.assigned_time} @ {renewal.location}
-            <span className="text-foreground/50 ml-2">with {renewal.tutor_name}</span>
-          </div>
-
-          {/* Status indicators */}
-          <div className="flex items-center gap-3 text-xs">
-            {isExpired ? (
-              <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                <AlertCircle className="h-3.5 w-3.5" />
-                <span>Expired {formatTimeAgo(renewal.effective_end_date)}</span>
-              </div>
-            ) : (
-              <div className={cn(
-                "flex items-center gap-1",
-                isUrgent
-                  ? "text-orange-600 dark:text-orange-400"
-                  : "text-foreground/60"
-              )}>
-                <Clock className="h-3.5 w-3.5" />
-                <span>
-                  Expires {new Date(renewal.effective_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  {renewal.days_until_expiry === 0
-                    ? " (today!)"
-                    : renewal.days_until_expiry === 1
-                    ? " (tomorrow!)"
-                    : ` (${renewal.days_until_expiry} days)`
-                  }
+              <span className="font-semibold text-foreground">
+                {renewal.student_name}
+              </span>
+              {renewal.grade && (
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-foreground/70">
+                  {renewal.grade}
                 </span>
-              </div>
-            )}
-            {renewal.sessions_remaining > 0 && (
-              <div className="flex items-center gap-1 text-foreground/50">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>{renewal.sessions_remaining} session{renewal.sessions_remaining !== 1 ? 's' : ''} remaining</span>
-              </div>
-            )}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {/* Visual indicator - chevron right */}
-        <div className={cn(
-          "flex items-center justify-center h-8 w-8 rounded-full transition-colors",
-          isExpired
-            ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-            : isUrgent
-            ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-            : "bg-gray-100 dark:bg-gray-800 text-foreground/40"
-        )}>
-          <RefreshCcw className="h-4 w-4" />
+            {/* Schedule info */}
+            <div className="text-sm text-foreground/70 mb-2">
+              {renewal.assigned_day} {renewal.assigned_time} @ {renewal.location}
+              <span className="text-foreground/50 ml-2">with {renewal.tutor_name}</span>
+            </div>
+
+            {/* Status indicators */}
+            <div className="flex items-center gap-3 text-xs">
+              {isExpired ? (
+                <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>Expired {formatTimeAgo(renewal.effective_end_date)}</span>
+                </div>
+              ) : (
+                <div className={cn(
+                  "flex items-center gap-1",
+                  isUrgent
+                    ? "text-orange-600 dark:text-orange-400"
+                    : "text-foreground/60"
+                )}>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    Expires {new Date(renewal.effective_end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    {renewal.days_until_expiry === 0
+                      ? " (today!)"
+                      : renewal.days_until_expiry === 1
+                      ? " (tomorrow!)"
+                      : ` (${renewal.days_until_expiry} days)`
+                    }
+                  </span>
+                </div>
+              )}
+              {renewal.sessions_remaining > 0 && (
+                <div className="flex items-center gap-1 text-foreground/50">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>{renewal.sessions_remaining} session{renewal.sessions_remaining !== 1 ? 's' : ''} remaining</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick action buttons - visible on hover */}
+          <div className="flex items-center gap-2">
+            {/* Quick action buttons */}
+            <div className={cn(
+              "flex items-center gap-1.5 transition-opacity",
+              "opacity-0 group-hover:opacity-100"
+            )}>
+              <button
+                onClick={handleRenewClick}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                  isExpired
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : isUrgent
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                )}
+                title="Create renewal"
+              >
+                <RefreshCcw className="h-3.5 w-3.5" />
+                Renew
+              </button>
+              <button
+                onClick={handleCopyFeeClick}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                  isFeePanelOpen
+                    ? "bg-gray-600 hover:bg-gray-700 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground/80"
+                )}
+                title="Copy fee message"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Fee
+              </button>
+            </div>
+
+            {/* Status indicator - hidden on hover */}
+            <div className={cn(
+              "flex items-center justify-center h-8 w-8 rounded-full transition-all",
+              "group-hover:opacity-0 group-hover:w-0 group-hover:h-0 overflow-hidden",
+              isExpired
+                ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                : isUrgent
+                ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+                : "bg-gray-100 dark:bg-gray-800 text-foreground/40"
+            )}>
+              <RefreshCcw className="h-4 w-4" />
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Expandable Fee Message Panel */}
+      <AnimatePresence>
+        {isFeePanelOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            <FeeMessagePanel
+              enrollment={renewal}
+              onClose={() => onToggleFeePanel(null)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -120,6 +199,9 @@ export default function AdminRenewalsPage() {
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [renewFromId, setRenewFromId] = useState<number | null>(null);
+
+  // Fee panel state
+  const [expandedFeePanel, setExpandedFeePanel] = useState<number | null>(null);
 
   // Fetch renewals list
   const { data: renewals, isLoading: renewalsLoading } = useSWR(
@@ -146,6 +228,14 @@ export default function AdminRenewalsPage() {
   const handleCardClick = (enrollmentId: number) => {
     setSelectedEnrollmentId(enrollmentId);
     setDetailModalOpen(true);
+  };
+
+  // Handler: Quick renew from list (without opening detail modal)
+  const handleQuickRenew = (enrollmentId: number) => {
+    setRenewFromId(enrollmentId);
+    setCreateModalOpen(true);
+    // Close fee panel if open
+    setExpandedFeePanel(null);
   };
 
   // Handler: Create Renewal from detail modal - KEEP detail open for side-by-side
@@ -274,7 +364,14 @@ export default function AdminRenewalsPage() {
                 </h2>
                 <div className="space-y-2">
                   {expiredRenewals.map((renewal) => (
-                    <RenewalCard key={renewal.id} renewal={renewal} onClick={handleCardClick} />
+                    <RenewalCard
+                      key={renewal.id}
+                      renewal={renewal}
+                      onClick={handleCardClick}
+                      onQuickRenew={handleQuickRenew}
+                      expandedFeePanel={expandedFeePanel}
+                      onToggleFeePanel={setExpandedFeePanel}
+                    />
                   ))}
                 </div>
               </div>
@@ -289,7 +386,14 @@ export default function AdminRenewalsPage() {
                 </h2>
                 <div className="space-y-2">
                   {expiringSoonRenewals.map((renewal) => (
-                    <RenewalCard key={renewal.id} renewal={renewal} onClick={handleCardClick} />
+                    <RenewalCard
+                      key={renewal.id}
+                      renewal={renewal}
+                      onClick={handleCardClick}
+                      onQuickRenew={handleQuickRenew}
+                      expandedFeePanel={expandedFeePanel}
+                      onToggleFeePanel={setExpandedFeePanel}
+                    />
                   ))}
                 </div>
               </div>

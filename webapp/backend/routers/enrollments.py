@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import date, timedelta
 from collections import defaultdict
 from database import get_db
-from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog
+from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
@@ -1162,6 +1162,165 @@ async def get_enrollment_detail_for_modal(
         payment_status=enrollment.payment_status or "",
         phone=enrollment.student.phone if enrollment.student else None
     )
+
+
+@router.get("/enrollments/{enrollment_id}/fee-message")
+async def get_fee_message(
+    enrollment_id: int,
+    lang: str = Query("zh", description="Language: 'zh' for Chinese, 'en' for English"),
+    lessons_paid: int = Query(6, description="Number of lessons for renewal (default 6)"),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Generate a fee message for an enrollment renewal.
+
+    Uses the existing enrollment's schedule to calculate renewal session dates
+    and generate a formatted fee message ready to copy.
+    """
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor),
+        joinedload(Enrollment.discount)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    # Calculate effective end date of current enrollment
+    effective_end = calculate_effective_end_date(enrollment)
+
+    # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
+    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+    assigned_day_num = day_map.get(enrollment.assigned_day[:3], 0)  # Handle "Monday" or "Mon"
+    current_day_num = effective_end.weekday() if effective_end else date.today().weekday()
+    days_until_target = (assigned_day_num - current_day_num) % 7
+    if days_until_target == 0:
+        days_until_target = 7  # Move to next week if same day
+    first_lesson_date = (effective_end if effective_end else date.today()) + timedelta(days=days_until_target)
+
+    # Generate session dates
+    sessions, _, _ = generate_session_dates(
+        first_lesson_date=first_lesson_date,
+        assigned_day=enrollment.assigned_day or "Mon",
+        lessons_paid=lessons_paid,
+        enrollment_type="Regular",
+        db=db
+    )
+
+    # Get non-holiday session dates
+    session_dates = [s.session_date for s in sessions if not s.is_holiday]
+
+    # Check for student's available coupons first, then fall back to enrollment discount
+    student_coupon = db.query(StudentCoupon).filter(
+        StudentCoupon.student_id == enrollment.student_id
+    ).first()
+
+    if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+        # Use student's available coupon discount
+        discount_value = int(student_coupon.coupon_value or 300)
+    else:
+        # Fall back to enrollment's discount (if any)
+        discount_value = int(enrollment.discount.discount_value) if enrollment.discount and enrollment.discount.discount_value else 0
+
+    # Format the fee message
+    message = format_fee_message(
+        lang=lang,
+        school_student_id=enrollment.student.school_student_id if enrollment.student else "",
+        student_name=enrollment.student.student_name if enrollment.student else "",
+        assigned_day=enrollment.assigned_day or "",
+        assigned_time=enrollment.assigned_time or "",
+        location=enrollment.location or "",
+        lessons_paid=lessons_paid,
+        session_dates=session_dates,
+        discount_value=discount_value
+    )
+
+    return {"message": message, "lessons_paid": lessons_paid, "first_lesson_date": str(first_lesson_date)}
+
+
+def format_fee_message(
+    lang: str,
+    school_student_id: str,
+    student_name: str,
+    assigned_day: str,
+    assigned_time: str,
+    location: str,
+    lessons_paid: int,
+    session_dates: list,
+    discount_value: int = 0
+) -> str:
+    """Format a fee message in Chinese or English."""
+    day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
+                  'Monday': '一', 'Tuesday': '二', 'Wednesday': '三', 'Thursday': '四',
+                  'Friday': '五', 'Saturday': '六', 'Sunday': '日'}
+    day_map_en = {'Mon': 'Monday', 'Tue': 'Tuesday', 'Wed': 'Wednesday', 'Thu': 'Thursday',
+                  'Fri': 'Friday', 'Sat': 'Saturday', 'Sun': 'Sunday',
+                  'Monday': 'Monday', 'Tuesday': 'Tuesday', 'Wednesday': 'Wednesday',
+                  'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday'}
+    location_map_zh = {'MSA': '華士古分校', 'MSB': '二龍喉分校'}
+    location_map_en = {'MSA': 'Vasco Branch', 'MSB': 'Flora Garden Branch'}
+    bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
+
+    base_fee = 400 * lessons_paid
+    discount_value = int(discount_value)  # Ensure no decimals
+    total_fee = base_fee - discount_value
+    lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])
+
+    if lang == 'zh':
+        discount_text = f' (已折扣${discount_value}學費禮劵，原價為${base_fee})' if discount_value > 0 else ''
+        closed_days = ' (星期二三公休)' if location == 'MSB' else ''
+
+        return f"""家長您好，以下是 MathConcept中學教室 常規課程 之【繳費提示訊息】：
+
+學生編號：{school_student_id}
+學生姓名：{student_name}
+上課時間：逢星期{day_map_zh.get(assigned_day, assigned_day)} {assigned_time} (90分鐘)
+上課日期：
+                  {lesson_dates_str}
+                  (共{lessons_paid}堂)
+
+費用： ${total_fee:,}{discount_text}
+
+請於第一堂之前繳交學費。逾期繳費者，本中心將收取$200手續費，並保留權利拒絕學生上課。
+家長可親臨中學教室({location_map_zh.get(location, location)}){closed_days} 以現金方式繳交學費，或選擇把學費存入以下戶口：
+
+銀行：中國銀行
+名稱：弘教數學教育中心
+號碼：{bank_map.get(location, '')}
+請於備註註明學生姓名及其編號，並發收條至中心微信號確認，謝謝
+
+MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
+
+    else:  # English
+        discount_text = f' (Discounted ${discount_value}, original price ${base_fee})' if discount_value > 0 else ''
+        closed_days = ' (Closed Tue & Wed)' if location == 'MSB' else ''
+
+        return f"""Dear Parent,
+
+This is a payment reminder for MathConcept Secondary Academy regular course:
+
+Student ID: {school_student_id}
+Student Name: {student_name}
+Schedule: Every {day_map_en.get(assigned_day, assigned_day)} {assigned_time} (90 minutes)
+Lesson Dates:
+                  {lesson_dates_str}
+                  ({lessons_paid} lessons total)
+
+Fee: ${total_fee:,}{discount_text}
+
+Please pay before the first lesson. Late payment will incur a $200 administrative fee, and we reserve the right to refuse admission.
+
+Payment options:
+1. Cash payment at our center ({location_map_en.get(location, location)}){closed_days}
+2. Bank transfer:
+   Bank: Bank of China
+   Account Name: 弘教數學教育中心
+   Account Number: {bank_map.get(location, '')}
+   Please include student name and ID in the transfer remarks, and send the receipt to our WeChat for confirmation.
+
+Thank you!
+MathConcept Secondary Academy ({location_map_en.get(location, location)})"""
 
 
 @router.patch("/enrollments/{enrollment_id}", response_model=EnrollmentResponse)
