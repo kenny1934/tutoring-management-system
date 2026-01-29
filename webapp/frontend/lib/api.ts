@@ -382,6 +382,20 @@ export const enrollmentsAPI = {
       `/enrollments/${id}/fee-message?${params}`
     );
   },
+
+  batchMarkPaid: (enrollmentIds: number[]) => {
+    return fetchAPI<{ updated: number[]; count: number }>("/enrollments/batch-mark-paid", {
+      method: "POST",
+      body: JSON.stringify({ enrollment_ids: enrollmentIds }),
+    });
+  },
+
+  batchMarkSent: (enrollmentIds: number[]) => {
+    return fetchAPI<{ updated: number[]; count: number }>("/enrollments/batch-mark-sent", {
+      method: "POST",
+      body: JSON.stringify({ enrollment_ids: enrollmentIds }),
+    });
+  },
 };
 
 // Sessions API
@@ -630,10 +644,12 @@ export const statsAPI = {
     return fetchAPI<SearchResults>(`/search?${params.toString()}`);
   },
 
-  getActivityFeed: (location?: string, tutorId?: number) => {
+  getActivityFeed: (location?: string, tutorId?: number, limit?: number, offset?: number) => {
     const params = new URLSearchParams();
     if (location && location !== "All Locations") params.set("location", location);
     if (tutorId) params.set("tutor_id", tutorId.toString());
+    if (limit) params.set("limit", limit.toString());
+    if (offset) params.set("offset", offset.toString());
     const query = params.toString();
     return fetchAPI<ActivityEvent[]>(`/activity-feed${query ? `?${query}` : ""}`);
   },
@@ -1383,6 +1399,7 @@ export const extensionRequestsAPI = {
     tutor_id?: number;
     status?: ExtensionRequestStatus;
     enrollment_id?: number;
+    location?: string;
     include_resolved?: boolean;
     limit?: number;
     offset?: number;
@@ -1391,6 +1408,7 @@ export const extensionRequestsAPI = {
     if (params.tutor_id) searchParams.append("tutor_id", params.tutor_id.toString());
     if (params.status) searchParams.append("status", params.status);
     if (params.enrollment_id) searchParams.append("enrollment_id", params.enrollment_id.toString());
+    if (params.location) searchParams.append("location", params.location);
     if (params.include_resolved) searchParams.append("include_resolved", "true");
     if (params.limit) searchParams.append("limit", params.limit.toString());
     if (params.offset) searchParams.append("offset", params.offset.toString());

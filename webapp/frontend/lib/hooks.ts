@@ -256,13 +256,15 @@ export function useDashboardStats(location?: string, tutorId?: number) {
  * Returns recent activity (sessions, payments, enrollments)
  * @param location - Filter by location
  * @param tutorId - Filter by tutor (for 'My View' mode)
+ * @param limit - Max number of events to return (default 50, max 100)
+ * @param offset - Number of events to skip for pagination
  */
-export function useActivityFeed(location?: string, tutorId?: number) {
-  const key = ['activity-feed', location || 'all', tutorId || 'all'];
+export function useActivityFeed(location?: string, tutorId?: number, limit?: number, offset?: number) {
+  const key = ['activity-feed', location || 'all', tutorId || 'all', limit || 'default', offset || 0];
 
   return useSWR<ActivityEvent[]>(
     key,
-    () => api.stats.getActivityFeed(location, tutorId),
+    () => api.stats.getActivityFeed(location, tutorId, limit, offset),
     { revalidateOnFocus: false }
   );
 }
