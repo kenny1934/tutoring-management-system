@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState } from "react";
 import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
+import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
 import {
   useFloating,
@@ -40,6 +41,7 @@ interface EnrollmentDetailPopoverProps {
   onClose: () => void;
   clickPosition: { x: number; y: number } | null;
   onNavigate?: () => void;
+  onStatusChange?: () => void;
 }
 
 export function EnrollmentDetailPopover({
@@ -48,6 +50,7 @@ export function EnrollmentDetailPopover({
   onClose,
   clickPosition,
   onNavigate,
+  onStatusChange,
 }: EnrollmentDetailPopoverProps) {
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
@@ -105,8 +108,9 @@ export function EnrollmentDetailPopover({
     allLocations.filter(loc => loc !== "Various"),
   [allLocations]);
 
-  // Dummy action states
+  // Action states
   const [markedAsPaid, setMarkedAsPaid] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editedDay, setEditedDay] = useState('');
   const [editedTime, setEditedTime] = useState('');
@@ -183,10 +187,18 @@ export function EnrollmentDetailPopover({
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const handleMarkAsPaid = () => {
-    console.log(`[Demo Mode] Mark as Paid clicked for enrollment #${enrollment.id} - ${enrollment.student_name}`);
-    setMarkedAsPaid(true);
-    // In real implementation, this would call the API
+  const handleMarkAsPaid = async () => {
+    if (!enrollment) return;
+    setMarkingPaid(true);
+    try {
+      await enrollmentsAPI.update(enrollment.id, { payment_status: "Paid" });
+      setMarkedAsPaid(true);
+      onStatusChange?.();
+    } catch (err) {
+      console.error('Failed to mark as paid:', err);
+    } finally {
+      setMarkingPaid(false);
+    }
   };
 
   const handleSaveSchedule = () => {
@@ -592,13 +604,15 @@ export function EnrollmentDetailPopover({
                 e.stopPropagation();
                 handleMarkAsPaid();
               }}
+              disabled={markingPaid}
               className={cn(
                 "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
-                "bg-green-600 hover:bg-green-700 text-white transition-colors"
+                "bg-green-600 hover:bg-green-700 text-white transition-colors",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
               )}
             >
-              <Check className="h-3.5 w-3.5" />
-              Mark as Paid (Demo)
+              {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Mark as Paid
             </button>
           )}
 

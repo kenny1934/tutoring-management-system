@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText } from "lucide-react";
+import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
@@ -17,11 +17,19 @@ interface EnrollmentDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   enrollmentId: number | null;
-  onCreateRenewal: (enrollmentId: number) => void;
+  onCreateRenewal?: (enrollmentId: number) => void;
   /** When true, shows a narrower condensed view for side-by-side layout */
   compact?: boolean;
   /** When true (default), renders its own backdrop. Set to false when used in side-by-side container */
   standalone?: boolean;
+  /** When true, hides the close button (used when parent container has its own close) */
+  hideCloseButton?: boolean;
+  /** Optional label to prefix the header (e.g., "Original" or "Renewal") */
+  headerLabel?: string;
+  /** Show renewal workflow actions (Mark as Sent, Copy Fee, Mark as Paid) */
+  showRenewalActions?: boolean;
+  /** Callback when renewal status changes (to refresh parent data) */
+  onStatusChange?: () => void;
 }
 
 export function EnrollmentDetailModal({
@@ -31,6 +39,10 @@ export function EnrollmentDetailModal({
   onCreateRenewal,
   compact = false,
   standalone = true,
+  hideCloseButton = false,
+  headerLabel,
+  showRenewalActions = false,
+  onStatusChange,
 }: EnrollmentDetailModalProps) {
   // Use SWR for caching
   const { data: detail, isLoading: loading, error } = useSWR<EnrollmentDetailResponse>(
@@ -48,6 +60,11 @@ export function EnrollmentDetailModal({
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [loadingPopover, setLoadingPopover] = useState(false);
 
+  // Renewal action state
+  const [markingSent, setMarkingSent] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen) return null;
 
   const isExpired = detail && detail.days_until_expiry < 0;
@@ -59,8 +76,42 @@ export function EnrollmentDetailModal({
   ) || [];
 
   const handleCreateRenewal = () => {
-    if (enrollmentId) {
+    if (enrollmentId && onCreateRenewal) {
       onCreateRenewal(enrollmentId);
+    }
+  };
+
+  const handleMarkSent = async () => {
+    if (!enrollmentId) return;
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollmentId, { fee_message_sent: true });
+      onStatusChange?.();
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!enrollmentId) return;
+    setMarkingPaid(true);
+    try {
+      await enrollmentsAPI.update(enrollmentId, { payment_status: "Paid" });
+      onStatusChange?.();
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  const handleCopyFee = async () => {
+    if (!enrollmentId || !detail) return;
+    try {
+      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid);
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy fee message:', err);
     }
   };
 
@@ -129,14 +180,20 @@ export function EnrollmentDetailModal({
           "font-semibold text-gray-900 dark:text-gray-100 truncate",
           compact ? "text-base" : "text-lg"
         )}>
-          {loading ? "Loading..." : detail ? (compact ? detail.student_name : `${detail.student_name} - Enrollment Details`) : "Enrollment Details"}
+          {loading ? "Loading..." : detail ? (
+            headerLabel
+              ? headerLabel
+              : (compact ? detail.student_name : `${detail.student_name} - Enrollment Details`)
+          ) : "Enrollment Details"}
         </h2>
-        <button
-          onClick={onClose}
-          className="p-1.5 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] rounded-lg transition-colors flex-shrink-0"
-        >
-          <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-        </button>
+        {!hideCloseButton && (
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] rounded-lg transition-colors flex-shrink-0"
+          >
+            <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -339,7 +396,7 @@ export function EnrollmentDetailModal({
                         )}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <SessionStatusTag status={session.session_status} size="sm" iconOnly={compact} />
+                        <SessionStatusTag status={session.session_status} size="sm" iconOnly />
                         {session.has_extension_request && (
                           <span className={cn(
                             "text-[10px] px-1 py-0.5 rounded",
@@ -349,7 +406,11 @@ export function EnrollmentDetailModal({
                               ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                               : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                           )}>
-                            {compact ? session.extension_request_status?.[0] : `Ext: ${session.extension_request_status}`}
+                            {compact ? (
+                              session.extension_request_status === "Pending" ? <Clock className="h-3 w-3" /> :
+                              session.extension_request_status === "Approved" ? <Check className="h-3 w-3" /> :
+                              <X className="h-3 w-3" />
+                            ) : `Ext: ${session.extension_request_status}`}
                           </span>
                         )}
                       </div>
@@ -415,22 +476,69 @@ export function EnrollmentDetailModal({
               Student History
             </Link>
           )}
-          <button
-            onClick={handleCreateRenewal}
-            className={cn(
-              "flex items-center gap-2 rounded-lg text-sm font-medium transition-all",
-              "hover:scale-[1.02] active:scale-[0.98]",
-              compact ? "px-3 py-1.5" : "px-4 py-2",
-              isExpired
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : isUrgent
-                ? "bg-orange-500 hover:bg-orange-600 text-white"
-                : "bg-[#a0704b] hover:bg-[#8b5d3b] text-white"
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-2">
+            {/* Renewal workflow actions */}
+            {showRenewalActions && (
+              <>
+                {/* Copy Fee - subtle icon button (only when fee not sent) */}
+                {!detail.fee_message_sent && (
+                  <button
+                    onClick={handleCopyFee}
+                    className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
+                    title="Copy fee message"
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
+                  </button>
+                )}
+
+                {/* Mark as Sent (only when fee not sent) */}
+                {!detail.fee_message_sent && (
+                  <button
+                    onClick={handleMarkSent}
+                    disabled={markingSent}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                  >
+                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Mark Sent
+                  </button>
+                )}
+
+                {/* Mark as Paid (only when not paid) */}
+                {detail.payment_status !== "Paid" && (
+                  <button
+                    onClick={handleMarkPaid}
+                    disabled={markingPaid}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                  >
+                    {markingPaid ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                    Mark Paid
+                  </button>
+                )}
+              </>
             )}
-          >
-            <RefreshCcw className="h-4 w-4" />
-            {compact ? "Renew" : "Create Renewal"}
-          </button>
+
+            {/* Create Renewal button */}
+            {onCreateRenewal && (
+              <button
+                onClick={handleCreateRenewal}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg text-sm font-medium transition-all",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                  compact ? "px-3 py-1.5" : "px-4 py-2",
+                  isExpired
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : isUrgent
+                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                    : "bg-[#a0704b] hover:bg-[#8b5d3b] text-white"
+                )}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                {compact ? "Renew" : "Create Renewal"}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </motion.div>
