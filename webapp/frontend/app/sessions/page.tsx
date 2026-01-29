@@ -41,11 +41,27 @@ const MonthlyCalendarView = dynamic(
   () => import("@/components/sessions/MonthlyCalendarView").then(mod => mod.MonthlyCalendarView),
   { loading: GridViewLoading }
 );
-import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
-import { BulkExerciseModal } from "@/components/sessions/BulkExerciseModal";
-import { ExerciseModal } from "@/components/sessions/ExerciseModal";
-import { RateSessionModal } from "@/components/sessions/RateSessionModal";
-import { EditSessionModal } from "@/components/sessions/EditSessionModal";
+// Lazy-load modal components to reduce initial bundle size
+const SessionDetailPopover = dynamic(
+  () => import("@/components/sessions/SessionDetailPopover").then(m => m.SessionDetailPopover),
+  { ssr: false }
+);
+const BulkExerciseModal = dynamic(
+  () => import("@/components/sessions/BulkExerciseModal").then(m => m.BulkExerciseModal),
+  { ssr: false }
+);
+const ExerciseModal = dynamic(
+  () => import("@/components/sessions/ExerciseModal").then(m => m.ExerciseModal),
+  { ssr: false }
+);
+const RateSessionModal = dynamic(
+  () => import("@/components/sessions/RateSessionModal").then(m => m.RateSessionModal),
+  { ssr: false }
+);
+const EditSessionModal = dynamic(
+  () => import("@/components/sessions/EditSessionModal").then(m => m.EditSessionModal),
+  { ssr: false }
+);
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { toDateString, getWeekBounds, getMonthBounds } from "@/lib/calendar-utils";
@@ -57,7 +73,10 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { getTutorSortName, canBeMarked } from "@/components/zen/utils/sessionSorting";
 import { ProposedSessionRow } from "@/components/sessions/ProposedSessionCard";
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
-import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
+const ProposalDetailModal = dynamic(
+  () => import("@/components/sessions/ProposalDetailModal").then(m => m.ProposalDetailModal),
+  { ssr: false }
+);
 import { proposalSlotsToSessions, createSessionProposalMap, type ProposedSession } from "@/lib/proposal-utils";
 
 // Key for storing scroll position in sessionStorage

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useRef } from "react";
+import React, { useEffect, useState, useMemo, useRef, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
@@ -872,7 +872,7 @@ function RichPopoverContent({
 }
 
 // Simple StudentCard component (popover logic lifted to page level)
-function StudentCard({
+const StudentCard = memo(function StudentCard({
   student,
   index,
   isMobile,
@@ -968,7 +968,7 @@ function StudentCard({
       </div>
     </motion.div>
   );
-}
+});
 
 // StudentDetailPopover component (follows SessionDetailPopover pattern)
 function StudentDetailPopover({
