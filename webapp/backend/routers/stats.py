@@ -2,6 +2,7 @@
 Stats API endpoints.
 Provides dashboard summary statistics.
 """
+import heapq
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, extract, and_, or_, case, select
@@ -481,6 +482,5 @@ async def get_activity_feed(
                 link=f"/enrollments/{e.id}"
             ))
 
-    # Sort by timestamp DESC and limit
-    events.sort(key=lambda x: x.timestamp, reverse=True)
-    return events[:limit]
+    # Get top N events by timestamp using heapq (more efficient than full sort)
+    return heapq.nlargest(limit, events, key=lambda x: x.timestamp)
