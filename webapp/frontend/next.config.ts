@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: [
         "100.91.219.25",
         "kenny-chiu-priv",
+        "127.0.0.1",
       ],
   async rewrites() {
     return [

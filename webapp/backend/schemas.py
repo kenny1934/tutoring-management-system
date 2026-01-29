@@ -158,6 +158,132 @@ class OverdueEnrollment(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EnrollmentCreate(BaseModel):
+    """Schema for creating a new enrollment with session generation"""
+    student_id: int = Field(..., gt=0)
+    tutor_id: int = Field(..., gt=0)
+    assigned_day: str = Field(..., max_length=20, description="Day of week (e.g., 'Monday')")
+    assigned_time: str = Field(..., max_length=20, description="Time slot (e.g., '16:45 - 18:15')")
+    location: str = Field(..., max_length=200)
+    first_lesson_date: date = Field(..., description="Date of the first lesson")
+    lessons_paid: int = Field(..., ge=1, description="Number of sessions to generate")
+    enrollment_type: str = Field('Regular', max_length=50, description="Regular, Trial, or One-Time")
+    remark: Optional[str] = Field(None, max_length=1000)
+    renewed_from_enrollment_id: Optional[int] = Field(None, gt=0, description="Link to previous enrollment for renewals")
+    discount_id: Optional[int] = Field(None, gt=0)
+
+
+class SessionPreview(BaseModel):
+    """Preview of a session to be generated"""
+    session_date: date
+    time_slot: str
+    location: str
+    is_holiday: bool = Field(False, description="True if this date was skipped due to holiday")
+    holiday_name: Optional[str] = Field(None, description="Name of holiday if skipped")
+    conflict: Optional[str] = Field(None, description="Conflict description if student has existing session")
+
+
+class StudentConflict(BaseModel):
+    """Details of a student conflict with existing sessions"""
+    session_date: date
+    time_slot: str
+    existing_tutor_name: str
+    session_status: str
+    enrollment_id: int
+
+
+class EnrollmentPreviewResponse(BaseModel):
+    """Response from enrollment preview endpoint"""
+    enrollment_data: EnrollmentCreate
+    sessions: List[SessionPreview]
+    effective_end_date: date = Field(..., description="Date of the last generated session")
+    conflicts: List[StudentConflict] = Field(default_factory=list, description="Student conflicts with existing sessions")
+    warnings: List[str] = Field(default_factory=list, description="Holiday shifts and other warnings")
+    skipped_holidays: List[dict] = Field(default_factory=list, description="List of holidays that were skipped")
+
+
+class RenewalDataResponse(BaseModel):
+    """Pre-filled data for enrollment renewal form"""
+    student_id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    tutor_id: int
+    tutor_name: str
+    assigned_day: str
+    assigned_time: str
+    location: str
+    suggested_first_lesson_date: date = Field(..., description="Next occurrence of assigned_day after effective_end_date")
+    previous_lessons_paid: int
+    enrollment_type: str
+    renewed_from_enrollment_id: int = Field(..., description="ID of the expiring enrollment being renewed")
+    previous_effective_end_date: date
+    discount_id: Optional[int] = None
+    discount_name: Optional[str] = None
+
+
+class RenewalListItem(BaseModel):
+    """Enrollment needing renewal for list view"""
+    id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    student_name: str
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str
+    assigned_day: str
+    assigned_time: str
+    location: str
+    first_lesson_date: date
+    lessons_paid: int
+    effective_end_date: date
+    days_until_expiry: int = Field(..., description="Negative = expired, positive = days remaining")
+    sessions_remaining: int = Field(default=0, ge=0, description="Number of sessions not yet completed")
+    payment_status: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RenewalCountsResponse(BaseModel):
+    """Counts of enrollments needing renewal for notification badge"""
+    expiring_soon: int = Field(default=0, ge=0, description="Expiring within 2 weeks")
+    expired: int = Field(default=0, ge=0, description="Already expired but not renewed")
+    total: int = Field(default=0, ge=0, description="Total needing attention")
+
+
+class PendingMakeupSession(BaseModel):
+    """Pending makeup session with full info for display"""
+    id: int
+    session_date: date
+    time_slot: Optional[str] = None
+    session_status: str
+    tutor_name: Optional[str] = None
+    has_extension_request: bool = False
+    extension_request_status: Optional[str] = None
+
+
+class EnrollmentDetailResponse(BaseModel):
+    """Detailed enrollment info for review modal"""
+    id: int
+    student_id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    tutor_id: int
+    tutor_name: str
+    assigned_day: str
+    assigned_time: str
+    location: str
+    first_lesson_date: date
+    effective_end_date: date
+    days_until_expiry: int
+    lessons_paid: int
+    sessions_finished: int
+    sessions_total: int
+    pending_makeups: List[PendingMakeupSession] = Field(default_factory=list)
+    payment_status: str
+    phone: Optional[str] = None
+
+
 # ============================================
 # Session Schemas
 # ============================================

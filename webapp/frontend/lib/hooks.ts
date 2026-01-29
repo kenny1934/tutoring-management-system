@@ -672,6 +672,20 @@ export function usePendingProposalCount(tutorId: number | null | undefined) {
 }
 
 /**
+ * Hook for fetching renewal counts (for notification badge)
+ * Only enabled for admins
+ * Pauses polling when tab is hidden to save API calls
+ */
+export function useRenewalCounts(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(60000); // 1 minute refresh
+  return useSWR<{ expiring_soon: number; expired: number; total: number }>(
+    isAdmin ? ['renewal-counts', location] : null,
+    () => enrollmentsAPI.getRenewalCounts(location),
+    { refreshInterval, revalidateOnFocus: false }
+  );
+}
+
+/**
  * Hook for fetching a single proposal by ID
  */
 export function useProposal(proposalId: number | null | undefined) {

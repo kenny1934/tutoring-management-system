@@ -146,6 +146,122 @@ export const studentsAPI = {
   },
 };
 
+// Enrollment creation types
+export interface EnrollmentCreate {
+  student_id: number;
+  tutor_id: number;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  lessons_paid: number;
+  enrollment_type?: string;
+  remark?: string;
+  renewed_from_enrollment_id?: number;
+  discount_id?: number;
+}
+
+export interface SessionPreview {
+  session_date: string;
+  time_slot: string;
+  location: string;
+  is_holiday: boolean;
+  holiday_name?: string;
+  conflict?: string;
+}
+
+export interface StudentConflict {
+  session_date: string;
+  time_slot: string;
+  existing_tutor_name: string;
+  session_status: string;
+  enrollment_id: number;
+}
+
+export interface EnrollmentPreviewResponse {
+  enrollment_data: EnrollmentCreate;
+  sessions: SessionPreview[];
+  effective_end_date: string;
+  conflicts: StudentConflict[];
+  warnings: string[];
+  skipped_holidays: Array<{ date: string; name: string }>;
+}
+
+export interface RenewalDataResponse {
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  suggested_first_lesson_date: string;
+  previous_lessons_paid: number;
+  enrollment_type: string;
+  renewed_from_enrollment_id: number;
+  previous_effective_end_date: string;
+  discount_id?: number;
+  discount_name?: string;
+}
+
+export interface RenewalListItem {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  lessons_paid: number;
+  effective_end_date: string;
+  days_until_expiry: number;
+  sessions_remaining: number;
+  payment_status: string;
+}
+
+export interface RenewalCountsResponse {
+  expiring_soon: number;
+  expired: number;
+  total: number;
+}
+
+export interface PendingMakeupSession {
+  id: number;
+  session_date: string;
+  time_slot?: string;
+  session_status: string;
+  tutor_name?: string;
+  has_extension_request: boolean;
+  extension_request_status?: string;
+}
+
+export interface EnrollmentDetailResponse {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  effective_end_date: string;
+  days_until_expiry: number;
+  lessons_paid: number;
+  sessions_finished: number;
+  sessions_total: number;
+  pending_makeups: PendingMakeupSession[];
+  payment_status: string;
+  phone?: string;
+}
+
 // Enrollments API
 export const enrollmentsAPI = {
   getAll: (student_id?: number) => {
@@ -195,6 +311,50 @@ export const enrollmentsAPI = {
     }
     const queryString = params.toString();
     return fetchAPI<OverdueEnrollment[]>(`/enrollments/overdue${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Enrollment creation and preview
+  preview: (data: EnrollmentCreate) => {
+    return fetchAPI<EnrollmentPreviewResponse>('/enrollments/preview', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  create: (data: EnrollmentCreate) => {
+    return fetchAPI<Enrollment>('/enrollments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Renewal functions
+  getRenewalData: (enrollmentId: number) => {
+    return fetchAPI<RenewalDataResponse>(`/enrollments/${enrollmentId}/renewal-data`);
+  },
+
+  getRenewals: (params?: { location?: string; tutor_id?: number; include_expired?: boolean }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.location && params.location !== "All Locations") {
+      searchParams.append("location", params.location);
+    }
+    if (params?.tutor_id) {
+      searchParams.append("tutor_id", params.tutor_id.toString());
+    }
+    if (params?.include_expired !== undefined) {
+      searchParams.append("include_expired", params.include_expired.toString());
+    }
+    const queryString = searchParams.toString();
+    return fetchAPI<RenewalListItem[]>(`/enrollments/renewals${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getRenewalCounts: (location?: string) => {
+    const params = location && location !== "All Locations" ? `?location=${location}` : "";
+    return fetchAPI<RenewalCountsResponse>(`/enrollments/renewal-counts${params}`);
+  },
+
+  getDetail: (id: number) => {
+    return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
 };
 

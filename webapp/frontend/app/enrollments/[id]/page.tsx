@@ -620,7 +620,7 @@ export default function EnrollmentDetailPage() {
                             ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                             : enrollment.enrollment_type === 'Trial'
                               ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                              : "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300"
+                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
                         )}>
                           {enrollment.enrollment_type}
                         </span>

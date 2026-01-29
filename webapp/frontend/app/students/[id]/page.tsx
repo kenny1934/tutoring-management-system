@@ -793,12 +793,14 @@ function ProfileTab({
                 </div>
                 <div className="flex items-center gap-1.5">
                   {/* Enrollment Type badge (only for non-Regular) */}
-                  {enrollment.enrollment_type && enrollment.enrollment_type !== 'Regular' && (
+                  {enrollment.enrollment_type && (
                     <span className={cn(
                       "text-xs px-2 py-0.5 rounded-full font-medium",
                       enrollment.enrollment_type === 'Trial'
                         ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                        : "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+                        : enrollment.enrollment_type === 'One-Time'
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300"
+                        : "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                     )}>
                       {enrollment.enrollment_type}
                     </span>
@@ -2318,14 +2320,21 @@ function EnrollmentDetailPopover({
           {/* Enrollment Type */}
           {enrollment.enrollment_type && (
             <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-blue-500" />
+              <Tag className={cn(
+                "h-4 w-4",
+                enrollment.enrollment_type === 'Trial'
+                  ? "text-blue-500"
+                  : enrollment.enrollment_type === 'One-Time'
+                  ? "text-purple-500"
+                  : "text-green-500"
+              )} />
               <span className={cn(
                 "text-sm",
                 enrollment.enrollment_type === 'Trial'
                   ? "text-blue-600 dark:text-blue-400"
                   : enrollment.enrollment_type === 'One-Time'
                   ? "text-purple-600 dark:text-purple-400"
-                  : "text-gray-700 dark:text-gray-300"
+                  : "text-green-600 dark:text-green-400"
               )}>
                 {enrollment.enrollment_type}
               </span>
