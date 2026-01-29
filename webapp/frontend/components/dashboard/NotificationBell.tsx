@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts } from "@/lib/hooks";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock } from "lucide-react";
+import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock, RefreshCcw } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -49,6 +49,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch pending proposals count
   const { data: pendingProposals } = usePendingProposalCount(tutorId);
 
+  // Fetch renewal counts (only for admins - showOverduePayments indicates admin)
+  const { data: renewalCounts } = useRenewalCounts(showOverduePayments, location);
+
   // Build notification items
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
@@ -61,6 +64,20 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: pendingPayments,
         severity: "danger",
         href: "/overdue-payments",
+      });
+    }
+
+    // Renewals needing attention (admin only)
+    if (showOverduePayments && renewalCounts?.total && renewalCounts.total > 0) {
+      items.push({
+        id: "renewals",
+        icon: <RefreshCcw className="h-4 w-4" />,
+        label: renewalCounts.expired > 0
+          ? `Renewals (${renewalCounts.expired} expired)`
+          : "Renewals Expiring Soon",
+        count: renewalCounts.total,
+        severity: renewalCounts.expired > 0 ? "danger" : "warning",
+        href: "/admin/renewals",
       });
     }
 
@@ -98,7 +115,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 

@@ -454,7 +454,7 @@ export function EnrollmentDetailPopover({
                   ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300"
                   : enrollment.enrollment_type === 'One-Time'
                   ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                  : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
               )}>
                 {enrollment.enrollment_type}
               </span>

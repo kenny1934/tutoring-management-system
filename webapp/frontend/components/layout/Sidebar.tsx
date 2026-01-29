@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -28,6 +28,7 @@ const navigation = [
 
 // Admin navigation items - only visible to Admin and Super Admin
 const adminNavigation = [
+  { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
   // Future admin items:
   // { name: "Audit Log", href: "/admin/audit", icon: FileText },

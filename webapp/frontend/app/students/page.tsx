@@ -725,14 +725,14 @@ function RichPopoverContent({
                       "h-3 w-3",
                       activeEnrollment.enrollment_type === 'Trial' ? 'text-blue-500' :
                       activeEnrollment.enrollment_type === 'One-Time' ? 'text-purple-500' :
-                      'text-gray-500'
+                      'text-green-500'
                     )} />
                     <span className={cn(
                       activeEnrollment.enrollment_type === 'Trial'
                         ? "text-blue-600 dark:text-blue-400"
                         : activeEnrollment.enrollment_type === 'One-Time'
                         ? "text-purple-600 dark:text-purple-400"
-                        : "text-gray-700 dark:text-gray-300"
+                        : "text-green-600 dark:text-green-400"
                     )}>
                       {activeEnrollment.enrollment_type}
                     </span>
