@@ -79,7 +79,11 @@ async def get_dashboard_stats(
             else_=0
         )).label('active'),
         func.sum(case(
-            (Enrollment.payment_status == 'Pending Payment', 1),
+            (and_(
+                Enrollment.payment_status == 'Pending Payment',
+                Enrollment.first_lesson_date.isnot(None),
+                Enrollment.first_lesson_date < today
+            ), 1),
             else_=0
         )).label('pending'),
         func.count(func.distinct(Enrollment.student_id)).label('total_students')
