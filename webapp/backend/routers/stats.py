@@ -208,7 +208,7 @@ async def get_active_students(
     excluded_statuses = ['Cancelled', 'No Show']
 
     # Get unique student_ids from sessions in window
-    active_student_ids_query = db.query(func.distinct(SessionLog.student_id)).filter(
+    active_student_ids_query = db.query(func.distinct(SessionLog.student_id).label('student_id')).filter(
         SessionLog.session_date >= active_window_start,
         SessionLog.session_date <= active_window_end,
         ~SessionLog.session_status.in_(excluded_statuses)
@@ -364,7 +364,8 @@ async def global_search(
 async def get_activity_feed(
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for 'My View' mode)"),
-    limit: int = Query(10, ge=1, le=50, description="Max events to return"),
+    limit: int = Query(50, ge=1, le=100, description="Max events to return"),
+    offset: int = Query(0, ge=0, description="Number of events to skip for pagination"),
     db: Session = Depends(get_db)
 ):
     """
@@ -486,5 +487,6 @@ async def get_activity_feed(
                 link=f"/enrollments/{e.id}"
             ))
 
-    # Get top N events by timestamp using heapq (more efficient than full sort)
-    return heapq.nlargest(limit, events, key=lambda x: x.timestamp)
+    # Sort by timestamp descending and apply pagination
+    sorted_events = sorted(events, key=lambda x: x.timestamp, reverse=True)
+    return sorted_events[offset:offset + limit]
