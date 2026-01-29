@@ -132,9 +132,14 @@ export function HeaderStats({ stats, tutorId }: HeaderStatsProps) {
                 {/* Header */}
                 <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      Active Students ({stats.active_students})
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Active Students ({stats.active_students})
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        Students with sessions in past/next 14 days
+                      </span>
+                    </div>
                     <button
                       onClick={() => setIsStudentsOpen(false)}
                       className="p-1 rounded hover:bg-white/50 dark:hover:bg-black/20 transition-colors"

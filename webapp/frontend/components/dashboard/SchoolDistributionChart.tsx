@@ -2,7 +2,7 @@
 
 import { useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { SchoolAccent } from "@/components/illustrations/CardAccents";
 import type { ActiveStudent } from "@/types";
 
@@ -19,6 +19,30 @@ const COLORS = [
 ];
 
 const TOP_N = 6; // Show top 6 schools, group rest as "Others"
+
+// Custom legend component styled as paper label tags
+function CustomLegend({ payload }: { payload?: Array<{ color: string; value: string; count: number }> }) {
+  if (!payload) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3 justify-center px-2">
+      {payload.map((entry, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#f5ede3] dark:bg-[#3d3628] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] shadow-sm"
+          title={`${entry.count} students`}
+        >
+          <span
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px]">
+            {entry.value}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 interface SchoolDistributionChartProps {
   students?: ActiveStudent[];
@@ -41,7 +65,7 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
     router.push(`/students?school=${encodeURIComponent(data.name)}`);
   };
 
-  const chartData = useMemo(() => {
+  const { chartData, totalSchools } = useMemo(() => {
     const schoolCounts: Record<string, number> = {};
 
     students.forEach((student) => {
@@ -56,8 +80,11 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
       }))
       .sort((a, b) => b.value - a.value); // Sort by count descending
 
+    // Capture total unique schools BEFORE aggregation
+    const totalSchools = sorted.length;
+
     // If fewer than TOP_N, return as is
-    if (sorted.length <= TOP_N) return sorted;
+    if (sorted.length <= TOP_N) return { chartData: sorted, totalSchools };
 
     // Take top N schools
     const topSchools = sorted.slice(0, TOP_N);
@@ -65,7 +92,7 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
     // Group remaining into "Others"
     const othersCount = sorted.slice(TOP_N).reduce((sum, s) => sum + s.value, 0);
 
-    return [...topSchools, { name: "Others", value: othersCount }];
+    return { chartData: [...topSchools, { name: "Others", value: othersCount }], totalSchools };
   }, [students]);
 
   return (
@@ -98,42 +125,64 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
           <div className="text-center text-gray-500 dark:text-gray-400 text-sm">No data available</div>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={(props) => {
-                const { name, percent } = props as unknown as { name: string; percent: number };
-                return percent > 0.05 ? `${name} (${(percent * 100).toFixed(0)}%)` : "";
-              }}
-              outerRadius={70}
-              fill="#8884d8"
-              dataKey="value"
-              onClick={handleSliceClick}
-              style={{ cursor: "pointer" }}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--tooltip-bg, #fef9f3)",
-                border: "1px solid var(--tooltip-border, #e8d4b8)",
-                borderRadius: "8px",
-                color: "var(--tooltip-text, #1f2937)",
-              }}
-            />
-            <Legend
-              wrapperStyle={{
-                fontSize: "12px",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        <div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={42}
+                outerRadius={72}
+                fill="#8884d8"
+                dataKey="value"
+                onClick={handleSliceClick}
+                style={{ cursor: "pointer" }}
+                paddingAngle={2}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--tooltip-bg, #fef9f3)",
+                  border: "1px solid var(--tooltip-border, #e8d4b8)",
+                  borderRadius: "8px",
+                  color: "var(--tooltip-text, #1f2937)",
+                  padding: "8px 12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                }}
+                formatter={(value: number, name: string) => [`${value} students`, name]}
+              />
+              {/* Center content */}
+              <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle">
+                <tspan
+                  style={{
+                    fontSize: "28px",
+                    fill: "#a0704b",
+                    fontFamily: "'Caveat', cursive",
+                    fontWeight: 700,
+                  }}
+                >
+                  {totalSchools}
+                </tspan>
+              </text>
+              <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle">
+                <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}>
+                  schools
+                </tspan>
+              </text>
+            </PieChart>
+          </ResponsiveContainer>
+          <CustomLegend
+            payload={chartData.map((entry, index) => ({
+              color: COLORS[index % COLORS.length],
+              value: entry.name,
+              count: entry.value,
+            }))}
+          />
+        </div>
       )}
     </div>
   );

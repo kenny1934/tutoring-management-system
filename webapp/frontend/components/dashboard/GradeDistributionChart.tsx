@@ -2,7 +2,7 @@
 
 import { useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { GradeAccent } from "@/components/illustrations/CardAccents";
 import type { ActiveStudent } from "@/types";
 
@@ -15,6 +15,27 @@ const COLORS = [
   "#c2956e", // camel
   "#b8860b", // dark goldenrod
 ];
+
+// Custom legend component styled as paper label tags
+function CustomLegend({ payload }: { payload?: Array<{ color: string; value: string }> }) {
+  if (!payload) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3 justify-center px-2">
+      {payload.map((entry, index) => (
+        <span
+          key={index}
+          className="inline-flex items-center gap-1.5 px-2 py-1 bg-[#f5ede3] dark:bg-[#3d3628] rounded border border-[#e8d4b8] dark:border-[#6b5a4a] text-[11px] shadow-sm"
+        >
+          <span
+            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="font-medium text-gray-700 dark:text-gray-300">{entry.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 interface GradeDistributionChartProps {
   students?: ActiveStudent[];
@@ -87,42 +108,63 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
           <div className="text-center text-gray-500 dark:text-gray-400 text-sm">No data available</div>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={250}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={(props) => {
-                const { name, percent } = props as unknown as { name: string; percent: number };
-                return percent > 0.05 ? `${name} (${(percent * 100).toFixed(0)}%)` : "";
-              }}
-              outerRadius={70}
-              fill="#8884d8"
-              dataKey="value"
-              onClick={handleSliceClick}
-              style={{ cursor: "pointer" }}
-            >
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--tooltip-bg, #fef9f3)",
-                border: "1px solid var(--tooltip-border, #e8d4b8)",
-                borderRadius: "8px",
-                color: "var(--tooltip-text, #1f2937)",
-              }}
-            />
-            <Legend
-              wrapperStyle={{
-                fontSize: "12px",
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        <div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={chartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={42}
+                outerRadius={72}
+                fill="#8884d8"
+                dataKey="value"
+                onClick={handleSliceClick}
+                style={{ cursor: "pointer" }}
+                paddingAngle={2}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--tooltip-bg, #fef9f3)",
+                  border: "1px solid var(--tooltip-border, #e8d4b8)",
+                  borderRadius: "8px",
+                  color: "var(--tooltip-text, #1f2937)",
+                  padding: "8px 12px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                }}
+                formatter={(value: number, name: string) => [`${value} students`, name]}
+              />
+              {/* Center content */}
+              <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle">
+                <tspan
+                  style={{
+                    fontSize: "28px",
+                    fill: "#a0704b",
+                    fontFamily: "'Caveat', cursive",
+                    fontWeight: 700,
+                  }}
+                >
+                  {chartData.reduce((sum, d) => sum + d.value, 0)}
+                </tspan>
+              </text>
+              <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle">
+                <tspan style={{ fontSize: "10px", fill: "#8b6f47", fontWeight: 500 }}>
+                  students
+                </tspan>
+              </text>
+            </PieChart>
+          </ResponsiveContainer>
+          <CustomLegend
+            payload={chartData.map((entry, index) => ({
+              color: COLORS[index % COLORS.length],
+              value: entry.name,
+            }))}
+          />
+        </div>
       )}
     </div>
   );
