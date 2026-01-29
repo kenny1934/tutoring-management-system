@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon
@@ -14,7 +14,8 @@ from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
     RenewalDataResponse, RenewalListItem, RenewalCountsResponse,
-    EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink
+    EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink,
+    BatchEnrollmentRequest, BatchOperationResponse
 )
 from auth.dependencies import require_admin, get_current_user
 
@@ -345,7 +346,9 @@ async def create_enrollment(
         enrollment_type=enrollment_data.enrollment_type,
         payment_status='Pending Payment',
         discount_id=enrollment_data.discount_id,
-        renewed_from_enrollment_id=enrollment_data.renewed_from_enrollment_id
+        renewed_from_enrollment_id=enrollment_data.renewed_from_enrollment_id,
+        last_modified_time=datetime.now(),
+        last_modified_by=admin.user_email
     )
     db.add(enrollment)
     db.flush()  # Get enrollment ID
@@ -1531,3 +1534,57 @@ async def update_enrollment_extension(
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
 
     return enrollment_data
+
+
+# ============================================
+# Batch Operations
+# ============================================
+
+@router.post("/enrollments/batch-mark-paid", response_model=BatchOperationResponse)
+async def batch_mark_paid(
+    request: BatchEnrollmentRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Mark multiple enrollments as paid.
+    Also updates all associated sessions' financial_status to 'Paid'.
+    Admin only.
+    """
+    updated = []
+    for eid in request.enrollment_ids:
+        enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
+        if enrollment and enrollment.payment_status != 'Paid':
+            enrollment.payment_status = 'Paid'
+            enrollment.payment_date = date.today()
+            enrollment.last_modified_time = datetime.now()
+            enrollment.last_modified_by = current_user.get('email', 'admin')
+            # Also update sessions' financial_status
+            db.query(SessionLog).filter(
+                SessionLog.enrollment_id == eid
+            ).update({'financial_status': 'Paid'})
+            updated.append(eid)
+
+    db.commit()
+    return BatchOperationResponse(updated=updated, count=len(updated))
+
+
+@router.post("/enrollments/batch-mark-sent", response_model=BatchOperationResponse)
+async def batch_mark_sent(
+    request: BatchEnrollmentRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Mark fee message as sent for multiple enrollments.
+    Admin only.
+    """
+    updated = []
+    for eid in request.enrollment_ids:
+        enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
+        if enrollment and not enrollment.fee_message_sent:
+            enrollment.fee_message_sent = True
+            updated.append(eid)
+
+    db.commit()
+    return BatchOperationResponse(updated=updated, count=len(updated))

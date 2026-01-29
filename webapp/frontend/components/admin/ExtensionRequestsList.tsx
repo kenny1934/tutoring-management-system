@@ -56,11 +56,12 @@ export function ExtensionRequestsList({
     isValidating,
     mutate,
   } = useSWR(
-    ["extension-requests", statusFilter],
+    ["extension-requests", statusFilter, selectedLocation],
     () =>
       extensionRequestsAPI.getAll({
         status: statusFilter === "all" ? undefined : statusFilter,
         include_resolved: statusFilter === "all",
+        location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
         limit: 200,
       }),
     { refreshInterval: 30000 } // Refresh every 30 seconds
@@ -411,6 +412,7 @@ export function ExtensionRequestsList({
           onApproved={handleRequestResolved}
           onRejected={handleRequestResolved}
           adminTutorId={adminTutorId}
+          showLocationPrefix={selectedLocation === "All Locations"}
         />
       )}
 

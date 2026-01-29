@@ -15,6 +15,7 @@ export default function AdminExtensionsPage() {
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
         <div className="mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
@@ -68,6 +69,7 @@ export default function AdminExtensionsPage() {
             Unable to identify current user
           </div>
         )}
+        </div>
       </PageTransition>
     </DeskSurface>
   );

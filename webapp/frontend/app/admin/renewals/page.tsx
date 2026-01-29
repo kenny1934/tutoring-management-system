@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditCard, ChevronRight, ChevronDown, Eye, Send, ArrowRight, X } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditCard, ChevronRight, ChevronDown, Eye, Send, ArrowRight, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -39,13 +39,23 @@ interface RenewalCardProps {
   expandedFeePanel: number | null;
   onToggleFeePanel: (enrollmentId: number | null) => void;
   onRefresh: () => void;
+  // Batch selection
+  isChecked: boolean;
+  onToggleCheck: (enrollmentId: number) => void;
+  showCheckbox: boolean;
 }
 
-function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh }: RenewalCardProps) {
+function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
-  const isUrgent = renewal.days_until_expiry <= 3 && renewal.days_until_expiry >= 0;
+  const isThisWeek = renewal.days_until_expiry >= 0 && renewal.days_until_expiry <= 7;
   const isVeryOld = renewal.days_until_expiry < -30;
+  const isNextWeek = renewal.days_until_expiry > 7;
   const isFeePanelOpen = expandedFeePanel === renewal.id;
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleCheck(renewal.id);
+  };
 
   // Show renewal info when renewal exists and isn't paid yet
   const showRenewalInfo = renewal.renewal_enrollment_id &&
@@ -72,14 +82,16 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
     <div
       data-renewal-index={index}
       className={cn(
-        "rounded-lg border transition-all overflow-hidden",
+        "rounded-lg border transition-all overflow-hidden scroll-my-24",
         "bg-white dark:bg-gray-900",
         isVeryOld
-          ? "border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700"
+          ? "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
           : isExpired
           ? "border-red-300 dark:border-red-800 hover:border-red-400 dark:hover:border-red-700"
-          : isUrgent
+          : isThisWeek
           ? "border-orange-300 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-700"
+          : isNextWeek
+          ? "border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700"
           : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600",
         // Selection ring
         isSelected && "ring-2 ring-primary ring-offset-2",
@@ -92,6 +104,21 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
         className="p-4 cursor-pointer group"
       >
         <div className="flex items-start justify-between gap-4">
+          {/* Checkbox for batch selection - visible on hover or when in batch mode */}
+          <div
+            onClick={handleCheckboxClick}
+            className={cn(
+              "flex items-center justify-center pt-0.5 transition-opacity",
+              showCheckbox ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={() => {}}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+            />
+          </div>
           <div className="flex-1 min-w-0">
             {/* Student info */}
             <div className="flex items-center gap-2 mb-1">
@@ -125,7 +152,7 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
               ) : (
                 <div className={cn(
                   "flex items-center gap-1",
-                  isUrgent
+                  isThisWeek
                     ? "text-orange-600 dark:text-orange-400"
                     : "text-foreground/60"
                 )}>
@@ -193,10 +220,14 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
                   className={cn(
                     "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
                     "hover:scale-[1.02] active:scale-[0.98]",
-                    isExpired
+                    isVeryOld
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                      : isExpired
                       ? "bg-red-500 hover:bg-red-600 text-white"
-                      : isUrgent
+                      : isThisWeek
                       ? "bg-orange-500 hover:bg-orange-600 text-white"
+                      : isNextWeek
+                      ? "bg-purple-500 hover:bg-purple-600 text-white"
                       : "bg-primary hover:bg-primary/90 text-primary-foreground"
                   )}
                   title="Create renewal"
@@ -221,17 +252,27 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
               </button>
             </div>
 
-            {/* Status indicator - hidden on hover */}
+            {/* Status indicator - hidden on hover, matches primary action button */}
             <div className={cn(
               "flex items-center justify-center h-8 w-8 rounded-full transition-all",
               "group-hover:opacity-0 group-hover:w-0 group-hover:h-0 overflow-hidden",
-              isExpired
+              showRenewalInfo
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                : isVeryOld
+                ? "bg-gray-100 dark:bg-gray-800 text-foreground/40"
+                : isExpired
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                : isUrgent
+                : isThisWeek
                 ? "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+                : isNextWeek
+                ? "bg-purple-100 dark:bg-purple-900/30 text-purple-500 dark:text-purple-400"
                 : "bg-gray-100 dark:bg-gray-800 text-foreground/40"
             )}>
-              <RefreshCcw className="h-4 w-4" />
+              {showRenewalInfo ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
             </div>
           </div>
         </div>
@@ -294,6 +335,10 @@ export default function AdminRenewalsPage() {
 
   // Keyboard navigation state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Batch selection state
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   // Fetch renewals list
   const { data: renewals, isLoading: renewalsLoading } = useSWR(
@@ -389,7 +434,8 @@ export default function AdminRenewalsPage() {
           }
           break;
         case 'r':
-          if (selectedIndex !== null && navigableItems[selectedIndex]) {
+          if (selectedIndex !== null && navigableItems[selectedIndex] &&
+              navigableItems[selectedIndex].renewal_status === 'not_renewed') {
             handleQuickRenew(navigableItems[selectedIndex].id);
           }
           break;
@@ -399,9 +445,16 @@ export default function AdminRenewalsPage() {
             setExpandedFeePanel(prev => prev === id ? null : id);
           }
           break;
+        case ' ':  // Spacebar to toggle checkbox
+          e.preventDefault();
+          if (selectedIndex !== null && navigableItems[selectedIndex]) {
+            toggleCheck(navigableItems[selectedIndex].id);
+          }
+          break;
         case 'Escape':
           setExpandedFeePanel(null);
           setSelectedIndex(null);
+          clearChecked();
           break;
       }
     };
@@ -416,11 +469,33 @@ export default function AdminRenewalsPage() {
     setExpandedFeePanel(null);
   }, [activeTab, collapsedGroups]);
 
-  // Scroll selected card into view
+  // Scroll to keep selected card visible (manual calculation like sessions page)
   useEffect(() => {
-    if (selectedIndex !== null) {
-      const element = document.querySelector(`[data-renewal-index="${selectedIndex}"]`);
-      element?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (selectedIndex === null) return;
+
+    const element = document.querySelector(`[data-renewal-index="${selectedIndex}"]`);
+    const scrollContainer = document.querySelector('main');
+    if (!element || !scrollContainer) return;
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const cardRect = element.getBoundingClientRect();
+
+    // Card position relative to container's scroll position
+    const cardTopInContainer = cardRect.top - containerRect.top + scrollContainer.scrollTop;
+
+    // Target: position card 1/3 from top (accounts for header better than centering)
+    const targetScroll = cardTopInContainer - (containerRect.height / 3);
+
+    // Only scroll if needed (card is near edges)
+    const currentCardTop = cardRect.top - containerRect.top;
+    const headerHeight = 280;
+    const bottomPadding = 120;
+
+    const isNearTop = currentCardTop < headerHeight;
+    const isNearBottom = cardRect.bottom > containerRect.bottom - bottomPadding;
+
+    if (isNearTop || isNearBottom) {
+      scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
     }
   }, [selectedIndex]);
 
@@ -511,9 +586,97 @@ export default function AdminRenewalsPage() {
     handleCloseAll();
   };
 
+  // Batch selection handlers
+  const toggleCheck = (id: number) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearChecked = () => {
+    setCheckedIds(new Set());
+  };
+
+  // Section checkbox helpers
+  const isAllSectionChecked = (items: RenewalListItem[]) =>
+    items.length > 0 && items.every(r => checkedIds.has(r.id));
+
+  const isSomeSectionChecked = (items: RenewalListItem[]) =>
+    items.some(r => checkedIds.has(r.id));
+
+  const toggleSectionCheck = (items: RenewalListItem[], e: React.MouseEvent) => {
+    e.stopPropagation();
+    const allChecked = isAllSectionChecked(items);
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (allChecked) {
+        items.forEach(r => next.delete(r.id));
+      } else {
+        items.forEach(r => next.add(r.id));
+      }
+      return next;
+    });
+  };
+
+  // Clear selection when switching tabs
+  useEffect(() => {
+    setCheckedIds(new Set());
+  }, [activeTab]);
+
+  // Batch action handlers
+  const handleBatchMarkPaid = async () => {
+    if (checkedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      // For "awaiting_payment" tab, we need to mark the RENEWAL enrollments as paid
+      // The checkedIds contain the original enrollment IDs, so we need to find the renewal IDs
+      const renewalIds = Array.from(checkedIds)
+        .map(id => activeList.find(r => r.id === id)?.renewal_enrollment_id)
+        .filter((id): id is number => id !== null && id !== undefined);
+
+      if (renewalIds.length > 0) {
+        await enrollmentsAPI.batchMarkPaid(renewalIds);
+        handleRefresh();
+        clearChecked();
+      }
+    } catch (error) {
+      console.error('Batch mark paid failed:', error);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleBatchMarkSent = async () => {
+    if (checkedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      // For "to_send" tab, we need to mark the RENEWAL enrollments' fee_message_sent
+      const renewalIds = Array.from(checkedIds)
+        .map(id => activeList.find(r => r.id === id)?.renewal_enrollment_id)
+        .filter((id): id is number => id !== null && id !== undefined);
+
+      if (renewalIds.length > 0) {
+        await enrollmentsAPI.batchMarkSent(renewalIds);
+        handleRefresh();
+        clearChecked();
+      }
+    } catch (error) {
+      console.error('Batch mark sent failed:', error);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  // Determine if we should show checkboxes (when any item is checked)
+  const showCheckboxes = checkedIds.size > 0;
+
   return (
     <DeskSurface>
       <PageTransition className="min-h-full p-4 sm:p-6">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -655,8 +818,16 @@ export default function AdminRenewalsPage() {
                     <div>
                       <button
                         onClick={() => toggleGroup('expired')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
+                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                       >
+                        <input
+                          type="checkbox"
+                          checked={isAllSectionChecked(recentExpiredItems)}
+                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(recentExpiredItems) && !isAllSectionChecked(recentExpiredItems); }}
+                          onChange={() => {}}
+                          onClick={(e) => toggleSectionCheck(recentExpiredItems, e)}
+                          className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500 cursor-pointer"
+                        />
                         {collapsedGroups.has('expired') ? (
                           <ChevronRight className="h-4 w-4 text-red-500" />
                         ) : (
@@ -682,6 +853,9 @@ export default function AdminRenewalsPage() {
                                 expandedFeePanel={expandedFeePanel}
                                 onToggleFeePanel={setExpandedFeePanel}
                                 onRefresh={handleRefresh}
+                                isChecked={checkedIds.has(renewal.id)}
+                                onToggleCheck={toggleCheck}
+                                showCheckbox={showCheckboxes}
                               />
                             );
                           })}
@@ -697,6 +871,14 @@ export default function AdminRenewalsPage() {
                         onClick={() => toggleGroup('this_week')}
                         className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-colors"
                       >
+                        <input
+                          type="checkbox"
+                          checked={isAllSectionChecked(thisWeekItems)}
+                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(thisWeekItems) && !isAllSectionChecked(thisWeekItems); }}
+                          onChange={() => {}}
+                          onClick={(e) => toggleSectionCheck(thisWeekItems, e)}
+                          className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
+                        />
                         {collapsedGroups.has('this_week') ? (
                           <ChevronRight className="h-4 w-4 text-orange-500" />
                         ) : (
@@ -722,6 +904,9 @@ export default function AdminRenewalsPage() {
                                 expandedFeePanel={expandedFeePanel}
                                 onToggleFeePanel={setExpandedFeePanel}
                                 onRefresh={handleRefresh}
+                                isChecked={checkedIds.has(renewal.id)}
+                                onToggleCheck={toggleCheck}
+                                showCheckbox={showCheckboxes}
                               />
                             );
                           })}
@@ -730,19 +915,27 @@ export default function AdminRenewalsPage() {
                     </div>
                   )}
 
-                  {/* Next Week Section - Gray (collapsed by default) */}
+                  {/* Next Week Section - Purple (collapsed by default) */}
                   {nextWeekItems.length > 0 && (
                     <div>
                       <button
                         onClick={() => toggleGroup('next_week')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-lg transition-colors"
                       >
+                        <input
+                          type="checkbox"
+                          checked={isAllSectionChecked(nextWeekItems)}
+                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(nextWeekItems) && !isAllSectionChecked(nextWeekItems); }}
+                          onChange={() => {}}
+                          onClick={(e) => toggleSectionCheck(nextWeekItems, e)}
+                          className="h-4 w-4 rounded border-gray-300 text-purple-500 focus:ring-purple-500 cursor-pointer"
+                        />
                         {collapsedGroups.has('next_week') ? (
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
+                          <ChevronRight className="h-4 w-4 text-purple-400" />
                         ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
+                          <ChevronDown className="h-4 w-4 text-purple-400" />
                         )}
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">
+                        <span className="font-semibold text-purple-500 dark:text-purple-400">
                           Next Week ({nextWeekItems.length})
                         </span>
                       </button>
@@ -762,6 +955,9 @@ export default function AdminRenewalsPage() {
                                 expandedFeePanel={expandedFeePanel}
                                 onToggleFeePanel={setExpandedFeePanel}
                                 onRefresh={handleRefresh}
+                                isChecked={checkedIds.has(renewal.id)}
+                                onToggleCheck={toggleCheck}
+                                showCheckbox={showCheckboxes}
                               />
                             );
                           })}
@@ -770,19 +966,27 @@ export default function AdminRenewalsPage() {
                     </div>
                   )}
 
-                  {/* Older Than 30 Days Section - Purple (collapsed by default, likely orphaned) */}
+                  {/* Older Than 30 Days Section - Gray (collapsed by default, likely orphaned) */}
                   {olderExpiredItems.length > 0 && (
                     <div>
                       <button
                         onClick={() => toggleGroup('older_than_30_days')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-lg transition-colors"
+                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                       >
+                        <input
+                          type="checkbox"
+                          checked={isAllSectionChecked(olderExpiredItems)}
+                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(olderExpiredItems) && !isAllSectionChecked(olderExpiredItems); }}
+                          onChange={() => {}}
+                          onClick={(e) => toggleSectionCheck(olderExpiredItems, e)}
+                          className="h-4 w-4 rounded border-gray-300 text-gray-500 focus:ring-gray-500 cursor-pointer"
+                        />
                         {collapsedGroups.has('older_than_30_days') ? (
-                          <ChevronRight className="h-4 w-4 text-purple-400" />
+                          <ChevronRight className="h-4 w-4 text-gray-500" />
                         ) : (
-                          <ChevronDown className="h-4 w-4 text-purple-400" />
+                          <ChevronDown className="h-4 w-4 text-gray-500" />
                         )}
-                        <span className="font-semibold text-purple-500 dark:text-purple-400">
+                        <span className="font-semibold text-gray-600 dark:text-gray-400">
                           Older Than 30 Days ({olderExpiredItems.length})
                         </span>
                       </button>
@@ -802,6 +1006,9 @@ export default function AdminRenewalsPage() {
                                 expandedFeePanel={expandedFeePanel}
                                 onToggleFeePanel={setExpandedFeePanel}
                                 onRefresh={handleRefresh}
+                                isChecked={checkedIds.has(renewal.id)}
+                                onToggleCheck={toggleCheck}
+                                showCheckbox={showCheckboxes}
                               />
                             );
                           })}
@@ -828,7 +1035,63 @@ export default function AdminRenewalsPage() {
             </p>
           </div>
         )}
+        </div>
       </PageTransition>
+
+      {/* Batch Action Bar - Fixed at bottom when items selected */}
+      <AnimatePresence>
+        {checkedIds.size > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
+          >
+            <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
+              <span className="text-sm font-medium text-foreground">
+                {checkedIds.size} selected
+              </span>
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
+              {activeTab === 'to_send' && (
+                <button
+                  onClick={handleBatchMarkSent}
+                  disabled={batchLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {batchLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Mark Sent
+                </button>
+              )}
+              {activeTab === 'awaiting_payment' && (
+                <button
+                  onClick={handleBatchMarkPaid}
+                  disabled={batchLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {batchLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  Mark Paid
+                </button>
+              )}
+              <button
+                onClick={clearChecked}
+                className="flex items-center gap-1 px-2 py-1.5 text-foreground/60 hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Unified modal container - morphs between centered detail and side-by-side */}
       <AnimatePresence mode="wait">

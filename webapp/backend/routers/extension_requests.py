@@ -312,6 +312,7 @@ async def get_extension_requests(
     tutor_id: Optional[int] = Query(None, description="Filter by requesting tutor"),
     status: Optional[str] = Query(None, description="Filter by status (Pending, Approved, Rejected)"),
     enrollment_id: Optional[int] = Query(None, description="Filter by enrollment"),
+    location: Optional[str] = Query(None, description="Filter by enrollment location"),
     include_resolved: bool = Query(False, description="Include non-pending requests"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -338,6 +339,9 @@ async def get_extension_requests(
 
     if enrollment_id:
         query = query.filter(ExtensionRequest.enrollment_id == enrollment_id)
+
+    if location:
+        query = query.join(ExtensionRequest.enrollment).filter(Enrollment.location == location)
 
     # Order by pending first, then by request date (oldest first for pending)
     query = query.order_by(
