@@ -151,6 +151,29 @@ export default function StudentsPage() {
   // SWR hook for data fetching
   const { data: students = [], error, isLoading: loading } = useStudents(filters);
 
+  // Categorize students by match type when searching
+  const categorizedStudents = useMemo(() => {
+    if (!searchTerm) return null;
+
+    const term = searchTerm.toLowerCase();
+    const byId: Student[] = [];
+    const byPhone: Student[] = [];
+    const byName: Student[] = [];
+
+    students.forEach((student) => {
+      // Priority: ID > Phone > Name
+      if (student.school_student_id?.toLowerCase().includes(term)) {
+        byId.push(student);
+      } else if (student.phone?.toLowerCase().includes(term)) {
+        byPhone.push(student);
+      } else {
+        byName.push(student);
+      }
+    });
+
+    return { byId, byPhone, byName };
+  }, [students, searchTerm]);
+
   // Note: Total count fetching removed for performance
   // The display now shows "X+ students" when on a paginated page
 
@@ -472,7 +495,95 @@ export default function StudentsPage() {
                     </div>
                   </StickyNote>
                 </div>
+              ) : categorizedStudents ? (
+                /* Sectioned results when searching */
+                <div className="space-y-4">
+                  {/* Matched by Student ID */}
+                  {categorizedStudents.byId.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                          Matched by Student ID ({categorizedStudents.byId.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {categorizedStudents.byId.map((student, index) => (
+                          <StudentCard
+                            key={student.id}
+                            student={student}
+                            index={index}
+                            isMobile={isMobile}
+                            isSelected={popoverStudent?.id === student.id}
+                            saveScrollPosition={saveScrollPosition}
+                            onClick={(e) => {
+                              setPopoverClickPosition({ x: e.clientX, y: e.clientY });
+                              setPopoverStudent(student);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Matched by Phone */}
+                  {categorizedStudents.byPhone.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                          Matched by Phone ({categorizedStudents.byPhone.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {categorizedStudents.byPhone.map((student, index) => (
+                          <StudentCard
+                            key={student.id}
+                            student={student}
+                            index={index}
+                            isMobile={isMobile}
+                            isSelected={popoverStudent?.id === student.id}
+                            saveScrollPosition={saveScrollPosition}
+                            onClick={(e) => {
+                              setPopoverClickPosition({ x: e.clientX, y: e.clientY });
+                              setPopoverStudent(student);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Matched by Name */}
+                  {categorizedStudents.byName.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <User className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">
+                          Matched by Name ({categorizedStudents.byName.length})
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {categorizedStudents.byName.map((student, index) => (
+                          <StudentCard
+                            key={student.id}
+                            student={student}
+                            index={index}
+                            isMobile={isMobile}
+                            isSelected={popoverStudent?.id === student.id}
+                            saveScrollPosition={saveScrollPosition}
+                            onClick={(e) => {
+                              setPopoverClickPosition({ x: e.clientX, y: e.clientY });
+                              setPopoverStudent(student);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
+                /* Flat list when not searching */
                 <div className="space-y-2">
                   {students.map((student, index) => (
                     <StudentCard
