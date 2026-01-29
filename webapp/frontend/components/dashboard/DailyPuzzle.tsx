@@ -21,7 +21,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   // Loading state
   if (isLoading) {
     return (
-      <div className={cn("py-2 px-4", className)}>
+      <div className={cn("py-1.5 px-4", className)}>
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           <span>Loading puzzle...</span>
@@ -36,7 +36,7 @@ export function DailyPuzzle({ className }: DailyPuzzleProps) {
   }
 
   return (
-    <div className={cn("py-2 px-4 sm:px-6", className)}>
+    <div className={cn("py-1.5 px-4 sm:px-6", className)}>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <Lightbulb className="h-3.5 w-3.5 text-amber-500" />

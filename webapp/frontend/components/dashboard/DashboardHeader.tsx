@@ -106,7 +106,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
-      <div className="px-4 sm:px-6 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
+      <div className="px-4 sm:px-6 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
         <div className="flex items-center justify-between gap-3">
           {/* Welcome message */}
           <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -151,7 +151,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Stats Row with Bell */}
       <div className="flex items-center justify-between border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         {isStatsLoading && !stats ? (
-          <div className="px-4 sm:px-6 py-2.5">
+          <div className="px-4 sm:px-6 py-2">
             <div className="flex items-center gap-4 sm:gap-8">
               {/* Skeleton pills matching HeaderStats layout */}
               {[1, 2].map((i) => (
@@ -181,7 +181,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       <DailyPuzzle className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]" />
 
       {/* Bottom section: Quick Links */}
-      <div className="px-4 sm:px-6 py-4">
+      <div className="px-4 sm:px-6 py-3">
         {/* Quick Links */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {quickLinks.map((link) => {

@@ -101,13 +101,9 @@ function EventPopoverContent({
       <div className={cn("font-bold text-sm mb-1", colors.text)}>
         {event.title}
       </div>
-      {event.school && event.grade && (
-        <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-          {event.school} {event.grade}{event.academic_stream ? ` (${event.academic_stream})` : ''}
-          {' • '}
-          {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-        </div>
-      )}
+      <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+        {new Date(event.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+      </div>
       <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap border-t border-[#d4a574]/30 dark:border-[#8b6f47]/30 pt-2">
         <span className="font-medium text-gray-600 dark:text-gray-400">Syllabus:</span>
         <div className="mt-1">{event.description}</div>
@@ -190,11 +186,6 @@ function TestItemPopover({
                   <BookOpen className="h-3 w-3 text-gray-400 flex-shrink-0" />
                 )}
               </div>
-              {event.school && event.grade && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 ml-4 mt-0.5">
-                  {event.school} {event.grade}{event.academic_stream ? `(${event.academic_stream})` : ''}
-                </div>
-              )}
               {/* Revision stats */}
               {stats && stats.slots > 0 && (
                 <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400 ml-4 mt-1">
@@ -289,11 +280,6 @@ function TestItemPopover({
           </span>
         </div>
       </div>
-      {event.school && event.grade && (
-        <div className="text-gray-600 dark:text-gray-400 mt-0.5">
-          {event.school} {event.grade}{event.academic_stream ? `(${event.academic_stream})` : ''}
-        </div>
-      )}
       {/* Revision stats */}
       {stats && stats.slots > 0 && (
         <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
@@ -579,7 +565,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
 
   return (
     <div className={cn(
-      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[520px] card-hover",
+      "bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden flex flex-col max-h-[70vh] md:h-[clamp(420px,60vh,560px)] card-hover",
       !isMobile && "paper-texture",
       className
     )}>
@@ -664,7 +650,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Month label */}
-      <div className="flex-shrink-0 text-center py-2 font-semibold text-gray-800 dark:text-gray-200">
+      <div className="flex-shrink-0 text-center py-1 text-sm font-semibold text-gray-800 dark:text-gray-200">
         {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </div>
 
@@ -710,7 +696,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 title={holiday?.holiday_name}
                 className={cn(
-                  "relative h-8 rounded text-sm transition-colors",
+                  "relative h-7 rounded text-sm transition-colors",
                   isCurrentMonth
                     ? "text-gray-900 dark:text-gray-100"
                     : "text-gray-400 dark:text-gray-600",
