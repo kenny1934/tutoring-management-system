@@ -238,6 +238,8 @@ class RenewalListItem(BaseModel):
     student_name: str
     school_student_id: Optional[str] = None
     grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
     tutor_id: int = Field(..., gt=0)
     tutor_name: str
     assigned_day: str
