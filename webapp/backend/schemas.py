@@ -268,6 +268,10 @@ class EnrollmentDetailResponse(BaseModel):
     student_id: int
     student_name: str
     school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    home_location: Optional[str] = None
     tutor_id: int
     tutor_name: str
     assigned_day: str

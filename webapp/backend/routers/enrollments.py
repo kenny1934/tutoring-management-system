@@ -479,8 +479,8 @@ async def get_enrollments_needing_renewal(
 
     enrollments = query.all()
 
-    # Filter by effective_end_date and check for existing renewals
-    result = []
+    # First pass: calculate effective_end_date and filter candidates
+    candidates = []
     for enrollment in enrollments:
         effective_end = calculate_effective_end_date(enrollment)
         if not effective_end:
@@ -493,18 +493,64 @@ async def get_enrollments_needing_renewal(
             # Skip expired if not including them
             if days_until_expiry < 0 and not include_expired:
                 continue
+            candidates.append((enrollment, effective_end, days_until_expiry))
 
-            # Check if already renewed (has a renewal enrollment with renewed_from_enrollment_id = this)
-            existing_renewal = db.query(Enrollment.id).filter(
-                Enrollment.renewed_from_enrollment_id == enrollment.id,
-                Enrollment.payment_status != "Cancelled"
-            ).first()
+    if not candidates:
+        return []
 
-            if existing_renewal:
-                continue  # Already renewed, skip
+    # Get all candidate IDs for batch queries
+    candidate_ids = [e.id for e, _, _ in candidates]
 
-            # Also check for newer enrollment with same schedule (for legacy enrollments without renewed_from_enrollment_id)
-            newer_enrollment = db.query(Enrollment.id).filter(
+    # Batch query 1: Get all renewal IDs in one query (instead of N queries)
+    renewed_ids_query = db.query(Enrollment.renewed_from_enrollment_id).filter(
+        Enrollment.renewed_from_enrollment_id.in_(candidate_ids),
+        Enrollment.payment_status != "Cancelled"
+    ).distinct().all()
+    renewed_ids = {r[0] for r in renewed_ids_query}
+
+    # Batch query 2: Get all session counts grouped by enrollment (instead of N queries)
+    session_counts_query = db.query(
+        SessionLog.enrollment_id,
+        func.count(SessionLog.id)
+    ).filter(
+        SessionLog.enrollment_id.in_(candidate_ids),
+        SessionLog.session_date >= today,
+        SessionLog.session_status == 'Scheduled'
+    ).group_by(SessionLog.enrollment_id).all()
+    session_counts_map = dict(session_counts_query)
+
+    # Batch query 3: Find newer enrollments with same schedule (for legacy enrollments)
+    # Build list of (student_id, day, time, location, effective_end) tuples to check
+    newer_enrollment_subquery = (
+        db.query(
+            Enrollment.student_id,
+            Enrollment.assigned_day,
+            Enrollment.assigned_time,
+            Enrollment.location
+        )
+        .filter(
+            Enrollment.payment_status != "Cancelled",
+            Enrollment.first_lesson_date > today  # Simplified check
+        )
+        .distinct()
+        .all()
+    )
+    # Create a set for O(1) lookup
+    newer_schedule_set = {(r.student_id, r.assigned_day, r.assigned_time, r.location) for r in newer_enrollment_subquery}
+
+    # Build result using batch data
+    result = []
+    for enrollment, effective_end, days_until_expiry in candidates:
+        # Skip if already renewed
+        if enrollment.id in renewed_ids:
+            continue
+
+        # Skip if newer enrollment with same schedule exists (for legacy data)
+        schedule_key = (enrollment.student_id, enrollment.assigned_day, enrollment.assigned_time, enrollment.location)
+        # More precise check: query only if potentially matches
+        if schedule_key in newer_schedule_set:
+            # Do a targeted check for this specific enrollment
+            newer_exists = db.query(Enrollment.id).filter(
                 Enrollment.student_id == enrollment.student_id,
                 Enrollment.assigned_day == enrollment.assigned_day,
                 Enrollment.assigned_time == enrollment.assigned_time,
@@ -513,35 +559,30 @@ async def get_enrollments_needing_renewal(
                 Enrollment.payment_status != "Cancelled",
                 Enrollment.id != enrollment.id
             ).first()
+            if newer_exists:
+                continue
 
-            if newer_enrollment:
-                continue  # Has newer enrollment with same schedule, skip
+        # Get session count from batch data
+        sessions_remaining = session_counts_map.get(enrollment.id, 0)
 
-            # Count sessions remaining (scheduled sessions with date >= today)
-            sessions_remaining = db.query(func.count(SessionLog.id)).filter(
-                SessionLog.enrollment_id == enrollment.id,
-                SessionLog.session_date >= today,
-                SessionLog.session_status == 'Scheduled'
-            ).scalar() or 0
-
-            result.append(RenewalListItem(
-                id=enrollment.id,
-                student_id=enrollment.student_id,
-                student_name=enrollment.student.student_name if enrollment.student else "",
-                school_student_id=enrollment.student.school_student_id if enrollment.student else None,
-                grade=enrollment.student.grade if enrollment.student else None,
-                tutor_id=enrollment.tutor_id,
-                tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else "",
-                assigned_day=enrollment.assigned_day,
-                assigned_time=enrollment.assigned_time,
-                location=enrollment.location,
-                first_lesson_date=enrollment.first_lesson_date,
-                lessons_paid=enrollment.lessons_paid or 0,
-                effective_end_date=effective_end,
-                days_until_expiry=days_until_expiry,
-                sessions_remaining=sessions_remaining,
-                payment_status=enrollment.payment_status
-            ))
+        result.append(RenewalListItem(
+            id=enrollment.id,
+            student_id=enrollment.student_id,
+            student_name=enrollment.student.student_name if enrollment.student else "",
+            school_student_id=enrollment.student.school_student_id if enrollment.student else None,
+            grade=enrollment.student.grade if enrollment.student else None,
+            tutor_id=enrollment.tutor_id,
+            tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else "",
+            assigned_day=enrollment.assigned_day,
+            assigned_time=enrollment.assigned_time,
+            location=enrollment.location,
+            first_lesson_date=enrollment.first_lesson_date,
+            lessons_paid=enrollment.lessons_paid or 0,
+            effective_end_date=effective_end,
+            days_until_expiry=days_until_expiry,
+            sessions_remaining=sessions_remaining,
+            payment_status=enrollment.payment_status
+        ))
 
     # Sort by days_until_expiry (most urgent first - negative values first for expired)
     result.sort(key=lambda x: x.days_until_expiry)
@@ -1043,40 +1084,37 @@ async def get_enrollment_detail_for_modal(
     today = date.today()
     days_until_expiry = (effective_end - today).days if effective_end else 0
 
-    # Get all sessions for this enrollment
-    all_sessions = db.query(SessionLog).options(
-        joinedload(SessionLog.tutor)
-    ).filter(
-        SessionLog.enrollment_id == enrollment_id
-    ).all()
-
-    # Count sessions with proper logic:
-    # - Exclude: Cancelled, *Make-up Booked (has substitute Make-up Class)
-    # - Finished: Attended, Attended (Make-up), Attended (Trial), No Show
-    sessions_total = 0
-    sessions_finished = 0
+    # Optimized: Use aggregation query for session counts instead of fetching all
+    # Exclude: Cancelled, *Make-up Booked (has substitute Make-up Class)
     finished_statuses = ['Attended', 'Attended (Make-up)', 'Attended (Trial)', 'No Show']
+    excluded_statuses = ['Cancelled', 'Rescheduled - Make-up Booked', 'Sick Leave - Make-up Booked',
+                         'Weather Cancelled - Make-up Booked']
 
-    for session in all_sessions:
-        status = session.session_status or ""
-        # Exclude Cancelled
-        if status == 'Cancelled':
-            continue
-        # Exclude *Make-up Booked (has substitute session)
-        if 'Make-up Booked' in status:
-            continue
+    # Single aggregation query for both counts
+    from sqlalchemy import case
+    session_stats = db.query(
+        func.count(SessionLog.id).label('total'),
+        func.sum(case((SessionLog.session_status.in_(finished_statuses), 1), else_=0)).label('finished')
+    ).filter(
+        SessionLog.enrollment_id == enrollment_id,
+        SessionLog.session_status.notin_(excluded_statuses)
+    ).first()
 
-        sessions_total += 1
-        if status in finished_statuses:
-            sessions_finished += 1
+    sessions_total = session_stats.total or 0
+    sessions_finished = session_stats.finished or 0
 
-    # Get pending makeups (sessions with pending make-up statuses)
+    # Get pending makeups (only fetch pending, not all sessions)
     pending_makeup_statuses = [
         'Rescheduled - Pending Make-up',
         'Sick Leave - Pending Make-up',
         'Weather Cancelled - Pending Make-up'
     ]
-    pending_sessions = [s for s in all_sessions if s.session_status in pending_makeup_statuses]
+    pending_sessions = db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.enrollment_id == enrollment_id,
+        SessionLog.session_status.in_(pending_makeup_statuses)
+    ).all()
 
     # Get extension requests for these sessions
     pending_session_ids = [s.id for s in pending_sessions]
@@ -1105,6 +1143,10 @@ async def get_enrollment_detail_for_modal(
         student_id=enrollment.student_id,
         student_name=enrollment.student.student_name if enrollment.student else "",
         school_student_id=enrollment.student.school_student_id if enrollment.student else None,
+        grade=enrollment.student.grade if enrollment.student else None,
+        lang_stream=enrollment.student.lang_stream if enrollment.student else None,
+        school=enrollment.student.school if enrollment.student else None,
+        home_location=enrollment.student.home_location if enrollment.student else None,
         tutor_id=enrollment.tutor_id,
         tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else "",
         assigned_day=enrollment.assigned_day or "",

@@ -8,6 +8,7 @@ import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api
 import Link from "next/link";
 import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Enrollment, Session } from "@/types";
@@ -164,14 +165,18 @@ export function EnrollmentDetailModal({
               </div>
               <div className="min-w-0">
                 <div className="text-xs text-gray-600 dark:text-gray-400">Student</div>
-                <div className={cn("font-medium text-gray-900 dark:text-gray-100 truncate", compact && "text-sm")}>
-                  {detail.student_name}
-                  {detail.school_student_id && (
-                    <span className="ml-2 text-xs font-mono text-gray-500 dark:text-gray-400">
-                      {detail.school_student_id}
-                    </span>
-                  )}
-                </div>
+                <StudentInfoBadges
+                  student={{
+                    student_id: detail.student_id,
+                    student_name: detail.student_name,
+                    school_student_id: detail.school_student_id,
+                    grade: detail.grade,
+                    lang_stream: detail.lang_stream,
+                    school: detail.school,
+                    home_location: detail.home_location,
+                  }}
+                  showLocationPrefix={true}
+                />
               </div>
             </div>
 
