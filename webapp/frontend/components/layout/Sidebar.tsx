@@ -524,7 +524,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             </button>
 
             {/* User info header */}
-            <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5">
+            <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5 pr-8">
               {user?.picture ? (
                 <img
                   src={user.picture}
