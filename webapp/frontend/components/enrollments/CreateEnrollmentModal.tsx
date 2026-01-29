@@ -5,7 +5,6 @@ import { Modal } from "@/components/ui/modal";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import {
-  User,
   Calendar,
   Clock,
   MapPin,
@@ -28,6 +27,8 @@ import {
 import { useTutors } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES } from "@/lib/constants";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Student } from "@/types";
 
 const ENROLLMENT_TYPES = ["Regular", "Trial", "One-Time"] as const;
@@ -51,28 +52,36 @@ interface StudentSearchProps {
   value: Student | null;
   onChange: (student: Student | null) => void;
   disabled?: boolean;
+  location?: string;
 }
 
-function StudentSearch({ value, onChange, disabled }: StudentSearchProps) {
+function StudentSearch({ value, onChange, disabled, location }: StudentSearchProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: students = [], isLoading } = useSWR(
-    search.length >= 2 ? ["students-search", search] : null,
-    () => studentsAPI.getAll({ search, limit: 10 })
+    search.length >= 2 ? ["students-search", search, location] : null,
+    () => studentsAPI.getAll({ search, location, limit: 10 })
   );
 
   return (
     <div className="relative">
       {value ? (
         <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-          <User className="h-4 w-4 text-foreground/50" />
-          <span className="flex-1">
-            <span className="font-medium">{value.student_name}</span>
-            {value.school_student_id && (
-              <span className="text-foreground/50 ml-2">({value.school_student_id})</span>
-            )}
-          </span>
+          <div className="flex-1">
+            <StudentInfoBadges
+              student={{
+                student_id: value.id,
+                student_name: value.student_name,
+                school_student_id: value.school_student_id,
+                grade: value.grade,
+                lang_stream: value.lang_stream,
+                school: value.school,
+                home_location: value.home_location,
+              }}
+              showLocationPrefix={true}
+            />
+          </div>
           {!disabled && (
             <button
               type="button"
@@ -95,7 +104,7 @@ function StudentSearch({ value, onChange, disabled }: StudentSearchProps) {
             }}
             onFocus={() => search.length >= 2 && setIsOpen(true)}
             onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-            placeholder="Search student by name or ID..."
+            placeholder={location ? `Search ${location} students...` : "Search student by name or ID..."}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             disabled={disabled}
           />
@@ -118,18 +127,20 @@ function StudentSearch({ value, onChange, disabled }: StudentSearchProps) {
                       setSearch("");
                       setIsOpen(false);
                     }}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    <User className="h-4 w-4 text-foreground/40" />
-                    <span className="font-medium">{student.student_name}</span>
-                    {student.school_student_id && (
-                      <span className="text-foreground/50">({student.school_student_id})</span>
-                    )}
-                    {student.grade && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 ml-auto">
-                        {student.grade}
-                      </span>
-                    )}
+                    <StudentInfoBadges
+                      student={{
+                        student_id: student.id,
+                        student_name: student.student_name,
+                        school_student_id: student.school_student_id,
+                        grade: student.grade,
+                        lang_stream: student.lang_stream,
+                        school: student.school,
+                        home_location: student.home_location,
+                      }}
+                      showLocationPrefix={true}
+                    />
                   </button>
                 ))
               )}
@@ -250,17 +261,27 @@ export function CreateEnrollmentModal({
     }
   }, [renewalData, isOpen]);
 
-  // Auto-select first tutor from location (only if not renewing)
+  // Auto-select first tutor from location (only if not renewing and no tutor selected)
   useEffect(() => {
     if (!renewFromId && !tutorId && tutors.length > 0 && location && isOpen) {
-      const locationTutors = tutors.filter((t) => t.default_location === location);
-      if (locationTutors.length > 0) {
-        setTutorId(locationTutors[0].id);
-      } else if (tutors.length > 0) {
-        setTutorId(tutors[0].id);
+      const newLocationTutors = tutors.filter((t) => t.default_location === location);
+      if (newLocationTutors.length > 0) {
+        setTutorId(newLocationTutors[0].id);
       }
     }
   }, [renewFromId, tutorId, tutors, location, isOpen]);
+
+  // Reset tutor when location changes if current tutor is not from new location
+  useEffect(() => {
+    if (tutorId && tutors.length > 0 && location) {
+      const selectedTutor = tutors.find((t) => t.id === tutorId);
+      if (selectedTutor && selectedTutor.default_location !== location) {
+        // Current tutor is from different location, reset to first tutor from new location
+        const newLocationTutors = tutors.filter((t) => t.default_location === location);
+        setTutorId(newLocationTutors.length > 0 ? newLocationTutors[0].id : null);
+      }
+    }
+  }, [location, tutors]);
 
   // Build enrollment data for preview/submit
   const enrollmentData: EnrollmentCreate | null = useMemo(() => {
@@ -319,7 +340,9 @@ export function CreateEnrollmentModal({
     }
   };
 
-  const locationTutors = tutors.filter((t) => t.default_location === location);
+  const locationTutors = tutors
+    .filter((t) => t.default_location === location)
+    .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
 
@@ -391,7 +414,7 @@ export function CreateEnrollmentModal({
           {/* Student */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-foreground mb-2">Student</label>
-            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId} />
+            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId} location={location} />
           </div>
 
           {/* Tutor */}
@@ -404,20 +427,9 @@ export function CreateEnrollmentModal({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
               >
                 <option value="">Select tutor...</option>
-                {locationTutors.length > 0 && (
-                  <optgroup label={`${location} Tutors`}>
-                    {locationTutors.map((t) => (
-                      <option key={t.id} value={t.id}>{t.tutor_name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {locationTutors.length < tutors.length && (
-                  <optgroup label="Other Tutors">
-                    {tutors.filter((t) => t.default_location !== location).map((t) => (
-                      <option key={t.id} value={t.id}>{t.tutor_name}</option>
-                    ))}
-                  </optgroup>
-                )}
+                {locationTutors.map((t) => (
+                  <option key={t.id} value={t.id}>{t.tutor_name}</option>
+                ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
             </div>
