@@ -192,6 +192,14 @@ class StudentConflict(BaseModel):
     enrollment_id: int
 
 
+class PotentialRenewalLink(BaseModel):
+    """A potential previous enrollment that could be linked as renewal source"""
+    id: int
+    effective_end_date: date
+    lessons_paid: int
+    tutor_name: str
+
+
 class EnrollmentPreviewResponse(BaseModel):
     """Response from enrollment preview endpoint"""
     enrollment_data: EnrollmentCreate
@@ -200,6 +208,7 @@ class EnrollmentPreviewResponse(BaseModel):
     conflicts: List[StudentConflict] = Field(default_factory=list, description="Student conflicts with existing sessions")
     warnings: List[str] = Field(default_factory=list, description="Holiday shifts and other warnings")
     skipped_holidays: List[dict] = Field(default_factory=list, description="List of holidays that were skipped")
+    potential_renewals: List[PotentialRenewalLink] = Field(default_factory=list, description="Potential previous enrollments to link as renewal")
 
 
 class RenewalDataResponse(BaseModel):
@@ -240,6 +249,13 @@ class RenewalListItem(BaseModel):
     days_until_expiry: int = Field(..., description="Negative = expired, positive = days remaining")
     sessions_remaining: int = Field(default=0, ge=0, description="Number of sessions not yet completed")
     payment_status: str
+    # Renewal status tracking
+    renewal_status: str = Field(default="not_renewed", description="not_renewed, pending_message, message_sent, paid")
+    renewal_enrollment_id: Optional[int] = Field(default=None, description="ID of the renewal enrollment if exists")
+    # Renewal enrollment details (populated when renewal_enrollment_id exists)
+    renewal_first_lesson_date: Optional[date] = Field(default=None, description="First lesson date of the renewal enrollment")
+    renewal_lessons_paid: Optional[int] = Field(default=None, description="Lessons paid for the renewal enrollment")
+    renewal_payment_status: Optional[str] = Field(default=None, description="Payment status of the renewal enrollment")
 
     model_config = ConfigDict(from_attributes=True)
 

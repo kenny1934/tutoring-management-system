@@ -14,6 +14,7 @@ import {
   Search,
   X,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
@@ -191,6 +192,9 @@ export function CreateEnrollmentModal({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  // Renewal link state (for manual selection when not using Quick Renew)
+  const [selectedRenewalLinkId, setSelectedRenewalLinkId] = useState<number | null>(null);
+
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -237,6 +241,7 @@ export function CreateEnrollmentModal({
       setCustomTimeEnd("");
       setPreview(null);
       setPreviewError(null);
+      setSelectedRenewalLinkId(null);
     }
   }, [isOpen, selectedLocation]);
 
@@ -283,6 +288,9 @@ export function CreateEnrollmentModal({
     }
   }, [location, tutors]);
 
+  // Effective renewal link: prop takes priority, then manual selection
+  const effectiveRenewalLinkId = renewFromId || selectedRenewalLinkId || undefined;
+
   // Build enrollment data for preview/submit
   const enrollmentData: EnrollmentCreate | null = useMemo(() => {
     if (!student || !tutorId || !firstLessonDate) return null;
@@ -296,9 +304,9 @@ export function CreateEnrollmentModal({
       first_lesson_date: firstLessonDate,
       lessons_paid: lessonsPaid,
       enrollment_type: enrollmentType,
-      renewed_from_enrollment_id: renewFromId || undefined,
+      renewed_from_enrollment_id: effectiveRenewalLinkId,
     };
-  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, renewFromId, useCustomTime, isCustomTimeValid]);
+  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, useCustomTime, isCustomTimeValid]);
 
   // Preview sessions
   const handlePreview = async () => {
@@ -634,6 +642,31 @@ export function CreateEnrollmentModal({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Renewal Link Selector (only when not using Quick Renew and potential links found) */}
+          {!renewFromId && preview.potential_renewals && preview.potential_renewals.length > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
+                <RefreshCw className="h-4 w-4" />
+                <span className="font-medium text-sm">Link as Renewal</span>
+              </div>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
+                Found {preview.potential_renewals.length} existing enrollment(s) for this student with the same schedule.
+              </p>
+              <select
+                value={selectedRenewalLinkId || ""}
+                onChange={(e) => setSelectedRenewalLinkId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full px-3 py-2 text-sm border border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/30"
+              >
+                <option value="">None (create as new enrollment)</option>
+                {preview.potential_renewals.map((renewal) => (
+                  <option key={renewal.id} value={renewal.id}>
+                    {renewal.tutor_name} • {renewal.lessons_paid} lessons • ended {formatShortDate(renewal.effective_end_date)}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

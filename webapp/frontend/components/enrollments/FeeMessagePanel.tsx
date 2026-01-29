@@ -9,9 +9,10 @@ import { useToast } from "@/contexts/ToastContext";
 interface FeeMessagePanelProps {
   enrollment: RenewalListItem;
   onClose: () => void;
+  onMarkSent?: () => void;
 }
 
-export function FeeMessagePanel({ enrollment, onClose }: FeeMessagePanelProps) {
+export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessagePanelProps) {
   const { showToast } = useToast();
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [isEditable, setIsEditable] = useState(false);
@@ -20,6 +21,7 @@ export function FeeMessagePanel({ enrollment, onClose }: FeeMessagePanelProps) {
   const [loading, setLoading] = useState(true);
   const [lessonsPaid, setLessonsPaid] = useState(6);
   const [copied, setCopied] = useState(false);
+  const [markingSent, setMarkingSent] = useState(false);
 
   // Fetch fee message when enrollment or language changes
   useEffect(() => {
@@ -64,6 +66,27 @@ export function FeeMessagePanel({ enrollment, onClose }: FeeMessagePanelProps) {
     setMessage(originalMessage);
     setIsEditable(false);
   };
+
+  const handleMarkSent = async () => {
+    if (!enrollment.renewal_enrollment_id) return;
+
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollment.renewal_enrollment_id, {
+        fee_message_sent: true,
+      });
+      showToast("Marked as sent!");
+      onMarkSent?.();
+    } catch (err) {
+      console.error("Failed to mark as sent:", err);
+      showToast("Failed to mark as sent");
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  const showMarkSentButton = enrollment.renewal_enrollment_id &&
+    enrollment.renewal_status === 'pending_message';
 
   return (
     <div
@@ -163,29 +186,45 @@ export function FeeMessagePanel({ enrollment, onClose }: FeeMessagePanelProps) {
           )}
         </label>
 
-        <button
-          onClick={handleCopy}
-          disabled={loading}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-            "hover:scale-[1.02] active:scale-[0.98]",
-            copied
-              ? "bg-green-500 text-white"
-              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+        <div className="flex items-center gap-2">
+          {showMarkSentButton && (
+            <button
+              onClick={handleMarkSent}
+              disabled={markingSent}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+            >
+              {markingSent ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              Mark Sent
+            </button>
           )}
-        >
-          {copied ? (
-            <>
-              <Check className="h-4 w-4" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="h-4 w-4" />
-              Copy & Close
-            </>
-          )}
-        </button>
+          <button
+            onClick={handleCopy}
+            disabled={loading}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+              "hover:scale-[1.02] active:scale-[0.98]",
+              copied
+                ? "bg-green-500 text-white"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            )}
+          >
+            {copied ? (
+              <>
+                <Check className="h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="h-4 w-4" />
+                Copy & Close
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

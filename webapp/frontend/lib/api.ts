@@ -178,6 +178,13 @@ export interface StudentConflict {
   enrollment_id: number;
 }
 
+export interface PotentialRenewalLink {
+  id: number;
+  effective_end_date: string;
+  lessons_paid: number;
+  tutor_name: string;
+}
+
 export interface EnrollmentPreviewResponse {
   enrollment_data: EnrollmentCreate;
   sessions: SessionPreview[];
@@ -185,6 +192,7 @@ export interface EnrollmentPreviewResponse {
   conflicts: StudentConflict[];
   warnings: string[];
   skipped_holidays: Array<{ date: string; name: string }>;
+  potential_renewals: PotentialRenewalLink[];
 }
 
 export interface RenewalDataResponse {
@@ -223,6 +231,13 @@ export interface RenewalListItem {
   days_until_expiry: number;
   sessions_remaining: number;
   payment_status: string;
+  // Renewal status tracking
+  renewal_status: 'not_renewed' | 'pending_message' | 'message_sent' | 'paid';
+  renewal_enrollment_id?: number;
+  // Renewal enrollment details (populated when renewal_enrollment_id exists)
+  renewal_first_lesson_date?: string;
+  renewal_lessons_paid?: number;
+  renewal_payment_status?: string;
 }
 
 export interface RenewalCountsResponse {

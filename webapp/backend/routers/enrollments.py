@@ -14,7 +14,7 @@ from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
     RenewalDataResponse, RenewalListItem, RenewalCountsResponse,
-    EnrollmentDetailResponse, PendingMakeupSession
+    EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink
 )
 from auth.dependencies import require_admin, get_current_user
 
@@ -223,13 +223,44 @@ async def preview_enrollment(
     if conflicts:
         warnings.append(f"{len(conflicts)} conflict(s) found - student has existing sessions at these times")
 
+    # Find potential previous enrollments to link as renewal (only if not already set)
+    potential_renewals = []
+    if not enrollment_data.renewed_from_enrollment_id:
+        # Look for existing enrollments with same student/tutor/schedule
+        existing_enrollments = (
+            db.query(Enrollment)
+            .options(joinedload(Enrollment.tutor))
+            .filter(
+                Enrollment.student_id == enrollment_data.student_id,
+                Enrollment.tutor_id == enrollment_data.tutor_id,
+                Enrollment.assigned_day == enrollment_data.assigned_day,
+                Enrollment.assigned_time == enrollment_data.assigned_time,
+                Enrollment.location == enrollment_data.location,
+                Enrollment.payment_status != "Cancelled"
+            )
+            .order_by(Enrollment.first_lesson_date.desc())
+            .limit(5)
+            .all()
+        )
+
+        for enr in existing_enrollments:
+            eff_end = calculate_effective_end_date(enr)
+            if eff_end:
+                potential_renewals.append(PotentialRenewalLink(
+                    id=enr.id,
+                    effective_end_date=eff_end,
+                    lessons_paid=enr.lessons_paid or 0,
+                    tutor_name=enr.tutor.tutor_name if enr.tutor else ""
+                ))
+
     return EnrollmentPreviewResponse(
         enrollment_data=enrollment_data,
         sessions=sessions,
         effective_end_date=effective_end_date,
         conflicts=conflicts,
         warnings=warnings,
-        skipped_holidays=skipped_holidays
+        skipped_holidays=skipped_holidays,
+        potential_renewals=potential_renewals
     )
 
 
@@ -501,12 +532,38 @@ async def get_enrollments_needing_renewal(
     # Get all candidate IDs for batch queries
     candidate_ids = [e.id for e, _, _ in candidates]
 
-    # Batch query 1: Get all renewal IDs in one query (instead of N queries)
-    renewed_ids_query = db.query(Enrollment.renewed_from_enrollment_id).filter(
+    # Batch query 1: Get renewal enrollment details (for status tracking)
+    renewal_enrollments_query = db.query(
+        Enrollment.renewed_from_enrollment_id,
+        Enrollment.id,
+        Enrollment.fee_message_sent,
+        Enrollment.payment_status,
+        Enrollment.first_lesson_date,
+        Enrollment.lessons_paid
+    ).filter(
         Enrollment.renewed_from_enrollment_id.in_(candidate_ids),
         Enrollment.payment_status != "Cancelled"
-    ).distinct().all()
-    renewed_ids = {r[0] for r in renewed_ids_query}
+    ).all()
+
+    # Build map: original_enrollment_id -> renewal info
+    renewal_info_map = {}
+    for original_id, renewal_id, fee_sent, pay_status, first_lesson, lessons in renewal_enrollments_query:
+        # Determine renewal status
+        if pay_status == "Paid":
+            status = "paid"
+        elif fee_sent:
+            status = "message_sent"
+        else:
+            status = "pending_message"
+        renewal_info_map[original_id] = {
+            "id": renewal_id,
+            "status": status,
+            "first_lesson_date": first_lesson,
+            "lessons_paid": lessons,
+            "payment_status": pay_status
+        }
+
+    renewed_ids = set(renewal_info_map.keys())
 
     # Batch query 2: Get all session counts grouped by enrollment (instead of N queries)
     session_counts_query = db.query(
@@ -519,8 +576,8 @@ async def get_enrollments_needing_renewal(
     ).group_by(SessionLog.enrollment_id).all()
     session_counts_map = dict(session_counts_query)
 
-    # Batch query 3: Find newer enrollments with same schedule (for legacy enrollments)
-    # Build list of (student_id, day, time, location, effective_end) tuples to check
+    # Batch query 3: Find enrollments with same schedule (for legacy enrollments without FK)
+    # Note: We don't filter by date here - the per-enrollment query will check first_lesson_date > effective_end
     newer_enrollment_subquery = (
         db.query(
             Enrollment.student_id,
@@ -529,8 +586,7 @@ async def get_enrollments_needing_renewal(
             Enrollment.location
         )
         .filter(
-            Enrollment.payment_status != "Cancelled",
-            Enrollment.first_lesson_date > today  # Simplified check
+            Enrollment.payment_status != "Cancelled"
         )
         .distinct()
         .all()
@@ -541,29 +597,55 @@ async def get_enrollments_needing_renewal(
     # Build result using batch data
     result = []
     for enrollment, effective_end, days_until_expiry in candidates:
-        # Skip if already renewed
-        if enrollment.id in renewed_ids:
-            continue
+        # Check for legacy renewals (no FK link) by schedule match
+        if enrollment.id not in renewal_info_map:
+            schedule_key = (enrollment.student_id, enrollment.assigned_day, enrollment.assigned_time, enrollment.location)
+            if schedule_key in newer_schedule_set:
+                # Query the newer enrollment to get its status
+                newer_enrollment = db.query(
+                    Enrollment.id,
+                    Enrollment.fee_message_sent,
+                    Enrollment.payment_status,
+                    Enrollment.first_lesson_date,
+                    Enrollment.lessons_paid
+                ).filter(
+                    Enrollment.student_id == enrollment.student_id,
+                    Enrollment.assigned_day == enrollment.assigned_day,
+                    Enrollment.assigned_time == enrollment.assigned_time,
+                    Enrollment.location == enrollment.location,
+                    Enrollment.first_lesson_date > effective_end,
+                    Enrollment.payment_status != "Cancelled",
+                    Enrollment.id != enrollment.id
+                ).first()
 
-        # Skip if newer enrollment with same schedule exists (for legacy data)
-        schedule_key = (enrollment.student_id, enrollment.assigned_day, enrollment.assigned_time, enrollment.location)
-        # More precise check: query only if potentially matches
-        if schedule_key in newer_schedule_set:
-            # Do a targeted check for this specific enrollment
-            newer_exists = db.query(Enrollment.id).filter(
-                Enrollment.student_id == enrollment.student_id,
-                Enrollment.assigned_day == enrollment.assigned_day,
-                Enrollment.assigned_time == enrollment.assigned_time,
-                Enrollment.location == enrollment.location,
-                Enrollment.first_lesson_date > effective_end,
-                Enrollment.payment_status != "Cancelled",
-                Enrollment.id != enrollment.id
-            ).first()
-            if newer_exists:
-                continue
+                if newer_enrollment:
+                    # Add to renewal_info_map for status tracking
+                    if newer_enrollment.payment_status == "Paid":
+                        status = "paid"
+                    elif newer_enrollment.fee_message_sent:
+                        status = "message_sent"
+                    else:
+                        status = "pending_message"
+                    renewal_info_map[enrollment.id] = {
+                        "id": newer_enrollment.id,
+                        "status": status,
+                        "first_lesson_date": newer_enrollment.first_lesson_date,
+                        "lessons_paid": newer_enrollment.lessons_paid,
+                        "payment_status": newer_enrollment.payment_status
+                    }
 
         # Get session count from batch data
         sessions_remaining = session_counts_map.get(enrollment.id, 0)
+
+        # Get renewal status from batch data
+        renewal_info = renewal_info_map.get(enrollment.id)
+
+        # Skip paid renewals - they're complete and don't need attention
+        if renewal_info and renewal_info["status"] == "paid":
+            continue
+
+        renewal_status = renewal_info["status"] if renewal_info else "not_renewed"
+        renewal_enrollment_id = renewal_info["id"] if renewal_info else None
 
         result.append(RenewalListItem(
             id=enrollment.id,
@@ -581,7 +663,12 @@ async def get_enrollments_needing_renewal(
             effective_end_date=effective_end,
             days_until_expiry=days_until_expiry,
             sessions_remaining=sessions_remaining,
-            payment_status=enrollment.payment_status
+            payment_status=enrollment.payment_status,
+            renewal_status=renewal_status,
+            renewal_enrollment_id=renewal_enrollment_id,
+            renewal_first_lesson_date=renewal_info["first_lesson_date"] if renewal_info else None,
+            renewal_lessons_paid=renewal_info["lessons_paid"] if renewal_info else None,
+            renewal_payment_status=renewal_info["payment_status"] if renewal_info else None
         ))
 
     # Sort by days_until_expiry (most urgent first - negative values first for expired)
@@ -1341,8 +1428,22 @@ async def update_enrollment(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     update_data = enrollment_update.model_dump(exclude_unset=True)
+
+    # Check if payment_status is being changed to "Paid"
+    updating_to_paid = (
+        'payment_status' in update_data and
+        update_data['payment_status'] == 'Paid' and
+        enrollment.payment_status != 'Paid'
+    )
+
     for field, value in update_data.items():
         setattr(enrollment, field, value)
+
+    # If marking enrollment as paid, update all sessions' financial_status to Paid
+    if updating_to_paid:
+        db.query(SessionLog).filter(
+            SessionLog.enrollment_id == enrollment_id
+        ).update({'financial_status': 'Paid'})
 
     db.commit()
     # Re-query with joins to ensure relationships are loaded
