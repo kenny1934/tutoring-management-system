@@ -135,7 +135,7 @@ interface ActivityFeedProps {
 
 export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityFeedProps) {
   const { selectedLocation } = useLocation();
-  const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation, tutorId);
+  const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation, tutorId, 10);
   const [showModal, setShowModal] = useState(false);
 
   const events = useMemo(() => {
