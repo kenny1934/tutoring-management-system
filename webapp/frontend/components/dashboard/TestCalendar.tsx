@@ -585,21 +585,21 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
     )}>
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#3d3628]">
-        <div className="flex items-center gap-2">
-          <TestsAccent className="w-8 h-6" />
+        <div className="flex items-center gap-2 min-w-0">
+          <TestsAccent className="w-8 h-6 flex-shrink-0" />
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Tests & Exams</h3>
           <Link
             href="/exams"
             className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-[#a0704b]/10 hover:bg-[#a0704b]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors"
           >
             <GraduationCap className="h-3 w-3" />
-            Revision
+            <span className="hidden sm:inline">Revision</span>
           </Link>
           {/* Create event button (admin only) */}
           {canManageEvents && (
             <button
               onClick={() => handleOpenCreate()}
-              className="ml-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
+              className="ml-2 hidden lg:inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 transition-colors"
               title="Create new calendar event"
             >
               <Plus className="h-3 w-3" />
@@ -607,7 +607,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             </button>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {/* Sync status message */}
           <AnimatePresence>
             {lastSyncMessage && (
@@ -616,7 +616,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
                 className={cn(
-                  "text-xs mr-1 flex items-center gap-1",
+                  "text-xs mr-1 items-center gap-1 hidden sm:flex",
                   lastSyncMessage.includes('failed') ? "text-red-500" : "text-green-600 dark:text-green-400"
                 )}
               >
@@ -650,7 +650,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
           </button>
           <button
             onClick={goToToday}
-            className="px-2 py-1 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#d4a574]/20 rounded transition-colors"
+            className="hidden lg:block px-2 py-1 text-xs font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#d4a574]/20 rounded transition-colors"
           >
             Today
           </button>
