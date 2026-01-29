@@ -38,6 +38,13 @@ function adjustPeriod(period: string, delta: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Helper to get next month's display name (salary is paid in the month after revenue is earned)
+function getNextMonthDisplay(period: string): string {
+  const [year, month] = period.split('-').map(Number);
+  const date = new Date(year, month); // month is 0-indexed, so this gives next month
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
 // Format currency
 function formatCurrency(amount: number): string {
   return `MOP ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -152,6 +159,11 @@ export default function RevenuePage() {
     useMonthlyRevenueSummary(tutorIdForQuery, selectedPeriod);
   const { data: sessions = [], isLoading: loadingSessions } =
     useSessionRevenueDetails(tutorIdForQuery, selectedPeriod);
+
+  // Determine if salary should be shown (hide for Admin and Super Admin roles)
+  const viewedTutor = tutors.find(t => t.id === effectiveTutorId);
+  const viewedTutorRole = viewedTutor?.role;
+  const showSalary = viewedTutorRole && !['Admin', 'Super Admin'].includes(viewedTutorRole);
 
   const isLoading = loadingSummary || loadingSessions;
 
@@ -313,44 +325,50 @@ export default function RevenuePage() {
               {/* Stats Grid */}
               <div className="p-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {/* Total Salary - Highlighted */}
-                  <div className="col-span-2 sm:col-span-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-                          Total Salary
-                        </p>
-                        <p className="text-3xl font-bold text-green-700 dark:text-green-300">
-                          {formatCurrency(summary.total_salary)}
-                        </p>
-                        <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
-                          Basic + Bonus
-                        </p>
+                  {/* Total Salary - Highlighted (only shown for Tutor role) */}
+                  {showSalary && (
+                    <div className="col-span-2 sm:col-span-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            Total Salary (for {getNextMonthDisplay(selectedPeriod)})
+                          </p>
+                          <p className="text-3xl font-bold text-green-700 dark:text-green-300">
+                            {formatCurrency(summary.total_salary)}
+                          </p>
+                          <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
+                            Basic + Bonus
+                          </p>
+                        </div>
+                        <DollarSign className="h-12 w-12 text-green-500/30" />
                       </div>
-                      <DollarSign className="h-12 w-12 text-green-500/30" />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Basic Salary */}
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Basic Salary
-                    </p>
-                    <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {formatCurrency(summary.basic_salary)}
-                    </p>
-                  </div>
+                  {/* Basic Salary (only shown for Tutor role) */}
+                  {showSalary && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Basic Salary
+                      </p>
+                      <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        {formatCurrency(summary.basic_salary)}
+                      </p>
+                    </div>
+                  )}
 
-                  {/* Monthly Bonus - Highlighted */}
-                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <p className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3" />
-                      Monthly Bonus
-                    </p>
-                    <p className="text-xl font-semibold text-amber-700 dark:text-amber-300">
-                      {formatCurrency(summary.monthly_bonus)}
-                    </p>
-                  </div>
+                  {/* Monthly Bonus - Highlighted (only shown for Tutor role) */}
+                  {showSalary && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Monthly Bonus
+                      </p>
+                      <p className="text-xl font-semibold text-amber-700 dark:text-amber-300">
+                        {formatCurrency(summary.monthly_bonus)}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Session Revenue */}
                   <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
