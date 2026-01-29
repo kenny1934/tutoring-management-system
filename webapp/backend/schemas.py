@@ -932,6 +932,17 @@ class ArchiveResponse(BaseModel):
     count: int = Field(default=0, ge=0, description="Number of messages archived/unarchived")
 
 
+class BatchEnrollmentRequest(BaseModel):
+    """Request for batch enrollment operations"""
+    enrollment_ids: List[int] = Field(..., min_length=1, max_length=100)
+
+
+class BatchOperationResponse(BaseModel):
+    """Response for batch operations"""
+    updated: List[int] = Field(default_factory=list, description="IDs of updated enrollments")
+    count: int = Field(default=0, ge=0, description="Number of enrollments updated")
+
+
 # ============================================
 # Make-up Proposal Schemas
 # ============================================
