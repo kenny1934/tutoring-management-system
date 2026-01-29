@@ -25,5 +25,5 @@ def get_tutors(
         List of tutors with basic information
     """
     response.headers["Cache-Control"] = "private, max-age=300"
-    tutors = db.query(Tutor).order_by(Tutor.tutor_name).all()
+    tutors = db.query(Tutor).order_by(Tutor.tutor_name).limit(100).all()
     return tutors

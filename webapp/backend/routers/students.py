@@ -18,7 +18,7 @@ router = APIRouter()
 async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
     """Get list of all unique school names for autocomplete."""
     response.headers["Cache-Control"] = "private, max-age=300"
-    schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().all()
+    schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().limit(200).all()
     return sorted([s[0] for s in schools if s[0]])
 
 
