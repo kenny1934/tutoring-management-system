@@ -14,6 +14,7 @@ import { formatTimeAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 // Status icon component - matches tab icons
 function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
@@ -43,9 +44,11 @@ interface RenewalCardProps {
   isChecked: boolean;
   onToggleCheck: (enrollmentId: number) => void;
   showCheckbox: boolean;
+  // Location context
+  selectedLocation: string;
 }
 
-function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox }: RenewalCardProps) {
+function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
   const isThisWeek = renewal.days_until_expiry >= 0 && renewal.days_until_expiry <= 7;
   const isVeryOld = renewal.days_until_expiry < -30;
@@ -121,19 +124,20 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
           </div>
           <div className="flex-1 min-w-0">
             {/* Student info */}
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-foreground/50">
-                {renewal.school_student_id || `#${renewal.student_id}`}
-              </span>
-              <span className="font-semibold text-foreground">
-                {renewal.student_name}
-              </span>
-              {renewal.grade && (
-                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-foreground/70">
-                  {renewal.grade}
-                </span>
-              )}
-              <StatusIcon status={renewal.renewal_status} />
+            <div className="mb-1">
+              <StudentInfoBadges
+                student={{
+                  student_id: renewal.student_id,
+                  student_name: renewal.student_name,
+                  school_student_id: renewal.school_student_id,
+                  grade: renewal.grade,
+                  lang_stream: renewal.lang_stream,
+                  school: renewal.school,
+                  home_location: renewal.location,
+                }}
+                showLocationPrefix={selectedLocation === "All Locations"}
+                trailing={<StatusIcon status={renewal.renewal_status} />}
+              />
             </div>
 
             {/* Schedule info */}
@@ -856,6 +860,7 @@ export default function AdminRenewalsPage() {
                                 isChecked={checkedIds.has(renewal.id)}
                                 onToggleCheck={toggleCheck}
                                 showCheckbox={showCheckboxes}
+                                selectedLocation={selectedLocation}
                               />
                             );
                           })}
@@ -907,6 +912,7 @@ export default function AdminRenewalsPage() {
                                 isChecked={checkedIds.has(renewal.id)}
                                 onToggleCheck={toggleCheck}
                                 showCheckbox={showCheckboxes}
+                                selectedLocation={selectedLocation}
                               />
                             );
                           })}
@@ -958,6 +964,7 @@ export default function AdminRenewalsPage() {
                                 isChecked={checkedIds.has(renewal.id)}
                                 onToggleCheck={toggleCheck}
                                 showCheckbox={showCheckboxes}
+                                selectedLocation={selectedLocation}
                               />
                             );
                           })}
@@ -1009,6 +1016,7 @@ export default function AdminRenewalsPage() {
                                 isChecked={checkedIds.has(renewal.id)}
                                 onToggleCheck={toggleCheck}
                                 showCheckbox={showCheckboxes}
+                                selectedLocation={selectedLocation}
                               />
                             );
                           })}

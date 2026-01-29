@@ -220,6 +220,8 @@ export interface RenewalListItem {
   student_name: string;
   school_student_id?: string;
   grade?: string;
+  lang_stream?: string;
+  school?: string;
   tutor_id: number;
   tutor_name: string;
   assigned_day: string;

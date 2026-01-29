@@ -9,6 +9,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { useLocation } from "@/contexts/LocationContext";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import type { Enrollment, Session } from "@/types";
@@ -44,6 +45,8 @@ export function EnrollmentDetailModal({
   showRenewalActions = false,
   onStatusChange,
 }: EnrollmentDetailModalProps) {
+  const { selectedLocation } = useLocation();
+
   // Use SWR for caching
   const { data: detail, isLoading: loading, error } = useSWR<EnrollmentDetailResponse>(
     isOpen && enrollmentId ? ['enrollment-detail', enrollmentId] : null,
@@ -232,7 +235,7 @@ export function EnrollmentDetailModal({
                     school: detail.school,
                     home_location: detail.home_location,
                   }}
-                  showLocationPrefix={true}
+                  showLocationPrefix={selectedLocation === "All Locations"}
                 />
               </div>
             </div>
