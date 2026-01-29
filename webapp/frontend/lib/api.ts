@@ -360,6 +360,13 @@ export const enrollmentsAPI = {
   getDetail: (id: number) => {
     return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
+
+  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
+    const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
+    return fetchAPI<{ message: string; lessons_paid: number; first_lesson_date: string }>(
+      `/enrollments/${id}/fee-message?${params}`
+    );
+  },
 };
 
 // Sessions API
