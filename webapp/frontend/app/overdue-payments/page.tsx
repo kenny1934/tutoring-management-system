@@ -106,6 +106,15 @@ export default function OverduePaymentsPage() {
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+  // Pagination limits per urgency section
+  const [sectionLimits, setSectionLimits] = useState<Record<UrgencyLevel, number>>({
+    critical: 10,
+    high: 10,
+    medium: 10,
+    new: 10,
+    dueSoon: 10,
+  });
+
   // Determine effective location
   const effectiveLocation = useMemo(() => {
     return selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
@@ -150,6 +159,17 @@ export default function OverduePaymentsPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setSectionLimits({
+      critical: 10,
+      high: 10,
+      medium: 10,
+      new: 10,
+      dueSoon: 10,
+    });
+  }, [effectiveLocation, effectiveTutorId]);
 
   // Group enrollments by urgency level
   const enrollmentsByUrgency = useMemo(() => {
@@ -348,7 +368,7 @@ export default function OverduePaymentsPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-                              {enrollments.map((enrollment) => (
+                              {enrollments.slice(0, sectionLimits[level]).map((enrollment) => (
                                 <OverdueRow
                                   key={enrollment.id}
                                   enrollment={enrollment}
@@ -359,6 +379,23 @@ export default function OverduePaymentsPage() {
                                 />
                               ))}
                             </tbody>
+                            {enrollments.length > sectionLimits[level] && (
+                              <tfoot>
+                                <tr>
+                                  <td colSpan={9} className="px-4 py-2 text-center">
+                                    <button
+                                      onClick={() => setSectionLimits(prev => ({
+                                        ...prev,
+                                        [level]: prev[level] + 10
+                                      }))}
+                                      className="text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                                    >
+                                      Show {Math.min(10, enrollments.length - sectionLimits[level])} more...
+                                    </button>
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            )}
                           </table>
                         </div>
                       </div>

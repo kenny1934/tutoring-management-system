@@ -79,6 +79,9 @@ export default function RevenuePage() {
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
 
+  // Pagination state for session table
+  const [displayCount, setDisplayCount] = useState(30);
+
   // Handle session row click - show popover immediately with loading state
   const handleSessionRowClick = async (sessionId: number, event: React.MouseEvent) => {
     event.preventDefault();
@@ -124,6 +127,11 @@ export default function RevenuePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Reset pagination when period or tutor changes
+  useEffect(() => {
+    setDisplayCount(30);
+  }, [selectedPeriod, selectedTutorId]);
+
   // Sync state to URL (only for admins who can change tutor selection)
   useEffect(() => {
     if (!isAdmin) return; // Non-admins don't need URL sync for tutor
@@ -146,6 +154,10 @@ export default function RevenuePage() {
     useSessionRevenueDetails(tutorIdForQuery, selectedPeriod);
 
   const isLoading = loadingSummary || loadingSessions;
+
+  // Pagination for session table
+  const paginatedSessions = sessions.slice(0, displayCount);
+  const hasMoreSessions = sessions.length > displayCount;
 
   // Toolbar classes (match sessions page pattern - separate sticky container from visual styling)
   const toolbarInnerClasses = cn(
@@ -396,7 +408,7 @@ export default function RevenuePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sessions.map((session) => (
+                    {paginatedSessions.map((session) => (
                       <tr
                         key={session.session_id}
                         onClick={(e) => handleSessionRowClick(session.session_id, e)}
@@ -446,6 +458,14 @@ export default function RevenuePage() {
                     </tr>
                   </tfoot>
                 </table>
+                {hasMoreSessions && (
+                  <button
+                    onClick={() => setDisplayCount(c => c + 30)}
+                    className="w-full py-3 text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50"
+                  >
+                    Show more ({sessions.length - displayCount} remaining)
+                  </button>
+                )}
               </div>
             </div>
           )}
