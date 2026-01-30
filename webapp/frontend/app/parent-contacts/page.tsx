@@ -57,6 +57,7 @@ export default function ParentContactsPage() {
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [editingContact, setEditingContact] = useState<ParentCommunication | null>(null);
+  const [modalPreselectedStudentId, setModalPreselectedStudentId] = useState<number | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -103,6 +104,9 @@ export default function ParentContactsPage() {
   const effectiveLocation = useMemo(() => {
     return selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
   }, [selectedLocation]);
+
+  // Show location prefix when viewing all locations
+  const showLocationPrefix = !selectedLocation || selectedLocation === "All Locations";
 
   // Fetch student statuses
   const { data: studentStatuses = [], isLoading: loadingStatuses, error: statusError } = useSWR(
@@ -175,7 +179,7 @@ export default function ParentContactsPage() {
   // Handle record contact
   const handleRecordContact = (studentId?: number) => {
     setEditingContact(null);
-    setSelectedStudentId(studentId || null);
+    setModalPreselectedStudentId(studentId || null);
     setShowRecordModal(true);
   };
 
@@ -222,6 +226,8 @@ export default function ParentContactsPage() {
       refreshData();
     }
     setEditingContact(null);
+    // Note: modalPreselectedStudentId is set fresh in handleRecordContact,
+    // don't clear it here to avoid race conditions with quick close/reopen
   };
 
   // Handle calendar event click
@@ -377,6 +383,7 @@ export default function ParentContactsPage() {
             <PendingFollowupsSection
               followups={pendingFollowups}
               onRecordContact={(studentId) => handleRecordContact(studentId)}
+              showLocationPrefix={showLocationPrefix}
             />
           )}
 
@@ -421,6 +428,7 @@ export default function ParentContactsPage() {
                     selectedStudentId={selectedStudentId}
                     onStudentClick={handleStudentClick}
                     onRecordContact={handleRecordContact}
+                    showLocationPrefix={showLocationPrefix}
                   />
                 </div>
               )}
@@ -441,6 +449,7 @@ export default function ParentContactsPage() {
                     selectedContactId={selectedContactId}
                     onEventClick={handleCalendarEventClick}
                     loading={loadingCalendar}
+                    showLocationPrefix={showLocationPrefix}
                   />
                 </div>
               )}
@@ -460,7 +469,8 @@ export default function ParentContactsPage() {
                     onBack={selectedStudentId && selectedContactId ? () => setSelectedContactId(null) : undefined}
                     onEdit={handleEditContact}
                     onDelete={handleDeleteContact}
-                    onRecordNew={() => handleRecordContact(selectedContact?.student_id || selectedStudentId || undefined)}
+                    onRecordNew={(studentId) => handleRecordContact(studentId)}
+                    showLocationPrefix={showLocationPrefix}
                   />
                 </div>
               )}
@@ -476,7 +486,7 @@ export default function ParentContactsPage() {
         isOpen={showRecordModal}
         onClose={handleModalClose}
         editingContact={editingContact}
-        preselectedStudentId={selectedStudentId}
+        preselectedStudentId={modalPreselectedStudentId}
         tutorId={typeof selectedTutorId === 'number' ? selectedTutorId : undefined}
         location={effectiveLocation}
       />

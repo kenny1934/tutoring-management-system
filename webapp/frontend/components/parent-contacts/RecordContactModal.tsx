@@ -86,10 +86,27 @@ export function RecordContactModal({
     return isAdmin;
   }, [isAdmin]);
   const { data: allStudents = [], isLoading: loadingStudents } = useSWR(
-    isOpen ? 'students-for-contact' : null,
+    isOpen ? ['students-for-contact', location] : null,
     () => studentsAPI.getAll({ location, limit: 500 }),
     { revalidateOnFocus: false }
   );
+
+  // Fetch specific student if preselected and not found in allStudents (handles 500+ student locations)
+  const { data: preselectedStudentData } = useSWR(
+    isOpen && preselectedStudentId && !allStudents.some(s => s.id === preselectedStudentId)
+      ? ['student-by-id', preselectedStudentId]
+      : null,
+    () => studentsAPI.getById(preselectedStudentId!),
+    { revalidateOnFocus: false }
+  );
+
+  // Combine students: add preselected if not already in list
+  const effectiveStudents = useMemo(() => {
+    if (preselectedStudentData && !allStudents.some(s => s.id === preselectedStudentData.id)) {
+      return [preselectedStudentData, ...allStudents];
+    }
+    return allStudents;
+  }, [allStudents, preselectedStudentData]);
 
   // Form state
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -109,13 +126,13 @@ export function RecordContactModal({
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
 
   // Filter students by search
-  const filteredStudents = allStudents.filter(s =>
+  const filteredStudents = effectiveStudents.filter(s =>
     !studentSearch ||
     s.student_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
     s.school_student_id?.toLowerCase().includes(studentSearch.toLowerCase())
   ).slice(0, 20);
 
-  const selectedStudent = allStudents.find(s => s.id === selectedStudentId);
+  const selectedStudent = effectiveStudents.find(s => s.id === selectedStudentId);
   const selectedTutor = tutors.find(t => t.id === selectedTutorId);
 
   // Initialize form when opening

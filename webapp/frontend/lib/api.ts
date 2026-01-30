@@ -1077,6 +1077,9 @@ export interface ParentCommunication {
   student_name: string;
   school_student_id: string | null;
   grade: string | null;
+  lang_stream: string | null;
+  school: string | null;
+  home_location: string | null;
   tutor_id: number;
   tutor_name: string;
   contact_date: string;
@@ -1095,6 +1098,8 @@ export interface StudentContactStatus {
   school_student_id: string | null;
   grade: string | null;
   lang_stream: string | null;
+  school: string | null;
+  home_location: string | null;
   last_contact_date: string | null;
   last_contacted_by: string | null;
   days_since_contact: number;
