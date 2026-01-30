@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, api } from './api';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, api, type ParentCommunication } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
@@ -211,6 +211,22 @@ export function useStudentSessions(studentId: number | null | undefined, limit: 
   return useSWR<Session[]>(
     studentId ? ['student-sessions', studentId, limit] : null,
     () => sessionsAPI.getAll({ student_id: studentId!, limit })  );
+}
+
+/**
+ * Hook for fetching parent communications for a specific student
+ * Returns null key when studentId is falsy to skip fetching
+ * Results are sorted by contact_date descending (most recent first)
+ */
+export function useStudentParentContacts(studentId: number | null | undefined) {
+  return useSWR<ParentCommunication[]>(
+    studentId ? ['student-parent-contacts', studentId] : null,
+    () => parentCommunicationsAPI.getAll({ student_id: studentId! })
+      .then(contacts => contacts.sort((a, b) =>
+        new Date(b.contact_date).getTime() - new Date(a.contact_date).getTime()
+      )),
+    { revalidateOnFocus: false }
+  );
 }
 
 /**

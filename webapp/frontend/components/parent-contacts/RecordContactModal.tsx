@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useTutors } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { parentCommunicationsAPI, studentsAPI, type ParentCommunication, type ParentCommunicationCreate } from "@/lib/api";
 import type { Student } from "@/types";
 import {
@@ -15,6 +17,7 @@ import {
   Search,
 } from "lucide-react";
 import { getMethodIcon, getContactTypeIcon, CONTACT_METHODS, CONTACT_TYPES } from "./contact-utils";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import {
   useFloating,
   useClick,
@@ -50,23 +53,38 @@ export function RecordContactModal({
   currentUserRole,
 }: RecordContactModalProps) {
   const { data: allTutors = [] } = useTutors();
+  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
-  // Filter tutors by location
+  // Calculate current tutor ID (respects super admin impersonation)
+  const currentTutorId = useMemo(() => {
+    // If super admin is impersonating a specific tutor, use that tutor's ID
+    if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
+      return impersonatedTutor.id;
+    }
+    // Otherwise find the tutor matching current user's name
+    const matchingTutor = allTutors.find(t => t.tutor_name === user?.name);
+    return matchingTutor?.id ?? null;
+  }, [isImpersonating, effectiveRole, impersonatedTutor?.id, allTutors, user?.name]);
+
+  // Filter tutors by location and sort by first name
   const tutors = useMemo(() => {
-    if (!location || location === "All Locations") return allTutors;
-    return allTutors.filter(t => t.default_location === location);
+    let filtered = allTutors;
+    if (location && location !== "All Locations") {
+      filtered = filtered.filter(t => t.default_location === location);
+    }
+    // Sort by first name (stripping Mr/Ms/Mrs prefix)
+    return [...filtered].sort((a, b) =>
+      getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name))
+    );
   }, [allTutors, location]);
 
-  // Determine if tutor selection is editable
-  // - For NEW contacts with OAuth: auto-select current user, not editable
-  // - For EDITING: only admin/super_admin can change the tutor
+  // Show location prefix when viewing all locations
+  const showLocationPrefix = !location || location === "All Locations";
+
+  // Determine if tutor selection is editable - only admin/super admin can edit
   const canEditTutor = useMemo(() => {
-    if (!currentUserTutorId) return true; // No OAuth yet, allow editing
-    if (editingContact) {
-      return currentUserRole === 'Admin' || currentUserRole === 'Super Admin';
-    }
-    return false; // New contact with OAuth - auto-select, no edit
-  }, [currentUserTutorId, currentUserRole, editingContact]);
+    return isAdmin;
+  }, [isAdmin]);
   const { data: allStudents = [], isLoading: loadingStudents } = useSWR(
     isOpen ? 'students-for-contact' : null,
     () => studentsAPI.getAll({ location, limit: 500 }),
@@ -116,10 +134,9 @@ export function RecordContactModal({
         setFollowUpNeeded(editingContact.follow_up_needed ?? false);
         setFollowUpDate(editingContact.follow_up_date || '');
       } else {
-        // New contact
+        // New contact - use current user as default tutor
         setSelectedStudentId(preselectedStudentId);
-        // Use currentUserTutorId if available (OAuth), otherwise fall back to tutorId prop
-        setSelectedTutorId(currentUserTutorId || tutorId || null);
+        setSelectedTutorId(currentTutorId);
         setContactMethod('WeChat');
         setContactType('Progress Update');
         const now = new Date();
@@ -132,7 +149,7 @@ export function RecordContactModal({
       setStudentSearch('');
       setError(null);
     }
-  }, [isOpen, editingContact, preselectedStudentId, tutorId, currentUserTutorId]);
+  }, [isOpen, editingContact, preselectedStudentId, currentTutorId]);
 
   // Floating UI
   const { refs, context } = useFloating({
@@ -232,25 +249,48 @@ export function RecordContactModal({
                 Student <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
-                <input
-                  id="student-search"
-                  type="text"
-                  placeholder="Search students..."
-                  aria-label="Search for a student"
-                  value={selectedStudent ? selectedStudent.student_name : studentSearch}
-                  onChange={(e) => {
-                    setStudentSearch(e.target.value);
-                    setSelectedStudentId(null);
-                    setShowStudentDropdown(true);
-                  }}
-                  onFocus={() => setShowStudentDropdown(true)}
-                  className={cn(
-                    "w-full pl-9 pr-3 py-2 text-sm",
-                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
-                    "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
-                  )}
-                />
+                {selectedStudent ? (
+                  // Show selected student with badges
+                  <div className={cn(
+                    "w-full px-3 py-2",
+                    "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md"
+                  )}>
+                    <StudentInfoBadges
+                      student={{
+                        student_id: selectedStudent.id,
+                        student_name: selectedStudent.student_name,
+                        school_student_id: selectedStudent.school_student_id,
+                        grade: selectedStudent.grade,
+                        lang_stream: selectedStudent.lang_stream,
+                        school: selectedStudent.school,
+                        home_location: selectedStudent.home_location,
+                      }}
+                      showLocationPrefix={showLocationPrefix}
+                    />
+                  </div>
+                ) : (
+                  // Show search input
+                  <>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
+                    <input
+                      id="student-search"
+                      type="text"
+                      placeholder="Search students..."
+                      aria-label="Search for a student"
+                      value={studentSearch}
+                      onChange={(e) => {
+                        setStudentSearch(e.target.value);
+                        setShowStudentDropdown(true);
+                      }}
+                      onFocus={() => setShowStudentDropdown(true)}
+                      className={cn(
+                        "w-full pl-9 pr-3 py-2 text-sm",
+                        "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
+                        "focus:outline-none focus:ring-2 focus:ring-[#a0704b]/50"
+                      )}
+                    />
+                  </>
+                )}
                 {showStudentDropdown && !selectedStudent && (
                   <div className={cn(
                     "absolute z-10 w-full mt-1 max-h-48 overflow-y-auto",
@@ -275,22 +315,29 @@ export function RecordContactModal({
                             setShowStudentDropdown(false);
                           }}
                           className={cn(
-                            "w-full text-left px-3 py-2 text-sm",
-                            "hover:bg-gray-100 dark:hover:bg-gray-800",
-                            "text-gray-900 dark:text-gray-100"
+                            "w-full text-left px-3 py-2",
+                            "hover:bg-gray-100 dark:hover:bg-gray-800"
                           )}
                         >
-                          <div>{student.student_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {student.school_student_id} · {student.grade}
-                          </div>
+                          <StudentInfoBadges
+                            student={{
+                              student_id: student.id,
+                              student_name: student.student_name,
+                              school_student_id: student.school_student_id,
+                              grade: student.grade,
+                              lang_stream: student.lang_stream,
+                              school: student.school,
+                              home_location: student.home_location,
+                            }}
+                            showLocationPrefix={showLocationPrefix}
+                          />
                         </button>
                       ))
                     )}
                   </div>
                 )}
               </div>
-              {selectedStudent && (
+              {selectedStudent && !preselectedStudentId && (
                 <button
                   type="button"
                   onClick={() => {
@@ -330,7 +377,7 @@ export function RecordContactModal({
                   </option>
                 ))}
               </select>
-              {!canEditTutor && currentUserTutorId && (
+              {!canEditTutor && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {editingContact ? "Only admins can change who contacted" : "Recording as yourself"}
                 </p>
