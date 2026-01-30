@@ -12,7 +12,7 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -28,6 +28,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
+import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import {
   useFloating,
   autoUpdate,
@@ -96,6 +97,9 @@ export default function StudentDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [allSchools, setAllSchools] = useState<string[]>([]);
+
+  // New Trial modal state (for students with no enrollments)
+  const [newTrialModalOpen, setNewTrialModalOpen] = useState(false);
 
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
 
@@ -488,6 +492,7 @@ export default function StudentDetailPage() {
                   isSaving={isSaving}
                   saveError={saveError}
                   allSchools={allSchools}
+                  onNewTrial={() => setNewTrialModalOpen(true)}
                 />
               )}
 
@@ -566,6 +571,21 @@ export default function StudentDetailPage() {
           isMobile={isMobile}
         />
       )}
+
+      {/* New Trial Modal (for students with no enrollments) */}
+      {student && (
+        <CreateEnrollmentModal
+          isOpen={newTrialModalOpen}
+          onClose={() => setNewTrialModalOpen(false)}
+          trialMode={true}
+          prefillStudent={student}
+          onSuccess={() => {
+            // Refresh enrollments after creating trial
+            mutate(['student-enrollments', studentId]);
+            setNewTrialModalOpen(false);
+          }}
+        />
+      )}
     </DeskSurface>
   );
 }
@@ -609,6 +629,7 @@ function ProfileTab({
   isSaving,
   saveError,
   allSchools,
+  onNewTrial,
 }: {
   student: Student;
   enrollments: Enrollment[];
@@ -627,6 +648,7 @@ function ProfileTab({
   isSaving: boolean;
   saveError: string | null;
   allSchools: string[];
+  onNewTrial: () => void;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -760,7 +782,7 @@ function ProfileTab({
       </div>
 
       {/* Active Enrollments Card */}
-      {enrollments.length > 0 && (
+      {enrollments.length > 0 ? (
         <div className={cn(
           "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
@@ -824,6 +846,26 @@ function ProfileTab({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      ) : (
+        /* No Enrollments - Show New Trial CTA */
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          !isMobile && "paper-texture"
+        )}>
+          <div className="text-center py-4">
+            <BookOpen className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              No enrollments yet
+            </p>
+            <button
+              onClick={onNewTrial}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              New Trial
+            </button>
           </div>
         </div>
       )}

@@ -15,6 +15,7 @@ import {
   X,
   ChevronDown,
   RefreshCw,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
@@ -24,6 +25,7 @@ import {
   EnrollmentCreate,
   EnrollmentPreviewResponse,
   RenewalDataResponse,
+  TrialListItem,
 } from "@/lib/api";
 import { useTutors } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
@@ -160,6 +162,12 @@ export interface CreateEnrollmentModalProps {
   onSuccess?: () => void;
   /** If false, renders without backdrop (for side-by-side layouts). Default: true */
   standalone?: boolean;
+  /** If true, pre-selects Trial type and locks lessons to 1 */
+  trialMode?: boolean;
+  /** When converting a trial to regular, pre-fills student/tutor/schedule info */
+  convertFromTrial?: TrialListItem;
+  /** Pre-fill student (skips student search) - used from student detail page */
+  prefillStudent?: Student;
 }
 
 export function CreateEnrollmentModal({
@@ -168,6 +176,9 @@ export function CreateEnrollmentModal({
   renewFromId,
   onSuccess,
   standalone = true,
+  trialMode = false,
+  convertFromTrial,
+  prefillStudent,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
@@ -208,9 +219,12 @@ export function CreateEnrollmentModal({
     () => enrollmentsAPI.getRenewalData(renewFromId!)
   );
 
+  // Type for day names from DAY_NAMES constant
+  type DayName = typeof DAY_NAMES[number];
+
   // Available time slots based on selected day
   const availableTimeSlots = useMemo(() => {
-    const dayIndex = DAY_NAMES.indexOf(assignedDay);
+    const dayIndex = DAY_NAMES.indexOf(assignedDay as DayName);
     // Sun=0, Sat=6 are weekend
     return dayIndex === 0 || dayIndex === 6 ? WEEKEND_TIME_SLOTS : WEEKDAY_TIME_SLOTS;
   }, [assignedDay]);
@@ -244,12 +258,16 @@ export function CreateEnrollmentModal({
       setPreviewError(null);
       setSelectedRenewalLinkId(null);
       setIsSuccess(false);
+    } else if (trialMode && !convertFromTrial && !renewFromId) {
+      // Initialize trial mode on open (when not converting or renewing)
+      setEnrollmentType("Trial");
+      setLessonsPaid(1);
     }
-  }, [isOpen, selectedLocation]);
+  }, [isOpen, selectedLocation, trialMode, convertFromTrial, renewFromId]);
 
   // Reset time slot when day changes (if current slot not available)
   useEffect(() => {
-    if (!useCustomTime && !availableTimeSlots.includes(assignedTime)) {
+    if (!useCustomTime && !(availableTimeSlots as readonly string[]).includes(assignedTime)) {
       setAssignedTime(availableTimeSlots[0]);
     }
   }, [assignedDay, availableTimeSlots, assignedTime, useCustomTime]);
@@ -267,6 +285,35 @@ export function CreateEnrollmentModal({
       setEnrollmentType(renewalData.enrollment_type);
     }
   }, [renewalData, isOpen]);
+
+  // Pre-fill student from props (used from student detail page)
+  useEffect(() => {
+    if (prefillStudent && isOpen && !convertFromTrial && !renewFromId) {
+      setStudent(prefillStudent);
+    }
+  }, [prefillStudent, isOpen, convertFromTrial, renewFromId]);
+
+  // Pre-fill form when converting trial to regular
+  useEffect(() => {
+    if (convertFromTrial && isOpen) {
+      // Fetch full student data
+      studentsAPI.getById(convertFromTrial.student_id).then((s) => setStudent(s));
+      setTutorId(convertFromTrial.tutor_id);
+      setLocation(convertFromTrial.location);
+      // Parse day from session date
+      const sessionDate = new Date(convertFromTrial.session_date);
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      setAssignedDay(dayNames[sessionDate.getDay()]);
+      setAssignedTime(convertFromTrial.time_slot);
+      // Calculate next occurrence of this day after trial
+      const nextDate = new Date(sessionDate);
+      nextDate.setDate(nextDate.getDate() + 7); // Start with next week
+      setFirstLessonDate(nextDate.toISOString().split('T')[0]);
+      // Set as Regular enrollment
+      setEnrollmentType("Regular");
+      setLessonsPaid(6);
+    }
+  }, [convertFromTrial, isOpen]);
 
   // Auto-select first tutor from location (only if not renewing and no tutor selected)
   useEffect(() => {
@@ -309,6 +356,18 @@ export function CreateEnrollmentModal({
       renewed_from_enrollment_id: effectiveRenewalLinkId,
     };
   }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, useCustomTime, isCustomTimeValid]);
+
+  // Check if first lesson date matches selected day of week
+  const dayMismatchWarning = useMemo(() => {
+    if (!firstLessonDate || !assignedDay) return null;
+    const date = new Date(firstLessonDate + 'T00:00:00'); // Ensure local timezone
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const actualDay = dayNames[date.getDay()];
+    if (actualDay !== assignedDay) {
+      return `Selected date is a ${actualDay}, but assigned day is ${assignedDay}`;
+    }
+    return null;
+  }, [firstLessonDate, assignedDay]);
 
   // Preview sessions
   const handlePreview = async () => {
@@ -355,7 +414,23 @@ export function CreateEnrollmentModal({
   const hasConflicts = preview?.conflicts && preview.conflicts.length > 0;
   const hasWarnings = preview?.warnings && preview.warnings.length > 0;
 
-  const title = renewFromId ? "Renew Enrollment" : "New Enrollment";
+  const titleText = convertFromTrial
+    ? "Convert Trial to Regular"
+    : trialMode
+      ? "New Trial Enrollment"
+      : renewFromId
+        ? "Renew Enrollment"
+        : "New Enrollment";
+
+  // Title with blue icon for trial mode
+  const title = trialMode && !convertFromTrial ? (
+    <div className="flex items-center gap-2">
+      <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+        <ClipboardList className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      </div>
+      <span>{titleText}</span>
+    </div>
+  ) : titleText;
 
   return (
     <Modal
@@ -466,10 +541,18 @@ export function CreateEnrollmentModal({
       ) : !preview ? (
         /* Form */
         <div className="grid gap-4 md:grid-cols-2">
+          {/* Trial Mode Banner */}
+          {trialMode && !convertFromTrial && (
+            <div className="md:col-span-2 flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-700 dark:text-blue-300 text-sm">
+              <ClipboardList className="h-4 w-4 flex-shrink-0" />
+              <span>Trial enrollment: 1 session will be generated</span>
+            </div>
+          )}
+
           {/* Student */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-foreground mb-2">Student</label>
-            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId} location={location} />
+            <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent} location={location} />
           </div>
 
           {/* Tutor */}
@@ -599,8 +682,19 @@ export function CreateEnrollmentModal({
               type="date"
               value={firstLessonDate}
               onChange={(e) => setFirstLessonDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              className={cn(
+                "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
+                dayMismatchWarning
+                  ? "border-amber-400 dark:border-amber-500"
+                  : "border-gray-300 dark:border-gray-600"
+              )}
             />
+            {dayMismatchWarning && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="text-xs">{dayMismatchWarning}</span>
+              </div>
+            )}
           </div>
 
           {/* Lessons Paid */}
@@ -616,35 +710,37 @@ export function CreateEnrollmentModal({
             />
           </div>
 
-          {/* Enrollment Type */}
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">Enrollment Type</label>
-            <div className="flex gap-2">
-              {ENROLLMENT_TYPES.map((type) => {
-                const colors = ENROLLMENT_TYPE_COLORS[type];
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => {
-                      setEnrollmentType(type);
-                      if (type === "Regular") {
-                        setLessonsPaid(6);
-                      } else {
-                        setLessonsPaid(1);
-                      }
-                    }}
-                    className={cn(
-                      "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all",
-                      enrollmentType === type ? colors.selected : colors.unselected
-                    )}
-                  >
-                    {type}
-                  </button>
-                );
-              })}
+          {/* Enrollment Type - hidden when in trial mode or converting from trial */}
+          {!trialMode && !convertFromTrial && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-2">Enrollment Type</label>
+              <div className="flex gap-2">
+                {ENROLLMENT_TYPES.map((type) => {
+                  const colors = ENROLLMENT_TYPE_COLORS[type];
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        setEnrollmentType(type);
+                        if (type === "Regular") {
+                          setLessonsPaid(6);
+                        } else {
+                          setLessonsPaid(1);
+                        }
+                      }}
+                      className={cn(
+                        "flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all",
+                        enrollmentType === type ? colors.selected : colors.unselected
+                      )}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         /* Preview Results */

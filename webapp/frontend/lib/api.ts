@@ -144,7 +144,47 @@ export const studentsAPI = {
       body: JSON.stringify(data),
     });
   },
+
+  create: (data: StudentCreate) => {
+    return fetchAPI<Student>('/students', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getSchoolInfo: (schoolName: string) => {
+    return fetchAPI<{ lang_stream: string | null }>(`/students/school-info/${encodeURIComponent(schoolName)}`);
+  },
+
+  getNextId: (location: string) => {
+    return fetchAPI<{ next_id: string }>(`/students/next-id/${encodeURIComponent(location)}`);
+  },
+
+  checkDuplicates: (studentName: string, location: string, phone?: string) => {
+    const params = new URLSearchParams({ student_name: studentName, location });
+    if (phone) params.append("phone", phone);
+    return fetchAPI<{ duplicates: Array<{
+      id: number;
+      student_name: string;
+      school_student_id: string | null;
+      school: string | null;
+      grade: string | null;
+      match_reason: string;
+    }> }>(`/students/check-duplicates?${params}`);
+  },
 };
+
+// Student creation type
+export interface StudentCreate {
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  phone?: string;
+  school?: string;
+  lang_stream?: string;
+  home_location?: string;
+  academic_stream?: string;
+}
 
 // Enrollment creation types
 export interface EnrollmentCreate {
@@ -246,6 +286,26 @@ export interface RenewalCountsResponse {
   expiring_soon: number;
   expired: number;
   total: number;
+}
+
+export interface TrialListItem {
+  enrollment_id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  school?: string;
+  tutor_id: number;
+  tutor_name: string;
+  session_id: number;
+  session_date: string;
+  time_slot: string;
+  location: string;
+  session_status: string;
+  payment_status: string;
+  trial_status: 'scheduled' | 'attended' | 'no_show' | 'converted' | 'pending';
+  subsequent_enrollment_id?: number;
+  created_at: string;
 }
 
 export interface PendingMakeupSession {
@@ -372,6 +432,18 @@ export const enrollmentsAPI = {
   getRenewalCounts: (location?: string) => {
     const params = location && location !== "All Locations" ? `?location=${location}` : "";
     return fetchAPI<RenewalCountsResponse>(`/enrollments/renewal-counts${params}`);
+  },
+
+  getTrials: (params?: { location?: string; tutor_id?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.location && params.location !== "All Locations") {
+      searchParams.append("location", params.location);
+    }
+    if (params?.tutor_id) {
+      searchParams.append("tutor_id", params.tutor_id.toString());
+    }
+    const queryString = searchParams.toString();
+    return fetchAPI<TrialListItem[]>(`/enrollments/trials${queryString ? `?${queryString}` : ''}`);
   },
 
   getDetail: (id: number) => {

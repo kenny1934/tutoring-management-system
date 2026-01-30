@@ -1,14 +1,14 @@
 """
 Students API endpoints.
-Provides read-only access to student data.
+Provides CRUD access to student data.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, cast, Integer
 from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor
-from schemas import StudentResponse, StudentDetailResponse, StudentUpdate
+from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate
 from auth.dependencies import require_admin, get_current_user, is_office_ip
 
 router = APIRouter()
@@ -20,6 +20,98 @@ async def get_unique_schools(response: Response, db: Session = Depends(get_db)):
     response.headers["Cache-Control"] = "private, max-age=300"
     schools = db.query(Student.school).filter(Student.school.isnot(None)).distinct().limit(200).all()
     return sorted([s[0] for s in schools if s[0]])
+
+
+@router.get("/students/school-info/{school_name}")
+async def get_school_info(
+    school_name: str,
+    db: Session = Depends(get_db)
+):
+    """Get common lang_stream for a school based on existing students."""
+    result = db.query(
+        Student.lang_stream,
+        func.count(Student.id).label('count')
+    ).filter(
+        Student.school == school_name,
+        Student.lang_stream.isnot(None)
+    ).group_by(
+        Student.lang_stream
+    ).order_by(
+        func.count(Student.id).desc()
+    ).first()
+
+    return {"lang_stream": result[0] if result else None}
+
+
+@router.get("/students/next-id/{location}")
+async def get_next_student_id(
+    location: str,
+    db: Session = Depends(get_db)
+):
+    """Get the next available school_student_id for a location."""
+    # Get all school_student_ids for this location
+    ids = db.query(Student.school_student_id).filter(
+        Student.home_location == location,
+        Student.school_student_id.isnot(None)
+    ).all()
+
+    # Find the max numeric ID
+    max_id = 1000
+    for (sid,) in ids:
+        if sid and sid.isdigit():
+            max_id = max(max_id, int(sid))
+
+    return {"next_id": str(max_id + 1)}
+
+
+@router.get("/students/check-duplicates")
+async def check_duplicates(
+    student_name: str = Query(..., description="Student name to check"),
+    location: str = Query(..., description="Home location"),
+    phone: Optional[str] = Query(None, description="Phone number to check"),
+    db: Session = Depends(get_db)
+):
+    """Check for potential duplicate students at the same location."""
+    duplicates = []
+    seen_ids = set()
+
+    # Check exact name match at same location (case-insensitive)
+    name_matches = db.query(Student).filter(
+        Student.student_name.ilike(student_name),
+        Student.home_location == location
+    ).limit(3).all()
+
+    for s in name_matches:
+        seen_ids.add(s.id)
+        duplicates.append({
+            "id": s.id,
+            "student_name": s.student_name,
+            "school_student_id": s.school_student_id,
+            "school": s.school,
+            "grade": s.grade,
+            "match_reason": "Same name at this location"
+        })
+
+    # Check phone match (if provided and has at least 8 digits)
+    if phone and len(phone) >= 8:
+        phone_matches = db.query(Student).filter(
+            Student.phone == phone,
+            Student.home_location == location
+        ).limit(3).all()
+
+        for s in phone_matches:
+            if s.id not in seen_ids:
+                seen_ids.add(s.id)
+                duplicates.append({
+                    "id": s.id,
+                    "student_name": s.student_name,
+                    "school_student_id": s.school_student_id,
+                    "school": s.school,
+                    "grade": s.grade,
+                    "match_reason": "Same phone number"
+                })
+
+    return {"duplicates": duplicates}
 
 
 @router.get("/students", response_model=List[StudentResponse])
@@ -196,3 +288,36 @@ async def update_student(
     db.commit()
     db.refresh(student)
     return student
+
+
+@router.post("/students", response_model=StudentResponse)
+async def create_student(
+    student_data: StudentCreate,
+    admin: Tutor = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Create a new student. Admin only."""
+    data = student_data.model_dump()
+
+    # Auto-generate school_student_id if not provided and location is set
+    if not data.get("school_student_id") and data.get("home_location"):
+        location = data["home_location"]
+        # Get all school_student_ids for this location
+        ids = db.query(Student.school_student_id).filter(
+            Student.home_location == location,
+            Student.school_student_id.isnot(None)
+        ).all()
+
+        # Find the max numeric ID
+        max_id = 1000
+        for (sid,) in ids:
+            if sid and sid.isdigit():
+                max_id = max(max_id, int(sid))
+
+        data["school_student_id"] = str(max_id + 1)
+
+    new_student = Student(**data)
+    db.add(new_student)
+    db.commit()
+    db.refresh(new_student)
+    return new_student

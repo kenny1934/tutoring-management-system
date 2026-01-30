@@ -13,7 +13,7 @@ from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, St
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
-    RenewalDataResponse, RenewalListItem, RenewalCountsResponse,
+    RenewalDataResponse, RenewalListItem, RenewalCountsResponse, TrialListItem,
     EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink,
     BatchEnrollmentRequest, BatchOperationResponse,
     EligibilityResult, BatchRenewCheckResponse, BatchRenewRequest, BatchRenewResult, BatchRenewResponse
@@ -1114,6 +1114,140 @@ async def get_my_students(
         result.append(enrollment_data)
 
     return result
+
+
+# ============================================
+# Trials Endpoints
+# ============================================
+
+@router.get("/enrollments/trials", response_model=List[TrialListItem])
+async def get_trials(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (for tutor-specific view)"),
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all trial enrollments with derived status for Kanban dashboard.
+
+    Trial status is derived from:
+    - scheduled: session_status='Trial Class' and date >= today
+    - attended: session marked as attended (enrollment_type='Trial')
+    - no_show: session marked as no show (enrollment_type='Trial')
+    - converted: student has subsequent enrollment after trial
+    - pending: attended but no subsequent enrollment yet
+    """
+    today = date.today()
+
+    # Query trial enrollments with their sessions
+    query = (
+        db.query(Enrollment, SessionLog)
+        .join(SessionLog, SessionLog.enrollment_id == Enrollment.id)
+        .options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.tutor)
+        )
+        .filter(
+            Enrollment.enrollment_type == 'Trial',
+            Enrollment.payment_status != 'Cancelled'
+        )
+    )
+
+    if location:
+        query = query.filter(Enrollment.location == location)
+
+    if tutor_id:
+        query = query.filter(Enrollment.tutor_id == tutor_id)
+
+    results = query.all()
+
+    if not results:
+        return []
+
+    # Get all student IDs for batch checking subsequent enrollments
+    student_ids = set(e.student_id for e, _ in results)
+    enrollment_ids = set(e.id for e, _ in results)
+
+    # Batch query: Find subsequent enrollments for each student (after their trial)
+    subsequent_enrollments = (
+        db.query(
+            Enrollment.student_id,
+            Enrollment.id,
+            Enrollment.first_lesson_date,
+            Enrollment.renewed_from_enrollment_id
+        )
+        .filter(
+            Enrollment.student_id.in_(student_ids),
+            Enrollment.enrollment_type == 'Regular',
+            Enrollment.payment_status != 'Cancelled'
+        )
+        .all()
+    )
+
+    # Build map: trial_enrollment_id -> subsequent enrollment info
+    # Check both renewed_from_enrollment_id link and date-based
+    subsequent_map = {}
+    for student_id, subsequent_id, first_lesson, renewed_from in subsequent_enrollments:
+        # If directly linked via renewed_from_enrollment_id
+        if renewed_from in enrollment_ids:
+            subsequent_map[renewed_from] = subsequent_id
+
+    # Also check by date: find any regular enrollment after the trial for the same student
+    trial_dates = {e.id: (e.student_id, e.first_lesson_date) for e, _ in results}
+    for student_id, subsequent_id, first_lesson, _ in subsequent_enrollments:
+        if first_lesson:
+            for trial_id, (trial_student_id, trial_date) in trial_dates.items():
+                if (trial_student_id == student_id and
+                    trial_date and first_lesson > trial_date and
+                    trial_id not in subsequent_map):
+                    subsequent_map[trial_id] = subsequent_id
+
+    # Build result items
+    trial_items = []
+    for enrollment, session in results:
+        # Derive trial status
+        session_status = session.session_status
+        subsequent_id = subsequent_map.get(enrollment.id)
+
+        if subsequent_id:
+            trial_status = 'converted'
+        elif session_status == 'Trial Class':
+            trial_status = 'scheduled'
+        elif session_status in ('Attended', 'Attended (Make-up)'):
+            trial_status = 'pending'  # Attended but not yet converted
+        elif session_status == 'No Show':
+            trial_status = 'no_show'
+        else:
+            # Other statuses (Rescheduled, Sick Leave, etc.) - treat as scheduled
+            trial_status = 'scheduled'
+
+        trial_items.append(TrialListItem(
+            enrollment_id=enrollment.id,
+            student_id=enrollment.student_id,
+            student_name=enrollment.student.student_name if enrollment.student else "",
+            school_student_id=enrollment.student.school_student_id if enrollment.student else None,
+            grade=enrollment.student.grade if enrollment.student else None,
+            school=enrollment.student.school if enrollment.student else None,
+            tutor_id=enrollment.tutor_id,
+            tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else "",
+            session_id=session.id,
+            session_date=session.session_date,
+            time_slot=session.time_slot or enrollment.assigned_time,
+            location=enrollment.location,
+            session_status=session_status,
+            payment_status=enrollment.payment_status,
+            trial_status=trial_status,
+            subsequent_enrollment_id=subsequent_id,
+            created_at=datetime.combine(session.session_date, datetime.min.time())
+        ))
+
+    # Sort by session date (most recent first for attended, soonest first for scheduled)
+    trial_items.sort(key=lambda x: (
+        0 if x.trial_status == 'scheduled' else 1,  # Scheduled first
+        x.session_date if x.trial_status == 'scheduled' else -x.session_date.toordinal()
+    ))
+
+    return trial_items
 
 
 @router.get("/enrollments/{enrollment_id}", response_model=EnrollmentResponse)
