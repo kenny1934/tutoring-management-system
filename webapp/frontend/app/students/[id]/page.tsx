@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useStudent, useStudentEnrollments, useStudentSessions, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
+import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
 import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
+import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import Link from "next/link";
@@ -12,7 +13,7 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -29,6 +30,9 @@ import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorB
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
+import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
+import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
+import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
 import {
   useFloating,
   autoUpdate,
@@ -41,7 +45,7 @@ import {
 } from "@floating-ui/react";
 
 // Tab types
-type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings";
+type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
 
 interface Tab {
   id: TabId;
@@ -55,6 +59,7 @@ const TABS: Tab[] = [
   { id: "courseware", label: "Courseware", icon: BookMarked },
   { id: "tests", label: "Tests", icon: BookOpen },
   { id: "ratings", label: "Ratings", icon: Star },
+  { id: "contacts", label: "Parent Contacts", icon: Phone },
 ];
 
 export default function StudentDetailPage() {
@@ -109,6 +114,7 @@ export default function StudentDetailPage() {
   }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
   const { data: calendarEvents = [] } = useCalendarEvents(60, true); // Include past tests
+  const { data: parentContacts = [], isLoading: contactsLoading, mutate: mutateContacts } = useStudentParentContacts(studentId);
 
   // Fetch all pending proposals and filter for this student's sessions
   const { data: allProposals = [] } = useProposals({ status: 'pending', includeSession: true });
@@ -134,6 +140,22 @@ export default function StudentDetailPage() {
 
   // Proposal modal state
   const [selectedProposal, setSelectedProposal] = useState<MakeupProposal | null>(null);
+
+  // Parent contact modal state
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ParentCommunication | null>(null);
+
+  // Calculate contact status for the student
+  const contactStatus = useMemo(() => {
+    if (parentContacts.length === 0) return 'Never Contacted';
+    const lastContact = parentContacts[0]; // Already sorted by date desc
+    const daysSince = Math.floor(
+      (Date.now() - new Date(lastContact.contact_date).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSince <= 30) return 'Recent';
+    if (daysSince <= 60) return 'Been a While';
+    return 'Contact Needed';
+  }, [parentContacts]);
 
   // Sync popover session with updated data from SWR (e.g., after marking attended)
   useEffect(() => {
@@ -454,6 +476,14 @@ export default function StudentDetailPage() {
                       {filteredTests.length}
                     </span>
                   )}
+                  {tab.id === "contacts" && parentContacts.length > 0 && (
+                    <span className={cn(
+                      "ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                      isActive ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-600"
+                    )}>
+                      {parentContacts.length}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -538,6 +568,24 @@ export default function StudentDetailPage() {
                   }}
                 />
               )}
+
+              {/* Parent Contacts Tab */}
+              {activeTab === "contacts" && (
+                <ParentContactsTab
+                  contacts={parentContacts}
+                  loading={contactsLoading}
+                  isMobile={isMobile}
+                  onRecordContact={() => {
+                    setEditingContact(null);
+                    setContactModalOpen(true);
+                  }}
+                  onEditContact={(contact) => {
+                    setEditingContact(contact);
+                    setContactModalOpen(true);
+                  }}
+                  contactStatus={contactStatus}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -584,6 +632,24 @@ export default function StudentDetailPage() {
             mutate(['student-enrollments', studentId]);
             setNewTrialModalOpen(false);
           }}
+        />
+      )}
+
+      {/* Parent Contact Modal */}
+      {student && (
+        <RecordContactModal
+          isOpen={contactModalOpen}
+          onClose={(saved) => {
+            setContactModalOpen(false);
+            setEditingContact(null);
+            if (saved) {
+              mutateContacts();
+            }
+          }}
+          editingContact={editingContact}
+          preselectedStudentId={studentId}
+          tutorId={currentTutorId || undefined}
+          location={student.home_location || undefined}
         />
       )}
     </DeskSurface>
@@ -2444,5 +2510,159 @@ function EnrollmentDetailPopover({
         </div>
       </div>
     </FloatingPortal>
+  );
+}
+
+// Parent Contacts Tab Component
+function ParentContactsTab({
+  contacts,
+  loading,
+  isMobile,
+  onRecordContact,
+  onEditContact,
+  contactStatus,
+}: {
+  contacts: ParentCommunication[];
+  loading: boolean;
+  isMobile: boolean;
+  onRecordContact: () => void;
+  onEditContact: (contact: ParentCommunication) => void;
+  contactStatus: string;
+}) {
+  // Format date helper
+  const formatContactDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    const days = Math.floor(
+      (Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (days === 0) return 'Today';
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+    return `${Math.floor(days / 30)} months ago`;
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Status and Add Button */}
+      <div className={cn(
+        "flex items-center justify-between p-3 rounded-lg",
+        "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]"
+      )}>
+        <div className="flex items-center gap-3">
+          <ContactStatusBadge status={contactStatus} size="md" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {contacts.length} contact{contacts.length !== 1 ? 's' : ''} recorded
+          </span>
+        </div>
+        <button
+          onClick={onRecordContact}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium",
+            "bg-[#a0704b] dark:bg-[#8b6f47] text-white",
+            "hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a] transition-colors"
+          )}
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          Record Contact
+        </button>
+      </div>
+
+      {/* Empty State */}
+      {contacts.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <StickyNote variant="yellow" size="md" showTape={true}>
+            <div className="text-center">
+              <History className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No parent contacts yet</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Record your first contact with this student's parent
+              </p>
+            </div>
+          </StickyNote>
+        </div>
+      ) : (
+        /* Contact List */
+        <div className="space-y-2">
+          {contacts.map((contact, index) => (
+            <motion.div
+              key={contact.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
+              onClick={() => onEditContact(contact)}
+              className={cn(
+                "p-3 rounded-lg cursor-pointer transition-all",
+                "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                !isMobile && "paper-texture"
+              )}
+            >
+              <div className="flex items-start gap-3">
+                {/* Method Icon */}
+                <div className="flex-shrink-0 mt-0.5">
+                  {getMethodIcon(contact.contact_method, "h-5 w-5")}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {formatContactDate(contact.contact_date)}
+                    </span>
+                    <span className={cn(
+                      "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium",
+                      getContactTypeColor(contact.contact_type)
+                    )}>
+                      {getContactTypeIcon(contact.contact_type)}
+                      {contact.contact_type}
+                    </span>
+                    {contact.follow_up_needed && (
+                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                        Follow-up
+                      </span>
+                    )}
+                  </div>
+
+                  {contact.brief_notes && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                      {contact.brief_notes}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <span>by {contact.tutor_name}</span>
+                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span>{formatRelativeTime(contact.contact_date)}</span>
+                  </div>
+                </div>
+
+                {/* Edit indicator */}
+                <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
