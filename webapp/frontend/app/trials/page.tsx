@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X } from "lucide-react";
+import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -64,6 +64,7 @@ function TrialCard({
               student_name: trial.student_name,
               school_student_id: trial.school_student_id,
               grade: trial.grade,
+              lang_stream: trial.lang_stream,
               school: trial.school,
             }}
           />
@@ -155,7 +156,7 @@ function KanbanColumn({
   };
 
   return (
-    <div className="flex-1 min-w-[280px] max-w-[400px]">
+    <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
       {/* Column Header */}
       <div className={cn(
         "px-3 py-2 rounded-t-lg border-b-2",
@@ -172,7 +173,59 @@ function KanbanColumn({
 
       {/* Column Content */}
       <div className={cn(
-        "p-2 rounded-b-lg min-h-[200px] max-h-[calc(100vh-280px)] overflow-y-auto",
+        "p-2 rounded-b-lg flex-1 min-h-0 overflow-y-auto",
+        "bg-gray-50/50 dark:bg-gray-900/20 border border-t-0",
+        "border-gray-200 dark:border-gray-700"
+      )}>
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {trials.map((trial) => (
+              <TrialCard
+                key={trial.enrollment_id}
+                trial={trial}
+                onConvert={onConvert}
+                onViewDetails={onViewDetails}
+              />
+            ))}
+          </AnimatePresence>
+          {trials.length === 0 && (
+            <div className="text-center py-8 text-foreground/40 text-sm">
+              No trials
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Dynamic Column Component (for school/grade grouping)
+function DynamicColumn({
+  label,
+  trials,
+  onConvert,
+  onViewDetails,
+}: {
+  label: string;
+  trials: TrialListItem[];
+  onConvert: (trial: TrialListItem) => void;
+  onViewDetails: (trial: TrialListItem) => void;
+}) {
+  return (
+    <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
+      {/* Column Header */}
+      <div className="px-3 py-2 rounded-t-lg border-b-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold truncate">{label}</h2>
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/50 dark:bg-black/20 flex-shrink-0">
+            {trials.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Column Content */}
+      <div className={cn(
+        "p-2 rounded-b-lg flex-1 min-h-0 overflow-y-auto",
         "bg-gray-50/50 dark:bg-gray-900/20 border border-t-0",
         "border-gray-200 dark:border-gray-700"
       )}>
@@ -229,6 +282,40 @@ export default function TrialsPage() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  // Filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [timeRange, setTimeRange] = useState<"30" | "90" | "academic" | "all">("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [groupBy, setGroupBy] = useState<"status" | "school" | "grade">("status");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        if (e.key === 'Escape') {
+          setSearchQuery("");
+          searchInputRef.current?.blur();
+        }
+        return;
+      }
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Fetch trials
   const { data: trials, isLoading, mutate } = useSWR(
     ['trials', selectedLocation, isTutorView ? currentTutorId : null],
@@ -239,40 +326,110 @@ export default function TrialsPage() {
     { revalidateOnFocus: false }
   );
 
-  // Group trials by status for Kanban columns
-  const groupedTrials = useMemo(() => {
-    if (!trials) return { scheduled: [], pending: [], lost: [], converted: [] };
+  // Group trials by status/school/grade for Kanban columns (with filtering and sorting)
+  const { groupedTrials, dynamicColumns, totalFiltered } = useMemo(() => {
+    if (!trials) return { groupedTrials: {} as Record<string, TrialListItem[]>, dynamicColumns: [] as string[], totalFiltered: 0 };
 
-    const groups: Record<ColumnId, TrialListItem[]> = {
-      scheduled: [],
-      pending: [],
-      lost: [],
-      converted: [],
-    };
-
-    for (const trial of trials) {
-      if (trial.trial_status === 'converted') {
-        groups.converted.push(trial);
-      } else if (trial.trial_status === 'pending' || trial.trial_status === 'attended') {
-        // Check if trial is older than 2 weeks without conversion
-        const sessionDate = new Date(trial.session_date);
-        const timeSinceSession = Date.now() - sessionDate.getTime();
-
-        if (timeSinceSession > TWO_WEEKS_MS) {
-          groups.lost.push(trial);  // Attended but no conversion after 2 weeks
-        } else {
-          groups.pending.push(trial);
-        }
-      } else if (trial.trial_status === 'no_show') {
-        // No-shows go to pending for follow-up
-        groups.pending.push(trial);
-      } else {
-        groups.scheduled.push(trial);
-      }
+    // 1. Filter by search
+    let filtered = trials;
+    if (debouncedSearch) {
+      const query = debouncedSearch.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.student_name.toLowerCase().includes(query) ||
+        (t.school_student_id?.toLowerCase().includes(query) ?? false)
+      );
     }
 
-    return groups;
-  }, [trials]);
+    // 2. Filter by time range
+    if (timeRange !== "all") {
+      const now = new Date();
+      let startDate: Date;
+
+      if (timeRange === "30") {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (timeRange === "90") {
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      } else if (timeRange === "academic") {
+        const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+        startDate = new Date(year, 8, 1);
+      } else {
+        startDate = new Date(0);
+      }
+
+      filtered = filtered.filter(t => {
+        const sessionDate = new Date(t.session_date);
+        return sessionDate >= startDate;
+      });
+    }
+
+    const totalFiltered = filtered.length;
+
+    // Sort function for all groups
+    const sortFn = (a: TrialListItem, b: TrialListItem) => {
+      const dateA = new Date(a.session_date).getTime();
+      const dateB = new Date(b.session_date).getTime();
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    };
+
+    // 3. Group by selected mode
+    if (groupBy === "status") {
+      // Group by status (original 4-column layout)
+      const groups: Record<ColumnId, TrialListItem[]> = {
+        scheduled: [],
+        pending: [],
+        lost: [],
+        converted: [],
+      };
+
+      for (const trial of filtered) {
+        if (trial.trial_status === 'converted') {
+          groups.converted.push(trial);
+        } else if (trial.trial_status === 'pending' || trial.trial_status === 'attended') {
+          const sessionDate = new Date(trial.session_date);
+          const timeSinceSession = Date.now() - sessionDate.getTime();
+          if (timeSinceSession > TWO_WEEKS_MS) {
+            groups.lost.push(trial);
+          } else {
+            groups.pending.push(trial);
+          }
+        } else if (trial.trial_status === 'no_show') {
+          groups.pending.push(trial);
+        } else {
+          groups.scheduled.push(trial);
+        }
+      }
+
+      for (const key of Object.keys(groups) as ColumnId[]) {
+        groups[key].sort(sortFn);
+      }
+
+      return { groupedTrials: groups, dynamicColumns: [], totalFiltered };
+    } else {
+      // Group by school or grade (dynamic columns)
+      const groups: Record<string, TrialListItem[]> = {};
+      const field = groupBy === "school" ? "school" : "grade";
+
+      for (const trial of filtered) {
+        const key = trial[field] || "(No " + (groupBy === "school" ? "School" : "Grade") + ")";
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(trial);
+      }
+
+      // Sort each group
+      for (const key of Object.keys(groups)) {
+        groups[key].sort(sortFn);
+      }
+
+      // Get sorted column keys
+      const columnKeys = Object.keys(groups).sort((a, b) => {
+        if (a.startsWith("(No")) return 1;
+        if (b.startsWith("(No")) return -1;
+        return a.localeCompare(b);
+      });
+
+      return { groupedTrials: groups, dynamicColumns: columnKeys, totalFiltered };
+    }
+  }, [trials, debouncedSearch, timeRange, sortOrder, groupBy]);
 
   const handleViewDetails = (trial: TrialListItem) => {
     // For converted trials, open comparison mode to show trial + subsequent enrollment
@@ -311,8 +468,8 @@ export default function TrialsPage() {
 
   return (
     <DeskSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+      <PageTransition className="h-[calc(100vh-4rem)] p-4 sm:p-6 overflow-hidden">
+        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 h-full flex flex-col">
           {/* Header */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -340,6 +497,72 @@ export default function TrialsPage() {
             </div>
           </div>
 
+          {/* Filter Bar */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="pl-9 pr-8 py-1.5 w-40 sm:w-48 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  <X className="h-4 w-4 text-foreground/40" />
+                </button>
+              )}
+            </div>
+
+            {/* Time Range Filter */}
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as typeof timeRange)}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="academic">This academic year</option>
+              <option value="all">All time</option>
+            </select>
+
+            {/* Group By Filter */}
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="status">By Status</option>
+              <option value="school">By School</option>
+              <option value="grade">By Grade</option>
+            </select>
+
+            {/* Sort Toggle */}
+            <button
+              onClick={() => setSortOrder(prev => prev === "newest" ? "oldest" : "newest")}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              {sortOrder === "newest" ? "Newest" : "Oldest"}
+            </button>
+
+            {/* Result count */}
+            {trials && (
+              <span className="text-sm text-foreground/50 ml-auto">
+                {totalFiltered} trial{totalFiltered !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
           {/* Loading State */}
           {isLoading && (
             <div className="flex items-center justify-center py-12">
@@ -349,16 +572,30 @@ export default function TrialsPage() {
 
           {/* Kanban Board */}
           {!isLoading && (
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {COLUMNS.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  column={column}
-                  trials={groupedTrials[column.id]}
-                  onConvert={handleConvert}
-                  onViewDetails={handleViewDetails}
-                />
-              ))}
+            <div className="flex-1 min-h-0 flex gap-4 overflow-x-auto pb-4">
+              {groupBy === "status" ? (
+                // Status-based columns (fixed 4 columns)
+                COLUMNS.map((column) => (
+                  <KanbanColumn
+                    key={column.id}
+                    column={column}
+                    trials={(groupedTrials as Record<ColumnId, TrialListItem[]>)[column.id] || []}
+                    onConvert={handleConvert}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))
+              ) : (
+                // Dynamic columns (school or grade)
+                dynamicColumns.map((columnKey) => (
+                  <DynamicColumn
+                    key={columnKey}
+                    label={columnKey}
+                    trials={groupedTrials[columnKey] || []}
+                    onConvert={handleConvert}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))
+              )}
             </div>
           )}
 

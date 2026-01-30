@@ -122,6 +122,7 @@ export function EnrollmentDetailModal({
     return new Date(dateStr).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
   };
 
@@ -296,7 +297,7 @@ export function EnrollmentDetailModal({
                   {new Date(detail.first_lesson_date).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
-                    year: compact ? undefined : "numeric",
+                    year: "numeric",
                   })}
                 </span>
               </div>
@@ -312,7 +313,7 @@ export function EnrollmentDetailModal({
                   {new Date(detail.effective_end_date).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
-                    year: compact ? undefined : "numeric",
+                    year: "numeric",
                   })}
                   {isExpired && (
                     <span className="ml-1 text-xs">

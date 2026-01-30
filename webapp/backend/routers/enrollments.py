@@ -1269,9 +1269,32 @@ async def get_trials(
                     trial_id not in subsequent_map):
                     subsequent_map[trial_id] = subsequent_id
 
-    # Build result items
-    trial_items = []
+    # Build result items - deduplicate by enrollment (keep most relevant session)
+    # Group sessions by enrollment_id (an enrollment may have multiple sessions if rescheduled)
+    enrollment_sessions: dict[int, list[tuple[Enrollment, SessionLog]]] = {}
     for enrollment, session in results:
+        if enrollment.id not in enrollment_sessions:
+            enrollment_sessions[enrollment.id] = []
+        enrollment_sessions[enrollment.id].append((enrollment, session))
+
+    trial_items = []
+    for enrollment_id, sessions in enrollment_sessions.items():
+        # Pick the most relevant session:
+        # 1. Attended session (if any) - shows trial outcome
+        # 2. Scheduled session closest to today (if pending)
+        # 3. Most recent session (fallback)
+        attended = [s for _, s in sessions if s.session_status in ('Attended', 'Attended (Make-up)')]
+        scheduled = [s for _, s in sessions if s.session_status == 'Trial Class']
+
+        if attended:
+            session = attended[0]
+        elif scheduled:
+            session = min(scheduled, key=lambda s: abs((s.session_date - today).days))
+        else:
+            session = max([s for _, s in sessions], key=lambda s: s.session_date)
+
+        enrollment = sessions[0][0]  # Same enrollment object for all sessions
+
         # Derive trial status
         session_status = session.session_status
         subsequent_id = subsequent_map.get(enrollment.id)
@@ -1294,6 +1317,7 @@ async def get_trials(
             student_name=enrollment.student.student_name if enrollment.student else "",
             school_student_id=enrollment.student.school_student_id if enrollment.student else None,
             grade=enrollment.student.grade if enrollment.student else None,
+            lang_stream=enrollment.student.lang_stream if enrollment.student else None,
             school=enrollment.student.school if enrollment.student else None,
             tutor_id=enrollment.tutor_id,
             tutor_name=enrollment.tutor.tutor_name if enrollment.tutor else "",
