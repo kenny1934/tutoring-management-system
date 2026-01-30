@@ -11,15 +11,18 @@ import {
   AlertTriangle,
   Clock
 } from "lucide-react";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 interface PendingFollowupsSectionProps {
   followups: StudentContactStatus[];
   onRecordContact: (studentId: number) => void;
+  showLocationPrefix?: boolean;
 }
 
 export function PendingFollowupsSection({
   followups,
   onRecordContact,
+  showLocationPrefix,
 }: PendingFollowupsSectionProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -101,10 +104,19 @@ export function PendingFollowupsSection({
                   )}
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {followup.student_name}
-                    </p>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <StudentInfoBadges
+                      student={{
+                        student_id: followup.student_id,
+                        student_name: followup.student_name,
+                        school_student_id: followup.school_student_id || undefined,
+                        grade: followup.grade || undefined,
+                        lang_stream: followup.lang_stream || undefined,
+                        school: followup.school || undefined,
+                        home_location: followup.home_location || undefined,
+                      }}
+                      showLocationPrefix={showLocationPrefix}
+                    />
                     <p className={cn(
                       "text-xs",
                       isOverdue

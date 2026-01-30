@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "./contact-utils";
 import Link from "next/link";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 interface ContactDetailPanelProps {
   contact: ParentCommunication | null;
@@ -29,7 +30,8 @@ interface ContactDetailPanelProps {
   onBack?: () => void;  // Back button to return to history list
   onEdit: (contact: ParentCommunication) => void;
   onDelete: (id: number) => void;
-  onRecordNew: () => void;
+  onRecordNew: (studentId?: number) => void;
+  showLocationPrefix?: boolean;
 }
 
 export function ContactDetailPanel({
@@ -42,6 +44,7 @@ export function ContactDetailPanel({
   onEdit,
   onDelete,
   onRecordNew,
+  showLocationPrefix,
 }: ContactDetailPanelProps) {
   const formatContactDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -74,16 +77,19 @@ export function ContactDetailPanel({
               <User className="h-5 w-5 text-[#a0704b]" />
             </div>
             <div className="flex-1 min-w-0">
-              <Link
-                href={`/students/${selectedStudent.student_id}`}
-                className="text-base font-semibold text-[#a0704b] dark:text-[#cd853f] hover:underline"
-              >
-                {selectedStudent.student_name}
-              </Link>
-              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                {selectedStudent.school_student_id && <span>{selectedStudent.school_student_id}</span>}
-                {selectedStudent.grade && <span>· {selectedStudent.grade}</span>}
-              </div>
+              <StudentInfoBadges
+                student={{
+                  student_id: selectedStudent.student_id,
+                  student_name: selectedStudent.student_name,
+                  school_student_id: selectedStudent.school_student_id || undefined,
+                  grade: selectedStudent.grade || undefined,
+                  lang_stream: selectedStudent.lang_stream || undefined,
+                  school: selectedStudent.school || undefined,
+                  home_location: selectedStudent.home_location || undefined,
+                }}
+                showLink
+                showLocationPrefix={showLocationPrefix}
+              />
             </div>
           </div>
         </div>
@@ -161,7 +167,7 @@ export function ContactDetailPanel({
         {/* Footer */}
         <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
           <button
-            onClick={onRecordNew}
+            onClick={() => onRecordNew(selectedStudent.student_id)}
             className={cn(
               "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium",
               "bg-[#a0704b] dark:bg-[#8b6f47] text-white",
@@ -277,22 +283,19 @@ export function ContactDetailPanel({
             </span>
           </div>
           <div className="pl-6">
-            <Link
-              href={`/students/${contact.student_id}`}
-              className="text-base font-semibold text-[#a0704b] dark:text-[#cd853f] hover:underline"
-            >
-              {contact.student_name}
-            </Link>
-            {contact.school_student_id && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                ID: {contact.school_student_id}
-              </p>
-            )}
-            {contact.grade && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Grade: {contact.grade}
-              </p>
-            )}
+            <StudentInfoBadges
+              student={{
+                student_id: contact.student_id,
+                student_name: contact.student_name,
+                school_student_id: contact.school_student_id || undefined,
+                grade: contact.grade || undefined,
+                lang_stream: contact.lang_stream || undefined,
+                school: contact.school || undefined,
+                home_location: contact.home_location || undefined,
+              }}
+              showLink
+              showLocationPrefix={showLocationPrefix}
+            />
           </div>
         </div>
 
@@ -414,7 +417,7 @@ export function ContactDetailPanel({
       {/* Footer */}
       <div className="px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
         <button
-          onClick={onRecordNew}
+          onClick={() => onRecordNew(contact.student_id)}
           className={cn(
             "w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium",
             "bg-white dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",

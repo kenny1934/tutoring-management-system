@@ -13,12 +13,14 @@ import {
   Search,
   SlidersHorizontal
 } from "lucide-react";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 interface StudentContactListProps {
   students: StudentContactStatus[];
   selectedStudentId: number | null;
   onStudentClick: (student: StudentContactStatus) => void;
   onRecordContact: (studentId: number) => void;
+  showLocationPrefix?: boolean;
 }
 
 type GroupMode = 'grade' | 'urgency';
@@ -45,6 +47,7 @@ export const StudentContactList = memo(function StudentContactList({
   selectedStudentId,
   onStudentClick,
   onRecordContact,
+  showLocationPrefix,
 }: StudentContactListProps) {
   const [groupMode, setGroupMode] = useState<GroupMode>('grade');
   const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('urgency');
@@ -285,15 +288,23 @@ export const StudentContactList = memo(function StudentContactList({
                     >
                       <ContactStatusDot status={student.contact_status} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {student.student_name}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {student.school_student_id || student.grade || 'No ID'}
-                          {student.last_contact_date && (
-                            <> · {student.days_since_contact}d ago</>
+                        <StudentInfoBadges
+                          student={{
+                            student_id: student.student_id,
+                            student_name: student.student_name,
+                            school_student_id: student.school_student_id || undefined,
+                            grade: student.grade || undefined,
+                            lang_stream: student.lang_stream || undefined,
+                            school: student.school || undefined,
+                            home_location: student.home_location || undefined,
+                          }}
+                          showLocationPrefix={showLocationPrefix}
+                          trailing={student.last_contact_date && (
+                            <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                              {student.days_since_contact}d ago
+                            </span>
                           )}
-                        </p>
+                        />
                       </div>
                       {student.pending_follow_up && (
                         <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" title="Follow-up pending" />

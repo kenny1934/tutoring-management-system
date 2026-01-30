@@ -9,6 +9,7 @@ import {
   Calendar as CalendarIcon,
   Loader2
 } from "lucide-react";
+import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 interface ContactCalendarProps {
   events: ParentCommunication[];
@@ -20,6 +21,7 @@ interface ContactCalendarProps {
   selectedContactId: number | null;
   onEventClick: (contact: ParentCommunication) => void;
   loading?: boolean;
+  showLocationPrefix?: boolean;
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -38,6 +40,7 @@ export function ContactCalendar({
   selectedContactId,
   onEventClick,
   loading = false,
+  showLocationPrefix,
 }: ContactCalendarProps) {
   // Get follow-up dates as a Set for quick lookup
   const followupDates = useMemo(() => {
@@ -324,10 +327,19 @@ export function ContactCalendar({
                 >
                   <div className="flex items-start gap-2">
                     <span className={cn("w-2 h-2 rounded-full mt-1.5 flex-shrink-0", getContactTypeColor(event.contact_type))} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {event.student_name}
-                      </p>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <StudentInfoBadges
+                        student={{
+                          student_id: event.student_id,
+                          student_name: event.student_name,
+                          school_student_id: event.school_student_id || undefined,
+                          grade: event.grade || undefined,
+                          lang_stream: event.lang_stream || undefined,
+                          school: event.school || undefined,
+                          home_location: event.home_location || undefined,
+                        }}
+                        showLocationPrefix={showLocationPrefix}
+                      />
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(event.contact_date).toLocaleDateString('en-US', {
                           weekday: 'short',
@@ -337,7 +349,7 @@ export function ContactCalendar({
                           minute: '2-digit',
                         })}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 truncate">
+                      <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
                         {event.contact_type} · {event.contact_method}
                       </p>
                     </div>

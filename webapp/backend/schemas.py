@@ -758,6 +758,9 @@ class ParentCommunicationResponse(BaseModel):
     student_name: str = Field(..., max_length=255)
     school_student_id: Optional[str] = Field(None, max_length=100)
     grade: Optional[str] = Field(None, max_length=50)
+    lang_stream: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=200)
+    home_location: Optional[str] = Field(None, max_length=100)
     tutor_id: int = Field(..., gt=0)
     tutor_name: str = Field(..., max_length=255)
     contact_date: datetime
@@ -779,6 +782,8 @@ class StudentContactStatus(BaseModel):
     school_student_id: Optional[str] = Field(None, max_length=100)
     grade: Optional[str] = Field(None, max_length=50)
     lang_stream: Optional[str] = Field(None, max_length=50)
+    school: Optional[str] = Field(None, max_length=200)
+    home_location: Optional[str] = Field(None, max_length=100)
     last_contact_date: Optional[datetime] = None
     last_contacted_by: Optional[str] = Field(None, max_length=255)
     days_since_contact: int = Field(..., ge=0)  # 999 if never contacted
