@@ -320,6 +320,18 @@ export default function AdminRenewalsPage() {
   const [comparisonOriginalId, setComparisonOriginalId] = useState<number | null>(null);
   const [comparisonRenewalId, setComparisonRenewalId] = useState<number | null>(null);
 
+  // Track screen size for responsive modal layout
+  const [isLargeScreen, setIsLargeScreen] = useState(true);
+  useEffect(() => {
+    const checkScreenSize = () => setIsLargeScreen(window.innerWidth >= 1024);
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Modal tab view for narrow screens (when detail + create are both open)
+  const [modalTabView, setModalTabView] = useState<'detail' | 'create'>('detail');
+
   // Fee panel state
   const [expandedFeePanel, setExpandedFeePanel] = useState<number | null>(null);
 
@@ -555,6 +567,8 @@ export default function AdminRenewalsPage() {
       // Normal single detail view
       setSelectedEnrollmentId(enrollmentId);
       setDetailModalOpen(true);
+      // Reset tab view for new enrollment
+      setModalTabView('detail');
     }
   };
 
@@ -579,7 +593,10 @@ export default function AdminRenewalsPage() {
   const handleCreateRenewal = (enrollmentId: number) => {
     setRenewFromId(enrollmentId);
     setCreateModalOpen(true);
-    // Keep detail modal open for reference
+    // On narrow screens, auto-switch to create tab
+    if (!isLargeScreen) {
+      setModalTabView('create');
+    }
   };
 
   const handleDetailModalClose = () => {
@@ -1182,7 +1199,7 @@ export default function AdminRenewalsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
           >
             {/* Backdrop */}
             <motion.div
@@ -1193,61 +1210,101 @@ export default function AdminRenewalsPage() {
               exit={{ opacity: 0 }}
             />
 
-            {/* Modal Container - centers when 1 modal, natural flow when 2 */}
-            <LayoutGroup>
-              <motion.div
-                layout
-                className={cn(
-                  "relative flex items-stretch gap-4",
-                  "h-[85vh] max-w-[60rem]",
-                  // Center when only detail, natural flow when both
-                  !createModalOpen && "justify-center"
-                )}
-              >
-                {/* Detail Modal - uses layoutId for seamless position animation (GPU-accelerated) */}
-                <motion.div
-                  layoutId="enrollment-detail-modal"
-                  transition={{
-                    layout: { type: "spring", stiffness: 300, damping: 30 }
-                  }}
-                >
-                  <EnrollmentDetailModal
-                    isOpen={true}
-                    onClose={handleDetailModalClose}
-                    enrollmentId={selectedEnrollmentId}
-                    onCreateRenewal={handleCreateRenewal}
-                    compact={createModalOpen}
-                    standalone={false}
-                  />
-                </motion.div>
+            {/* Modal Container - responsive: side-by-side on large, tabs on narrow */}
+            <div className={cn(
+              "relative flex flex-col",
+              isLargeScreen
+                ? "h-[85vh] max-w-[60rem]"
+                : "h-[90vh] max-w-[32rem] w-full"
+            )}>
+              {/* Tabs for narrow screens when both modals open */}
+              {!isLargeScreen && createModalOpen && (
+                <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <button
+                    onClick={() => setModalTabView('detail')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tl-lg",
+                      modalTabView === 'detail'
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-foreground/60 hover:text-foreground/80"
+                    )}
+                  >
+                    Details
+                  </button>
+                  <button
+                    onClick={() => setModalTabView('create')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tr-lg",
+                      modalTabView === 'create'
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-foreground/60 hover:text-foreground/80"
+                    )}
+                  >
+                    Create Renewal
+                  </button>
+                </div>
+              )}
 
-                {/* Create Form - slides in from right with spring physics */}
-                <AnimatePresence mode="popLayout">
-                  {createModalOpen && (
+              <LayoutGroup>
+                <motion.div
+                  layout
+                  className={cn(
+                    "relative flex",
+                    isLargeScreen
+                      ? "items-stretch gap-4 h-full"
+                      : "flex-col flex-1 overflow-hidden",
+                    isLargeScreen && !createModalOpen && "justify-center"
+                  )}
+                >
+                  {/* Detail Modal - always on large, conditional on narrow when create is open */}
+                  {(isLargeScreen || !createModalOpen || modalTabView === 'detail') && (
                     <motion.div
-                      key="create-form"
-                      initial={{ opacity: 0, x: 50, scale: 0.95 }}
-                      animate={{ opacity: 1, x: 0, scale: 1 }}
-                      exit={{ opacity: 0, x: 50, scale: 0.95 }}
+                      layoutId="enrollment-detail-modal"
                       transition={{
-                        type: "spring",
-                        stiffness: 300,
-                        damping: 30,
-                        delay: 0.05
+                        layout: { type: "spring", stiffness: 300, damping: 30 }
                       }}
+                      className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
                     >
-                      <CreateEnrollmentModal
+                      <EnrollmentDetailModal
                         isOpen={true}
-                        onClose={handleCreateModalClose}
-                        renewFromId={renewFromId}
-                        onSuccess={handleSuccess}
+                        onClose={handleDetailModalClose}
+                        enrollmentId={selectedEnrollmentId}
+                        onCreateRenewal={handleCreateRenewal}
+                        compact={isLargeScreen && createModalOpen}
                         standalone={false}
                       />
                     </motion.div>
                   )}
-                </AnimatePresence>
-              </motion.div>
-            </LayoutGroup>
+
+                  {/* Create Form - slides in on large, tab-based on narrow */}
+                  <AnimatePresence mode="popLayout">
+                    {createModalOpen && (isLargeScreen || modalTabView === 'create') && (
+                      <motion.div
+                        key="create-form"
+                        initial={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                        animate={isLargeScreen ? { opacity: 1, x: 0, scale: 1 } : { opacity: 1 }}
+                        exit={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                          delay: isLargeScreen ? 0.05 : 0
+                        }}
+                        className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
+                      >
+                        <CreateEnrollmentModal
+                          isOpen={true}
+                          onClose={handleCreateModalClose}
+                          renewFromId={renewFromId}
+                          onSuccess={handleSuccess}
+                          standalone={false}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </LayoutGroup>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1272,7 +1329,7 @@ export default function AdminRenewalsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
           >
             {/* Backdrop */}
             <motion.div
@@ -1283,26 +1340,39 @@ export default function AdminRenewalsPage() {
               exit={{ opacity: 0 }}
             />
 
-            {/* Modal container - no extra header */}
-            <div className="relative flex items-center h-[85vh] max-w-[60rem]">
+            {/* Modal container - responsive: side-by-side on large, stacked on narrow */}
+            <div className={cn(
+              "relative flex h-[85vh]",
+              isLargeScreen
+                ? "items-center max-w-[60rem]"
+                : "flex-col max-w-[22rem] w-full"
+            )}>
               {/* Close button - floating top right */}
               <button
                 onClick={handleCloseAll}
-                className="absolute -top-2 -right-2 z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className={cn(
+                  "absolute z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
+                  isLargeScreen ? "-top-2 -right-2" : "top-2 right-2"
+                )}
               >
                 <X className="h-5 w-5 text-foreground/60" />
               </button>
 
-              {/* Side-by-side enrollment modals */}
+              {/* Side-by-side on large, stacked on narrow */}
               <LayoutGroup>
                 <motion.div
                   layout
-                  className="flex items-stretch"
+                  className={cn(
+                    "flex",
+                    isLargeScreen
+                      ? "items-stretch"
+                      : "flex-col gap-4 flex-1 overflow-y-auto py-2"
+                  )}
                 >
-                  {/* Original Enrollment (left) - muted styling */}
+                  {/* Original Enrollment */}
                   <motion.div
                     layoutId="original-enrollment"
-                    className="opacity-75"
+                    className={cn("w-[22rem] max-w-full", isLargeScreen && "opacity-75")}
                     transition={{
                       layout: { type: "spring", stiffness: 300, damping: 30 }
                     }}
@@ -1318,15 +1388,17 @@ export default function AdminRenewalsPage() {
                     />
                   </motion.div>
 
-                  {/* Arrow between panels */}
-                  <div className="flex items-center px-3">
-                    <ArrowRight className="h-6 w-6 text-foreground/30" />
-                  </div>
+                  {/* Arrow between panels - only on large screens */}
+                  {isLargeScreen && (
+                    <div className="flex items-center px-3">
+                      <ArrowRight className="h-6 w-6 text-foreground/30" />
+                    </div>
+                  )}
 
-                  {/* Renewal Enrollment (right) - highlighted styling */}
+                  {/* Renewal Enrollment */}
                   <motion.div
                     layoutId="renewal-enrollment"
-                    className="ring-2 ring-blue-400/50 dark:ring-blue-500/50 rounded-lg"
+                    className="w-[22rem] max-w-full ring-2 ring-blue-400/50 dark:ring-blue-500/50 rounded-lg"
                     transition={{
                       layout: { type: "spring", stiffness: 300, damping: 30 }
                     }}
