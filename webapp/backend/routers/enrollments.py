@@ -141,19 +141,76 @@ def check_student_conflicts(
     return conflicts
 
 
-def calculate_effective_end_date(enrollment: Enrollment) -> Optional[date]:
-    """Calculate effective end date based on first lesson + lessons paid + extensions.
+def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optional[date]:
+    """Calculate effective end date with holiday awareness.
 
-    Formula: first_lesson_date + (lessons_paid + deadline_extension_weeks) weeks
+    Counts actual lesson dates (skipping holidays) until we reach
+    lessons_paid valid lesson dates, then adds extension weeks (also holiday-aware).
+
+    The last lesson is on the Nth non-holiday date where N = lessons_paid.
+    Extension weeks provide additional deadline buffer beyond the last lesson.
     """
     if not enrollment.first_lesson_date:
         return None
 
     weeks_paid = enrollment.lessons_paid or 0
     extension_weeks = enrollment.deadline_extension_weeks or 0
-    total_weeks = weeks_paid + extension_weeks
 
-    return enrollment.first_lesson_date + timedelta(weeks=total_weeks)
+    # Total lesson dates to count (lessons + extension buffer)
+    total_lesson_dates = weeks_paid + extension_weeks
+
+    if total_lesson_dates <= 0:
+        return enrollment.first_lesson_date
+
+    # Calculate date range needed (1.5x total weeks, minimum 20 weeks)
+    # This accounts for holiday clusters while not over-fetching
+    weeks_buffer = max(20, int(total_lesson_dates * 1.5))
+    end_range = enrollment.first_lesson_date + timedelta(weeks=weeks_buffer)
+    holidays = get_holidays_in_range(db, enrollment.first_lesson_date, end_range)
+
+    current_date = enrollment.first_lesson_date
+    lessons_counted = 0
+    effective_end = current_date
+
+    while lessons_counted < total_lesson_dates:
+        if current_date not in holidays:
+            lessons_counted += 1
+            effective_end = current_date
+        current_date += timedelta(weeks=1)
+
+    return effective_end
+
+
+def calculate_effective_end_date_bulk(
+    enrollment: Enrollment,
+    holidays: dict
+) -> Optional[date]:
+    """Holiday-aware calculation with pre-loaded holidays dict.
+
+    Use this for bulk operations to avoid repeated DB queries.
+    Caller should load holidays once with get_holidays_in_range().
+    """
+    if not enrollment.first_lesson_date:
+        return None
+
+    weeks_paid = enrollment.lessons_paid or 0
+    extension_weeks = enrollment.deadline_extension_weeks or 0
+    total_lesson_dates = weeks_paid + extension_weeks
+
+    if total_lesson_dates <= 0:
+        return enrollment.first_lesson_date
+
+    current_date = enrollment.first_lesson_date
+    lessons_counted = 0
+    effective_end = current_date
+
+    while lessons_counted < total_lesson_dates:
+        if current_date not in holidays:
+            lessons_counted += 1
+            effective_end = current_date
+        current_date += timedelta(weeks=1)
+
+    return effective_end
 
 
 # ============================================
@@ -246,7 +303,7 @@ async def preview_enrollment(
         )
 
         for enr in existing_enrollments:
-            eff_end = calculate_effective_end_date(enr)
+            eff_end = calculate_effective_end_date(enr, db)
             if eff_end:
                 potential_renewals.append(PotentialRenewalLink(
                     id=enr.id,
@@ -419,7 +476,7 @@ async def get_renewal_data(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     # Calculate effective end date
-    effective_end = calculate_effective_end_date(enrollment)
+    effective_end = calculate_effective_end_date(enrollment, db)
     if not effective_end:
         raise HTTPException(
             status_code=400,
@@ -514,10 +571,13 @@ async def get_enrollments_needing_renewal(
 
     enrollments = query.all()
 
+    # Load holidays once for bulk calculation (2 years should cover all enrollments)
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     # First pass: calculate effective_end_date and filter candidates
     candidates = []
     for enrollment in enrollments:
-        effective_end = calculate_effective_end_date(enrollment)
+        effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         if not effective_end:
             continue
 
@@ -717,11 +777,14 @@ async def get_renewal_counts(
 
     enrollments = query.all()
 
+    # Load holidays once for bulk calculation
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     expiring_soon = 0
     expired = 0
 
     for enrollment in enrollments:
-        effective_end = calculate_effective_end_date(enrollment)
+        effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         if not effective_end:
             continue
 
@@ -830,6 +893,10 @@ async def get_enrollments(
     # Apply pagination
     enrollments = query.offset(offset).limit(limit).all()
 
+    # Load holidays once for bulk calculation
+    today = date.today()
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     # Build response with related data
     result = []
     for enrollment in enrollments:
@@ -841,7 +908,7 @@ async def get_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
         result.append(enrollment_data)
 
     return result
@@ -897,6 +964,9 @@ async def get_active_enrollments(
     # Fetch pre-filtered enrollments
     all_enrollments = query.all()
 
+    # Load holidays once for bulk calculation
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     # Group by student_id and keep only the latest enrollment per student
     student_enrollments = defaultdict(list)
     for enrollment in all_enrollments:
@@ -908,15 +978,12 @@ async def get_active_enrollments(
         # Sort by first_lesson_date descending and take the first one
         latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
 
-        # Calculate effective_end_date
+        # Calculate effective_end_date (holiday-aware)
         if latest.first_lesson_date:
-            weeks_paid = latest.lessons_paid or 0
-            extension = latest.deadline_extension_weeks or 0
-            total_weeks = weeks_paid + extension
-            effective_end_date = latest.first_lesson_date + timedelta(weeks=total_weeks)
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
             # Only include if still active
-            if effective_end_date >= today:
+            if effective_end_date and effective_end_date >= today:
                 latest_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
@@ -936,7 +1003,7 @@ async def get_active_enrollments(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
         result.append(enrollment_data)
 
     return result
@@ -1068,6 +1135,9 @@ async def get_my_students(
 
     all_enrollments = query.all()
 
+    # Load holidays once for bulk calculation
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     # Group by student_id and keep only the latest enrollment per student
     student_enrollments = defaultdict(list)
     for enrollment in all_enrollments:
@@ -1079,15 +1149,12 @@ async def get_my_students(
         # Sort by first_lesson_date descending and take the first one
         latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
 
-        # Calculate effective_end_date
+        # Calculate effective_end_date (holiday-aware)
         if latest.first_lesson_date:
-            weeks_paid = latest.lessons_paid or 0
-            extension = latest.deadline_extension_weeks or 0
-            total_weeks = weeks_paid + extension
-            effective_end_date = latest.first_lesson_date + timedelta(weeks=total_weeks)
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
             # Only include if still active
-            if effective_end_date >= today:
+            if effective_end_date and effective_end_date >= today:
                 active_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
@@ -1110,7 +1177,7 @@ async def get_my_students(
         enrollment_data.school = enrollment.student.school if enrollment.student else None
         enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
         enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-        enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+        enrollment_data.effective_end_date = calculate_effective_end_date_bulk(enrollment, holidays)
         result.append(enrollment_data)
 
     return result
@@ -1277,7 +1344,7 @@ async def get_enrollment_detail(
     enrollment_data.school = enrollment.student.school if enrollment.student else None
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
 
     return enrollment_data
 
@@ -1309,7 +1376,7 @@ async def get_enrollment_detail_for_modal(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     # Calculate effective end date
-    effective_end = calculate_effective_end_date(enrollment)
+    effective_end = calculate_effective_end_date(enrollment, db)
     today = date.today()
     days_until_expiry = (effective_end - today).days if effective_end else 0
 
@@ -1417,7 +1484,7 @@ async def get_fee_message(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     # Calculate effective end date of current enrollment
-    effective_end = calculate_effective_end_date(enrollment)
+    effective_end = calculate_effective_end_date(enrollment, db)
 
     # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
     day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
@@ -1604,7 +1671,7 @@ async def update_enrollment(
     enrollment_data.school = enrollment.student.school if enrollment.student else None
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
 
     return enrollment_data
 
@@ -1670,7 +1737,7 @@ async def update_enrollment_extension(
     enrollment_data.school = enrollment.student.school if enrollment.student else None
     enrollment_data.school_student_id = enrollment.student.school_student_id if enrollment.student else None
     enrollment_data.lang_stream = enrollment.student.lang_stream if enrollment.student else None
-    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment)
+    enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
 
     return enrollment_data
 
@@ -1768,6 +1835,10 @@ async def batch_renew_check(
         'Weather Cancelled - Pending Make-up'
     ]
 
+    # Load holidays once for bulk calculation
+    today = date.today()
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     for eid in request.enrollment_ids:
         enrollment = db.query(Enrollment).options(
             joinedload(Enrollment.student),
@@ -1789,7 +1860,7 @@ async def batch_renew_check(
         }
 
         # Calculate schedule info upfront (for all results including ineligible)
-        effective_end = calculate_effective_end_date(enrollment)
+        effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         suggested_date = None
         if effective_end:
             assigned_weekday = day_name_to_weekday.get(enrollment.assigned_day)
@@ -1953,6 +2024,10 @@ async def batch_renew(
     created_count = 0
     failed_count = 0
 
+    # Load holidays once for bulk calculation
+    today = date.today()
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
     for eid in request.enrollment_ids:
         # Get original enrollment
         enrollment = db.query(Enrollment).options(
@@ -1971,7 +2046,7 @@ async def batch_renew(
             continue
 
         # Calculate renewal first lesson date
-        effective_end = calculate_effective_end_date(enrollment)
+        effective_end = calculate_effective_end_date_bulk(enrollment, holidays)
         if not effective_end:
             results.append(BatchRenewResult(
                 original_enrollment_id=eid,
