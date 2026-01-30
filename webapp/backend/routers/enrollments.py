@@ -794,6 +794,10 @@ async def get_renewal_counts(
         if days_until_expiry > 14:
             continue
 
+        # Skip enrollments expired more than 30 days (likely orphaned)
+        if days_until_expiry < -30:
+            continue
+
         # Check if already renewed
         existing_renewal = db.query(Enrollment.id).filter(
             Enrollment.renewed_from_enrollment_id == enrollment.id,

@@ -72,9 +72,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       items.push({
         id: "renewals",
         icon: <RefreshCcw className="h-4 w-4" />,
-        label: renewalCounts.expired > 0
-          ? `Renewals (${renewalCounts.expired} expired)`
-          : "Renewals Expiring Soon",
+        label: "Renewals",
         count: renewalCounts.total,
         severity: renewalCounts.expired > 0 ? "danger" : "warning",
         href: "/admin/renewals",
