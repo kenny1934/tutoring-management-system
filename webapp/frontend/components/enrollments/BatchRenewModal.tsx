@@ -40,6 +40,13 @@ interface EligibilityResult {
   overridable: boolean;
 }
 
+interface BatchRenewResult {
+  original_enrollment_id: number;
+  new_enrollment_id: number | null;
+  success: boolean;
+  error: string | null;
+}
+
 interface BatchRenewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -115,6 +122,7 @@ export function BatchRenewModal({
   const [overriddenIds, setOverriddenIds] = useState<Set<number>>(new Set());
   const [createdCount, setCreatedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
+  const [renewResults, setRenewResults] = useState<BatchRenewResult[]>([]);
   const [lessonsPaid, setLessonsPaid] = useState(6);
   const [lastOverriddenId, setLastOverriddenId] = useState<number | null>(null);
   const [lastUncheckedId, setLastUncheckedId] = useState<number | null>(null);
@@ -144,6 +152,7 @@ export function BatchRenewModal({
       setOverriddenIds(new Set());
       setCreatedCount(0);
       setFailedCount(0);
+      setRenewResults([]);
       setLessonsPaid(6);
       setLastOverriddenId(null);
       setLastUncheckedId(null);
@@ -218,6 +227,7 @@ export function BatchRenewModal({
       const response = await enrollmentsAPI.batchRenew(eligibleIds, lessonsPaid);
       setCreatedCount(response.created_count);
       setFailedCount(response.failed_count);
+      setRenewResults(response.results);
       setStep("done");
 
       if (response.created_count > 0) {
@@ -279,7 +289,7 @@ export function BatchRenewModal({
         {step === "results" && (
           <LayoutGroup>
             {/* Summary - animated counts */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
               <motion.div
                 layout
                 className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
@@ -327,7 +337,7 @@ export function BatchRenewModal({
                   <h4 className="text-sm font-medium text-foreground/80">
                     Cannot auto-renew:
                   </h4>
-                  <div ref={ineligibleListRef} className="max-h-48 overflow-y-auto space-y-1.5">
+                  <div ref={ineligibleListRef} className="max-h-36 sm:max-h-48 overflow-y-auto space-y-1.5">
                     <AnimatePresence mode="popLayout">
                       {finalIneligible.map((item) => (
                         <motion.div
@@ -407,7 +417,7 @@ export function BatchRenewModal({
                   <h4 className="text-sm font-medium text-foreground/80">
                     Ready to renew:
                   </h4>
-                  <div ref={eligibleListRef} className="max-h-48 overflow-y-auto space-y-1.5">
+                  <div ref={eligibleListRef} className="max-h-36 sm:max-h-48 overflow-y-auto space-y-1.5">
                     <AnimatePresence mode="popLayout">
                       {finalEligible.map((item) => {
                         const isOverridden = overriddenIds.has(item.enrollment_id);
@@ -475,10 +485,10 @@ export function BatchRenewModal({
             </AnimatePresence>
 
             {/* Lessons configuration */}
-            {(finalEligible.length > 0 || overriddenIds.size > 0) && (
+            {finalEligible.length > 0 && (
               <motion.div
                 layout
-                className="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-700"
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 pt-2 border-t border-gray-200 dark:border-gray-700"
               >
                 <label className="text-sm text-foreground/70">
                   Lessons per renewal:
@@ -534,7 +544,7 @@ export function BatchRenewModal({
 
         {/* Done step */}
         {step === "done" && (
-          <div className="flex flex-col items-center justify-center py-8 gap-4">
+          <div className="flex flex-col items-center py-8 gap-4">
             {createdCount > 0 ? (
               <>
                 <CheckCircle2 className="h-12 w-12 text-green-500" />
@@ -542,11 +552,19 @@ export function BatchRenewModal({
                   <p className="text-lg font-medium">
                     {createdCount} Renewal{createdCount > 1 ? "s" : ""} Created
                   </p>
-                  {failedCount > 0 && (
-                    <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
-                      {failedCount} failed
-                    </p>
-                  )}
+                  {/* Show successful student names */}
+                  <div className="mt-2 text-sm text-foreground/60">
+                    {renewResults
+                      .filter(r => r.success)
+                      .slice(0, 5)
+                      .map(r => {
+                        const item = finalEligible.find(e => e.enrollment_id === r.original_enrollment_id);
+                        return item?.student_name;
+                      })
+                      .filter(Boolean)
+                      .join(", ")}
+                    {createdCount > 5 && ` +${createdCount - 5} more`}
+                  </div>
                 </div>
               </>
             ) : (
@@ -555,13 +573,42 @@ export function BatchRenewModal({
                 <p className="text-lg font-medium">No renewals created</p>
               </>
             )}
+
+            {/* Show failed items with details */}
+            {failedCount > 0 && (
+              <div className="w-full mt-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    {failedCount} Failed
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {renewResults
+                    .filter(r => !r.success)
+                    .map(r => {
+                      const item = finalEligible.find(e => e.enrollment_id === r.original_enrollment_id);
+                      return (
+                        <div key={r.original_enrollment_id} className="text-sm">
+                          <span className="font-medium text-foreground/80">
+                            {item?.student_name || `Enrollment #${r.original_enrollment_id}`}
+                          </span>
+                          {r.error && (
+                            <span className="text-foreground/50"> — {r.error}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Footer */}
       {(step === "results" || step === "done") && (
-        <div className="flex items-center justify-end gap-3 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           {step === "results" && (
             <>
               <button

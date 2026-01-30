@@ -200,7 +200,7 @@ export function EnrollmentDetailModal({
       </div>
 
       {/* Content */}
-      <div className={cn("flex-1 overflow-y-auto", compact ? "p-4" : "p-6")}>
+      <div className={cn("flex-1 overflow-y-auto", compact ? "p-3 sm:p-4" : "p-4 sm:p-6")}>
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -467,8 +467,8 @@ export function EnrollmentDetailModal({
       {/* Footer Actions */}
       {detail && (
         <div className={cn(
-          "flex items-center gap-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg",
-          compact ? "justify-end px-3 py-2" : "justify-between px-4 py-3"
+          "flex flex-wrap items-center gap-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg",
+          compact ? "justify-end px-2 py-2 sm:px-3" : "justify-between px-3 py-2 sm:px-4 sm:py-3"
         )}>
           {!compact && (
             <Link
@@ -559,7 +559,7 @@ export function EnrollmentDetailModal({
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
-          <div className="relative mx-4 w-full max-w-[32rem]">
+          <div className="relative mx-2 sm:mx-4 w-full max-w-[32rem]">
             {modalContent}
           </div>
 
