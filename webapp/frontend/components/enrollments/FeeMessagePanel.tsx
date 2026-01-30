@@ -79,7 +79,8 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       onMarkSent?.();
     } catch (err) {
       console.error("Failed to mark as sent:", err);
-      showToast("Failed to mark as sent");
+      const errorMsg = err instanceof Error ? err.message : "Please try again";
+      showToast(`Failed to mark as sent: ${errorMsg}`, "error");
     } finally {
       setMarkingSent(false);
     }

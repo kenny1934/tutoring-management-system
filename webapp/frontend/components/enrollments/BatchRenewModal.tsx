@@ -115,7 +115,7 @@ export function BatchRenewModal({
   enrollmentIds,
   onSuccess,
 }: BatchRenewModalProps) {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const [step, setStep] = useState<ModalStep>("checking");
   const [eligible, setEligible] = useState<EligibilityResult[]>([]);
   const [ineligible, setIneligible] = useState<EligibilityResult[]>([]);
@@ -168,7 +168,7 @@ export function BatchRenewModal({
       setStep("results");
     } catch (error) {
       console.error("Eligibility check failed:", error);
-      addToast("Failed to check eligibility", "error");
+      showToast("Failed to check eligibility", "error");
       onClose();
     }
   };
@@ -224,6 +224,27 @@ export function BatchRenewModal({
     setStep("creating");
     try {
       const eligibleIds = finalEligible.map((e) => e.enrollment_id);
+
+      // Re-validate eligibility before creating to catch any changes since modal opened
+      const freshCheck = await enrollmentsAPI.batchRenewCheck(eligibleIds);
+      const newlyIneligible = freshCheck.ineligible.filter(
+        item => eligibleIds.includes(item.enrollment_id)
+      );
+
+      if (newlyIneligible.length > 0) {
+        // Some items became ineligible - refresh and notify user
+        showToast(
+          `${newlyIneligible.length} enrollment${newlyIneligible.length > 1 ? "s" : ""} became ineligible. Please review.`,
+          "info"
+        );
+        // Refresh the eligibility lists
+        setEligible(freshCheck.eligible);
+        setIneligible(freshCheck.ineligible);
+        setOverriddenIds(new Set()); // Clear overrides since state changed
+        setStep("results");
+        return;
+      }
+
       const response = await enrollmentsAPI.batchRenew(eligibleIds, lessonsPaid);
       setCreatedCount(response.created_count);
       setFailedCount(response.failed_count);
@@ -231,20 +252,20 @@ export function BatchRenewModal({
       setStep("done");
 
       if (response.created_count > 0) {
-        addToast(
+        showToast(
           `Created ${response.created_count} renewal enrollment${response.created_count > 1 ? "s" : ""}`,
           "success"
         );
       }
       if (response.failed_count > 0) {
-        addToast(
+        showToast(
           `${response.failed_count} renewal${response.failed_count > 1 ? "s" : ""} failed`,
           "error"
         );
       }
     } catch (error) {
       console.error("Batch renew failed:", error);
-      addToast("Failed to create renewals", "error");
+      showToast("Failed to create renewals", "error");
       setStep("results");
     }
   };
