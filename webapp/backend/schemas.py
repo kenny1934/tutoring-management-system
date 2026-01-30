@@ -49,6 +49,11 @@ class StudentUpdate(BaseModel):
     academic_stream: Optional[str] = Field(None, max_length=50)
 
 
+class StudentCreate(StudentBase):
+    """Schema for creating a new student"""
+    pass
+
+
 class StudentBasic(BaseModel):
     """Minimal student info for lists/popovers"""
     id: int
@@ -267,6 +272,29 @@ class RenewalCountsResponse(BaseModel):
     expiring_soon: int = Field(default=0, ge=0, description="Expiring within 2 weeks")
     expired: int = Field(default=0, ge=0, description="Already expired but not renewed")
     total: int = Field(default=0, ge=0, description="Total needing attention")
+
+
+class TrialListItem(BaseModel):
+    """Trial enrollment for Kanban dashboard"""
+    enrollment_id: int = Field(..., gt=0)
+    student_id: int = Field(..., gt=0)
+    student_name: str
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str
+    session_id: int = Field(..., gt=0, description="ID of the trial session")
+    session_date: date
+    time_slot: str
+    location: str
+    session_status: str = Field(..., description="Trial Class, Attended, No Show, etc.")
+    payment_status: str
+    trial_status: str = Field(..., description="Derived: scheduled, attended, no_show, converted, pending")
+    subsequent_enrollment_id: Optional[int] = Field(default=None, description="ID if student converted to regular")
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PendingMakeupSession(BaseModel):

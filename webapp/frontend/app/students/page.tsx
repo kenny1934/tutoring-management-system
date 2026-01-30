@@ -6,7 +6,7 @@ import { useStudents, useCalendarEvents, useStudent, useStudentSessions, usePage
 import { useLocation } from "@/contexts/LocationContext";
 import type { Student, StudentFilters } from "@/types";
 import Link from "next/link";
-import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag } from "lucide-react";
+import { Users, Search, GraduationCap, BookOpen, ExternalLink, ChevronLeft, ChevronRight, Phone, MapPin, X, Calendar, Clock, Star, User, CreditCard, Loader2, ArrowUpDown, Building2, Tag, Plus } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion } from "framer-motion";
@@ -29,6 +29,7 @@ import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { getGradeColor } from "@/lib/constants";
 import { formatShortDate } from "@/lib/formatters";
 import { getDaysUntil } from "@/lib/calendar-utils";
+import { AddStudentModal } from "@/components/students/AddStudentModal";
 
 // Key for storing scroll position
 const SCROLL_POSITION_KEY = 'students-list-scroll-position';
@@ -91,6 +92,9 @@ export default function StudentsPage() {
   // Popover state (lifted to page level for correct positioning)
   const [popoverStudent, setPopoverStudent] = useState<Student | null>(null);
   const [popoverClickPosition, setPopoverClickPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Add Student modal state
+  const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -477,6 +481,15 @@ export default function StudentsPage() {
             )}
 
             <div className="flex-1" />
+
+            {/* Add Student Button */}
+            <button
+              onClick={() => setAddStudentModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Add Student</span>
+            </button>
           </div>
 
           {/* All Students View */}
@@ -678,6 +691,16 @@ export default function StudentsPage() {
           )}
         </div>
       </div>
+
+      {/* Add Student Modal */}
+      <AddStudentModal
+        isOpen={addStudentModalOpen}
+        onClose={() => setAddStudentModalOpen(false)}
+        onSuccess={(student) => {
+          // Navigate to the new student's detail page
+          router.push(`/students/${student.id}`);
+        }}
+      />
     </DeskSurface>
   );
 }
