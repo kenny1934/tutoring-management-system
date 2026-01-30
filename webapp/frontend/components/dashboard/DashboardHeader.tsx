@@ -101,8 +101,10 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
 
   return (
     <div className={cn(
+      "@container/header",
       "bg-[#fdf6eb] dark:bg-[#342d1f] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden",
-      "shadow-md border-t-4 border-t-[#a0704b] dark:border-t-[#8b6f47]",
+      // Thin top border accent (cleaner than the original 4px)
+      "shadow-md border-t-2 border-t-[#a0704b] dark:border-t-[#8b6f47]",
       !isMobile && "paper-texture"
     )}>
       {/* Top section: Welcome + Date/Weather + Location */}
@@ -114,20 +116,20 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
           </p>
 
           {/* Right side: Search + Date/Weather + Location */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Search Button - hidden on mobile (top bar has it) */}
+          <div className="flex items-center gap-2 @[500px]/header:gap-3">
+            {/* Search Button - hidden on mobile, responsive via container queries */}
             <button
               onClick={openCommandPalette}
               className={cn(
-                "hidden sm:flex items-center gap-2 px-3 py-1.5",
+                "hidden sm:flex items-center gap-2 px-2 @[500px]/header:px-3 py-1.5",
                 "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-full",
                 "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors",
                 "text-gray-500 dark:text-gray-400"
               )}
             >
               <Search className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline text-sm">Search</span>
-              <kbd className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[10px] font-medium">
+              <span className="hidden @[500px]/header:inline text-sm">Search</span>
+              <kbd className="hidden @[500px]/header:flex items-center gap-0.5 px-1.5 py-0.5 bg-[#f5ede3] dark:bg-[#2d2618] rounded text-[10px] font-medium">
                 Ctrl+K
               </kbd>
             </button>
@@ -135,9 +137,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             {/* Tear-off Calendar (includes weather) */}
             <TearOffCalendar />
 
-            {/* Location Badge */}
+            {/* Location Badge - hidden when container is narrow */}
             {location && location !== "All Locations" && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-full">
+              <div className="hidden @[500px]/header:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-full">
                 <MapPin className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
                   {location}
