@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo, useEffect } from "react";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw } from "lucide-react";
+import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -18,8 +18,11 @@ import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetail
 const COLUMNS = [
   { id: 'scheduled', label: 'Scheduled', color: 'blue', description: 'Upcoming trial sessions' },
   { id: 'pending', label: 'Attended', color: 'amber', description: 'Awaiting conversion decision' },
+  { id: 'lost', label: 'Lost', color: 'red', description: 'No conversion after 2+ weeks' },
   { id: 'converted', label: 'Converted', color: 'green', description: 'Enrolled in regular course' },
 ] as const;
+
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
 type ColumnId = typeof COLUMNS[number]['id'];
 
@@ -52,12 +55,9 @@ function TrialCard({
       )}
       onClick={() => onViewDetails(trial)}
     >
-      {/* Student Name & Badges */}
+      {/* Student Info Badges */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground truncate">
-            {trial.student_name}
-          </h3>
           <StudentInfoBadges
             student={{
               student_id: trial.student_id,
@@ -150,6 +150,7 @@ function KanbanColumn({
   const colorClasses = {
     blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
     amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    red: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
     green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
   };
 
@@ -214,6 +215,20 @@ export default function TrialsPage() {
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [convertFromTrial, setConvertFromTrial] = useState<TrialListItem | null>(null);
 
+  // Comparison mode state (trial + subsequent enrollment side-by-side)
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [comparisonTrialId, setComparisonTrialId] = useState<number | null>(null);
+  const [comparisonSubsequentId, setComparisonSubsequentId] = useState<number | null>(null);
+
+  // Track screen size for responsive modal layout
+  const [isLargeScreen, setIsLargeScreen] = useState(true);
+  useEffect(() => {
+    const checkScreenSize = () => setIsLargeScreen(window.innerWidth >= 1024);
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   // Fetch trials
   const { data: trials, isLoading, mutate } = useSWR(
     ['trials', selectedLocation, isTutorView ? currentTutorId : null],
@@ -226,11 +241,12 @@ export default function TrialsPage() {
 
   // Group trials by status for Kanban columns
   const groupedTrials = useMemo(() => {
-    if (!trials) return { scheduled: [], pending: [], converted: [] };
+    if (!trials) return { scheduled: [], pending: [], lost: [], converted: [] };
 
     const groups: Record<ColumnId, TrialListItem[]> = {
       scheduled: [],
       pending: [],
+      lost: [],
       converted: [],
     };
 
@@ -238,7 +254,15 @@ export default function TrialsPage() {
       if (trial.trial_status === 'converted') {
         groups.converted.push(trial);
       } else if (trial.trial_status === 'pending' || trial.trial_status === 'attended') {
-        groups.pending.push(trial);
+        // Check if trial is older than 2 weeks without conversion
+        const sessionDate = new Date(trial.session_date);
+        const timeSinceSession = Date.now() - sessionDate.getTime();
+
+        if (timeSinceSession > TWO_WEEKS_MS) {
+          groups.lost.push(trial);  // Attended but no conversion after 2 weeks
+        } else {
+          groups.pending.push(trial);
+        }
       } else if (trial.trial_status === 'no_show') {
         // No-shows go to pending for follow-up
         groups.pending.push(trial);
@@ -251,8 +275,22 @@ export default function TrialsPage() {
   }, [trials]);
 
   const handleViewDetails = (trial: TrialListItem) => {
-    setSelectedEnrollmentId(trial.enrollment_id);
-    setDetailModalOpen(true);
+    // For converted trials, open comparison mode to show trial + subsequent enrollment
+    if (trial.trial_status === 'converted' && trial.subsequent_enrollment_id) {
+      setComparisonTrialId(trial.enrollment_id);
+      setComparisonSubsequentId(trial.subsequent_enrollment_id);
+      setComparisonMode(true);
+    } else {
+      // Regular detail view for non-converted trials
+      setSelectedEnrollmentId(trial.enrollment_id);
+      setDetailModalOpen(true);
+    }
+  };
+
+  const handleCloseComparison = () => {
+    setComparisonMode(false);
+    setComparisonTrialId(null);
+    setComparisonSubsequentId(null);
   };
 
   const handleConvert = (trial: TrialListItem) => {
@@ -369,6 +407,106 @@ export default function TrialsPage() {
             enrollmentId={selectedEnrollmentId}
           />
         )}
+
+        {/* Comparison mode: Trial + Subsequent Enrollment side-by-side */}
+        <AnimatePresence mode="wait">
+          {comparisonMode && (
+            <motion.div
+              key="comparison-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+            >
+              {/* Backdrop */}
+              <motion.div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onClick={handleCloseComparison}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              />
+
+              {/* Modal container - responsive: side-by-side on large, stacked on narrow */}
+              <div className={cn(
+                "relative flex h-[85vh]",
+                isLargeScreen
+                  ? "items-center max-w-[60rem]"
+                  : "flex-col max-w-[22rem] w-full"
+              )}>
+                {/* Close button - floating top right */}
+                <button
+                  onClick={handleCloseComparison}
+                  className={cn(
+                    "absolute z-10 p-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors",
+                    isLargeScreen ? "-top-2 -right-2" : "top-2 right-2"
+                  )}
+                >
+                  <X className="h-5 w-5 text-foreground/60" />
+                </button>
+
+                {/* Side-by-side on large, stacked on narrow */}
+                <LayoutGroup>
+                  <motion.div
+                    layout
+                    className={cn(
+                      "flex",
+                      isLargeScreen
+                        ? "items-stretch"
+                        : "flex-col gap-4 flex-1 overflow-y-auto py-2"
+                    )}
+                  >
+                    {/* Trial Enrollment */}
+                    <motion.div
+                      layoutId="trial-enrollment"
+                      className={cn("w-[22rem] max-w-full", isLargeScreen && "opacity-75")}
+                      transition={{
+                        layout: { type: "spring", stiffness: 300, damping: 30 }
+                      }}
+                    >
+                      <EnrollmentDetailModal
+                        isOpen={true}
+                        onClose={handleCloseComparison}
+                        enrollmentId={comparisonTrialId}
+                        compact={true}
+                        standalone={false}
+                        hideCloseButton={true}
+                        headerLabel="Trial"
+                      />
+                    </motion.div>
+
+                    {/* Arrow between panels - only on large screens */}
+                    {isLargeScreen && (
+                      <div className="flex items-center px-3">
+                        <ArrowRight className="h-6 w-6 text-foreground/30" />
+                      </div>
+                    )}
+
+                    {/* Subsequent Enrollment */}
+                    <motion.div
+                      layoutId="subsequent-enrollment"
+                      className="w-[22rem] max-w-full ring-2 ring-green-400/50 dark:ring-green-500/50 rounded-lg"
+                      transition={{
+                        layout: { type: "spring", stiffness: 300, damping: 30 }
+                      }}
+                    >
+                      <EnrollmentDetailModal
+                        isOpen={true}
+                        onClose={handleCloseComparison}
+                        enrollmentId={comparisonSubsequentId}
+                        compact={true}
+                        standalone={false}
+                        hideCloseButton={true}
+                        headerLabel="Enrolled"
+                      />
+                    </motion.div>
+                  </motion.div>
+                </LayoutGroup>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </PageTransition>
     </DeskSurface>
   );
