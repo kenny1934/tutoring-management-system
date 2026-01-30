@@ -168,8 +168,8 @@ export function EnrollmentDetailModal({
       transition={{ duration: 0.2, ease: "easeOut" }}
       className={cn(
         "relative rounded-lg shadow-2xl overflow-hidden flex flex-col",
-        // Width changes animated by parent's layout prop (GPU-accelerated transforms)
-        compact ? "w-[22rem]" : "w-[32rem]",
+        // Width: compact for side-by-side (responsive), normal for single view
+        compact ? "w-full max-w-[22rem]" : "w-full max-w-[32rem]",
         // In standalone mode, use max-h; in side-by-side, fill parent height
         standalone ? "max-h-[90vh]" : "h-full",
         "bg-[#fef9f3] dark:bg-[#2d2618]",
