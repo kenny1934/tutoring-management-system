@@ -6,13 +6,14 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown } from "lucide-react";
+import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
+import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 
 // Column configuration
 const COLUMNS = [
@@ -31,10 +32,18 @@ function TrialCard({
   trial,
   onConvert,
   onViewDetails,
+  onRecordContact,
+  showLocationPrefix,
+  isAdmin,
+  showContactButton,
 }: {
   trial: TrialListItem;
   onConvert: (trial: TrialListItem) => void;
   onViewDetails: (trial: TrialListItem) => void;
+  onRecordContact: (studentId: number) => void;
+  showLocationPrefix?: boolean;
+  isAdmin?: boolean;
+  showContactButton?: boolean;
 }) {
   const sessionDate = new Date(trial.session_date);
   const isToday = new Date().toDateString() === sessionDate.toDateString();
@@ -66,7 +75,9 @@ function TrialCard({
               grade: trial.grade,
               lang_stream: trial.lang_stream,
               school: trial.school,
+              home_location: trial.location,
             }}
+            showLocationPrefix={showLocationPrefix}
           />
         </div>
         {/* Payment Status Badge */}
@@ -107,19 +118,33 @@ function TrialCard({
         </div>
       </div>
 
-      {/* Actions - Show on hover for attended trials */}
-      {trial.trial_status === 'pending' && (
-        <div className="mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+      {/* Actions - Show for attended/lost trials */}
+      {showContactButton && (
+        <div className="mt-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
+          {/* Record Contact - all users */}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onConvert(trial);
+              onRecordContact(trial.student_id);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 w-full justify-center bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 w-full justify-center border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md text-sm font-medium transition-colors"
           >
-            <ArrowRight className="h-4 w-4" />
-            Convert to Regular
+            <Phone className="h-4 w-4" />
+            Record Contact
           </button>
+          {/* Convert to Regular - admin only, pending status only */}
+          {isAdmin && trial.trial_status === 'pending' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onConvert(trial);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 w-full justify-center bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium transition-colors"
+            >
+              <ArrowRight className="h-4 w-4" />
+              Convert to Regular
+            </button>
+          )}
         </div>
       )}
 
@@ -142,12 +167,20 @@ function KanbanColumn({
   trials,
   onConvert,
   onViewDetails,
+  onRecordContact,
+  showLocationPrefix,
+  isAdmin,
 }: {
   column: typeof COLUMNS[number];
   trials: TrialListItem[];
   onConvert: (trial: TrialListItem) => void;
   onViewDetails: (trial: TrialListItem) => void;
+  onRecordContact: (studentId: number) => void;
+  showLocationPrefix?: boolean;
+  isAdmin?: boolean;
 }) {
+  // Show contact button for Attended (pending) and Lost columns
+  const showContactButton = column.id === 'pending' || column.id === 'lost';
   const colorClasses = {
     blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
     amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
@@ -185,6 +218,10 @@ function KanbanColumn({
                 trial={trial}
                 onConvert={onConvert}
                 onViewDetails={onViewDetails}
+                onRecordContact={onRecordContact}
+                showLocationPrefix={showLocationPrefix}
+                isAdmin={isAdmin}
+                showContactButton={showContactButton}
               />
             ))}
           </AnimatePresence>
@@ -205,12 +242,24 @@ function DynamicColumn({
   trials,
   onConvert,
   onViewDetails,
+  onRecordContact,
+  showLocationPrefix,
+  isAdmin,
 }: {
   label: string;
   trials: TrialListItem[];
   onConvert: (trial: TrialListItem) => void;
   onViewDetails: (trial: TrialListItem) => void;
+  onRecordContact: (studentId: number) => void;
+  showLocationPrefix?: boolean;
+  isAdmin?: boolean;
 }) {
+  // Helper to determine if trial should show contact button
+  const shouldShowContactButton = (trial: TrialListItem) => {
+    if (trial.trial_status === 'converted' || trial.trial_status === 'scheduled') return false;
+    // Show for pending/attended/no_show
+    return true;
+  };
   return (
     <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
       {/* Column Header */}
@@ -237,6 +286,10 @@ function DynamicColumn({
                 trial={trial}
                 onConvert={onConvert}
                 onViewDetails={onViewDetails}
+                onRecordContact={onRecordContact}
+                showLocationPrefix={showLocationPrefix}
+                isAdmin={isAdmin}
+                showContactButton={shouldShowContactButton(trial)}
               />
             ))}
           </AnimatePresence>
@@ -272,6 +325,10 @@ export default function TrialsPage() {
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonTrialId, setComparisonTrialId] = useState<number | null>(null);
   const [comparisonSubsequentId, setComparisonSubsequentId] = useState<number | null>(null);
+
+  // Contact modal state
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactStudentId, setContactStudentId] = useState<number | null>(null);
 
   // Track screen size for responsive modal layout
   const [isLargeScreen, setIsLargeScreen] = useState(true);
@@ -466,6 +523,11 @@ export default function TrialsPage() {
     setConvertFromTrial(null);
   };
 
+  const handleRecordContact = (studentId: number) => {
+    setContactStudentId(studentId);
+    setContactModalOpen(true);
+  };
+
   return (
     <DeskSurface>
       <PageTransition className="h-[calc(100vh-4rem)] p-4 sm:p-6 overflow-hidden">
@@ -487,13 +549,15 @@ export default function TrialsPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handleNewTrial}
-                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                New Trial
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleNewTrial}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Trial
+                </button>
+              )}
             </div>
           </div>
 
@@ -582,6 +646,9 @@ export default function TrialsPage() {
                     trials={(groupedTrials as Record<ColumnId, TrialListItem[]>)[column.id] || []}
                     onConvert={handleConvert}
                     onViewDetails={handleViewDetails}
+                    onRecordContact={handleRecordContact}
+                    showLocationPrefix={selectedLocation === "All Locations"}
+                    isAdmin={isAdmin}
                   />
                 ))
               ) : (
@@ -593,6 +660,9 @@ export default function TrialsPage() {
                     trials={groupedTrials[columnKey] || []}
                     onConvert={handleConvert}
                     onViewDetails={handleViewDetails}
+                    onRecordContact={handleRecordContact}
+                    showLocationPrefix={selectedLocation === "All Locations"}
+                    isAdmin={isAdmin}
                   />
                 ))
               )}
@@ -607,15 +677,17 @@ export default function TrialsPage() {
                 No trials yet
               </h3>
               <p className="text-sm text-foreground/40 mb-4">
-                Create a trial enrollment to get started
+                {isAdmin ? "Create a trial enrollment to get started" : "No trial sessions assigned to you"}
               </p>
-              <button
-                onClick={handleNewTrial}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                New Trial
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleNewTrial}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Trial
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -644,6 +716,21 @@ export default function TrialsPage() {
             enrollmentId={selectedEnrollmentId}
           />
         )}
+
+        {/* Record Contact Modal */}
+        <RecordContactModal
+          isOpen={contactModalOpen}
+          onClose={() => {
+            setContactModalOpen(false);
+            setContactStudentId(null);
+          }}
+          editingContact={null}
+          preselectedStudentId={contactStudentId}
+          tutorId={currentTutorId}
+          location={selectedLocation !== "All Locations" ? selectedLocation : undefined}
+          currentUserTutorId={user?.id}
+          currentUserRole={effectiveRole as 'Tutor' | 'Admin' | 'Super Admin'}
+        />
 
         {/* Comparison mode: Trial + Subsequent Enrollment side-by-side */}
         <AnimatePresence mode="wait">

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, ClipboardList } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -22,7 +22,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
-  { name: "Trials", href: "/trials", icon: ClipboardList, color: "bg-teal-500" },
   { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
   { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];
