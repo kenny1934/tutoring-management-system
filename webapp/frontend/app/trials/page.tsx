@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -27,8 +27,16 @@ const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
 type ColumnId = typeof COLUMNS[number]['id'];
 
-// Trial Card Component
-function TrialCard({
+// Color classes for columns - moved to module level to avoid recreation
+const COLUMN_COLOR_CLASSES = {
+  blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  red: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+  green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
+} as const;
+
+// Trial Card Component - memoized to prevent unnecessary re-renders
+const TrialCard = React.memo(function TrialCard({
   trial,
   onConvert,
   onViewDetails,
@@ -159,117 +167,50 @@ function TrialCard({
       )}
     </motion.div>
   );
-}
+});
 
-// Kanban Column Component
-function KanbanColumn({
-  column,
-  trials,
-  onConvert,
-  onViewDetails,
-  onRecordContact,
-  showLocationPrefix,
-  isAdmin,
-}: {
-  column: typeof COLUMNS[number];
-  trials: TrialListItem[];
-  onConvert: (trial: TrialListItem) => void;
-  onViewDetails: (trial: TrialListItem) => void;
-  onRecordContact: (studentId: number) => void;
-  showLocationPrefix?: boolean;
-  isAdmin?: boolean;
-}) {
-  // Show contact button for Attended (pending) and Lost columns
-  const showContactButton = column.id === 'pending' || column.id === 'lost';
-  const colorClasses = {
-    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    red: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
-    green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800',
-  };
-
-  return (
-    <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
-      {/* Column Header */}
-      <div className={cn(
-        "px-3 py-2 rounded-t-lg border-b-2",
-        colorClasses[column.color]
-      )}>
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{column.label}</h2>
-          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/50 dark:bg-black/20">
-            {trials.length}
-          </span>
-        </div>
-        <p className="text-xs opacity-75 mt-0.5">{column.description}</p>
-      </div>
-
-      {/* Column Content */}
-      <div className={cn(
-        "p-2 rounded-b-lg flex-1 min-h-0 overflow-y-auto",
-        "bg-gray-50/50 dark:bg-gray-900/20 border border-t-0",
-        "border-gray-200 dark:border-gray-700"
-      )}>
-        <div className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {trials.map((trial) => (
-              <TrialCard
-                key={trial.enrollment_id}
-                trial={trial}
-                onConvert={onConvert}
-                onViewDetails={onViewDetails}
-                onRecordContact={onRecordContact}
-                showLocationPrefix={showLocationPrefix}
-                isAdmin={isAdmin}
-                showContactButton={showContactButton}
-              />
-            ))}
-          </AnimatePresence>
-          {trials.length === 0 && (
-            <div className="text-center py-8 text-foreground/40 text-sm">
-              No trials
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Dynamic Column Component (for school/grade grouping)
-function DynamicColumn({
-  label,
-  trials,
-  onConvert,
-  onViewDetails,
-  onRecordContact,
-  showLocationPrefix,
-  isAdmin,
-}: {
+// Unified Column Component - handles both status-based and dynamic grouping
+interface ColumnProps {
   label: string;
+  description?: string;
+  color?: keyof typeof COLUMN_COLOR_CLASSES;
   trials: TrialListItem[];
   onConvert: (trial: TrialListItem) => void;
   onViewDetails: (trial: TrialListItem) => void;
   onRecordContact: (studentId: number) => void;
   showLocationPrefix?: boolean;
   isAdmin?: boolean;
-}) {
-  // Helper to determine if trial should show contact button
-  const shouldShowContactButton = (trial: TrialListItem) => {
-    if (trial.trial_status === 'converted' || trial.trial_status === 'scheduled') return false;
-    // Show for pending/attended/no_show
-    return true;
-  };
+  showContactButton?: boolean | ((trial: TrialListItem) => boolean);
+}
+
+// Unified Column Component - merged KanbanColumn and DynamicColumn to reduce duplication
+const TrialColumn = React.memo(function TrialColumn({
+  label,
+  description,
+  color,
+  trials,
+  onConvert,
+  onViewDetails,
+  onRecordContact,
+  showLocationPrefix,
+  isAdmin,
+  showContactButton,
+}: ColumnProps) {
+  const headerColorClass = color
+    ? COLUMN_COLOR_CLASSES[color]
+    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700';
+
   return (
     <div className="flex-1 min-w-[280px] max-w-[400px] flex flex-col h-full">
       {/* Column Header */}
-      <div className="px-3 py-2 rounded-t-lg border-b-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700">
+      <div className={cn("px-3 py-2 rounded-t-lg border-b-2", headerColorClass)}>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold truncate">{label}</h2>
           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/50 dark:bg-black/20 flex-shrink-0">
             {trials.length}
           </span>
         </div>
+        {description && <p className="text-xs opacity-75 mt-0.5">{description}</p>}
       </div>
 
       {/* Column Content */}
@@ -280,18 +221,23 @@ function DynamicColumn({
       )}>
         <div className="space-y-2">
           <AnimatePresence mode="popLayout">
-            {trials.map((trial) => (
-              <TrialCard
-                key={trial.enrollment_id}
-                trial={trial}
-                onConvert={onConvert}
-                onViewDetails={onViewDetails}
-                onRecordContact={onRecordContact}
-                showLocationPrefix={showLocationPrefix}
-                isAdmin={isAdmin}
-                showContactButton={shouldShowContactButton(trial)}
-              />
-            ))}
+            {trials.map((trial) => {
+              const shouldShow = typeof showContactButton === 'function'
+                ? showContactButton(trial)
+                : showContactButton;
+              return (
+                <TrialCard
+                  key={trial.enrollment_id}
+                  trial={trial}
+                  onConvert={onConvert}
+                  onViewDetails={onViewDetails}
+                  onRecordContact={onRecordContact}
+                  showLocationPrefix={showLocationPrefix}
+                  isAdmin={isAdmin}
+                  showContactButton={shouldShow}
+                />
+              );
+            })}
           </AnimatePresence>
           {trials.length === 0 && (
             <div className="text-center py-8 text-foreground/40 text-sm">
@@ -302,7 +248,7 @@ function DynamicColumn({
       </div>
     </div>
   );
-}
+});
 
 export default function TrialsPage() {
   const { user, isAdmin, effectiveRole, isImpersonating, impersonatedTutor } = useAuth();
@@ -488,7 +434,8 @@ export default function TrialsPage() {
     }
   }, [trials, debouncedSearch, timeRange, sortOrder, groupBy]);
 
-  const handleViewDetails = (trial: TrialListItem) => {
+  // Memoized handlers to prevent unnecessary re-renders of memoized children
+  const handleViewDetails = useCallback((trial: TrialListItem) => {
     // For converted trials, open comparison mode to show trial + subsequent enrollment
     if (trial.trial_status === 'converted' && trial.subsequent_enrollment_id) {
       setComparisonTrialId(trial.enrollment_id);
@@ -499,34 +446,34 @@ export default function TrialsPage() {
       setSelectedEnrollmentId(trial.enrollment_id);
       setDetailModalOpen(true);
     }
-  };
+  }, []);
 
-  const handleCloseComparison = () => {
+  const handleCloseComparison = useCallback(() => {
     setComparisonMode(false);
     setComparisonTrialId(null);
     setComparisonSubsequentId(null);
-  };
+  }, []);
 
-  const handleConvert = (trial: TrialListItem) => {
+  const handleConvert = useCallback((trial: TrialListItem) => {
     setConvertFromTrial(trial);
     setCreateModalOpen(true);
-  };
+  }, []);
 
-  const handleNewTrial = () => {
+  const handleNewTrial = useCallback(() => {
     setConvertFromTrial(null);
     setCreateModalOpen(true);
-  };
+  }, []);
 
-  const handleCreateSuccess = () => {
+  const handleCreateSuccess = useCallback(() => {
     mutate();
     setCreateModalOpen(false);
     setConvertFromTrial(null);
-  };
+  }, [mutate]);
 
-  const handleRecordContact = (studentId: number) => {
+  const handleRecordContact = useCallback((studentId: number) => {
     setContactStudentId(studentId);
     setContactModalOpen(true);
-  };
+  }, []);
 
   return (
     <DeskSurface>
@@ -640,29 +587,33 @@ export default function TrialsPage() {
               {groupBy === "status" ? (
                 // Status-based columns (fixed 4 columns)
                 COLUMNS.map((column) => (
-                  <KanbanColumn
+                  <TrialColumn
                     key={column.id}
-                    column={column}
+                    label={column.label}
+                    description={column.description}
+                    color={column.color}
                     trials={(groupedTrials as Record<ColumnId, TrialListItem[]>)[column.id] || []}
                     onConvert={handleConvert}
                     onViewDetails={handleViewDetails}
                     onRecordContact={handleRecordContact}
                     showLocationPrefix={selectedLocation === "All Locations"}
                     isAdmin={isAdmin}
+                    showContactButton={column.id === 'pending' || column.id === 'lost'}
                   />
                 ))
               ) : (
                 // Dynamic columns (school or grade)
                 dynamicColumns.map((columnKey) => (
-                  <DynamicColumn
+                  <TrialColumn
                     key={columnKey}
                     label={columnKey}
-                    trials={groupedTrials[columnKey] || []}
+                    trials={(groupedTrials as Record<string, TrialListItem[]>)[columnKey] || []}
                     onConvert={handleConvert}
                     onViewDetails={handleViewDetails}
                     onRecordContact={handleRecordContact}
                     showLocationPrefix={selectedLocation === "All Locations"}
                     isAdmin={isAdmin}
+                    showContactButton={(trial) => trial.trial_status !== 'converted' && trial.trial_status !== 'scheduled'}
                   />
                 ))
               )}

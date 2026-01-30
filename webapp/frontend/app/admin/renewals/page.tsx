@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -50,7 +50,8 @@ interface RenewalCardProps {
   selectedLocation: string;
 }
 
-function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation }: RenewalCardProps) {
+// Memoized RenewalCard to prevent unnecessary re-renders
+const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
   const isThisWeek = renewal.days_until_expiry >= 0 && renewal.days_until_expiry <= 7;
   const isVeryOld = renewal.days_until_expiry < -30;
@@ -303,7 +304,7 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
       </AnimatePresence>
     </div>
   );
-}
+});
 
 export default function AdminRenewalsPage() {
   const { user, isLoading, isAdmin } = useAuth();
@@ -418,22 +419,29 @@ export default function AdminRenewalsPage() {
     }
   }, [activeTab, notRenewedList, toSendList, awaitingPaymentList]);
 
-  // Split into urgency groups
-  const recentExpiredItems = useMemo(() =>
-    activeList.filter(r => r.days_until_expiry < 0 && r.days_until_expiry >= -30)
-  , [activeList]);
+  // Split into urgency groups - single-pass for efficiency
+  const { recentExpiredItems, thisWeekItems, nextWeekItems, olderExpiredItems } = useMemo(() => {
+    const groups = {
+      recentExpiredItems: [] as RenewalListItem[],
+      thisWeekItems: [] as RenewalListItem[],
+      nextWeekItems: [] as RenewalListItem[],
+      olderExpiredItems: [] as RenewalListItem[],
+    };
 
-  const thisWeekItems = useMemo(() =>
-    activeList.filter(r => r.days_until_expiry >= 0 && r.days_until_expiry <= 7)
-  , [activeList]);
+    for (const r of activeList) {
+      if (r.days_until_expiry < -30) {
+        groups.olderExpiredItems.push(r);
+      } else if (r.days_until_expiry < 0) {
+        groups.recentExpiredItems.push(r);
+      } else if (r.days_until_expiry <= 7) {
+        groups.thisWeekItems.push(r);
+      } else {
+        groups.nextWeekItems.push(r);
+      }
+    }
 
-  const nextWeekItems = useMemo(() =>
-    activeList.filter(r => r.days_until_expiry > 7)
-  , [activeList]);
-
-  const olderExpiredItems = useMemo(() =>
-    activeList.filter(r => r.days_until_expiry < -30)
-  , [activeList]);
+    return groups;
+  }, [activeList]);
 
   // Navigable items (excluding collapsed sections) for keyboard navigation
   const navigableItems = useMemo(() => {
@@ -444,6 +452,33 @@ export default function AdminRenewalsPage() {
     if (!collapsedGroups.has('older_than_30_days')) items.push(...olderExpiredItems);
     return items;
   }, [activeList, recentExpiredItems, thisWeekItems, nextWeekItems, olderExpiredItems, collapsedGroups]);
+
+  // Navigation index Map for O(1) lookups instead of O(n) findIndex
+  const navIndexMap = useMemo(() => {
+    const map = new Map<number, number>();
+    navigableItems.forEach((item, idx) => map.set(item.id, idx));
+    return map;
+  }, [navigableItems]);
+
+  // Pre-compute section checkbox states to avoid repeated calculations
+  const sectionStates = useMemo(() => ({
+    expired: {
+      all: recentExpiredItems.length > 0 && recentExpiredItems.every(r => checkedIds.has(r.id)),
+      some: recentExpiredItems.some(r => checkedIds.has(r.id)),
+    },
+    thisWeek: {
+      all: thisWeekItems.length > 0 && thisWeekItems.every(r => checkedIds.has(r.id)),
+      some: thisWeekItems.some(r => checkedIds.has(r.id)),
+    },
+    nextWeek: {
+      all: nextWeekItems.length > 0 && nextWeekItems.every(r => checkedIds.has(r.id)),
+      some: nextWeekItems.some(r => checkedIds.has(r.id)),
+    },
+    olderThan30Days: {
+      all: olderExpiredItems.length > 0 && olderExpiredItems.every(r => checkedIds.has(r.id)),
+      some: olderExpiredItems.some(r => checkedIds.has(r.id)),
+    },
+  }), [recentExpiredItems, thisWeekItems, nextWeekItems, olderExpiredItems, checkedIds]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -926,8 +961,8 @@ export default function AdminRenewalsPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={isAllSectionChecked(recentExpiredItems)}
-                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(recentExpiredItems) && !isAllSectionChecked(recentExpiredItems); }}
+                          checked={sectionStates.expired.all}
+                          ref={el => { if (el) el.indeterminate = sectionStates.expired.some && !sectionStates.expired.all; }}
                           onChange={() => {}}
                           onClick={(e) => toggleSectionCheck(recentExpiredItems, e)}
                           className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500 cursor-pointer"
@@ -944,7 +979,7 @@ export default function AdminRenewalsPage() {
                       {!collapsedGroups.has('expired') && (
                         <div className="space-y-2 mt-2">
                           {recentExpiredItems.map((renewal) => {
-                            const navIndex = navigableItems.findIndex(r => r.id === renewal.id);
+                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
                             return (
                               <RenewalCard
                                 key={renewal.id}
@@ -978,8 +1013,8 @@ export default function AdminRenewalsPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={isAllSectionChecked(thisWeekItems)}
-                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(thisWeekItems) && !isAllSectionChecked(thisWeekItems); }}
+                          checked={sectionStates.thisWeek.all}
+                          ref={el => { if (el) el.indeterminate = sectionStates.thisWeek.some && !sectionStates.thisWeek.all; }}
                           onChange={() => {}}
                           onClick={(e) => toggleSectionCheck(thisWeekItems, e)}
                           className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
@@ -996,7 +1031,7 @@ export default function AdminRenewalsPage() {
                       {!collapsedGroups.has('this_week') && (
                         <div className="space-y-2 mt-2">
                           {thisWeekItems.map((renewal) => {
-                            const navIndex = navigableItems.findIndex(r => r.id === renewal.id);
+                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
                             return (
                               <RenewalCard
                                 key={renewal.id}
@@ -1030,8 +1065,8 @@ export default function AdminRenewalsPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={isAllSectionChecked(nextWeekItems)}
-                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(nextWeekItems) && !isAllSectionChecked(nextWeekItems); }}
+                          checked={sectionStates.nextWeek.all}
+                          ref={el => { if (el) el.indeterminate = sectionStates.nextWeek.some && !sectionStates.nextWeek.all; }}
                           onChange={() => {}}
                           onClick={(e) => toggleSectionCheck(nextWeekItems, e)}
                           className="h-4 w-4 rounded border-gray-300 text-purple-500 focus:ring-purple-500 cursor-pointer"
@@ -1048,7 +1083,7 @@ export default function AdminRenewalsPage() {
                       {!collapsedGroups.has('next_week') && (
                         <div className="space-y-2 mt-2">
                           {nextWeekItems.map((renewal) => {
-                            const navIndex = navigableItems.findIndex(r => r.id === renewal.id);
+                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
                             return (
                               <RenewalCard
                                 key={renewal.id}
@@ -1082,8 +1117,8 @@ export default function AdminRenewalsPage() {
                       >
                         <input
                           type="checkbox"
-                          checked={isAllSectionChecked(olderExpiredItems)}
-                          ref={el => { if (el) el.indeterminate = isSomeSectionChecked(olderExpiredItems) && !isAllSectionChecked(olderExpiredItems); }}
+                          checked={sectionStates.olderThan30Days.all}
+                          ref={el => { if (el) el.indeterminate = sectionStates.olderThan30Days.some && !sectionStates.olderThan30Days.all; }}
                           onChange={() => {}}
                           onClick={(e) => toggleSectionCheck(olderExpiredItems, e)}
                           className="h-4 w-4 rounded border-gray-300 text-gray-500 focus:ring-gray-500 cursor-pointer"
@@ -1100,7 +1135,7 @@ export default function AdminRenewalsPage() {
                       {!collapsedGroups.has('older_than_30_days') && (
                         <div className="space-y-2 mt-2">
                           {olderExpiredItems.map((renewal) => {
-                            const navIndex = navigableItems.findIndex(r => r.id === renewal.id);
+                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
                             return (
                               <RenewalCard
                                 key={renewal.id}
