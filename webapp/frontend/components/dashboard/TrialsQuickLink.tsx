@@ -11,7 +11,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import {
-  ClipboardList,
+  FlaskConical,
   ChevronDown,
   ChevronRight,
   Calendar,
@@ -297,7 +297,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
             isOpen && "bg-[#f5ede3] dark:bg-[#3d3628] shadow-sm"
           )}
         >
-          <ClipboardList className="h-4 w-4" />
+          <FlaskConical className="h-4 w-4" />
           <span>Trials</span>
           {totalCount > 0 && (
             <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-teal-500 rounded-full">
@@ -328,7 +328,7 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
               {/* Header */}
               <div className="px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1] dark:bg-[#2d2820] rounded-t-lg">
                 <div className="flex items-center gap-2">
-                  <ClipboardList className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                  <FlaskConical className="h-4 w-4 text-teal-600 dark:text-teal-400" />
                   <span className="font-medium text-sm">Trial Sessions</span>
                 </div>
               </div>
