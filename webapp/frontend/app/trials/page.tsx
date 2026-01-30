@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { ClipboardList, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone } from "lucide-react";
+import { FlaskConical, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone, Clock, UserX, CheckCircle2, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
@@ -17,10 +17,10 @@ import { RecordContactModal } from "@/components/parent-contacts/RecordContactMo
 
 // Column configuration
 const COLUMNS = [
-  { id: 'scheduled', label: 'Scheduled', color: 'blue', description: 'Upcoming trial sessions' },
-  { id: 'pending', label: 'Attended', color: 'amber', description: 'Awaiting conversion decision' },
-  { id: 'lost', label: 'Lost', color: 'red', description: 'No conversion after 2+ weeks' },
-  { id: 'converted', label: 'Converted', color: 'green', description: 'Enrolled in regular course' },
+  { id: 'scheduled', label: 'Scheduled', color: 'blue', description: 'Upcoming trial sessions', Icon: Calendar },
+  { id: 'pending', label: 'Attended', color: 'amber', description: 'Awaiting conversion decision', Icon: Clock },
+  { id: 'lost', label: 'Lost', color: 'red', description: 'No conversion after 2+ weeks', Icon: UserX },
+  { id: 'converted', label: 'Converted', color: 'green', description: 'Enrolled in regular course', Icon: CheckCircle2 },
 ] as const;
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -174,6 +174,7 @@ interface ColumnProps {
   label: string;
   description?: string;
   color?: keyof typeof COLUMN_COLOR_CLASSES;
+  Icon?: LucideIcon;
   trials: TrialListItem[];
   onConvert: (trial: TrialListItem) => void;
   onViewDetails: (trial: TrialListItem) => void;
@@ -188,6 +189,7 @@ const TrialColumn = React.memo(function TrialColumn({
   label,
   description,
   color,
+  Icon,
   trials,
   onConvert,
   onViewDetails,
@@ -205,7 +207,10 @@ const TrialColumn = React.memo(function TrialColumn({
       {/* Column Header */}
       <div className={cn("px-3 py-2 rounded-t-lg border-b-2", headerColorClass)}>
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold truncate">{label}</h2>
+          <h2 className="font-semibold truncate flex items-center gap-1.5">
+            {Icon && <Icon className="h-4 w-4" />}
+            {label}
+          </h2>
           <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/50 dark:bg-black/20 flex-shrink-0">
             {trials.length}
           </span>
@@ -477,14 +482,14 @@ export default function TrialsPage() {
 
   return (
     <DeskSurface>
-      <PageTransition className="h-[calc(100vh-4rem)] p-4 sm:p-6 overflow-hidden">
+      <PageTransition className="h-[calc(100vh-5rem)] sm:h-[calc(100vh-2.5rem)] p-4 pb-2 sm:p-6 sm:pb-2 overflow-hidden">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6 h-full flex flex-col">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
-                  <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600 dark:text-teal-400" />
+                  <FlaskConical className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold text-foreground">
@@ -499,10 +504,10 @@ export default function TrialsPage() {
               {isAdmin && (
                 <button
                   onClick={handleNewTrial}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
+                  className="flex items-center gap-2 px-2 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  New Trial
+                  <span className="hidden sm:inline">New Trial</span>
                 </button>
               )}
             </div>
@@ -592,6 +597,7 @@ export default function TrialsPage() {
                     label={column.label}
                     description={column.description}
                     color={column.color}
+                    Icon={column.Icon}
                     trials={(groupedTrials as Record<ColumnId, TrialListItem[]>)[column.id] || []}
                     onConvert={handleConvert}
                     onViewDetails={handleViewDetails}
