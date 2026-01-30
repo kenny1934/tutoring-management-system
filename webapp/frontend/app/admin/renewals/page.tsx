@@ -10,6 +10,7 @@ import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditC
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
 import { formatTimeAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
@@ -307,6 +308,7 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
 export default function AdminRenewalsPage() {
   const { user, isLoading, isAdmin } = useAuth();
   const { selectedLocation } = useLocation();
+  const { showToast } = useToast();
   const [showExpired, setShowExpired] = useState(true);
 
   // Modal state
@@ -690,12 +692,21 @@ export default function AdminRenewalsPage() {
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
-        await enrollmentsAPI.batchMarkPaid(renewalIds);
+        const result = await enrollmentsAPI.batchMarkPaid(renewalIds);
         handleRefresh();
         clearChecked();
+        // Report success/partial failure
+        if (result.count < renewalIds.length) {
+          const failed = renewalIds.length - result.count;
+          showToast(`${result.count} marked as paid, ${failed} failed`, "info");
+        } else {
+          showToast(`${result.count} enrollment${result.count !== 1 ? 's' : ''} marked as paid`, "success");
+        }
       }
     } catch (error) {
       console.error('Batch mark paid failed:', error);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      showToast(`Failed to mark items as paid: ${errorMsg}`, "error");
     } finally {
       setBatchLoading(false);
     }
@@ -711,12 +722,21 @@ export default function AdminRenewalsPage() {
         .filter((id): id is number => id !== null && id !== undefined);
 
       if (renewalIds.length > 0) {
-        await enrollmentsAPI.batchMarkSent(renewalIds);
+        const result = await enrollmentsAPI.batchMarkSent(renewalIds);
         handleRefresh();
         clearChecked();
+        // Report success/partial failure
+        if (result.count < renewalIds.length) {
+          const failed = renewalIds.length - result.count;
+          showToast(`${result.count} marked as sent, ${failed} failed`, "info");
+        } else {
+          showToast(`${result.count} message${result.count !== 1 ? 's' : ''} marked as sent`, "success");
+        }
       }
     } catch (error) {
       console.error('Batch mark sent failed:', error);
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      showToast(`Failed to mark messages as sent: ${errorMsg}`, "error");
     } finally {
       setBatchLoading(false);
     }
@@ -1140,6 +1160,11 @@ export default function AdminRenewalsPage() {
               <span className="text-sm font-medium text-foreground">
                 {checkedIds.size} selected
               </span>
+              {checkedIds.size > 50 && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 hidden sm:inline">
+                  (large batch may be slow)
+                </span>
+              )}
               <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
               {activeTab === 'not_renewed' && (
                 <button
