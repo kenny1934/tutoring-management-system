@@ -15,7 +15,8 @@ from schemas import (
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
     RenewalDataResponse, RenewalListItem, RenewalCountsResponse,
     EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink,
-    BatchEnrollmentRequest, BatchOperationResponse
+    BatchEnrollmentRequest, BatchOperationResponse,
+    EligibilityResult, BatchRenewCheckResponse, BatchRenewRequest, BatchRenewResult, BatchRenewResponse
 )
 from auth.dependencies import require_admin, get_current_user
 
@@ -1592,3 +1593,354 @@ async def batch_mark_sent(
 
     db.commit()
     return BatchOperationResponse(updated=updated, count=len(updated))
+
+
+@router.post("/enrollments/batch-renew-check", response_model=BatchRenewCheckResponse)
+async def batch_renew_check(
+    request: BatchEnrollmentRequest,
+    admin: Tutor = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Check eligibility for batch renewal of multiple enrollments.
+
+    Returns lists of eligible and ineligible enrollments with reasons:
+    - pending_makeups: Has pending makeup sessions
+    - conflicts: Generated sessions would conflict with existing sessions
+    - extension_pending: Has pending extension request
+
+    Admin only.
+    """
+    from models import ExtensionRequest
+
+    eligible = []
+    ineligible = []
+
+    # Day name to weekday mapping
+    day_name_to_weekday = {
+        'Monday': 0, 'Mon': 0,
+        'Tuesday': 1, 'Tue': 1,
+        'Wednesday': 2, 'Wed': 2,
+        'Thursday': 3, 'Thu': 3,
+        'Friday': 4, 'Fri': 4,
+        'Saturday': 5, 'Sat': 5,
+        'Sunday': 6, 'Sun': 6
+    }
+
+    # Pending makeup statuses
+    pending_makeup_statuses = [
+        'Rescheduled - Pending Make-up',
+        'Sick Leave - Pending Make-up',
+        'Weather Cancelled - Pending Make-up'
+    ]
+
+    for eid in request.enrollment_ids:
+        enrollment = db.query(Enrollment).options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.tutor)
+        ).filter(Enrollment.id == eid).first()
+
+        if not enrollment:
+            continue
+
+        # Extract student info for display
+        student = enrollment.student
+        student_name = student.student_name if student else "Unknown"
+        student_info = {
+            "student_id": student.id if student else None,
+            "school_student_id": student.school_student_id if student else None,
+            "grade": student.grade if student else None,
+            "lang_stream": student.lang_stream if student else None,
+            "school": student.school if student else None,
+        }
+
+        # Calculate schedule info upfront (for all results including ineligible)
+        effective_end = calculate_effective_end_date(enrollment)
+        suggested_date = None
+        if effective_end:
+            assigned_weekday = day_name_to_weekday.get(enrollment.assigned_day)
+            if assigned_weekday is not None:
+                suggested_date = effective_end + timedelta(days=1)
+                while suggested_date.weekday() != assigned_weekday:
+                    suggested_date += timedelta(days=1)
+
+        schedule_info = {
+            "assigned_day": enrollment.assigned_day,
+            "assigned_time": enrollment.assigned_time,
+            "suggested_first_lesson_date": suggested_date,
+        }
+
+        # Check 1: Pending makeups (overridable)
+        pending_sessions = db.query(SessionLog).filter(
+            SessionLog.enrollment_id == eid,
+            SessionLog.session_status.in_(pending_makeup_statuses)
+        ).all()
+
+        if pending_sessions:
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid,
+                eligible=False,
+                reason="pending_makeups",
+                student_name=student_name,
+                details=f"{len(pending_sessions)} pending makeup(s)",
+                overridable=True,
+                **student_info,
+                **schedule_info
+            ))
+            continue
+
+        # Check 2: Pending extension requests (overridable)
+        session_ids = db.query(SessionLog.id).filter(
+            SessionLog.enrollment_id == eid
+        ).all()
+        session_id_list = [s.id for s in session_ids]
+
+        if session_id_list:
+            pending_extensions = db.query(ExtensionRequest).filter(
+                ExtensionRequest.session_id.in_(session_id_list),
+                ExtensionRequest.request_status == 'pending'
+            ).count()
+
+            if pending_extensions > 0:
+                ineligible.append(EligibilityResult(
+                    enrollment_id=eid,
+                    eligible=False,
+                    reason="extension_pending",
+                    student_name=student_name,
+                    details=f"{pending_extensions} pending extension request(s)",
+                    overridable=True,
+                    **student_info,
+                    **schedule_info
+                ))
+                continue
+
+        # Check 3: Invalid data (not overridable)
+        if not effective_end:
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid,
+                eligible=False,
+                reason="invalid_data",
+                student_name=student_name,
+                details="Cannot calculate renewal date",
+                overridable=False,
+                **student_info,
+                **schedule_info
+            ))
+            continue
+
+        if day_name_to_weekday.get(enrollment.assigned_day) is None:
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid,
+                eligible=False,
+                reason="invalid_data",
+                student_name=student_name,
+                details=f"Invalid assigned day: {enrollment.assigned_day}",
+                overridable=False,
+                **student_info,
+                **schedule_info
+            ))
+            continue
+
+        # Check 4: Conflicts on generated dates (not overridable)
+        sessions, _, _ = generate_session_dates(
+            first_lesson_date=suggested_date,
+            assigned_day=enrollment.assigned_day,
+            lessons_paid=6,
+            enrollment_type='Regular',
+            db=db
+        )
+
+        non_holiday_dates = [s.session_date for s in sessions if not s.is_holiday]
+        conflicts = check_student_conflicts(
+            db=db,
+            student_id=enrollment.student_id,
+            session_dates=non_holiday_dates,
+            time_slot=enrollment.assigned_time
+        )
+
+        if conflicts:
+            conflict_dates = [str(c.session_date) for c in conflicts[:3]]
+            details = f"Conflicts on: {', '.join(conflict_dates)}"
+            if len(conflicts) > 3:
+                details += f" (+{len(conflicts) - 3} more)"
+            ineligible.append(EligibilityResult(
+                enrollment_id=eid,
+                eligible=False,
+                reason="conflicts",
+                student_name=student_name,
+                details=details,
+                overridable=False,
+                **student_info,
+                **schedule_info
+            ))
+            continue
+
+        # All checks passed
+        eligible.append(EligibilityResult(
+            enrollment_id=eid,
+            eligible=True,
+            reason=None,
+            student_name=student_name,
+            details=None,
+            overridable=False,
+            **student_info,
+            **schedule_info
+        ))
+
+    return BatchRenewCheckResponse(eligible=eligible, ineligible=ineligible)
+
+
+@router.post("/enrollments/batch-renew", response_model=BatchRenewResponse)
+async def batch_renew(
+    request: BatchRenewRequest,
+    admin: Tutor = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Create renewal enrollments for multiple enrollments at once.
+
+    Uses the same schedule (day, time, location) and tutor from original enrollment.
+    Generates sessions with conflict checking.
+
+    Admin only.
+    """
+    # Day name to weekday mapping
+    day_name_to_weekday = {
+        'Monday': 0, 'Mon': 0,
+        'Tuesday': 1, 'Tue': 1,
+        'Wednesday': 2, 'Wed': 2,
+        'Thursday': 3, 'Thu': 3,
+        'Friday': 4, 'Fri': 4,
+        'Saturday': 5, 'Sat': 5,
+        'Sunday': 6, 'Sun': 6
+    }
+
+    results = []
+    created_count = 0
+    failed_count = 0
+
+    for eid in request.enrollment_ids:
+        # Get original enrollment
+        enrollment = db.query(Enrollment).options(
+            joinedload(Enrollment.student),
+            joinedload(Enrollment.tutor)
+        ).filter(Enrollment.id == eid).first()
+
+        if not enrollment:
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid,
+                new_enrollment_id=None,
+                success=False,
+                error="Enrollment not found"
+            ))
+            failed_count += 1
+            continue
+
+        # Calculate renewal first lesson date
+        effective_end = calculate_effective_end_date(enrollment)
+        if not effective_end:
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid,
+                new_enrollment_id=None,
+                success=False,
+                error="Cannot calculate renewal date"
+            ))
+            failed_count += 1
+            continue
+
+        assigned_weekday = day_name_to_weekday.get(enrollment.assigned_day)
+        if assigned_weekday is None:
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid,
+                new_enrollment_id=None,
+                success=False,
+                error=f"Invalid assigned day: {enrollment.assigned_day}"
+            ))
+            failed_count += 1
+            continue
+
+        # Find next occurrence of the assigned day after effective_end
+        first_lesson_date = effective_end + timedelta(days=1)
+        while first_lesson_date.weekday() != assigned_weekday:
+            first_lesson_date += timedelta(days=1)
+
+        # Generate session dates
+        sessions, _, _ = generate_session_dates(
+            first_lesson_date=first_lesson_date,
+            assigned_day=enrollment.assigned_day,
+            lessons_paid=request.lessons_paid,
+            enrollment_type='Regular',
+            db=db
+        )
+
+        # Check for conflicts
+        non_holiday_dates = [s.session_date for s in sessions if not s.is_holiday]
+        conflicts = check_student_conflicts(
+            db=db,
+            student_id=enrollment.student_id,
+            session_dates=non_holiday_dates,
+            time_slot=enrollment.assigned_time
+        )
+
+        if conflicts:
+            results.append(BatchRenewResult(
+                original_enrollment_id=eid,
+                new_enrollment_id=None,
+                success=False,
+                error=f"Conflicts detected on {len(conflicts)} date(s)"
+            ))
+            failed_count += 1
+            continue
+
+        # Create the new enrollment
+        new_enrollment = Enrollment(
+            student_id=enrollment.student_id,
+            tutor_id=enrollment.tutor_id,
+            assigned_day=enrollment.assigned_day,
+            assigned_time=enrollment.assigned_time,
+            location=enrollment.location,
+            first_lesson_date=first_lesson_date,
+            lessons_paid=request.lessons_paid,
+            enrollment_type='Regular',
+            payment_status='Pending Payment',
+            discount_id=enrollment.discount_id,
+            renewed_from_enrollment_id=eid,
+            last_modified_time=datetime.now(),
+            last_modified_by=admin.user_email
+        )
+        db.add(new_enrollment)
+        db.flush()  # Get enrollment ID
+
+        # Create sessions
+        for session_preview in sessions:
+            if session_preview.is_holiday:
+                continue
+
+            session = SessionLog(
+                enrollment_id=new_enrollment.id,
+                student_id=enrollment.student_id,
+                tutor_id=enrollment.tutor_id,
+                session_date=session_preview.session_date,
+                time_slot=enrollment.assigned_time,
+                location=enrollment.location,
+                session_status='Scheduled',
+                financial_status='Unpaid',
+                last_modified_by=admin.user_email
+            )
+            db.add(session)
+
+        results.append(BatchRenewResult(
+            original_enrollment_id=eid,
+            new_enrollment_id=new_enrollment.id,
+            success=True,
+            error=None
+        ))
+        created_count += 1
+
+    db.commit()
+
+    return BatchRenewResponse(
+        results=results,
+        created_count=created_count,
+        failed_count=failed_count
+    )

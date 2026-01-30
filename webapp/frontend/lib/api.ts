@@ -398,6 +398,68 @@ export const enrollmentsAPI = {
       body: JSON.stringify({ enrollment_ids: enrollmentIds }),
     });
   },
+
+  batchRenewCheck: (enrollmentIds: number[]) => {
+    return fetchAPI<{
+      eligible: Array<{
+        enrollment_id: number;
+        eligible: boolean;
+        reason: string | null;
+        student_name: string;
+        details: string | null;
+        // Student info for badges
+        student_id: number | null;
+        school_student_id: string | null;
+        grade: string | null;
+        lang_stream: string | null;
+        school: string | null;
+        // Schedule preview
+        assigned_day: string | null;
+        assigned_time: string | null;
+        suggested_first_lesson_date: string | null;
+        // Override capability
+        overridable: boolean;
+      }>;
+      ineligible: Array<{
+        enrollment_id: number;
+        eligible: boolean;
+        reason: string | null;
+        student_name: string;
+        details: string | null;
+        // Student info for badges
+        student_id: number | null;
+        school_student_id: string | null;
+        grade: string | null;
+        lang_stream: string | null;
+        school: string | null;
+        // Schedule preview
+        assigned_day: string | null;
+        assigned_time: string | null;
+        suggested_first_lesson_date: string | null;
+        // Override capability
+        overridable: boolean;
+      }>;
+    }>("/enrollments/batch-renew-check", {
+      method: "POST",
+      body: JSON.stringify({ enrollment_ids: enrollmentIds }),
+    });
+  },
+
+  batchRenew: (enrollmentIds: number[], lessonsPaid: number = 6) => {
+    return fetchAPI<{
+      results: Array<{
+        original_enrollment_id: number;
+        new_enrollment_id: number | null;
+        success: boolean;
+        error: string | null;
+      }>;
+      created_count: number;
+      failed_count: number;
+    }>("/enrollments/batch-renew", {
+      method: "POST",
+      body: JSON.stringify({ enrollment_ids: enrollmentIds, lessons_paid: lessonsPaid }),
+    });
+  },
 };
 
 // Sessions API
