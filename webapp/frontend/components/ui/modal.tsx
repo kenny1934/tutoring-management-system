@@ -106,8 +106,8 @@ export function Modal({
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+      <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
           {title}
         </h2>
         <button
@@ -120,11 +120,11 @@ export function Modal({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+      <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">{children}</div>
 
       {/* Footer */}
       {footer && (
-        <div className="flex items-center px-6 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg overflow-hidden">
+        <div className="flex items-center px-4 py-2 sm:px-6 sm:py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg overflow-hidden">
           <div className="w-full">{footer}</div>
         </div>
       )}

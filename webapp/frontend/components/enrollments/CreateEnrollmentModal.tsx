@@ -424,10 +424,10 @@ export function CreateEnrollmentModal({
     >
       {isSuccess ? (
         /* Success Screen */
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <CheckCircle2 className="h-12 w-12 text-green-500" />
-          <div className="text-center space-y-3">
-            <p className="text-lg font-medium">Enrollment Created</p>
+        <div className="flex flex-col items-center justify-center py-8 sm:py-12 gap-3 sm:gap-4">
+          <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 text-green-500" />
+          <div className="text-center space-y-2 sm:space-y-3">
+            <p className="text-base sm:text-lg font-medium">Enrollment Created</p>
 
             {/* Student info with badges */}
             <div className="flex justify-center">
@@ -553,7 +553,7 @@ export function CreateEnrollmentModal({
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <input
                     type="time"
                     value={customTimeStart}
@@ -563,7 +563,7 @@ export function CreateEnrollmentModal({
                       !isCustomTimeValid ? "border-red-400" : "border-gray-300 dark:border-gray-600"
                     )}
                   />
-                  <span className="text-foreground/50">to</span>
+                  <span className="text-foreground/50 text-center">to</span>
                   <input
                     type="time"
                     value={customTimeEnd}

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditCard, ChevronRight, ChevronDown, Eye, Send, ArrowRight, X, Loader2 } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditCard, ChevronRight, ChevronDown, Eye, Send, ArrowRight, X, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -105,9 +105,9 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
       {/* Main card content - clickable */}
       <div
         onClick={() => onClick(renewal.id)}
-        className="p-4 cursor-pointer group"
+        className="p-3 sm:p-4 cursor-pointer group"
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-2 sm:gap-4">
           {/* Checkbox for batch selection - visible on hover or when in batch mode */}
           <div
             onClick={handleCheckboxClick}
@@ -142,9 +142,9 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
             </div>
 
             {/* Schedule info */}
-            <div className="text-sm text-foreground/70 mb-2">
+            <div className="text-xs sm:text-sm text-foreground/70 mb-2 truncate">
               {renewal.assigned_day} {renewal.assigned_time} @ {renewal.location}
-              <span className="text-foreground/50 ml-2">with {renewal.tutor_name}</span>
+              <span className="text-foreground/50 ml-2 hidden sm:inline">with {renewal.tutor_name}</span>
             </div>
 
             {/* Status indicators */}
@@ -183,14 +183,14 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
 
             {/* Renewal enrollment info (when renewal exists) */}
             {showRenewalInfo && renewal.renewal_first_lesson_date && (
-              <div className="mt-2 text-xs flex items-center gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-medium">Renewal Generated:</span>
+              <div className="mt-2 text-xs flex flex-wrap items-center gap-1 sm:gap-2">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">Renewal:</span>
                 <span className="text-foreground/70">
-                  Starting {new Date(renewal.renewal_first_lesson_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {new Date(renewal.renewal_first_lesson_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </span>
-                <span className="text-foreground/50">|</span>
+                <span className="text-foreground/50 hidden sm:inline">|</span>
                 <span className="text-foreground/70">{renewal.renewal_lessons_paid} lessons</span>
-                <span className="text-foreground/50">|</span>
+                <span className="text-foreground/50 hidden sm:inline">|</span>
                 <span className={cn(
                   "font-medium",
                   renewal.renewal_payment_status === 'Paid'
@@ -203,27 +203,27 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
             )}
           </div>
 
-          {/* Quick action buttons - visible on hover */}
-          <div className="flex items-center gap-2">
+          {/* Quick action buttons - always visible on mobile, hover on desktop */}
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Quick action buttons */}
             <div className={cn(
-              "flex items-center gap-1.5 transition-opacity",
-              "opacity-0 group-hover:opacity-100"
+              "flex items-center gap-1 sm:gap-1.5 transition-opacity",
+              "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             )}>
               {showRenewalInfo ? (
                 <button
                   onClick={handleViewRenewalClick}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                  className="flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                   title="View renewal enrollment"
                 >
-                  <Eye className="h-3.5 w-3.5" />
-                  View Renewal
+                  <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">View</span>
                 </button>
               ) : (
                 <button
                   onClick={handleRenewClick}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                    "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
                     "hover:scale-[1.02] active:scale-[0.98]",
                     isVeryOld
                       ? "bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -237,14 +237,14 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
                   )}
                   title="Create renewal"
                 >
-                  <RefreshCcw className="h-3.5 w-3.5" />
-                  Renew
+                  <RefreshCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Renew</span>
                 </button>
               )}
               <button
                 onClick={handleCopyFeeClick}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
                   "hover:scale-[1.02] active:scale-[0.98]",
                   isFeePanelOpen
                     ? "bg-gray-600 hover:bg-gray-700 text-white"
@@ -252,15 +252,15 @@ function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onView
                 )}
                 title="Copy fee message"
               >
-                <Copy className="h-3.5 w-3.5" />
-                Fee
+                <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline">Fee</span>
               </button>
             </div>
 
-            {/* Status indicator - hidden on hover, matches primary action button */}
+            {/* Status indicator - hidden on mobile (buttons visible), hidden on hover on desktop */}
             <div className={cn(
-              "flex items-center justify-center h-8 w-8 rounded-full transition-all",
-              "group-hover:opacity-0 group-hover:w-0 group-hover:h-0 overflow-hidden",
+              "hidden sm:flex items-center justify-center h-8 w-8 rounded-full transition-all",
+              "sm:group-hover:opacity-0 sm:group-hover:w-0 sm:group-hover:h-0 overflow-hidden",
               showRenewalInfo
                 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                 : isVeryOld
@@ -346,6 +346,19 @@ export default function AdminRenewalsPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchRenewModalOpen, setBatchRenewModalOpen] = useState(false);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Fetch renewals list
   const { data: renewals, isLoading: renewalsLoading } = useSWR(
     user && isAdmin ? ['renewals', selectedLocation, showExpired] : null,
@@ -356,21 +369,31 @@ export default function AdminRenewalsPage() {
     { refreshInterval: 60000 }
   );
 
-  // Group by renewal status (workflow stages)
+  // Search filter helper
+  const matchesSearch = useCallback((r: RenewalListItem) => {
+    if (!debouncedSearch) return true;
+    const query = debouncedSearch.toLowerCase();
+    return (
+      r.student_name.toLowerCase().includes(query) ||
+      (r.school_student_id?.toLowerCase().includes(query) ?? false)
+    );
+  }, [debouncedSearch]);
+
+  // Group by renewal status (workflow stages) with search filtering
   const notRenewedList = useMemo(() =>
-    renewals?.filter(r => r.renewal_status === 'not_renewed')
+    renewals?.filter(r => r.renewal_status === 'not_renewed' && matchesSearch(r))
       .sort((a, b) => a.days_until_expiry - b.days_until_expiry) || []
-  , [renewals]);
+  , [renewals, matchesSearch]);
 
   const toSendList = useMemo(() =>
-    renewals?.filter(r => r.renewal_status === 'pending_message')
+    renewals?.filter(r => r.renewal_status === 'pending_message' && matchesSearch(r))
       .sort((a, b) => a.days_until_expiry - b.days_until_expiry) || []
-  , [renewals]);
+  , [renewals, matchesSearch]);
 
   const awaitingPaymentList = useMemo(() =>
-    renewals?.filter(r => r.renewal_status === 'message_sent')
+    renewals?.filter(r => r.renewal_status === 'message_sent' && matchesSearch(r))
       .sort((a, b) => a.days_until_expiry - b.days_until_expiry) || []
-  , [renewals]);
+  , [renewals, matchesSearch]);
 
   // Active tab's list
   const activeList = useMemo(() => {
@@ -461,6 +484,11 @@ export default function AdminRenewalsPage() {
           setExpandedFeePanel(null);
           setSelectedIndex(null);
           clearChecked();
+          setSearchQuery("");
+          break;
+        case '/':
+          e.preventDefault();
+          searchInputRef.current?.focus();
           break;
       }
     };
@@ -627,9 +655,10 @@ export default function AdminRenewalsPage() {
     });
   };
 
-  // Clear selection when switching tabs
+  // Clear selection and search when switching tabs
   useEffect(() => {
     setCheckedIds(new Set());
+    setSearchQuery("");
   }, [activeTab]);
 
   // Batch action handlers
@@ -684,16 +713,16 @@ export default function AdminRenewalsPage() {
       <PageTransition className="min-h-full p-4 sm:p-6">
         <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
         <div className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
-                <RefreshCcw className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                <RefreshCcw className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                   Enrollment Renewals
                 </h1>
-                <p className="text-sm text-foreground/60">
+                <p className="text-xs sm:text-sm text-foreground/60">
                   Enrollments expiring soon or already expired
                 </p>
               </div>
@@ -702,30 +731,59 @@ export default function AdminRenewalsPage() {
             {/* New Enrollment button */}
             <button
               onClick={handleNewEnrollment}
-              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Plus className="h-4 w-4" />
-              New Enrollment
+              <span className="hidden xs:inline">New</span> Enrollment
             </button>
           </div>
         </div>
 
-        {/* Filter toggle */}
-        <div className="mb-4 flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer">
+        {/* Search and filter row */}
+        <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          {/* Search input */}
+          <div className="relative flex-shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
             <input
-              type="checkbox"
-              checked={showExpired}
-              onChange={(e) => setShowExpired(e.target.checked)}
-              className="rounded border-gray-300 text-primary focus:ring-primary"
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name or ID..."
+              className="pl-9 pr-8 py-1.5 w-full sm:w-64 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
             />
-            Show expired enrollments
-          </label>
-          {renewals && (
-            <span className="text-sm text-foreground/50">
-              {renewals.length} enrollment{renewals.length !== 1 ? 's' : ''} needing attention
-            </span>
-          )}
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  searchInputRef.current?.focus();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                <X className="h-4 w-4 text-foreground/40" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showExpired}
+                onChange={(e) => setShowExpired(e.target.checked)}
+                className="rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="whitespace-nowrap">Show expired</span>
+            </label>
+            {renewals && (
+              <span className="text-xs sm:text-sm text-foreground/50">
+                {debouncedSearch
+                  ? `${activeList.length} result${activeList.length !== 1 ? 's' : ''}`
+                  : `${renewals.length} needing attention`
+                }
+              </span>
+            )}
+          </div>
         </div>
 
         {isLoading || renewalsLoading ? (
@@ -761,20 +819,21 @@ export default function AdminRenewalsPage() {
         ) : renewals && renewals.length > 0 ? (
           <div>
             {/* Tab bar */}
-            <div className="flex gap-1 mb-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-1 mb-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
               <button
                 onClick={() => setActiveTab('not_renewed')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                   activeTab === 'not_renewed'
                     ? "border-foreground text-foreground"
                     : "border-transparent text-foreground/50 hover:text-foreground/70"
                 )}
               >
                 <RefreshCcw className="h-4 w-4" />
-                Not Renewed
+                <span className="hidden sm:inline">Not Renewed</span>
+                <span className="sm:hidden">Pending</span>
                 {notRenewedList.length > 0 && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
+                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
                     {notRenewedList.length}
                   </span>
                 )}
@@ -782,16 +841,17 @@ export default function AdminRenewalsPage() {
               <button
                 onClick={() => setActiveTab('to_send')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                   activeTab === 'to_send'
                     ? "border-blue-500 text-blue-600 dark:text-blue-400"
                     : "border-transparent text-foreground/50 hover:text-foreground/70"
                 )}
               >
                 <Send className="h-4 w-4" />
-                To Send
+                <span className="hidden sm:inline">To Send</span>
+                <span className="sm:hidden">Send</span>
                 {toSendList.length > 0 && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
                     {toSendList.length}
                   </span>
                 )}
@@ -799,16 +859,17 @@ export default function AdminRenewalsPage() {
               <button
                 onClick={() => setActiveTab('awaiting_payment')}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
                   activeTab === 'awaiting_payment'
                     ? "border-orange-500 text-orange-600 dark:text-orange-400"
                     : "border-transparent text-foreground/50 hover:text-foreground/70"
                 )}
               >
                 <CreditCard className="h-4 w-4" />
-                Awaiting Payment
+                <span className="hidden sm:inline">Awaiting Payment</span>
+                <span className="sm:hidden">Payment</span>
                 {awaitingPaymentList.length > 0 && (
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
                     {awaitingPaymentList.length}
                   </span>
                 )}
@@ -1056,49 +1117,49 @@ export default function AdminRenewalsPage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40"
+            className="fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40"
           >
-            <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700">
               <span className="text-sm font-medium text-foreground">
                 {checkedIds.size} selected
               </span>
-              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 hidden sm:block" />
               {activeTab === 'not_renewed' && (
                 <button
                   onClick={() => setBatchRenewModalOpen(true)}
                   disabled={batchLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   <RefreshCcw className="h-4 w-4" />
-                  Batch Renew
+                  <span className="hidden xs:inline">Batch</span> Renew
                 </button>
               )}
               {activeTab === 'to_send' && (
                 <button
                   onClick={handleBatchMarkSent}
                   disabled={batchLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {batchLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  Mark Sent
+                  <span className="hidden xs:inline">Mark</span> Sent
                 </button>
               )}
               {activeTab === 'awaiting_payment' && (
                 <button
                   onClick={handleBatchMarkPaid}
                   disabled={batchLoading}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 >
                   {batchLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <CreditCard className="h-4 w-4" />
                   )}
-                  Mark Paid
+                  <span className="hidden xs:inline">Mark</span> Paid
                 </button>
               )}
               <button
@@ -1106,7 +1167,6 @@ export default function AdminRenewalsPage() {
                 className="flex items-center gap-1 px-2 py-1.5 text-foreground/60 hover:text-foreground hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
               >
                 <X className="h-4 w-4" />
-                Clear
               </button>
             </div>
           </motion.div>
