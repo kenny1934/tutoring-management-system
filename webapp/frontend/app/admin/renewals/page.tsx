@@ -14,6 +14,7 @@ import { formatTimeAgo } from "@/lib/formatters";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
 import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
+import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 
 // Status icon component - matches tab icons
@@ -343,6 +344,7 @@ export default function AdminRenewalsPage() {
   // Batch selection state
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
   const [batchLoading, setBatchLoading] = useState(false);
+  const [batchRenewModalOpen, setBatchRenewModalOpen] = useState(false);
 
   // Fetch renewals list
   const { data: renewals, isLoading: renewalsLoading } = useSWR(
@@ -1061,6 +1063,16 @@ export default function AdminRenewalsPage() {
                 {checkedIds.size} selected
               </span>
               <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
+              {activeTab === 'not_renewed' && (
+                <button
+                  onClick={() => setBatchRenewModalOpen(true)}
+                  disabled={batchLoading}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <RefreshCcw className="h-4 w-4" />
+                  Batch Renew
+                </button>
+              )}
               {activeTab === 'to_send' && (
                 <button
                   onClick={handleBatchMarkSent}
@@ -1277,6 +1289,17 @@ export default function AdminRenewalsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Batch Renew Modal */}
+      <BatchRenewModal
+        isOpen={batchRenewModalOpen}
+        onClose={() => setBatchRenewModalOpen(false)}
+        enrollmentIds={Array.from(checkedIds)}
+        onSuccess={() => {
+          clearChecked();
+          handleRefresh();
+        }}
+      />
     </DeskSurface>
   );
 }

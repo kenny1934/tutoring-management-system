@@ -197,6 +197,7 @@ export function CreateEnrollmentModal({
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // Fetch tutors
   const { data: tutors = [] } = useTutors();
@@ -242,6 +243,7 @@ export function CreateEnrollmentModal({
       setPreview(null);
       setPreviewError(null);
       setSelectedRenewalLinkId(null);
+      setIsSuccess(false);
     }
   }, [isOpen, selectedLocation]);
 
@@ -337,9 +339,8 @@ export function CreateEnrollmentModal({
     setIsSubmitting(true);
     try {
       await enrollmentsAPI.create(enrollmentData);
-      showToast(`Enrollment created successfully with ${preview?.sessions.filter((s) => !s.is_holiday).length || 0} sessions`, "success");
-      onSuccess?.();
-      onClose();
+      showToast(`Enrollment created successfully`, "success");
+      setIsSuccess(true);  // Show success screen instead of closing
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to create enrollment";
       showToast(message, "error");
@@ -364,7 +365,17 @@ export function CreateEnrollmentModal({
       size="xl"
       standalone={standalone}
       footer={
-        preview ? (
+        isSuccess ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => { onSuccess?.(); onClose(); }}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-medium transition-all"
+            >
+              Done
+            </button>
+          </div>
+        ) : preview ? (
           <div className="flex justify-end gap-3">
             <button
               type="button"
@@ -411,7 +422,43 @@ export function CreateEnrollmentModal({
         )
       }
     >
-      {renewalLoading ? (
+      {isSuccess ? (
+        /* Success Screen */
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <CheckCircle2 className="h-12 w-12 text-green-500" />
+          <div className="text-center space-y-3">
+            <p className="text-lg font-medium">Enrollment Created</p>
+
+            {/* Student info with badges */}
+            <div className="flex justify-center">
+              <StudentInfoBadges
+                student={{
+                  student_id: student?.id,
+                  student_name: student?.student_name || '',
+                  school_student_id: student?.school_student_id,
+                  grade: student?.grade,
+                  lang_stream: student?.lang_stream,
+                  school: student?.school,
+                }}
+              />
+            </div>
+
+            {/* Schedule summary */}
+            <div className="flex items-center justify-center gap-2 text-sm text-foreground/60">
+              <Calendar className="h-4 w-4" />
+              <span>{assignedDay}</span>
+              <span>·</span>
+              <Clock className="h-4 w-4" />
+              <span>{effectiveTimeSlot}</span>
+            </div>
+
+            {/* Sessions count */}
+            <p className="text-sm text-foreground/60">
+              {preview?.sessions.filter(s => !s.is_holiday).length || lessonsPaid} sessions scheduled
+            </p>
+          </div>
+        </div>
+      ) : renewalLoading ? (
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="mt-2 text-foreground/60">Loading renewal data...</p>

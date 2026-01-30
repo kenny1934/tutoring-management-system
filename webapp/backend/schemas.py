@@ -945,6 +945,54 @@ class BatchOperationResponse(BaseModel):
     count: int = Field(default=0, ge=0, description="Number of enrollments updated")
 
 
+class EligibilityResult(BaseModel):
+    """Result of eligibility check for batch renewal"""
+    enrollment_id: int
+    eligible: bool
+    reason: Optional[str] = None  # "pending_makeups", "conflicts", "extension_pending"
+    student_name: str
+    details: Optional[str] = None  # e.g., "2 pending makeups", "Conflict on Feb 10"
+    # Student info for StudentInfoBadges display
+    student_id: Optional[int] = None
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    lang_stream: Optional[str] = None
+    school: Optional[str] = None
+    # Schedule preview info
+    assigned_day: Optional[str] = None
+    assigned_time: Optional[str] = None
+    suggested_first_lesson_date: Optional[date] = None
+    # Override capability (True for pending_makeups, extension_pending; False for conflicts)
+    overridable: bool = False
+
+
+class BatchRenewCheckResponse(BaseModel):
+    """Response for batch renewal eligibility check"""
+    eligible: List[EligibilityResult] = Field(default_factory=list)
+    ineligible: List[EligibilityResult] = Field(default_factory=list)
+
+
+class BatchRenewRequest(BaseModel):
+    """Request to create multiple renewal enrollments"""
+    enrollment_ids: List[int] = Field(..., min_length=1, max_length=50)
+    lessons_paid: int = Field(default=6, ge=1, le=52)
+
+
+class BatchRenewResult(BaseModel):
+    """Result for a single enrollment in batch renewal"""
+    original_enrollment_id: int
+    new_enrollment_id: Optional[int] = None
+    success: bool
+    error: Optional[str] = None
+
+
+class BatchRenewResponse(BaseModel):
+    """Response for batch renewal creation"""
+    results: List[BatchRenewResult] = Field(default_factory=list)
+    created_count: int = Field(default=0, ge=0)
+    failed_count: int = Field(default=0, ge=0)
+
+
 # ============================================
 # Make-up Proposal Schemas
 # ============================================
