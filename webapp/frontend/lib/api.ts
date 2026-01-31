@@ -403,6 +403,8 @@ export interface ApplyScheduleChangeRequest {
   location: string;
   tutor_id: number;
   apply_to_sessions: boolean;
+  date_overrides?: Record<number, string>; // session_id -> ISO date string for manual overrides
+  time_overrides?: Record<number, string>; // session_id -> time string for manual overrides (e.g. "14:30")
 }
 
 export interface ScheduleChangeResult {
