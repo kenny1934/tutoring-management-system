@@ -517,7 +517,7 @@ export function EnrollmentDetailModal({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
                   >
                     {markingPaid ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    Mark Paid
+                    Confirm Payment
                   </button>
                 )}
               </>
