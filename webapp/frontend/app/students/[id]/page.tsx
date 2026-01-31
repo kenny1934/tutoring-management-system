@@ -30,6 +30,7 @@ import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorB
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
+import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
@@ -616,7 +617,6 @@ export default function StudentDetailPage() {
           isOpen={!!popoverEnrollment}
           onClose={() => setPopoverEnrollment(null)}
           clickPosition={enrollmentClickPosition}
-          isMobile={isMobile}
         />
       )}
 
@@ -1436,7 +1436,6 @@ function SessionsTab({
             setEnrollmentClickPosition(null);
           }}
           clickPosition={enrollmentClickPosition}
-          isMobile={isMobile}
         />
       )}
     </div>
@@ -2299,217 +2298,6 @@ function RatingsTab({
         })}
       </div>
     </div>
-  );
-}
-
-// Enrollment Detail Popover Component
-function EnrollmentDetailPopover({
-  enrollment,
-  isOpen,
-  onClose,
-  clickPosition,
-  isMobile,
-}: {
-  enrollment: Enrollment;
-  isOpen: boolean;
-  onClose: () => void;
-  clickPosition: { x: number; y: number } | null;
-  isMobile: boolean;
-}) {
-  // Virtual reference based on click position
-  const virtualReference = useMemo(() => {
-    if (!clickPosition) return null;
-    return {
-      getBoundingClientRect: () => ({
-        x: clickPosition.x,
-        y: clickPosition.y,
-        top: clickPosition.y,
-        left: clickPosition.x,
-        bottom: clickPosition.y,
-        right: clickPosition.x,
-        width: 0,
-        height: 0,
-        toJSON: () => ({}),
-      }),
-    };
-  }, [clickPosition]);
-
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: (open) => {
-      if (!open) onClose();
-    },
-    middleware: [
-      offset(8),
-      flip({ fallbackAxisSideDirection: "end", padding: 16 }),
-      shift({ padding: 16 }),
-    ],
-    whileElementsMounted: autoUpdate,
-    placement: "bottom-start",
-  });
-
-  // Use setPositionReference for virtual references
-  useEffect(() => {
-    if (virtualReference) {
-      refs.setPositionReference(virtualReference);
-    }
-  }, [virtualReference, refs]);
-
-  const dismiss = useDismiss(context);
-  const { getFloatingProps } = useInteractions([dismiss]);
-
-  if (!isOpen) return null;
-
-  return (
-    <FloatingPortal>
-      <div
-        ref={refs.setFloating}
-        style={floatingStyles}
-        {...getFloatingProps()}
-        className={cn(
-          "z-[9999] w-72 bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47] rounded-lg shadow-xl",
-          !isMobile && "paper-texture"
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4a574]/30">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-[#a0704b]/20 flex items-center justify-center">
-              <BookOpen className="h-4 w-4 text-[#a0704b]" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
-                Enrollment
-              </h3>
-              <p className="text-xs text-gray-500 font-mono">
-                #{enrollment.id}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-4 space-y-3">
-          {/* Schedule */}
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-              {enrollment.assigned_day} {enrollment.assigned_time}
-            </span>
-          </div>
-
-          {/* Tutor */}
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-purple-500" />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {enrollment.tutor_name || 'No tutor assigned'}
-            </span>
-          </div>
-
-          {/* Location */}
-          {enrollment.location && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-amber-500" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {enrollment.location}
-              </span>
-            </div>
-          )}
-
-          {/* Enrollment Type */}
-          {enrollment.enrollment_type && (
-            <div className="flex items-center gap-2">
-              <Tag className={cn(
-                "h-4 w-4",
-                enrollment.enrollment_type === 'Trial'
-                  ? "text-blue-500"
-                  : enrollment.enrollment_type === 'One-Time'
-                  ? "text-purple-500"
-                  : "text-green-500"
-              )} />
-              <span className={cn(
-                "text-sm",
-                enrollment.enrollment_type === 'Trial'
-                  ? "text-blue-600 dark:text-blue-400"
-                  : enrollment.enrollment_type === 'One-Time'
-                  ? "text-purple-600 dark:text-purple-400"
-                  : "text-green-600 dark:text-green-400"
-              )}>
-                {enrollment.enrollment_type}
-              </span>
-            </div>
-          )}
-
-          {/* Payment */}
-          {(() => {
-            const displayStatus = getDisplayPaymentStatus(enrollment);
-            return (
-              <div className="flex items-center gap-2">
-                <CreditCard className={cn(
-                  "h-4 w-4",
-                  displayStatus === 'Paid' ? 'text-green-500' :
-                  displayStatus === 'Overdue' ? 'text-red-500' :
-                  'text-amber-500'
-                )} />
-                <span className={cn(
-                  "text-sm font-medium",
-                  displayStatus === 'Paid' ? 'text-green-600' :
-                  displayStatus === 'Overdue' ? 'text-red-600' :
-                  displayStatus === 'Pending Payment' ? 'text-amber-600' :
-                  'text-gray-500'
-                )}>
-                  {displayStatus}
-                </span>
-                {enrollment.lessons_paid && (
-                  <span className="text-xs text-gray-500">({enrollment.lessons_paid} lessons)</span>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Start Date */}
-          {enrollment.first_lesson_date && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-indigo-500" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Started: {formatShortDate(enrollment.first_lesson_date)}
-              </span>
-            </div>
-          )}
-
-          {/* End Date */}
-          {enrollment.effective_end_date && (
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-red-500" />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Ends: {formatShortDate(enrollment.effective_end_date)}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-4 py-3 border-t border-[#d4a574]/30">
-          <Link
-            href={`/enrollments/${enrollment.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[#a0704b] hover:bg-[#8b6140] text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            View Details
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-    </FloatingPortal>
   );
 }
 
