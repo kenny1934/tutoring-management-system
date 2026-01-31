@@ -16,7 +16,9 @@ from schemas import (
     RenewalDataResponse, RenewalListItem, RenewalCountsResponse, TrialListItem,
     EnrollmentDetailResponse, PendingMakeupSession, PotentialRenewalLink,
     BatchEnrollmentRequest, BatchOperationResponse,
-    EligibilityResult, BatchRenewCheckResponse, BatchRenewRequest, BatchRenewResult, BatchRenewResponse
+    EligibilityResult, BatchRenewCheckResponse, BatchRenewRequest, BatchRenewResult, BatchRenewResponse,
+    ScheduleChangeRequest, ScheduleChangePreviewResponse, UnchangeableSession, UpdatableSession,
+    ApplyScheduleChangeRequest, ScheduleChangeResult
 )
 from auth.dependencies import require_admin, get_current_user
 
@@ -1768,6 +1770,316 @@ async def update_enrollment_extension(
     enrollment_data.effective_end_date = calculate_effective_end_date(enrollment, db)
 
     return enrollment_data
+
+
+# ============================================
+# Schedule Change Operations
+# ============================================
+
+# Statuses that cannot be changed (past or completed sessions)
+UNCHANGEABLE_STATUSES = [
+    'Attended',
+    'Attended (Make-up)',
+    'No Show',
+    'Rescheduled - Pending Make-up',
+    'Sick Leave - Pending Make-up',
+    'Weather Cancelled - Pending Make-up',
+    'Cancelled'
+]
+
+
+def get_day_of_week_number(day_name: str) -> int:
+    """Convert day name to weekday number (0=Monday, 6=Sunday)"""
+    days = {
+        # Full names
+        'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3,
+        'Friday': 4, 'Saturday': 5, 'Sunday': 6,
+        # Short names (used by the frontend)
+        'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3,
+        'Fri': 4, 'Sat': 5, 'Sun': 6
+    }
+    return days.get(day_name, 0)
+
+
+def calculate_new_session_date(old_date: date, old_day: str, new_day: str) -> date:
+    """Calculate new session date when changing assigned day.
+
+    Finds the next occurrence of new_day that is in the same week or the following week.
+    """
+    old_weekday = get_day_of_week_number(old_day)
+    new_weekday = get_day_of_week_number(new_day)
+
+    # Calculate the difference in days
+    day_diff = new_weekday - old_weekday
+
+    # If new day is before old day in the week, move to next week
+    if day_diff < 0:
+        day_diff += 7
+
+    return old_date + timedelta(days=day_diff)
+
+
+@router.post("/enrollments/{enrollment_id}/schedule-change-preview", response_model=ScheduleChangePreviewResponse)
+async def preview_schedule_change(
+    enrollment_id: int,
+    new_schedule: ScheduleChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Preview the impact of a schedule change on an enrollment.
+    Shows which sessions can and cannot be changed.
+    Admin only.
+    """
+    # Get enrollment with relationships
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    # Get new tutor info
+    new_tutor = db.query(Tutor).filter(Tutor.id == new_schedule.tutor_id).first()
+    if not new_tutor:
+        raise HTTPException(status_code=404, detail=f"Tutor with ID {new_schedule.tutor_id} not found")
+
+    # Build current schedule info
+    current_schedule = {
+        "assigned_day": enrollment.assigned_day,
+        "assigned_time": enrollment.assigned_time,
+        "location": enrollment.location,
+        "tutor_id": enrollment.tutor_id,
+        "tutor_name": enrollment.tutor.tutor_name if enrollment.tutor else "Unknown"
+    }
+
+    new_schedule_info = {
+        "assigned_day": new_schedule.assigned_day,
+        "assigned_time": new_schedule.assigned_time,
+        "location": new_schedule.location,
+        "tutor_id": new_schedule.tutor_id,
+        "tutor_name": new_tutor.tutor_name
+    }
+
+    # Get all sessions for this enrollment
+    sessions = db.query(SessionLog).options(
+        joinedload(SessionLog.tutor)
+    ).filter(
+        SessionLog.enrollment_id == enrollment_id
+    ).order_by(SessionLog.session_date).all()
+
+    unchangeable_sessions = []
+    updatable_sessions = []
+    warnings = []
+    today = date.today()
+
+    # Load holidays for next year
+    end_range = today + timedelta(weeks=52)
+    holidays = get_holidays_in_range(db, today, end_range)
+
+    # Track used dates to avoid collisions when multiple sessions shift
+    used_dates = set()
+
+    for session in sessions:
+        tutor_name = session.tutor.tutor_name if session.tutor else "Unknown"
+
+        # Check if session can be changed
+        is_past = session.session_date < today
+        is_unchangeable_status = session.session_status in UNCHANGEABLE_STATUSES
+
+        if is_past or is_unchangeable_status:
+            reason = "Past date" if is_past else f"Status: {session.session_status}"
+            unchangeable_sessions.append(UnchangeableSession(
+                session_id=session.id,
+                session_date=session.session_date,
+                time_slot=session.time_slot,
+                tutor_name=tutor_name,
+                session_status=session.session_status,
+                reason=reason
+            ))
+        else:
+            # Calculate new date
+            new_date = calculate_new_session_date(
+                session.session_date,
+                enrollment.assigned_day,
+                new_schedule.assigned_day
+            )
+
+            # Check for holiday
+            original_new_date = new_date
+            is_holiday = new_date in holidays
+            holiday_name = holidays.get(new_date)
+            shifted_date = None
+            collision_shift = False
+
+            if is_holiday:
+                # Auto-shift to next week
+                shifted_date = new_date + timedelta(weeks=1)
+                # Check if shifted date is also a holiday or already used
+                while shifted_date in holidays or shifted_date in used_dates:
+                    shifted_date += timedelta(weeks=1)
+                warnings.append(f"Session on {new_date} falls on {holiday_name}, shifted to {shifted_date}")
+
+            # Determine final date
+            final_date = shifted_date if is_holiday else new_date
+
+            # Check for collision with already-used dates (even if not a holiday)
+            if final_date in used_dates:
+                collision_shift = True
+                original_final = final_date
+                while final_date in used_dates or final_date in holidays:
+                    final_date += timedelta(weeks=1)
+                if is_holiday:
+                    shifted_date = final_date
+                else:
+                    shifted_date = final_date
+                    is_holiday = True  # Mark as shifted for display
+                    holiday_name = "collision with previous session"
+                warnings.append(f"Session shifted from {original_final} to {final_date} to avoid collision")
+
+            # Track this date as used
+            used_dates.add(final_date)
+
+            updatable_sessions.append(UpdatableSession(
+                session_id=session.id,
+                current_date=session.session_date,
+                current_time_slot=session.time_slot,
+                current_tutor_name=tutor_name,
+                new_date=original_new_date,  # Original calculated date (for strikethrough display)
+                new_time_slot=new_schedule.assigned_time,
+                new_tutor_name=new_tutor.tutor_name,
+                is_holiday=is_holiday,
+                holiday_name=holiday_name,
+                shifted_date=final_date if (is_holiday or collision_shift) else None  # Actual final date after shifting
+            ))
+
+    # Check for conflicts with new schedule
+    conflicts = []
+    if updatable_sessions:
+        new_dates = [s.new_date for s in updatable_sessions]
+        conflicts = check_student_conflicts(
+            db,
+            enrollment.student_id,
+            new_dates,
+            new_schedule.assigned_time,
+            exclude_enrollment_id=enrollment_id
+        )
+
+    can_apply = len(conflicts) == 0
+
+    if conflicts:
+        warnings.append(f"{len(conflicts)} conflict(s) detected with new schedule")
+
+    return ScheduleChangePreviewResponse(
+        enrollment_id=enrollment_id,
+        current_schedule=current_schedule,
+        new_schedule=new_schedule_info,
+        unchangeable_sessions=unchangeable_sessions,
+        updatable_sessions=updatable_sessions,
+        conflicts=conflicts,
+        warnings=warnings,
+        can_apply=can_apply
+    )
+
+
+@router.patch("/enrollments/{enrollment_id}/apply-schedule-change", response_model=ScheduleChangeResult)
+async def apply_schedule_change(
+    enrollment_id: int,
+    changes: ApplyScheduleChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Apply a schedule change to an enrollment and optionally update future sessions.
+    Admin only.
+    """
+    # Get enrollment
+    enrollment = db.query(Enrollment).options(
+        joinedload(Enrollment.student),
+        joinedload(Enrollment.tutor)
+    ).filter(Enrollment.id == enrollment_id).first()
+
+    if not enrollment:
+        raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
+
+    # Verify new tutor exists
+    new_tutor = db.query(Tutor).filter(Tutor.id == changes.tutor_id).first()
+    if not new_tutor:
+        raise HTTPException(status_code=404, detail=f"Tutor with ID {changes.tutor_id} not found")
+
+    old_day = enrollment.assigned_day
+    old_time = enrollment.assigned_time
+    old_tutor_id = enrollment.tutor_id
+
+    # Update enrollment record
+    enrollment.assigned_day = changes.assigned_day
+    enrollment.assigned_time = changes.assigned_time
+    enrollment.location = changes.location
+    enrollment.tutor_id = changes.tutor_id
+    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_by = current_user.get('email', 'admin')
+
+    sessions_updated = 0
+
+    if changes.apply_to_sessions:
+        today = date.today()
+
+        # Load holidays for next year
+        end_range = today + timedelta(weeks=52)
+        holidays = get_holidays_in_range(db, today, end_range)
+
+        # Get updatable sessions (future, scheduled status), ordered by date
+        sessions = db.query(SessionLog).filter(
+            SessionLog.enrollment_id == enrollment_id,
+            SessionLog.session_date >= today,
+            ~SessionLog.session_status.in_(UNCHANGEABLE_STATUSES)
+        ).order_by(SessionLog.session_date).all()
+
+        # Track used dates to avoid collisions when multiple sessions shift
+        used_dates = set()
+
+        for session in sessions:
+            # Calculate new date
+            new_date = calculate_new_session_date(
+                session.session_date,
+                old_day,
+                changes.assigned_day
+            )
+
+            # Handle holiday shifts and collision avoidance
+            while new_date in holidays or new_date in used_dates:
+                new_date += timedelta(weeks=1)
+
+            # Track this date as used
+            used_dates.add(new_date)
+
+            # Update session
+            session.session_date = new_date
+            session.time_slot = changes.assigned_time
+            session.location = changes.location
+            session.tutor_id = changes.tutor_id
+            session.last_modified_time = datetime.now()
+
+            sessions_updated += 1
+
+    db.commit()
+
+    # Recalculate effective end date
+    new_effective_end = calculate_effective_end_date(enrollment, db)
+
+    message = f"Schedule updated"
+    if sessions_updated > 0:
+        message += f", {sessions_updated} session(s) updated"
+    else:
+        message += " (no sessions changed)"
+
+    return ScheduleChangeResult(
+        enrollment_id=enrollment_id,
+        sessions_updated=sessions_updated,
+        new_effective_end_date=new_effective_end,
+        message=message
+    )
 
 
 # ============================================

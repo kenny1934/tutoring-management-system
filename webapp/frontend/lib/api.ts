@@ -344,6 +344,74 @@ export interface EnrollmentDetailResponse {
   phone?: string;
 }
 
+// Schedule Change types
+export interface ScheduleChangeRequest {
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  tutor_id: number;
+}
+
+export interface UnchangeableSession {
+  session_id: number;
+  session_date: string;
+  time_slot: string;
+  tutor_name: string;
+  session_status: string;
+  reason: string;
+}
+
+export interface UpdatableSession {
+  session_id: number;
+  current_date: string;
+  current_time_slot: string;
+  current_tutor_name: string;
+  new_date: string;
+  new_time_slot: string;
+  new_tutor_name: string;
+  is_holiday: boolean;
+  holiday_name?: string;
+  shifted_date?: string;
+}
+
+export interface ScheduleChangePreviewResponse {
+  enrollment_id: number;
+  current_schedule: {
+    assigned_day: string;
+    assigned_time: string;
+    location: string;
+    tutor_id: number;
+    tutor_name: string;
+  };
+  new_schedule: {
+    assigned_day: string;
+    assigned_time: string;
+    location: string;
+    tutor_id: number;
+    tutor_name: string;
+  };
+  unchangeable_sessions: UnchangeableSession[];
+  updatable_sessions: UpdatableSession[];
+  conflicts: StudentConflict[];
+  warnings: string[];
+  can_apply: boolean;
+}
+
+export interface ApplyScheduleChangeRequest {
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  tutor_id: number;
+  apply_to_sessions: boolean;
+}
+
+export interface ScheduleChangeResult {
+  enrollment_id: number;
+  sessions_updated: number;
+  new_effective_end_date?: string;
+  message: string;
+}
+
 // Enrollments API
 export const enrollmentsAPI = {
   getAll: (student_id?: number) => {
@@ -531,6 +599,21 @@ export const enrollmentsAPI = {
     }>("/enrollments/batch-renew", {
       method: "POST",
       body: JSON.stringify({ enrollment_ids: enrollmentIds, lessons_paid: lessonsPaid }),
+    });
+  },
+
+  // Schedule change preview and apply
+  previewScheduleChange: (enrollmentId: number, newSchedule: ScheduleChangeRequest) => {
+    return fetchAPI<ScheduleChangePreviewResponse>(`/enrollments/${enrollmentId}/schedule-change-preview`, {
+      method: "POST",
+      body: JSON.stringify(newSchedule),
+    });
+  },
+
+  applyScheduleChange: (enrollmentId: number, changes: ApplyScheduleChangeRequest) => {
+    return fetchAPI<ScheduleChangeResult>(`/enrollments/${enrollmentId}/apply-schedule-change`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
     });
   },
 };

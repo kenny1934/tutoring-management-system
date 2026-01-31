@@ -1346,6 +1346,71 @@ class ExamWithRevisionSlotsResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ============================================
+# Schedule Change Schemas
+# ============================================
+
+class ScheduleChangeRequest(BaseModel):
+    """Request to preview or apply a schedule change"""
+    assigned_day: str = Field(..., max_length=20, description="New assigned day (Monday, Tuesday, etc.)")
+    assigned_time: str = Field(..., max_length=20, description="New time slot")
+    location: str = Field(..., max_length=200, description="New location")
+    tutor_id: int = Field(..., gt=0, description="New tutor ID")
+
+
+class UnchangeableSession(BaseModel):
+    """Session that cannot be changed (past or completed)"""
+    session_id: int
+    session_date: date
+    time_slot: str
+    tutor_name: str
+    session_status: str
+    reason: str = Field(..., description="Why this session cannot be changed")
+
+
+class UpdatableSession(BaseModel):
+    """Session that will be updated with schedule change"""
+    session_id: int
+    current_date: date
+    current_time_slot: str
+    current_tutor_name: str
+    new_date: date
+    new_time_slot: str
+    new_tutor_name: str
+    is_holiday: bool = Field(default=False, description="True if new date falls on a holiday")
+    holiday_name: Optional[str] = Field(default=None, description="Name of holiday if is_holiday=True")
+    shifted_date: Optional[date] = Field(default=None, description="Auto-shifted date if original was a holiday")
+
+
+class ScheduleChangePreviewResponse(BaseModel):
+    """Response from schedule change preview"""
+    enrollment_id: int
+    current_schedule: dict = Field(..., description="Current day, time, location, tutor")
+    new_schedule: dict = Field(..., description="Requested day, time, location, tutor")
+    unchangeable_sessions: List[UnchangeableSession] = Field(default_factory=list)
+    updatable_sessions: List[UpdatableSession] = Field(default_factory=list)
+    conflicts: List[StudentConflict] = Field(default_factory=list, description="Conflicts with new schedule")
+    warnings: List[str] = Field(default_factory=list, description="Warnings about the change")
+    can_apply: bool = Field(default=True, description="Whether the change can be applied (no conflicts)")
+
+
+class ApplyScheduleChangeRequest(BaseModel):
+    """Request to apply schedule change"""
+    assigned_day: str = Field(..., max_length=20)
+    assigned_time: str = Field(..., max_length=20)
+    location: str = Field(..., max_length=200)
+    tutor_id: int = Field(..., gt=0)
+    apply_to_sessions: bool = Field(default=True, description="Whether to also update future sessions")
+
+
+class ScheduleChangeResult(BaseModel):
+    """Result of applying schedule change"""
+    enrollment_id: int
+    sessions_updated: int = Field(default=0, ge=0)
+    new_effective_end_date: Optional[date] = Field(default=None)
+    message: str
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
