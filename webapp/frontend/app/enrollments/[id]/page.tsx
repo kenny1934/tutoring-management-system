@@ -9,7 +9,8 @@ import { tutorsAPI, enrollmentsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import {
   ArrowLeft, User, BookOpen, Calendar, MapPin, Clock, CreditCard,
-  ExternalLink, X, CheckCircle2, HandCoins, Pencil, CalendarClock, History
+  ExternalLink, X, CheckCircle2, HandCoins, Pencil, CalendarClock, History,
+  MessageSquare, Copy, Check, Send, Undo2, Loader2, XCircle, ChevronDown, ChevronUp
 } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -23,6 +24,8 @@ import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/contexts/ToastContext";
 
 // Helper to format day/time as a badge
 function formatScheduleBadge(day?: string, time?: string): string {
@@ -39,6 +42,7 @@ export default function EnrollmentDetailPage() {
   const [isMobile, setIsMobile] = useState(false);
   const { selectedLocation } = useLocation();
   const { effectiveRole } = useAuth();
+  const { showToast } = useToast();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Edit mode state
@@ -55,6 +59,22 @@ export default function EnrollmentDetailPage() {
 
   // Schedule change modal state
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
+  // Fee message panel state
+  const [showFeePanel, setShowFeePanel] = useState(false);
+  const [feeLanguage, setFeeLanguage] = useState<'zh' | 'en'>('zh');
+  const [feeMessage, setFeeMessage] = useState('');
+  const [originalFeeMessage, setOriginalFeeMessage] = useState('');
+  const [feeMessageLoading, setFeeMessageLoading] = useState(false);
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Action states
+  const [markingSent, setMarkingSent] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [confirmPayment, setConfirmPayment] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   // For tutor dropdown
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
@@ -136,6 +156,86 @@ export default function EnrollmentDetailPage() {
     mutate(['enrollment', enrollment?.id]);
     mutate(['enrollment-sessions', enrollment?.id]);
     setEditForm({});
+  };
+
+  // Fee message and action handlers
+  const handleCopyFee = async () => {
+    try {
+      await navigator.clipboard.writeText(feeMessage);
+      setCopied(true);
+      showToast("Fee message copied!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      showToast("Failed to copy to clipboard", "error");
+    }
+  };
+
+  const handleMarkSent = async () => {
+    if (!enrollment) return;
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollment.id, { fee_message_sent: true });
+      mutate(['enrollment', enrollment.id]);
+      showToast("Marked as sent!");
+    } catch (err) {
+      console.error("Failed to mark as sent:", err);
+      showToast("Failed to mark as sent", "error");
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  const handleUnmarkSent = async () => {
+    if (!enrollment) return;
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollment.id, { fee_message_sent: false });
+      mutate(['enrollment', enrollment.id]);
+      showToast("Unmarked as sent");
+    } catch (err) {
+      console.error("Failed to unmark:", err);
+      showToast("Failed to unmark", "error");
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!enrollment) return;
+    setMarkingPaid(true);
+    try {
+      await enrollmentsAPI.update(enrollment.id, { payment_status: "Paid" });
+      mutate(['enrollment', enrollment.id]);
+      showToast("Payment confirmed!");
+      setConfirmPayment(false);
+    } catch (err) {
+      console.error("Failed to confirm payment:", err);
+      showToast("Failed to confirm payment", "error");
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  const handleCancelEnrollment = async () => {
+    if (!enrollment) return;
+    setIsCancelling(true);
+    try {
+      await enrollmentsAPI.cancel(enrollment.id);
+      showToast("Enrollment cancelled");
+      setConfirmCancel(false);
+      router.back();
+    } catch (err) {
+      console.error("Failed to cancel enrollment:", err);
+      showToast("Failed to cancel enrollment", "error");
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  const handleResetMessage = () => {
+    setFeeMessage(originalFeeMessage);
+    setIsEditingMessage(false);
   };
 
   const handleSaveExtension = async () => {
@@ -261,6 +361,33 @@ export default function EnrollmentDetailPage() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Fetch fee message when panel is opened or language changes
+  useEffect(() => {
+    if (!showFeePanel || !enrollment?.id) return;
+
+    let cancelled = false;
+    setFeeMessageLoading(true);
+
+    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6)
+      .then(response => {
+        if (!cancelled) {
+          setFeeMessage(response.message);
+          setOriginalFeeMessage(response.message);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          console.error("Failed to fetch fee message:", err);
+          setFeeMessage("Failed to generate fee message");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFeeMessageLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid]);
 
   // Calculate session stats
   const sessionStats = useMemo(() => {
@@ -857,6 +984,173 @@ export default function EnrollmentDetailPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Fee Message & Actions - Collapsible */}
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setShowFeePanel(!showFeePanel)}
+                    className="w-full flex items-center justify-between px-3 py-2 -mx-3 rounded-lg text-sm font-medium text-[#a0704b] dark:text-[#cd853f] hover:bg-[#a0704b]/10 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4" />
+                      Fee Message & Actions
+                    </span>
+                    {showFeePanel ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+
+                  <AnimatePresence>
+                    {showFeePanel && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="pt-4 space-y-4">
+                          {/* Language & Lessons selector */}
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
+                            {/* Language toggle */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">Language:</span>
+                              <div className="flex rounded overflow-hidden border border-[#d4a574]">
+                                <button
+                                  onClick={() => setFeeLanguage('zh')}
+                                  className={cn(
+                                    "px-2 py-1 text-xs font-medium transition-colors",
+                                    feeLanguage === 'zh'
+                                      ? "bg-[#a0704b] text-white"
+                                      : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
+                                  )}
+                                >
+                                  中文
+                                </button>
+                                <button
+                                  onClick={() => setFeeLanguage('en')}
+                                  className={cn(
+                                    "px-2 py-1 text-xs font-medium transition-colors border-l border-[#d4a574]",
+                                    feeLanguage === 'en'
+                                      ? "bg-[#a0704b] text-white"
+                                      : "bg-white dark:bg-gray-800 text-gray-600 hover:bg-gray-100"
+                                  )}
+                                >
+                                  EN
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Lessons paid display */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">Lessons:</span>
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                {enrollment.lessons_paid || 6}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Fee message textarea */}
+                          {feeMessageLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                              <span className="ml-2 text-sm text-gray-500">Generating...</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <textarea
+                                value={feeMessage}
+                                onChange={(e) => isEditingMessage && setFeeMessage(e.target.value)}
+                                readOnly={!isEditingMessage}
+                                className={cn(
+                                  "w-full h-48 p-3 text-xs font-mono rounded-lg border resize-none transition-colors",
+                                  isEditingMessage
+                                    ? "border-[#a0704b] bg-white dark:bg-gray-900 focus:ring-2 focus:ring-[#a0704b]/30"
+                                    : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 cursor-default"
+                                )}
+                              />
+                              <label className="flex items-center gap-2 mt-2 text-xs text-gray-500 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isEditingMessage}
+                                  onChange={(e) => setIsEditingMessage(e.target.checked)}
+                                  className="rounded border-gray-300 text-[#a0704b] focus:ring-[#a0704b]"
+                                />
+                                Edit before copying
+                                {isEditingMessage && feeMessage !== originalFeeMessage && (
+                                  <button onClick={handleResetMessage} className="text-[#a0704b] hover:underline ml-1">
+                                    Reset
+                                  </button>
+                                )}
+                              </label>
+                            </div>
+                          )}
+
+                          {/* Action buttons - responsive grid */}
+                          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2">
+                            {/* Copy Fee */}
+                            <button
+                              onClick={handleCopyFee}
+                              disabled={feeMessageLoading}
+                              className={cn(
+                                "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all",
+                                copied
+                                  ? "bg-green-500 text-white"
+                                  : "bg-[#a0704b] hover:bg-[#8b6140] text-white"
+                              )}
+                            >
+                              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                              {copied ? "Copied!" : "Copy Fee"}
+                            </button>
+
+                            {/* Mark Sent / Unmark Sent */}
+                            {enrollment?.fee_message_sent ? (
+                              <button
+                                onClick={handleUnmarkSent}
+                                disabled={markingSent}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                              >
+                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                                Unmark Sent
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleMarkSent}
+                                disabled={markingSent}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                              >
+                                {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                Mark Sent
+                              </button>
+                            )}
+
+                            {/* Confirm Payment - only show if not already paid */}
+                            {enrollment?.payment_status !== "Paid" && (
+                              <button
+                                onClick={() => setConfirmPayment(true)}
+                                disabled={markingPaid}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50"
+                              >
+                                {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+                                Confirm Payment
+                              </button>
+                            )}
+
+                            {/* Cancel Enrollment - only show if not already cancelled */}
+                            {enrollment?.payment_status !== "Cancelled" && (
+                              <button
+                                onClick={() => setConfirmCancel(true)}
+                                disabled={isCancelling}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                              >
+                                {isCancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+                                Cancel Enrollment
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -1151,6 +1445,30 @@ export default function EnrollmentDetailPage() {
           onSuccess={handleScheduleChangeSuccess}
         />
       )}
+
+      {/* Confirm Payment Dialog */}
+      <ConfirmDialog
+        isOpen={confirmPayment}
+        onCancel={() => setConfirmPayment(false)}
+        onConfirm={handleConfirmPayment}
+        title="Confirm Payment"
+        message={`Mark enrollment #${enrollment?.id} for ${enrollment?.student_name} as Paid?`}
+        confirmText={markingPaid ? "Processing..." : "Confirm Payment"}
+        loading={markingPaid}
+        variant="default"
+      />
+
+      {/* Cancel Enrollment Dialog */}
+      <ConfirmDialog
+        isOpen={confirmCancel}
+        onCancel={() => setConfirmCancel(false)}
+        onConfirm={handleCancelEnrollment}
+        title="Cancel Enrollment"
+        message={`Are you sure you want to cancel enrollment #${enrollment?.id} for ${enrollment?.student_name}? This action cannot be undone.`}
+        confirmText={isCancelling ? "Cancelling..." : "Cancel Enrollment"}
+        loading={isCancelling}
+        variant="danger"
+      />
     </DeskSurface>
   );
 }
