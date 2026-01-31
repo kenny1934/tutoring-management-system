@@ -371,6 +371,7 @@ export default function AdminRenewalsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -586,7 +587,7 @@ export default function AdminRenewalsPage() {
     if (selectedIndex === null) return;
 
     const element = document.querySelector(`[data-renewal-index="${selectedIndex}"]`);
-    const scrollContainer = document.querySelector('main');
+    const scrollContainer = scrollContainerRef.current;
     if (!element || !scrollContainer) return;
 
     const containerRect = scrollContainer.getBoundingClientRect();
@@ -595,15 +596,15 @@ export default function AdminRenewalsPage() {
     // Card position relative to container's scroll position
     const cardTopInContainer = cardRect.top - containerRect.top + scrollContainer.scrollTop;
 
-    // Target: position card 1/3 from top (accounts for header better than centering)
+    // Target: position card 1/3 from top
     const targetScroll = cardTopInContainer - (containerRect.height / 3);
 
     // Only scroll if needed (card is near edges)
     const currentCardTop = cardRect.top - containerRect.top;
-    const headerHeight = 280;
-    const bottomPadding = 120;
+    const topPadding = 40;
+    const bottomPadding = 80;
 
-    const isNearTop = currentCardTop < headerHeight;
+    const isNearTop = currentCardTop < topPadding;
     const isNearBottom = cardRect.bottom > containerRect.bottom - bottomPadding;
 
     if (isNearTop || isNearBottom) {
@@ -613,7 +614,7 @@ export default function AdminRenewalsPage() {
 
   // Track scroll position for button positioning
   useEffect(() => {
-    const scrollContainer = document.querySelector('main');
+    const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
 
     const handleScroll = () => {
@@ -823,9 +824,11 @@ export default function AdminRenewalsPage() {
   const showCheckboxes = checkedIds.size > 0;
 
   return (
-    <DeskSurface>
-      <PageTransition className="min-h-full p-4 sm:p-6">
-        <div className="bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm p-4 sm:p-6">
+    <DeskSurface fullHeight>
+      <PageTransition className="flex flex-col h-full p-4 sm:p-6">
+        <div className="flex flex-col h-full bg-[#faf8f5] dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden">
+        {/* Sticky Header Section */}
+        <div className="flex-shrink-0 p-4 sm:p-6 pb-0 bg-[#faf8f5] dark:bg-[#1a1a1a]">
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -900,97 +903,90 @@ export default function AdminRenewalsPage() {
           </div>
         </div>
 
-        {isLoading || renewalsLoading ? (
-          /* Skeleton cards while loading */
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="p-4 rounded-lg border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-16 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                      <div className="h-4 w-32 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    </div>
-                    <div className="h-4 w-48 rounded animate-pulse bg-gray-200 dark:bg-gray-700" />
-                    <div className="h-3 w-40 rounded animate-pulse bg-gray-100 dark:bg-gray-800" />
-                  </div>
-                  <div className="h-9 w-24 rounded-lg animate-pulse bg-gray-200 dark:bg-gray-700" />
-                </div>
-              </div>
-            ))}
+        {/* Tab bar - only show when data is loaded */}
+        {!isLoading && !renewalsLoading && user && isAdmin && renewals && renewals.length > 0 && (
+          <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
+            <button
+              onClick={() => setActiveTab('not_renewed')}
+              className={cn(
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                activeTab === 'not_renewed'
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <RefreshCcw className="h-4 w-4" />
+              <span className="hidden sm:inline">Not Renewed</span>
+              <span className="sm:hidden">Pending</span>
+              {notRenewedList.length > 0 && (
+                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
+                  {notRenewedList.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('to_send')}
+              className={cn(
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                activeTab === 'to_send'
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <Send className="h-4 w-4" />
+              <span className="hidden sm:inline">To Send</span>
+              <span className="sm:hidden">Send</span>
+              {toSendList.length > 0 && (
+                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                  {toSendList.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('awaiting_payment')}
+              className={cn(
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
+                activeTab === 'awaiting_payment'
+                  ? "border-orange-500 text-orange-600 dark:text-orange-400"
+                  : "border-transparent text-foreground/50 hover:text-foreground/70"
+              )}
+            >
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Awaiting Payment</span>
+              <span className="sm:hidden">Payment</span>
+              {awaitingPaymentList.length > 0 && (
+                <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                  {awaitingPaymentList.length}
+                </span>
+              )}
+            </button>
           </div>
-        ) : !user ? (
-          <div className="text-center py-12 text-foreground/60">
-            Please sign in to view renewals
-          </div>
-        ) : !isAdmin ? (
-          <div className="text-center py-12 text-foreground/60">
-            Admin access required to manage renewals
-          </div>
-        ) : renewals && renewals.length > 0 ? (
-          <div>
-            {/* Tab bar */}
-            <div className="flex gap-1 mb-4 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-              <button
-                onClick={() => setActiveTab('not_renewed')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
-                  activeTab === 'not_renewed'
-                    ? "border-foreground text-foreground"
-                    : "border-transparent text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                <RefreshCcw className="h-4 w-4" />
-                <span className="hidden sm:inline">Not Renewed</span>
-                <span className="sm:hidden">Pending</span>
-                {notRenewedList.length > 0 && (
-                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
-                    {notRenewedList.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('to_send')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
-                  activeTab === 'to_send'
-                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">To Send</span>
-                <span className="sm:hidden">Send</span>
-                {toSendList.length > 0 && (
-                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-                    {toSendList.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('awaiting_payment')}
-                className={cn(
-                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0",
-                  activeTab === 'awaiting_payment'
-                    ? "border-orange-500 text-orange-600 dark:text-orange-400"
-                    : "border-transparent text-foreground/50 hover:text-foreground/70"
-                )}
-              >
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Awaiting Payment</span>
-                <span className="sm:hidden">Payment</span>
-                {awaitingPaymentList.length > 0 && (
-                  <span className="px-1.5 sm:px-2 py-0.5 text-xs rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
-                    {awaitingPaymentList.length}
-                  </span>
-                )}
-              </button>
-            </div>
+        )}
+        </div>
 
-            {/* Tab content with collapsible urgency sections */}
+        {/* Scrollable Content Area */}
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-6 pb-4 sm:pb-6">
+          {/* Loading skeleton */}
+          {(isLoading || renewalsLoading) ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-3 w-48 bg-gray-100 dark:bg-gray-800 rounded" />
+                      <div className="h-3 w-24 bg-gray-100 dark:bg-gray-800 rounded" />
+                    </div>
+                    <div className="h-8 w-8 bg-gray-100 dark:bg-gray-800 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !user || !isAdmin ? (
+            <div className="text-center py-12">
+              <p className="text-foreground/60">Admin access required</p>
+            </div>
+          ) : renewals && renewals.length > 0 ? (
             <div className="space-y-4">
               {activeList.length > 0 ? (
                 <>
@@ -1154,16 +1150,19 @@ export default function AdminRenewalsPage() {
                 </div>
               )}
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <RefreshCcw className="h-12 w-12 text-foreground/20 mx-auto mb-4" />
-            <p className="text-foreground/60">No enrollments need renewal right now</p>
-            <p className="text-sm text-foreground/40 mt-1">
-              Enrollments will appear here when they expire or are within 2 weeks of expiring
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-12">
+              <RefreshCcw className="h-12 w-12 text-foreground/20 mx-auto mb-4" />
+              <p className="text-foreground/60">No enrollments need renewal right now</p>
+              <p className="text-sm text-foreground/40 mt-1">
+                Enrollments will appear here when they expire or are within 2 weeks of expiring
+              </p>
+            </div>
+          )}
+
+          {/* Scroll to top button - inside scrollable area for proper parent detection */}
+          <ScrollToTopButton />
+        </div>
         </div>
       </PageTransition>
 
@@ -1558,9 +1557,6 @@ export default function AdminRenewalsPage() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Scroll to top button */}
-      <ScrollToTopButton />
     </DeskSurface>
   );
 }
