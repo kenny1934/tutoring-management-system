@@ -1134,8 +1134,8 @@ export default function EnrollmentDetailPage() {
                               </button>
                             )}
 
-                            {/* Cancel Enrollment - only show if not already cancelled */}
-                            {enrollment?.payment_status !== "Cancelled" && (
+                            {/* Cancel Enrollment - only for pending/overdue with no completed sessions */}
+                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
                               <button
                                 onClick={() => setConfirmCancel(true)}
                                 disabled={isCancelling}

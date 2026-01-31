@@ -121,6 +121,7 @@ class EnrollmentResponse(EnrollmentBase):
     extension_granted_by: Optional[str] = Field(None, max_length=255, description="Email of admin who granted extension")
     last_modified_time: Optional[datetime] = None
     effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
+    fee_message_sent: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
