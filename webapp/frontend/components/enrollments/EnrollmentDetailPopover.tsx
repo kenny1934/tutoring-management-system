@@ -14,13 +14,14 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment } from "@/types";
 
 // Day options (short form)
@@ -112,6 +113,7 @@ export function EnrollmentDetailPopover({
   // Action states
   const [markedAsPaid, setMarkedAsPaid] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editedDay, setEditedDay] = useState('');
   const [editedTime, setEditedTime] = useState('');
@@ -122,6 +124,10 @@ export function EnrollmentDetailPopover({
 
   // Schedule change modal state
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
+  // Confirmation dialog states
+  const [confirmPayment, setConfirmPayment] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   // Filter tutors by selected location
   const filteredTutors = useMemo(() => {
@@ -178,6 +184,14 @@ export function EnrollmentDetailPopover({
   const isPending = enrollment.payment_status === 'Pending Payment';
   const showMarkAsPaid = isPending && !markedAsPaid;
 
+  // Check if any sessions have been attended - cannot cancel if so
+  const hasAttendedSessions = sessions.some(
+    s => s.session_status === 'Attended' || s.session_status === 'Attended (Make-up)'
+  );
+  const showCancelButton = (enrollment.payment_status === 'Pending Payment'
+    || enrollment.payment_status === 'Overdue')
+    && !hasAttendedSessions;
+
   // Format date relative to today
   const formatSessionDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -202,6 +216,21 @@ export function EnrollmentDetailPopover({
       console.error('Failed to mark as paid:', err);
     } finally {
       setMarkingPaid(false);
+    }
+  };
+
+  const handleCancelEnrollment = async () => {
+    if (!enrollment) return;
+
+    setIsCancelling(true);
+    try {
+      await enrollmentsAPI.cancel(enrollment.id);
+      onStatusChange?.();
+      onClose();
+    } catch (err) {
+      console.error('Failed to cancel enrollment:', err);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -616,7 +645,7 @@ export function EnrollmentDetailPopover({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleMarkAsPaid();
+                setConfirmPayment(true);
               }}
               disabled={markingPaid}
               className={cn(
@@ -627,6 +656,25 @@ export function EnrollmentDetailPopover({
             >
               {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               Confirm Payment
+            </button>
+          )}
+
+          {/* Cancel Enrollment button - shown for pending/overdue without attended sessions */}
+          {showCancelButton && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmCancel(true);
+              }}
+              disabled={isCancelling}
+              className={cn(
+                "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
+                "bg-red-600 hover:bg-red-700 text-white transition-colors",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              {isCancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+              Cancel Enrollment
             </button>
           )}
 
@@ -647,6 +695,37 @@ export function EnrollmentDetailPopover({
             View Enrollment Details
           </Link>
         </div>
+
+        {/* Confirm Payment Dialog */}
+        <ConfirmDialog
+          isOpen={confirmPayment}
+          onConfirm={() => {
+            setConfirmPayment(false);
+            handleMarkAsPaid();
+          }}
+          onCancel={() => setConfirmPayment(false)}
+          title="Confirm Payment"
+          message="Are you sure you want to confirm payment for this enrollment?"
+          confirmText="Confirm Payment"
+          variant="default"
+          loading={markingPaid}
+        />
+
+        {/* Confirm Cancel Dialog */}
+        <ConfirmDialog
+          isOpen={confirmCancel}
+          onConfirm={() => {
+            setConfirmCancel(false);
+            handleCancelEnrollment();
+          }}
+          onCancel={() => setConfirmCancel(false)}
+          title="Cancel Enrollment"
+          message="Are you sure you want to cancel this enrollment?"
+          consequences={["All scheduled sessions will be cancelled"]}
+          confirmText="Cancel Enrollment"
+          variant="danger"
+          loading={isCancelling}
+        />
 
         {/* Schedule Change Review Modal */}
         <ScheduleChangeReviewModal

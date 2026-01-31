@@ -1486,7 +1486,8 @@ async def get_enrollment_detail_for_modal(
         sessions_total=sessions_total,
         pending_makeups=pending_makeups,
         payment_status=enrollment.payment_status or "",
-        phone=enrollment.student.phone if enrollment.student else None
+        phone=enrollment.student.phone if enrollment.student else None,
+        fee_message_sent=enrollment.fee_message_sent or False
     )
 
 
@@ -2088,6 +2089,56 @@ async def apply_schedule_change(
         new_effective_end_date=new_effective_end,
         message=message
     )
+
+
+# ============================================
+# Cancel Enrollment
+# ============================================
+
+@router.patch("/enrollments/{enrollment_id}/cancel")
+async def cancel_enrollment(
+    enrollment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Cancel an enrollment and all its sessions.
+
+    Only allowed if no sessions have been attended (to preserve payment obligation).
+    Sets payment_status to 'Cancelled' and cancels all remaining sessions.
+    """
+    enrollment = db.query(Enrollment).filter(Enrollment.id == enrollment_id).first()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+
+    # Check for attended sessions - cannot cancel if any exist
+    ATTENDED_STATUSES = ['Attended', 'Attended (Make-up)']
+    attended_count = db.query(SessionLog).filter(
+        SessionLog.enrollment_id == enrollment_id,
+        SessionLog.session_status.in_(ATTENDED_STATUSES)
+    ).count()
+
+    if attended_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot cancel enrollment with attended sessions"
+        )
+
+    # Update payment_status to Cancelled
+    enrollment.payment_status = "Cancelled"
+    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_by = current_user.get('email', 'admin')
+
+    # Cancel all remaining sessions
+    cancelled_count = db.query(SessionLog).filter(
+        SessionLog.enrollment_id == enrollment_id,
+        SessionLog.session_status != 'Cancelled'
+    ).update({'session_status': 'Cancelled'}, synchronize_session=False)
+
+    db.commit()
+    db.refresh(enrollment)
+
+    return {"enrollment": enrollment, "sessions_cancelled": cancelled_count}
 
 
 # ============================================
