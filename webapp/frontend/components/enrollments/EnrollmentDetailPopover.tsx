@@ -20,6 +20,7 @@ import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { getDisplayStatus } from "@/lib/session-status";
+import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import type { Enrollment } from "@/types";
 
 // Day options (short form)
@@ -119,6 +120,9 @@ export function EnrollmentDetailPopover({
   const [isCustomTime, setIsCustomTime] = useState(false);
   const [scheduleSaved, setScheduleSaved] = useState(false);
 
+  // Schedule change modal state
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+
   // Filter tutors by selected location
   const filteredTutors = useMemo(() => {
     if (!editedLocation) return [];
@@ -202,17 +206,27 @@ export function EnrollmentDetailPopover({
   };
 
   const handleSaveSchedule = () => {
-    const selectedTutor = allTutors.find(t => t.id === editedTutorId);
-    console.log(`[Demo Mode] Save Schedule clicked for enrollment #${enrollment.id}:`, {
-      day: editedDay,
-      time: editedTime,
-      location: editedLocation,
-      tutor_id: editedTutorId,
-      tutor_name: selectedTutor?.tutor_name,
-    });
-    setScheduleSaved(true);
+    // Check if anything actually changed
+    const dayChanged = editedDay !== enrollment.assigned_day;
+    const timeChanged = editedTime !== enrollment.assigned_time;
+    const locationChanged = editedLocation !== enrollment.location;
+    const tutorChanged = editedTutorId !== enrollment.tutor_id;
+
+    if (!dayChanged && !timeChanged && !locationChanged && !tutorChanged) {
+      // Nothing changed, just close editing mode
+      setIsEditingSchedule(false);
+      return;
+    }
+
+    // Open the schedule change review modal
+    setIsScheduleModalOpen(true);
     setIsEditingSchedule(false);
-    // In real implementation, this would call the API
+  };
+
+  // Handle schedule change success
+  const handleScheduleChangeSuccess = () => {
+    setScheduleSaved(true);
+    onStatusChange?.();
   };
 
   // Handle location change - reset tutor when location changes
@@ -410,7 +424,7 @@ export function EnrollmentDetailPopover({
                   }}
                   className="flex-1 text-xs px-2 py-1 rounded bg-[#a0704b] text-white hover:bg-[#8b5e3c]"
                 >
-                  Save (Demo)
+                  Save
                 </button>
               </div>
             </div>
@@ -633,6 +647,28 @@ export function EnrollmentDetailPopover({
             View Enrollment Details
           </Link>
         </div>
+
+        {/* Schedule Change Review Modal */}
+        <ScheduleChangeReviewModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          enrollmentId={enrollment.id}
+          currentSchedule={{
+            day: enrollment.assigned_day || '',
+            time: enrollment.assigned_time || '',
+            location: enrollment.location || '',
+            tutorId: enrollment.tutor_id || 0,
+            tutorName: enrollment.tutor_name || '',
+          }}
+          newSchedule={{
+            day: editedDay,
+            time: editedTime,
+            location: editedLocation,
+            tutorId: editedTutorId || 0,
+            tutorName: allTutors.find(t => t.id === editedTutorId)?.tutor_name || '',
+          }}
+          onSuccess={handleScheduleChangeSuccess}
+        />
       </div>
     </FloatingPortal>
   );

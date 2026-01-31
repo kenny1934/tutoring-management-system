@@ -22,6 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { formatShortDate } from "@/lib/formatters";
 import { getDisplayPaymentStatus } from "@/lib/enrollment-utils";
+import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 
 // Helper to format day/time as a badge
 function formatScheduleBadge(day?: string, time?: string): string {
@@ -51,6 +52,9 @@ export default function EnrollmentDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isCustomTime, setIsCustomTime] = useState(false);
+
+  // Schedule change modal state
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   // For tutor dropdown
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
@@ -93,6 +97,23 @@ export default function EnrollmentDetailPage() {
 
   const handleSave = async () => {
     if (!enrollment) return;
+
+    // Check if this is a schedule edit with schedule field changes
+    if (isEditingSchedule) {
+      const dayChanged = editForm.assigned_day !== enrollment.assigned_day;
+      const timeChanged = editForm.assigned_time !== enrollment.assigned_time;
+      const locationChanged = editForm.location !== enrollment.location;
+      const tutorChanged = editForm.tutor_id !== enrollment.tutor_id;
+
+      if (dayChanged || timeChanged || locationChanged || tutorChanged) {
+        // Open the schedule change review modal
+        setIsScheduleModalOpen(true);
+        setIsEditingSchedule(false);
+        return;
+      }
+    }
+
+    // Direct save (for payment edits or non-schedule-related changes)
     setIsSaving(true);
     setSaveError(null);
 
@@ -108,6 +129,13 @@ export default function EnrollmentDetailPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Handle schedule change modal success
+  const handleScheduleChangeSuccess = () => {
+    mutate(['enrollment', enrollment?.id]);
+    mutate(['enrollment-sessions', enrollment?.id]);
+    setEditForm({});
   };
 
   const handleSaveExtension = async () => {
@@ -1094,6 +1122,33 @@ export default function EnrollmentDetailPage() {
           isOpen={!!popoverSession}
           onClose={() => setPopoverSession(null)}
           clickPosition={sessionClickPosition}
+        />
+      )}
+
+      {/* Schedule Change Review Modal */}
+      {enrollment && (
+        <ScheduleChangeReviewModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => {
+            setIsScheduleModalOpen(false);
+            setEditForm({});
+          }}
+          enrollmentId={enrollment.id}
+          currentSchedule={{
+            day: enrollment.assigned_day || '',
+            time: enrollment.assigned_time || '',
+            location: enrollment.location || '',
+            tutorId: enrollment.tutor_id || 0,
+            tutorName: enrollment.tutor_name || '',
+          }}
+          newSchedule={{
+            day: editForm.assigned_day || enrollment.assigned_day || '',
+            time: editForm.assigned_time || enrollment.assigned_time || '',
+            location: editForm.location || enrollment.location || '',
+            tutorId: editForm.tutor_id || enrollment.tutor_id || 0,
+            tutorName: allTutors.find(t => t.id === (editForm.tutor_id || enrollment.tutor_id))?.tutor_name || '',
+          }}
+          onSuccess={handleScheduleChangeSuccess}
         />
       )}
     </DeskSurface>
