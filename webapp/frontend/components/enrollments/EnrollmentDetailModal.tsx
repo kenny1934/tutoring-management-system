@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock } from "lucide-react";
+import { X, User, Calendar, MapPin, Phone, AlertTriangle, CheckCircle, RefreshCcw, ExternalLink, FileText, Copy, Check, Send, Loader2, CreditCard, Clock, XCircle, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enrollmentsAPI, sessionsAPI, EnrollmentDetailResponse } from "@/lib/api";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { useLocation } from "@/contexts/LocationContext";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment, Session } from "@/types";
 
 interface EnrollmentDetailModalProps {
@@ -48,7 +49,7 @@ export function EnrollmentDetailModal({
   const { selectedLocation } = useLocation();
 
   // Use SWR for caching
-  const { data: detail, isLoading: loading, error } = useSWR<EnrollmentDetailResponse>(
+  const { data: detail, isLoading: loading, error, mutate } = useSWR<EnrollmentDetailResponse>(
     isOpen && enrollmentId ? ['enrollment-detail', enrollmentId] : null,
     () => enrollmentsAPI.getDetail(enrollmentId!),
     {
@@ -66,7 +67,12 @@ export function EnrollmentDetailModal({
   // Renewal action state
   const [markingSent, setMarkingSent] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Confirmation dialog states
+  const [confirmPayment, setConfirmPayment] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!isOpen) return null;
 
@@ -89,6 +95,19 @@ export function EnrollmentDetailModal({
     setMarkingSent(true);
     try {
       await enrollmentsAPI.update(enrollmentId, { fee_message_sent: true });
+      await mutate();
+      onStatusChange?.();
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  const handleUnmarkSent = async () => {
+    if (!enrollmentId) return;
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollmentId, { fee_message_sent: false });
+      await mutate();
       onStatusChange?.();
     } finally {
       setMarkingSent(false);
@@ -115,6 +134,21 @@ export function EnrollmentDetailModal({
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy fee message:', err);
+    }
+  };
+
+  const handleCancelEnrollment = async () => {
+    if (!enrollmentId) return;
+
+    setIsCancelling(true);
+    try {
+      await enrollmentsAPI.cancel(enrollmentId);
+      onStatusChange?.();
+      onClose();
+    } catch (err) {
+      console.error('Failed to cancel enrollment:', err);
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -481,43 +515,74 @@ export function EnrollmentDetailModal({
             </Link>
           )}
 
-          {/* Right side actions */}
-          <div className="flex items-center gap-2">
+          {/* Right side actions - buttons expand on hover (desktop), wrap on mobile */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {/* Renewal workflow actions */}
             {showRenewalActions && (
               <>
-                {/* Copy Fee - subtle icon button (only when fee not sent) */}
-                {!detail.fee_message_sent && (
-                  <button
-                    onClick={handleCopyFee}
-                    className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
-                    title="Copy fee message"
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
-                  </button>
-                )}
+                {/* Copy Fee - subtle icon button */}
+                <button
+                  onClick={handleCopyFee}
+                  className="p-2 rounded-lg hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] transition-colors"
+                  title="Copy fee message"
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
+                </button>
 
-                {/* Mark as Sent (only when fee not sent) */}
-                {!detail.fee_message_sent && (
+                {/* Mark/Unmark Sent toggle */}
+                {detail.fee_message_sent ? (
+                  <button
+                    onClick={handleUnmarkSent}
+                    disabled={markingSent}
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all disabled:opacity-50"
+                    title="Unmark Sent"
+                  >
+                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <Undo2 className="h-4 w-4 flex-shrink-0" />}
+                    <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[100px]">
+                      Unmark Sent
+                    </span>
+                  </button>
+                ) : (
                   <button
                     onClick={handleMarkSent}
                     disabled={markingSent}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all disabled:opacity-50"
+                    title="Mark Sent"
                   >
-                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Mark Sent
+                    {markingSent ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <Send className="h-4 w-4 flex-shrink-0" />}
+                    <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[80px]">
+                      Mark Sent
+                    </span>
                   </button>
                 )}
 
-                {/* Mark as Paid (only when not paid) */}
+                {/* Confirm Payment (only when not paid) */}
                 {detail.payment_status !== "Paid" && (
                   <button
-                    onClick={handleMarkPaid}
+                    onClick={() => setConfirmPayment(true)}
                     disabled={markingPaid}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 transition-all disabled:opacity-50"
+                    title="Confirm Payment"
                   >
-                    {markingPaid ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                    Confirm Payment
+                    {markingPaid ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <CreditCard className="h-4 w-4 flex-shrink-0" />}
+                    <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[120px]">
+                      Confirm Payment
+                    </span>
+                  </button>
+                )}
+
+                {/* Cancel Enrollment (only for pending/overdue without attended sessions) */}
+                {(detail.payment_status === "Pending Payment" || detail.payment_status === "Overdue") && detail.sessions_finished === 0 && (
+                  <button
+                    onClick={() => setConfirmCancel(true)}
+                    disabled={isCancelling}
+                    className="group flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-all disabled:opacity-50"
+                    title="Cancel Enrollment"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" /> : <XCircle className="h-4 w-4 flex-shrink-0" />}
+                    <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[130px]">
+                      Cancel Enrollment
+                    </span>
                   </button>
                 )}
               </>
@@ -528,18 +593,21 @@ export function EnrollmentDetailModal({
               <button
                 onClick={handleCreateRenewal}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg text-sm font-medium transition-all",
+                  "group flex items-center gap-1.5 rounded-lg text-sm font-medium transition-all",
                   "hover:scale-[1.02] active:scale-[0.98]",
-                  compact ? "px-3 py-1.5" : "px-4 py-2",
+                  "px-2 py-1.5",
                   isExpired
                     ? "bg-red-500 hover:bg-red-600 text-white"
                     : isUrgent
                     ? "bg-orange-500 hover:bg-orange-600 text-white"
                     : "bg-[#a0704b] hover:bg-[#8b5d3b] text-white"
                 )}
+                title={compact ? "Renew" : "Create Renewal"}
               >
-                <RefreshCcw className="h-4 w-4" />
-                {compact ? "Renew" : "Create Renewal"}
+                <RefreshCcw className="h-4 w-4 flex-shrink-0" />
+                <span className="sm:max-w-0 sm:overflow-hidden whitespace-nowrap transition-all duration-200 sm:group-hover:max-w-[110px]">
+                  {compact ? "Renew" : "Create Renewal"}
+                </span>
               </button>
             )}
           </div>
@@ -582,6 +650,37 @@ export function EnrollmentDetailModal({
               clickPosition={clickPosition}
             />
           )}
+
+          {/* Confirm Payment Dialog */}
+          <ConfirmDialog
+            isOpen={confirmPayment}
+            onConfirm={() => {
+              setConfirmPayment(false);
+              handleMarkPaid();
+            }}
+            onCancel={() => setConfirmPayment(false)}
+            title="Confirm Payment"
+            message="Are you sure you want to confirm payment for this enrollment?"
+            confirmText="Confirm Payment"
+            variant="default"
+            loading={markingPaid}
+          />
+
+          {/* Confirm Cancel Dialog */}
+          <ConfirmDialog
+            isOpen={confirmCancel}
+            onConfirm={() => {
+              setConfirmCancel(false);
+              handleCancelEnrollment();
+            }}
+            onCancel={() => setConfirmCancel(false)}
+            title="Cancel Enrollment"
+            message="Are you sure you want to cancel this enrollment?"
+            consequences={["All scheduled sessions will be cancelled"]}
+            confirmText="Cancel Enrollment"
+            variant="danger"
+            loading={isCancelling}
+          />
         </div>
       </AnimatePresence>
     );
@@ -610,6 +709,37 @@ export function EnrollmentDetailModal({
           clickPosition={clickPosition}
         />
       )}
+
+      {/* Confirm Payment Dialog */}
+      <ConfirmDialog
+        isOpen={confirmPayment}
+        onConfirm={() => {
+          setConfirmPayment(false);
+          handleMarkPaid();
+        }}
+        onCancel={() => setConfirmPayment(false)}
+        title="Confirm Payment"
+        message="Are you sure you want to confirm payment for this enrollment?"
+        confirmText="Confirm Payment"
+        variant="default"
+        loading={markingPaid}
+      />
+
+      {/* Confirm Cancel Dialog */}
+      <ConfirmDialog
+        isOpen={confirmCancel}
+        onConfirm={() => {
+          setConfirmCancel(false);
+          handleCancelEnrollment();
+        }}
+        onCancel={() => setConfirmCancel(false)}
+        title="Cancel Enrollment"
+        message="Are you sure you want to cancel this enrollment?"
+        consequences={["All scheduled sessions will be cancelled"]}
+        confirmText="Cancel Enrollment"
+        variant="danger"
+        loading={isCancelling}
+      />
     </>
   );
 }

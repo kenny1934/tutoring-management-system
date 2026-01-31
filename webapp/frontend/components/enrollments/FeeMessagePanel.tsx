@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Copy, Check, X } from "lucide-react";
+import { Loader2, Copy, Check, X, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
@@ -86,8 +86,30 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
     }
   };
 
+  const handleUnmarkSent = async () => {
+    if (!enrollment.renewal_enrollment_id) return;
+
+    setMarkingSent(true);
+    try {
+      await enrollmentsAPI.update(enrollment.renewal_enrollment_id, {
+        fee_message_sent: false,
+      });
+      showToast("Unmarked as sent");
+      onMarkSent?.();
+    } catch (err) {
+      console.error("Failed to unmark as sent:", err);
+      const errorMsg = err instanceof Error ? err.message : "Please try again";
+      showToast(`Failed to unmark: ${errorMsg}`, "error");
+    } finally {
+      setMarkingSent(false);
+    }
+  };
+
+  // Show Mark Sent for pending_message status, Unmark Sent for message_sent status
   const showMarkSentButton = enrollment.renewal_enrollment_id &&
     enrollment.renewal_status === 'pending_message';
+  const showUnmarkSentButton = enrollment.renewal_enrollment_id &&
+    enrollment.renewal_status === 'message_sent';
 
   return (
     <div
@@ -200,6 +222,20 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
                 <Check className="h-4 w-4" />
               )}
               Mark Sent
+            </button>
+          )}
+          {showUnmarkSentButton && (
+            <button
+              onClick={handleUnmarkSent}
+              disabled={markingSent}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              {markingSent ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Undo2 className="h-4 w-4" />
+              )}
+              Unmark Sent
             </button>
           )}
           <button

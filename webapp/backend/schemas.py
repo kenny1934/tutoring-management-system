@@ -136,6 +136,7 @@ class EnrollmentUpdate(BaseModel):
     first_lesson_date: Optional[date] = None
     payment_status: Optional[str] = Field(None, max_length=50)
     enrollment_type: Optional[str] = Field(None, max_length=50)
+    fee_message_sent: Optional[bool] = None
 
 
 class EnrollmentExtensionUpdate(BaseModel):
@@ -333,6 +334,7 @@ class EnrollmentDetailResponse(BaseModel):
     pending_makeups: List[PendingMakeupSession] = Field(default_factory=list)
     payment_status: str
     phone: Optional[str] = None
+    fee_message_sent: bool = False
 
 
 # ============================================

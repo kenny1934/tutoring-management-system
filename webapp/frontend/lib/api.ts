@@ -342,6 +342,7 @@ export interface EnrollmentDetailResponse {
   pending_makeups: PendingMakeupSession[];
   payment_status: string;
   phone?: string;
+  fee_message_sent: boolean;
 }
 
 // Schedule Change types
@@ -617,6 +618,13 @@ export const enrollmentsAPI = {
       method: "PATCH",
       body: JSON.stringify(changes),
     });
+  },
+
+  cancel: (id: number) => {
+    return fetchAPI<{ enrollment: Enrollment; sessions_cancelled: number }>(
+      `/enrollments/${id}/cancel`,
+      { method: 'PATCH' }
+    );
   },
 };
 

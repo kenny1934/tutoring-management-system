@@ -50,6 +50,7 @@ export interface Enrollment {
   extension_granted_by?: string;
   last_modified_time?: string;
   effective_end_date?: string;
+  fee_message_sent?: boolean;
   student?: Student;
 }
 
