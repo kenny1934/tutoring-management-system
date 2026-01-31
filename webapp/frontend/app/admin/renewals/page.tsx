@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, Mail, CreditCard, ChevronRight, ChevronDown, Eye, Send, ArrowRight, X, Loader2, Search } from "lucide-react";
+import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
@@ -18,9 +18,10 @@ import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
 import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 
-// Status icon component - matches tab icons
-function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
+// Status icon component - matches tab icons (memoized for performance)
+const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
   switch (status) {
     case 'not_renewed':
       return <RefreshCcw className="h-3.5 w-3.5 text-gray-400" />;
@@ -31,7 +32,7 @@ function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
     default:
       return null;
   }
-}
+});
 
 interface RenewalCardProps {
   renewal: RenewalListItem;
@@ -995,210 +996,154 @@ export default function AdminRenewalsPage() {
                 <>
                   {/* Expired Section - Red (within last 30 days) */}
                   {recentExpiredItems.length > 0 && (
-                    <div>
-                      <button
-                        onClick={() => toggleGroup('expired')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={sectionStates.expired.all}
-                          ref={el => { if (el) el.indeterminate = sectionStates.expired.some && !sectionStates.expired.all; }}
-                          onChange={() => {}}
-                          onClick={(e) => toggleSectionCheck(recentExpiredItems, e)}
-                          className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500 cursor-pointer"
-                        />
-                        {collapsedGroups.has('expired') ? (
-                          <ChevronRight className="h-4 w-4 text-red-500" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-red-500" />
-                        )}
-                        <span className="font-semibold text-red-600 dark:text-red-400">
-                          Expired ({recentExpiredItems.length})
-                        </span>
-                      </button>
-                      {!collapsedGroups.has('expired') && (
-                        <div className="space-y-2 mt-2">
-                          {recentExpiredItems.map((renewal) => {
-                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
-                            return (
-                              <RenewalCard
-                                key={renewal.id}
-                                renewal={renewal}
-                                index={navIndex}
-                                isSelected={selectedIndex === navIndex}
-                                onClick={handleCardClick}
-                                onQuickRenew={handleQuickRenew}
-                                onViewRenewal={handleViewRenewal}
-                                expandedFeePanel={expandedFeePanel}
-                                onToggleFeePanel={setExpandedFeePanel}
-                                onRefresh={handleRefresh}
-                                isChecked={checkedIds.has(renewal.id)}
-                                onToggleCheck={toggleCheck}
-                                showCheckbox={showCheckboxes}
-                                selectedLocation={selectedLocation}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <CollapsibleSection
+                      id="expired"
+                      label="Expired"
+                      count={recentExpiredItems.length}
+                      colorTheme="red"
+                      isCollapsed={collapsedGroups.has('expired')}
+                      onToggle={() => toggleGroup('expired')}
+                      showCheckbox={showCheckboxes}
+                      isAllChecked={sectionStates.expired.all}
+                      isSomeChecked={sectionStates.expired.some}
+                      onCheckboxClick={(e) => toggleSectionCheck(recentExpiredItems, e)}
+                    >
+                      {recentExpiredItems.map((renewal) => {
+                        const navIndex = navIndexMap.get(renewal.id) ?? -1;
+                        return (
+                          <RenewalCard
+                            key={renewal.id}
+                            renewal={renewal}
+                            index={navIndex}
+                            isSelected={selectedIndex === navIndex}
+                            onClick={handleCardClick}
+                            onQuickRenew={handleQuickRenew}
+                            onViewRenewal={handleViewRenewal}
+                            expandedFeePanel={expandedFeePanel}
+                            onToggleFeePanel={setExpandedFeePanel}
+                            onRefresh={handleRefresh}
+                            isChecked={checkedIds.has(renewal.id)}
+                            onToggleCheck={toggleCheck}
+                            showCheckbox={showCheckboxes}
+                            selectedLocation={selectedLocation}
+                          />
+                        );
+                      })}
+                    </CollapsibleSection>
                   )}
 
                   {/* This Week Section - Orange */}
                   {thisWeekItems.length > 0 && (
-                    <div>
-                      <button
-                        onClick={() => toggleGroup('this_week')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-orange-50 dark:hover:bg-orange-900/10 rounded-lg transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={sectionStates.thisWeek.all}
-                          ref={el => { if (el) el.indeterminate = sectionStates.thisWeek.some && !sectionStates.thisWeek.all; }}
-                          onChange={() => {}}
-                          onClick={(e) => toggleSectionCheck(thisWeekItems, e)}
-                          className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
-                        />
-                        {collapsedGroups.has('this_week') ? (
-                          <ChevronRight className="h-4 w-4 text-orange-500" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-orange-500" />
-                        )}
-                        <span className="font-semibold text-orange-600 dark:text-orange-400">
-                          This Week ({thisWeekItems.length})
-                        </span>
-                      </button>
-                      {!collapsedGroups.has('this_week') && (
-                        <div className="space-y-2 mt-2">
-                          {thisWeekItems.map((renewal) => {
-                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
-                            return (
-                              <RenewalCard
-                                key={renewal.id}
-                                renewal={renewal}
-                                index={navIndex}
-                                isSelected={selectedIndex === navIndex}
-                                onClick={handleCardClick}
-                                onQuickRenew={handleQuickRenew}
-                                onViewRenewal={handleViewRenewal}
-                                expandedFeePanel={expandedFeePanel}
-                                onToggleFeePanel={setExpandedFeePanel}
-                                onRefresh={handleRefresh}
-                                isChecked={checkedIds.has(renewal.id)}
-                                onToggleCheck={toggleCheck}
-                                showCheckbox={showCheckboxes}
-                                selectedLocation={selectedLocation}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <CollapsibleSection
+                      id="this_week"
+                      label="This Week"
+                      count={thisWeekItems.length}
+                      colorTheme="orange"
+                      isCollapsed={collapsedGroups.has('this_week')}
+                      onToggle={() => toggleGroup('this_week')}
+                      showCheckbox={showCheckboxes}
+                      isAllChecked={sectionStates.thisWeek.all}
+                      isSomeChecked={sectionStates.thisWeek.some}
+                      onCheckboxClick={(e) => toggleSectionCheck(thisWeekItems, e)}
+                    >
+                      {thisWeekItems.map((renewal) => {
+                        const navIndex = navIndexMap.get(renewal.id) ?? -1;
+                        return (
+                          <RenewalCard
+                            key={renewal.id}
+                            renewal={renewal}
+                            index={navIndex}
+                            isSelected={selectedIndex === navIndex}
+                            onClick={handleCardClick}
+                            onQuickRenew={handleQuickRenew}
+                            onViewRenewal={handleViewRenewal}
+                            expandedFeePanel={expandedFeePanel}
+                            onToggleFeePanel={setExpandedFeePanel}
+                            onRefresh={handleRefresh}
+                            isChecked={checkedIds.has(renewal.id)}
+                            onToggleCheck={toggleCheck}
+                            showCheckbox={showCheckboxes}
+                            selectedLocation={selectedLocation}
+                          />
+                        );
+                      })}
+                    </CollapsibleSection>
                   )}
 
                   {/* Next Week Section - Purple (collapsed by default) */}
                   {nextWeekItems.length > 0 && (
-                    <div>
-                      <button
-                        onClick={() => toggleGroup('next_week')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-lg transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={sectionStates.nextWeek.all}
-                          ref={el => { if (el) el.indeterminate = sectionStates.nextWeek.some && !sectionStates.nextWeek.all; }}
-                          onChange={() => {}}
-                          onClick={(e) => toggleSectionCheck(nextWeekItems, e)}
-                          className="h-4 w-4 rounded border-gray-300 text-purple-500 focus:ring-purple-500 cursor-pointer"
-                        />
-                        {collapsedGroups.has('next_week') ? (
-                          <ChevronRight className="h-4 w-4 text-purple-400" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-purple-400" />
-                        )}
-                        <span className="font-semibold text-purple-500 dark:text-purple-400">
-                          Next Week ({nextWeekItems.length})
-                        </span>
-                      </button>
-                      {!collapsedGroups.has('next_week') && (
-                        <div className="space-y-2 mt-2">
-                          {nextWeekItems.map((renewal) => {
-                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
-                            return (
-                              <RenewalCard
-                                key={renewal.id}
-                                renewal={renewal}
-                                index={navIndex}
-                                isSelected={selectedIndex === navIndex}
-                                onClick={handleCardClick}
-                                onQuickRenew={handleQuickRenew}
-                                onViewRenewal={handleViewRenewal}
-                                expandedFeePanel={expandedFeePanel}
-                                onToggleFeePanel={setExpandedFeePanel}
-                                onRefresh={handleRefresh}
-                                isChecked={checkedIds.has(renewal.id)}
-                                onToggleCheck={toggleCheck}
-                                showCheckbox={showCheckboxes}
-                                selectedLocation={selectedLocation}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <CollapsibleSection
+                      id="next_week"
+                      label="Next Week"
+                      count={nextWeekItems.length}
+                      colorTheme="purple"
+                      isCollapsed={collapsedGroups.has('next_week')}
+                      onToggle={() => toggleGroup('next_week')}
+                      showCheckbox={showCheckboxes}
+                      isAllChecked={sectionStates.nextWeek.all}
+                      isSomeChecked={sectionStates.nextWeek.some}
+                      onCheckboxClick={(e) => toggleSectionCheck(nextWeekItems, e)}
+                    >
+                      {nextWeekItems.map((renewal) => {
+                        const navIndex = navIndexMap.get(renewal.id) ?? -1;
+                        return (
+                          <RenewalCard
+                            key={renewal.id}
+                            renewal={renewal}
+                            index={navIndex}
+                            isSelected={selectedIndex === navIndex}
+                            onClick={handleCardClick}
+                            onQuickRenew={handleQuickRenew}
+                            onViewRenewal={handleViewRenewal}
+                            expandedFeePanel={expandedFeePanel}
+                            onToggleFeePanel={setExpandedFeePanel}
+                            onRefresh={handleRefresh}
+                            isChecked={checkedIds.has(renewal.id)}
+                            onToggleCheck={toggleCheck}
+                            showCheckbox={showCheckboxes}
+                            selectedLocation={selectedLocation}
+                          />
+                        );
+                      })}
+                    </CollapsibleSection>
                   )}
 
                   {/* Older Than 30 Days Section - Gray (collapsed by default, likely orphaned) */}
                   {olderExpiredItems.length > 0 && (
-                    <div>
-                      <button
-                        onClick={() => toggleGroup('older_than_30_days')}
-                        className="flex items-center gap-2 w-full py-2 px-1 text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={sectionStates.olderThan30Days.all}
-                          ref={el => { if (el) el.indeterminate = sectionStates.olderThan30Days.some && !sectionStates.olderThan30Days.all; }}
-                          onChange={() => {}}
-                          onClick={(e) => toggleSectionCheck(olderExpiredItems, e)}
-                          className="h-4 w-4 rounded border-gray-300 text-gray-500 focus:ring-gray-500 cursor-pointer"
-                        />
-                        {collapsedGroups.has('older_than_30_days') ? (
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-gray-500" />
-                        )}
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">
-                          Older Than 30 Days ({olderExpiredItems.length})
-                        </span>
-                      </button>
-                      {!collapsedGroups.has('older_than_30_days') && (
-                        <div className="space-y-2 mt-2">
-                          {olderExpiredItems.map((renewal) => {
-                            const navIndex = navIndexMap.get(renewal.id) ?? -1;
-                            return (
-                              <RenewalCard
-                                key={renewal.id}
-                                renewal={renewal}
-                                index={navIndex}
-                                isSelected={selectedIndex === navIndex}
-                                onClick={handleCardClick}
-                                onQuickRenew={handleQuickRenew}
-                                onViewRenewal={handleViewRenewal}
-                                expandedFeePanel={expandedFeePanel}
-                                onToggleFeePanel={setExpandedFeePanel}
-                                onRefresh={handleRefresh}
-                                isChecked={checkedIds.has(renewal.id)}
-                                onToggleCheck={toggleCheck}
-                                showCheckbox={showCheckboxes}
-                                selectedLocation={selectedLocation}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    <CollapsibleSection
+                      id="older_than_30_days"
+                      label="Older Than 30 Days"
+                      count={olderExpiredItems.length}
+                      colorTheme="gray"
+                      isCollapsed={collapsedGroups.has('older_than_30_days')}
+                      onToggle={() => toggleGroup('older_than_30_days')}
+                      showCheckbox={showCheckboxes}
+                      isAllChecked={sectionStates.olderThan30Days.all}
+                      isSomeChecked={sectionStates.olderThan30Days.some}
+                      onCheckboxClick={(e) => toggleSectionCheck(olderExpiredItems, e)}
+                    >
+                      {olderExpiredItems.map((renewal) => {
+                        const navIndex = navIndexMap.get(renewal.id) ?? -1;
+                        return (
+                          <RenewalCard
+                            key={renewal.id}
+                            renewal={renewal}
+                            index={navIndex}
+                            isSelected={selectedIndex === navIndex}
+                            onClick={handleCardClick}
+                            onQuickRenew={handleQuickRenew}
+                            onViewRenewal={handleViewRenewal}
+                            expandedFeePanel={expandedFeePanel}
+                            onToggleFeePanel={setExpandedFeePanel}
+                            onRefresh={handleRefresh}
+                            isChecked={checkedIds.has(renewal.id)}
+                            onToggleCheck={toggleCheck}
+                            showCheckbox={showCheckboxes}
+                            selectedLocation={selectedLocation}
+                          />
+                        );
+                      })}
+                    </CollapsibleSection>
                   )}
                 </>
               ) : (

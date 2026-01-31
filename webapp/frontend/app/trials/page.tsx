@@ -6,7 +6,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
-import { FlaskConical, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone, Clock, UserX, CheckCircle2, LucideIcon } from "lucide-react";
+import { FlaskConical, Plus, Calendar, User, MapPin, CreditCard, ArrowRight, Loader2, RefreshCcw, X, Search, ArrowUpDown, Phone, Clock, UserX, CheckCircle2, ClipboardList, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { enrollmentsAPI, TrialListItem } from "@/lib/api";
