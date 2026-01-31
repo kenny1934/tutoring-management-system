@@ -17,6 +17,7 @@ import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetail
 import { FeeMessagePanel } from "@/components/enrollments/FeeMessagePanel";
 import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
+import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 
 // Status icon component - matches tab icons
 function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
@@ -338,6 +339,10 @@ export default function AdminRenewalsPage() {
   // Fee panel state
   const [expandedFeePanel, setExpandedFeePanel] = useState<number | null>(null);
 
+  // Keyboard shortcuts help state
+  const [showShortcutHints, setShowShortcutHints] = useState(false);
+  const [isScrolledPastThreshold, setIsScrolledPastThreshold] = useState(false);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<'not_renewed' | 'to_send' | 'awaiting_payment'>('not_renewed');
 
@@ -523,6 +528,21 @@ export default function AdminRenewalsPage() {
             setExpandedFeePanel(prev => prev === id ? null : id);
           }
           break;
+        case 'm':
+          // Quick copy fee message for selected renewal
+          if (selectedIndex !== null && navigableItems[selectedIndex]) {
+            const item = navigableItems[selectedIndex];
+            // Use the renewal enrollment if it exists, otherwise original enrollment
+            const enrollmentId = item.renewal_enrollment_id || item.id;
+            enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
+              .then(response => {
+                navigator.clipboard.writeText(response.message)
+                  .then(() => showToast("Fee message copied!"))
+                  .catch(() => showToast("Failed to copy to clipboard", "error"));
+              })
+              .catch(() => showToast("Failed to generate fee message", "error"));
+          }
+          break;
         case ' ':  // Spacebar to toggle checkbox
           e.preventDefault();
           if (selectedIndex !== null && navigableItems[selectedIndex]) {
@@ -530,10 +550,18 @@ export default function AdminRenewalsPage() {
           }
           break;
         case 'Escape':
+          if (showShortcutHints) {
+            setShowShortcutHints(false);
+            break;
+          }
           setExpandedFeePanel(null);
           setSelectedIndex(null);
           clearChecked();
           setSearchQuery("");
+          break;
+        case '?':
+          e.preventDefault();
+          setShowShortcutHints(prev => !prev);
           break;
         case '/':
           e.preventDefault();
@@ -544,7 +572,7 @@ export default function AdminRenewalsPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, navigableItems, detailModalOpen, createModalOpen, comparisonMode]);
+  }, [selectedIndex, navigableItems, detailModalOpen, createModalOpen, comparisonMode, showToast, showShortcutHints]);
 
   // Reset selection when switching tabs or toggling collapse
   useEffect(() => {
@@ -581,6 +609,19 @@ export default function AdminRenewalsPage() {
       scrollContainer.scrollTo({ top: Math.max(0, targetScroll), behavior: 'smooth' });
     }
   }, [selectedIndex]);
+
+  // Track scroll position for button positioning
+  useEffect(() => {
+    const scrollContainer = document.querySelector('main');
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      setIsScrolledPastThreshold(scrollContainer.scrollTop > 300);
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Handler: New enrollment (direct to create modal)
   const handleNewEnrollment = () => {
@@ -1492,6 +1533,89 @@ export default function AdminRenewalsPage() {
           handleRefresh();
         }}
       />
+
+      {/* Keyboard shortcut hint button (shows when panel is hidden) */}
+      {!showShortcutHints && (
+        <button
+          onClick={() => setShowShortcutHints(true)}
+          className={cn(
+            "fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
+            "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",
+            "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
+            "shadow-md flex items-center justify-center",
+            isScrolledPastThreshold ? "bottom-20" : "bottom-4"
+          )}
+          title="Keyboard shortcuts (?)"
+        >
+          <span className="text-sm font-mono">?</span>
+        </button>
+      )}
+
+      {/* Keyboard Shortcut Hints Panel */}
+      <AnimatePresence>
+        {showShortcutHints && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg border
+              bg-[#fef9f3] dark:bg-[#2d2618] border-[#d4a574] dark:border-[#8b6f47]
+              text-sm w-64"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <span className="font-semibold text-[#5c4033] dark:text-[#d4a574]">
+                Keyboard Shortcuts
+              </span>
+              <button
+                onClick={() => setShowShortcutHints(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-1.5 text-gray-600 dark:text-gray-300">
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">↑ ↓</kbd>
+                <span>Navigate cards</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Enter</kbd>
+                <span>Open details</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">R</kbd>
+                <span>Quick renew</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">F</kbd>
+                <span>Toggle fee panel</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">M</kbd>
+                <span>Copy fee message</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Space</kbd>
+                <span>Toggle checkbox</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">/</kbd>
+                <span>Focus search</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">Esc</kbd>
+                <span>Clear / Close</span>
+              </div>
+            </div>
+            <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+              Press <kbd className="px-1 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border font-mono">?</kbd> to toggle
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Scroll to top button */}
+      <ScrollToTopButton />
     </DeskSurface>
   );
 }
