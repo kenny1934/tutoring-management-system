@@ -3,7 +3,7 @@ Pydantic schemas for API request/response validation.
 These define the structure of data sent to and from the API.
 """
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -1401,6 +1401,8 @@ class ApplyScheduleChangeRequest(BaseModel):
     location: str = Field(..., max_length=200)
     tutor_id: int = Field(..., gt=0)
     apply_to_sessions: bool = Field(default=True, description="Whether to also update future sessions")
+    date_overrides: Optional[Dict[int, str]] = Field(default=None, description="Manual date overrides: session_id -> ISO date string")
+    time_overrides: Optional[Dict[int, str]] = Field(default=None, description="Manual time overrides: session_id -> time string (e.g. '14:30')")
 
 
 class ScheduleChangeResult(BaseModel):

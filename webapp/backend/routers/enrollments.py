@@ -2040,23 +2040,31 @@ async def apply_schedule_change(
         used_dates = set()
 
         for session in sessions:
-            # Calculate new date
-            new_date = calculate_new_session_date(
-                session.session_date,
-                old_day,
-                changes.assigned_day
-            )
+            # Check for manual date override first
+            if changes.date_overrides and session.id in changes.date_overrides:
+                new_date = date.fromisoformat(changes.date_overrides[session.id])
+            else:
+                # Calculate new date
+                new_date = calculate_new_session_date(
+                    session.session_date,
+                    old_day,
+                    changes.assigned_day
+                )
 
-            # Handle holiday shifts and collision avoidance
-            while new_date in holidays or new_date in used_dates:
-                new_date += timedelta(weeks=1)
+                # Handle holiday shifts and collision avoidance
+                while new_date in holidays or new_date in used_dates:
+                    new_date += timedelta(weeks=1)
 
             # Track this date as used
             used_dates.add(new_date)
 
             # Update session
             session.session_date = new_date
-            session.time_slot = changes.assigned_time
+            # Handle time override
+            if changes.time_overrides and session.id in changes.time_overrides:
+                session.time_slot = changes.time_overrides[session.id]
+            else:
+                session.time_slot = changes.assigned_time
             session.location = changes.location
             session.tutor_id = changes.tutor_id
             session.last_modified_time = datetime.now()
