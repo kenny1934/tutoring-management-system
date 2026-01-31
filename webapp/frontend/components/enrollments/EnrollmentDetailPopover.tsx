@@ -501,7 +501,7 @@ export function EnrollmentDetailPopover({
                   ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
                   : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
             )}>
-              {markedAsPaid ? "Marked as Paid ✓" : enrollment.payment_status}
+              {markedAsPaid ? "Payment Confirmed ✓" : enrollment.payment_status}
             </span>
           </div>
 
@@ -611,7 +611,7 @@ export function EnrollmentDetailPopover({
 
         {/* Actions */}
         <div className="pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] space-y-2">
-          {/* Mark as Paid button - only shown for pending payments */}
+          {/* Confirm Payment button - only shown for pending payments */}
           {showMarkAsPaid && (
             <button
               onClick={(e) => {
@@ -626,7 +626,7 @@ export function EnrollmentDetailPopover({
               )}
             >
               {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              Mark as Paid
+              Confirm Payment
             </button>
           )}
 

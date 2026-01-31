@@ -776,15 +776,15 @@ export default function AdminRenewalsPage() {
         // Report success/partial failure
         if (result.count < renewalIds.length) {
           const failed = renewalIds.length - result.count;
-          showToast(`${result.count} marked as paid, ${failed} failed`, "info");
+          showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed, ${failed} failed`, "info");
         } else {
-          showToast(`${result.count} enrollment${result.count !== 1 ? 's' : ''} marked as paid`, "success");
+          showToast(`${result.count} payment${result.count !== 1 ? 's' : ''} confirmed`, "success");
         }
       }
     } catch (error) {
       console.error('Batch mark paid failed:', error);
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      showToast(`Failed to mark items as paid: ${errorMsg}`, "error");
+      showToast(`Failed to confirm payments: ${errorMsg}`, "error");
     } finally {
       setBatchLoading(false);
     }
@@ -1221,7 +1221,7 @@ export default function AdminRenewalsPage() {
                   ) : (
                     <CreditCard className="h-4 w-4" />
                   )}
-                  <span className="hidden xs:inline">Mark</span> Paid
+                  Confirm Payment
                 </button>
               )}
               <button

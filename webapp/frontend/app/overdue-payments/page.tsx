@@ -548,7 +548,7 @@ function OverdueRow({
             ) : (
               <Check className="h-3 w-3" />
             )}
-            Mark Paid
+            Confirm Payment
           </button>
           <Link
             href={`/enrollments/${enrollment.id}`}
