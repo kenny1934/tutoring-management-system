@@ -24,11 +24,14 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
   const [markingSent, setMarkingSent] = useState(false);
 
   // Fetch fee message when enrollment or language changes
+  // Use renewal_enrollment_id if available (for renewals), otherwise use original enrollment id
+  const feeMessageEnrollmentId = enrollment.renewal_enrollment_id || enrollment.id;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    enrollmentsAPI.getFeeMessage(enrollment.id, lang, lessonsPaid)
+    enrollmentsAPI.getFeeMessage(feeMessageEnrollmentId, lang, lessonsPaid)
       .then(response => {
         if (!cancelled) {
           setMessage(response.message);
@@ -45,7 +48,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       });
 
     return () => { cancelled = true; };
-  }, [enrollment.id, lang, lessonsPaid]);
+  }, [feeMessageEnrollmentId, lang, lessonsPaid]);
 
   const handleCopy = async () => {
     try {

@@ -1517,14 +1517,18 @@ async def get_fee_message(
     # Calculate effective end date of current enrollment
     effective_end = calculate_effective_end_date(enrollment, db)
 
-    # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
-    day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
-    assigned_day_num = day_map.get(enrollment.assigned_day[:3], 0)  # Handle "Monday" or "Mon"
-    current_day_num = effective_end.weekday() if effective_end else date.today().weekday()
-    days_until_target = (assigned_day_num - current_day_num) % 7
-    if days_until_target == 0:
-        days_until_target = 7  # Move to next week if same day
-    first_lesson_date = (effective_end if effective_end else date.today()) + timedelta(days=days_until_target)
+    # Use enrollment's first_lesson_date if set, otherwise calculate from effective_end
+    if enrollment.first_lesson_date:
+        first_lesson_date = enrollment.first_lesson_date
+    else:
+        # Calculate first lesson date for renewal (next occurrence of assigned_day after effective_end)
+        day_map = {'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6}
+        assigned_day_num = day_map.get(enrollment.assigned_day[:3], 0)  # Handle "Monday" or "Mon"
+        current_day_num = effective_end.weekday() if effective_end else date.today().weekday()
+        days_until_target = (assigned_day_num - current_day_num) % 7
+        if days_until_target == 0:
+            days_until_target = 7  # Move to next week if same day
+        first_lesson_date = (effective_end if effective_end else date.today()) + timedelta(days=days_until_target)
 
     # Generate session dates
     sessions, _, _ = generate_session_dates(
