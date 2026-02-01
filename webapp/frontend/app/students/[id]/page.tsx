@@ -107,6 +107,9 @@ export default function StudentDetailPage() {
   // New Trial modal state (for students with no enrollments)
   const [newTrialModalOpen, setNewTrialModalOpen] = useState(false);
 
+  // New Enrollment modal state (for header button)
+  const [newEnrollmentModalOpen, setNewEnrollmentModalOpen] = useState(false);
+
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
 
   // Fetch all schools for autocomplete
@@ -524,6 +527,7 @@ export default function StudentDetailPage() {
                   saveError={saveError}
                   allSchools={allSchools}
                   onNewTrial={() => setNewTrialModalOpen(true)}
+                  onNewEnrollment={() => setNewEnrollmentModalOpen(true)}
                 />
               )}
 
@@ -635,6 +639,19 @@ export default function StudentDetailPage() {
         />
       )}
 
+      {/* New Enrollment Modal (from header button) */}
+      {student && (
+        <CreateEnrollmentModal
+          isOpen={newEnrollmentModalOpen}
+          onClose={() => setNewEnrollmentModalOpen(false)}
+          prefillStudent={student}
+          onSuccess={() => {
+            mutate(['student-enrollments', studentId]);
+            setNewEnrollmentModalOpen(false);
+          }}
+        />
+      )}
+
       {/* Parent Contact Modal */}
       {student && (
         <RecordContactModal
@@ -696,6 +713,7 @@ function ProfileTab({
   saveError,
   allSchools,
   onNewTrial,
+  onNewEnrollment,
 }: {
   student: Student;
   enrollments: Enrollment[];
@@ -715,6 +733,7 @@ function ProfileTab({
   saveError: string | null;
   allSchools: string[];
   onNewTrial: () => void;
+  onNewEnrollment: () => void;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -853,10 +872,19 @@ function ProfileTab({
           "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
         )}>
-          <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-            <BookOpen className="h-4 w-4" />
-            Enrollments ({enrollments.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+              <BookOpen className="h-4 w-4" />
+              Enrollments ({enrollments.length})
+            </h3>
+            <button
+              onClick={onNewEnrollment}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              <span>New</span>
+            </button>
+          </div>
           <div className="space-y-2">
             {enrollments.map((enrollment) => (
               <div

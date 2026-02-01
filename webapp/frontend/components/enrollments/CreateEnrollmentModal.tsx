@@ -796,7 +796,7 @@ export function CreateEnrollmentModal({
                 <span className="font-medium text-sm">Link as Renewal</span>
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">
-                Found {preview.potential_renewals.length} existing enrollment(s) for this student with the same schedule.
+                Found {preview.potential_renewals.length} recent enrollment(s) for this student.
               </p>
               <select
                 value={selectedRenewalLinkId || ""}
