@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -42,13 +42,16 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, isAdmin, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [pendingPayments, setPendingPayments] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [adminExpanded, setAdminExpanded] = useState(true);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
 
   // Get effective tutor ID (respects impersonation)
   const currentTutorId = (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id)
@@ -140,6 +143,37 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     }
   }, [isAdminOrAbove, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
 
+  // Check scroll position for gradient indicators
+  const checkScrollPosition = () => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = nav;
+    setCanScrollUp(scrollTop > 0);
+    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 1);
+  };
+
+  // Initialize and update scroll indicators
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    // Delay initial check to ensure content is rendered
+    const timer = setTimeout(checkScrollPosition, 100);
+
+    nav.addEventListener('scroll', checkScrollPosition);
+
+    // Re-check on resize (content might change)
+    const resizeObserver = new ResizeObserver(checkScrollPosition);
+    resizeObserver.observe(nav);
+
+    return () => {
+      clearTimeout(timer);
+      nav.removeEventListener('scroll', checkScrollPosition);
+      resizeObserver.disconnect();
+    };
+  }, [mounted, isCollapsed, adminExpanded]);
+
   // Close mobile menu on navigation
   const handleNavClick = () => {
     if (onMobileClose) {
@@ -148,10 +182,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   };
 
   // Sidebar content - shared between desktop and mobile
-  const sidebarContent = (isMobile: boolean) => (
+  const sidebarContent = (isMobile: boolean, desktopNavRef?: React.RefObject<HTMLElement | null>) => (
     <>
       {/* Logo Header */}
-      <div className="flex h-16 items-center justify-between px-3 border-b border-white/10 dark:border-white/5">
+      <div className="flex-shrink-0 flex h-16 items-center justify-between px-3 border-b border-white/10 dark:border-white/5">
         {isMobile ? (
           // Mobile: Logo + Close button
           <>
@@ -202,7 +236,19 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-2 px-3 py-4">
+      <div className="flex-1 relative min-h-0">
+        {/* Top scroll indicator */}
+        <div
+          className={cn(
+            "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
+            "bg-gradient-to-b from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
+            canScrollUp ? "opacity-100" : "opacity-0"
+          )}
+        />
+        <nav
+          ref={desktopNavRef as React.RefObject<HTMLElement> | undefined}
+          className="h-full overflow-y-auto scrollbar-hide space-y-2 px-3 py-4"
+        >
         {navigation.map((item) => {
           const isActive = pathname === item.href;
           const showExpanded = isMobile || !isCollapsed;
@@ -325,6 +371,22 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       </Link>
                     );
                   })}
+                  {/* Debug link - Super Admin only, hidden when impersonating */}
+                  {isSuperAdmin && !isImpersonating && (
+                    <Link
+                      href="/admin/debug"
+                      onClick={handleNavClick}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm rounded-xl transition-colors",
+                        pathname.startsWith("/admin/debug")
+                          ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-medium"
+                          : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground/80"
+                      )}
+                    >
+                      <Database className="h-4 w-4" />
+                      <span>Debug</span>
+                    </Link>
+                  )}
                 </div>
               )}
 
@@ -354,6 +416,23 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       </div>
                     );
                   })}
+                  {/* Debug link - Super Admin only, hidden when impersonating */}
+                  {isSuperAdmin && !isImpersonating && (
+                    <div className="tooltip-wrapper" data-tooltip="Debug">
+                      <Link
+                        href="/admin/debug"
+                        onClick={handleNavClick}
+                        className={cn(
+                          "flex items-center justify-center p-2.5 rounded-xl transition-colors",
+                          pathname.startsWith("/admin/debug")
+                            ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                            : "text-foreground/60 hover:bg-foreground/5"
+                        )}
+                      >
+                        <Database className="h-5 w-5" />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -379,18 +458,27 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             </div>
           </div>
         )}
-      </nav>
+        </nav>
+        {/* Bottom scroll indicator */}
+        <div
+          className={cn(
+            "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
+            "bg-gradient-to-t from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
+            canScrollDown ? "opacity-100" : "opacity-0"
+          )}
+        />
+      </div>
 
       {/* Mini-Calendar - show when expanded or mobile */}
       {(isMobile || !isCollapsed) && (
-        <div className="border-t border-white/10 dark:border-white/5 p-3">
+        <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 p-3">
           <WeeklyMiniCalendar />
         </div>
       )}
 
       {/* View Mode Toggle - show when expanded or mobile */}
       {(isMobile || !isCollapsed) && (
-        <div className="border-t border-white/10 dark:border-white/5 px-3 py-2">
+        <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 px-3 py-2">
           <div className="flex gap-1 bg-foreground/5 rounded-lg p-1">
             <button
               onClick={() => setViewMode("center-view")}
@@ -421,7 +509,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       )}
 
       {/* User info with settings button */}
-      <div className="border-t border-white/10 dark:border-white/5 p-4">
+      <div className="flex-shrink-0 border-t border-white/10 dark:border-white/5 p-4">
         {/* Get user initials */}
         {(() => {
           // When impersonating a specific tutor, show their name
@@ -621,7 +709,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           transition: 'width 350ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
         }}
       >
-        {sidebarContent(false)}
+        {sidebarContent(false, navRef)}
       </div>
 
       {/* Mobile Drawer - hidden on desktop */}

@@ -1810,20 +1810,24 @@ export const examRevisionAPI = {
 // Debug Admin API - Super Admin only
 export const debugAPI = {
   // List available tables
-  getTables: () => fetchAPI<DebugTable[]>("/debug/tables"),
+  getTables: (includeCounts: boolean = true) => {
+    const params = includeCounts ? "" : "?include_counts=false";
+    return fetchAPI<DebugTable[]>(`/debug/tables${params}`);
+  },
 
   // Get table schema
   getTableSchema: (tableName: string) =>
     fetchAPI<DebugTableSchema>(`/debug/tables/${tableName}/schema`),
 
   // List rows with pagination and filtering
-  getRows: (tableName: string, params?: DebugQueryParams) => {
+  getRows: (tableName: string, params?: DebugQueryParams & { filter?: string }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.append("limit", String(params.limit));
     if (params?.offset) searchParams.append("offset", String(params.offset));
     if (params?.sort_by) searchParams.append("sort_by", params.sort_by);
     if (params?.sort_order) searchParams.append("sort_order", params.sort_order);
     if (params?.search) searchParams.append("search", params.search);
+    if (params?.filter) searchParams.append("filter", params.filter);
     const query = searchParams.toString();
     return fetchAPI<PaginatedRows>(`/debug/tables/${tableName}/rows${query ? `?${query}` : ""}`);
   },
@@ -1851,6 +1855,42 @@ export const debugAPI = {
     fetchAPI<{ message: string }>(`/debug/tables/${tableName}/rows/${rowId}?confirm=DELETE`, {
       method: "DELETE",
     }),
+
+  // Bulk delete rows
+  bulkDeleteRows: (tableName: string, rowIds: number[]) =>
+    fetchAPI<{ deleted_count: number; failed_ids: number[]; message: string }>(
+      `/debug/tables/${tableName}/rows/bulk?confirm=DELETE`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ ids: rowIds }),
+      }
+    ),
+
+  // Export table as CSV or JSON
+  exportTable: async (
+    tableName: string,
+    format: "csv" | "json" = "csv",
+    limit: number = 10000
+  ): Promise<Blob> => {
+    const params = new URLSearchParams({
+      format,
+      limit: String(limit),
+    });
+    const response = await fetch(
+      `${API_BASE_URL}/debug/tables/${tableName}/export?${params}`,
+      {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Export failed" }));
+      throw new Error(error.detail || "Export failed");
+    }
+    return response.blob();
+  },
 
   // Get audit logs
   getAuditLogs: (params?: AuditLogQueryParams) => {
