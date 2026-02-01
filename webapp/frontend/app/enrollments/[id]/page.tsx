@@ -1122,8 +1122,8 @@ export default function EnrollmentDetailPage() {
                               </button>
                             )}
 
-                            {/* Confirm Payment - only show if not already paid */}
-                            {enrollment?.payment_status !== "Paid" && (
+                            {/* Confirm Payment - only show for pending/overdue */}
+                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
                               <button
                                 onClick={() => setConfirmPayment(true)}
                                 disabled={markingPaid}

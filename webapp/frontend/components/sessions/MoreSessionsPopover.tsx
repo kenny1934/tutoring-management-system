@@ -100,6 +100,7 @@ export function MoreSessionsPopover({
             {sessions.map((session) => {
               const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
               const StatusIcon = statusConfig.Icon;
+              const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
               return (
                 <div
                   key={session.id}
@@ -111,14 +112,19 @@ export function MoreSessionsPopover({
                     "cursor-pointer rounded overflow-hidden flex",
                     "shadow-sm hover:shadow-md transition-all",
                     "hover:scale-[1.01] hover:-translate-y-0.5",
-                    statusConfig.bgTint
+                    statusConfig.bgTint,
+                    isCancelledEnrollment && "opacity-50"
                   )}
                 >
                   <div className="flex-1 min-w-0 px-2.5 py-2">
                     <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 flex justify-between items-center">
                       <span className="flex items-center gap-1">
                         {session.school_student_id || "N/A"}
-                        {session.financial_status !== "Paid" && (
+                        {isCancelledEnrollment ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                            Cancelled
+                          </span>
+                        ) : session.financial_status !== "Paid" && (
                           <HandCoins className="h-3 w-3 text-red-500" />
                         )}
                       </span>
@@ -128,9 +134,11 @@ export function MoreSessionsPopover({
                     </p>
                     <p className={cn(
                       "text-sm font-semibold flex items-center gap-1 overflow-hidden",
-                      session.financial_status !== "Paid"
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-gray-900 dark:text-gray-100",
+                      isCancelledEnrollment
+                        ? "text-gray-400 dark:text-gray-500"
+                        : session.financial_status !== "Paid"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-gray-900 dark:text-gray-100",
                       statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
                     )}>
                       <span className="truncate">{session.student_name || "Unknown"}</span>

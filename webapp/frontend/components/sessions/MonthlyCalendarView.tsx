@@ -1173,6 +1173,7 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                 >
                   {sessionsAtTime.map((session) => {
                     const config = getSessionStatusConfig(getDisplayStatus(session));
+                    const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
                     return (
                       <div
                         key={session.id}
@@ -1185,19 +1186,27 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                           "border border-[#e8d4b8] dark:border-[#6b5a4a]",
                           "hover:scale-105 transition-transform",
                           config.bgTint,
-                          config.strikethrough && "line-through opacity-60"
+                          config.strikethrough && "line-through opacity-60",
+                          isCancelledEnrollment && "opacity-50"
                         )}
                         style={{ borderLeftWidth: 2 }}
                       >
                         {/* Row 1: Student ID + unpaid icon */}
                         <div className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           <span className="truncate">{selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}</span>
-                          {session.financial_status !== "Paid" && (
+                          {isCancelledEnrollment ? (
+                            <span className="text-[6px] px-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">
+                              Cancelled
+                            </span>
+                          ) : session.financial_status !== "Paid" && (
                             <HandCoins className="h-2 w-2 text-red-500 flex-shrink-0" />
                           )}
                         </div>
                         {/* Row 2: Full name */}
-                        <div className="truncate">{session.student_name || "Student"}</div>
+                        <div className={cn(
+                          "truncate",
+                          isCancelledEnrollment && "text-gray-400 dark:text-gray-500"
+                        )}>{session.student_name || "Student"}</div>
                         {/* Row 3: Grade + School tags */}
                         <div className="flex items-center gap-0.5 flex-wrap">
                           {session.grade && (
@@ -1262,6 +1271,7 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
   const { selectedLocation } = useLocation();
   const config = getSessionStatusConfig(getDisplayStatus(session));
   const StatusIcon = config.Icon;
+  const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
   return (
     <div
@@ -1271,7 +1281,8 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
         "hover:shadow-md hover:scale-[1.01]",
         config.bgTint,
-        isSelected && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]"
+        isSelected && "ring-2 ring-[#a0704b] dark:ring-[#cd853f]",
+        isCancelledEnrollment && "opacity-50"
       )}
       style={{ borderLeftWidth: 3 }}
     >
@@ -1295,7 +1306,11 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         <div className="flex items-center justify-between text-[9px] text-gray-500 dark:text-gray-400 mb-0.5">
           <span className="flex items-center gap-0.5 whitespace-nowrap flex-shrink-0">
             {selectedLocation === "All Locations" && session.location && `${session.location}-`}{session.school_student_id || "N/A"}
-            {session.financial_status !== "Paid" && (
+            {isCancelledEnrollment ? (
+              <span className="text-[8px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                Cancelled
+              </span>
+            ) : session.financial_status !== "Paid" && (
               <HandCoins className="h-2.5 w-2.5 text-red-500" />
             )}
           </span>
@@ -1305,9 +1320,11 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
         {/* Middle Row: Student Name + Grade + School */}
         <div className={cn(
           "flex items-center gap-1 text-xs font-semibold",
-          session.financial_status !== "Paid"
-            ? "text-red-600 dark:text-red-400"
-            : "text-[#5d4e37] dark:text-[#e8d4b8]",
+          isCancelledEnrollment
+            ? "text-gray-400 dark:text-gray-500"
+            : session.financial_status !== "Paid"
+              ? "text-red-600 dark:text-red-400"
+              : "text-[#5d4e37] dark:text-[#e8d4b8]",
           config.strikethrough && "line-through text-gray-400 dark:text-gray-500"
         )}>
           <span className="truncate">{session.student_name || "Unknown"}</span>

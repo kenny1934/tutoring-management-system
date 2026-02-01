@@ -1768,11 +1768,12 @@ export default function SessionsPage() {
                                   month: 'short',
                                   day: 'numeric'
                                 });
+                                const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
                                 return (
                                   <motion.div
                                     key={session.id}
                                     initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
+                                    animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
                                     transition={{
                                       // Skip stagger delay on re-expand
                                       delay: isMobile || seenSlotsRef.current.has(studentKey) ? 0 : groupIndex * 0.05 + sessionIndex * 0.03,
@@ -2009,7 +2010,7 @@ export default function SessionsPage() {
                             <motion.div
                               initial={{ opacity: 0, x: -20 }}
                               animate={{
-                                opacity: 1,
+                                opacity: session.enrollment_payment_status === 'Cancelled' ? 0.5 : 1,
                                 x: 0
                               }}
                               transition={{
@@ -2073,9 +2074,11 @@ export default function SessionsPage() {
                                         </span>
                                         <span className={cn(
                                           "font-bold text-base truncate",
-                                          session.financial_status !== "Paid"
-                                            ? "text-red-600 dark:text-red-400"
-                                            : "text-gray-900 dark:text-gray-100",
+                                          session.enrollment_payment_status === 'Cancelled'
+                                            ? "text-gray-500 dark:text-gray-400"
+                                            : session.financial_status !== "Paid"
+                                              ? "text-red-600 dark:text-red-400"
+                                              : "text-gray-900 dark:text-gray-100",
                                           statusConfig.strikethrough && "text-gray-500 dark:text-gray-400"
                                         )}>
                                           {session.student_name}
@@ -2096,7 +2099,11 @@ export default function SessionsPage() {
                                       {session.extension_request_id && (
                                         <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" title={`Extension ${session.extension_request_status}`} />
                                       )}
-                                      {session.financial_status !== "Paid" && (
+                                      {session.enrollment_payment_status === 'Cancelled' ? (
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">
+                                          Cancelled
+                                        </span>
+                                      ) : session.financial_status !== "Paid" && (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 whitespace-nowrap flex items-center gap-0.5">
                                           <HandCoins className="h-3.5 w-3.5" />
                                           <span className="hidden sm:inline">Unpaid</span>

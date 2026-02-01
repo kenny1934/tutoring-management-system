@@ -901,9 +901,11 @@ function ProfileTab({
                         "text-xs px-2 py-0.5 rounded-full font-medium",
                         displayStatus === 'Paid'
                           ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                          : displayStatus === 'Overdue'
-                          ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                          : displayStatus === 'Cancelled'
+                            ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                            : displayStatus === 'Overdue'
+                              ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
                       )}>
                         {displayStatus}
                       </span>
@@ -1253,13 +1255,14 @@ function SessionsTab({
     const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
     const StatusIcon = statusConfig.Icon;
     const sessionDate = new Date(session.session_date + 'T00:00:00');
+    const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
     return (
       <motion.div
         key={session.id}
         onClick={(e) => onSessionClick(session, e)}
         initial={{ opacity: 0, x: -10 }}
-        animate={{ opacity: 1, x: 0 }}
+        animate={{ opacity: isCancelledEnrollment ? 0.5 : 1, x: 0 }}
         transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
         className={cn(
           "flex rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] cursor-pointer",
@@ -1278,7 +1281,7 @@ function SessionsTab({
             <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {session.time_slot}
             </span>
-            {session.financial_status && (
+            {session.financial_status && !isCancelledEnrollment && (
               <>
                 <span className="text-xs text-gray-400">•</span>
                 {session.financial_status === "Paid" ? (
@@ -1292,6 +1295,14 @@ function SessionsTab({
                     <span className="hidden sm:inline">Unpaid</span>
                   </span>
                 )}
+              </>
+            )}
+            {isCancelledEnrollment && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                  Cancelled
+                </span>
               </>
             )}
             {/* Proposal indicator for pending makeup sessions */}
@@ -1406,9 +1417,15 @@ function SessionsTab({
                       </span>
                     </>
                   )}
-                  <span className="ml-auto text-xs text-gray-500">
-                    {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
-                  </span>
+                  {enrollment?.payment_status === 'Cancelled' ? (
+                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                      Cancelled
+                    </span>
+                  ) : (
+                    <span className="ml-auto text-xs text-gray-500">
+                      {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
+                    </span>
+                  )}
                 </button>
 
                 {/* Session Cards */}

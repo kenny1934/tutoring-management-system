@@ -524,11 +524,13 @@ export function EnrollmentDetailPopover({
             </span>
             <span className={cn(
               "px-2 py-0.5 rounded text-xs font-medium",
-              markedAsPaid
+              markedAsPaid || enrollment.payment_status === 'Paid'
                 ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
-                : isPending
-                  ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
-                  : "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                : enrollment.payment_status === 'Cancelled'
+                  ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                  : enrollment.payment_status === 'Overdue'
+                    ? "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300"
+                    : "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300"
             )}>
               {markedAsPaid ? "Payment Confirmed ✓" : enrollment.payment_status}
             </span>
