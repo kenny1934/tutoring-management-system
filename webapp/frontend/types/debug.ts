@@ -25,6 +25,7 @@ export interface DebugTableSchema {
   columns: DebugColumn[];
   primary_key: string;
   search_columns: string[];
+  allow_hard_delete: boolean;
 }
 
 export interface DebugRow {

@@ -106,6 +106,7 @@ def require_admin(
 
 
 def require_super_admin(
+    request: Request,
     current_user: Tutor = Depends(get_current_user),
 ) -> Tutor:
     """
@@ -113,6 +114,10 @@ def require_super_admin(
 
     Used for debug panel and other super-admin-only operations.
     Raises HTTPException 403 if not a super admin.
+
+    Respects impersonation: When a Super Admin is impersonating another role
+    (via X-Effective-Role header), access is denied to allow proper testing
+    of the app as that role would see it.
 
     Usage:
         @router.get("/debug/tables")
@@ -124,6 +129,15 @@ def require_super_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super Admin access required",
         )
+
+    # Respect impersonation - deny access if impersonating another role
+    effective_role = request.headers.get("X-Effective-Role")
+    if effective_role and effective_role != "Super Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Debug access disabled during impersonation",
+        )
+
     return current_user
 
 
