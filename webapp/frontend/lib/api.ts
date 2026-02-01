@@ -50,6 +50,16 @@ import type {
   PendingExtensionRequestCount,
   ExtensionRequestStatus,
 } from "@/types";
+import type {
+  DebugTable,
+  DebugTableSchema,
+  DebugRow,
+  DebugQueryParams,
+  PaginatedRows,
+  DebugAuditLog,
+  PaginatedAuditLogs,
+  AuditLogQueryParams,
+} from "@/types/debug";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -1797,6 +1807,64 @@ export const examRevisionAPI = {
   },
 };
 
+// Debug Admin API - Super Admin only
+export const debugAPI = {
+  // List available tables
+  getTables: () => fetchAPI<DebugTable[]>("/debug/tables"),
+
+  // Get table schema
+  getTableSchema: (tableName: string) =>
+    fetchAPI<DebugTableSchema>(`/debug/tables/${tableName}/schema`),
+
+  // List rows with pagination and filtering
+  getRows: (tableName: string, params?: DebugQueryParams) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.append("limit", String(params.limit));
+    if (params?.offset) searchParams.append("offset", String(params.offset));
+    if (params?.sort_by) searchParams.append("sort_by", params.sort_by);
+    if (params?.sort_order) searchParams.append("sort_order", params.sort_order);
+    if (params?.search) searchParams.append("search", params.search);
+    const query = searchParams.toString();
+    return fetchAPI<PaginatedRows>(`/debug/tables/${tableName}/rows${query ? `?${query}` : ""}`);
+  },
+
+  // Get single row
+  getRow: (tableName: string, rowId: number) =>
+    fetchAPI<DebugRow>(`/debug/tables/${tableName}/rows/${rowId}`),
+
+  // Create row
+  createRow: (tableName: string, data: Record<string, unknown>) =>
+    fetchAPI<DebugRow>(`/debug/tables/${tableName}/rows`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Update row
+  updateRow: (tableName: string, rowId: number, data: Record<string, unknown>) =>
+    fetchAPI<DebugRow>(`/debug/tables/${tableName}/rows/${rowId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  // Delete row (requires confirmation)
+  deleteRow: (tableName: string, rowId: number) =>
+    fetchAPI<{ message: string }>(`/debug/tables/${tableName}/rows/${rowId}?confirm=DELETE`, {
+      method: "DELETE",
+    }),
+
+  // Get audit logs
+  getAuditLogs: (params?: AuditLogQueryParams) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.append("limit", String(params.limit));
+    if (params?.offset) searchParams.append("offset", String(params.offset));
+    if (params?.table_name) searchParams.append("table_name", params.table_name);
+    if (params?.operation) searchParams.append("operation", params.operation);
+    if (params?.admin_email) searchParams.append("admin_email", params.admin_email);
+    const query = searchParams.toString();
+    return fetchAPI<PaginatedAuditLogs>(`/debug/audit-logs${query ? `?${query}` : ""}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -1818,4 +1886,5 @@ export const api = {
   proposals: proposalsAPI,
   extensionRequests: extensionRequestsAPI,
   examRevision: examRevisionAPI,
+  debug: debugAPI,
 };

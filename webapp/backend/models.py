@@ -718,3 +718,37 @@ class ExamRevisionSlot(Base):
     calendar_event = relationship("CalendarEvent", back_populates="revision_slots")
     tutor = relationship("Tutor")
     sessions = relationship("SessionLog", back_populates="exam_revision_slot")
+
+
+class DebugAuditLog(Base):
+    """
+    Audit log for Super Admin debug panel operations.
+    Records who did what, when, and the before/after state of data changes.
+    All write operations through the debug panel are logged here.
+    """
+    __tablename__ = "debug_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Who performed the action
+    admin_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    admin_email = Column(String(255), nullable=False, comment='Denormalized for historical record')
+
+    # What was done
+    operation = Column(String(20), nullable=False, comment='CREATE, UPDATE, DELETE')
+    table_name = Column(String(100), nullable=False, index=True)
+    row_id = Column(Integer, nullable=True, comment='NULL for CREATE before insert')
+
+    # Before/after state for auditing
+    before_state = Column(Text, nullable=True, comment='JSON snapshot before change')
+    after_state = Column(Text, nullable=True, comment='JSON snapshot after change')
+    changed_fields = Column(Text, nullable=True, comment='JSON list of changed field names')
+
+    # Request context
+    ip_address = Column(String(45), nullable=True)
+
+    # When
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+    # Relationship
+    admin = relationship("Tutor", foreign_keys=[admin_id])

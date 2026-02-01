@@ -105,6 +105,28 @@ def require_admin(
     return current_user
 
 
+def require_super_admin(
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Require the current user to be a Super Admin.
+
+    Used for debug panel and other super-admin-only operations.
+    Raises HTTPException 403 if not a super admin.
+
+    Usage:
+        @router.get("/debug/tables")
+        def debug_route(admin: Tutor = Depends(require_super_admin)):
+            ...
+    """
+    if current_user.role != "Super Admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super Admin access required",
+        )
+    return current_user
+
+
 def require_role(allowed_roles: List[str]):
     """
     Factory function to create a dependency that requires specific roles.
