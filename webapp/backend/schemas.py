@@ -388,6 +388,7 @@ class SessionResponse(SessionBase):
     make_up_for: Optional[LinkedSessionInfo] = None
     exercises: List["SessionExerciseResponse"] = []
     undone_from_status: Optional[str] = Field(None, max_length=100, description="Status before undo (for redo toast)")
+    enrollment_payment_status: Optional[str] = Field(None, max_length=50, description="Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)")
 
     model_config = ConfigDict(from_attributes=True)
 

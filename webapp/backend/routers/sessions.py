@@ -51,7 +51,8 @@ async def get_sessions(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
         joinedload(SessionLog.exercises),
-        joinedload(SessionLog.extension_request)
+        joinedload(SessionLog.extension_request),
+        joinedload(SessionLog.enrollment)
     )
 
     # Apply filters
@@ -144,7 +145,8 @@ async def get_session_detail(
     session = db.query(SessionLog).options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
-        joinedload(SessionLog.extension_request)
+        joinedload(SessionLog.extension_request),
+        joinedload(SessionLog.enrollment)
     ).filter(SessionLog.id == session_id).first()
 
     if not session:
@@ -163,6 +165,10 @@ async def get_session_detail(
     if session.extension_request:
         session_data.extension_request_id = session.extension_request.id
         session_data.extension_request_status = session.extension_request.request_status
+
+    # Enrollment payment status
+    if session.enrollment:
+        session_data.enrollment_payment_status = session.enrollment.payment_status
 
     # Load previous session (most recent attended session for same student, any tutor)
     previous_session = db.query(SessionLog).options(

@@ -675,13 +675,20 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                               <td className="px-3 py-1 text-sm font-mono font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">#{session.id}</td>
                               {session.enrollment_id && (
                                 <td className="px-3 py-1 text-sm font-mono font-medium whitespace-nowrap">
-                                  <Link
-                                    href={`/enrollments/${session.enrollment_id}`}
-                                    className="text-blue-600 dark:text-blue-400 hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    #{session.enrollment_id}
-                                  </Link>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Link
+                                      href={`/enrollments/${session.enrollment_id}`}
+                                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      #{session.enrollment_id}
+                                    </Link>
+                                    {session.enrollment_payment_status === 'Cancelled' && (
+                                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium font-sans">
+                                        Cancelled
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                               )}
                             </tr>
@@ -792,8 +799,17 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                 </motion.div>
               )}
 
-              {session.financial_status && <span className="text-white/50">•</span>}
-              {session.financial_status && (
+              {(session.financial_status || session.enrollment_payment_status === 'Cancelled') && <span className="text-white/50">•</span>}
+              {session.enrollment_payment_status === 'Cancelled' ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.45, duration: 0.25, ease: [0.38, 1.21, 0.22, 1.00] }}
+                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-gray-500/50"
+                >
+                  <span className="text-gray-300 font-semibold text-xs">Cancelled</span>
+                </motion.div>
+              ) : session.financial_status && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}

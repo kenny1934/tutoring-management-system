@@ -672,6 +672,7 @@ export function DailyGridView({
                                 const displayStatus = getDisplayStatus(session);
                                 const statusConfig = getSessionStatusConfig(displayStatus);
                                 const StatusIcon = statusConfig.Icon;
+                                const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
                                 return (
                                   <motion.div
                                     key={session.id}
@@ -697,13 +698,18 @@ export function DailyGridView({
                                     )}
                                     style={{
                                       minHeight: "22px",
+                                      opacity: isCancelledEnrollment ? 0.5 : 1,
                                     }}
                                   >
                                     <div className="flex-1 flex flex-col min-w-0 px-1.5 py-0.5">
                                       <p className="font-bold text-[9px] text-gray-500 dark:text-gray-400 leading-tight flex justify-between items-center">
                                         <span className="flex items-center gap-0.5">
                                           {session.school_student_id || "N/A"}
-                                          {session.financial_status !== "Paid" && (
+                                          {isCancelledEnrollment ? (
+                                            <span className="text-[7px] px-1 py-px rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">
+                                              Cancelled
+                                            </span>
+                                          ) : session.financial_status !== "Paid" && (
                                             <HandCoins className="h-2.5 w-2.5 text-red-500" />
                                           )}
                                         </span>
@@ -711,9 +717,11 @@ export function DailyGridView({
                                       </p>
                                       <p className={cn(
                                         "font-semibold text-[10px] leading-tight flex items-center gap-0.5 overflow-hidden",
-                                        session.financial_status !== "Paid"
-                                          ? "text-red-600 dark:text-red-400"
-                                          : "text-gray-900 dark:text-gray-100",
+                                        isCancelledEnrollment
+                                          ? "text-gray-400 dark:text-gray-500"
+                                          : session.financial_status !== "Paid"
+                                            ? "text-red-600 dark:text-red-400"
+                                            : "text-gray-900 dark:text-gray-100",
                                         statusConfig.strikethrough && "line-through text-gray-400 dark:text-gray-500"
                                       )}>
                                         <span className="truncate">{session.student_name || "Unknown"}</span>

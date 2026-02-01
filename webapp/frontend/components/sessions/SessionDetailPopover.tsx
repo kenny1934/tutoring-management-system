@@ -726,19 +726,26 @@ export function SessionDetailPopover({
 
           {/* Enrollment */}
           {session.enrollment_id && (
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Enrollment:</span>
-              <Link
-                href={`/enrollments/${session.enrollment_id}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onNavigate?.();
-                  onClose();
-                }}
-                className="font-medium text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
-              >
-                #{session.enrollment_id}
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/enrollments/${session.enrollment_id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate?.();
+                    onClose();
+                  }}
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
+                >
+                  #{session.enrollment_id}
+                </Link>
+                {session.enrollment_payment_status === 'Cancelled' && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                    Cancelled
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

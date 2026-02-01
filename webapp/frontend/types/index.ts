@@ -176,6 +176,7 @@ export interface Session {
   rescheduled_to?: LinkedSessionInfo;
   make_up_for?: LinkedSessionInfo;
   enrollment?: Enrollment;
+  enrollment_payment_status?: string;  // Payment status of the enrollment (Paid, Pending Payment, Overdue, Cancelled)
   student?: Student;
   exercises?: SessionExercise[];
   homework_completion?: HomeworkCompletion[];

@@ -65,6 +65,9 @@ def build_session_response(session: SessionLog, db: Optional[Session] = None) ->
     # Compute root original session date for makeup sessions (for 60-day rule)
     if db and session.make_up_for_id:
         data.root_original_session_date = _find_root_original_session_date(session, db)
+    # Enrollment payment status (if enrollment is loaded)
+    if hasattr(session, 'enrollment') and session.enrollment:
+        data.enrollment_payment_status = session.enrollment.payment_status
     return data
 
 

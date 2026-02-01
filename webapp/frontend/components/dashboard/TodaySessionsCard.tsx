@@ -423,13 +423,15 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
   const config = getSessionStatusConfig(displayStatus);
   const gradeColor = getGradeColor(session.grade, session.lang_stream);
   const isUnpaid = session.financial_status !== 'Paid';
+  const isCancelledEnrollment = session.enrollment_payment_status === 'Cancelled';
 
   return (
     <div
       className={cn(
         "px-3 py-2 cursor-pointer hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/60 transition-colors",
         isAlternate && "bg-[#f5ede3]/30 dark:bg-[#3d3628]/30",
-        isSelected && "bg-amber-50 dark:bg-amber-900/20"
+        isSelected && "bg-amber-50 dark:bg-amber-900/20",
+        isCancelledEnrollment && "opacity-50"
       )}
       onClick={onRowClick}
     >
@@ -452,7 +454,11 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           {/* School ID + Name */}
           <span className={cn(
             "text-sm font-medium truncate",
-            isUnpaid ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100",
+            isCancelledEnrollment
+              ? "text-gray-400 dark:text-gray-500"
+              : isUnpaid
+                ? "text-red-600 dark:text-red-400"
+                : "text-gray-900 dark:text-gray-100",
             config.strikethrough && "line-through opacity-60"
           )}>
             {session.school_student_id && (
@@ -481,7 +487,11 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
           )}
 
           {/* Payment indicator */}
-          {isUnpaid && (
+          {isCancelledEnrollment ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+              Cancelled
+            </span>
+          ) : isUnpaid && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center gap-0.5">
               <HandCoins className="h-2.5 w-2.5" />
               <span className="hidden xs:inline">Unpaid</span>
