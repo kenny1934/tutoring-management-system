@@ -7,11 +7,16 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } from "@/lib/calendar-utils";
 import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { useAuth } from "@/contexts/AuthContext";
 import { ExamCard } from "@/components/exams/ExamCard";
 
-// Lazy load modal - only imported when opened
+// Lazy load modals - only imported when opened
 const CreateRevisionSlotModal = dynamic(
   () => import("@/components/exams/CreateRevisionSlotModal").then(mod => ({ default: mod.CreateRevisionSlotModal })),
+  { ssr: false }
+);
+const CalendarEventModal = dynamic(
+  () => import("@/components/dashboard/CalendarEventModal").then(mod => ({ default: mod.CalendarEventModal })),
   { ssr: false }
 );
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -19,7 +24,7 @@ import { EmptyCloud } from "@/components/illustrations/EmptyStates";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useLocation } from "@/contexts/LocationContext";
-import type { ExamWithRevisionSlots, SlotDefaults } from "@/types";
+import type { ExamWithRevisionSlots, SlotDefaults, CalendarEvent } from "@/types";
 import {
   GraduationCap,
   ArrowLeft,
@@ -43,6 +48,8 @@ function ExamCalendarView({
   currentTutorId,
   location,
   onRefresh,
+  onEditEvent,
+  canManageEvents,
 }: {
   exams: ExamWithRevisionSlots[];
   currentMonth: Date;
@@ -51,6 +58,8 @@ function ExamCalendarView({
   currentTutorId: number;
   location: string | null;
   onRefresh: () => void;
+  onEditEvent: (exam: ExamWithRevisionSlots) => void;
+  canManageEvents: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -231,6 +240,8 @@ function ExamCalendarView({
                 location={location}
                 onCreateSlot={() => onExamClick(exam)}
                 onRefresh={onRefresh}
+                onEditEvent={onEditEvent}
+                canManageEvents={canManageEvents}
               />
             ))
           )}
@@ -269,6 +280,12 @@ export default function ExamsPage() {
   const [slotDefaults, setSlotDefaults] = useState<SlotDefaults | undefined>(undefined);
   const [viewStyle, setViewStyle] = useState<ViewStyle>("list");
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+
+  // Edit event modal state
+  const { user } = useAuth();
+  const canManageEvents = !!user;
+  const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>(undefined);
 
   // Date range state - default to next 30 days
   const [fromDate, setFromDate] = useState<string>(() => toDateString(new Date()));
@@ -420,6 +437,34 @@ export default function ExamsPage() {
   // Stable refresh callback
   const handleRefresh = useCallback(() => {
     mutate();
+  }, [mutate]);
+
+  // Handle editing a calendar event
+  const handleEditEvent = useCallback((exam: ExamWithRevisionSlots) => {
+    setEditingEvent({
+      id: exam.id,
+      event_id: exam.event_id,
+      title: exam.title,
+      description: exam.description,
+      start_date: exam.start_date,
+      end_date: exam.end_date,
+      school: exam.school,
+      grade: exam.grade,
+      academic_stream: exam.academic_stream,
+      event_type: exam.event_type,
+      created_at: '',
+      updated_at: '',
+      last_synced_at: '',
+      revision_slot_count: exam.revision_slots.length,
+    });
+    setIsEditEventModalOpen(true);
+  }, []);
+
+  // Handle successful event edit
+  const handleEditEventSuccess = useCallback(() => {
+    mutate();
+    setIsEditEventModalOpen(false);
+    setEditingEvent(undefined);
   }, [mutate]);
 
   // Auto-scroll to highlighted exam after data loads
@@ -693,6 +738,8 @@ export default function ExamsPage() {
               currentTutorId={currentTutorId}
               location={selectedLocation !== "All Locations" ? selectedLocation : null}
               onRefresh={handleRefresh}
+              onEditEvent={handleEditEvent}
+              canManageEvents={canManageEvents}
             />
           ) : (
             <div className="space-y-4">
@@ -709,6 +756,8 @@ export default function ExamsPage() {
                       location={selectedLocation !== "All Locations" ? selectedLocation : null}
                       onCreateSlot={(defaults) => handleCreateSlot(exam, defaults)}
                       onRefresh={handleRefresh}
+                      onEditEvent={handleEditEvent}
+                      canManageEvents={canManageEvents}
                       highlighted={isHighlighted}
                       defaultExpanded={isHighlighted}
                     />
@@ -734,6 +783,17 @@ export default function ExamsPage() {
             defaults={slotDefaults}
           />
         )}
+
+        {/* Edit Calendar Event Modal */}
+        <CalendarEventModal
+          isOpen={isEditEventModalOpen}
+          onClose={() => {
+            setIsEditEventModalOpen(false);
+            setEditingEvent(undefined);
+          }}
+          onSuccess={handleEditEventSuccess}
+          event={editingEvent}
+        />
 
         {/* Scroll to top button */}
         <ScrollToTopButton threshold={400} />
