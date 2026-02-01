@@ -18,6 +18,7 @@ import {
   Plus,
   BookOpen,
   Loader2,
+  Pencil,
 } from "lucide-react";
 
 interface ExamCardProps {
@@ -26,11 +27,13 @@ interface ExamCardProps {
   location: string | null;
   onCreateSlot: (defaults?: SlotDefaults) => void;
   onRefresh: () => void;
+  onEditEvent?: (exam: ExamWithRevisionSlots) => void;
+  canManageEvents?: boolean;
   highlighted?: boolean;
   defaultExpanded?: boolean;
 }
 
-export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, highlighted, defaultExpanded }: ExamCardProps) {
+export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, onEditEvent, canManageEvents, highlighted, defaultExpanded }: ExamCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
   const [selectedSlot, setSelectedSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -242,6 +245,20 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                 <Users className="h-3 w-3" />
                 {exam.total_enrolled}
               </div>
+
+              {/* Edit event button */}
+              {canManageEvents && onEditEvent && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditEvent(exam);
+                  }}
+                  className="p-1.5 rounded-md hover:bg-[#d4a574]/30 transition-colors"
+                  title="Edit event"
+                >
+                  <Pencil className="h-4 w-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" />
+                </button>
+              )}
 
               {/* Expand indicator */}
               {isExpanded ? (
