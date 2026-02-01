@@ -287,16 +287,12 @@ async def preview_enrollment(
     # Find potential previous enrollments to link as renewal (only if not already set)
     potential_renewals = []
     if not enrollment_data.renewed_from_enrollment_id:
-        # Look for existing enrollments with same student/tutor/schedule
+        # Look for most recent enrollments for this student (simplified - no schedule matching)
         existing_enrollments = (
             db.query(Enrollment)
             .options(joinedload(Enrollment.tutor))
             .filter(
                 Enrollment.student_id == enrollment_data.student_id,
-                Enrollment.tutor_id == enrollment_data.tutor_id,
-                Enrollment.assigned_day == enrollment_data.assigned_day,
-                Enrollment.assigned_time == enrollment_data.assigned_time,
-                Enrollment.location == enrollment_data.location,
                 Enrollment.payment_status != "Cancelled"
             )
             .order_by(Enrollment.first_lesson_date.desc())
