@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "rea
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Fuse from "fuse.js";
+import useSWR from "swr";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -43,9 +44,14 @@ import {
   Filter,
   CheckCircle,
   ChevronRight,
+  HelpCircle,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api, SearchResults } from "@/lib/api";
+import { api, SearchResults, studentsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
+import { getGradeColor } from "@/lib/constants";
+import { getSessionStatusConfig } from "@/lib/session-status";
+import { getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
@@ -110,6 +116,7 @@ const typeBadgeColors: Record<string, string> = {
   enrollment: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   page: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
   utility: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  help: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
 };
 
 // Parse query for type filters
@@ -132,7 +139,7 @@ function parseQuery(q: string): { type: string | null; term: string } {
 // Result item type for unified list
 interface ResultItem {
   id: string;
-  type: "student" | "session" | "enrollment" | "page" | "recent" | "action" | "utility";
+  type: "student" | "session" | "enrollment" | "page" | "recent" | "action" | "utility" | "help";
   title: string;
   subtitle?: string;
   href?: string;  // Optional for actions
@@ -210,6 +217,282 @@ interface NestedCommand {
   icon: typeof User;
   children?: NestedCommand[];
   execute?: () => void;
+}
+
+// Help topics for ? prefix search
+const HELP_TOPICS = [
+  {
+    id: 'help-search',
+    title: 'Search Shortcuts',
+    keywords: ['search', 'find', 'filter', 'prefix'],
+    content: [
+      { label: '@name', desc: 'Filter to students only' },
+      { label: '#term', desc: 'Filter to sessions only' },
+      { label: '/page', desc: 'Filter to pages only' },
+      { label: '= expr', desc: 'Calculator (e.g. = 6 * 250)' },
+      { label: 'date +7', desc: 'Date offset (or d -30)' },
+      { label: 'filter/', desc: 'Open filter submenu' },
+    ],
+  },
+  {
+    id: 'help-keyboard',
+    title: 'Keyboard Shortcuts',
+    keywords: ['keyboard', 'shortcut', 'key', 'hotkey'],
+    content: [
+      { label: 'Ctrl+K', desc: 'Open command palette' },
+      { label: '↑ / ↓', desc: 'Navigate results' },
+      { label: 'Enter', desc: 'Select item' },
+      { label: 'Esc', desc: 'Clear input or close' },
+      { label: 'Backspace', desc: 'Exit submenu (when empty)' },
+    ],
+  },
+  {
+    id: 'help-calculator',
+    title: 'Calculator & Date Tools',
+    keywords: ['calculator', 'math', 'date', 'calculate'],
+    content: [
+      { label: '= 6 * 250', desc: 'Basic math' },
+      { label: '= (10 + 5) * 2', desc: 'With parentheses' },
+      { label: 'date +7', desc: '7 days from today' },
+      { label: 'd -30', desc: '30 days ago' },
+    ],
+  },
+];
+
+// Preview panel skeleton
+function PreviewSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <div className="h-4 w-24 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+      <div className="h-5 w-32 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+      <div className="flex gap-2">
+        <div className="h-5 w-12 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+        <div className="h-5 w-16 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+      </div>
+      <div className="h-4 w-28 bg-[#e8d4b8] dark:bg-[#3d3628] rounded" />
+    </div>
+  );
+}
+
+// Help preview component
+function HelpPreview({ topic }: { topic: typeof HELP_TOPICS[0] }) {
+  return (
+    <div className="space-y-3">
+      <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+        {topic.title}
+      </div>
+      <div className="space-y-2">
+        {topic.content.map((item, idx) => (
+          <div key={idx} className="flex gap-3 text-xs">
+            <span className="font-mono text-[#a0704b] dark:text-[#cd853f] shrink-0 w-20">
+              {item.label}
+            </span>
+            <span className="text-[#5d4a3a] dark:text-[#d4c4b0]">
+              {item.desc}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Preview content component following app-wide display patterns
+function PreviewContent({ data }: { data: { type: string; data: any } | null }) {
+  if (!data) return null;
+
+  // Help topic preview
+  if (data.type === 'help') {
+    return <HelpPreview topic={data.data} />;
+  }
+
+  // Student preview - follows StudentDetailPopover pattern
+  if (data.type === 'student') {
+    const s = data.data;
+    return (
+      <div className="space-y-3">
+        {/* ID - monospace, small, gray (consistent with StudentInfoBadges) */}
+        {s.school_student_id && (
+          <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+            {s.school_student_id}
+          </div>
+        )}
+        {/* Name - semibold, main text */}
+        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+          {s.student_name}
+        </div>
+        {/* Badges - grade with color, school with amber */}
+        <div className="flex flex-wrap gap-1.5">
+          {s.grade && (
+            <span
+              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
+              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
+            >
+              {s.grade}{s.lang_stream || ''}
+            </span>
+          )}
+          {s.school && (
+            <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+              {s.school}
+            </span>
+          )}
+        </div>
+        {/* Contact info with icons */}
+        <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
+          {s.phone && (
+            <div className="flex items-center gap-2">
+              <Phone className="h-3 w-3 text-[#8b7355]" />
+              <span>{s.phone}</span>
+            </div>
+          )}
+          {s.home_location && (
+            <div className="flex items-center gap-2">
+              <MapPin className="h-3 w-3 text-[#8b7355]" />
+              <span>{s.home_location}</span>
+            </div>
+          )}
+          {s.enrollment_count !== undefined && (
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-3 w-3 text-[#8b7355]" />
+              <span>{s.enrollment_count} enrollment{s.enrollment_count !== 1 ? 's' : ''}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Session preview - follows SessionDetailPopover pattern
+  if (data.type === 'session') {
+    const s = data.data;
+    const statusConfig = getSessionStatusConfig(s.session_status);
+    return (
+      <div className="space-y-3">
+        {/* Date/time header */}
+        <div className="flex items-center gap-2 text-xs text-[#8b7355] dark:text-[#a89880]">
+          <Calendar className="h-3 w-3" />
+          <span>{s.session_date}</span>
+          {s.time_slot && (
+            <>
+              <Clock className="h-3 w-3 ml-1" />
+              <span>{s.time_slot}</span>
+            </>
+          )}
+        </div>
+        {/* Student info */}
+        <div>
+          {s.school_student_id && (
+            <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+              {s.school_student_id}
+            </div>
+          )}
+          <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+            {s.student_name}
+          </div>
+        </div>
+        {/* Badges */}
+        <div className="flex flex-wrap gap-1.5">
+          {s.grade && (
+            <span
+              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
+              style={{ backgroundColor: getGradeColor(s.grade, s.lang_stream) }}
+            >
+              {s.grade}{s.lang_stream || ''}
+            </span>
+          )}
+          {s.school && (
+            <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+              {s.school}
+            </span>
+          )}
+          {/* Status badge with color coding */}
+          {s.session_status && (
+            <span className={cn(
+              "px-1.5 py-0.5 text-[11px] rounded",
+              statusConfig.bgTint,
+              statusConfig.textClass
+            )}>
+              {s.session_status}
+            </span>
+          )}
+        </div>
+        {/* Tutor info */}
+        {s.tutor_name && (
+          <div className="flex items-center gap-2 text-xs text-[#5d4a3a] dark:text-[#d4c4b0]">
+            <User className="h-3 w-3 text-[#8b7355]" />
+            <span>{s.tutor_name}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Enrollment preview - follows EnrollmentDetailPopover pattern
+  if (data.type === 'enrollment') {
+    const e = data.data;
+    const paymentConfig = getPaymentStatusConfig(e.payment_status);
+    return (
+      <div className="space-y-3">
+        {/* Student ID and name */}
+        {e.school_student_id && (
+          <div className="text-[10px] font-mono text-[#8b7355] dark:text-[#a89880]">
+            {e.school_student_id}
+          </div>
+        )}
+        <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
+          {e.student_name}
+        </div>
+        {/* Badges */}
+        <div className="flex flex-wrap gap-1.5">
+          {e.grade && (
+            <span
+              className="px-1.5 py-0.5 text-[11px] rounded text-gray-800"
+              style={{ backgroundColor: getGradeColor(e.grade, e.lang_stream) }}
+            >
+              {e.grade}{e.lang_stream || ''}
+            </span>
+          )}
+          {e.school && (
+            <span className="px-1.5 py-0.5 text-[11px] rounded bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200">
+              {e.school}
+            </span>
+          )}
+          {/* Payment status with color coding */}
+          {e.payment_status && (
+            <span className={cn(
+              "px-1.5 py-0.5 text-[11px] rounded",
+              paymentConfig.bgTint
+            )}>
+              {e.payment_status}
+            </span>
+          )}
+        </div>
+        {/* Details */}
+        <div className="text-xs space-y-1.5 text-[#5d4a3a] dark:text-[#d4c4b0]">
+          {(e.assigned_day || e.assigned_time) && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-3 w-3 text-[#8b7355]" />
+              <span>{e.assigned_day} {e.assigned_time}</span>
+            </div>
+          )}
+          {e.tutor_name && (
+            <div className="flex items-center gap-2">
+              <User className="h-3 w-3 text-[#8b7355]" />
+              <span>{e.tutor_name}</span>
+            </div>
+          )}
+          {e.lessons_paid !== undefined && (
+            <div className="flex items-center gap-2">
+              <HandCoins className="h-3 w-3 text-[#8b7355]" />
+              <span>{e.lessons_paid} lessons paid</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export function CommandPalette() {
@@ -335,8 +618,28 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [previewItem, setPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Fetch preview data based on type
+  const { data: previewData, isLoading: previewLoading } = useSWR(
+    previewItem ? `preview-${previewItem.type}-${previewItem.id}` : null,
+    async () => {
+      if (!previewItem) return null;
+      if (previewItem.type === 'student') {
+        return { type: 'student', data: await studentsAPI.getById(previewItem.id) };
+      }
+      if (previewItem.type === 'session') {
+        return { type: 'session', data: await sessionsAPI.getById(previewItem.id) };
+      }
+      if (previewItem.type === 'enrollment') {
+        return { type: 'enrollment', data: await enrollmentsAPI.getById(previewItem.id) };
+      }
+      return null;
+    },
+    { revalidateOnFocus: false }
+  );
 
   // Handle mounting for portal and load recent searches
   useEffect(() => {
@@ -396,6 +699,8 @@ export function CommandPalette() {
       setResults(null);
       setSelectedIndex(0);
       setCommandPath([]);
+      setPreviewItem(null);
+      setHelpPreview(null);
     }
   }, [isOpen]);
 
@@ -448,6 +753,7 @@ export function CommandPalette() {
     }
   }, [query, commandPath.length, nestedCommands]);
 
+  
   // Build flat list of all results for keyboard navigation
   const allItems = useMemo<ResultItem[]>(() => {
     const items: ResultItem[] = [];
@@ -507,6 +813,27 @@ export function CommandPalette() {
           close();
         },
       }];
+    }
+
+    // Help search: ? prefix
+    if (query.startsWith('?')) {
+      const helpTerm = query.slice(1).toLowerCase().trim();
+
+      const matchingTopics = helpTerm
+        ? HELP_TOPICS.filter(h =>
+            h.title.toLowerCase().includes(helpTerm) ||
+            h.keywords.some(k => k.includes(helpTerm)) ||
+            h.content.some(c => c.label.toLowerCase().includes(helpTerm) || c.desc.toLowerCase().includes(helpTerm))
+          )
+        : HELP_TOPICS;
+
+      return matchingTopics.map(topic => ({
+        id: topic.id,
+        type: 'help' as const,
+        title: topic.title,
+        subtitle: topic.keywords.slice(0, 3).join(', '),
+        icon: HelpCircle,
+      }));
     }
 
     // If in nested command submenu, show children
@@ -657,6 +984,36 @@ export function CommandPalette() {
     return items;
   }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands, showToast, commandPath, nestedCommands, close]);
 
+  // State for help preview (separate from API-fetched preview)
+  const [helpPreview, setHelpPreview] = useState<typeof HELP_TOPICS[0] | null>(null);
+
+  // Update preview based on selected item
+  useEffect(() => {
+    const item = allItems[selectedIndex];
+
+    // Handle help topics (no API fetch needed)
+    if (item?.type === 'help') {
+      const topic = HELP_TOPICS.find(t => t.id === item.id);
+      setHelpPreview(topic || null);
+      setPreviewItem(null);
+      return;
+    }
+
+    setHelpPreview(null);
+
+    // Handle API-fetched previews
+    if (item && ['student', 'session', 'enrollment'].includes(item.type)) {
+      const entityId = parseInt(item.id.split('-')[1], 10);
+      if (!isNaN(entityId)) {
+        setPreviewItem({ type: item.type, id: entityId });
+      } else {
+        setPreviewItem(null);
+      }
+    } else {
+      setPreviewItem(null);
+    }
+  }, [selectedIndex, allItems]);
+
   // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -765,7 +1122,7 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search... (@student, #session, /page)"
+            placeholder="Search or type ? for help"
             role="combobox"
             aria-expanded={allItems.length > 0}
             aria-controls="command-palette-listbox"
@@ -832,14 +1189,19 @@ export function CommandPalette() {
           </div>
         )}
 
-        {/* Results */}
-        <div
-          ref={listRef}
-          id="command-palette-listbox"
-          role="listbox"
-          aria-label="Search results"
-          className="max-h-[50vh] max-sm:max-h-none max-sm:flex-1 overflow-y-auto"
-        >
+        {/* Results with Preview Panel */}
+        <div className="flex max-h-[50vh] max-sm:max-h-none max-sm:flex-1">
+          {/* Results panel */}
+          <div
+            ref={listRef}
+            id="command-palette-listbox"
+            role="listbox"
+            aria-label="Search results"
+            className={cn(
+              "overflow-y-auto",
+              (previewItem || helpPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
+            )}
+          >
           {loading && (
             <div className="py-2">
               <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -865,7 +1227,7 @@ export function CommandPalette() {
                 No results for &quot;{query}&quot;
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Try a different search or use @student, #session
+                Try @student, #session, = calc, or ? for help
               </p>
             </div>
           )}
@@ -873,12 +1235,13 @@ export function CommandPalette() {
           {!loading && allItems.length > 0 && query && (
             <div className="py-2">
               {/* Group by type */}
-              {["utility", "student", "session", "enrollment", "page"].map((type) => {
+              {["utility", "help", "student", "session", "enrollment", "page"].map((type) => {
                 const typeItems = allItems.filter((item) => item.type === type);
                 if (typeItems.length === 0) return null;
 
                 const typeLabels: Record<string, string> = {
                   utility: "Result",
+                  help: "Help",
                   student: "Students",
                   session: "Sessions",
                   enrollment: "Enrollments",
@@ -1291,6 +1654,20 @@ export function CommandPalette() {
               })}
             </div>
           )}
+          </div>
+
+          {/* Preview panel - desktop only */}
+          {(previewItem || helpPreview) && !commandPath.length && (
+            <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#1a1a1a]/50">
+              {helpPreview ? (
+                <HelpPreview topic={helpPreview} />
+              ) : previewLoading ? (
+                <PreviewSkeleton />
+              ) : (
+                <PreviewContent data={previewData ?? null} />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer hints - hidden on mobile */}
@@ -1310,6 +1687,10 @@ export function CommandPalette() {
                 Esc
               </kbd>
               {query ? "Clear" : "Close"}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="text-[10px]">?</span>
+              Help
             </span>
           </div>
         </div>
