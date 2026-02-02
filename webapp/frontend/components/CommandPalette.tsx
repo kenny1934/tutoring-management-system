@@ -11,28 +11,19 @@ import {
   User,
   Calendar,
   BookOpen,
-  Home,
-  BarChart3,
   X,
-  Command,
   ArrowUp,
   ArrowDown,
   CornerDownLeft,
   Clock,
   Zap,
-  CalendarDays,
   RefreshCw,
   Grid3x3,
-  Inbox,
-  Settings,
-  GraduationCap,
   DollarSign,
   Star,
   Phone,
   AlertCircle,
   UserX,
-  RefreshCcw,
-  Database,
   Shield,
   Sun,
   Moon,
@@ -59,207 +50,20 @@ import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { SearchNoResults } from "@/components/illustrations/EmptyStates";
 
-// localStorage key for recent searches
-const RECENT_SEARCHES_KEY = "command-palette-recent-searches";
-const MAX_RECENT_SEARCHES = 5;
-
-// Page/action item type
-interface PageItem {
-  id: string;
-  title: string;
-  href: string;
-  icon: typeof Home;
-}
-
-// Quick navigation pages
-const PAGES: PageItem[] = [
-  // Core pages
-  { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home },
-  { id: "page-students", title: "Students", href: "/students", icon: User },
-  { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar },
-  { id: "page-courseware", title: "Courseware", href: "/courseware", icon: BookOpen },
-  // High frequency
-  { id: "page-inbox", title: "Inbox", href: "/inbox", icon: Inbox },
-  { id: "page-proposals", title: "Make-up Proposals", href: "/proposals", icon: RefreshCw },
-  { id: "page-settings", title: "Settings", href: "/settings", icon: Settings },
-  // Business pages
-  { id: "page-exams", title: "Exam Schedules", href: "/exams", icon: GraduationCap },
-  { id: "page-revenue", title: "Revenue Reports", href: "/revenue", icon: DollarSign },
-  { id: "page-trials", title: "Trial Sessions", href: "/trials", icon: Star },
-  { id: "page-parent-contacts", title: "Parent Contacts", href: "/parent-contacts", icon: Phone },
-  { id: "page-overdue", title: "Overdue Payments", href: "/overdue-payments", icon: AlertCircle },
-  { id: "page-terminated", title: "Terminated Students", href: "/terminated-students", icon: UserX },
-];
-
-// Admin-only pages
-const ADMIN_PAGES: PageItem[] = [
-  { id: "page-renewals", title: "Admin: Renewals", href: "/admin/renewals", icon: RefreshCcw },
-  { id: "page-extensions", title: "Admin: Extensions", href: "/admin/extensions", icon: Clock },
-];
-
-// Super-admin only
-const SUPER_ADMIN_PAGES: PageItem[] = [
-  { id: "page-debug", title: "Admin: Debug Panel", href: "/admin/debug", icon: Database },
-];
-
-// Quick actions (session-focused)
-const QUICK_ACTIONS: PageItem[] = [
-  { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar },
-  { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3 },
-  { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=pending-makeups", icon: RefreshCw },
-];
-
-// Type badge colors
-const typeBadgeColors: Record<string, string> = {
-  student: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  session: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  enrollment: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  page: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-  utility: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
-  help: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-};
-
-// Parse query for type filters
-function parseQuery(q: string): { type: string | null; term: string } {
-  // @john or s:john → students
-  const studentMatch = q.match(/^[@](.+)/i) || q.match(/^s:(.+)/i);
-  if (studentMatch) return { type: "student", term: studentMatch[1] };
-
-  // #session or sess:term → sessions
-  const sessionMatch = q.match(/^[#](.+)/i) || q.match(/^sess:(.+)/i);
-  if (sessionMatch) return { type: "session", term: sessionMatch[1] };
-
-  // /page or p:page → pages
-  const pageMatch = q.match(/^[\/](.+)/i) || q.match(/^p:(.+)/i);
-  if (pageMatch) return { type: "page", term: pageMatch[1] };
-
-  return { type: null, term: q };
-}
-
-// Result item type for unified list
-interface ResultItem {
-  id: string;
-  type: "student" | "session" | "enrollment" | "page" | "recent" | "action" | "utility" | "help";
-  title: string;
-  subtitle?: string;
-  href?: string;  // Optional for actions
-  icon: typeof User;
-  execute?: () => void;  // For action commands
-}
-
-// Safe math evaluator (no eval) - supports +, -, *, /, parentheses
-function evaluateMath(expr: string): number {
-  // Tokenize: numbers (including decimals), operators, parentheses
-  const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
-  if (!tokens) throw new Error('Invalid expression');
-
-  let pos = 0;
-
-  function parseExpr(): number {
-    let left = parseTerm();
-    while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
-      const op = tokens[pos++];
-      const right = parseTerm();
-      left = op === '+' ? left + right : left - right;
-    }
-    return left;
-  }
-
-  function parseTerm(): number {
-    let left = parseFactor();
-    while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
-      const op = tokens[pos++];
-      const right = parseFactor();
-      if (op === '/' && right === 0) throw new Error('Division by zero');
-      left = op === '*' ? left * right : left / right;
-    }
-    return left;
-  }
-
-  function parseFactor(): number {
-    if (tokens[pos] === '(') {
-      pos++; // skip (
-      const result = parseExpr();
-      if (tokens[pos] !== ')') throw new Error('Unmatched parenthesis');
-      pos++; // skip )
-      return result;
-    }
-    if (tokens[pos] === '-') {
-      pos++;
-      return -parseFactor();
-    }
-    return parseFloat(tokens[pos++]);
-  }
-
-  const result = parseExpr();
-  if (isNaN(result) || !isFinite(result)) throw new Error('Invalid result');
-  return result;
-}
-
-// Highlight matching text in search results
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query || query.length < 2) return text;
-
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  const parts = text.split(regex);
-
-  return parts.map((part, i) =>
-    regex.test(part) ? (
-      <mark key={i} className="bg-[#d4a574]/30 dark:bg-[#cd853f]/30 text-inherit rounded px-0.5">
-        {part}
-      </mark>
-    ) : part
-  );
-}
-
-// Nested command interface
-interface NestedCommand {
-  id: string;
-  title: string;
-  icon: typeof User;
-  children?: NestedCommand[];
-  execute?: () => void;
-}
-
-// Help topics for ? prefix search
-const HELP_TOPICS = [
-  {
-    id: 'help-search',
-    title: 'Search Shortcuts',
-    keywords: ['search', 'find', 'filter', 'prefix'],
-    content: [
-      { label: '@name', desc: 'Filter to students only' },
-      { label: '#term', desc: 'Filter to sessions only' },
-      { label: '/page', desc: 'Filter to pages only' },
-      { label: '= expr', desc: 'Calculator (e.g. = 6 * 250)' },
-      { label: 'date +7', desc: 'Date offset (or d -30)' },
-      { label: 'filter/', desc: 'Open filter submenu' },
-    ],
-  },
-  {
-    id: 'help-keyboard',
-    title: 'Keyboard Shortcuts',
-    keywords: ['keyboard', 'shortcut', 'key', 'hotkey'],
-    content: [
-      { label: 'Ctrl+K', desc: 'Open command palette' },
-      { label: '↑ / ↓', desc: 'Navigate results' },
-      { label: 'Enter', desc: 'Select item' },
-      { label: 'Esc', desc: 'Clear input or close' },
-      { label: 'Backspace', desc: 'Exit submenu (when empty)' },
-    ],
-  },
-  {
-    id: 'help-calculator',
-    title: 'Calculator & Date Tools',
-    keywords: ['calculator', 'math', 'date', 'calculate'],
-    content: [
-      { label: '= 6 * 250', desc: 'Basic math' },
-      { label: '= (10 + 5) * 2', desc: 'With parentheses' },
-      { label: 'date +7', desc: '7 days from today' },
-      { label: 'd -30', desc: '30 days ago' },
-    ],
-  },
-];
+// Import extracted modules
+import {
+  PAGES,
+  ADMIN_PAGES,
+  SUPER_ADMIN_PAGES,
+  QUICK_ACTIONS,
+  HELP_TOPICS,
+  typeBadgeColors,
+  ResultItem,
+  NestedCommand,
+  HelpTopic,
+} from "./commandPalette/types";
+import { parseQuery, evaluateMath, highlightMatch } from "./commandPalette/utils";
+import { useRecentSearches } from "./commandPalette/hooks";
 
 // Preview panel skeleton
 function PreviewSkeleton() {
@@ -277,7 +81,7 @@ function PreviewSkeleton() {
 }
 
 // Help preview component
-function HelpPreview({ topic }: { topic: typeof HELP_TOPICS[0] }) {
+function HelpPreview({ topic }: { topic: HelpTopic }) {
   return (
     <div className="space-y-3">
       <div className="font-semibold text-[#5d4a3a] dark:text-[#d4c4b0]">
@@ -619,11 +423,18 @@ export function CommandPalette() {
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [previewItem, setPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const [debouncedPreviewItem, setDebouncedPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Recent searches hook (handles localStorage persistence)
+  const { recentSearches, saveRecentSearch, clearRecentSearch, clearAllRecentSearches } = useRecentSearches();
+
+  // Handle mounting for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Debounce preview item to prevent rapid fetches during keyboard navigation
   useEffect(() => {
@@ -651,56 +462,6 @@ export function CommandPalette() {
     },
     { revalidateOnFocus: false }
   );
-
-  // Handle mounting for portal and load recent searches
-  useEffect(() => {
-    setMounted(true);
-    try {
-      const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
-      if (stored) {
-        setRecentSearches(JSON.parse(stored));
-      }
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
-
-  // Save a search to recent searches
-  const saveRecentSearch = useCallback((searchQuery: string) => {
-    setRecentSearches((prev) => {
-      const filtered = prev.filter((s) => s.toLowerCase() !== searchQuery.toLowerCase());
-      const updated = [searchQuery, ...filtered].slice(0, MAX_RECENT_SEARCHES);
-      try {
-        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore localStorage errors
-      }
-      return updated;
-    });
-  }, []);
-
-  // Clear a single recent search
-  const clearRecentSearch = useCallback((searchToRemove: string) => {
-    setRecentSearches((prev) => {
-      const updated = prev.filter((s) => s !== searchToRemove);
-      try {
-        localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
-      } catch {
-        // Ignore localStorage errors
-      }
-      return updated;
-    });
-  }, []);
-
-  // Clear all recent searches
-  const clearAllRecentSearches = useCallback(() => {
-    setRecentSearches([]);
-    try {
-      localStorage.removeItem(RECENT_SEARCHES_KEY);
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, []);
 
   // Focus input when opened
   useEffect(() => {
@@ -1004,7 +765,7 @@ export function CommandPalette() {
   }, [allItems]);
 
   // State for help preview (separate from API-fetched preview)
-  const [helpPreview, setHelpPreview] = useState<typeof HELP_TOPICS[0] | null>(null);
+  const [helpPreview, setHelpPreview] = useState<HelpTopic | null>(null);
 
   // Update preview based on selected item
   useEffect(() => {
