@@ -224,9 +224,10 @@ export const SchoolDistributionChart = memo(function SchoolDistributionChart({
   };
 
   const { chartData, totalSchools, totalStudents, othersBreakdown } = useMemo(() => {
+    const studentList = Array.isArray(students) ? students : [];
     const schoolCounts: Record<string, number> = {};
 
-    students.forEach((student) => {
+    studentList.forEach((student) => {
       const school = student.school || "Unknown";
       schoolCounts[school] = (schoolCounts[school] || 0) + 1;
     });

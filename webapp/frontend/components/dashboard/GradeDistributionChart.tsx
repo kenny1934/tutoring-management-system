@@ -133,9 +133,10 @@ export const GradeDistributionChart = memo(function GradeDistributionChart({
   };
 
   const chartData = useMemo(() => {
+    const studentList = Array.isArray(students) ? students : [];
     const gradeCounts: Record<string, number> = {};
 
-    students.forEach((student) => {
+    studentList.forEach((student) => {
       const grade = student.grade || "Unknown";
       gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
     });
