@@ -201,6 +201,8 @@ interface TableDataRowProps {
   getInputType: (col: DebugColumn) => string;
   isLongValue: (value: unknown) => boolean;
   searchQuery: string;
+  isPinned: boolean;
+  onTogglePin: (id: number) => void;
 }
 
 const TableDataRow = memo(function TableDataRow({
@@ -241,6 +243,8 @@ const TableDataRow = memo(function TableDataRow({
   getInputType,
   isLongValue,
   searchQuery,
+  isPinned,
+  onTogglePin,
 }: TableDataRowProps) {
   const isEven = rowIndex % 2 === 0;
 
@@ -250,6 +254,7 @@ const TableDataRow = memo(function TableDataRow({
       aria-disabled={isSoftDeleted || undefined}
       tabIndex={isSoftDeleted ? -1 : undefined}
       className={cn(
+        isPinned && "pinned-row",
         "debug-row-hover transition-colors",
         isEditing && "bg-blue-50 dark:bg-blue-900/20",
         isDeleting && "bg-red-50 dark:bg-red-900/20",
@@ -449,6 +454,20 @@ const TableDataRow = memo(function TableDataRow({
             >
               <Copy className="h-4 w-4" aria-hidden="true" />
             </button>
+            <button
+              onClick={() => onTogglePin(rowId)}
+              className={cn(
+                "p-1 rounded btn-press",
+                isPinned
+                  ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                  : "hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-500 hover:text-amber-600"
+              )}
+              title={isPinned ? "Unpin row" : "Pin row"}
+              aria-label={isPinned ? "Unpin row" : "Pin row"}
+              aria-pressed={isPinned}
+            >
+              <Star className={cn("h-4 w-4", isPinned && "fill-current")} aria-hidden="true" />
+            </button>
             {(allowHardDelete || hasSoftDelete) && (
               <button
                 onClick={() => onSetDeleteConfirm(rowId)}
@@ -558,6 +577,37 @@ export default function TableBrowserPage() {
 
   // Show deleted rows toggle (for soft delete tables)
   const [showDeleted, setShowDeleted] = useState(false);
+
+  // Pinned rows (persisted to localStorage)
+  const [pinnedRows, setPinnedRows] = useState<Set<number>>(new Set());
+
+  // Load pinned rows from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`debug_pinned_${tableName}`);
+      if (saved) {
+        const ids = JSON.parse(saved) as number[];
+        setPinnedRows(new Set(ids));
+      } else {
+        setPinnedRows(new Set());
+      }
+    } catch {
+      setPinnedRows(new Set());
+    }
+  }, [tableName]);
+
+  // Save pinned rows to localStorage
+  useEffect(() => {
+    if (pinnedRows.size > 0) {
+      try {
+        localStorage.setItem(`debug_pinned_${tableName}`, JSON.stringify([...pinnedRows]));
+      } catch {
+        // Ignore quota errors
+      }
+    } else {
+      localStorage.removeItem(`debug_pinned_${tableName}`);
+    }
+  }, [pinnedRows, tableName]);
 
   // Cell detail modal
   const [detailCell, setDetailCell] = useState<{ value: unknown; column: string } | null>(null);
@@ -699,8 +749,23 @@ export default function TableBrowserPage() {
   );
 
   const isLoading = schemaLoading || rowsLoading;
-  const rows = rowsData?.rows || [];
+  const rawRows = rowsData?.rows || [];
   const totalRows = rowsData?.total || 0;
+
+  // Sort rows so pinned ones appear first
+  const rows = useMemo(() => {
+    if (pinnedRows.size === 0) return rawRows;
+    const pkCol = schema?.primary_key || "id";
+    return [...rawRows].sort((a, b) => {
+      const aId = typeof a[pkCol] === "number" ? a[pkCol] : null;
+      const bId = typeof b[pkCol] === "number" ? b[pkCol] : null;
+      const aPinned = aId !== null && pinnedRows.has(aId);
+      const bPinned = bId !== null && pinnedRows.has(bId);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return 0;
+    });
+  }, [rawRows, pinnedRows, schema?.primary_key]);
   const totalPages = Math.ceil(totalRows / PAGE_SIZE);
 
   // Update last refreshed timestamp when data changes
@@ -1158,6 +1223,22 @@ export default function TableBrowserPage() {
 
   const handleToggleEditDiff = useCallback(() => {
     setShowEditDiff((prev) => !prev);
+  }, []);
+
+  const handleTogglePin = useCallback((id: number) => {
+    setPinnedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleClearPins = useCallback(() => {
+    setPinnedRows(new Set());
   }, []);
 
   // Keep keyboard state ref in sync (avoids re-attaching event listener)
@@ -1706,6 +1787,19 @@ export default function TableBrowserPage() {
                 )}
               </div>
 
+              {/* Clear pinned rows */}
+              {pinnedRows.size > 0 && (
+                <button
+                  onClick={handleClearPins}
+                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                  title="Clear all pinned rows"
+                >
+                  <Star className="h-4 w-4 fill-current" aria-hidden="true" />
+                  <span className="hidden sm:inline">{pinnedRows.size} pinned</span>
+                  <X className="h-3 w-3" aria-hidden="true" />
+                </button>
+              )}
+
               {/* Export dropdown */}
               <div className="relative group">
                 <button
@@ -2165,6 +2259,8 @@ export default function TableBrowserPage() {
                           getInputType={getInputType}
                           isLongValue={isLongValue}
                           searchQuery={debouncedSearch}
+                          isPinned={pinnedRows.has(rowId)}
+                          onTogglePin={handleTogglePin}
                         />
                       );
                     })}
