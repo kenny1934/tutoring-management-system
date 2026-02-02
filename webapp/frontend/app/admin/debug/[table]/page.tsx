@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
@@ -204,16 +204,23 @@ function useFocusTrap(isOpen: boolean, modalRef: React.RefObject<HTMLElement | n
 export default function TableBrowserPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tableName = params.table as string;
   const urlFilter = searchParams.get("filter");
 
   usePageTitle(`Debug: ${tableName}`);
 
-  // State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(0);
-  const [sortBy, setSortBy] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  // Initialize state from URL params
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [page, setPage] = useState(() => {
+    const urlPage = searchParams.get("page");
+    return urlPage ? Math.max(0, parseInt(urlPage, 10) - 1) : 0;
+  });
+  const [sortBy, setSortBy] = useState<string | null>(() => searchParams.get("sort") || null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    const urlOrder = searchParams.get("order");
+    return urlOrder === "asc" ? "asc" : "desc";
+  });
   const [editingRow, setEditingRow] = useState<DebugRow | null>(null);
   const [editedData, setEditedData] = useState<Record<string, unknown>>({});
   const [isCreating, setIsCreating] = useState(false);
@@ -363,6 +370,25 @@ export default function TableBrowserPage() {
   useFocusTrap(showSaveFilterModal, saveFilterModalRef);
 
   const debouncedSearch = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
+
+  // Sync state to URL for bookmark/refresh persistence
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (sortBy) params.set("sort", sortBy);
+    if (sortOrder !== "desc") params.set("order", sortOrder);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    if (page > 0) params.set("page", String(page + 1));
+    // Preserve existing filter param
+    if (urlFilter) params.set("filter", urlFilter);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `?${queryString}` : window.location.pathname;
+
+    // Only update if URL actually changed to avoid unnecessary history entries
+    if (window.location.search !== (queryString ? `?${queryString}` : "")) {
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [sortBy, sortOrder, debouncedSearch, page, urlFilter, router]);
 
   // Handle click outside to close column menu
   useEffect(() => {
@@ -651,22 +677,29 @@ export default function TableBrowserPage() {
   const handleExport = useCallback(async (format: "csv" | "json") => {
     setIsExporting(true);
     try {
-      const blob = await debugAPI.exportTable(tableName, format, 10000);
+      // Pass current search/filter state to export
+      const blob = await debugAPI.exportTable(tableName, format, 10000, {
+        filter: debouncedSearch || undefined,
+        includeDeleted: showDeleted,
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${tableName}.${format}`;
+      // Include "filtered" in filename if filters are active
+      const suffix = debouncedSearch ? "_filtered" : "";
+      a.download = `${tableName}${suffix}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast(`Exported ${tableName}.${format}`, "success");
+      const filterNote = debouncedSearch ? " (filtered)" : "";
+      showToast(`Exported ${tableName}.${format}${filterNote}`, "success");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Export failed", "error");
     } finally {
       setIsExporting(false);
     }
-  }, [tableName]);
+  }, [tableName, debouncedSearch, showDeleted]);
 
   // Toggle row selection
   const toggleRowSelection = useCallback((rowId: number) => {
@@ -814,19 +847,19 @@ export default function TableBrowserPage() {
   const getColumnTypeIcon = (type: string) => {
     switch (type) {
       case "integer":
-        return <Hash className="h-3 w-3" />;
+        return <Hash className="h-3 w-3" aria-hidden="true" />;
       case "decimal":
-        return <Coins className="h-3 w-3" />;
+        return <Coins className="h-3 w-3" aria-hidden="true" />;
       case "date":
-        return <Calendar className="h-3 w-3" />;
+        return <Calendar className="h-3 w-3" aria-hidden="true" />;
       case "datetime":
-        return <Clock className="h-3 w-3" />;
+        return <Clock className="h-3 w-3" aria-hidden="true" />;
       case "boolean":
-        return <ToggleLeft className="h-3 w-3" />;
+        return <ToggleLeft className="h-3 w-3" aria-hidden="true" />;
       case "binary":
-        return <Binary className="h-3 w-3" />;
+        return <Binary className="h-3 w-3" aria-hidden="true" />;
       default:
-        return <Type className="h-3 w-3" />;
+        return <Type className="h-3 w-3" aria-hidden="true" />;
     }
   };
 
@@ -1232,12 +1265,13 @@ export default function TableBrowserPage() {
                   <Link
                     href="/admin/debug"
                     className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                    aria-label="Back to debug panel"
                   >
-                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
                   </Link>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
-                      <Table2 className="h-6 w-6 text-[#a0704b]" />
+                      <Table2 className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-2xl font-bold text-white">
@@ -1255,7 +1289,7 @@ export default function TableBrowserPage() {
             {/* Warning Banner */}
             <div className="mx-4 sm:mx-6 mb-4 p-2 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
               <div className="flex items-center gap-2 text-red-700 dark:text-red-400 text-xs">
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                 <span>Changes affect production data. All operations are logged.</span>
               </div>
             </div>
@@ -1263,7 +1297,7 @@ export default function TableBrowserPage() {
             {/* Toolbar */}
             <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -1276,7 +1310,7 @@ export default function TableBrowserPage() {
                   className="w-full pl-9 pr-8 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
-                  <HelpCircle className="h-4 w-4 text-gray-400 hover:text-[#a0704b] cursor-help" />
+                  <HelpCircle className="h-4 w-4 text-gray-400 hover:text-[#a0704b] cursor-help" aria-hidden="true" />
                   <div className="absolute right-0 top-6 hidden group-hover:block z-50 w-64 p-3 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] text-xs">
                     <p className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Syntax</p>
                     <div className="space-y-1 text-gray-600 dark:text-gray-400">
@@ -1330,7 +1364,7 @@ export default function TableBrowserPage() {
                   className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
                   title="Toggle columns"
                 >
-                  <Columns3 className="h-4 w-4" />
+                  <Columns3 className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Columns</span>
                 </button>
                 {showColumnMenu && (
@@ -1366,9 +1400,9 @@ export default function TableBrowserPage() {
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                         >
                           {hiddenColumns.has(col.name) ? (
-                            <EyeOff className="h-4 w-4 text-gray-400" />
+                            <EyeOff className="h-4 w-4 text-gray-400" aria-hidden="true" />
                           ) : (
-                            <Eye className="h-4 w-4 text-[#a0704b]" />
+                            <Eye className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
                           )}
                           <span className={cn(
                             "truncate",
@@ -1399,9 +1433,9 @@ export default function TableBrowserPage() {
                   title="Export table"
                 >
                   {isExporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4" aria-hidden="true" />
                   )}
                   <span className="hidden sm:inline">Export</span>
                 </button>
@@ -1429,7 +1463,7 @@ export default function TableBrowserPage() {
                 className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
                 title="Import data"
               >
-                <Upload className="h-4 w-4" />
+                <Upload className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Import</span>
               </button>
 
@@ -1444,7 +1478,7 @@ export default function TableBrowserPage() {
                       : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                   )}
                 >
-                  <Filter className="h-4 w-4" />
+                  <Filter className="h-4 w-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Filters</span>
                   {activeQuickFilters.size > 0 && (
                     <span className="px-1.5 py-0.5 text-xs rounded-full bg-[#a0704b] text-white">
@@ -1452,9 +1486,9 @@ export default function TableBrowserPage() {
                     </span>
                   )}
                   {showQuickFilters ? (
-                    <ChevronUp className="h-3 w-3" />
+                    <ChevronUp className="h-3 w-3" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="h-3 w-3" aria-hidden="true" />
                   )}
                 </button>
               )}
@@ -1464,7 +1498,7 @@ export default function TableBrowserPage() {
                 disabled={isCreating}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50 btn-press"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 Create
               </button>
               <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
@@ -1518,7 +1552,7 @@ export default function TableBrowserPage() {
                         onClick={() => setShowSaveFilterModal(true)}
                         className="flex items-center gap-1 px-2 py-1 text-xs text-[#a0704b] hover:underline"
                       >
-                        <Save className="h-3 w-3" />
+                        <Save className="h-3 w-3" aria-hidden="true" />
                         Save
                       </button>
                     </>
@@ -1537,15 +1571,16 @@ export default function TableBrowserPage() {
                           onClick={() => handleApplySavedFilter(filter.filters)}
                           className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors"
                         >
-                          <Bookmark className="h-3 w-3 text-[#a0704b]" />
+                          <Bookmark className="h-3 w-3 text-[#a0704b]" aria-hidden="true" />
                           {filter.name}
                         </button>
                         <button
                           onClick={() => handleDeleteSavedFilter(index)}
                           className="p-1 text-gray-400 hover:text-red-500 transition-colors"
                           title="Delete saved filter"
+                          aria-label="Delete saved filter"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3 w-3" aria-hidden="true" />
                         </button>
                       </div>
                     ))}
@@ -1564,7 +1599,7 @@ export default function TableBrowserPage() {
                   onClick={() => setShowBulkEdit(true)}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
                   Edit Selected
                 </button>
                 {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
@@ -1574,9 +1609,9 @@ export default function TableBrowserPage() {
                     className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
                     {isBulkDeleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     )}
                     {schema?.has_soft_delete ? "Soft Delete" : "Delete"} Selected
                   </button>
@@ -1620,7 +1655,7 @@ export default function TableBrowserPage() {
               </div>
             ) : isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
               </div>
             ) : (
               <>
@@ -1681,16 +1716,16 @@ export default function TableBrowserPage() {
                             >
                               <span className="truncate">{col.name}</span>
                               {schema?.foreign_keys[col.name] && (
-                                <ExternalLink className="h-3 w-3 text-blue-500" />
+                                <ExternalLink className="h-3 w-3 text-blue-500" aria-hidden="true" />
                               )}
                               {sortBy === col.name ? (
                                 sortOrder === "asc" ? (
-                                  <ArrowUp className="h-3 w-3" />
+                                  <ArrowUp className="h-3 w-3" aria-hidden="true" />
                                 ) : (
-                                  <ArrowDown className="h-3 w-3" />
+                                  <ArrowDown className="h-3 w-3" aria-hidden="true" />
                                 )
                               ) : (
-                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                <ArrowUpDown className="h-3 w-3 opacity-30" aria-hidden="true" />
                               )}
                             </button>
                             <button
@@ -1703,7 +1738,7 @@ export default function TableBrowserPage() {
                               title="View column statistics"
                               aria-label={`View statistics for ${col.name}`}
                             >
-                              <BarChart3 className="h-3 w-3" />
+                              <BarChart3 className="h-3 w-3" aria-hidden="true" />
                             </button>
                           </div>
                           <div className="flex items-center gap-1 text-[10px] font-normal text-gray-400">
@@ -1773,9 +1808,9 @@ export default function TableBrowserPage() {
                               aria-label="Save new row"
                             >
                               {isSubmitting ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                               ) : (
-                                <Check className="h-4 w-4" />
+                                <Check className="h-4 w-4" aria-hidden="true" />
                               )}
                             </button>
                             <button
@@ -1784,7 +1819,7 @@ export default function TableBrowserPage() {
                               className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
                               aria-label="Cancel create"
                             >
-                              <X className="h-4 w-4" />
+                              <X className="h-4 w-4" aria-hidden="true" />
                             </button>
                           </div>
                         </td>
@@ -1826,9 +1861,9 @@ export default function TableBrowserPage() {
                               aria-label={isSelected ? "Deselect row" : "Select row"}
                             >
                               {isSelected ? (
-                                <CheckSquare className="h-4 w-4 text-[#a0704b]" />
+                                <CheckSquare className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
                               ) : (
-                                <Square className="h-4 w-4 text-gray-400" />
+                                <Square className="h-4 w-4 text-gray-400" aria-hidden="true" />
                               )}
                             </button>
                           </td>
@@ -1865,7 +1900,7 @@ export default function TableBrowserPage() {
                                       />
                                       {showEditDiff && getChangedFields.has(col.name) && (
                                         <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                                          <GitCompare className="h-3 w-3" />
+                                          <GitCompare className="h-3 w-3" aria-hidden="true" />
                                           was {editingRow[col.name] ? "true" : "false"}
                                         </span>
                                       )}
@@ -1938,7 +1973,7 @@ export default function TableBrowserPage() {
                                       className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
                                       aria-label="View full value"
                                     >
-                                      <Expand className="h-3 w-3" />
+                                      <Expand className="h-3 w-3" aria-hidden="true" />
                                     </button>
                                   )}
                                 </div>
@@ -1959,7 +1994,7 @@ export default function TableBrowserPage() {
                                   title={showEditDiff ? "Hide diff" : "Show diff"}
                                   aria-label="Toggle diff view"
                                 >
-                                  <GitCompare className="h-4 w-4" />
+                                  <GitCompare className="h-4 w-4" aria-hidden="true" />
                                 </button>
                                 <button
                                   onClick={handleSaveEdit}
@@ -1968,9 +2003,9 @@ export default function TableBrowserPage() {
                                   aria-label="Save changes"
                                 >
                                   {isSubmitting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                                   ) : (
-                                    <Check className="h-4 w-4" />
+                                    <Check className="h-4 w-4" aria-hidden="true" />
                                   )}
                                 </button>
                                 <button
@@ -1979,7 +2014,7 @@ export default function TableBrowserPage() {
                                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
                                   aria-label="Cancel edit"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-4 w-4" aria-hidden="true" />
                                 </button>
                               </div>
                             ) : isDeleting ? (
@@ -1991,7 +2026,7 @@ export default function TableBrowserPage() {
                                   aria-label="Confirm delete"
                                 >
                                   {isSubmitting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                                   ) : (
                                     "Confirm"
                                   )}
@@ -2002,7 +2037,7 @@ export default function TableBrowserPage() {
                                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
                                   aria-label="Cancel delete"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-4 w-4" aria-hidden="true" />
                                 </button>
                               </div>
                             ) : (
@@ -2013,7 +2048,7 @@ export default function TableBrowserPage() {
                                   title="Edit"
                                   aria-label="Edit row"
                                 >
-                                  <Pencil className="h-4 w-4" />
+                                  <Pencil className="h-4 w-4" aria-hidden="true" />
                                 </button>
                                 <button
                                   onClick={() => handleCloneRow(row)}
@@ -2021,7 +2056,7 @@ export default function TableBrowserPage() {
                                   title="Clone"
                                   aria-label="Clone row"
                                 >
-                                  <Copy className="h-4 w-4" />
+                                  <Copy className="h-4 w-4" aria-hidden="true" />
                                 </button>
                                 {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
                                   <button
@@ -2030,7 +2065,7 @@ export default function TableBrowserPage() {
                                     title={schema?.has_soft_delete ? "Soft Delete" : "Delete"}
                                     aria-label={schema?.has_soft_delete ? "Soft delete row" : "Delete row"}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                                   </button>
                                 )}
                               </div>
@@ -2065,7 +2100,7 @@ export default function TableBrowserPage() {
                 disabled={page === 0}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 Previous
               </button>
               <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
@@ -2101,7 +2136,7 @@ export default function TableBrowserPage() {
                 className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
               >
                 Next
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -2130,14 +2165,14 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4 overflow-auto flex-1">
                 {isBinaryData(detailCell.value) ? (
                   <div className="flex flex-col items-center gap-4 py-8">
                     <div className="p-4 rounded-full bg-gray-100 dark:bg-gray-800">
-                      <FileDown className="h-8 w-8 text-gray-500" />
+                      <FileDown className="h-8 w-8 text-gray-500" aria-hidden="true" />
                     </div>
                     <div className="text-center">
                       <p className="font-medium text-gray-900 dark:text-gray-100">Binary Data</p>
@@ -2174,7 +2209,7 @@ export default function TableBrowserPage() {
                       }}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-4 w-4" aria-hidden="true" />
                       Download
                     </button>
                   </div>
@@ -2213,7 +2248,7 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4 space-y-4">
@@ -2300,9 +2335,9 @@ export default function TableBrowserPage() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
                   {isBulkUpdating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Check className="h-4 w-4" />
+                    <Check className="h-4 w-4" aria-hidden="true" />
                   )}
                   Update {selectedRows.size} Rows
                 </button>
@@ -2326,7 +2361,7 @@ export default function TableBrowserPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <AlertTriangle className="h-5 w-5 text-red-600" aria-hidden="true" />
                 <h3 id="bulk-delete-title" className="font-semibold text-red-600">
                   Confirm Bulk Delete
                 </h3>
@@ -2359,9 +2394,9 @@ export default function TableBrowserPage() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                 >
                   {isBulkDeleting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
                   )}
                   Delete {selectedRows.size} Rows
                 </button>
@@ -2393,13 +2428,13 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close preview"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-3 overflow-y-auto flex-1">
                 {fkPreviewLoading ? (
                   <div className="flex justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" aria-hidden="true" />
                   </div>
                 ) : fkPreviewData ? (
                   <div className="space-y-2 text-sm">
@@ -2437,7 +2472,7 @@ export default function TableBrowserPage() {
                   className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
                 >
                   Go to {fkPreview.tableName}
-                  <ExternalLink className="h-4 w-4" />
+                  <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </div>
             </div>
@@ -2467,7 +2502,7 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4 space-y-3">
@@ -2530,7 +2565,7 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4">
@@ -2564,7 +2599,7 @@ export default function TableBrowserPage() {
                   disabled={!newFilterName.trim()}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4" aria-hidden="true" />
                   Save
                 </button>
               </div>
@@ -2588,7 +2623,7 @@ export default function TableBrowserPage() {
             >
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <h3 id="import-title" className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <FileUp className="h-5 w-5 text-[#a0704b]" />
+                  <FileUp className="h-5 w-5 text-[#a0704b]" aria-hidden="true" />
                   Import Data
                 </h3>
                 <button
@@ -2596,7 +2631,7 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4 flex-1 overflow-auto">
@@ -2650,7 +2685,7 @@ export default function TableBrowserPage() {
                     disabled={!importData.trim()}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4" aria-hidden="true" />
                     Preview
                   </button>
 
@@ -2709,9 +2744,9 @@ export default function TableBrowserPage() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
                 >
                   {isImporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Upload className="h-4 w-4" />
+                    <Upload className="h-4 w-4" aria-hidden="true" />
                   )}
                   Import {importPreview.length} Rows
                 </button>
@@ -2746,7 +2781,7 @@ export default function TableBrowserPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
               <div className="p-4">
