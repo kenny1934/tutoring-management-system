@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { List } from "react-window";
+import { useTheme } from "next-themes";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -11,6 +12,14 @@ import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import type { SqlQueryResponse } from "@/types/debug";
+
+// CodeMirror imports
+import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { sql, MySQL } from "@codemirror/lang-sql";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { defaultKeymap, history as cmHistory, historyKeymap } from "@codemirror/commands";
+import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 
 // Virtual scrolling constants
 const ROW_HEIGHT = 32;
@@ -32,6 +41,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  FileCode,
 } from "lucide-react";
 
 // Query history stored in localStorage
@@ -43,6 +53,133 @@ interface QueryHistoryItem {
   timestamp: number;
   rowCount?: number;
   executionTime?: number;
+}
+
+// SQL query templates for common operations
+const SQL_TEMPLATES = [
+  { label: "Select all", query: "SELECT * FROM {table} LIMIT 50" },
+  { label: "Count rows", query: "SELECT COUNT(*) as total FROM {table}" },
+  { label: "Recent rows", query: "SELECT * FROM {table} ORDER BY id DESC LIMIT 20" },
+  { label: "Search by ID", query: "SELECT * FROM {table} WHERE id = {id}" },
+  { label: "Group by column", query: "SELECT {column}, COUNT(*) as count FROM {table} GROUP BY {column}" },
+  { label: "Join tables", query: "SELECT t1.*, t2.* FROM {table1} t1\nJOIN {table2} t2 ON t1.{fk_column} = t2.id\nLIMIT 50" },
+  { label: "Date range", query: "SELECT * FROM {table}\nWHERE created_at >= '{start_date}'\n  AND created_at < '{end_date}'\nORDER BY created_at DESC" },
+  { label: "Text search", query: "SELECT * FROM {table}\nWHERE {column} LIKE '%{search}%'\nLIMIT 50" },
+];
+
+// Light theme for CodeMirror
+const lightTheme = EditorView.theme({
+  "&": {
+    backgroundColor: "#ffffff",
+    color: "#1a1a1a",
+  },
+  ".cm-content": {
+    caretColor: "#1a1a1a",
+    fontFamily: "ui-monospace, 'SF Mono', Menlo, Monaco, 'Cascadia Mono', monospace",
+    fontSize: "14px",
+  },
+  ".cm-cursor": {
+    borderLeftColor: "#1a1a1a",
+  },
+  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+    backgroundColor: "#d7d4f0",
+  },
+  ".cm-gutters": {
+    backgroundColor: "#f5ede3",
+    color: "#999",
+    border: "none",
+  },
+});
+
+// SQL Editor component
+interface SqlEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  onExecute: () => void;
+  isDark: boolean;
+}
+
+function SqlEditor({ value, onChange, onExecute, isDark }: SqlEditorProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onExecuteRef = useRef(onExecute);
+
+  // Keep refs up to date
+  onChangeRef.current = onChange;
+  onExecuteRef.current = onExecute;
+
+  // Create/update editor
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // If editor exists, update theme
+    if (viewRef.current) {
+      viewRef.current.destroy();
+    }
+
+    const executeKeymap = keymap.of([
+      {
+        key: "Mod-Enter",
+        run: () => {
+          onExecuteRef.current();
+          return true;
+        },
+      },
+    ]);
+
+    const updateListener = EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        onChangeRef.current(update.state.doc.toString());
+      }
+    });
+
+    const state = EditorState.create({
+      doc: value,
+      extensions: [
+        cmHistory(),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        executeKeymap,
+        sql({ dialect: MySQL }),
+        isDark ? oneDark : [lightTheme, syntaxHighlighting(defaultHighlightStyle)],
+        cmPlaceholder("SELECT * FROM students LIMIT 10;"),
+        updateListener,
+        EditorView.lineWrapping,
+      ],
+    });
+
+    viewRef.current = new EditorView({
+      state,
+      parent: containerRef.current,
+    });
+
+    return () => {
+      viewRef.current?.destroy();
+    };
+  }, [isDark]); // Recreate on theme change
+
+  // Update doc if value changes externally (e.g., from templates)
+  useEffect(() => {
+    if (viewRef.current) {
+      const currentDoc = viewRef.current.state.doc.toString();
+      if (currentDoc !== value) {
+        viewRef.current.dispatch({
+          changes: {
+            from: 0,
+            to: currentDoc.length,
+            insert: value,
+          },
+        });
+      }
+    }
+  }, [value]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full min-h-[168px] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl overflow-hidden [&_.cm-editor]:min-h-[168px] [&_.cm-scroller]:min-h-[168px]"
+    />
+  );
 }
 
 // Row component for virtual scrolling (react-window v2 API)
@@ -97,6 +234,8 @@ function SqlResultRow({
 export default function SqlExecutorPage() {
   usePageTitle("SQL Executor");
   const { showToast } = useToast();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   // State
   const [query, setQuery] = useState("");
@@ -106,8 +245,13 @@ export default function SqlExecutorPage() {
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<QueryHistoryItem[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Track mount state for SSR
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Load history from localStorage
   useEffect(() => {
@@ -177,7 +321,6 @@ export default function SqlExecutorPage() {
   const handleLoadFromHistory = useCallback((historyQuery: string) => {
     setQuery(historyQuery);
     setShowHistory(false);
-    textareaRef.current?.focus();
   }, []);
 
   // Delete history item
@@ -189,6 +332,13 @@ export default function SqlExecutorPage() {
     },
     [history, saveHistory]
   );
+
+  // Insert template
+  const handleInsertTemplate = useCallback((templateQuery: string) => {
+    // If current query is empty, replace entirely; otherwise append
+    setQuery((prev) => (prev.trim() ? prev + "\n\n" + templateQuery : templateQuery));
+    setShowTemplates(false);
+  }, []);
 
   // Export results as CSV
   const handleExport = useCallback(() => {
@@ -299,16 +449,17 @@ export default function SqlExecutorPage() {
           <div className="p-4 sm:px-6 sm:py-4 space-y-4">
             {/* Query Input */}
             <div className="relative">
-              <textarea
-                ref={textareaRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="SELECT * FROM students LIMIT 10;"
-                rows={6}
-                className="w-full px-4 py-3 font-mono-data text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl bg-white dark:bg-[#1a1a1a] placeholder-gray-400 resize-y"
-                spellCheck={false}
-              />
-              <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+              {mounted ? (
+                <SqlEditor
+                  value={query}
+                  onChange={setQuery}
+                  onExecute={handleExecute}
+                  isDark={isDark}
+                />
+              ) : (
+                <div className="w-full min-h-[168px] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl bg-white dark:bg-[#1a1a1a]" />
+              )}
+              <div className="mt-2 text-xs text-gray-400 text-right">
                 Press <span className="kbd-key">Ctrl</span> + <span className="kbd-key">Enter</span> to execute
               </div>
             </div>
@@ -328,8 +479,52 @@ export default function SqlExecutorPage() {
                 Execute
               </button>
 
+              {/* Templates Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowTemplates(!showTemplates);
+                    setShowHistory(false);
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
+                    showTemplates
+                      ? "bg-[#a0704b] text-white border-[#a0704b]"
+                      : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  )}
+                >
+                  <FileCode className="h-4 w-4" aria-hidden="true" />
+                  Templates
+                  {showTemplates ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+                </button>
+                {showTemplates && (
+                  <div className="absolute top-full left-0 mt-1 w-72 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg z-50 overflow-hidden">
+                    <div className="px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a] text-xs text-gray-500 dark:text-gray-400">
+                      Click to insert • Replace {"{placeholders}"} with values
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {SQL_TEMPLATES.map((template) => (
+                        <button
+                          key={template.label}
+                          onClick={() => handleInsertTemplate(template.query)}
+                          className="w-full text-left px-3 py-2 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                        >
+                          <div className="font-medium text-sm">{template.label}</div>
+                          <pre className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate mt-0.5">
+                            {template.query.split('\n')[0]}
+                          </pre>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
-                onClick={() => setShowHistory(!showHistory)}
+                onClick={() => {
+                  setShowHistory(!showHistory);
+                  setShowTemplates(false);
+                }}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors btn-press",
                   showHistory

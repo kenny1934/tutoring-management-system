@@ -121,6 +121,8 @@ class PaginatedRows(BaseModel):
     total: int
     limit: int
     offset: int
+    active_count: Optional[int] = None  # Count of non-deleted rows (for soft-delete tables)
+    deleted_count: Optional[int] = None  # Count of soft-deleted rows
 
 
 class AuditLogEntry(BaseModel):
@@ -752,6 +754,19 @@ async def list_rows(
         count_params = {k: v for k, v in params.items() if k not in ("limit", "offset")}
         count_result = db.execute(text(count_query), count_params)
         total = count_result.scalar() or 0
+
+        # Get active/deleted counts for soft-delete tables
+        active_count = None
+        deleted_count = None
+        if 'deleted_at' in valid_columns:
+            active_result = db.execute(
+                text(f"SELECT COUNT(*) FROM `{table_name}` WHERE `deleted_at` IS NULL")
+            )
+            active_count = active_result.scalar() or 0
+            deleted_result = db.execute(
+                text(f"SELECT COUNT(*) FROM `{table_name}` WHERE `deleted_at` IS NOT NULL")
+            )
+            deleted_count = deleted_result.scalar() or 0
     except Exception as e:
         logger.error(f"Query failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
@@ -764,6 +779,8 @@ async def list_rows(
         total=total,
         limit=limit,
         offset=offset,
+        active_count=active_count,
+        deleted_count=deleted_count,
     )
 
 
