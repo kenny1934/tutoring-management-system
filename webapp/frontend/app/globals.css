@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:is(.dark *));
@@ -1710,4 +1710,231 @@ html {
   @keyframes button-shimmer {
     0%, 100% { transform: translateX(-100%); }
   }
+}
+
+/* ===== DEBUG PANEL STYLES ===== */
+
+/* Monospace font for table data */
+.font-mono-data {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* Modal animations */
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-modal-in {
+  animation: modal-slide-up 250ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-backdrop-in {
+  animation: modal-backdrop-fade 200ms ease-out forwards;
+}
+
+/* Delete modal glow effect */
+.delete-modal-glow {
+  box-shadow:
+    0 0 0 1px rgba(220, 38, 38, 0.3),
+    0 0 20px rgba(220, 38, 38, 0.15),
+    0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Button press effect */
+.btn-press {
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Pulsing dot animation */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Table row hover effect */
+.debug-row-hover {
+  transition: background-color 150ms ease-out;
+}
+
+.debug-row-hover:hover {
+  background-color: rgba(160, 112, 75, 0.08);
+}
+
+.dark .debug-row-hover:hover {
+  background-color: rgba(160, 112, 75, 0.12);
+}
+
+/* Zebra striping */
+.debug-row-even {
+  background-color: rgba(245, 237, 227, 0.5);
+}
+
+.dark .debug-row-even {
+  background-color: rgba(45, 38, 24, 0.3);
+}
+
+/* Focused row indicator (keyboard navigation) */
+.debug-row-focused {
+  outline: 2px solid #a0704b;
+  outline-offset: -2px;
+  background-color: rgba(160, 112, 75, 0.12) !important;
+}
+
+.dark .debug-row-focused {
+  background-color: rgba(160, 112, 75, 0.18) !important;
+}
+
+/* FK column highlight */
+.fk-column-cell {
+  background-color: rgba(59, 130, 246, 0.06);
+}
+
+.dark .fk-column-cell {
+  background-color: rgba(59, 130, 246, 0.10);
+}
+
+/* FK column header */
+.fk-column-header {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+}
+
+.dark .fk-column-header {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+
+/* Diff view - changed cell highlight */
+.diff-cell-changed {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  position: relative;
+}
+
+.dark .diff-cell-changed {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+.diff-cell-changed::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, #f59e0b, #d97706);
+}
+
+/* Sticky first column (PK) */
+.sticky-pk-column {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: inherit;
+}
+
+.sticky-pk-column::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
+}
+
+/* Priority accent colors for table cards */
+.priority-accent-red {
+  border-left: 4px solid #ef4444;
+}
+
+.priority-accent-amber {
+  border-left: 4px solid #f59e0b;
+}
+
+.priority-accent-blue {
+  border-left: 4px solid #3b82f6;
+}
+
+.priority-accent-gray {
+  border-left: 4px solid #9ca3af;
+}
+
+/* Checkbox animation */
+@keyframes checkbox-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.checkbox-animate:checked {
+  animation: checkbox-pop 200ms ease-out;
+}
+
+/* Selection pulse effect */
+@keyframes selection-pulse {
+  0% { background-color: rgba(59, 130, 246, 0.2); }
+  100% { background-color: rgba(59, 130, 246, 0.08); }
+}
+
+.animate-selection-pulse {
+  animation: selection-pulse 300ms ease-out forwards;
+}
+
+/* Keyboard shortcuts help modal */
+.kbd-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: linear-gradient(180deg, #f5f5f5 0%, #e5e5e5 100%);
+  border: 1px solid #d4d4d4;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  color: #374151;
+}
+
+.dark .kbd-key {
+  background: linear-gradient(180deg, #3f3f3f 0%, #2a2a2a 100%);
+  border-color: #525252;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: #e5e5e5;
+}
+
+/* Last refreshed timestamp fade in */
+@keyframes refresh-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-refresh-in {
+  animation: refresh-fade 300ms ease-out forwards;
 }

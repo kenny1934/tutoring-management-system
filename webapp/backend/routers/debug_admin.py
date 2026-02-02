@@ -47,13 +47,30 @@ router = APIRouter(prefix="/debug", tags=["Debug Admin"])
 
 # Columns that should be redacted in audit logs (exact matches)
 SENSITIVE_COLUMNS = {
+    # Auth/credentials
     "password", "password_hash", "api_key", "token", "secret",
     "access_token", "refresh_token", "private_key", "credential",
-    "ssn", "social_security", "credit_card", "card_number",
+    # Financial
+    "ssn", "social_security", "credit_card", "card_number", "bank_account",
+    "cvv", "pin", "routing_number",
+    # PII - contact info
+    "phone", "phone_number", "mobile", "email", "address", "home_address",
+    "emergency_contact", "parent_phone", "parent_email",
+    # PII - identity
+    "date_of_birth", "dob", "birth_date", "national_id", "passport",
+    "drivers_license", "school_student_id",
+    # Location
+    "home_location", "ip_address",
 }
 
 # Patterns for sensitive column detection (partial matches)
-SENSITIVE_PATTERNS = {"_token", "_key", "_secret", "_password", "_credential"}
+SENSITIVE_PATTERNS = {
+    "_token", "_key", "_secret", "_password", "_credential",
+    "_phone", "_email", "_address", "_ssn", "_pin",
+}
+
+# SQL query execution timeout in seconds
+SQL_QUERY_TIMEOUT_SECONDS = 30
 
 # Maximum number of filters allowed in a single query
 MAX_FILTERS = 10
@@ -289,6 +306,34 @@ def fetch_row_by_id(
     )
     row = result.fetchone()
     return serialize_row(dict(row._mapping)) if row else None
+
+
+def fetch_rows_by_ids(
+    db: Session,
+    table_name: str,
+    pk_col: str,
+    row_ids: list[int]
+) -> dict[int, dict]:
+    """
+    Fetch multiple rows by primary keys in a single query.
+    Returns a dict mapping row_id -> row_data. Missing IDs won't be in the result.
+    """
+    if not row_ids:
+        return {}
+
+    # Build parameterized IN clause
+    placeholders = ", ".join([f":id_{i}" for i in range(len(row_ids))])
+    params = {f"id_{i}": rid for i, rid in enumerate(row_ids)}
+
+    result = db.execute(
+        text(f"SELECT * FROM `{table_name}` WHERE `{pk_col}` IN ({placeholders})"),
+        params
+    )
+
+    return {
+        row._mapping[pk_col]: serialize_row(dict(row._mapping))
+        for row in result
+    }
 
 
 def log_operation(
@@ -711,7 +756,7 @@ async def list_rows(
         logger.error(f"Query failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Query failed: {str(e)[:200]}",
+            detail="Failed to fetch table data. Check server logs for details.",
         )
 
     return PaginatedRows(
@@ -1020,22 +1065,19 @@ async def bulk_delete_rows(
             detail="Cannot delete more than 100 rows at once",
         )
 
-    # Validate all rows exist first (before any deletions)
-    rows_to_delete = []
-    not_found_ids = []
+    # Fetch all rows in a single query (N+1 fix)
+    existing_rows = fetch_rows_by_ids(db, table_name, pk_col, body.ids)
 
-    for row_id in body.ids:
-        before_state = fetch_row_by_id(db, table_name, pk_col, row_id)
-        if not before_state:
-            not_found_ids.append(row_id)
-        else:
-            rows_to_delete.append((row_id, before_state))
-
+    # Find which IDs don't exist
+    not_found_ids = [rid for rid in body.ids if rid not in existing_rows]
     if not_found_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Rows not found: {not_found_ids}",
         )
+
+    # Build list of rows to delete with their before state
+    rows_to_delete = [(rid, existing_rows[rid]) for rid in body.ids]
 
     # All-or-nothing deletion with rollback on any failure
     try:
@@ -1127,22 +1169,19 @@ async def bulk_update_rows(
             detail="Cannot update more than 100 rows at once",
         )
 
-    # Validate all rows exist first
-    rows_to_update = []
-    not_found_ids = []
+    # Fetch all rows in a single query (N+1 fix)
+    existing_rows = fetch_rows_by_ids(db, table_name, pk_col, body.ids)
 
-    for row_id in body.ids:
-        before_state = fetch_row_by_id(db, table_name, pk_col, row_id)
-        if not before_state:
-            not_found_ids.append(row_id)
-        else:
-            rows_to_update.append((row_id, before_state))
-
+    # Find which IDs don't exist
+    not_found_ids = [rid for rid in body.ids if rid not in existing_rows]
     if not_found_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Rows not found: {not_found_ids}",
         )
+
+    # Build list of rows to update with their before state
+    rows_to_update = [(rid, existing_rows[rid]) for rid in body.ids]
 
     # All-or-nothing update with rollback on any failure
     try:
@@ -1322,3 +1361,431 @@ async def get_audit_logs(
         limit=limit,
         offset=offset,
     )
+
+
+# ============================================================================
+# SQL Query Executor (Read-Only)
+# ============================================================================
+
+class SqlQueryRequest(BaseModel):
+    """Request body for SQL query execution."""
+    query: str
+
+    class Config:
+        max_anystr_length = 10000
+
+
+class SqlQueryResponse(BaseModel):
+    """Response for SQL query execution."""
+    columns: list[str]
+    rows: list[dict]
+    row_count: int
+    execution_time_ms: float
+
+
+# Disallowed SQL keywords for safety
+DISALLOWED_SQL_KEYWORDS = {
+    "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE",
+    "GRANT", "REVOKE", "EXECUTE", "CALL", "SET", "LOAD", "INTO OUTFILE",
+    "INTO DUMPFILE", "REPLACE", "MERGE", "UPSERT", "RENAME", "LOCK",
+    "UNLOCK", "FLUSH", "RESET", "PURGE", "HANDLER", "DO", "PREPARE",
+    "DEALLOCATE", "XA", "SAVEPOINT", "ROLLBACK", "COMMIT", "START",
+}
+
+
+def strip_sql_comments(query: str) -> str:
+    """
+    Remove SQL comments from a query to prevent bypass attacks.
+    Handles both -- line comments and /* */ block comments.
+    """
+    result = []
+    i = 0
+    in_string = False
+    string_char = None
+
+    while i < len(query):
+        # Track string literals to avoid stripping comments inside strings
+        if not in_string and query[i] in ("'", '"'):
+            in_string = True
+            string_char = query[i]
+            result.append(query[i])
+            i += 1
+        elif in_string and query[i] == string_char:
+            # Check for escaped quote
+            if i + 1 < len(query) and query[i + 1] == string_char:
+                result.append(query[i:i+2])
+                i += 2
+            else:
+                in_string = False
+                string_char = None
+                result.append(query[i])
+                i += 1
+        elif not in_string and query[i:i+2] == '--':
+            # Skip until end of line
+            while i < len(query) and query[i] != '\n':
+                i += 1
+            result.append(' ')  # Replace with space to preserve word boundaries
+        elif not in_string and query[i:i+2] == '/*':
+            # Skip until end of block comment
+            i += 2
+            while i < len(query) - 1 and query[i:i+2] != '*/':
+                i += 1
+            i += 2  # Skip the closing */
+            result.append(' ')  # Replace with space
+        else:
+            result.append(query[i])
+            i += 1
+
+    return ''.join(result)
+
+
+def is_safe_query(query: str) -> tuple[bool, str]:
+    """
+    Check if a SQL query is safe to execute (read-only).
+    Returns (is_safe, error_message).
+    """
+    # First, strip all comments to prevent bypass attacks
+    clean_query = strip_sql_comments(query)
+
+    # Normalize query for checking
+    normalized = clean_query.upper().strip()
+
+    # Remove extra whitespace
+    normalized = ' '.join(normalized.split())
+
+    # Must start with SELECT or WITH (for CTEs)
+    if not (normalized.startswith("SELECT") or normalized.startswith("WITH")):
+        return False, "Only SELECT queries are allowed"
+
+    # Check for disallowed keywords (with word boundaries)
+    for keyword in DISALLOWED_SQL_KEYWORDS:
+        # Look for keyword as a standalone word
+        pattern = rf'\b{keyword}\b'
+        if re.search(pattern, normalized):
+            return False, f"Query contains disallowed keyword: {keyword}"
+
+    # Check for semicolons (could be used for query stacking)
+    # Strip trailing semicolons first, then check for any remaining
+    stripped = clean_query.strip().rstrip(";").strip()
+    if ";" in stripped:
+        return False, "Only single statements are allowed"
+
+    # Check for suspicious patterns that might indicate injection
+    suspicious_patterns = [
+        r';\s*--',           # Semicolon followed by comment
+        r'UNION\s+ALL\s+SELECT.*INTO',  # UNION SELECT INTO
+        r'INTO\s+@',         # Variable assignment
+        r'BENCHMARK\s*\(',   # Timing attacks
+        r'SLEEP\s*\(',       # Timing attacks
+        r'@@\w+',            # System variables access
+    ]
+    for pattern in suspicious_patterns:
+        if re.search(pattern, normalized, re.IGNORECASE):
+            return False, "Query contains suspicious pattern"
+
+    return True, ""
+
+
+@router.post("/sql/execute", response_model=SqlQueryResponse)
+async def execute_sql_query(
+    body: SqlQueryRequest,
+    request: Request,
+    admin: Tutor = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Execute a read-only SQL query.
+
+    Only SELECT queries are allowed. Queries are limited to 1000 rows.
+    This endpoint is for debugging purposes only.
+    """
+    import time
+
+    query = body.query.strip()
+
+    if not query:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Query is empty",
+        )
+
+    # Validate query safety
+    is_safe, error = is_safe_query(query)
+    if not is_safe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error,
+        )
+
+    # Add LIMIT if not present
+    if "LIMIT" not in query.upper():
+        query = f"{query.rstrip(';')} LIMIT 1000"
+
+    try:
+        # Set query timeout to prevent long-running queries
+        db.execute(text(f"SET SESSION max_execution_time = {SQL_QUERY_TIMEOUT_SECONDS * 1000}"))
+
+        start_time = time.perf_counter()
+        result = db.execute(text(query))
+        execution_time = (time.perf_counter() - start_time) * 1000
+
+        # Get column names
+        columns = list(result.keys()) if result.keys() else []
+
+        # Fetch and serialize rows
+        rows = []
+        for row in result:
+            row_dict = dict(row._mapping)
+            rows.append(serialize_row(row_dict))
+
+        # Log the query execution
+        log_operation(
+            db, admin, "SQL_QUERY", "debug_sql",
+            None,
+            None,
+            {"query": body.query, "row_count": len(rows)},
+            request
+        )
+        db.commit()
+
+        return SqlQueryResponse(
+            columns=columns,
+            rows=rows,
+            row_count=len(rows),
+            execution_time_ms=round(execution_time, 2),
+        )
+
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+
+        # Sanitize error messages to avoid leaking database structure
+        # Map MySQL error codes to generic messages
+        error_map = {
+            "1064": "SQL syntax error in query",
+            "1146": "Referenced table does not exist",
+            "1054": "Referenced column does not exist",
+            "1045": "Database access denied",
+            "1142": "Insufficient privileges for this operation",
+            "1044": "Access denied to database",
+            "1049": "Unknown database",
+            "1317": "Query execution was interrupted (timeout)",
+            "3024": "Query execution was interrupted (timeout)",
+            "2013": "Connection lost during query",
+            "1205": "Query timeout - lock wait exceeded",
+        }
+
+        # Find matching error code
+        error_msg = "Query execution failed"
+        for code, msg in error_map.items():
+            if code in error_str:
+                error_msg = msg
+                break
+
+        # Log the actual error for debugging (server-side only)
+        logger.warning(f"SQL query error for admin {admin.user_email}: {error_str[:200]}")
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        )
+
+
+# ============================================================================
+# Audit Log Revert
+# ============================================================================
+
+class RevertResponse(BaseModel):
+    """Response for revert operation."""
+    success: bool
+    message: str
+    row_id: Optional[int]
+
+
+@router.post("/audit-logs/{log_id}/revert", response_model=RevertResponse)
+async def revert_audit_log(
+    log_id: int,
+    request: Request,
+    admin: Tutor = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Revert a change from the audit log.
+    For UPDATE operations: restores the before_state.
+    For DELETE operations: recreates the row with before_state.
+    For CREATE operations: deletes the created row.
+    """
+    # Fetch the audit log entry
+    log_entry = db.query(DebugAuditLog).filter(DebugAuditLog.id == log_id).first()
+    if not log_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Audit log entry #{log_id} not found",
+        )
+
+    table_name = log_entry.table_name
+    operation = log_entry.operation
+
+    # Check if table is still accessible
+    if not is_table_allowed(table_name):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Table `{table_name}` is not accessible for revert",
+        )
+
+    config = get_table_config(table_name)
+    pk_col = config["primary_key"]
+
+    before_state = json.loads(log_entry.before_state) if log_entry.before_state else None
+    after_state = json.loads(log_entry.after_state) if log_entry.after_state else None
+    row_id = log_entry.row_id
+
+    try:
+        if operation == "UPDATE":
+            # Restore the before_state
+            if not before_state:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot revert UPDATE: no before_state available",
+                )
+            if not row_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot revert UPDATE: no row_id available",
+                )
+
+            # Check if row still exists
+            current_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+            if not current_state:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Row #{row_id} no longer exists in {table_name}",
+                )
+
+            # Update row to before_state
+            update_data = {k: v for k, v in before_state.items() if k != pk_col}
+            set_clauses = [f"`{k}` = :{k}" for k in update_data.keys()]
+            query = f"UPDATE `{table_name}` SET {', '.join(set_clauses)} WHERE `{pk_col}` = :pk_value"
+            update_data["pk_value"] = row_id
+            db.execute(text(query), update_data)
+
+            # Log the revert operation
+            final_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+            log_operation(db, admin, "UPDATE", table_name, row_id, current_state, final_state, request)
+            db.commit()
+
+            return RevertResponse(
+                success=True,
+                message=f"Reverted UPDATE on {table_name} #{row_id}",
+                row_id=row_id,
+            )
+
+        elif operation == "DELETE":
+            # Recreate the deleted row
+            if not before_state:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot revert DELETE: no before_state available",
+                )
+
+            # Check if row was truly deleted (not soft delete)
+            if row_id:
+                existing = fetch_row_by_id(db, table_name, pk_col, row_id)
+                if existing:
+                    # Row exists - might be soft deleted, try to restore it
+                    if 'deleted_at' in existing and existing['deleted_at'] is not None:
+                        db.execute(
+                            text(f"UPDATE `{table_name}` SET `deleted_at` = NULL WHERE `{pk_col}` = :id"),
+                            {"id": row_id}
+                        )
+                        final_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+                        log_operation(db, admin, "UPDATE", table_name, row_id, existing, final_state, request)
+                        db.commit()
+                        return RevertResponse(
+                            success=True,
+                            message=f"Restored soft-deleted row {table_name} #{row_id}",
+                            row_id=row_id,
+                        )
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Row #{row_id} already exists in {table_name}",
+                        )
+
+            # Hard delete revert - recreate the row
+            columns = list(before_state.keys())
+            col_str = ", ".join(f"`{c}`" for c in columns)
+            val_str = ", ".join(f":{c}" for c in columns)
+            query = f"INSERT INTO `{table_name}` ({col_str}) VALUES ({val_str})"
+            db.execute(text(query), before_state)
+
+            new_row_id = before_state.get(pk_col, row_id)
+            log_operation(db, admin, "CREATE", table_name, new_row_id, None, before_state, request)
+            db.commit()
+
+            return RevertResponse(
+                success=True,
+                message=f"Recreated deleted row in {table_name}",
+                row_id=new_row_id,
+            )
+
+        elif operation == "CREATE":
+            # Delete the created row
+            if not row_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot revert CREATE: no row_id available",
+                )
+
+            current_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+            if not current_state:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Row #{row_id} no longer exists in {table_name}",
+                )
+
+            # Check if table has soft delete
+            has_soft_delete = 'deleted_at' in get_valid_columns(table_name)
+            if has_soft_delete:
+                db.execute(
+                    text(f"UPDATE `{table_name}` SET `deleted_at` = NOW() WHERE `{pk_col}` = :id"),
+                    {"id": row_id}
+                )
+                final_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+                log_operation(db, admin, "DELETE", table_name, row_id, current_state, final_state, request)
+            else:
+                if not config.get("allow_hard_delete", False):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Cannot revert CREATE: hard delete not allowed for {table_name}",
+                    )
+                db.execute(
+                    text(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = :id"),
+                    {"id": row_id}
+                )
+                log_operation(db, admin, "DELETE", table_name, row_id, current_state, None, request)
+
+            db.commit()
+
+            return RevertResponse(
+                success=True,
+                message=f"Deleted created row {table_name} #{row_id}",
+                row_id=row_id,
+            )
+
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot revert operation type: {operation}",
+            )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Revert failed for audit log #{log_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Revert failed: {parse_db_error(e)}",
+        )
