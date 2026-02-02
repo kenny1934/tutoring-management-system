@@ -170,6 +170,32 @@ class OverdueEnrollment(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UncheckedAttendanceReminder(BaseModel):
+    """Session with unchecked attendance needing tutor action"""
+    session_id: int = Field(..., gt=0)
+    session_date: date
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=200)
+    session_status: str = Field(..., max_length=50)
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str = Field(..., max_length=200)
+    student_id: int = Field(..., gt=0)
+    student_name: str = Field(..., max_length=200)
+    school_student_id: Optional[str] = Field(None, max_length=100)
+    grade: Optional[str] = Field(None, max_length=20)
+    school: Optional[str] = Field(None, max_length=200)
+    days_overdue: int = Field(..., ge=0)
+    urgency_level: str = Field(..., description="Critical, High, Medium, or Low")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UncheckedAttendanceCount(BaseModel):
+    """Count of unchecked attendance sessions"""
+    total: int = Field(..., ge=0)
+    critical: int = Field(..., ge=0, description="Sessions >7 days overdue")
+
+
 class EnrollmentCreate(BaseModel):
     """Schema for creating a new enrollment with session generation"""
     student_id: int = Field(..., gt=0)

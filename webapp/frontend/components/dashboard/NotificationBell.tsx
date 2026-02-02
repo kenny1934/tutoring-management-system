@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount } from "@/lib/hooks";
+import { useRole } from "@/contexts/RoleContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock, RefreshCcw } from "lucide-react";
+import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -36,6 +37,7 @@ interface NotificationItem {
 
 export function NotificationBell({ pendingPayments, location, tutorId, showOverduePayments = false }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const { viewMode } = useRole();
 
   // Fetch contact-needed count
   const { data: contactNeeded } = useSWR(
@@ -51,6 +53,12 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
 
   // Fetch renewal counts (only for admins - showOverduePayments indicates admin)
   const { data: renewalCounts } = useRenewalCounts(showOverduePayments, location);
+
+  // Fetch unchecked attendance count
+  // For admins in center-view: show all tutors at location (no tutorId filter)
+  // For tutors or my-view: show only own sessions (filter by tutorId)
+  const uncheckedAttendanceTutorId = (showOverduePayments && viewMode === 'center-view') ? undefined : tutorId;
+  const { data: uncheckedAttendance } = useUncheckedAttendanceCount(location, uncheckedAttendanceTutorId);
 
   // Build notification items
   const notifications = useMemo(() => {
@@ -76,6 +84,18 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: renewalCounts.total,
         severity: renewalCounts.expired > 0 ? "danger" : "warning",
         href: "/admin/renewals",
+      });
+    }
+
+    // Unchecked attendance (all users)
+    if (uncheckedAttendance?.total && uncheckedAttendance.total > 0) {
+      items.push({
+        id: "unchecked-attendance",
+        icon: <ClipboardList className="h-4 w-4" />,
+        label: "Unchecked Attendance",
+        count: uncheckedAttendance.total,
+        severity: uncheckedAttendance.critical > 0 ? "danger" : "warning",
+        href: "/unchecked-attendance",
       });
     }
 
@@ -113,7 +133,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, uncheckedAttendance]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
