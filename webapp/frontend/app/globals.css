@@ -1810,6 +1810,25 @@ html {
   background-color: rgba(160, 112, 75, 0.18) !important;
 }
 
+/* Pinned row indicator */
+.pinned-row {
+  border-left: 3px solid #f59e0b;
+  background-color: rgba(245, 158, 11, 0.08) !important;
+}
+
+.dark .pinned-row {
+  border-left: 3px solid #f59e0b;
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+.pinned-row:hover {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+}
+
+.dark .pinned-row:hover {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+}
+
 /* FK column highlight */
 .fk-column-cell {
   background-color: rgba(59, 130, 246, 0.06);
