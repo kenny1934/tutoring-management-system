@@ -55,6 +55,7 @@ import {
   FileUp,
   BarChart3,
   GitCompare,
+  HelpCircle,
 } from "lucide-react";
 
 // Shared constant for pagination (should match backend default)
@@ -451,6 +452,7 @@ export default function TableBrowserPage() {
     setEditedData({ ...row });
     setIsCreating(false);
     setDeleteConfirm(null);
+    setShowEditDiff(true); // Reset diff view for each new edit session
   }, []);
 
   const handleCancelEdit = useCallback(() => {
@@ -1247,8 +1249,24 @@ export default function TableBrowserPage() {
                     setSearchQuery(e.target.value);
                     setPage(0);
                   }}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
+                  <HelpCircle className="h-4 w-4 text-gray-400 hover:text-[#a0704b] cursor-help" />
+                  <div className="absolute right-0 top-6 hidden group-hover:block z-50 w-64 p-3 bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] text-xs">
+                    <p className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Search Syntax</p>
+                    <div className="space-y-1 text-gray-600 dark:text-gray-400">
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">text</code> - Contains text</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col:value</code> - Exact match</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__gt:5</code> - Greater than</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__lt:10</code> - Less than</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__gte:5</code> - Greater or equal</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__lte:10</code> - Less or equal</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__null:</code> - Is NULL</p>
+                      <p><code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">col__notnull:</code> - Is not NULL</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Search all toggle */}

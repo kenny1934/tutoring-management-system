@@ -1938,3 +1938,54 @@ html {
 .animate-refresh-in {
   animation: refresh-fade 300ms ease-out forwards;
 }
+
+/* Success flash animation for saved rows */
+@keyframes save-success-flash {
+  0% {
+    background-color: rgba(22, 163, 74, 0.3);
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.4);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.animate-save-success {
+  animation: save-success-flash 600ms ease-out forwards;
+}
+
+/* Delete fade animation */
+@keyframes delete-fade-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+    background-color: rgba(220, 38, 38, 0.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-20px);
+    background-color: rgba(220, 38, 38, 0.3);
+  }
+}
+
+.animate-delete-fade {
+  animation: delete-fade-out 400ms ease-out forwards;
+}
+
+/* Button success pulse */
+@keyframes btn-success-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+.animate-btn-success {
+  animation: btn-success-pulse 500ms ease-out;
+}
