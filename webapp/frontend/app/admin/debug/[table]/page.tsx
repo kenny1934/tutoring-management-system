@@ -8,7 +8,7 @@ import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
-import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { usePageTitle, useDebouncedValue, useFocusTrap, useClickOutside, useModal } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { cn } from "@/lib/utils";
 import type { DebugTableSchema, DebugColumn, DebugRow, PaginatedRows } from "@/types/debug";
@@ -134,73 +134,6 @@ function parseCSVLine(line: string): string[] {
   result.push(current.trim());
   return result;
 }
-
-/**
- * Focus trap hook for modal dialogs.
- * Traps focus within the modal and returns focus to the trigger element on close.
- */
-function useFocusTrap(isOpen: boolean, modalRef: React.RefObject<HTMLElement | null>) {
-  const previousActiveElement = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (!isOpen || !modalRef.current) return;
-
-    // Store the currently focused element
-    previousActiveElement.current = document.activeElement as HTMLElement;
-
-    // Find all focusable elements within the modal
-    const getFocusableElements = () => {
-      if (!modalRef.current) return [];
-      return Array.from(
-        modalRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
-    };
-
-    // Focus the first focusable element
-    const focusableElements = getFocusableElements();
-    if (focusableElements.length > 0) {
-      focusableElements[0].focus();
-    }
-
-    // Handle tab key to trap focus
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-
-      const focusable = getFocusableElements();
-      if (focusable.length === 0) return;
-
-      const firstElement = focusable[0];
-      const lastElement = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        // Shift + Tab
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        // Tab
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      // Return focus to the previously focused element
-      if (previousActiveElement.current && typeof previousActiveElement.current.focus === "function") {
-        previousActiveElement.current.focus();
-      }
-    };
-  }, [isOpen, modalRef]);
-}
-
 // ============================================================================
 // TableDataRow - Memoized row component to prevent unnecessary re-renders
 // ============================================================================
@@ -698,20 +631,7 @@ export default function TableBrowserPage() {
   }, [sortBy, sortOrder, debouncedSearch, page, urlFilter, router]);
 
   // Handle click outside to close column menu
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        columnMenuRef.current &&
-        !columnMenuRef.current.contains(event.target as Node)
-      ) {
-        setShowColumnMenu(false);
-      }
-    }
-    if (showColumnMenu) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [showColumnMenu]);
+  useClickOutside(columnMenuRef, () => setShowColumnMenu(false), showColumnMenu);
 
   const { showToast } = useToast();
 
