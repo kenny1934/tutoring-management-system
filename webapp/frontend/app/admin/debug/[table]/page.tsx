@@ -81,16 +81,21 @@ export default function TableBrowserPage() {
   // Persist column visibility changes
   useEffect(() => {
     if (typeof window !== "undefined") {
-      localStorage.setItem(
-        `debug_hidden_cols_${tableName}`,
-        JSON.stringify([...hiddenColumns])
-      );
+      try {
+        localStorage.setItem(
+          `debug_hidden_cols_${tableName}`,
+          JSON.stringify([...hiddenColumns])
+        );
+      } catch {
+        // Ignore quota errors
+      }
     }
   }, [hiddenColumns, tableName]);
 
   // Bulk operations
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkEditColumn, setBulkEditColumn] = useState<string>("");
   const [bulkEditValue, setBulkEditValue] = useState<unknown>(null);
@@ -302,6 +307,7 @@ export default function TableBrowserPage() {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         if (fkPreview) setFkPreview(null);
+        else if (showBulkDeleteConfirm) setShowBulkDeleteConfirm(false);
         else if (detailCell) setDetailCell(null);
         else if (showColumnMenu) setShowColumnMenu(false);
         else if (isCreating) handleCancelCreate();
@@ -311,7 +317,7 @@ export default function TableBrowserPage() {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [fkPreview, detailCell, showColumnMenu, isCreating, editingRow, deleteConfirm, handleCancelCreate, handleCancelEdit]);
+  }, [fkPreview, showBulkDeleteConfirm, detailCell, showColumnMenu, isCreating, editingRow, deleteConfirm, handleCancelCreate, handleCancelEdit]);
 
   // Fetch FK preview data
   useEffect(() => {
@@ -320,11 +326,14 @@ export default function TableBrowserPage() {
       return;
     }
 
+    let cancelled = false;
     setFkPreviewLoading(true);
     debugAPI.getRow(fkPreview.tableName, fkPreview.rowId)
-      .then(setFkPreviewData)
-      .catch(() => setFkPreviewData(null))
-      .finally(() => setFkPreviewLoading(false));
+      .then((data) => { if (!cancelled) setFkPreviewData(data); })
+      .catch(() => { if (!cancelled) setFkPreviewData(null); })
+      .finally(() => { if (!cancelled) setFkPreviewLoading(false); });
+
+    return () => { cancelled = true; };
   }, [fkPreview]);
 
   // Handle delete
@@ -554,7 +563,7 @@ export default function TableBrowserPage() {
       <DeskSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="flex-shrink-0 desk-background">
+          <div className="flex-shrink-0 desk-background border-b border-[#6b5a4a]/30">
             <div className="p-4 sm:px-6 sm:py-4">
               <div className="flex items-center gap-4">
                 <Link
@@ -737,7 +746,7 @@ export default function TableBrowserPage() {
                 </button>
                 {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
                   <button
-                    onClick={handleBulkDelete}
+                    onClick={() => setShowBulkDeleteConfirm(true)}
                     disabled={isBulkDeleting}
                     className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
                   >
@@ -1324,6 +1333,64 @@ export default function TableBrowserPage() {
                     <Check className="h-4 w-4" />
                   )}
                   Update {selectedRows.size} Rows
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk delete confirmation modal */}
+        {showBulkDeleteConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            onClick={() => setShowBulkDeleteConfirm(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-title"
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[28rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <h3 id="bulk-delete-title" className="font-semibold text-red-600">
+                  Confirm Bulk Delete
+                </h3>
+              </div>
+              <div className="p-4">
+                <p className="text-gray-700 dark:text-gray-300">
+                  Are you sure you want to delete{" "}
+                  <strong className="text-gray-900 dark:text-gray-100">{selectedRows.size}</strong> row(s)
+                  from <strong className="text-gray-900 dark:text-gray-100">{schema?.display_name || tableName}</strong>?
+                </p>
+                <p className="text-sm text-red-500 mt-2">
+                  {schema?.has_soft_delete
+                    ? "Rows will be soft-deleted (marked as deleted but preserved in database)."
+                    : "This action cannot be undone."}
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBulkDeleteConfirm(false);
+                    handleBulkDelete();
+                  }}
+                  disabled={isBulkDeleting}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {isBulkDeleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete {selectedRows.size} Rows
                 </button>
               </div>
             </div>
