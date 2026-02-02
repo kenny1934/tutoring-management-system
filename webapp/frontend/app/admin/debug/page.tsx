@@ -19,6 +19,7 @@ import {
   Shield,
   History,
   Terminal,
+  GitBranch,
 } from "lucide-react";
 
 export default function DebugPanelPage() {
@@ -99,6 +100,13 @@ export default function DebugPanelPage() {
                   className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
               </div>
+              <Link
+                href="/admin/debug/diagram"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+              >
+                <GitBranch className="h-4 w-4" aria-hidden="true" />
+                Relationships
+              </Link>
               <Link
                 href="/admin/debug/sql"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors"
