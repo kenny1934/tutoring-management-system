@@ -439,6 +439,29 @@ export interface OverdueEnrollment {
   days_overdue: number;
 }
 
+// Unchecked attendance types
+export interface UncheckedAttendanceReminder {
+  session_id: number;
+  session_date: string;  // ISO format (YYYY-MM-DD)
+  time_slot?: string;
+  location?: string;
+  session_status: string;
+  tutor_id: number;
+  tutor_name: string;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  school?: string;
+  days_overdue: number;
+  urgency_level: 'Critical' | 'High' | 'Medium' | 'Low';
+}
+
+export interface UncheckedAttendanceCount {
+  total: number;
+  critical: number;  // Sessions >7 days overdue
+}
+
 // Message types
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
 export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation';

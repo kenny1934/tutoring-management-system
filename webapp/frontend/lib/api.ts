@@ -23,6 +23,8 @@ import type {
   TerminationStatsResponse,
   QuarterOption,
   OverdueEnrollment,
+  UncheckedAttendanceReminder,
+  UncheckedAttendanceCount,
   Message,
   MessageThread,
   MessageCreate,
@@ -795,6 +797,24 @@ export const sessionsAPI = {
     return fetchAPI<Session>(`/sessions/${id}/redo?status=${encodeURIComponent(status)}`, {
       method: 'PATCH',
     });
+  },
+
+  // Unchecked attendance
+  getUncheckedAttendance: (location?: string, tutorId?: number, urgency?: string) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") params.append("location", location);
+    if (tutorId) params.append("tutor_id", tutorId.toString());
+    if (urgency) params.append("urgency", urgency);
+    const query = params.toString();
+    return fetchAPI<UncheckedAttendanceReminder[]>(`/sessions/unchecked-attendance${query ? `?${query}` : ""}`);
+  },
+
+  getUncheckedAttendanceCount: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") params.append("location", location);
+    if (tutorId) params.append("tutor_id", tutorId.toString());
+    const query = params.toString();
+    return fetchAPI<UncheckedAttendanceCount>(`/sessions/unchecked-attendance/count${query ? `?${query}` : ""}`);
   },
 };
 

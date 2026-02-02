@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, api, type ParentCommunication } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -460,6 +460,30 @@ export function useOverdueEnrollments(location?: string, tutorId?: number) {
   return useSWR<OverdueEnrollment[]>(
     ['overdue-enrollments', location || 'all', tutorId || 'all'],
     () => enrollmentsAPI.getOverdue(location, tutorId)
+  );
+}
+
+/**
+ * Hook for fetching unchecked attendance sessions
+ * Returns past sessions still marked as Scheduled, Make-up Class, or Trial Class
+ */
+export function useUncheckedAttendance(location?: string, tutorId?: number, urgency?: string) {
+  return useSWR<UncheckedAttendanceReminder[]>(
+    ['unchecked-attendance', location || 'all', tutorId || 'all', urgency || 'all'],
+    () => sessionsAPI.getUncheckedAttendance(location, tutorId, urgency)
+  );
+}
+
+/**
+ * Hook for fetching unchecked attendance count (for notification bell)
+ * Polls every 30 seconds when tab is visible
+ */
+export function useUncheckedAttendanceCount(location?: string, tutorId?: number) {
+  const refreshInterval = useVisibilityAwareInterval(30000);
+  return useSWR<UncheckedAttendanceCount>(
+    ['unchecked-attendance-count', location || 'all', tutorId || 'all'],
+    () => sessionsAPI.getUncheckedAttendanceCount(location, tutorId),
+    { refreshInterval, revalidateOnFocus: false }
   );
 }
 

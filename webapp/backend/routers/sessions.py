@@ -10,7 +10,7 @@ from typing import List, Optional
 from datetime import date
 from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
-from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate
+from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount
 from datetime import date, timedelta, datetime, timezone
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin
@@ -123,6 +123,128 @@ async def get_sessions(
         result.append(session_data)
 
     return result
+
+
+# ============================================================================
+# UNCHECKED ATTENDANCE ENDPOINTS
+# (Must be declared before /sessions/{session_id} to avoid route conflicts)
+# ============================================================================
+
+@router.get("/sessions/unchecked-attendance", response_model=List[UncheckedAttendanceReminder])
+async def get_unchecked_attendance(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    urgency: Optional[str] = Query(None, description="Filter by urgency level: critical, high, medium, low"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get sessions with unchecked attendance (past sessions still marked as Scheduled, Make-up Class, or Trial Class).
+
+    - **location**: Filter by session location
+    - **tutor_id**: Filter by specific tutor
+    - **urgency**: Filter by urgency level (critical=7+ days, high=4-7, medium=2-3, low=0-1)
+
+    Returns list of sessions that need attendance marking, sorted by most overdue first.
+    """
+    # Build dynamic query based on provided filters
+    base_query = """
+        SELECT
+            session_id,
+            session_date,
+            time_slot,
+            location,
+            session_status,
+            tutor_id,
+            tutor_name,
+            student_id,
+            student_name,
+            school_student_id,
+            SUBSTRING_INDEX(grade_stream, ' ', 1) as grade,
+            school,
+            days_overdue,
+            urgency_level
+        FROM unchecked_attendance_reminders
+        WHERE 1=1
+    """
+    params = {}
+
+    if location:
+        base_query += " AND location = :location"
+        params["location"] = location
+
+    if tutor_id:
+        base_query += " AND tutor_id = :tutor_id"
+        params["tutor_id"] = tutor_id
+
+    if urgency:
+        base_query += " AND LOWER(urgency_level) = LOWER(:urgency)"
+        params["urgency"] = urgency
+
+    base_query += " ORDER BY days_overdue DESC, session_date DESC LIMIT 500"
+    query = text(base_query)
+
+    logger.info(f"Unchecked attendance query - location: {location}, tutor_id: {tutor_id}, urgency: {urgency}")
+    result = db.execute(query, params)
+
+    rows = result.fetchall()
+    return [
+        UncheckedAttendanceReminder(
+            session_id=row.session_id,
+            session_date=row.session_date,
+            time_slot=row.time_slot,
+            location=row.location,
+            session_status=row.session_status,
+            tutor_id=row.tutor_id,
+            tutor_name=row.tutor_name,
+            student_id=row.student_id,
+            student_name=row.student_name,
+            school_student_id=row.school_student_id,
+            grade=row.grade,
+            school=row.school,
+            days_overdue=row.days_overdue,
+            urgency_level=row.urgency_level
+        )
+        for row in rows
+    ]
+
+
+@router.get("/sessions/unchecked-attendance/count", response_model=UncheckedAttendanceCount)
+async def get_unchecked_attendance_count(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get count of sessions with unchecked attendance.
+
+    Returns total count and count of critical (>7 days overdue) sessions.
+    Used for notification bell badge.
+    """
+    # Build dynamic query based on provided filters
+    base_query = """
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN days_overdue > 7 THEN 1 ELSE 0 END) as critical
+        FROM unchecked_attendance_reminders
+        WHERE 1=1
+    """
+    params = {}
+
+    if location:
+        base_query += " AND location = :location"
+        params["location"] = location
+
+    if tutor_id:
+        base_query += " AND tutor_id = :tutor_id"
+        params["tutor_id"] = tutor_id
+
+    result = db.execute(text(base_query), params)
+
+    row = result.fetchone()
+    return UncheckedAttendanceCount(
+        total=row.total or 0,
+        critical=row.critical or 0
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=DetailedSessionResponse)
