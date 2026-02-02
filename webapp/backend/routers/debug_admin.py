@@ -24,6 +24,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import inspect, text, desc
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 
 from database import get_db, engine
@@ -44,11 +45,21 @@ router = APIRouter(prefix="/debug", tags=["Debug Admin"])
 # Constants
 # ============================================================================
 
-# Columns that should be redacted in audit logs
+# Columns that should be redacted in audit logs (exact matches)
 SENSITIVE_COLUMNS = {
     "password", "password_hash", "api_key", "token", "secret",
-    "access_token", "refresh_token", "private_key", "credential"
+    "access_token", "refresh_token", "private_key", "credential",
+    "ssn", "social_security", "credit_card", "card_number",
 }
+
+# Patterns for sensitive column detection (partial matches)
+SENSITIVE_PATTERNS = {"_token", "_key", "_secret", "_password", "_credential"}
+
+# Maximum number of filters allowed in a single query
+MAX_FILTERS = 10
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -72,6 +83,11 @@ class ColumnInfo(BaseModel):
     default: Optional[str] = None
 
 
+class ForeignKeyInfo(BaseModel):
+    table: str
+    column: str
+
+
 class TableSchema(BaseModel):
     table_name: str
     display_name: str
@@ -79,6 +95,8 @@ class TableSchema(BaseModel):
     primary_key: str
     search_columns: list[str]
     allow_hard_delete: bool
+    has_soft_delete: bool = False  # True if table has deleted_at column
+    foreign_keys: dict[str, ForeignKeyInfo] = {}  # column_name -> FK info
 
 
 class PaginatedRows(BaseModel):
@@ -111,11 +129,46 @@ class PaginatedAuditLogs(BaseModel):
 class BulkDeleteRequest(BaseModel):
     ids: list[int]
 
+    class Config:
+        max_anystr_length = 1000
+
 
 class BulkDeleteResponse(BaseModel):
     deleted_count: int
     failed_ids: list[int]
     message: str
+
+
+class BulkUpdateRequest(BaseModel):
+    ids: list[int]
+    column: str
+    value: Any
+
+    class Config:
+        max_anystr_length = 10000
+
+
+class BulkUpdateResponse(BaseModel):
+    updated_count: int
+    message: str
+
+
+class RowDataRequest(BaseModel):
+    """Request body for row create/update with size limits."""
+    data: dict[str, Any]
+
+    class Config:
+        # Limit string length to prevent abuse
+        max_anystr_length = 10000
+
+    @classmethod
+    def validate_data_size(cls, data: dict) -> None:
+        """Validate data dict isn't too large."""
+        if len(data) > 100:
+            raise ValueError("Too many fields (max 100)")
+        for key, value in data.items():
+            if isinstance(value, str) and len(value) > 100000:
+                raise ValueError(f"Field '{key}' is too large (max 100KB)")
 
 
 # ============================================================================
@@ -142,12 +195,22 @@ def serialize_row(row: dict) -> dict:
     return {k: serialize_value(v) for k, v in row.items()}
 
 
+def is_sensitive_column(col_name: str) -> bool:
+    """Check if a column should be redacted based on name."""
+    col_lower = col_name.lower()
+    # Exact match
+    if col_lower in SENSITIVE_COLUMNS:
+        return True
+    # Pattern match (e.g., auth_token, api_key, etc.)
+    return any(pattern in col_lower for pattern in SENSITIVE_PATTERNS)
+
+
 def redact_sensitive(data: Optional[dict]) -> Optional[dict]:
     """Redact sensitive columns from data before logging."""
     if not data:
         return data
     return {
-        k: "[REDACTED]" if k.lower() in SENSITIVE_COLUMNS else v
+        k: "[REDACTED]" if is_sensitive_column(k) else v
         for k, v in data.items()
     }
 
@@ -164,6 +227,15 @@ def get_valid_columns(table_name: str) -> set[str]:
     """Get set of valid column names for a table."""
     inspector = inspect(engine)
     return {c['name'] for c in inspector.get_columns(table_name)}
+
+
+def assert_valid_identifier(name: str, valid_set: set[str], context: str) -> None:
+    """
+    Assert that an identifier exists in the valid set.
+    Raises ValueError if not found - critical security check before SQL construction.
+    """
+    if name not in valid_set:
+        raise ValueError(f"Invalid {context}: {name}")
 
 
 def validate_column_names(data: dict, table_name: str, readonly_cols: list[str]) -> dict:
@@ -186,6 +258,22 @@ def escape_like_pattern(search: str) -> str:
         .replace("%", "\\%")
         .replace("_", "\\_")
     )
+
+
+def parse_db_error(e: Exception) -> str:
+    """Parse database exception to user-friendly message."""
+    error_str = str(e).lower()
+
+    if isinstance(e, IntegrityError):
+        if "foreign key" in error_str or "fk_" in error_str:
+            return "Foreign key constraint violated. Referenced record may not exist."
+        if "unique" in error_str or "duplicate" in error_str:
+            return "Unique constraint violated. A record with this value already exists."
+        if "not null" in error_str or "cannot be null" in error_str:
+            return "Required field is missing. Check for null values."
+
+    # Truncate for safety
+    return f"Database error: {str(e)[:150]}"
 
 
 def fetch_row_by_id(
@@ -282,15 +370,26 @@ def parse_filter_string(filter_str: str) -> list[tuple[str, str, str]]:
         status:active -> (status, eq, active)
         created_at__gte:2024-01-01 -> (created_at, gte, 2024-01-01)
         name__like:john -> (name, like, john)
+
+    Raises:
+        ValueError: If too many filters or invalid null operator value
     """
     if not filter_str:
         return []
+
+    # Limit filter string length to prevent DoS
+    if len(filter_str) > 2000:
+        raise ValueError("Filter string too long")
 
     filters = []
     for part in filter_str.split(","):
         part = part.strip()
         if not part or ":" not in part:
             continue
+
+        # Enforce max filter count
+        if len(filters) >= MAX_FILTERS:
+            raise ValueError(f"Too many filters (max {MAX_FILTERS})")
 
         key, value = part.split(":", 1)
 
@@ -304,18 +403,49 @@ def parse_filter_string(filter_str: str) -> list[tuple[str, str, str]]:
         if op not in ("eq", "ne", "gt", "gte", "lt", "lte", "like", "null"):
             op = "eq"
 
+        # Validate null operator value
+        if op == "null" and value.lower() not in ("true", "false", "1", "0", "yes", "no"):
+            raise ValueError(f"Invalid null operator value: {value}")
+
         filters.append((col, op, value))
 
     return filters
 
 
+def get_column_types(table_name: str) -> dict[str, str]:
+    """Get a mapping of column names to their types."""
+    inspector = inspect(engine)
+    return {
+        col['name']: get_sqlalchemy_type_name(col['type'])
+        for col in inspector.get_columns(table_name)
+    }
+
+
+def coerce_filter_value(value: str, col_type: str):
+    """
+    Coerce filter value to appropriate Python type based on column type.
+    Returns the coerced value or the original string if coercion fails.
+    """
+    try:
+        if col_type == "integer":
+            return int(value)
+        elif col_type == "decimal":
+            return float(value)
+        elif col_type == "boolean":
+            return value.lower() in ("true", "1", "yes")
+    except (ValueError, TypeError):
+        pass
+    return value
+
+
 def build_filter_clause(
     filters: list[tuple[str, str, str]],
     valid_columns: set[str],
+    column_types: dict[str, str],
     params: dict,
     param_prefix: str = "filter"
 ) -> str:
-    """Build SQL WHERE clause from filters."""
+    """Build SQL WHERE clause from filters with proper type coercion."""
     conditions = []
 
     for i, (col, op, value) in enumerate(filters):
@@ -324,25 +454,26 @@ def build_filter_clause(
             continue
 
         param_name = f"{param_prefix}_{i}"
+        col_type = column_types.get(col, "string")
 
         if op == "eq":
             conditions.append(f"`{col}` = :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "ne":
             conditions.append(f"`{col}` != :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "gt":
             conditions.append(f"`{col}` > :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "gte":
             conditions.append(f"`{col}` >= :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "lt":
             conditions.append(f"`{col}` < :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "lte":
             conditions.append(f"`{col}` <= :{param_name}")
-            params[param_name] = value
+            params[param_name] = coerce_filter_value(value, col_type)
         elif op == "like":
             conditions.append(f"`{col}` LIKE :{param_name}")
             params[param_name] = f"%{escape_like_pattern(value)}%"
@@ -381,8 +512,9 @@ async def list_tables(
             try:
                 result = db.execute(text(f"SELECT COUNT(*) FROM `{table_name}`"))
                 row_count = result.scalar() or 0
-            except Exception:
-                row_count = 0
+            except Exception as e:
+                # Leave as None to indicate count failed (frontend shows "?")
+                logger.warning(f"Failed to count rows in {table_name}: {e}")
 
         tables.append(TableInfo(
             name=table_name,
@@ -418,6 +550,7 @@ async def get_table_schema(
     try:
         columns_info = inspector.get_columns(table_name)
         pk_constraint = inspector.get_pk_constraint(table_name)
+        fk_constraints = inspector.get_foreign_keys(table_name)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -426,6 +559,23 @@ async def get_table_schema(
 
     pk_columns = pk_constraint.get('constrained_columns', []) if pk_constraint else []
     readonly_cols = config.get("readonly_columns", [])
+
+    # Detect soft delete capability (has deleted_at column)
+    column_names = {col['name'] for col in columns_info}
+    has_soft_delete = 'deleted_at' in column_names
+
+    # Build foreign key mapping (only single-column FKs)
+    foreign_keys = {}
+    for fk in fk_constraints:
+        if len(fk.get('constrained_columns', [])) == 1:
+            col_name = fk['constrained_columns'][0]
+            # Only include FK if the referred table is also accessible
+            referred_table = fk.get('referred_table')
+            if referred_table and is_table_allowed(referred_table):
+                foreign_keys[col_name] = ForeignKeyInfo(
+                    table=referred_table,
+                    column=fk['referred_columns'][0] if fk.get('referred_columns') else 'id'
+                )
 
     columns = []
     for col in columns_info:
@@ -445,6 +595,8 @@ async def get_table_schema(
         primary_key=config["primary_key"],
         search_columns=config.get("search_columns", []),
         allow_hard_delete=config.get("allow_hard_delete", False),
+        has_soft_delete=has_soft_delete,
+        foreign_keys=foreign_keys,
     )
 
 
@@ -456,6 +608,8 @@ async def list_rows(
     sort_by: Optional[str] = None,
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     search: Optional[str] = None,
+    search_all: bool = Query(False, description="Search all text columns instead of configured ones"),
+    include_deleted: bool = Query(False, description="Include soft-deleted rows (where deleted_at IS NOT NULL)"),
     filter: Optional[str] = Query(None, description="Filters: col:val,col__op:val"),
     admin: Tutor = Depends(require_super_admin),
     db: Session = Depends(get_db),
@@ -475,6 +629,7 @@ async def list_rows(
 
     config = get_table_config(table_name)
     valid_columns = get_valid_columns(table_name)
+    column_types = get_column_types(table_name)
 
     # Build query
     query = f"SELECT * FROM `{table_name}`"
@@ -482,23 +637,46 @@ async def list_rows(
     params = {}
     where_conditions = []
 
-    # Search filter (text search across configured columns)
-    if search and config.get("search_columns"):
-        search_conditions = []
-        escaped_search = escape_like_pattern(search)
-        for i, col in enumerate(config["search_columns"]):
-            if col in valid_columns:
-                search_conditions.append(f"`{col}` LIKE :search_{i}")
-                params[f"search_{i}"] = f"%{escaped_search}%"
-        if search_conditions:
-            where_conditions.append(f"({' OR '.join(search_conditions)})")
+    # Soft delete filtering: exclude deleted rows by default
+    if not include_deleted and 'deleted_at' in valid_columns:
+        where_conditions.append("`deleted_at` IS NULL")
+
+    # Search filter (text search across columns)
+    if search:
+        # Determine which columns to search
+        if search_all:
+            # Search all text columns (VARCHAR, TEXT, CHAR)
+            inspector = inspect(engine)
+            search_cols = [
+                c['name'] for c in inspector.get_columns(table_name)
+                if any(t in str(c['type']).upper() for t in ('VARCHAR', 'TEXT', 'CHAR'))
+            ]
+        else:
+            # Search only configured columns
+            search_cols = config.get("search_columns", [])
+
+        if search_cols:
+            search_conditions = []
+            escaped_search = escape_like_pattern(search)
+            for i, col in enumerate(search_cols):
+                if col in valid_columns:
+                    search_conditions.append(f"`{col}` LIKE :search_{i}")
+                    params[f"search_{i}"] = f"%{escaped_search}%"
+            if search_conditions:
+                where_conditions.append(f"({' OR '.join(search_conditions)})")
 
     # Advanced filters
     if filter:
-        filters = parse_filter_string(filter)
-        filter_clause = build_filter_clause(filters, valid_columns, params)
-        if filter_clause:
-            where_conditions.append(f"({filter_clause})")
+        try:
+            filters = parse_filter_string(filter)
+            filter_clause = build_filter_clause(filters, valid_columns, column_types, params)
+            if filter_clause:
+                where_conditions.append(f"({filter_clause})")
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
 
     # Add WHERE clause
     if where_conditions:
@@ -530,9 +708,10 @@ async def list_rows(
         count_result = db.execute(text(count_query), count_params)
         total = count_result.scalar() or 0
     except Exception as e:
+        logger.error(f"Query failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Query failed. Please check your filter syntax.",
+            detail=f"Query failed: {str(e)[:200]}",
         )
 
     return PaginatedRows(
@@ -585,6 +764,12 @@ async def create_row(
             detail=f"Table `{table_name}` is not accessible",
         )
 
+    # Validate request body size
+    try:
+        RowDataRequest.validate_data_size(data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
     config = get_table_config(table_name)
     readonly_cols = config.get("readonly_columns", [])
     pk_col = config["primary_key"]
@@ -617,9 +802,10 @@ async def create_row(
         db.commit()
     except Exception as e:
         db.rollback()
+        logger.error(f"Insert failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Insert failed. Check data types and constraints.",
+            detail=parse_db_error(e),
         )
 
     return new_row
@@ -640,6 +826,12 @@ async def update_row(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Table `{table_name}` is not accessible",
         )
+
+    # Validate request body size
+    try:
+        RowDataRequest.validate_data_size(data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     config = get_table_config(table_name)
     pk_col = config["primary_key"]
@@ -681,9 +873,10 @@ async def update_row(
         db.commit()
     except Exception as e:
         db.rollback()
+        logger.error(f"Update failed for table {table_name}, row {row_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Update failed. Check data types and constraints.",
+            detail=parse_db_error(e),
         )
 
     return updated_row
@@ -695,12 +888,15 @@ async def delete_row(
     row_id: int,
     request: Request,
     confirm: str = Query(..., description="Type 'DELETE' to confirm"),
+    hard: bool = Query(False, description="Force hard delete even if soft delete is available"),
     admin: Tutor = Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
     """
     Delete a row from a table.
     Requires confirmation by passing confirm='DELETE'.
+    Uses soft delete (sets deleted_at) if table has deleted_at column.
+    Pass hard=true to force hard delete.
     """
     if confirm != "DELETE":
         raise HTTPException(
@@ -717,7 +913,15 @@ async def delete_row(
     config = get_table_config(table_name)
     pk_col = config["primary_key"]
 
-    if not config.get("allow_hard_delete", False):
+    # Check if table has soft delete capability
+    valid_columns = get_valid_columns(table_name)
+    has_soft_delete = 'deleted_at' in valid_columns
+
+    # Determine delete strategy
+    use_soft_delete = has_soft_delete and not hard
+
+    # For hard delete, check if allowed
+    if not use_soft_delete and not config.get("allow_hard_delete", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Hard delete is not allowed for table `{table_name}`",
@@ -732,27 +936,37 @@ async def delete_row(
         )
 
     try:
-        db.execute(
-            text(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = :id"),
-            {"id": row_id}
-        )
-
-        # Log operation (within same transaction)
-        log_operation(db, admin, "DELETE", table_name, row_id, before_state, None, request)
+        if use_soft_delete:
+            # Soft delete: set deleted_at timestamp
+            db.execute(
+                text(f"UPDATE `{table_name}` SET `deleted_at` = NOW() WHERE `{pk_col}` = :id"),
+                {"id": row_id}
+            )
+            # Fetch updated row for logging
+            after_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+            log_operation(db, admin, "DELETE", table_name, row_id, before_state, after_state, request)
+        else:
+            # Hard delete
+            db.execute(
+                text(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = :id"),
+                {"id": row_id}
+            )
+            log_operation(db, admin, "DELETE", table_name, row_id, before_state, None, request)
 
         # Single commit for both operation and log
         db.commit()
     except Exception as e:
         db.rollback()
+        logger.error(f"Delete failed for table {table_name}, row {row_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Delete failed. The row may have dependent records.",
+            detail=parse_db_error(e),
         )
 
     return {"message": f"Row {row_id} deleted from {table_name}"}
 
 
-@router.delete("/tables/{table_name}/rows/bulk")
+@router.delete("/tables/{table_name}/bulk-delete")
 async def bulk_delete_rows(
     table_name: str,
     body: BulkDeleteRequest,
@@ -780,10 +994,18 @@ async def bulk_delete_rows(
     config = get_table_config(table_name)
     pk_col = config["primary_key"]
 
-    if not config.get("allow_hard_delete", False):
+    # Check if table has soft delete capability
+    valid_columns = get_valid_columns(table_name)
+    has_soft_delete = 'deleted_at' in valid_columns
+
+    # Determine delete strategy (same logic as single delete)
+    use_soft_delete = has_soft_delete
+
+    # For hard delete, check if allowed
+    if not use_soft_delete and not config.get("allow_hard_delete", False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Hard delete is not allowed for table `{table_name}`",
+            detail=f"Delete is not allowed for table `{table_name}`",
         )
 
     if not body.ids:
@@ -798,35 +1020,154 @@ async def bulk_delete_rows(
             detail="Cannot delete more than 100 rows at once",
         )
 
-    deleted_count = 0
-    failed_ids = []
+    # Validate all rows exist first (before any deletions)
+    rows_to_delete = []
+    not_found_ids = []
 
     for row_id in body.ids:
-        try:
-            # Get row before deletion
-            before_state = fetch_row_by_id(db, table_name, pk_col, row_id)
-            if not before_state:
-                failed_ids.append(row_id)
-                continue
+        before_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+        if not before_state:
+            not_found_ids.append(row_id)
+        else:
+            rows_to_delete.append((row_id, before_state))
 
-            db.execute(
-                text(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = :id"),
-                {"id": row_id}
-            )
+    if not_found_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rows not found: {not_found_ids}",
+        )
 
-            # Log each deletion
-            log_operation(db, admin, "DELETE", table_name, row_id, before_state, None, request)
-            deleted_count += 1
-        except Exception:
-            failed_ids.append(row_id)
+    # All-or-nothing deletion with rollback on any failure
+    try:
+        for row_id, before_state in rows_to_delete:
+            if use_soft_delete:
+                # Soft delete: set deleted_at timestamp
+                db.execute(
+                    text(f"UPDATE `{table_name}` SET `deleted_at` = NOW() WHERE `{pk_col}` = :id"),
+                    {"id": row_id}
+                )
+                after_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+                log_operation(db, admin, "DELETE", table_name, row_id, before_state, after_state, request)
+            else:
+                # Hard delete
+                db.execute(
+                    text(f"DELETE FROM `{table_name}` WHERE `{pk_col}` = :id"),
+                    {"id": row_id}
+                )
+                log_operation(db, admin, "DELETE", table_name, row_id, before_state, None, request)
 
-    # Commit all successful deletions
-    db.commit()
+        # Commit all deletions together
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk delete failed for table {table_name}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bulk delete failed, all changes rolled back: {parse_db_error(e)}",
+        )
 
     return BulkDeleteResponse(
-        deleted_count=deleted_count,
-        failed_ids=failed_ids,
-        message=f"Deleted {deleted_count} rows" + (f", {len(failed_ids)} failed" if failed_ids else ""),
+        deleted_count=len(rows_to_delete),
+        failed_ids=[],
+        message=f"Deleted {len(rows_to_delete)} rows",
+    )
+
+
+@router.patch("/tables/{table_name}/bulk-update", response_model=BulkUpdateResponse)
+async def bulk_update_rows(
+    table_name: str,
+    body: BulkUpdateRequest,
+    request: Request,
+    admin: Tutor = Depends(require_super_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk update a single column for multiple rows.
+    All-or-nothing transaction with rollback on failure.
+    """
+    if not is_table_allowed(table_name):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Table `{table_name}` is not accessible",
+        )
+
+    config = get_table_config(table_name)
+    pk_col = config["primary_key"]
+    readonly_cols = config.get("readonly_columns", [])
+    valid_columns = get_valid_columns(table_name)
+
+    # Validate column
+    if body.column not in valid_columns:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Column `{body.column}` does not exist",
+        )
+
+    if body.column == pk_col:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot bulk update primary key column",
+        )
+
+    if body.column in readonly_cols:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Column `{body.column}` is read-only",
+        )
+
+    if not body.ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No IDs provided for update",
+        )
+
+    if len(body.ids) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot update more than 100 rows at once",
+        )
+
+    # Validate all rows exist first
+    rows_to_update = []
+    not_found_ids = []
+
+    for row_id in body.ids:
+        before_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+        if not before_state:
+            not_found_ids.append(row_id)
+        else:
+            rows_to_update.append((row_id, before_state))
+
+    if not_found_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Rows not found: {not_found_ids}",
+        )
+
+    # All-or-nothing update with rollback on any failure
+    try:
+        for row_id, before_state in rows_to_update:
+            db.execute(
+                text(f"UPDATE `{table_name}` SET `{body.column}` = :value WHERE `{pk_col}` = :id"),
+                {"value": body.value, "id": row_id}
+            )
+            # Fetch updated state and log
+            after_state = fetch_row_by_id(db, table_name, pk_col, row_id)
+            log_operation(db, admin, "UPDATE", table_name, row_id, before_state, after_state, request)
+
+        # Commit all updates together
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Bulk update failed for table {table_name}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bulk update failed, all changes rolled back: {parse_db_error(e)}",
+        )
+
+    return BulkUpdateResponse(
+        updated_count=len(rows_to_update),
+        message=f"Updated {len(rows_to_update)} rows",
     )
 
 
@@ -851,17 +1192,33 @@ async def export_table(
 
     config = get_table_config(table_name)
     valid_columns = get_valid_columns(table_name)
+    column_types = get_column_types(table_name)
 
     # Build query
     query = f"SELECT * FROM `{table_name}`"
     params = {}
+    where_conditions = []
+
+    # Exclude soft-deleted rows by default
+    if 'deleted_at' in valid_columns:
+        where_conditions.append("`deleted_at` IS NULL")
 
     # Advanced filters
     if filter:
-        filters = parse_filter_string(filter)
-        filter_clause = build_filter_clause(filters, valid_columns, params)
-        if filter_clause:
-            query += f" WHERE {filter_clause}"
+        try:
+            filters = parse_filter_string(filter)
+            filter_clause = build_filter_clause(filters, valid_columns, column_types, params)
+            if filter_clause:
+                where_conditions.append(f"({filter_clause})")
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
+
+    # Add WHERE clause if any conditions
+    if where_conditions:
+        query += f" WHERE {' AND '.join(where_conditions)}"
 
     # Default sort and limit
     default_sort = config.get("default_sort", ("id", "desc"))
@@ -872,7 +1229,8 @@ async def export_table(
     try:
         result = db.execute(text(query), params)
         rows = [serialize_row(dict(row._mapping)) for row in result]
-    except Exception:
+    except Exception as e:
+        logger.error(f"Export query failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Export query failed",
@@ -892,15 +1250,27 @@ async def export_table(
             headers={"Content-Disposition": f"attachment; filename={table_name}.json"},
         )
     else:
-        # CSV format
-        output = io.StringIO()
-        columns = list(rows[0].keys())
-        writer = csv.DictWriter(output, fieldnames=columns)
-        writer.writeheader()
-        writer.writerows(rows)
+        # CSV format - use generator for streaming
+        def generate_csv():
+            columns = list(rows[0].keys())
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=columns)
+
+            # Write header
+            writer.writeheader()
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
+            # Write rows in chunks
+            for row in rows:
+                writer.writerow(row)
+                yield output.getvalue()
+                output.seek(0)
+                output.truncate(0)
 
         return StreamingResponse(
-            io.StringIO(output.getvalue()),
+            generate_csv(),
             media_type="text/csv",
             headers={"Content-Disposition": f"attachment; filename={table_name}.csv"},
         )
