@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Fuse from "fuse.js";
@@ -38,12 +38,19 @@ import {
   Building2,
   Eye,
   Sparkles,
+  Calculator,
+  MapPin,
+  Filter,
+  CheckCircle,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, SearchResults } from "@/lib/api";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/contexts/RoleContext";
+import { useLocation } from "@/contexts/LocationContext";
+import { useToast } from "@/contexts/ToastContext";
 import { SearchNoResults } from "@/components/illustrations/EmptyStates";
 
 // localStorage key for recent searches
@@ -102,6 +109,7 @@ const typeBadgeColors: Record<string, string> = {
   session: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   enrollment: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   page: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  utility: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
 };
 
 // Parse query for type filters
@@ -124,12 +132,59 @@ function parseQuery(q: string): { type: string | null; term: string } {
 // Result item type for unified list
 interface ResultItem {
   id: string;
-  type: "student" | "session" | "enrollment" | "page" | "recent" | "action";
+  type: "student" | "session" | "enrollment" | "page" | "recent" | "action" | "utility";
   title: string;
   subtitle?: string;
   href?: string;  // Optional for actions
   icon: typeof User;
   execute?: () => void;  // For action commands
+}
+
+// Safe math evaluator (no eval) - supports +, -, *, /, parentheses
+function evaluateMath(expr: string): number {
+  // Tokenize: numbers (including decimals), operators, parentheses
+  const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
+  if (!tokens) throw new Error('Invalid expression');
+
+  let pos = 0;
+
+  function parseExpr(): number {
+    let left = parseTerm();
+    while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+      const op = tokens[pos++];
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  function parseTerm(): number {
+    let left = parseFactor();
+    while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+      const op = tokens[pos++];
+      const right = parseFactor();
+      left = op === '*' ? left * right : left / right;
+    }
+    return left;
+  }
+
+  function parseFactor(): number {
+    if (tokens[pos] === '(') {
+      pos++; // skip (
+      const result = parseExpr();
+      pos++; // skip )
+      return result;
+    }
+    if (tokens[pos] === '-') {
+      pos++;
+      return -parseFactor();
+    }
+    return parseFloat(tokens[pos++]);
+  }
+
+  const result = parseExpr();
+  if (isNaN(result) || !isFinite(result)) throw new Error('Invalid result');
+  return result;
 }
 
 // Highlight matching text in search results
@@ -148,12 +203,26 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   );
 }
 
+// Nested command interface
+interface NestedCommand {
+  id: string;
+  title: string;
+  icon: typeof User;
+  children?: NestedCommand[];
+  execute?: () => void;
+}
+
 export function CommandPalette() {
   const router = useRouter();
   const { isOpen, close } = useCommandPalette();
   const { isAdmin, isSuperAdmin } = useAuth();
   const { theme, setTheme } = useTheme();
   const { viewMode, setViewMode } = useRole();
+  const { selectedLocation, setSelectedLocation, locations } = useLocation();
+  const { showToast } = useToast();
+
+  // State for nested command navigation
+  const [commandPath, setCommandPath] = useState<string[]>([]);
 
   // Build complete pages list based on user role
   const allPages = useMemo(() => {
@@ -174,7 +243,7 @@ export function CommandPalette() {
       type: "action",
       title: theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode",
       icon: theme === 'dark' ? Sun : Moon,
-      execute: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      execute: () => { setTheme(theme === 'dark' ? 'light' : 'dark'); close(); },
     },
     {
       id: "action-view-center",
@@ -182,7 +251,7 @@ export function CommandPalette() {
       title: "Switch to Center View",
       subtitle: viewMode === 'center-view' ? "Currently active" : undefined,
       icon: Building2,
-      execute: () => setViewMode('center-view'),
+      execute: () => { setViewMode('center-view'); close(); },
     },
     {
       id: "action-view-my",
@@ -190,9 +259,62 @@ export function CommandPalette() {
       title: "Switch to My View",
       subtitle: viewMode === 'my-view' ? "Currently active" : undefined,
       icon: Eye,
-      execute: () => setViewMode('my-view'),
+      execute: () => { setViewMode('my-view'); close(); },
     },
-  ], [theme, setTheme, viewMode, setViewMode]);
+  ], [theme, setTheme, viewMode, setViewMode, close]);
+
+  // Nested commands with submenus
+  const nestedCommands = useMemo<NestedCommand[]>(() => {
+    const commands: NestedCommand[] = [];
+
+    // Location switching (admin only)
+    if (isAdmin && locations.length > 1) {
+      commands.push({
+        id: 'cmd-location',
+        title: 'Switch Location',
+        icon: MapPin,
+        children: locations.map(loc => ({
+          id: `loc-${loc}`,
+          title: loc,
+          icon: loc === selectedLocation ? CheckCircle : MapPin,
+          execute: () => {
+            setSelectedLocation(loc);
+            close();
+          },
+        })),
+      });
+    }
+
+    // Session filters (all users) - using actual status values from StatusFilterDropdown
+    commands.push({
+      id: 'cmd-filter-sessions',
+      title: 'Filter Sessions',
+      icon: Filter,
+      children: [
+        { id: 'filter-scheduled', title: 'Scheduled', icon: Calendar, execute: () => { router.push('/sessions?status=Scheduled'); close(); }},
+        { id: 'filter-trial', title: 'Trial Class', icon: Star, execute: () => { router.push('/sessions?status=Trial Class'); close(); }},
+        { id: 'filter-makeup-class', title: 'Make-up Class', icon: RefreshCw, execute: () => { router.push('/sessions?status=Make-up Class'); close(); }},
+        { id: 'filter-attended', title: 'Attended', icon: CheckCircle, execute: () => { router.push('/sessions?status=Attended'); close(); }},
+        { id: 'filter-noshow', title: 'No Show', icon: UserX, execute: () => { router.push('/sessions?status=No Show'); close(); }},
+        { id: 'filter-cancelled', title: 'Cancelled', icon: X, execute: () => { router.push('/sessions?status=Cancelled'); close(); }},
+        { id: 'filter-pending-makeups', title: 'All Pending Make-ups', icon: Clock, execute: () => { router.push('/sessions?filter=pending-makeups'); close(); }},
+      ],
+    });
+
+    // Overdue payment filters (all users)
+    commands.push({
+      id: 'cmd-payments',
+      title: 'Overdue Payments',
+      icon: DollarSign,
+      children: [
+        { id: 'pay-all', title: 'All Overdue', icon: DollarSign, execute: () => { router.push('/overdue-payments'); close(); }},
+        { id: 'pay-critical', title: 'Critical (30+ days)', icon: AlertCircle, execute: () => { router.push('/overdue-payments?urgency=critical'); close(); }},
+        { id: 'pay-high', title: 'High (15-29 days)', icon: AlertCircle, execute: () => { router.push('/overdue-payments?urgency=high'); close(); }},
+      ],
+    });
+
+    return commands;
+  }, [isAdmin, locations, selectedLocation, setSelectedLocation, router, close]);
 
   // Fuse instance for fuzzy search on local items (pages + quick actions)
   const fuse = useMemo(() => {
@@ -273,6 +395,7 @@ export function CommandPalette() {
       setQuery("");
       setResults(null);
       setSelectedIndex(0);
+      setCommandPath([]);
     }
   }, [isOpen]);
 
@@ -308,11 +431,103 @@ export function CommandPalette() {
     return () => clearTimeout(timer);
   }, [query, searchTerm, saveRecentSearch]);
 
+  // Slash syntax: "filter/" or "loc/" etc. to enter submenu
+  useEffect(() => {
+    const slashMatch = query.match(/^(\w+)\/$/i);
+    if (slashMatch && commandPath.length === 0) {
+      const prefix = slashMatch[1].toLowerCase();
+      const matchingCmd = nestedCommands.find(cmd =>
+        cmd.title.toLowerCase().includes(prefix) ||
+        cmd.id.toLowerCase().replace('cmd-', '').includes(prefix)
+      );
+      if (matchingCmd) {
+        setCommandPath([matchingCmd.id]);
+        setQuery('');
+        setSelectedIndex(0);
+      }
+    }
+  }, [query, commandPath.length, nestedCommands]);
+
   // Build flat list of all results for keyboard navigation
   const allItems = useMemo<ResultItem[]>(() => {
     const items: ResultItem[] = [];
 
-    // When no query, show recent searches + action commands + quick actions + pages
+    // Calculator utility: = expression
+    if (query.startsWith('=')) {
+      const expression = query.slice(1).trim();
+      if (expression) {
+        try {
+          const result = evaluateMath(expression);
+          return [{
+            id: 'calc-result',
+            type: 'utility' as const,
+            title: `${expression} = ${result.toLocaleString()}`,
+            subtitle: 'Press Enter to copy result',
+            icon: Calculator,
+            execute: () => {
+              navigator.clipboard.writeText(String(result));
+              showToast('Copied to clipboard', 'success');
+              close();
+            },
+          }];
+        } catch {
+          return [{
+            id: 'calc-error',
+            type: 'utility' as const,
+            title: 'Invalid expression',
+            subtitle: 'Try: = 6 * 250 or = (10 + 5) * 2',
+            icon: AlertCircle,
+          }];
+        }
+      }
+    }
+
+    // Date utility: date +7 or d -30
+    const dateMatch = query.match(/^(?:date|d)\s+([+-]?\d+)$/i);
+    if (dateMatch) {
+      const offset = parseInt(dateMatch[1], 10);
+      const date = new Date();
+      date.setDate(date.getDate() + offset);
+      const formatted = date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const isoDate = date.toISOString().split('T')[0];
+      return [{
+        id: 'date-result',
+        type: 'utility' as const,
+        title: formatted,
+        subtitle: `${offset >= 0 ? '+' : ''}${offset} days → ${isoDate}`,
+        icon: Calendar,
+        execute: () => {
+          navigator.clipboard.writeText(isoDate);
+          showToast('Copied to clipboard', 'success');
+          close();
+        },
+      }];
+    }
+
+    // If in nested command submenu, show children
+    if (commandPath.length > 0) {
+      const currentParentId = commandPath[commandPath.length - 1];
+      const parentCmd = nestedCommands.find(c => c.id === currentParentId);
+      if (parentCmd?.children) {
+        parentCmd.children.forEach((child) => {
+          items.push({
+            id: child.id,
+            type: 'action' as const,
+            title: child.title,
+            icon: child.icon,
+            execute: child.execute,
+          });
+        });
+      }
+      return items;
+    }
+
+    // When no query, show recent searches + action commands + nested commands + quick actions + pages
     if (!query) {
       // Recent searches
       recentSearches.forEach((search) => {
@@ -328,6 +543,21 @@ export function CommandPalette() {
       // Action commands
       actionCommands.forEach((action) => {
         items.push(action);
+      });
+
+      // Nested commands (show as parent items with > indicator)
+      nestedCommands.forEach((cmd) => {
+        items.push({
+          id: cmd.id,
+          type: 'action' as const,
+          title: cmd.title,
+          subtitle: `${cmd.children?.length || 0} options →`,
+          icon: cmd.icon,
+          execute: () => {
+            setCommandPath([cmd.id]);
+            setSelectedIndex(0);
+          },
+        });
       });
 
       // Quick actions
@@ -425,7 +655,7 @@ export function CommandPalette() {
     }
 
     return items;
-  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands]);
+  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands, showToast, commandPath, nestedCommands, close]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -446,10 +676,9 @@ export function CommandPalette() {
             if (item.type === "recent") {
               // Set query instead of navigating for recent searches
               setQuery(item.title);
-            } else if (item.type === "action" && item.execute) {
-              // Execute action command
+            } else if ((item.type === "action" || item.type === "utility") && item.execute) {
+              // Execute action or utility command (execute handles closing if needed)
               item.execute();
-              close();
             } else if (item.href) {
               router.push(item.href);
               close();
@@ -458,7 +687,11 @@ export function CommandPalette() {
           break;
         case "Escape":
           e.preventDefault();
-          if (query) {
+          if (commandPath.length > 0) {
+            // Go back from submenu
+            setCommandPath(prev => prev.slice(0, -1));
+            setSelectedIndex(0);
+          } else if (query) {
             // First escape clears query
             setQuery("");
           } else {
@@ -466,9 +699,17 @@ export function CommandPalette() {
             close();
           }
           break;
+        case "Backspace":
+          // Go back from submenu on Backspace when query is empty
+          if (query === "" && commandPath.length > 0) {
+            e.preventDefault();
+            setCommandPath(prev => prev.slice(0, -1));
+            setSelectedIndex(0);
+          }
+          break;
       }
     },
-    [allItems, selectedIndex, router, close, query]
+    [allItems, selectedIndex, router, close, query, commandPath]
   );
 
   // Scroll selected item into view
@@ -559,6 +800,38 @@ export function CommandPalette() {
           </button>
         </div>
 
+        {/* Breadcrumb when in nested command submenu */}
+        {commandPath.length > 0 && (
+          <div className="px-4 py-2 flex items-center gap-2 border-b border-[#e8d4b8] dark:border-[#3d3628] bg-[#f5ede3]/50 dark:bg-[#2d2618]/50">
+            <button
+              onClick={() => {
+                setCommandPath([]);
+                setSelectedIndex(0);
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              Commands
+            </button>
+            {commandPath.map((id, idx) => {
+              const cmd = nestedCommands.find(c => c.id === id);
+              return (
+                <Fragment key={id}>
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                  <button
+                    onClick={() => {
+                      setCommandPath(prev => prev.slice(0, idx + 1));
+                      setSelectedIndex(0);
+                    }}
+                    className="text-xs font-medium text-[#a0704b] dark:text-[#cd853f]"
+                  >
+                    {cmd?.title}
+                  </button>
+                </Fragment>
+              );
+            })}
+          </div>
+        )}
+
         {/* Results */}
         <div
           ref={listRef}
@@ -600,11 +873,12 @@ export function CommandPalette() {
           {!loading && allItems.length > 0 && query && (
             <div className="py-2">
               {/* Group by type */}
-              {["student", "session", "enrollment", "page"].map((type) => {
+              {["utility", "student", "session", "enrollment", "page"].map((type) => {
                 const typeItems = allItems.filter((item) => item.type === type);
                 if (typeItems.length === 0) return null;
 
                 const typeLabels: Record<string, string> = {
+                  utility: "Result",
                   student: "Students",
                   session: "Sessions",
                   enrollment: "Enrollments",
@@ -637,8 +911,13 @@ export function CommandPalette() {
                           role="option"
                           aria-selected={isSelected}
                           onClick={() => {
-                            router.push(item.href);
-                            close();
+                            if (item.execute) {
+                              item.execute();
+                              // Note: execute() handles closing if needed
+                            } else if (item.href) {
+                              router.push(item.href);
+                              close();
+                            }
                           }}
                           className={cn(
                             "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
@@ -677,8 +956,54 @@ export function CommandPalette() {
             </div>
           )}
 
+          {/* Submenu items when in nested command */}
+          {!loading && !query && commandPath.length > 0 && (
+            <div className="py-2">
+              {allItems.map((item, idx) => {
+                const Icon = item.icon;
+                const isSelected = idx === selectedIndex;
+
+                return (
+                  <button
+                    key={item.id}
+                    id={item.id}
+                    data-index={idx}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      if (item.execute) {
+                        item.execute();
+                      }
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
+                      isSelected
+                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
+                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 flex-shrink-0",
+                        isSelected
+                          ? "text-[#a0704b] dark:text-[#cd853f]"
+                          : "text-gray-400 dark:text-gray-500"
+                      )}
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
+                      {item.title}
+                    </span>
+                    {isSelected && (
+                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Empty state with recent searches and pages when no query */}
-          {!loading && !query && (
+          {!loading && !query && commandPath.length === 0 && (
             <div className="py-2">
               {/* Recent Searches */}
               {recentSearches.length > 0 && (
@@ -770,7 +1095,7 @@ export function CommandPalette() {
                     onClick={() => {
                       if (action.execute) {
                         action.execute();
-                        close();
+                        // Note: execute() handles closing
                       }
                     }}
                     className={cn(
@@ -805,6 +1130,61 @@ export function CommandPalette() {
                 );
               })}
 
+              {/* Nested Commands */}
+              {nestedCommands.length > 0 && (
+                <>
+                  <div className="px-4 py-1.5 flex items-center gap-2">
+                    <Filter className="h-3 w-3 text-blue-500" />
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Commands
+                    </span>
+                  </div>
+                  {nestedCommands.map((cmd, idx) => {
+                    const Icon = cmd.icon;
+                    const index = recentSearches.length + actionCommands.length + idx;
+                    const isSelected = index === selectedIndex;
+
+                    return (
+                      <button
+                        key={cmd.id}
+                        id={cmd.id}
+                        data-index={index}
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => {
+                          setCommandPath([cmd.id]);
+                          setSelectedIndex(0);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
+                          isSelected
+                            ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
+                            : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 flex-shrink-0",
+                            isSelected
+                              ? "text-[#a0704b] dark:text-[#cd853f]"
+                              : "text-blue-500 dark:text-blue-400"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {cmd.title}
+                          </span>
+                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                            {cmd.children?.length || 0} options
+                          </span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
               {/* Quick Actions */}
               <div className="px-4 py-1.5 flex items-center gap-2">
                 <Zap className="h-3 w-3 text-amber-500" />
@@ -814,7 +1194,7 @@ export function CommandPalette() {
               </div>
               {QUICK_ACTIONS.map((action, idx) => {
                 const Icon = action.icon;
-                const index = recentSearches.length + actionCommands.length + idx;
+                const index = recentSearches.length + actionCommands.length + nestedCommands.length + idx;
                 const isSelected = index === selectedIndex;
 
                 return (
@@ -862,7 +1242,7 @@ export function CommandPalette() {
               </div>
               {allPages.map((page, idx) => {
                 const Icon = page.icon;
-                const index = recentSearches.length + actionCommands.length + QUICK_ACTIONS.length + idx;
+                const index = recentSearches.length + actionCommands.length + nestedCommands.length + QUICK_ACTIONS.length + idx;
                 const isSelected = index === selectedIndex;
                 // Check if this is an admin page for special styling
                 const isAdminPage = page.id.startsWith("page-renewals") ||

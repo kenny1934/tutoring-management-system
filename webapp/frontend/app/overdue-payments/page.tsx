@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useTutors, usePageTitle, useOverdueEnrollments } from "@/lib/hooks";
@@ -93,6 +94,9 @@ function getUrgencyLevel(daysOverdue: number): UrgencyLevel {
 
 export default function OverduePaymentsPage() {
   usePageTitle("Overdue Payments");
+
+  const searchParams = useSearchParams();
+  const urgencyFilter = searchParams.get('urgency') as UrgencyLevel | null;
 
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
@@ -187,6 +191,23 @@ export default function OverduePaymentsPage() {
     return grouped;
   }, [overdueEnrollments]);
 
+  // Filter by URL param if present
+  const filteredEnrollmentsByUrgency = useMemo(() => {
+    if (!urgencyFilter || !URGENCY_LEVELS[urgencyFilter]) {
+      return enrollmentsByUrgency;
+    }
+    // Show only the filtered urgency level
+    const filtered: Record<UrgencyLevel, OverdueEnrollment[]> = {
+      critical: [],
+      high: [],
+      medium: [],
+      new: [],
+      dueSoon: [],
+    };
+    filtered[urgencyFilter] = enrollmentsByUrgency[urgencyFilter];
+    return filtered;
+  }, [enrollmentsByUrgency, urgencyFilter]);
+
   // Count by urgency level
   const urgencyCounts = useMemo(() => ({
     critical: enrollmentsByUrgency.critical.length,
@@ -252,6 +273,19 @@ export default function OverduePaymentsPage() {
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
                     <h1 className="text-lg font-semibold">Overdue Payments</h1>
+                    {urgencyFilter && URGENCY_LEVELS[urgencyFilter] && (
+                      <Link
+                        href="/overdue-payments"
+                        className={cn(
+                          "px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1",
+                          URGENCY_LEVELS[urgencyFilter].badgeBg,
+                          URGENCY_LEVELS[urgencyFilter].textColor
+                        )}
+                      >
+                        {URGENCY_LEVELS[urgencyFilter].label}
+                        <span className="text-[10px]">×</span>
+                      </Link>
+                    )}
                   </div>
 
                   {/* Tutor Selector (center-view only) */}
@@ -319,7 +353,7 @@ export default function OverduePaymentsPage() {
                 <>
                   {/* Overdue Enrollments by Urgency Level */}
                   {(['critical', 'high', 'medium', 'new', 'dueSoon'] as UrgencyLevel[]).map((level) => {
-                    const enrollments = enrollmentsByUrgency[level];
+                    const enrollments = filteredEnrollmentsByUrgency[level];
                     if (enrollments.length === 0) return null;
                     const config = URGENCY_LEVELS[level];
                     const isDueSoon = level === 'dueSoon';
