@@ -55,6 +55,8 @@ export interface PaginatedRows {
   total: number;
   limit: number;
   offset: number;
+  active_count?: number;  // Count of non-deleted rows (for soft-delete tables)
+  deleted_count?: number; // Count of soft-deleted rows
 }
 
 export interface DebugAuditLog {

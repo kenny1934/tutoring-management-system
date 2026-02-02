@@ -134,6 +134,29 @@ function parseCSVLine(line: string): string[] {
   result.push(current.trim());
   return result;
 }
+
+/**
+ * Highlight matching search text in a string.
+ * Returns React nodes with <mark> tags around matches.
+ */
+function highlightSearchText(text: string, search: string): React.ReactNode {
+  if (!search || !text) return text;
+  // Escape regex special characters in search string
+  const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedSearch})`, 'gi');
+  const parts = text.split(regex);
+
+  if (parts.length === 1) return text; // No matches
+
+  return parts.map((part, i) =>
+    regex.test(part) ? (
+      <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/70 rounded px-0.5">{part}</mark>
+    ) : (
+      part
+    )
+  );
+}
+
 // ============================================================================
 // TableDataRow - Memoized row component to prevent unnecessary re-renders
 // ============================================================================
@@ -177,6 +200,7 @@ interface TableDataRowProps {
   parseInputValue: (value: string | boolean, col: DebugColumn) => unknown;
   getInputType: (col: DebugColumn) => string;
   isLongValue: (value: unknown) => boolean;
+  searchQuery: string;
 }
 
 const TableDataRow = memo(function TableDataRow({
@@ -216,6 +240,7 @@ const TableDataRow = memo(function TableDataRow({
   parseInputValue,
   getInputType,
   isLongValue,
+  searchQuery,
 }: TableDataRowProps) {
   const isEven = rowIndex % 2 === 0;
 
@@ -319,7 +344,7 @@ const TableDataRow = memo(function TableDataRow({
                   className="flex items-center gap-1 text-[#a0704b] hover:underline truncate max-w-[200px]"
                   title={`Preview ${foreignKeys[col.name].table} record`}
                 >
-                  {renderCellValue(row[col.name], col.type)}
+                  {highlightSearchText(renderCellValue(row[col.name], col.type), searchQuery)}
                   <ExternalLink className="h-3 w-3 flex-shrink-0" />
                 </button>
               ) : (
@@ -330,7 +355,7 @@ const TableDataRow = memo(function TableDataRow({
                   )}
                   title={renderCellValue(row[col.name], col.type)}
                 >
-                  {renderCellValue(row[col.name], col.type)}
+                  {highlightSearchText(renderCellValue(row[col.name], col.type), searchQuery)}
                 </span>
               )}
               {isLongValue(row[col.name]) && !foreignKeys[col.name] && (
@@ -1551,8 +1576,8 @@ export default function TableBrowserPage() {
             </div>
 
             {/* Toolbar */}
-            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
-              <div className="relative flex-1 min-w-[200px]">
+            <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center relative z-20">
+              <div className="relative flex-1 min-w-[200px] z-10">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <input
                   ref={searchInputRef}
@@ -1758,7 +1783,20 @@ export default function TableBrowserPage() {
                 Create
               </button>
               <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                <span>{totalRows.toLocaleString()} rows</span>
+                <span>
+                  {rowsData?.active_count != null ? (
+                    <>
+                      {rowsData.active_count.toLocaleString()} active
+                      {rowsData.deleted_count !== undefined && rowsData.deleted_count > 0 && (
+                        <span className="text-gray-400 ml-1">
+                          ({rowsData.deleted_count.toLocaleString()} deleted)
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>{totalRows.toLocaleString()} rows</>
+                  )}
+                </span>
                 {lastRefreshed && (
                   <span className="text-xs text-gray-400 animate-refresh-in">
                     {lastRefreshed.toLocaleTimeString()}
@@ -2126,6 +2164,7 @@ export default function TableBrowserPage() {
                           parseInputValue={parseInputValue}
                           getInputType={getInputType}
                           isLongValue={isLongValue}
+                          searchQuery={debouncedSearch}
                         />
                       );
                     })}
