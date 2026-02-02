@@ -15,7 +15,7 @@ DEBUG_TABLE_CONFIG = {
         "hidden_columns": [],
         "search_columns": ["notes", "session_status"],
         "default_sort": ("session_date", "desc"),
-        "allow_hard_delete": False,
+        "allow_hard_delete": True,
     },
     "enrollments": {
         "display_name": "Enrollments",
@@ -25,7 +25,7 @@ DEBUG_TABLE_CONFIG = {
         "hidden_columns": [],
         "search_columns": ["remark", "payment_status"],
         "default_sort": ("id", "desc"),
-        "allow_hard_delete": False,
+        "allow_hard_delete": True,
     },
     "students": {
         "display_name": "Students",
@@ -35,7 +35,7 @@ DEBUG_TABLE_CONFIG = {
         "hidden_columns": [],
         "search_columns": ["student_name", "school_student_id", "phone", "school"],
         "default_sort": ("student_name", "asc"),
-        "allow_hard_delete": False,
+        "allow_hard_delete": True,
     },
 
     # Priority 2: Reference tables
@@ -47,7 +47,7 @@ DEBUG_TABLE_CONFIG = {
         "hidden_columns": [],
         "search_columns": ["tutor_name", "user_email"],
         "default_sort": ("tutor_name", "asc"),
-        "allow_hard_delete": False,
+        "allow_hard_delete": True,
     },
     "discounts": {
         "display_name": "Discounts",
@@ -79,7 +79,7 @@ DEBUG_TABLE_CONFIG = {
         "hidden_columns": [],
         "search_columns": ["title", "description", "school"],
         "default_sort": ("start_date", "desc"),
-        "allow_hard_delete": False,
+        "allow_hard_delete": True,
     },
     "exam_revision_slots": {
         "display_name": "Exam Revision Slots",
