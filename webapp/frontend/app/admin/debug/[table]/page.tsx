@@ -187,6 +187,11 @@ export default function TableBrowserPage() {
   // Bulk operations
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Clear selected rows when switching tables
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [tableName]);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [bulkEditColumn, setBulkEditColumn] = useState<string>("");
@@ -1928,7 +1933,11 @@ export default function TableBrowserPage() {
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </button>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <span className="hidden sm:inline text-xs">
+                  Rows {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalRows)} of {totalRows.toLocaleString()}
+                </span>
+                <div className="flex items-center gap-2">
                 <span>Page</span>
                 <input
                   type="number"
@@ -1949,6 +1958,7 @@ export default function TableBrowserPage() {
                   className="w-16 px-2 py-1 text-center text-sm rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
                 />
                 <span>of {totalPages}</span>
+                </div>
               </div>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
