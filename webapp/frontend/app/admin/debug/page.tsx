@@ -18,6 +18,7 @@ import {
   Loader2,
   Shield,
   History,
+  Terminal,
 } from "lucide-react";
 
 export default function DebugPanelPage() {
@@ -38,10 +39,10 @@ export default function DebugPanelPage() {
 
   // Group tables by priority ranges
   const priorityGroups = [
-    { label: "Priority Tables", min: 0, max: 9, color: "bg-red-500" },
-    { label: "Reference Tables", min: 10, max: 19, color: "bg-amber-500" },
-    { label: "Supporting Tables", min: 20, max: 29, color: "bg-blue-500" },
-    { label: "Other Tables", min: 30, max: 999, color: "bg-gray-400" },
+    { label: "Priority Tables", min: 0, max: 9, color: "bg-red-500", accent: "priority-accent-red" },
+    { label: "Reference Tables", min: 10, max: 19, color: "bg-amber-500", accent: "priority-accent-amber" },
+    { label: "Supporting Tables", min: 20, max: 29, color: "bg-blue-500", accent: "priority-accent-blue" },
+    { label: "Other Tables", min: 30, max: 999, color: "bg-gray-400", accent: "priority-accent-gray" },
   ];
 
   return (
@@ -98,6 +99,13 @@ export default function DebugPanelPage() {
                 />
               </div>
               <Link
+                href="/admin/debug/sql"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors"
+              >
+                <Terminal className="h-4 w-4" />
+                SQL Executor
+              </Link>
+              <Link
                 href="/admin/debug/audit"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
               >
@@ -143,7 +151,8 @@ export default function DebugPanelPage() {
                               "p-4 rounded-xl border transition-all",
                               "bg-white dark:bg-[#1a1a1a] border-[#e8d4b8] dark:border-[#6b5a4a]",
                               "hover:shadow-md hover:border-[#a0704b] dark:hover:border-[#a0704b]",
-                              "paper-texture"
+                              "paper-texture",
+                              group.accent
                             )}
                           >
                             <div className="flex items-start justify-between gap-2">

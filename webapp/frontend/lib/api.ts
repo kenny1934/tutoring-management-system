@@ -59,6 +59,8 @@ import type {
   DebugAuditLog,
   PaginatedAuditLogs,
   AuditLogQueryParams,
+  SqlQueryResponse,
+  RevertResponse,
 } from "@/types/debug";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -1915,6 +1917,19 @@ export const debugAPI = {
     const query = searchParams.toString();
     return fetchAPI<PaginatedAuditLogs>(`/debug/audit-logs${query ? `?${query}` : ""}`);
   },
+
+  // Execute SQL query (read-only)
+  executeSql: (query: string) =>
+    fetchAPI<SqlQueryResponse>("/debug/sql/execute", {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    }),
+
+  // Revert an audit log entry
+  revertAuditLog: (logId: number) =>
+    fetchAPI<RevertResponse>(`/debug/audit-logs/${logId}/revert`, {
+      method: "POST",
+    }),
 };
 
 // Export all APIs as a single object

@@ -60,7 +60,7 @@ export interface PaginatedRows {
 export interface DebugAuditLog {
   id: number;
   admin_email: string;
-  operation: "CREATE" | "UPDATE" | "DELETE";
+  operation: "CREATE" | "UPDATE" | "DELETE" | "SQL_QUERY";
   table_name: string;
   row_id?: number;
   before_state?: Record<string, unknown>;
@@ -83,4 +83,17 @@ export interface AuditLogQueryParams {
   table_name?: string;
   operation?: string;
   admin_email?: string;
+}
+
+export interface SqlQueryResponse {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  execution_time_ms: number;
+}
+
+export interface RevertResponse {
+  success: boolean;
+  message: string;
+  row_id?: number;
 }

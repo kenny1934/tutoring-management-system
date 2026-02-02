@@ -6,6 +6,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
 import { DeskSurface } from "@/components/layout/DeskSurface";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { debugAPI } from "@/lib/api";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
@@ -36,12 +37,99 @@ import {
   Expand,
   FileDown,
   ExternalLink,
+  Copy,
+  Calendar,
+  Hash,
+  ToggleLeft,
+  Type,
+  Coins,
+  Binary,
+  Clock,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Bookmark,
+  Save,
+  Upload,
+  FileUp,
+  BarChart3,
+  GitCompare,
 } from "lucide-react";
 
 // Shared constant for pagination (should match backend default)
 const PAGE_SIZE = 50;
 // Debounce delay for search input (ms)
 const SEARCH_DEBOUNCE_MS = 500;
+
+// Table priority classifications for visual styling
+const TABLE_CLASSIFICATIONS = {
+  priority: ["session_log", "enrollments", "students"],
+  reference: ["tutors", "discounts", "holidays"],
+  supporting: ["calendar_events", "exam_revision_slots", "extension_requests", "parent_communications", "termination_records"],
+} as const;
+
+function getTablePriorityColor(tableName: string): string {
+  if (TABLE_CLASSIFICATIONS.priority.includes(tableName as (typeof TABLE_CLASSIFICATIONS.priority)[number])) {
+    return "bg-red-500";
+  }
+  if (TABLE_CLASSIFICATIONS.reference.includes(tableName as (typeof TABLE_CLASSIFICATIONS.reference)[number])) {
+    return "bg-amber-500";
+  }
+  if (TABLE_CLASSIFICATIONS.supporting.includes(tableName as (typeof TABLE_CLASSIFICATIONS.supporting)[number])) {
+    return "bg-blue-500";
+  }
+  return "bg-gray-400";
+}
+
+/**
+ * Parse a CSV line properly, handling quoted fields with commas and escaped quotes.
+ */
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const char = line[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        // Check for escaped quote (double quote)
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i += 2;
+          continue;
+        }
+        // End of quoted field
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      current += char;
+      i++;
+    } else {
+      if (char === '"') {
+        // Start of quoted field
+        inQuotes = true;
+        i++;
+      } else if (char === ",") {
+        // End of field
+        result.push(current.trim());
+        current = "";
+        i++;
+      } else {
+        current += char;
+        i++;
+      }
+    }
+  }
+
+  // Don't forget the last field
+  result.push(current.trim());
+  return result;
+}
 
 export default function TableBrowserPage() {
   const params = useParams();
@@ -63,6 +151,9 @@ export default function TableBrowserPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Clone row
+  const [cloneSource, setCloneSource] = useState<DebugRow | null>(null);
+
   // Column visibility - persisted to localStorage
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
@@ -76,6 +167,7 @@ export default function TableBrowserPage() {
     return new Set();
   });
   const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [columnSearchQuery, setColumnSearchQuery] = useState("");
   const columnMenuRef = useRef<HTMLDivElement>(null);
 
   // Persist column visibility changes
@@ -104,6 +196,16 @@ export default function TableBrowserPage() {
   // Export
   const [isExporting, setIsExporting] = useState(false);
 
+  // Import
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importData, setImportData] = useState<string>("");
+  const [importFormat, setImportFormat] = useState<"csv" | "json">("json");
+  const [importPreview, setImportPreview] = useState<DebugRow[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Show diff when editing
+  const [showEditDiff, setShowEditDiff] = useState(true);
+
   // Search all columns toggle
   const [searchAll, setSearchAll] = useState(false);
 
@@ -112,6 +214,50 @@ export default function TableBrowserPage() {
 
   // Cell detail modal
   const [detailCell, setDetailCell] = useState<{ value: unknown; column: string } | null>(null);
+
+  // Keyboard navigation
+  const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Refs for keyboard handler to avoid excessive re-renders
+  const keyboardStateRef = useRef({
+    showKeyboardHelp: false,
+    fkPreview: null as typeof fkPreview,
+    showBulkDeleteConfirm: false,
+    detailCell: null as typeof detailCell,
+    showColumnMenu: false,
+    isCreating: false,
+    editingRow: null as typeof editingRow,
+    deleteConfirm: null as typeof deleteConfirm,
+    focusedRowIndex: null as number | null,
+    rows: [] as typeof rows,
+    pkColumn: "",
+  });
+
+  // Last refreshed timestamp
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+
+  // Quick filters
+  const [showQuickFilters, setShowQuickFilters] = useState(false);
+  const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
+  const [savedFilters, setSavedFilters] = useState<Array<{ name: string; filters: string[] }>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`debug_saved_filters_${tableName}`);
+        if (saved) return JSON.parse(saved);
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    return [];
+  });
+  const [showSaveFilterModal, setShowSaveFilterModal] = useState(false);
+  const [newFilterName, setNewFilterName] = useState("");
+
+  // Column statistics
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [statsColumn, setStatsColumn] = useState<string | null>(null);
 
   // FK preview popover
   const [fkPreview, setFkPreview] = useState<{
@@ -144,7 +290,7 @@ export default function TableBrowserPage() {
   const { showToast } = useToast();
 
   // Fetch schema
-  const { data: schema, isLoading: schemaLoading } = useSWR<DebugTableSchema>(
+  const { data: schema, isLoading: schemaLoading, error: schemaError, mutate: mutateSchema } = useSWR<DebugTableSchema>(
     `debug-schema-${tableName}`,
     () => debugAPI.getTableSchema(tableName)
   );
@@ -185,6 +331,13 @@ export default function TableBrowserPage() {
   const rows = rowsData?.rows || [];
   const totalRows = rowsData?.total || 0;
   const totalPages = Math.ceil(totalRows / PAGE_SIZE);
+
+  // Update last refreshed timestamp when data changes
+  useEffect(() => {
+    if (rowsData && !rowsLoading) {
+      setLastRefreshed(new Date());
+    }
+  }, [rowsData, rowsLoading]);
 
   // Get primary key column
   const pkColumn = schema?.primary_key || "id";
@@ -277,6 +430,7 @@ export default function TableBrowserPage() {
   const handleCancelCreate = useCallback(() => {
     setIsCreating(false);
     setNewRowData({});
+    setCloneSource(null);
   }, []);
 
   const handleSaveCreate = useCallback(async () => {
@@ -302,24 +456,7 @@ export default function TableBrowserPage() {
     }
   }, [newRowData, schema, tableName, mutate, handleCancelCreate]);
 
-  // Handle Escape key to close menus and modals
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        if (fkPreview) setFkPreview(null);
-        else if (showBulkDeleteConfirm) setShowBulkDeleteConfirm(false);
-        else if (detailCell) setDetailCell(null);
-        else if (showColumnMenu) setShowColumnMenu(false);
-        else if (isCreating) handleCancelCreate();
-        else if (editingRow) handleCancelEdit();
-        else if (deleteConfirm) setDeleteConfirm(null);
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [fkPreview, showBulkDeleteConfirm, detailCell, showColumnMenu, isCreating, editingRow, deleteConfirm, handleCancelCreate, handleCancelEdit]);
-
-  // Fetch FK preview data
+  // Fetch FK preview data with timeout
   useEffect(() => {
     if (!fkPreview) {
       setFkPreviewData(null);
@@ -327,13 +464,20 @@ export default function TableBrowserPage() {
     }
 
     let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setFkPreviewData(null);
+        setFkPreviewLoading(false);
+      }
+    }, 5000);
+
     setFkPreviewLoading(true);
     debugAPI.getRow(fkPreview.tableName, fkPreview.rowId)
       .then((data) => { if (!cancelled) setFkPreviewData(data); })
       .catch(() => { if (!cancelled) setFkPreviewData(null); })
-      .finally(() => { if (!cancelled) setFkPreviewLoading(false); });
+      .finally(() => { if (!cancelled) { setFkPreviewLoading(false); clearTimeout(timeout); } });
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [fkPreview]);
 
   // Handle delete
@@ -452,10 +596,11 @@ export default function TableBrowserPage() {
   // Check if value looks like binary/base64 data
   const isBinaryData = (value: unknown): boolean => {
     if (typeof value !== "string") return false;
-    // Detect base64-encoded binary data (common patterns)
+    // Explicit markers for base64 data
     if (value.startsWith("base64:") || value.startsWith("data:")) return true;
-    // Heuristic: long strings with base64 alphabet and no spaces
-    if (value.length > 100 && /^[A-Za-z0-9+/=]+$/.test(value)) return true;
+    // Heuristic: very long strings (>500 chars) with base64 alphabet, no spaces
+    // Higher threshold to avoid false positives with API keys, tokens, etc.
+    if (value.length > 500 && /^[A-Za-z0-9+/=]+$/.test(value) && !value.includes(" ")) return true;
     return false;
   };
 
@@ -511,8 +656,18 @@ export default function TableBrowserPage() {
     }
     if (col.type === "boolean") return Boolean(value);
     if (col.type === "datetime" && typeof value === "string") {
-      // Convert ISO string to datetime-local format (remove Z and seconds)
-      return value.replace("Z", "").split(".")[0];
+      // Handle various datetime formats including timezone offsets
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          // Format as local datetime for input
+          return date.toISOString().slice(0, 16);
+        }
+      } catch {
+        // Fall through to regex fallback
+      }
+      // Fallback: remove timezone info
+      return value.replace(/[Z+-]\d{2}:?\d{2}$/, "").replace("Z", "").split(".")[0];
     }
     if (col.type === "date" && typeof value === "string") {
       // Ensure YYYY-MM-DD format
@@ -544,6 +699,392 @@ export default function TableBrowserPage() {
     return str.length > 50;
   };
 
+  // Get icon for column type
+  const getColumnTypeIcon = (type: string) => {
+    switch (type) {
+      case "integer":
+        return <Hash className="h-3 w-3" />;
+      case "decimal":
+        return <Coins className="h-3 w-3" />;
+      case "date":
+        return <Calendar className="h-3 w-3" />;
+      case "datetime":
+        return <Clock className="h-3 w-3" />;
+      case "boolean":
+        return <ToggleLeft className="h-3 w-3" />;
+      case "binary":
+        return <Binary className="h-3 w-3" />;
+      default:
+        return <Type className="h-3 w-3" />;
+    }
+  };
+
+  // Handle clone row
+  const handleCloneRow = useCallback((row: DebugRow) => {
+    // Create a copy without the primary key
+    const clonedData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (key !== pkColumn) {
+        clonedData[key] = value;
+      }
+    }
+    setCloneSource(row);
+    setNewRowData(clonedData);
+    setIsCreating(true);
+    setEditingRow(null);
+    setDeleteConfirm(null);
+  }, [pkColumn]);
+
+  // Keep keyboard state ref in sync (avoids re-attaching event listener)
+  useEffect(() => {
+    keyboardStateRef.current = {
+      showKeyboardHelp,
+      fkPreview,
+      showBulkDeleteConfirm,
+      detailCell,
+      showColumnMenu,
+      isCreating,
+      editingRow,
+      deleteConfirm,
+      focusedRowIndex,
+      rows,
+      pkColumn,
+    };
+  });
+
+  // Store callbacks in refs to avoid re-attaching event listener
+  const callbacksRef = useRef({
+    handleCancelCreate,
+    handleCancelEdit,
+    handleStartEdit,
+    handleCloneRow,
+    handleStartCreate,
+    toggleRowSelection,
+  });
+  useEffect(() => {
+    callbacksRef.current = {
+      handleCancelCreate,
+      handleCancelEdit,
+      handleStartEdit,
+      handleCloneRow,
+      handleStartCreate,
+      toggleRowSelection,
+    };
+  });
+
+  // Handle keyboard shortcuts (only set up once)
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const state = keyboardStateRef.current;
+      const callbacks = callbacksRef.current;
+
+      // Ignore if typing in an input
+      const target = event.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT";
+
+      if (event.key === "Escape") {
+        if (state.showKeyboardHelp) setShowKeyboardHelp(false);
+        else if (state.fkPreview) setFkPreview(null);
+        else if (state.showBulkDeleteConfirm) setShowBulkDeleteConfirm(false);
+        else if (state.detailCell) setDetailCell(null);
+        else if (state.showColumnMenu) setShowColumnMenu(false);
+        else if (state.isCreating) callbacks.handleCancelCreate();
+        else if (state.editingRow) callbacks.handleCancelEdit();
+        else if (state.deleteConfirm) setDeleteConfirm(null);
+        else setFocusedRowIndex(null);
+        return;
+      }
+
+      // Skip other shortcuts if in input or modal is open
+      if (isInput || state.showBulkDeleteConfirm || state.detailCell || state.showColumnMenu || state.isCreating || state.editingRow) return;
+
+      switch (event.key) {
+        case "?":
+          event.preventDefault();
+          setShowKeyboardHelp(true);
+          break;
+        case "j":
+        case "ArrowDown":
+          event.preventDefault();
+          setFocusedRowIndex(prev => {
+            if (prev === null) return 0;
+            return Math.min(prev + 1, state.rows.length - 1);
+          });
+          break;
+        case "k":
+        case "ArrowUp":
+          event.preventDefault();
+          setFocusedRowIndex(prev => {
+            if (prev === null) return state.rows.length - 1;
+            return Math.max(prev - 1, 0);
+          });
+          break;
+        case "e":
+          event.preventDefault();
+          if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
+            callbacks.handleStartEdit(state.rows[state.focusedRowIndex]);
+          }
+          break;
+        case "c":
+          event.preventDefault();
+          if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
+            callbacks.handleCloneRow(state.rows[state.focusedRowIndex]);
+          }
+          break;
+        case "d":
+          event.preventDefault();
+          if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
+            const rowId = state.rows[state.focusedRowIndex][state.pkColumn] as number;
+            setDeleteConfirm(rowId);
+          }
+          break;
+        case "n":
+          event.preventDefault();
+          callbacks.handleStartCreate();
+          break;
+        case "s":
+        case "/":
+          event.preventDefault();
+          searchInputRef.current?.focus();
+          break;
+        case " ":
+          event.preventDefault();
+          if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
+            const rowId = state.rows[state.focusedRowIndex][state.pkColumn] as number;
+            callbacks.toggleRowSelection(rowId);
+          }
+          break;
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []); // Empty deps - only set up once
+
+  // Quick filter presets based on schema
+  const quickFilterPresets = useMemo(() => {
+    if (!schema) return [];
+    const presets: Array<{ id: string; label: string; filter: string }> = [];
+
+    // Find date/datetime columns for date-based filters
+    const dateColumns = schema.columns.filter(c => c.type === "date" || c.type === "datetime");
+    if (dateColumns.length > 0) {
+      const dateCol = dateColumns.find(c => c.name.includes("date") || c.name === "created_at") || dateColumns[0];
+      const today = new Date().toISOString().split("T")[0];
+      const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+      presets.push({ id: "today", label: "Today", filter: `${dateCol.name}__gte:${today}` });
+      presets.push({ id: "last7", label: "Last 7 days", filter: `${dateCol.name}__gte:${last7Days}` });
+      presets.push({ id: "last30", label: "Last 30 days", filter: `${dateCol.name}__gte:${last30Days}` });
+    }
+
+    // Find nullable columns for NULL filter
+    const nullableColumns = schema.columns.filter(c => c.nullable && !c.primary_key);
+    if (nullableColumns.length > 0) {
+      presets.push({ id: "has_nulls", label: "Has NULLs", filter: "include_nulls:true" });
+    }
+
+    return presets;
+  }, [schema]);
+
+  // Toggle quick filter
+  const toggleQuickFilter = useCallback((filterId: string) => {
+    setActiveQuickFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(filterId)) {
+        next.delete(filterId);
+      } else {
+        next.add(filterId);
+      }
+      return next;
+    });
+    setPage(0);
+  }, []);
+
+  // Save current filter
+  const handleSaveFilter = useCallback(() => {
+    if (!newFilterName.trim()) return;
+    const newFilter = {
+      name: newFilterName.trim(),
+      filters: Array.from(activeQuickFilters),
+    };
+    const updated = [...savedFilters, newFilter];
+    setSavedFilters(updated);
+    try {
+      localStorage.setItem(`debug_saved_filters_${tableName}`, JSON.stringify(updated));
+    } catch {
+      // Ignore quota errors
+    }
+    setNewFilterName("");
+    setShowSaveFilterModal(false);
+  }, [newFilterName, activeQuickFilters, savedFilters, tableName]);
+
+  // Delete saved filter
+  const handleDeleteSavedFilter = useCallback((index: number) => {
+    const updated = savedFilters.filter((_, i) => i !== index);
+    setSavedFilters(updated);
+    try {
+      localStorage.setItem(`debug_saved_filters_${tableName}`, JSON.stringify(updated));
+    } catch {
+      // Ignore quota errors
+    }
+  }, [savedFilters, tableName]);
+
+  // Apply saved filter
+  const handleApplySavedFilter = useCallback((filters: string[]) => {
+    setActiveQuickFilters(new Set(filters));
+    setPage(0);
+  }, []);
+
+  // Get changed fields for diff view
+  const getChangedFields = useMemo(() => {
+    if (!editingRow) return new Set<string>();
+    const changes = new Set<string>();
+    for (const key of Object.keys(editedData)) {
+      if (editingRow[key] !== editedData[key]) {
+        // Handle null vs undefined
+        if (editingRow[key] == null && editedData[key] == null) continue;
+        changes.add(key);
+      }
+    }
+    return changes;
+  }, [editingRow, editedData]);
+
+  // Compute column statistics from current page data
+  const computeColumnStats = useCallback((columnName: string) => {
+    if (!rows.length || !schema) return null;
+
+    const col = schema.columns.find(c => c.name === columnName);
+    if (!col) return null;
+
+    const values = rows.map(r => r[columnName]).filter(v => v !== null && v !== undefined);
+    const nullCount = rows.length - values.length;
+
+    const stats: Record<string, unknown> = {
+      total: rows.length,
+      nonNull: values.length,
+      nullCount,
+      nullPercent: ((nullCount / rows.length) * 100).toFixed(1),
+    };
+
+    if (col.type === "integer" || col.type === "decimal") {
+      const numbers = values.map(v => Number(v)).filter(n => !isNaN(n));
+      if (numbers.length > 0) {
+        stats.min = Math.min(...numbers);
+        stats.max = Math.max(...numbers);
+        stats.sum = numbers.reduce((a, b) => a + b, 0);
+        stats.avg = (stats.sum as number / numbers.length).toFixed(2);
+      }
+    } else if (col.type === "date" || col.type === "datetime") {
+      const dates = values.map(v => new Date(String(v))).filter(d => !isNaN(d.getTime()));
+      if (dates.length > 0) {
+        dates.sort((a, b) => a.getTime() - b.getTime());
+        stats.earliest = dates[0].toISOString().split("T")[0];
+        stats.latest = dates[dates.length - 1].toISOString().split("T")[0];
+      }
+    } else if (col.type === "boolean") {
+      const trueCount = values.filter(v => v === true).length;
+      const falseCount = values.filter(v => v === false).length;
+      stats.trueCount = trueCount;
+      stats.falseCount = falseCount;
+      stats.truePercent = ((trueCount / values.length) * 100).toFixed(1);
+    } else if (col.type === "string") {
+      const uniqueValues = new Set(values.map(v => String(v)));
+      stats.distinctCount = uniqueValues.size;
+      // Get top 5 most common values
+      const valueCounts = new Map<string, number>();
+      values.forEach(v => {
+        const str = String(v);
+        valueCounts.set(str, (valueCounts.get(str) || 0) + 1);
+      });
+      const sortedValues = Array.from(valueCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      stats.topValues = sortedValues;
+    }
+
+    return stats;
+  }, [rows, schema]);
+
+  // Parse import data
+  const parseImportData = useCallback((data: string, format: "csv" | "json"): DebugRow[] => {
+    try {
+      if (format === "json") {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } else {
+        // CSV parsing with proper quote handling
+        const lines = data.trim().split("\n");
+        if (lines.length < 2) return [];
+
+        const headers = parseCSVLine(lines[0]);
+        return lines.slice(1).filter(line => line.trim()).map(line => {
+          const values = parseCSVLine(line);
+          const row: DebugRow = {};
+          headers.forEach((header, i) => {
+            let value: unknown = values[i] ?? "";
+            // Try to parse numbers and booleans based on schema if available
+            const col = schema?.columns.find(c => c.name === header);
+            if (col) {
+              if (col.type === "boolean") {
+                value = value === "true" || value === "1" || value === true;
+              } else if (col.type === "integer") {
+                value = value === "" || value === "null" ? null : parseInt(String(value), 10);
+              } else if (col.type === "decimal") {
+                value = value === "" || value === "null" ? null : parseFloat(String(value));
+              } else if (value === "null" || value === "") {
+                value = null;
+              }
+            } else {
+              // Fallback type inference when schema not available
+              if (value === "true") value = true;
+              else if (value === "false") value = false;
+              else if (value === "null" || value === "") value = null;
+              else if (!isNaN(Number(value)) && value !== "") value = Number(value);
+            }
+            row[header] = value;
+          });
+          return row;
+        });
+      }
+    } catch {
+      return [];
+    }
+  }, []);
+
+  // Handle import preview
+  const handleImportPreview = useCallback(() => {
+    const parsed = parseImportData(importData, importFormat);
+    setImportPreview(parsed);
+  }, [importData, importFormat, parseImportData]);
+
+  // Handle import submit (would need backend support)
+  const handleImportSubmit = useCallback(async () => {
+    if (importPreview.length === 0) return;
+    setIsImporting(true);
+    try {
+      // Create rows one by one
+      let successCount = 0;
+      for (const row of importPreview) {
+        try {
+          await debugAPI.createRow(tableName, row);
+          successCount++;
+        } catch {
+          // Continue on error
+        }
+      }
+      showToast(`Imported ${successCount} of ${importPreview.length} rows`, successCount === importPreview.length ? "success" : "info");
+      mutate();
+      setShowImportModal(false);
+      setImportData("");
+      setImportPreview([]);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Import failed", "error");
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importPreview, tableName, mutate, showToast]);
+
   // Visible columns (respecting hiddenColumns)
   const visibleColumns = useMemo(() => {
     if (!schema) return [];
@@ -558,31 +1099,41 @@ export default function TableBrowserPage() {
     return others;
   }, [schema, hiddenColumns]);
 
+  // Get priority accent color based on table name (memoized)
+  const priorityAccentColor = useMemo(() => getTablePriorityColor(tableName), [tableName]);
+
   return (
     <SuperAdminPageGuard>
       <DeskSurface fullHeight>
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex-shrink-0 desk-background border-b border-[#6b5a4a]/30">
+            {/* Priority accent bar */}
+            <div className={cn("h-1", priorityAccentColor)} />
+
             <div className="p-4 sm:px-6 sm:py-4">
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/admin/debug"
-                  className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                </Link>
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
-                    <Table2 className="h-6 w-6 text-[#a0704b]" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg sm:text-2xl font-bold text-white">
-                      {schema?.display_name || tableName}
-                    </h1>
-                    <p className="text-sm text-white/70 font-mono">{tableName}</p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <Link
+                    href="/admin/debug"
+                    className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                  >
+                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  </Link>
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
+                      <Table2 className="h-6 w-6 text-[#a0704b]" />
+                    </div>
+                    <div>
+                      <h1 className="text-lg sm:text-2xl font-bold text-white">
+                        {schema?.display_name || tableName}
+                      </h1>
+                      <p className="text-sm text-white/70 font-mono">{tableName}</p>
+                    </div>
                   </div>
                 </div>
+                {/* Theme toggle */}
+                <ThemeToggle compact />
               </div>
             </div>
 
@@ -599,6 +1150,7 @@ export default function TableBrowserPage() {
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder={searchAll ? "Search all text columns..." : `Search ${schema?.search_columns.join(", ") || ""}...`}
                   value={searchQuery}
@@ -651,37 +1203,59 @@ export default function TableBrowserPage() {
                   <span className="hidden sm:inline">Columns</span>
                 </button>
                 {showColumnMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 w-56 max-h-80 overflow-y-auto rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg">
-                    <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-64 max-h-96 flex flex-col rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] shadow-lg">
+                    <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0">
+                      <input
+                        type="text"
+                        placeholder="Search columns..."
+                        value={columnSearchQuery}
+                        onChange={(e) => setColumnSearchQuery(e.target.value)}
+                        className="w-full px-2 py-1.5 text-sm rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center justify-between flex-shrink-0">
                       <button
                         onClick={() => setHiddenColumns(new Set())}
                         className="text-xs text-[#a0704b] hover:underline"
                       >
                         Show all
                       </button>
+                      <span className="text-xs text-gray-400">
+                        {schema?.columns.filter(c => !columnSearchQuery || c.name.toLowerCase().includes(columnSearchQuery.toLowerCase())).length} columns
+                      </span>
                     </div>
-                    {schema?.columns.map((col) => (
-                      <button
-                        key={col.name}
-                        onClick={() => toggleColumnVisibility(col.name)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                      >
-                        {hiddenColumns.has(col.name) ? (
-                          <EyeOff className="h-4 w-4 text-gray-400" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-[#a0704b]" />
-                        )}
-                        <span className={cn(
-                          "truncate",
-                          hiddenColumns.has(col.name) && "text-gray-400"
-                        )}>
-                          {col.name}
-                        </span>
-                        {col.primary_key && (
-                          <span className="ml-auto text-[10px] text-gray-400">PK</span>
-                        )}
-                      </button>
-                    ))}
+                    <div className="overflow-y-auto flex-1">
+                      {schema?.columns
+                        .filter(col => !columnSearchQuery || col.name.toLowerCase().includes(columnSearchQuery.toLowerCase()))
+                        .map((col) => (
+                        <button
+                          key={col.name}
+                          onClick={() => toggleColumnVisibility(col.name)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        >
+                          {hiddenColumns.has(col.name) ? (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <Eye className="h-4 w-4 text-[#a0704b]" />
+                          )}
+                          <span className={cn(
+                            "truncate",
+                            hiddenColumns.has(col.name) && "text-gray-400"
+                          )}>
+                            {col.name}
+                          </span>
+                          {col.primary_key && (
+                            <span className="ml-auto text-[10px] text-gray-400">PK</span>
+                          )}
+                        </button>
+                      ))}
+                      {schema?.columns.filter(col => !columnSearchQuery || col.name.toLowerCase().includes(columnSearchQuery.toLowerCase())).length === 0 && (
+                        <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                          No columns match &quot;{columnSearchQuery}&quot;
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -718,18 +1292,136 @@ export default function TableBrowserPage() {
                 </div>
               </div>
 
+              {/* Import button */}
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
+                title="Import data"
+              >
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Import</span>
+              </button>
+
+              {/* Quick filters toggle */}
+              {quickFilterPresets.length > 0 && (
+                <button
+                  onClick={() => setShowQuickFilters(!showQuickFilters)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
+                    showQuickFilters || activeQuickFilters.size > 0
+                      ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                      : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  )}
+                >
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden sm:inline">Filters</span>
+                  {activeQuickFilters.size > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-[#a0704b] text-white">
+                      {activeQuickFilters.size}
+                    </span>
+                  )}
+                  {showQuickFilters ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+
               <button
                 onClick={handleStartCreate}
                 disabled={isCreating}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50 btn-press"
               >
                 <Plus className="h-4 w-4" />
                 Create
               </button>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {totalRows.toLocaleString()} rows
+              <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span>{totalRows.toLocaleString()} rows</span>
+                {lastRefreshed && (
+                  <span className="text-xs text-gray-400 animate-refresh-in">
+                    {lastRefreshed.toLocaleTimeString()}
+                  </span>
+                )}
+                <button
+                  onClick={() => setShowKeyboardHelp(true)}
+                  className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  title="Keyboard shortcuts"
+                >
+                  <span className="kbd-key text-[10px]">?</span>
+                </button>
               </div>
             </div>
+
+            {/* Quick filters panel */}
+            {showQuickFilters && (
+              <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-2">
+                    Quick Filters:
+                  </span>
+                  {quickFilterPresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => toggleQuickFilter(preset.id)}
+                      className={cn(
+                        "px-3 py-1.5 text-xs font-medium rounded-full transition-colors btn-press",
+                        activeQuickFilters.has(preset.id)
+                          ? "bg-[#a0704b] text-white"
+                          : "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628]"
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                  {activeQuickFilters.size > 0 && (
+                    <>
+                      <div className="w-px h-4 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+                      <button
+                        onClick={() => setActiveQuickFilters(new Set())}
+                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                      >
+                        Clear all
+                      </button>
+                      <button
+                        onClick={() => setShowSaveFilterModal(true)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-[#a0704b] hover:underline"
+                      >
+                        <Save className="h-3 w-3" />
+                        Save
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Saved filters */}
+                {savedFilters.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mr-2">
+                      Saved:
+                    </span>
+                    {savedFilters.map((filter, index) => (
+                      <div key={index} className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleApplySavedFilter(filter.filters)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors"
+                        >
+                          <Bookmark className="h-3 w-3 text-[#a0704b]" />
+                          {filter.name}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSavedFilter(index)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          title="Delete saved filter"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Bulk selection bar */}
             {selectedRows.size > 0 && (
@@ -775,7 +1467,27 @@ export default function TableBrowserPage() {
 
           {/* Table */}
           <div className="flex-1 min-h-0 overflow-auto mx-4 sm:mx-6 mb-4">
-            {isLoading ? (
+            {schemaError ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 max-w-md">
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Failed to load table schema</p>
+                      <p className="text-sm mt-1">
+                        {schemaError instanceof Error ? schemaError.message : "An unexpected error occurred"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => mutateSchema()}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3f] transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
               </div>
@@ -794,7 +1506,7 @@ export default function TableBrowserPage() {
                 </div>
               )}
               <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-x-auto">
-                <table className="w-full min-w-max text-sm" role="grid">
+                <table className="w-full min-w-max text-sm font-mono-data" role="grid">
                   <caption className="sr-only">
                     {schema?.display_name || tableName} table with {totalRows} rows.
                     {schema?.search_columns.length ? ` Searchable by: ${schema.search_columns.join(", ")}.` : ""}
@@ -815,37 +1527,61 @@ export default function TableBrowserPage() {
                           )}
                         </button>
                       </th>
-                      {visibleColumns.map((col) => (
+                      {visibleColumns.map((col, colIndex) => (
                         <th
                           key={col.name}
-                          onClick={() => handleSort(col.name)}
                           className={cn(
-                            "px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors",
-                            col.readonly && "text-gray-500"
+                            "px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300",
+                            col.readonly && "text-gray-500",
+                            col.primary_key && "sticky-pk-column bg-[#f5ede3] dark:bg-[#2d2618]",
+                            schema?.foreign_keys[col.name] && "fk-column-header"
                           )}
-                          aria-label={`Sort by ${col.name}`}
-                          aria-sort={sortBy === col.name ? (sortOrder === "asc" ? "ascending" : "descending") : "none"}
                           role="columnheader"
                         >
                           <div className="flex items-center gap-1">
-                            <span className="truncate">{col.name}</span>
-                            {sortBy === col.name ? (
-                              sortOrder === "asc" ? (
-                                <ArrowUp className="h-3 w-3" />
+                            <button
+                              onClick={() => handleSort(col.name)}
+                              className="flex items-center gap-1 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] transition-colors rounded px-1 -mx-1"
+                              aria-label={`Sort by ${col.name}`}
+                            >
+                              <span className="truncate">{col.name}</span>
+                              {schema?.foreign_keys[col.name] && (
+                                <ExternalLink className="h-3 w-3 text-blue-500" />
+                              )}
+                              {sortBy === col.name ? (
+                                sortOrder === "asc" ? (
+                                  <ArrowUp className="h-3 w-3" />
+                                ) : (
+                                  <ArrowDown className="h-3 w-3" />
+                                )
                               ) : (
-                                <ArrowDown className="h-3 w-3" />
-                              )
-                            ) : (
-                              <ArrowUpDown className="h-3 w-3 opacity-30" />
-                            )}
+                                <ArrowUpDown className="h-3 w-3 opacity-30" />
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStatsColumn(col.name);
+                                setShowStatsModal(true);
+                              }}
+                              className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-gray-400 hover:text-amber-600"
+                              title="View column statistics"
+                              aria-label={`View statistics for ${col.name}`}
+                            >
+                              <BarChart3 className="h-3 w-3" />
+                            </button>
                           </div>
-                          <div className="text-[10px] font-normal text-gray-400">
-                            {col.type}
-                            {col.readonly && " (ro)"}
+                          <div className="flex items-center gap-1 text-[10px] font-normal text-gray-400">
+                            {getColumnTypeIcon(col.type)}
+                            <span>{col.type}</span>
+                            {schema?.foreign_keys[col.name] && (
+                              <span className="text-blue-400">→ {schema.foreign_keys[col.name].table}</span>
+                            )}
+                            {col.readonly && <span className="text-amber-500">(ro)</span>}
                           </div>
                         </th>
                       ))}
-                      <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-24">
+                      <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-28">
                         Actions
                       </th>
                     </tr>
@@ -854,7 +1590,13 @@ export default function TableBrowserPage() {
                     {/* Create row */}
                     {isCreating && (
                       <tr className="bg-green-50 dark:bg-green-900/20">
-                        <td className="px-3 py-2" /> {/* Empty checkbox cell */}
+                        <td className="px-3 py-2">
+                          {cloneSource && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-300 font-medium">
+                              Clone
+                            </span>
+                          )}
+                        </td>
                         {visibleColumns.map((col) => (
                           <td key={col.name} className="px-3 py-2">
                             {col.readonly || col.primary_key ? (
@@ -915,21 +1657,26 @@ export default function TableBrowserPage() {
                     )}
 
                     {/* Data rows */}
-                    {rows.map((row) => {
+                    {rows.map((row, rowIndex) => {
                       const rowId = row[pkColumn] as number;
                       const isEditing = editingRow?.[pkColumn] === rowId;
                       const isDeleting = deleteConfirm === rowId;
                       const isSelected = selectedRows.has(rowId);
                       const isSoftDeleted = schema?.has_soft_delete && row.deleted_at !== null;
+                      const isEven = rowIndex % 2 === 0;
+                      const isFocused = focusedRowIndex === rowIndex;
 
                       return (
                         <tr
                           key={rowId}
                           className={cn(
+                            "debug-row-hover transition-colors",
                             isEditing && "bg-blue-50 dark:bg-blue-900/20",
                             isDeleting && "bg-red-50 dark:bg-red-900/20",
                             isSelected && !isEditing && !isDeleting && "bg-blue-50/50 dark:bg-blue-900/10",
-                            isSoftDeleted && !isEditing && !isDeleting && "opacity-50 bg-gray-100 dark:bg-gray-800/50"
+                            isSoftDeleted && !isEditing && !isDeleting && "opacity-50 bg-gray-100 dark:bg-gray-800/50",
+                            !isEditing && !isDeleting && !isSelected && !isSoftDeleted && isEven && "debug-row-even",
+                            isFocused && !isEditing && !isDeleting && "debug-row-focused"
                           )}
                         >
                           {/* Selection checkbox */}
@@ -947,34 +1694,72 @@ export default function TableBrowserPage() {
                             </button>
                           </td>
                           {visibleColumns.map((col) => (
-                            <td key={col.name} className="px-3 py-2">
+                            <td
+                              key={col.name}
+                              className={cn(
+                                "px-3 py-2",
+                                col.primary_key && "sticky-pk-column bg-white dark:bg-[#1a1a1a]",
+                                schema?.foreign_keys[col.name] && "fk-column-cell",
+                                isEditing && getChangedFields.has(col.name) && "diff-cell-changed"
+                              )}
+                            >
                               {isEditing && !col.readonly ? (
-                                col.type === "boolean" ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(editedData[col.name])}
-                                    onChange={(e) =>
-                                      setEditedData((prev) => ({
-                                        ...prev,
-                                        [col.name]: e.target.checked,
-                                      }))
-                                    }
-                                    className="h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
-                                  />
-                                ) : (
-                                  <input
-                                    type={getInputType(col)}
-                                    value={String(formatValueForInput(editedData[col.name], col))}
-                                    step={col.type === "decimal" ? "0.01" : undefined}
-                                    onChange={(e) =>
-                                      setEditedData((prev) => ({
-                                        ...prev,
-                                        [col.name]: parseInputValue(e.target.value, col),
-                                      }))
-                                    }
-                                    className="w-full px-2 py-1 text-sm border border-blue-300 dark:border-blue-700 rounded bg-white dark:bg-[#1a1a1a]"
-                                  />
-                                )
+                                <div className="relative">
+                                  {col.type === "boolean" ? (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={Boolean(editedData[col.name])}
+                                        onChange={(e) =>
+                                          setEditedData((prev) => ({
+                                            ...prev,
+                                            [col.name]: e.target.checked,
+                                          }))
+                                        }
+                                        className={cn(
+                                          "h-4 w-4 rounded text-blue-600 focus:ring-blue-500",
+                                          getChangedFields.has(col.name)
+                                            ? "border-amber-500 ring-2 ring-amber-200 dark:ring-amber-800"
+                                            : "border-blue-300"
+                                        )}
+                                      />
+                                      {showEditDiff && getChangedFields.has(col.name) && (
+                                        <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                                          <GitCompare className="h-3 w-3" />
+                                          was {editingRow[col.name] ? "true" : "false"}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <input
+                                        type={getInputType(col)}
+                                        value={String(formatValueForInput(editedData[col.name], col))}
+                                        step={col.type === "decimal" ? "0.01" : undefined}
+                                        onChange={(e) =>
+                                          setEditedData((prev) => ({
+                                            ...prev,
+                                            [col.name]: parseInputValue(e.target.value, col),
+                                          }))
+                                        }
+                                        className={cn(
+                                          "w-full px-2 py-1 text-sm rounded bg-white dark:bg-[#1a1a1a]",
+                                          getChangedFields.has(col.name)
+                                            ? "border-2 border-amber-500 dark:border-amber-600 ring-2 ring-amber-200/50 dark:ring-amber-800/50"
+                                            : "border border-blue-300 dark:border-blue-700"
+                                        )}
+                                      />
+                                      {showEditDiff && getChangedFields.has(col.name) && (
+                                        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 truncate">
+                                          <GitCompare className="h-3 w-3 flex-shrink-0" />
+                                          <span className="truncate" title={renderCellValue(editingRow[col.name], col.type)}>
+                                            was: {renderCellValue(editingRow[col.name], col.type) || <em className="text-gray-400">empty</em>}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="flex items-center gap-1">
                                   {/* FK preview button */}
@@ -1024,6 +1809,19 @@ export default function TableBrowserPage() {
                             {isEditing ? (
                               <div className="flex items-center gap-1">
                                 <button
+                                  onClick={() => setShowEditDiff(!showEditDiff)}
+                                  className={cn(
+                                    "p-1 rounded btn-press",
+                                    showEditDiff
+                                      ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600"
+                                      : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+                                  )}
+                                  title={showEditDiff ? "Hide diff" : "Show diff"}
+                                  aria-label="Toggle diff view"
+                                >
+                                  <GitCompare className="h-4 w-4" />
+                                </button>
+                                <button
                                   onClick={handleSaveEdit}
                                   disabled={isSubmitting}
                                   className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-600"
@@ -1071,16 +1869,24 @@ export default function TableBrowserPage() {
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleStartEdit(row)}
-                                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+                                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 btn-press"
                                   title="Edit"
                                   aria-label="Edit row"
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </button>
+                                <button
+                                  onClick={() => handleCloneRow(row)}
+                                  className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-gray-500 hover:text-green-600 btn-press"
+                                  title="Clone"
+                                  aria-label="Clone row"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                </button>
                                 {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
                                   <button
                                     onClick={() => setDeleteConfirm(rowId)}
-                                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600"
+                                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 btn-press"
                                     title={schema?.has_soft_delete ? "Soft Delete" : "Delete"}
                                     aria-label={schema?.has_soft_delete ? "Soft delete row" : "Delete row"}
                                   >
@@ -1122,9 +1928,28 @@ export default function TableBrowserPage() {
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </button>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Page {page + 1} of {totalPages}
-              </span>
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <span>Page</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={page + 1}
+                  onChange={(e) => {
+                    const newPage = parseInt(e.target.value, 10) - 1;
+                    if (!isNaN(newPage) && newPage >= 0 && newPage < totalPages) {
+                      setPage(newPage);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-16 px-2 py-1 text-center text-sm rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
+                />
+                <span>of {totalPages}</span>
+              </div>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
@@ -1140,14 +1965,14 @@ export default function TableBrowserPage() {
         {/* Detail cell modal */}
         {detailCell && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
             onClick={() => setDetailCell(null)}
             role="dialog"
             aria-modal="true"
             aria-labelledby="detail-cell-title"
           >
             <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-[42rem] w-full mx-4 max-h-[80vh] flex flex-col"
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-[42rem] w-[calc(100%-2rem)] min-w-[20rem] mx-4 max-h-[80vh] flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1222,14 +2047,14 @@ export default function TableBrowserPage() {
         {/* Bulk edit modal */}
         {showBulkEdit && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
             onClick={() => setShowBulkEdit(false)}
             role="dialog"
             aria-modal="true"
             aria-labelledby="bulk-edit-title"
           >
             <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-md w-full mx-4 flex flex-col"
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-md w-[calc(100%-2rem)] min-w-[20rem] mx-4 flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1342,14 +2167,14 @@ export default function TableBrowserPage() {
         {/* Bulk delete confirmation modal */}
         {showBulkDeleteConfirm && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
             onClick={() => setShowBulkDeleteConfirm(false)}
             role="dialog"
             aria-modal="true"
             aria-labelledby="bulk-delete-title"
           >
             <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[28rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col"
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl w-[28rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in delete-modal-glow"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -1466,6 +2291,420 @@ export default function TableBrowserPage() {
                   Go to {fkPreview.tableName}
                   <ExternalLink className="h-4 w-4" />
                 </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Keyboard shortcuts help modal */}
+        {showKeyboardHelp && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
+            onClick={() => setShowKeyboardHelp(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="keyboard-help-title"
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[24rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <h3 id="keyboard-help-title" className="font-semibold text-gray-900 dark:text-gray-100">
+                  Keyboard Shortcuts
+                </h3>
+                <button
+                  onClick={() => setShowKeyboardHelp(false)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                  <span className="kbd-key">j</span>
+                  <span className="text-gray-600 dark:text-gray-400">Move down</span>
+
+                  <span className="kbd-key">k</span>
+                  <span className="text-gray-600 dark:text-gray-400">Move up</span>
+
+                  <span className="kbd-key">e</span>
+                  <span className="text-gray-600 dark:text-gray-400">Edit focused row</span>
+
+                  <span className="kbd-key">c</span>
+                  <span className="text-gray-600 dark:text-gray-400">Clone focused row</span>
+
+                  <span className="kbd-key">d</span>
+                  <span className="text-gray-600 dark:text-gray-400">Delete focused row</span>
+
+                  <span className="kbd-key">n</span>
+                  <span className="text-gray-600 dark:text-gray-400">Create new row</span>
+
+                  <span className="kbd-key">s</span>
+                  <span className="text-gray-600 dark:text-gray-400">Focus search</span>
+
+                  <span className="kbd-key">Space</span>
+                  <span className="text-gray-600 dark:text-gray-400">Toggle row selection</span>
+
+                  <span className="kbd-key">Esc</span>
+                  <span className="text-gray-600 dark:text-gray-400">Close / Cancel</span>
+
+                  <span className="kbd-key">?</span>
+                  <span className="text-gray-600 dark:text-gray-400">Show this help</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Save filter modal */}
+        {showSaveFilterModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
+            onClick={() => setShowSaveFilterModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-filter-title"
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[20rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <h3 id="save-filter-title" className="font-semibold text-gray-900 dark:text-gray-100">
+                  Save Filter
+                </h3>
+                <button
+                  onClick={() => setShowSaveFilterModal(false)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Filter name
+                </label>
+                <input
+                  type="text"
+                  value={newFilterName}
+                  onChange={(e) => setNewFilterName(e.target.value)}
+                  placeholder="e.g., Recent sessions"
+                  className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveFilter();
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Saving {activeQuickFilters.size} active filter(s)
+                </p>
+              </div>
+              <div className="flex justify-end gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <button
+                  onClick={() => setShowSaveFilterModal(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveFilter}
+                  disabled={!newFilterName.trim()}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Import modal */}
+        {showImportModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-backdrop-in"
+            onClick={() => setShowImportModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-title"
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[36rem] max-w-[calc(100%-2rem)] max-h-[80vh] mx-4 flex flex-col animate-modal-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <h3 id="import-title" className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <FileUp className="h-5 w-5 text-[#a0704b]" />
+                  Import Data
+                </h3>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 flex-1 overflow-auto">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Format
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setImportFormat("json")}
+                        className={cn(
+                          "px-4 py-2 text-sm rounded-lg border transition-colors",
+                          importFormat === "json"
+                            ? "bg-[#a0704b] text-white border-[#a0704b]"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        )}
+                      >
+                        JSON
+                      </button>
+                      <button
+                        onClick={() => setImportFormat("csv")}
+                        className={cn(
+                          "px-4 py-2 text-sm rounded-lg border transition-colors",
+                          importFormat === "csv"
+                            ? "bg-[#a0704b] text-white border-[#a0704b]"
+                            : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                        )}
+                      >
+                        CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Paste data
+                    </label>
+                    <textarea
+                      value={importData}
+                      onChange={(e) => setImportData(e.target.value)}
+                      placeholder={importFormat === "json"
+                        ? '[{"column1": "value1", "column2": 123}, ...]'
+                        : 'column1,column2\nvalue1,123\n...'}
+                      className="w-full h-32 px-3 py-2 text-sm font-mono border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] resize-y"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleImportPreview}
+                    disabled={!importData.trim()}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors disabled:opacity-50"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Preview
+                  </button>
+
+                  {importPreview.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Preview ({importPreview.length} rows)
+                      </p>
+                      <div className="max-h-48 overflow-auto border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg">
+                        <table className="w-full text-xs font-mono">
+                          <thead className="bg-[#f5ede3] dark:bg-[#2d2618] sticky top-0">
+                            <tr>
+                              {Object.keys(importPreview[0]).map((key) => (
+                                <th key={key} className="px-2 py-1 text-left font-medium">
+                                  {key}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                            {importPreview.slice(0, 5).map((row, i) => (
+                              <tr key={i}>
+                                {Object.values(row).map((val, j) => (
+                                  <td key={j} className="px-2 py-1 truncate max-w-[150px]">
+                                    {val === null ? <em className="text-gray-400">NULL</em> : String(val)}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {importPreview.length > 5 && (
+                          <p className="text-xs text-gray-500 p-2">
+                            ...and {importPreview.length - 5} more rows
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportData("");
+                    setImportPreview([]);
+                  }}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportSubmit}
+                  disabled={importPreview.length === 0 || isImporting}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                >
+                  {isImporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  Import {importPreview.length} Rows
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Column Statistics Modal */}
+        {showStatsModal && statsColumn && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-modal-backdrop">
+            <div className="relative max-w-md w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl animate-modal-in">
+              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-[#a0704b]" />
+                  <h3 className="text-lg font-semibold">
+                    Column Statistics: <span className="font-mono text-[#a0704b]">{statsColumn}</span>
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowStatsModal(false)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4">
+                {(() => {
+                  const stats = computeColumnStats(statsColumn);
+                  if (!stats) {
+                    return <p className="text-gray-500">No data available for statistics.</p>;
+                  }
+                  const col = schema?.columns.find(c => c.name === statsColumn);
+                  return (
+                    <div className="space-y-4">
+                      {/* Basic stats */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618]">
+                          <p className="text-xs text-gray-500 uppercase">Total Rows</p>
+                          <p className="text-xl font-semibold font-mono">{Number(stats.total)}</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618]">
+                          <p className="text-xs text-gray-500 uppercase">Non-Null</p>
+                          <p className="text-xl font-semibold font-mono">{Number(stats.nonNull)}</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618]">
+                          <p className="text-xs text-gray-500 uppercase">Null Values</p>
+                          <p className="text-xl font-semibold font-mono">{Number(stats.nullCount)}</p>
+                        </div>
+                        <div className="p-3 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618]">
+                          <p className="text-xs text-gray-500 uppercase">Null %</p>
+                          <p className="text-xl font-semibold font-mono">{String(stats.nullPercent)}%</p>
+                        </div>
+                      </div>
+
+                      {/* Type-specific stats */}
+                      {(col?.type === "integer" || col?.type === "decimal") && stats.min !== undefined && (
+                        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-4">
+                          <h4 className="text-sm font-medium mb-3">Numeric Statistics</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                              <p className="text-xs text-blue-600 dark:text-blue-400 uppercase">Min</p>
+                              <p className="text-lg font-semibold font-mono">{Number(stats.min)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                              <p className="text-xs text-blue-600 dark:text-blue-400 uppercase">Max</p>
+                              <p className="text-lg font-semibold font-mono">{Number(stats.max)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">Sum</p>
+                              <p className="text-lg font-semibold font-mono">{Number(stats.sum)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">Average</p>
+                              <p className="text-lg font-semibold font-mono">{String(stats.avg)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {(col?.type === "date" || col?.type === "datetime") && stats.earliest && (
+                        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-4">
+                          <h4 className="text-sm font-medium mb-3">Date Range</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                              <p className="text-xs text-purple-600 dark:text-purple-400 uppercase">Earliest</p>
+                              <p className="text-sm font-semibold font-mono">{String(stats.earliest)}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                              <p className="text-xs text-purple-600 dark:text-purple-400 uppercase">Latest</p>
+                              <p className="text-sm font-semibold font-mono">{String(stats.latest)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {col?.type === "boolean" && stats.trueCount !== undefined && (
+                        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-4">
+                          <h4 className="text-sm font-medium mb-3">Boolean Distribution</h4>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20">
+                              <p className="text-xs text-green-600 dark:text-green-400 uppercase">True</p>
+                              <p className="text-xl font-semibold font-mono">{Number(stats.trueCount)}</p>
+                              <p className="text-xs text-gray-500">{String(stats.truePercent)}%</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20">
+                              <p className="text-xs text-red-600 dark:text-red-400 uppercase">False</p>
+                              <p className="text-xl font-semibold font-mono">{Number(stats.falseCount)}</p>
+                              <p className="text-xs text-gray-500">{(100 - parseFloat(String(stats.truePercent))).toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {col?.type === "string" && stats.distinctCount !== undefined && (
+                        <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] pt-4">
+                          <h4 className="text-sm font-medium mb-3">String Statistics</h4>
+                          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 mb-3">
+                            <p className="text-xs text-amber-600 dark:text-amber-400 uppercase">Distinct Values</p>
+                            <p className="text-xl font-semibold font-mono">{Number(stats.distinctCount)}</p>
+                          </div>
+                          {(stats.topValues as [string, number][])?.length > 0 && (
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase mb-2">Top Values</p>
+                              <div className="space-y-1">
+                                {(stats.topValues as [string, number][]).map(([value, count], i) => (
+                                  <div key={i} className="flex items-center justify-between text-sm">
+                                    <span className="truncate max-w-[200px] font-mono" title={value}>{value}</span>
+                                    <span className="text-gray-500 font-mono">{count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-400 text-center pt-2">
+                        Statistics based on current page ({rows.length} rows)
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
