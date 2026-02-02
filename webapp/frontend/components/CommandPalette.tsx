@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Fuse from "fuse.js";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -20,28 +21,72 @@ import {
   CalendarDays,
   RefreshCw,
   Grid3x3,
+  Inbox,
+  Settings,
+  GraduationCap,
+  DollarSign,
+  Star,
+  Phone,
+  AlertCircle,
+  UserX,
+  RefreshCcw,
+  Database,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, SearchResults } from "@/lib/api";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { SearchNoResults } from "@/components/illustrations/EmptyStates";
 
 // localStorage key for recent searches
 const RECENT_SEARCHES_KEY = "command-palette-recent-searches";
 const MAX_RECENT_SEARCHES = 5;
 
+// Page/action item type
+interface PageItem {
+  id: string;
+  title: string;
+  href: string;
+  icon: typeof Home;
+  shortcut?: string;
+}
+
 // Quick navigation pages
-const PAGES = [
-  { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home },
-  { id: "page-students", title: "Students", href: "/students", icon: User },
-  { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar },
+const PAGES: PageItem[] = [
+  // Core pages
+  { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home, shortcut: "G D" },
+  { id: "page-students", title: "Students", href: "/students", icon: User, shortcut: "G S" },
+  { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar, shortcut: "G C" },
   { id: "page-courseware", title: "Courseware", href: "/courseware", icon: BookOpen },
+  // High frequency
+  { id: "page-inbox", title: "Inbox", href: "/inbox", icon: Inbox, shortcut: "G I" },
+  { id: "page-proposals", title: "Make-up Proposals", href: "/proposals", icon: RefreshCw },
+  { id: "page-settings", title: "Settings", href: "/settings", icon: Settings, shortcut: "G ," },
+  // Business pages
+  { id: "page-exams", title: "Exam Schedules", href: "/exams", icon: GraduationCap },
+  { id: "page-revenue", title: "Revenue Reports", href: "/revenue", icon: DollarSign },
+  { id: "page-trials", title: "Trial Sessions", href: "/trials", icon: Star },
+  { id: "page-parent-contacts", title: "Parent Contacts", href: "/parent-contacts", icon: Phone },
+  { id: "page-overdue", title: "Overdue Payments", href: "/overdue-payments", icon: AlertCircle },
+  { id: "page-terminated", title: "Terminated Students", href: "/terminated-students", icon: UserX },
+];
+
+// Admin-only pages
+const ADMIN_PAGES: PageItem[] = [
+  { id: "page-renewals", title: "Admin: Renewals", href: "/admin/renewals", icon: RefreshCcw },
+  { id: "page-extensions", title: "Admin: Extensions", href: "/admin/extensions", icon: Clock },
+];
+
+// Super-admin only
+const SUPER_ADMIN_PAGES: PageItem[] = [
+  { id: "page-debug", title: "Admin: Debug Panel", href: "/admin/debug", icon: Database },
 ];
 
 // Quick actions (session-focused)
-const QUICK_ACTIONS = [
-  { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar },
-  { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3 },
+const QUICK_ACTIONS: PageItem[] = [
+  { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar, shortcut: "G T" },
+  { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3, shortcut: "G W" },
   { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=pending-makeups", icon: RefreshCw },
 ];
 
@@ -78,6 +123,7 @@ interface ResultItem {
   subtitle?: string;
   href: string;
   icon: typeof User;
+  shortcut?: string;
 }
 
 // Highlight matching text in search results
@@ -99,6 +145,33 @@ function highlightMatch(text: string, query: string): React.ReactNode {
 export function CommandPalette() {
   const router = useRouter();
   const { isOpen, close } = useCommandPalette();
+  const { isAdmin, isSuperAdmin } = useAuth();
+
+  // Build complete pages list based on user role
+  const allPages = useMemo(() => {
+    const pages = [...PAGES];
+    if (isAdmin) {
+      pages.push(...ADMIN_PAGES);
+    }
+    if (isSuperAdmin) {
+      pages.push(...SUPER_ADMIN_PAGES);
+    }
+    return pages;
+  }, [isAdmin, isSuperAdmin]);
+
+  // Fuse instance for fuzzy search on local items (pages + quick actions)
+  const fuse = useMemo(() => {
+    const allItems = [
+      ...allPages.map(p => ({ ...p, itemType: 'page' as const })),
+      ...QUICK_ACTIONS.map(a => ({ ...a, itemType: 'action' as const })),
+    ];
+    return new Fuse(allItems, {
+      keys: ['title'],
+      threshold: 0.4, // Allow fuzzy matching with typos
+      includeScore: true,
+    });
+  }, [allPages]);
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
@@ -225,17 +298,19 @@ export function CommandPalette() {
           title: action.title,
           href: action.href,
           icon: action.icon,
+          shortcut: action.shortcut,
         });
       });
 
-      // All pages
-      PAGES.forEach((p) => {
+      // All pages (role-filtered)
+      allPages.forEach((p) => {
         items.push({
           id: p.id,
           type: "page",
           title: p.title,
           href: p.href,
           icon: p.icon,
+          shortcut: p.shortcut,
         });
       });
 
@@ -293,25 +368,27 @@ export function CommandPalette() {
       }
     }
 
-    // Add matching pages (only if no filter or filter is "page")
+    // Add matching pages using fuzzy search (only if no filter or filter is "page")
     if (!filterType || filterType === "page") {
-      const filteredPages = PAGES.filter(
-        (p) => p.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const fuseResults = fuse.search(searchTerm);
+      const matchedPages = fuseResults
+        .filter(r => r.item.itemType === 'page')
+        .map(r => r.item);
 
-      filteredPages.forEach((p) => {
+      matchedPages.forEach((p) => {
         items.push({
           id: p.id,
           type: "page",
           title: p.title,
           href: p.href,
           icon: p.icon,
+          shortcut: p.shortcut,
         });
       });
     }
 
     return items;
-  }, [results, query, searchTerm, filterType, recentSearches]);
+  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -385,6 +462,9 @@ export function CommandPalette() {
       onClick={handleBackdropClick}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className={cn(
           "w-[min(90vw,36rem)] bg-[#fef9f3] dark:bg-[#1a1a1a] rounded-xl shadow-2xl",
           "border border-[#e8d4b8] dark:border-[#3d3628]",
@@ -404,6 +484,12 @@ export function CommandPalette() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search... (@student, #session, /page)"
+            role="combobox"
+            aria-expanded={allItems.length > 0}
+            aria-controls="command-palette-listbox"
+            aria-activedescendant={allItems[selectedIndex]?.id || undefined}
+            aria-autocomplete="list"
+            aria-label="Search commands and pages"
             className={cn(
               "flex-1 bg-transparent text-gray-900 dark:text-gray-100",
               "placeholder:text-gray-500 dark:placeholder:text-gray-400",
@@ -433,7 +519,13 @@ export function CommandPalette() {
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-[50vh] max-sm:max-h-none max-sm:flex-1 overflow-y-auto">
+        <div
+          ref={listRef}
+          id="command-palette-listbox"
+          role="listbox"
+          aria-label="Search results"
+          className="max-h-[50vh] max-sm:max-h-none max-sm:flex-1 overflow-y-auto"
+        >
           {loading && (
             <div className="py-2">
               <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
@@ -499,7 +591,10 @@ export function CommandPalette() {
                       return (
                         <button
                           key={item.id}
+                          id={item.id}
                           data-index={index}
+                          role="option"
+                          aria-selected={isSelected}
                           onClick={() => {
                             router.push(item.href);
                             close();
@@ -529,6 +624,11 @@ export function CommandPalette() {
                               </div>
                             )}
                           </div>
+                          {item.shortcut && (
+                            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10 flex-shrink-0">
+                              {item.shortcut}
+                            </kbd>
+                          )}
                           {isSelected && (
                             <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                           )}
@@ -560,9 +660,13 @@ export function CommandPalette() {
                   </div>
                   {recentSearches.map((search, index) => {
                     const isSelected = index === selectedIndex;
+                    const recentId = `recent-${search.replace(/\s+/g, '-')}`;
                     return (
                       <div
                         key={`recent-${search}`}
+                        id={recentId}
+                        role="option"
+                        aria-selected={isSelected}
                         className={cn(
                           "group flex items-center gap-3 px-4 py-2.5 max-sm:py-3 transition-colors",
                           isSelected
@@ -620,7 +724,10 @@ export function CommandPalette() {
                 return (
                   <button
                     key={action.id}
+                    id={action.id}
                     data-index={index}
+                    role="option"
+                    aria-selected={isSelected}
                     onClick={() => {
                       router.push(action.href);
                       close();
@@ -640,11 +747,16 @@ export function CommandPalette() {
                           : "text-gray-400 dark:text-gray-500"
                       )}
                     />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
                       {action.title}
                     </span>
+                    {action.shortcut && (
+                      <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10">
+                        {action.shortcut}
+                      </kbd>
+                    )}
                     {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 ml-auto" />
+                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 );
@@ -654,15 +766,22 @@ export function CommandPalette() {
               <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 Pages
               </div>
-              {PAGES.map((page, idx) => {
+              {allPages.map((page, idx) => {
                 const Icon = page.icon;
                 const index = recentSearches.length + QUICK_ACTIONS.length + idx;
                 const isSelected = index === selectedIndex;
+                // Check if this is an admin page for special styling
+                const isAdminPage = page.id.startsWith("page-renewals") ||
+                                    page.id.startsWith("page-extensions") ||
+                                    page.id.startsWith("page-debug");
 
                 return (
                   <button
                     key={page.id}
+                    id={page.id}
                     data-index={index}
+                    role="option"
+                    aria-selected={isSelected}
                     onClick={() => {
                       router.push(page.href);
                       close();
@@ -679,14 +798,24 @@ export function CommandPalette() {
                         "h-4 w-4 flex-shrink-0",
                         isSelected
                           ? "text-[#a0704b] dark:text-[#cd853f]"
+                          : isAdminPage
+                          ? "text-amber-500 dark:text-amber-400"
                           : "text-gray-400 dark:text-gray-500"
                       )}
                     />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
                       {page.title}
                     </span>
+                    {isAdminPage && (
+                      <Shield className="h-3 w-3 text-amber-500 dark:text-amber-400" />
+                    )}
+                    {page.shortcut && (
+                      <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10">
+                        {page.shortcut}
+                      </kbd>
+                    )}
                     {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 ml-auto" />
+                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 );
