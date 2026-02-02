@@ -163,7 +163,9 @@ export default function DebugPanelPage() {
                               {table.name}
                             </p>
                             <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-                              {table.row_count.toLocaleString()} rows
+                              {table.row_count !== null
+                                ? `${table.row_count.toLocaleString()} rows`
+                                : <span className="text-gray-400">? rows</span>}
                             </p>
                           </Link>
                         ))}

@@ -1820,13 +1820,15 @@ export const debugAPI = {
     fetchAPI<DebugTableSchema>(`/debug/tables/${tableName}/schema`),
 
   // List rows with pagination and filtering
-  getRows: (tableName: string, params?: DebugQueryParams & { filter?: string }) => {
+  getRows: (tableName: string, params?: DebugQueryParams & { filter?: string; search_all?: boolean; include_deleted?: boolean }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.append("limit", String(params.limit));
     if (params?.offset) searchParams.append("offset", String(params.offset));
     if (params?.sort_by) searchParams.append("sort_by", params.sort_by);
     if (params?.sort_order) searchParams.append("sort_order", params.sort_order);
     if (params?.search) searchParams.append("search", params.search);
+    if (params?.search_all) searchParams.append("search_all", "true");
+    if (params?.include_deleted) searchParams.append("include_deleted", "true");
     if (params?.filter) searchParams.append("filter", params.filter);
     const query = searchParams.toString();
     return fetchAPI<PaginatedRows>(`/debug/tables/${tableName}/rows${query ? `?${query}` : ""}`);
@@ -1859,10 +1861,20 @@ export const debugAPI = {
   // Bulk delete rows
   bulkDeleteRows: (tableName: string, rowIds: number[]) =>
     fetchAPI<{ deleted_count: number; failed_ids: number[]; message: string }>(
-      `/debug/tables/${tableName}/rows/bulk?confirm=DELETE`,
+      `/debug/tables/${tableName}/bulk-delete?confirm=DELETE`,
       {
         method: "DELETE",
         body: JSON.stringify({ ids: rowIds }),
+      }
+    ),
+
+  // Bulk update rows
+  bulkUpdateRows: (tableName: string, rowIds: number[], column: string, value: unknown) =>
+    fetchAPI<{ updated_count: number; message: string }>(
+      `/debug/tables/${tableName}/bulk-update`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ ids: rowIds, column, value }),
       }
     ),
 

@@ -5,7 +5,7 @@
 export interface DebugTable {
   name: string;
   display_name: string;
-  row_count: number;
+  row_count: number | null; // null when count fails
   priority: number;
   allow_hard_delete: boolean;
 }
@@ -19,6 +19,11 @@ export interface DebugColumn {
   default?: string;
 }
 
+export interface ForeignKeyInfo {
+  table: string;
+  column: string;
+}
+
 export interface DebugTableSchema {
   table_name: string;
   display_name: string;
@@ -26,6 +31,8 @@ export interface DebugTableSchema {
   primary_key: string;
   search_columns: string[];
   allow_hard_delete: boolean;
+  has_soft_delete: boolean;
+  foreign_keys: Record<string, ForeignKeyInfo>;
 }
 
 export interface DebugRow {
@@ -38,6 +45,9 @@ export interface DebugQueryParams {
   sort_by?: string;
   sort_order?: "asc" | "desc";
   search?: string;
+  search_all?: boolean;
+  include_deleted?: boolean;
+  filter?: string;
 }
 
 export interface PaginatedRows {

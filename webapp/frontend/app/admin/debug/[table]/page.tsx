@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
@@ -34,13 +34,20 @@ import {
   CheckSquare,
   Square,
   Expand,
+  FileDown,
+  ExternalLink,
 } from "lucide-react";
 
+// Shared constant for pagination (should match backend default)
 const PAGE_SIZE = 50;
+// Debounce delay for search input (ms)
+const SEARCH_DEBOUNCE_MS = 500;
 
 export default function TableBrowserPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const tableName = params.table as string;
+  const urlFilter = searchParams.get("filter");
 
   usePageTitle(`Debug: ${tableName}`);
 
@@ -56,22 +63,62 @@ export default function TableBrowserPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Column visibility
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  // Column visibility - persisted to localStorage
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`debug_hidden_cols_${tableName}`);
+        if (saved) return new Set(JSON.parse(saved));
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    return new Set();
+  });
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const columnMenuRef = useRef<HTMLDivElement>(null);
+
+  // Persist column visibility changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `debug_hidden_cols_${tableName}`,
+        JSON.stringify([...hiddenColumns])
+      );
+    }
+  }, [hiddenColumns, tableName]);
 
   // Bulk operations
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkEditColumn, setBulkEditColumn] = useState<string>("");
+  const [bulkEditValue, setBulkEditValue] = useState<unknown>(null);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Export
   const [isExporting, setIsExporting] = useState(false);
 
+  // Search all columns toggle
+  const [searchAll, setSearchAll] = useState(false);
+
+  // Show deleted rows toggle (for soft delete tables)
+  const [showDeleted, setShowDeleted] = useState(false);
+
   // Cell detail modal
   const [detailCell, setDetailCell] = useState<{ value: unknown; column: string } | null>(null);
 
-  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+  // FK preview popover
+  const [fkPreview, setFkPreview] = useState<{
+    tableName: string;
+    rowId: number;
+    columnName: string;
+    position: { x: number; y: number };
+  } | null>(null);
+  const [fkPreviewData, setFkPreviewData] = useState<DebugRow | null>(null);
+  const [fkPreviewLoading, setFkPreviewLoading] = useState(false);
+
+  const debouncedSearch = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
 
   // Handle click outside to close column menu
   useEffect(() => {
@@ -88,6 +135,7 @@ export default function TableBrowserPage() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showColumnMenu]);
+
   const { showToast } = useToast();
 
   // Fetch schema
@@ -108,8 +156,11 @@ export default function TableBrowserPage() {
           tableName,
           page,
           debouncedSearch,
+          searchAll,
+          showDeleted,
           sortBy,
           sortOrder,
+          urlFilter,
         ]
       : null,
     () =>
@@ -117,8 +168,11 @@ export default function TableBrowserPage() {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
         search: debouncedSearch || undefined,
+        search_all: searchAll || undefined,
+        include_deleted: showDeleted || undefined,
         sort_by: sortBy || undefined,
         sort_order: sortOrder,
+        filter: urlFilter || undefined,
       })
   );
 
@@ -157,8 +211,41 @@ export default function TableBrowserPage() {
     setEditedData({});
   }, []);
 
+  // Validate required fields before submission
+  const validateRequiredFields = useCallback((
+    data: Record<string, unknown>,
+    isCreate: boolean
+  ): { valid: boolean; error?: string } => {
+    if (!schema) return { valid: false, error: "Schema not loaded" };
+
+    for (const col of schema.columns) {
+      // Skip primary key for create (auto-generated)
+      if (col.primary_key && isCreate) continue;
+      // Skip readonly columns
+      if (col.readonly) continue;
+      // Check if required field is missing or null
+      if (!col.nullable) {
+        const value = data[col.name];
+        if (value === null || value === undefined || value === "") {
+          return {
+            valid: false,
+            error: `Required field "${col.name}" is missing`,
+          };
+        }
+      }
+    }
+    return { valid: true };
+  }, [schema]);
+
   const handleSaveEdit = useCallback(async () => {
     if (!editingRow || !schema) return;
+
+    // Validate required fields
+    const validation = validateRequiredFields(editedData, false);
+    if (!validation.valid) {
+      showToast(validation.error || "Validation failed", "error");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -172,7 +259,7 @@ export default function TableBrowserPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [editingRow, editedData, schema, tableName, pkColumn, mutate, handleCancelEdit]);
+  }, [editingRow, editedData, schema, tableName, pkColumn, mutate, handleCancelEdit, showToast, validateRequiredFields]);
 
   // Handle create
   const handleStartCreate = useCallback(() => {
@@ -190,6 +277,13 @@ export default function TableBrowserPage() {
   const handleSaveCreate = useCallback(async () => {
     if (!schema) return;
 
+    // Validate required fields
+    const validation = validateRequiredFields(newRowData, true);
+    if (!validation.valid) {
+      showToast(validation.error || "Validation failed", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await debugAPI.createRow(tableName, newRowData);
@@ -202,6 +296,36 @@ export default function TableBrowserPage() {
       setIsSubmitting(false);
     }
   }, [newRowData, schema, tableName, mutate, handleCancelCreate]);
+
+  // Handle Escape key to close menus and modals
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        if (fkPreview) setFkPreview(null);
+        else if (detailCell) setDetailCell(null);
+        else if (showColumnMenu) setShowColumnMenu(false);
+        else if (isCreating) handleCancelCreate();
+        else if (editingRow) handleCancelEdit();
+        else if (deleteConfirm) setDeleteConfirm(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [fkPreview, detailCell, showColumnMenu, isCreating, editingRow, deleteConfirm, handleCancelCreate, handleCancelEdit]);
+
+  // Fetch FK preview data
+  useEffect(() => {
+    if (!fkPreview) {
+      setFkPreviewData(null);
+      return;
+    }
+
+    setFkPreviewLoading(true);
+    debugAPI.getRow(fkPreview.tableName, fkPreview.rowId)
+      .then(setFkPreviewData)
+      .catch(() => setFkPreviewData(null))
+      .finally(() => setFkPreviewLoading(false));
+  }, [fkPreview]);
 
   // Handle delete
   const handleDelete = useCallback(async (rowId: number) => {
@@ -234,6 +358,31 @@ export default function TableBrowserPage() {
       setIsBulkDeleting(false);
     }
   }, [tableName, selectedRows, mutate]);
+
+  // Handle bulk update
+  const handleBulkUpdate = useCallback(async () => {
+    if (selectedRows.size === 0 || !bulkEditColumn) return;
+
+    setIsBulkUpdating(true);
+    try {
+      const result = await debugAPI.bulkUpdateRows(
+        tableName,
+        Array.from(selectedRows),
+        bulkEditColumn,
+        bulkEditValue
+      );
+      showToast(`${result.updated_count} rows updated`, "success");
+      mutate();
+      setSelectedRows(new Set());
+      setShowBulkEdit(false);
+      setBulkEditColumn("");
+      setBulkEditValue(null);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Bulk update failed", "error");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  }, [tableName, selectedRows, bulkEditColumn, bulkEditValue, mutate]);
 
   // Handle export
   const handleExport = useCallback(async (format: "csv" | "json") => {
@@ -291,10 +440,35 @@ export default function TableBrowserPage() {
     });
   }, []);
 
+  // Check if value looks like binary/base64 data
+  const isBinaryData = (value: unknown): boolean => {
+    if (typeof value !== "string") return false;
+    // Detect base64-encoded binary data (common patterns)
+    if (value.startsWith("base64:") || value.startsWith("data:")) return true;
+    // Heuristic: long strings with base64 alphabet and no spaces
+    if (value.length > 100 && /^[A-Za-z0-9+/=]+$/.test(value)) return true;
+    return false;
+  };
+
+  // Get byte size from base64 string
+  const getBase64ByteSize = (value: string): number => {
+    const base64 = value.replace(/^(base64:|data:[^,]+,)/, "");
+    // Base64 encodes 3 bytes into 4 characters
+    const padding = (base64.match(/=/g) || []).length;
+    return Math.floor((base64.length * 3) / 4) - padding;
+  };
+
   // Render cell value
   const renderCellValue = (value: unknown, columnType: string): string => {
     if (value === null || value === undefined) return "NULL";
     if (typeof value === "boolean") return value ? "true" : "false";
+    if (columnType === "binary" || isBinaryData(value)) {
+      const byteSize = typeof value === "string" ? getBase64ByteSize(value) : 0;
+      const sizeStr = byteSize >= 1024
+        ? `${(byteSize / 1024).toFixed(1)} KB`
+        : `${byteSize} bytes`;
+      return `[Binary: ${sizeStr}]`;
+    }
     if (typeof value === "object") return JSON.stringify(value);
     return String(value);
   };
@@ -352,6 +526,7 @@ export default function TableBrowserPage() {
     }
     return value;
   };
+
 
   // Check if cell value is long (for showing expand button)
   const isLongValue = (value: unknown): boolean => {
@@ -416,7 +591,7 @@ export default function TableBrowserPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder={`Search ${schema?.search_columns.join(", ") || ""}...`}
+                  placeholder={searchAll ? "Search all text columns..." : `Search ${schema?.search_columns.join(", ") || ""}...`}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -425,6 +600,36 @@ export default function TableBrowserPage() {
                   className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a] placeholder-gray-400"
                 />
               </div>
+
+              {/* Search all toggle */}
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={searchAll}
+                  onChange={(e) => {
+                    setSearchAll(e.target.checked);
+                    setPage(0);
+                  }}
+                  className="h-4 w-4 rounded border-[#e8d4b8] text-[#a0704b] focus:ring-[#a0704b]"
+                />
+                <span className="text-gray-600 dark:text-gray-400 hidden sm:inline">All columns</span>
+              </label>
+
+              {/* Show deleted toggle (only for soft delete tables) */}
+              {schema?.has_soft_delete && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showDeleted}
+                    onChange={(e) => {
+                      setShowDeleted(e.target.checked);
+                      setPage(0);
+                    }}
+                    className="h-4 w-4 rounded border-[#e8d4b8] text-amber-500 focus:ring-amber-500"
+                  />
+                  <span className="text-gray-600 dark:text-gray-400 hidden sm:inline">Show deleted</span>
+                </label>
+              )}
 
               {/* Column visibility dropdown */}
               <div className="relative" ref={columnMenuRef}>
@@ -519,11 +724,18 @@ export default function TableBrowserPage() {
 
             {/* Bulk selection bar */}
             {selectedRows.size > 0 && (
-              <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center gap-4">
+              <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex flex-wrap items-center gap-4">
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                   {selectedRows.size} row{selectedRows.size !== 1 ? "s" : ""} selected
                 </span>
-                {schema?.allow_hard_delete && (
+                <button
+                  onClick={() => setShowBulkEdit(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit Selected
+                </button>
+                {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
                   <button
                     onClick={handleBulkDelete}
                     disabled={isBulkDeleting}
@@ -534,10 +746,10 @@ export default function TableBrowserPage() {
                     ) : (
                       <Trash2 className="h-4 w-4" />
                     )}
-                    Delete Selected
+                    {schema?.has_soft_delete ? "Soft Delete" : "Delete"} Selected
                   </button>
                 )}
-                {!schema?.allow_hard_delete && (
+                {!schema?.allow_hard_delete && !schema?.has_soft_delete && (
                   <span className="text-sm text-amber-600 dark:text-amber-400">
                     Delete not allowed for this table
                   </span>
@@ -559,8 +771,25 @@ export default function TableBrowserPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
               </div>
             ) : (
+              <>
+              {/* Schema error state */}
+              {schema && !schema.primary_key && (
+                <div className="mb-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Schema Warning</p>
+                      <p className="text-sm">No primary key defined for this table. Edit and delete operations may not work correctly.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-x-auto">
-                <table className="w-full min-w-max text-sm">
+                <table className="w-full min-w-max text-sm" role="grid">
+                  <caption className="sr-only">
+                    {schema?.display_name || tableName} table with {totalRows} rows.
+                    {schema?.search_columns.length ? ` Searchable by: ${schema.search_columns.join(", ")}.` : ""}
+                  </caption>
                   <thead className="bg-[#f5ede3] dark:bg-[#2d2618] sticky top-0">
                     <tr>
                       {/* Bulk select checkbox */}
@@ -682,6 +911,7 @@ export default function TableBrowserPage() {
                       const isEditing = editingRow?.[pkColumn] === rowId;
                       const isDeleting = deleteConfirm === rowId;
                       const isSelected = selectedRows.has(rowId);
+                      const isSoftDeleted = schema?.has_soft_delete && row.deleted_at !== null;
 
                       return (
                         <tr
@@ -689,7 +919,8 @@ export default function TableBrowserPage() {
                           className={cn(
                             isEditing && "bg-blue-50 dark:bg-blue-900/20",
                             isDeleting && "bg-red-50 dark:bg-red-900/20",
-                            isSelected && !isEditing && !isDeleting && "bg-blue-50/50 dark:bg-blue-900/10"
+                            isSelected && !isEditing && !isDeleting && "bg-blue-50/50 dark:bg-blue-900/10",
+                            isSoftDeleted && !isEditing && !isDeleting && "opacity-50 bg-gray-100 dark:bg-gray-800/50"
                           )}
                         >
                           {/* Selection checkbox */}
@@ -737,16 +968,37 @@ export default function TableBrowserPage() {
                                 )
                               ) : (
                                 <div className="flex items-center gap-1">
-                                  <span
-                                    className={cn(
-                                      "truncate block max-w-[200px]",
-                                      row[col.name] === null && "text-gray-400 italic"
-                                    )}
-                                    title={renderCellValue(row[col.name], col.type)}
-                                  >
-                                    {renderCellValue(row[col.name], col.type)}
-                                  </span>
-                                  {isLongValue(row[col.name]) && (
+                                  {/* FK preview button */}
+                                  {schema?.foreign_keys[col.name] && row[col.name] !== null ? (
+                                    <button
+                                      onClick={(e) => {
+                                        const fkInfo = schema.foreign_keys[col.name];
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setFkPreview({
+                                          tableName: fkInfo.table,
+                                          rowId: row[col.name] as number,
+                                          columnName: fkInfo.column,
+                                          position: { x: Math.min(rect.left, window.innerWidth - 420), y: rect.bottom + 8 },
+                                        });
+                                      }}
+                                      className="flex items-center gap-1 text-[#a0704b] hover:underline truncate max-w-[200px]"
+                                      title={`Preview ${schema.foreign_keys[col.name].table} record`}
+                                    >
+                                      {renderCellValue(row[col.name], col.type)}
+                                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={cn(
+                                        "truncate block max-w-[200px]",
+                                        row[col.name] === null && "text-gray-400 italic"
+                                      )}
+                                      title={renderCellValue(row[col.name], col.type)}
+                                    >
+                                      {renderCellValue(row[col.name], col.type)}
+                                    </span>
+                                  )}
+                                  {isLongValue(row[col.name]) && !schema?.foreign_keys[col.name] && (
                                     <button
                                       onClick={() => setDetailCell({ value: row[col.name], column: col.name })}
                                       className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
@@ -816,12 +1068,12 @@ export default function TableBrowserPage() {
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </button>
-                                {schema?.allow_hard_delete && (
+                                {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
                                   <button
                                     onClick={() => setDeleteConfirm(rowId)}
                                     className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600"
-                                    title="Delete"
-                                    aria-label="Delete row"
+                                    title={schema?.has_soft_delete ? "Soft Delete" : "Delete"}
+                                    aria-label={schema?.has_soft_delete ? "Soft delete row" : "Delete row"}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
@@ -846,6 +1098,7 @@ export default function TableBrowserPage() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
 
@@ -880,13 +1133,16 @@ export default function TableBrowserPage() {
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
             onClick={() => setDetailCell(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-cell-title"
           >
             <div
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-[42rem] w-full mx-4 max-h-[80vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                <h3 id="detail-cell-title" className="font-semibold text-gray-900 dark:text-gray-100">
                   {detailCell.column}
                 </h3>
                 <button
@@ -898,11 +1154,251 @@ export default function TableBrowserPage() {
                 </button>
               </div>
               <div className="p-4 overflow-auto flex-1">
-                <pre className="text-sm whitespace-pre-wrap break-words font-mono bg-gray-50 dark:bg-[#2d2618] p-4 rounded-lg">
-                  {typeof detailCell.value === "object"
-                    ? JSON.stringify(detailCell.value, null, 2)
-                    : String(detailCell.value)}
-                </pre>
+                {isBinaryData(detailCell.value) ? (
+                  <div className="flex flex-col items-center gap-4 py-8">
+                    <div className="p-4 rounded-full bg-gray-100 dark:bg-gray-800">
+                      <FileDown className="h-8 w-8 text-gray-500" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">Binary Data</p>
+                      <p className="text-sm text-gray-500">
+                        {typeof detailCell.value === "string"
+                          ? (() => {
+                              const bytes = getBase64ByteSize(detailCell.value);
+                              return bytes >= 1024
+                                ? `${(bytes / 1024).toFixed(1)} KB`
+                                : `${bytes} bytes`;
+                            })()
+                          : "Unknown size"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (typeof detailCell.value === "string") {
+                          const base64 = detailCell.value.replace(/^(base64:|data:[^,]+,)/, "");
+                          const binary = atob(base64);
+                          const bytes = new Uint8Array(binary.length);
+                          for (let i = 0; i < binary.length; i++) {
+                            bytes[i] = binary.charCodeAt(i);
+                          }
+                          const blob = new Blob([bytes]);
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${tableName}_${detailCell.column}.bin`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </button>
+                  </div>
+                ) : (
+                  <pre className="text-sm whitespace-pre-wrap break-words font-mono bg-gray-50 dark:bg-[#2d2618] p-4 rounded-lg">
+                    {typeof detailCell.value === "object"
+                      ? JSON.stringify(detailCell.value, null, 2)
+                      : String(detailCell.value)}
+                  </pre>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk edit modal */}
+        {showBulkEdit && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            onClick={() => setShowBulkEdit(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-edit-title"
+          >
+            <div
+              className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-md w-full mx-4 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <h3 id="bulk-edit-title" className="font-semibold text-gray-900 dark:text-gray-100">
+                  Bulk Edit {selectedRows.size} Row{selectedRows.size !== 1 ? "s" : ""}
+                </h3>
+                <button
+                  onClick={() => setShowBulkEdit(false)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Column to update
+                  </label>
+                  <select
+                    value={bulkEditColumn}
+                    onChange={(e) => {
+                      setBulkEditColumn(e.target.value);
+                      setBulkEditValue(null);
+                    }}
+                    className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                  >
+                    <option value="">Select column...</option>
+                    {schema?.columns
+                      .filter((col) => !col.readonly && !col.primary_key && !schema?.foreign_keys[col.name])
+                      .map((col) => (
+                        <option key={col.name} value={col.name}>
+                          {col.name} ({col.type})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {bulkEditColumn && (() => {
+                  const col = schema?.columns.find((c) => c.name === bulkEditColumn);
+                  if (!col) return null;
+
+                  return (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        New value
+                      </label>
+                      {col.type === "boolean" ? (
+                        <select
+                          value={bulkEditValue === true ? "true" : bulkEditValue === false ? "false" : ""}
+                          onChange={(e) => setBulkEditValue(e.target.value === "true")}
+                          className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                        >
+                          <option value="">Select...</option>
+                          <option value="true">true</option>
+                          <option value="false">false</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={col.type === "integer" || col.type === "decimal" ? "number" : col.type === "date" ? "date" : col.type === "datetime" ? "datetime-local" : "text"}
+                          value={bulkEditValue === null ? "" : String(bulkEditValue)}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "") {
+                              setBulkEditValue(null);
+                            } else if (col.type === "integer") {
+                              setBulkEditValue(parseInt(v, 10) || null);
+                            } else if (col.type === "decimal") {
+                              setBulkEditValue(parseFloat(v) || null);
+                            } else {
+                              setBulkEditValue(v);
+                            }
+                          }}
+                          step={col.type === "decimal" ? "0.01" : undefined}
+                          className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
+                          placeholder={col.nullable ? "Leave empty for NULL" : "Enter value"}
+                        />
+                      )}
+                      {col.nullable && (
+                        <p className="text-xs text-gray-500 mt-1">Leave empty to set NULL</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center justify-end gap-3 p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <button
+                  onClick={() => setShowBulkEdit(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkUpdate}
+                  disabled={!bulkEditColumn || isBulkUpdating}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors disabled:opacity-50"
+                >
+                  {isBulkUpdating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Update {selectedRows.size} Rows
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* FK preview popover */}
+        {fkPreview && (
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setFkPreview(null)}
+          >
+            <div
+              className="absolute bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] w-96 max-h-96 overflow-hidden flex flex-col"
+              style={{
+                left: Math.max(8, Math.min(fkPreview.position.x, window.innerWidth - 400)),
+                top: Math.min(fkPreview.position.y, window.innerHeight - 400),
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0">
+                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                  {fkPreview.tableName} #{fkPreview.rowId}
+                </span>
+                <button
+                  onClick={() => setFkPreview(null)}
+                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  aria-label="Close preview"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-3 overflow-y-auto flex-1">
+                {fkPreviewLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#a0704b]" />
+                  </div>
+                ) : fkPreviewData ? (
+                  <div className="space-y-2 text-sm">
+                    {Object.entries(fkPreviewData).slice(0, 10).map(([key, value]) => (
+                      <div key={key} className="flex gap-2">
+                        <span className="font-medium text-gray-500 dark:text-gray-400 min-w-[100px] flex-shrink-0 truncate">
+                          {key}:
+                        </span>
+                        <span className="truncate text-gray-900 dark:text-gray-100">
+                          {value === null ? (
+                            <em className="text-gray-400">NULL</em>
+                          ) : typeof value === "boolean" ? (
+                            value ? "true" : "false"
+                          ) : typeof value === "object" ? (
+                            JSON.stringify(value)
+                          ) : (
+                            String(value)
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    {Object.keys(fkPreviewData).length > 10 && (
+                      <p className="text-xs text-gray-400 pt-1">
+                        ...and {Object.keys(fkPreviewData).length - 10} more fields
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Failed to load record</p>
+                )}
+              </div>
+              <div className="p-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0">
+                <Link
+                  href={`/admin/debug/${fkPreview.tableName}?filter=${fkPreview.columnName}__eq:${fkPreview.rowId}`}
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                >
+                  Go to {fkPreview.tableName}
+                  <ExternalLink className="h-4 w-4" />
+                </Link>
               </div>
             </div>
           </div>
