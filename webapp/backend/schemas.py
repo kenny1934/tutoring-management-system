@@ -125,6 +125,11 @@ class EnrollmentResponse(EnrollmentBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator('fee_message_sent', mode='before')
+    @classmethod
+    def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
+
 
 class EnrollmentUpdate(BaseModel):
     """Schema for updating enrollment fields"""
@@ -336,6 +341,11 @@ class EnrollmentDetailResponse(BaseModel):
     payment_status: str
     phone: Optional[str] = None
     fee_message_sent: bool = False
+
+    @field_validator('fee_message_sent', mode='before')
+    @classmethod
+    def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
 
 
 # ============================================
