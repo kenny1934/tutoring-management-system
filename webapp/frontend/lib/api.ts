@@ -880,8 +880,9 @@ export const statsAPI = {
     return fetchAPI<string[]>("/locations");
   },
 
-  search: (query: string, limit?: number) => {
+  search: (query: string, location?: string, limit?: number) => {
     const params = new URLSearchParams({ q: query });
+    if (location && location !== "All Locations") params.append("location", location);
     if (limit) params.append("limit", limit.toString());
     return fetchAPI<SearchResults>(`/search?${params.toString()}`);
   },

@@ -718,7 +718,7 @@ export function CommandPalette() {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const data = await api.stats.search(searchTerm);
+        const data = await api.stats.search(searchTerm, selectedLocation);
         setResults(data);
         setSelectedIndex(0);
         // Save to recent if we got results (save original query with filter prefix)
@@ -1307,7 +1307,7 @@ export function CommandPalette() {
                               </div>
                             )}
                           </div>
-                          {isSelected && (
+                          {isSelected && item.type !== 'help' && (
                             <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                           )}
                         </button>

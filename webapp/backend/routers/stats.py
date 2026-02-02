@@ -242,6 +242,7 @@ async def get_active_students(
 async def global_search(
     request: Request,
     q: str = Query(..., min_length=2, description="Search query"),
+    location: Optional[str] = Query(None, description="Filter by location"),
     limit: int = Query(5, ge=1, le=10, description="Results per category"),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -251,6 +252,7 @@ async def global_search(
 
     Used by the Command Palette (Cmd+K) for quick navigation.
     Returns categorized results for students, sessions, and enrollments.
+    Optionally filtered by location.
     """
     search_term = f"%{q}%"
 
@@ -269,17 +271,28 @@ async def global_search(
 
     # Search students by name, school_student_id, school, and optionally phone
     # Use func.coalesce to handle NULL values safely
-    student_conditions = [
+    student_search_conditions = [
         Student.student_name.ilike(search_term),
         func.coalesce(Student.school_student_id, '').ilike(search_term),
         func.coalesce(Student.school, '').ilike(search_term)
     ]
     if can_see_phone:
-        student_conditions.append(func.coalesce(Student.phone, '').ilike(search_term))
+        student_search_conditions.append(func.coalesce(Student.phone, '').ilike(search_term))
 
-    students = db.query(Student).filter(
-        or_(*student_conditions)
-    ).limit(limit).all()
+    student_query = db.query(Student).filter(or_(*student_search_conditions))
+
+    # Filter by location if specified (via enrollment or home_location)
+    if location:
+        student_query = student_query.filter(
+            or_(
+                Student.home_location == location,
+                Student.id.in_(
+                    db.query(Enrollment.student_id).filter(Enrollment.location == location)
+                )
+            )
+        )
+
+    students = student_query.limit(limit).all()
 
     # Search recent sessions (join with student to search by student name)
     # Only look at sessions from the past 30 days and upcoming 30 days
@@ -289,7 +302,7 @@ async def global_search(
 
     # Use joinedload to eagerly load relationships
     # Join with Tutor to also search by tutor name
-    sessions = db.query(SessionLog).options(
+    session_query = db.query(SessionLog).options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor)
     ).join(
@@ -304,11 +317,17 @@ async def global_search(
             func.coalesce(Student.school_student_id, '').ilike(search_term),
             func.coalesce(Tutor.tutor_name, '').ilike(search_term)
         )
-    ).order_by(SessionLog.session_date.desc()).limit(limit).all()
+    )
+
+    # Filter sessions by location if specified
+    if location:
+        session_query = session_query.filter(SessionLog.location == location)
+
+    sessions = session_query.order_by(SessionLog.session_date.desc()).limit(limit).all()
 
     # Search enrollments by student name or tutor name
     # Use joinedload to eagerly load relationships, join with Tutor for search
-    enrollments = db.query(Enrollment).options(
+    enrollment_query = db.query(Enrollment).options(
         joinedload(Enrollment.student),
         joinedload(Enrollment.tutor)
     ).join(
@@ -321,7 +340,13 @@ async def global_search(
             Student.student_name.ilike(search_term),
             func.coalesce(Tutor.tutor_name, '').ilike(search_term)
         )
-    ).limit(limit).all()
+    )
+
+    # Filter enrollments by location if specified
+    if location:
+        enrollment_query = enrollment_query.filter(Enrollment.location == location)
+
+    enrollments = enrollment_query.limit(limit).all()
 
     return {
         "students": [
