@@ -64,6 +64,7 @@ import {
 } from "./commandPalette/types";
 import { parseQuery, evaluateMath, highlightMatch } from "./commandPalette/utils";
 import { useRecentSearches } from "./commandPalette/hooks";
+import { ResultItemButton } from "./commandPalette/ResultItem";
 
 // Preview panel skeleton
 function PreviewSkeleton() {
@@ -1042,55 +1043,26 @@ export function CommandPalette() {
                       </span>
                     </div>
                     {typeItems.map((item) => {
-                      const Icon = item.icon;
                       const index = itemIndexMap.get(item.id) ?? 0;
                       const isSelected = index === selectedIndex;
 
                       return (
-                        <button
+                        <ResultItemButton
                           key={item.id}
-                          id={item.id}
-                          data-index={index}
-                          role="option"
-                          aria-selected={isSelected}
+                          item={item}
+                          index={index}
+                          isSelected={isSelected}
+                          searchTerm={searchTerm}
+                          showEnterIcon={item.type !== 'help'}
                           onClick={() => {
                             if (item.execute) {
                               item.execute();
-                              // Note: execute() handles closing if needed
                             } else if (item.href) {
                               router.push(item.href);
                               close();
                             }
                           }}
-                          className={cn(
-                            "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                            isSelected
-                              ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                              : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                          )}
-                        >
-                          <Icon
-                            className={cn(
-                              "h-4 w-4 flex-shrink-0",
-                              isSelected
-                                ? "text-[#a0704b] dark:text-[#cd853f]"
-                                : "text-gray-400 dark:text-gray-500"
-                            )}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {highlightMatch(item.title, searchTerm)}
-                            </div>
-                            {item.subtitle && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {highlightMatch(item.subtitle, searchTerm)}
-                              </div>
-                            )}
-                          </div>
-                          {isSelected && item.type !== 'help' && (
-                            <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                          )}
-                        </button>
+                        />
                       );
                     })}
                   </div>
@@ -1102,46 +1074,15 @@ export function CommandPalette() {
           {/* Submenu items when in nested command */}
           {!loading && !query && commandPath.length > 0 && (
             <div className="py-2">
-              {allItems.map((item, idx) => {
-                const Icon = item.icon;
-                const isSelected = idx === selectedIndex;
-
-                return (
-                  <button
-                    key={item.id}
-                    id={item.id}
-                    data-index={idx}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      if (item.execute) {
-                        item.execute();
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                      isSelected
-                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isSelected
-                          ? "text-[#a0704b] dark:text-[#cd853f]"
-                          : "text-gray-400 dark:text-gray-500"
-                      )}
-                    />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
-                      {item.title}
-                    </span>
-                    {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                    )}
-                  </button>
-                );
-              })}
+              {allItems.map((item, idx) => (
+                <ResultItemButton
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  isSelected={idx === selectedIndex}
+                  onClick={() => item.execute?.()}
+                />
+              ))}
             </div>
           )}
 
@@ -1165,54 +1106,22 @@ export function CommandPalette() {
                       Clear
                     </button>
                   </div>
-                  {recentSearches.map((search, index) => {
-                    const isSelected = index === selectedIndex;
-                    const recentId = `recent-${search.replace(/\s+/g, '-')}`;
-                    return (
-                      <div
-                        key={`recent-${search}`}
-                        id={recentId}
-                        role="option"
-                        aria-selected={isSelected}
-                        className={cn(
-                          "group flex items-center gap-3 px-4 py-2.5 max-sm:py-3 transition-colors",
-                          isSelected
-                            ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                            : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                        )}
-                      >
-                        <button
-                          data-index={index}
-                          onClick={() => setQuery(search)}
-                          className="flex-1 flex items-center gap-3 text-left"
-                        >
-                          <Clock
-                            className={cn(
-                              "h-4 w-4 flex-shrink-0",
-                              isSelected
-                                ? "text-[#a0704b] dark:text-[#cd853f]"
-                                : "text-gray-400 dark:text-gray-500"
-                            )}
-                          />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {search}
-                          </span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearRecentSearch(search);
-                          }}
-                          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628] rounded transition-all"
-                        >
-                          <X className="h-3 w-3 text-gray-400" />
-                        </button>
-                        {isSelected && (
-                          <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                        )}
-                      </div>
-                    );
-                  })}
+                  {recentSearches.map((search, index) => (
+                    <ResultItemButton
+                      key={`recent-${search}`}
+                      item={{
+                        id: `recent-${search.replace(/\s+/g, '-')}`,
+                        type: "recent",
+                        title: search,
+                        icon: Clock,
+                      }}
+                      index={index}
+                      isSelected={index === selectedIndex}
+                      onClick={() => setQuery(search)}
+                      onDelete={() => clearRecentSearch(search)}
+                      isRecentSearch
+                    />
+                  ))}
                 </>
               )}
 
@@ -1223,55 +1132,16 @@ export function CommandPalette() {
                   Actions
                 </span>
               </div>
-              {actionCommands.map((action, idx) => {
-                const Icon = action.icon;
-                const index = recentSearches.length + idx;
-                const isSelected = index === selectedIndex;
-
-                return (
-                  <button
-                    key={action.id}
-                    id={action.id}
-                    data-index={index}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      if (action.execute) {
-                        action.execute();
-                        // Note: execute() handles closing
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                      isSelected
-                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isSelected
-                          ? "text-[#a0704b] dark:text-[#cd853f]"
-                          : "text-purple-500 dark:text-purple-400"
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {action.title}
-                      </span>
-                      {action.subtitle && (
-                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                          {action.subtitle}
-                        </span>
-                      )}
-                    </div>
-                    {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                    )}
-                  </button>
-                );
-              })}
+              {actionCommands.map((action, idx) => (
+                <ResultItemButton
+                  key={action.id}
+                  item={action}
+                  index={recentSearches.length + idx}
+                  isSelected={recentSearches.length + idx === selectedIndex}
+                  iconColorClass="text-purple-500 dark:text-purple-400"
+                  onClick={() => action.execute?.()}
+                />
+              ))}
 
               {/* Nested Commands */}
               {nestedCommands.length > 0 && (
@@ -1282,49 +1152,27 @@ export function CommandPalette() {
                       Commands
                     </span>
                   </div>
-                  {nestedCommands.map((cmd, idx) => {
-                    const Icon = cmd.icon;
-                    const index = recentSearches.length + actionCommands.length + idx;
-                    const isSelected = index === selectedIndex;
-
-                    return (
-                      <button
-                        key={cmd.id}
-                        id={cmd.id}
-                        data-index={index}
-                        role="option"
-                        aria-selected={isSelected}
-                        onClick={() => {
-                          setCommandPath([cmd.id]);
-                          setSelectedIndex(0);
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                          isSelected
-                            ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                            : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            "h-4 w-4 flex-shrink-0",
-                            isSelected
-                              ? "text-[#a0704b] dark:text-[#cd853f]"
-                              : "text-blue-500 dark:text-blue-400"
-                          )}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {cmd.title}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                            {cmd.children?.length || 0} options
-                          </span>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                      </button>
-                    );
-                  })}
+                  {nestedCommands.map((cmd, idx) => (
+                    <ResultItemButton
+                      key={cmd.id}
+                      item={{
+                        id: cmd.id,
+                        type: "action",
+                        title: cmd.title,
+                        subtitle: `${cmd.children?.length || 0} options`,
+                        icon: cmd.icon,
+                      }}
+                      index={recentSearches.length + actionCommands.length + idx}
+                      isSelected={recentSearches.length + actionCommands.length + idx === selectedIndex}
+                      iconColorClass="text-blue-500 dark:text-blue-400"
+                      showEnterIcon={false}
+                      badge={<ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500" />}
+                      onClick={() => {
+                        setCommandPath([cmd.id]);
+                        setSelectedIndex(0);
+                      }}
+                    />
+                  ))}
                 </>
               )}
 
@@ -1335,46 +1183,24 @@ export function CommandPalette() {
                   Quick Actions
                 </span>
               </div>
-              {QUICK_ACTIONS.map((action, idx) => {
-                const Icon = action.icon;
-                const index = recentSearches.length + actionCommands.length + nestedCommands.length + idx;
-                const isSelected = index === selectedIndex;
-
-                return (
-                  <button
-                    key={action.id}
-                    id={action.id}
-                    data-index={index}
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => {
-                      router.push(action.href);
-                      close();
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                      isSelected
-                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isSelected
-                          ? "text-[#a0704b] dark:text-[#cd853f]"
-                          : "text-gray-400 dark:text-gray-500"
-                      )}
-                    />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
-                      {action.title}
-                    </span>
-                    {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                    )}
-                  </button>
-                );
-              })}
+              {QUICK_ACTIONS.map((action, idx) => (
+                <ResultItemButton
+                  key={action.id}
+                  item={{
+                    id: action.id,
+                    type: "page",
+                    title: action.title,
+                    href: action.href,
+                    icon: action.icon,
+                  }}
+                  index={recentSearches.length + actionCommands.length + nestedCommands.length + idx}
+                  isSelected={recentSearches.length + actionCommands.length + nestedCommands.length + idx === selectedIndex}
+                  onClick={() => {
+                    router.push(action.href);
+                    close();
+                  }}
+                />
+              ))}
 
               {/* Quick Navigation */}
               <div className="px-4 py-1.5 flex items-center gap-2">
@@ -1384,52 +1210,30 @@ export function CommandPalette() {
                 </span>
               </div>
               {allPages.map((page, idx) => {
-                const Icon = page.icon;
                 const index = recentSearches.length + actionCommands.length + nestedCommands.length + QUICK_ACTIONS.length + idx;
-                const isSelected = index === selectedIndex;
-                // Check if this is an admin page for special styling
                 const isAdminPage = page.id.startsWith("page-renewals") ||
                                     page.id.startsWith("page-extensions") ||
                                     page.id.startsWith("page-debug");
 
                 return (
-                  <button
+                  <ResultItemButton
                     key={page.id}
-                    id={page.id}
-                    data-index={index}
-                    role="option"
-                    aria-selected={isSelected}
+                    item={{
+                      id: page.id,
+                      type: "page",
+                      title: page.title,
+                      href: page.href,
+                      icon: page.icon,
+                    }}
+                    index={index}
+                    isSelected={index === selectedIndex}
+                    iconColorClass={isAdminPage ? "text-amber-500 dark:text-amber-400" : undefined}
+                    badge={isAdminPage ? <Shield className="h-3 w-3 text-amber-500 dark:text-amber-400" /> : undefined}
                     onClick={() => {
                       router.push(page.href);
                       close();
                     }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
-                      isSelected
-                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
-                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isSelected
-                          ? "text-[#a0704b] dark:text-[#cd853f]"
-                          : isAdminPage
-                          ? "text-amber-500 dark:text-amber-400"
-                          : "text-gray-400 dark:text-gray-500"
-                      )}
-                    />
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
-                      {page.title}
-                    </span>
-                    {isAdminPage && (
-                      <Shield className="h-3 w-3 text-amber-500 dark:text-amber-400" />
-                    )}
-                    {isSelected && (
-                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                    )}
-                  </button>
+                  />
                 );
               })}
             </div>
