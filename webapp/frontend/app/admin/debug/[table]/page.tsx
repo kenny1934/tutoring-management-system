@@ -131,6 +131,72 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
+/**
+ * Focus trap hook for modal dialogs.
+ * Traps focus within the modal and returns focus to the trigger element on close.
+ */
+function useFocusTrap(isOpen: boolean, modalRef: React.RefObject<HTMLElement | null>) {
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !modalRef.current) return;
+
+    // Store the currently focused element
+    previousActiveElement.current = document.activeElement as HTMLElement;
+
+    // Find all focusable elements within the modal
+    const getFocusableElements = () => {
+      if (!modalRef.current) return [];
+      return Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+    };
+
+    // Focus the first focusable element
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length > 0) {
+      focusableElements[0].focus();
+    }
+
+    // Handle tab key to trap focus
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+
+      const focusable = getFocusableElements();
+      if (focusable.length === 0) return;
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Return focus to the previously focused element
+      if (previousActiveElement.current && typeof previousActiveElement.current.focus === "function") {
+        previousActiveElement.current.focus();
+      }
+    };
+  }, [isOpen, modalRef]);
+}
+
 export default function TableBrowserPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -225,6 +291,15 @@ export default function TableBrowserPage() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Modal refs for focus trapping
+  const detailModalRef = useRef<HTMLDivElement>(null);
+  const keyboardHelpModalRef = useRef<HTMLDivElement>(null);
+  const statsModalRef = useRef<HTMLDivElement>(null);
+  const importModalRef = useRef<HTMLDivElement>(null);
+  const bulkEditModalRef = useRef<HTMLDivElement>(null);
+  const bulkDeleteModalRef = useRef<HTMLDivElement>(null);
+  const saveFilterModalRef = useRef<HTMLDivElement>(null);
+
   // Refs for keyboard handler to avoid excessive re-renders
   const keyboardStateRef = useRef({
     showKeyboardHelp: false,
@@ -273,6 +348,15 @@ export default function TableBrowserPage() {
   } | null>(null);
   const [fkPreviewData, setFkPreviewData] = useState<DebugRow | null>(null);
   const [fkPreviewLoading, setFkPreviewLoading] = useState(false);
+
+  // Focus trapping for modals (must be after all modal state declarations)
+  useFocusTrap(!!detailCell, detailModalRef);
+  useFocusTrap(showKeyboardHelp, keyboardHelpModalRef);
+  useFocusTrap(showStatsModal, statsModalRef);
+  useFocusTrap(showImportModal, importModalRef);
+  useFocusTrap(showBulkEdit, bulkEditModalRef);
+  useFocusTrap(showBulkDeleteConfirm, bulkDeleteModalRef);
+  useFocusTrap(showSaveFilterModal, saveFilterModalRef);
 
   const debouncedSearch = useDebouncedValue(searchQuery, SEARCH_DEBOUNCE_MS);
 
@@ -1514,12 +1598,15 @@ export default function TableBrowserPage() {
                 <table className="w-full min-w-max text-sm font-mono-data" role="grid">
                   <caption className="sr-only">
                     {schema?.display_name || tableName} table with {totalRows} rows.
+                    {totalPages > 1 && ` Showing page ${page + 1} of ${totalPages} (rows ${page * PAGE_SIZE + 1} to ${Math.min((page + 1) * PAGE_SIZE, totalRows)}).`}
+                    {sortBy && ` Sorted by ${sortBy} ${sortOrder === "asc" ? "ascending" : "descending"}.`}
+                    {debouncedSearch && ` Filtered by search: "${debouncedSearch}".`}
                     {schema?.search_columns.length ? ` Searchable by: ${schema.search_columns.join(", ")}.` : ""}
                   </caption>
                   <thead className="bg-[#f5ede3] dark:bg-[#2d2618] sticky top-0">
                     <tr>
                       {/* Bulk select checkbox */}
-                      <th className="px-3 py-2 w-10">
+                      <th scope="col" className="px-3 py-2 w-10">
                         <button
                           onClick={toggleSelectAll}
                           className="p-0.5 rounded hover:bg-[#e8d4b8] dark:hover:bg-[#3d3628]"
@@ -1535,13 +1622,14 @@ export default function TableBrowserPage() {
                       {visibleColumns.map((col, colIndex) => (
                         <th
                           key={col.name}
+                          scope="col"
+                          aria-colindex={colIndex + 2}
                           className={cn(
                             "px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300",
                             col.readonly && "text-gray-500",
                             col.primary_key && "sticky-pk-column bg-[#f5ede3] dark:bg-[#2d2618]",
                             schema?.foreign_keys[col.name] && "fk-column-header"
                           )}
-                          role="columnheader"
                         >
                           <div className="flex items-center gap-1">
                             <button
@@ -1586,7 +1674,7 @@ export default function TableBrowserPage() {
                           </div>
                         </th>
                       ))}
-                      <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-28">
+                      <th scope="col" className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 w-28">
                         Actions
                       </th>
                     </tr>
@@ -1674,6 +1762,9 @@ export default function TableBrowserPage() {
                       return (
                         <tr
                           key={rowId}
+                          aria-rowindex={page * PAGE_SIZE + rowIndex + 2}
+                          aria-disabled={isSoftDeleted || undefined}
+                          tabIndex={isSoftDeleted ? -1 : undefined}
                           className={cn(
                             "debug-row-hover transition-colors",
                             isEditing && "bg-blue-50 dark:bg-blue-900/20",
@@ -1698,9 +1789,10 @@ export default function TableBrowserPage() {
                               )}
                             </button>
                           </td>
-                          {visibleColumns.map((col) => (
+                          {visibleColumns.map((col, colIndex) => (
                             <td
                               key={col.name}
+                              aria-colindex={colIndex + 2}
                               className={cn(
                                 "px-3 py-2",
                                 col.primary_key && "sticky-pk-column bg-white dark:bg-[#1a1a1a]",
@@ -1982,6 +2074,7 @@ export default function TableBrowserPage() {
             aria-labelledby="detail-cell-title"
           >
             <div
+              ref={detailModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-[42rem] w-[calc(100%-2rem)] min-w-[20rem] mx-4 max-h-[80vh] flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2064,6 +2157,7 @@ export default function TableBrowserPage() {
             aria-labelledby="bulk-edit-title"
           >
             <div
+              ref={bulkEditModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl max-w-md w-[calc(100%-2rem)] min-w-[20rem] mx-4 flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2184,6 +2278,7 @@ export default function TableBrowserPage() {
             aria-labelledby="bulk-delete-title"
           >
             <div
+              ref={bulkDeleteModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl w-[28rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in delete-modal-glow"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2316,6 +2411,7 @@ export default function TableBrowserPage() {
             aria-labelledby="keyboard-help-title"
           >
             <div
+              ref={keyboardHelpModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[24rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2378,6 +2474,7 @@ export default function TableBrowserPage() {
             aria-labelledby="save-filter-title"
           >
             <div
+              ref={saveFilterModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[20rem] max-w-[calc(100%-2rem)] mx-4 flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2442,6 +2539,7 @@ export default function TableBrowserPage() {
             aria-labelledby="import-title"
           >
             <div
+              ref={importModalRef}
               className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-xl w-[36rem] max-w-[calc(100%-2rem)] max-h-[80vh] mx-4 flex flex-col animate-modal-in"
               onClick={(e) => e.stopPropagation()}
             >
@@ -2581,12 +2679,22 @@ export default function TableBrowserPage() {
 
         {/* Column Statistics Modal */}
         {showStatsModal && statsColumn && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-modal-backdrop">
-            <div className="relative max-w-md w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl animate-modal-in">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-modal-backdrop"
+            onClick={() => setShowStatsModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stats-modal-title"
+          >
+            <div
+              ref={statsModalRef}
+              className="relative max-w-md w-[calc(100%-2rem)] min-w-[20rem] mx-4 bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl animate-modal-in"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-[#a0704b]" />
-                  <h3 className="text-lg font-semibold">
+                  <BarChart3 className="h-5 w-5 text-[#a0704b]" aria-hidden="true" />
+                  <h3 id="stats-modal-title" className="text-lg font-semibold">
                     Column Statistics: <span className="font-mono text-[#a0704b]">{statsColumn}</span>
                   </h3>
                 </div>

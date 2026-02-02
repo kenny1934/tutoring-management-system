@@ -61,12 +61,12 @@ export default function DebugPanelPage() {
                 </Link>
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:block p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                    <Database className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <Database className="h-6 w-6 text-red-600 dark:text-red-400" aria-hidden="true" />
                   </div>
                   <div>
                     <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
                       Debug Panel
-                      <Shield className="h-5 w-5 text-red-400" />
+                      <Shield className="h-5 w-5 text-red-400" aria-hidden="true" />
                     </h1>
                     <p className="hidden sm:block text-sm text-white/70">
                       Super Admin database access
@@ -79,7 +79,7 @@ export default function DebugPanelPage() {
             {/* Warning Banner */}
             <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800">
               <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium">
                   DEBUG MODE - Changes affect production data. All operations are logged.
                 </span>
