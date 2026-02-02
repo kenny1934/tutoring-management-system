@@ -54,7 +54,7 @@ function OperationBadge({ operation }: { operation: string }) {
         styles[operation as keyof typeof styles] || "bg-gray-100 text-gray-700"
       )}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className="h-3 w-3" aria-hidden="true" />
       {operation}
     </span>
   );
@@ -107,9 +107,9 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
           </div>
           {(log.before_state || log.after_state) && (
             expanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden="true" />
             )
           )}
         </button>
@@ -123,7 +123,7 @@ function AuditLogRow({ log, onRevert }: AuditLogRowProps) {
             title="Revert this change"
             aria-label="Revert change"
           >
-            <Undo2 className="h-4 w-4" />
+            <Undo2 className="h-4 w-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -242,12 +242,13 @@ export default function AuditLogPage() {
                 <Link
                   href="/admin/debug"
                   className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                  aria-label="Back to debug panel"
                 >
-                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
                 </Link>
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:block p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628]">
-                    <History className="h-6 w-6 text-[#a0704b]" />
+                    <History className="h-6 w-6 text-[#a0704b]" aria-hidden="true" />
                   </div>
                   <div>
                     <h1 className="text-lg sm:text-2xl font-bold text-white">
@@ -297,7 +298,7 @@ export default function AuditLogPage() {
           <div className="px-4 sm:px-6 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
               </div>
             ) : logs.length === 0 ? (
               <div className="text-center py-16 text-gray-500 dark:text-gray-400">
@@ -323,7 +324,7 @@ export default function AuditLogPage() {
                   disabled={page === 0}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                   Previous
                 </button>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -335,7 +336,7 @@ export default function AuditLogPage() {
                   className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] disabled:opacity-50"
                 >
                   Next
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             )}
@@ -349,7 +350,7 @@ export default function AuditLogPage() {
               <div className="flex items-center justify-between p-4 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                    <Undo2 className="h-5 w-5 text-amber-600" />
+                    <Undo2 className="h-5 w-5 text-amber-600" aria-hidden="true" />
                   </div>
                   <h3 className="text-lg font-semibold">Revert Change</h3>
                 </div>
@@ -358,13 +359,13 @@ export default function AuditLogPage() {
                   className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                   aria-label="Close"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-5 w-5" aria-hidden="true" />
                 </button>
               </div>
 
               <div className="p-4 space-y-4">
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div>
                     <p className="font-medium text-amber-800 dark:text-amber-300">
                       {getRevertDescription(revertLog)}
@@ -417,9 +418,9 @@ export default function AuditLogPage() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
                 >
                   {isReverting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   ) : (
-                    <Undo2 className="h-4 w-4" />
+                    <Undo2 className="h-4 w-4" aria-hidden="true" />
                   )}
                   Revert Change
                 </button>

@@ -1885,12 +1885,22 @@ export const debugAPI = {
   exportTable: async (
     tableName: string,
     format: "csv" | "json" = "csv",
-    limit: number = 10000
+    limit: number = 10000,
+    options?: {
+      filter?: string;
+      includeDeleted?: boolean;
+    }
   ): Promise<Blob> => {
     const params = new URLSearchParams({
       format,
       limit: String(limit),
     });
+    if (options?.filter) {
+      params.set("filter", options.filter);
+    }
+    if (options?.includeDeleted) {
+      params.set("include_deleted", "true");
+    }
     const response = await fetch(
       `${API_BASE_URL}/debug/tables/${tableName}/export?${params}`,
       {

@@ -56,8 +56,9 @@ export default function DebugPanelPage() {
                 <Link
                   href="/"
                   className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                  aria-label="Back to home"
                 >
-                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
                 </Link>
                 <div className="flex items-center gap-3">
                   <div className="hidden sm:block p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
@@ -89,7 +90,7 @@ export default function DebugPanelPage() {
             {/* Search and Actions */}
             <div className="mx-4 sm:mx-6 mb-4 flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
                 <input
                   type="text"
                   placeholder="Search tables..."
@@ -102,14 +103,14 @@ export default function DebugPanelPage() {
                 href="/admin/debug/sql"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors"
               >
-                <Terminal className="h-4 w-4" />
+                <Terminal className="h-4 w-4" aria-hidden="true" />
                 SQL Executor
               </Link>
               <Link
                 href="/admin/debug/audit"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
               >
-                <History className="h-4 w-4" />
+                <History className="h-4 w-4" aria-hidden="true" />
                 Audit Logs
               </Link>
             </div>
@@ -119,11 +120,11 @@ export default function DebugPanelPage() {
           <div className="px-4 sm:px-6 pb-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+                <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" aria-hidden="true" />
               </div>
             ) : error ? (
               <div className="text-center py-16">
-                <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" aria-hidden="true" />
                 <p className="text-gray-600 dark:text-gray-400">
                   Failed to load tables. Are you a Super Admin?
                 </p>
@@ -157,7 +158,7 @@ export default function DebugPanelPage() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <Table2 className="h-5 w-5 text-[#a0704b]" />
+                                <Table2 className="h-5 w-5 text-[#a0704b]" aria-hidden="true" />
                                 <span className="font-semibold text-gray-900 dark:text-gray-100">
                                   {table.display_name}
                                 </span>

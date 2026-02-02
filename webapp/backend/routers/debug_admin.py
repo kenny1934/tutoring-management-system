@@ -1216,6 +1216,7 @@ async def export_table(
     format: str = Query("csv", pattern="^(csv|json)$"),
     limit: int = Query(10000, ge=1, le=100000),
     filter: Optional[str] = Query(None, description="Filters: col:val,col__op:val"),
+    include_deleted: bool = Query(False, description="Include soft-deleted rows"),
     admin: Tutor = Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
@@ -1238,8 +1239,8 @@ async def export_table(
     params = {}
     where_conditions = []
 
-    # Exclude soft-deleted rows by default
-    if 'deleted_at' in valid_columns:
+    # Exclude soft-deleted rows by default (unless include_deleted is True)
+    if not include_deleted and 'deleted_at' in valid_columns:
         where_conditions.append("`deleted_at` IS NULL")
 
     # Advanced filters

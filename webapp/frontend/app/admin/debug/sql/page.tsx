@@ -206,17 +206,18 @@ export default function SqlExecutorPage() {
                   <Link
                     href="/admin/debug"
                     className="p-2 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+                    aria-label="Back to debug panel"
                   >
-                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" aria-hidden="true" />
                   </Link>
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:block p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                      <Terminal className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+                      <Terminal className="h-6 w-6 text-violet-600 dark:text-violet-400" aria-hidden="true" />
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
                         SQL Executor
-                        <Database className="h-5 w-5 text-violet-400" />
+                        <Database className="h-5 w-5 text-violet-400" aria-hidden="true" />
                       </h1>
                       <p className="hidden sm:block text-sm text-white/70">
                         Execute read-only SQL queries
@@ -231,7 +232,7 @@ export default function SqlExecutorPage() {
             {/* Warning Banner */}
             <div className="mx-4 sm:mx-6 mb-4 p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-800">
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                <AlertTriangle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-sm font-medium">
                   Only SELECT queries are allowed. Results limited to 1000 rows. All queries are logged.
                 </span>
@@ -265,9 +266,9 @@ export default function SqlExecutorPage() {
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-50 btn-press"
               >
                 {isExecuting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Play className="h-4 w-4" />
+                  <Play className="h-4 w-4" aria-hidden="true" />
                 )}
                 Execute
               </button>
@@ -281,14 +282,14 @@ export default function SqlExecutorPage() {
                     : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
                 )}
               >
-                <History className="h-4 w-4" />
+                <History className="h-4 w-4" aria-hidden="true" />
                 History
                 {history.length > 0 && (
                   <span className="px-1.5 py-0.5 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
                     {history.length}
                   </span>
                 )}
-                {showHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showHistory ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
               </button>
 
               {result && result.rows.length > 0 && (
@@ -297,14 +298,14 @@ export default function SqlExecutorPage() {
                     onClick={handleExport}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4" aria-hidden="true" />
                     Export CSV
                   </button>
                   <button
                     onClick={handleCopy}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors btn-press"
                   >
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <Check className="h-4 w-4 text-green-500" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                     {copied ? "Copied!" : "Copy JSON"}
                   </button>
                 </>
@@ -321,7 +322,7 @@ export default function SqlExecutorPage() {
                       onClick={handleClearHistory}
                       className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3 w-3" aria-hidden="true" />
                       Clear All
                     </button>
                   )}
@@ -352,8 +353,9 @@ export default function SqlExecutorPage() {
                             handleDeleteHistoryItem(item.timestamp);
                           }}
                           className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-400 hover:text-red-500"
+                          aria-label="Delete history item"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3 w-3" aria-hidden="true" />
                         </button>
                       </div>
                     ))}
@@ -366,7 +368,7 @@ export default function SqlExecutorPage() {
             {error && (
               <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
                   <div>
                     <p className="font-medium text-red-700 dark:text-red-400">Query Error</p>
                     <pre className="mt-1 text-sm text-red-600 dark:text-red-300 font-mono whitespace-pre-wrap">
@@ -391,7 +393,7 @@ export default function SqlExecutorPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <Clock className="h-3 w-3" />
+                    <Clock className="h-3 w-3" aria-hidden="true" />
                     {result.execution_time_ms}ms
                   </div>
                 </div>
