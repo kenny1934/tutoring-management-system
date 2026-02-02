@@ -9,3 +9,4 @@ export * from "./hooks";
 
 // Components
 export * from "./ResultItem";
+export * from "./PreviewPanel";

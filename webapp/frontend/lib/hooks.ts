@@ -823,6 +823,110 @@ export function useClickOutside<T extends HTMLElement>(
   }, [ref, onClickOutside, enabled]);
 }
 
+/**
+ * Focus trap hook for modal dialogs.
+ * Traps focus within the modal and returns focus to the trigger element on close.
+ */
+export function useFocusTrap(isOpen: boolean, modalRef: RefObject<HTMLElement | null>) {
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !modalRef.current) return;
+
+    // Store the currently focused element
+    previousActiveElement.current = document.activeElement as HTMLElement;
+
+    // Find all focusable elements within the modal
+    const getFocusableElements = () => {
+      if (!modalRef.current) return [];
+      return Array.from(
+        modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute("disabled") && el.offsetParent !== null);
+    };
+
+    // Focus the first focusable element
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length > 0) {
+      focusableElements[0].focus();
+    }
+
+    // Handle tab key to trap focus
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+
+      const focusable = getFocusableElements();
+      if (focusable.length === 0) return;
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Return focus to the previously focused element
+      if (previousActiveElement.current && typeof previousActiveElement.current.focus === "function") {
+        previousActiveElement.current.focus();
+      }
+    };
+  }, [isOpen, modalRef]);
+}
+
+/**
+ * Hook for managing modal state with focus trapping.
+ * Combines open/close state, ref, and focus trap into a single hook.
+ *
+ * @example
+ * // Simple boolean modal
+ * const confirmModal = useModal();
+ * // Usage: confirmModal.isOpen, confirmModal.open(), confirmModal.close(), confirmModal.ref
+ *
+ * @example
+ * // Modal with state (e.g., which item is being edited)
+ * const editModal = useModal<{ id: number; name: string }>();
+ * // Usage: editModal.open({ id: 1, name: "Item" }), editModal.state?.id
+ */
+export function useModal<T = boolean>() {
+  const [state, setState] = useState<T | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const isOpen = state !== null;
+
+  useFocusTrap(isOpen, ref);
+
+  const open = useCallback((value?: T) => {
+    setState((value ?? true) as T);
+  }, []);
+
+  const close = useCallback(() => {
+    setState(null);
+  }, []);
+
+  return {
+    isOpen,
+    state,
+    open,
+    close,
+    ref,
+  };
+}
+
 // ============================================
 // Exam Revision Hooks
 // ============================================
