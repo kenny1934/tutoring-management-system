@@ -170,6 +170,7 @@ function evaluateMath(expr: string): number {
     while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
       const op = tokens[pos++];
       const right = parseFactor();
+      if (op === '/' && right === 0) throw new Error('Division by zero');
       left = op === '*' ? left * right : left / right;
     }
     return left;
@@ -179,6 +180,7 @@ function evaluateMath(expr: string): number {
     if (tokens[pos] === '(') {
       pos++; // skip (
       const result = parseExpr();
+      if (tokens[pos] !== ')') throw new Error('Unmatched parenthesis');
       pos++; // skip )
       return result;
     }
@@ -619,22 +621,31 @@ export function CommandPalette() {
   const [mounted, setMounted] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [previewItem, setPreviewItem] = useState<{ type: string; id: number } | null>(null);
+  const [debouncedPreviewItem, setDebouncedPreviewItem] = useState<{ type: string; id: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Fetch preview data based on type
+  // Debounce preview item to prevent rapid fetches during keyboard navigation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPreviewItem(previewItem);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [previewItem]);
+
+  // Fetch preview data based on debounced type (prevents race conditions)
   const { data: previewData, isLoading: previewLoading } = useSWR(
-    previewItem ? `preview-${previewItem.type}-${previewItem.id}` : null,
+    debouncedPreviewItem ? `preview-${debouncedPreviewItem.type}-${debouncedPreviewItem.id}` : null,
     async () => {
-      if (!previewItem) return null;
-      if (previewItem.type === 'student') {
-        return { type: 'student', data: await studentsAPI.getById(previewItem.id) };
+      if (!debouncedPreviewItem) return null;
+      if (debouncedPreviewItem.type === 'student') {
+        return { type: 'student', data: await studentsAPI.getById(debouncedPreviewItem.id) };
       }
-      if (previewItem.type === 'session') {
-        return { type: 'session', data: await sessionsAPI.getById(previewItem.id) };
+      if (debouncedPreviewItem.type === 'session') {
+        return { type: 'session', data: await sessionsAPI.getById(debouncedPreviewItem.id) };
       }
-      if (previewItem.type === 'enrollment') {
-        return { type: 'enrollment', data: await enrollmentsAPI.getById(previewItem.id) };
+      if (debouncedPreviewItem.type === 'enrollment') {
+        return { type: 'enrollment', data: await enrollmentsAPI.getById(debouncedPreviewItem.id) };
       }
       return null;
     },
@@ -700,6 +711,7 @@ export function CommandPalette() {
       setSelectedIndex(0);
       setCommandPath([]);
       setPreviewItem(null);
+      setDebouncedPreviewItem(null);
       setHelpPreview(null);
     }
   }, [isOpen]);
@@ -984,6 +996,13 @@ export function CommandPalette() {
     return items;
   }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands, showToast, commandPath, nestedCommands, close]);
 
+  // Index map for O(1) lookup instead of O(n) indexOf
+  const itemIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    allItems.forEach((item, idx) => map.set(item.id, idx));
+    return map;
+  }, [allItems]);
+
   // State for help preview (separate from API-fetched preview)
   const [helpPreview, setHelpPreview] = useState<typeof HELP_TOPICS[0] | null>(null);
 
@@ -1199,7 +1218,7 @@ export function CommandPalette() {
             aria-label="Search results"
             className={cn(
               "overflow-y-auto",
-              (previewItem || helpPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
+              (debouncedPreviewItem || helpPreview) && !commandPath.length ? "w-[55%] border-r border-[#e8d4b8] dark:border-[#3d3628]" : "w-full"
             )}
           >
           {loading && (
@@ -1263,7 +1282,7 @@ export function CommandPalette() {
                     </div>
                     {typeItems.map((item) => {
                       const Icon = item.icon;
-                      const index = allItems.indexOf(item);
+                      const index = itemIndexMap.get(item.id) ?? 0;
                       const isSelected = index === selectedIndex;
 
                       return (
@@ -1657,7 +1676,7 @@ export function CommandPalette() {
           </div>
 
           {/* Preview panel - desktop only */}
-          {(previewItem || helpPreview) && !commandPath.length && (
+          {(debouncedPreviewItem || helpPreview) && !commandPath.length && (
             <div className="hidden sm:block w-[45%] p-4 overflow-y-auto bg-[#fef9f3]/50 dark:bg-[#1a1a1a]/50">
               {helpPreview ? (
                 <HelpPreview topic={helpPreview} />
