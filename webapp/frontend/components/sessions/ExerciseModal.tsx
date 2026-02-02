@@ -1461,7 +1461,8 @@ export function ExerciseModal({
       <PdfPreviewModal
         isOpen={!!trendingPreviewDoc}
         onClose={() => setTrendingPreviewDoc(null)}
-        document={trendingPreviewDoc}
+        documentId={trendingPreviewDoc?.id ?? null}
+        documentTitle={trendingPreviewDoc?.title}
       />
 
       {/* File Search Modal (for single file drag-drop) */}
