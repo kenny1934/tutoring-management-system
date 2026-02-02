@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import Fuse from "fuse.js";
 import { createPortal } from "react-dom";
 import {
@@ -32,11 +33,17 @@ import {
   RefreshCcw,
   Database,
   Shield,
+  Sun,
+  Moon,
+  Building2,
+  Eye,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, SearchResults } from "@/lib/api";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/contexts/RoleContext";
 import { SearchNoResults } from "@/components/illustrations/EmptyStates";
 
 // localStorage key for recent searches
@@ -49,20 +56,19 @@ interface PageItem {
   title: string;
   href: string;
   icon: typeof Home;
-  shortcut?: string;
 }
 
 // Quick navigation pages
 const PAGES: PageItem[] = [
   // Core pages
-  { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home, shortcut: "G D" },
-  { id: "page-students", title: "Students", href: "/students", icon: User, shortcut: "G S" },
-  { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar, shortcut: "G C" },
+  { id: "page-dashboard", title: "Dashboard", href: "/", icon: Home },
+  { id: "page-students", title: "Students", href: "/students", icon: User },
+  { id: "page-sessions", title: "Sessions", href: "/sessions", icon: Calendar },
   { id: "page-courseware", title: "Courseware", href: "/courseware", icon: BookOpen },
   // High frequency
-  { id: "page-inbox", title: "Inbox", href: "/inbox", icon: Inbox, shortcut: "G I" },
+  { id: "page-inbox", title: "Inbox", href: "/inbox", icon: Inbox },
   { id: "page-proposals", title: "Make-up Proposals", href: "/proposals", icon: RefreshCw },
-  { id: "page-settings", title: "Settings", href: "/settings", icon: Settings, shortcut: "G ," },
+  { id: "page-settings", title: "Settings", href: "/settings", icon: Settings },
   // Business pages
   { id: "page-exams", title: "Exam Schedules", href: "/exams", icon: GraduationCap },
   { id: "page-revenue", title: "Revenue Reports", href: "/revenue", icon: DollarSign },
@@ -85,8 +91,8 @@ const SUPER_ADMIN_PAGES: PageItem[] = [
 
 // Quick actions (session-focused)
 const QUICK_ACTIONS: PageItem[] = [
-  { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar, shortcut: "G T" },
-  { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3, shortcut: "G W" },
+  { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar },
+  { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3 },
   { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=pending-makeups", icon: RefreshCw },
 ];
 
@@ -118,12 +124,12 @@ function parseQuery(q: string): { type: string | null; term: string } {
 // Result item type for unified list
 interface ResultItem {
   id: string;
-  type: "student" | "session" | "enrollment" | "page" | "recent";
+  type: "student" | "session" | "enrollment" | "page" | "recent" | "action";
   title: string;
   subtitle?: string;
-  href: string;
+  href?: string;  // Optional for actions
   icon: typeof User;
-  shortcut?: string;
+  execute?: () => void;  // For action commands
 }
 
 // Highlight matching text in search results
@@ -146,6 +152,8 @@ export function CommandPalette() {
   const router = useRouter();
   const { isOpen, close } = useCommandPalette();
   const { isAdmin, isSuperAdmin } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { viewMode, setViewMode } = useRole();
 
   // Build complete pages list based on user role
   const allPages = useMemo(() => {
@@ -158,6 +166,33 @@ export function CommandPalette() {
     }
     return pages;
   }, [isAdmin, isSuperAdmin]);
+
+  // Action commands (dynamic based on current theme/view state)
+  const actionCommands = useMemo<ResultItem[]>(() => [
+    {
+      id: "action-theme",
+      type: "action",
+      title: theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode",
+      icon: theme === 'dark' ? Sun : Moon,
+      execute: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+    },
+    {
+      id: "action-view-center",
+      type: "action",
+      title: "Switch to Center View",
+      subtitle: viewMode === 'center-view' ? "Currently active" : undefined,
+      icon: Building2,
+      execute: () => setViewMode('center-view'),
+    },
+    {
+      id: "action-view-my",
+      type: "action",
+      title: "Switch to My View",
+      subtitle: viewMode === 'my-view' ? "Currently active" : undefined,
+      icon: Eye,
+      execute: () => setViewMode('my-view'),
+    },
+  ], [theme, setTheme, viewMode, setViewMode]);
 
   // Fuse instance for fuzzy search on local items (pages + quick actions)
   const fuse = useMemo(() => {
@@ -277,7 +312,7 @@ export function CommandPalette() {
   const allItems = useMemo<ResultItem[]>(() => {
     const items: ResultItem[] = [];
 
-    // When no query, show recent searches + quick actions + pages
+    // When no query, show recent searches + action commands + quick actions + pages
     if (!query) {
       // Recent searches
       recentSearches.forEach((search) => {
@@ -290,6 +325,11 @@ export function CommandPalette() {
         });
       });
 
+      // Action commands
+      actionCommands.forEach((action) => {
+        items.push(action);
+      });
+
       // Quick actions
       QUICK_ACTIONS.forEach((action) => {
         items.push({
@@ -298,7 +338,6 @@ export function CommandPalette() {
           title: action.title,
           href: action.href,
           icon: action.icon,
-          shortcut: action.shortcut,
         });
       });
 
@@ -310,7 +349,6 @@ export function CommandPalette() {
           title: p.title,
           href: p.href,
           icon: p.icon,
-          shortcut: p.shortcut,
         });
       });
 
@@ -382,13 +420,12 @@ export function CommandPalette() {
           title: p.title,
           href: p.href,
           icon: p.icon,
-          shortcut: p.shortcut,
         });
       });
     }
 
     return items;
-  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse]);
+  }, [results, query, searchTerm, filterType, recentSearches, allPages, fuse, actionCommands]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -409,7 +446,11 @@ export function CommandPalette() {
             if (item.type === "recent") {
               // Set query instead of navigating for recent searches
               setQuery(item.title);
-            } else {
+            } else if (item.type === "action" && item.execute) {
+              // Execute action command
+              item.execute();
+              close();
+            } else if (item.href) {
               router.push(item.href);
               close();
             }
@@ -624,11 +665,6 @@ export function CommandPalette() {
                               </div>
                             )}
                           </div>
-                          {item.shortcut && (
-                            <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10 flex-shrink-0">
-                              {item.shortcut}
-                            </kbd>
-                          )}
                           {isSelected && (
                             <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                           )}
@@ -648,9 +684,12 @@ export function CommandPalette() {
               {recentSearches.length > 0 && (
                 <>
                   <div className="px-4 py-1.5 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                      Recent
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Recent
+                      </span>
+                    </div>
                     <button
                       onClick={clearAllRecentSearches}
                       className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
@@ -709,6 +748,63 @@ export function CommandPalette() {
                 </>
               )}
 
+              {/* Actions */}
+              <div className="px-4 py-1.5 flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-purple-500" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Actions
+                </span>
+              </div>
+              {actionCommands.map((action, idx) => {
+                const Icon = action.icon;
+                const index = recentSearches.length + idx;
+                const isSelected = index === selectedIndex;
+
+                return (
+                  <button
+                    key={action.id}
+                    id={action.id}
+                    data-index={index}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      if (action.execute) {
+                        action.execute();
+                        close();
+                      }
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-2.5 max-sm:py-3 text-left transition-colors",
+                      isSelected
+                        ? "bg-[#d4a574]/20 dark:bg-[#cd853f]/20"
+                        : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 flex-shrink-0",
+                        isSelected
+                          ? "text-[#a0704b] dark:text-[#cd853f]"
+                          : "text-purple-500 dark:text-purple-400"
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {action.title}
+                      </span>
+                      {action.subtitle && (
+                        <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                          {action.subtitle}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </button>
+                );
+              })}
+
               {/* Quick Actions */}
               <div className="px-4 py-1.5 flex items-center gap-2">
                 <Zap className="h-3 w-3 text-amber-500" />
@@ -718,7 +814,7 @@ export function CommandPalette() {
               </div>
               {QUICK_ACTIONS.map((action, idx) => {
                 const Icon = action.icon;
-                const index = recentSearches.length + idx;
+                const index = recentSearches.length + actionCommands.length + idx;
                 const isSelected = index === selectedIndex;
 
                 return (
@@ -750,11 +846,6 @@ export function CommandPalette() {
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1">
                       {action.title}
                     </span>
-                    {action.shortcut && (
-                      <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10">
-                        {action.shortcut}
-                      </kbd>
-                    )}
                     {isSelected && (
                       <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
@@ -763,12 +854,15 @@ export function CommandPalette() {
               })}
 
               {/* Quick Navigation */}
-              <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Pages
+              <div className="px-4 py-1.5 flex items-center gap-2">
+                <Grid3x3 className="h-3 w-3 text-gray-400 dark:text-gray-500" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Pages
+                </span>
               </div>
               {allPages.map((page, idx) => {
                 const Icon = page.icon;
-                const index = recentSearches.length + QUICK_ACTIONS.length + idx;
+                const index = recentSearches.length + actionCommands.length + QUICK_ACTIONS.length + idx;
                 const isSelected = index === selectedIndex;
                 // Check if this is an admin page for special styling
                 const isAdminPage = page.id.startsWith("page-renewals") ||
@@ -808,11 +902,6 @@ export function CommandPalette() {
                     </span>
                     {isAdminPage && (
                       <Shield className="h-3 w-3 text-amber-500 dark:text-amber-400" />
-                    )}
-                    {page.shortcut && (
-                      <kbd className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono bg-foreground/5 text-foreground/50 rounded border border-foreground/10">
-                        {page.shortcut}
-                      </kbd>
                     )}
                     {isSelected && (
                       <CornerDownLeft className="h-4 w-4 text-gray-400 dark:text-gray-500" />
