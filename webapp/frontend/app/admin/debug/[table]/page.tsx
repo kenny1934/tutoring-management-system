@@ -58,10 +58,13 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-// Shared constant for pagination (should match backend default)
-const PAGE_SIZE = 50;
-// Debounce delay for search input (ms)
-const SEARCH_DEBOUNCE_MS = 500;
+// Shared constants
+const PAGE_SIZE = 50; // Should match backend default
+const SEARCH_DEBOUNCE_MS = 500; // Debounce delay for search input
+const FK_PREVIEW_TIMEOUT_MS = 5000; // Timeout for FK preview fetch
+const MAX_PREVIEW_FIELDS = 10; // Max fields to show in FK preview
+const TOP_VALUES_LIMIT = 5; // Max top values in column stats
+const COLUMN_STATS_DECIMAL_PLACES = 2; // Decimal places for stats averages
 
 // Table priority classifications for visual styling
 const TABLE_CLASSIFICATIONS = {
@@ -432,6 +435,17 @@ export default function TableBrowserPage() {
   // Get primary key column
   const pkColumn = schema?.primary_key || "id";
 
+  // Safely get row ID with type validation
+  const getRowId = useCallback((row: DebugRow): number | null => {
+    const id = row[pkColumn];
+    if (typeof id === "number") return id;
+    if (typeof id === "string") {
+      const parsed = parseInt(id, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return null;
+  }, [pkColumn]);
+
   // Handle sort click
   const handleSort = useCallback(
     (column: string) => {
@@ -489,6 +503,12 @@ export default function TableBrowserPage() {
   const handleSaveEdit = useCallback(async () => {
     if (!editingRow || !schema) return;
 
+    const rowId = getRowId(editingRow);
+    if (rowId === null) {
+      showToast("Cannot update row: invalid primary key", "error");
+      return;
+    }
+
     // Validate required fields
     const validation = validateRequiredFields(editedData, false);
     if (!validation.valid) {
@@ -498,7 +518,6 @@ export default function TableBrowserPage() {
 
     setIsSubmitting(true);
     try {
-      const rowId = editingRow[pkColumn] as number;
       await debugAPI.updateRow(tableName, rowId, editedData);
       showToast("Row updated successfully", "success");
       mutate();
@@ -508,7 +527,7 @@ export default function TableBrowserPage() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [editingRow, editedData, schema, tableName, pkColumn, mutate, handleCancelEdit, showToast, validateRequiredFields]);
+  }, [editingRow, editedData, schema, tableName, getRowId, mutate, handleCancelEdit, showToast, validateRequiredFields]);
 
   // Handle create
   const handleStartCreate = useCallback(() => {
@@ -560,7 +579,7 @@ export default function TableBrowserPage() {
         setFkPreviewData(null);
         setFkPreviewLoading(false);
       }
-    }, 5000);
+    }, FK_PREVIEW_TIMEOUT_MS);
 
     setFkPreviewLoading(true);
     debugAPI.getRow(fkPreview.tableName, fkPreview.rowId)
@@ -667,9 +686,10 @@ export default function TableBrowserPage() {
     if (selectedRows.size === rows.length) {
       setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(rows.map(r => r[pkColumn] as number)));
+      const ids = rows.map(getRowId).filter((id): id is number => id !== null);
+      setSelectedRows(new Set(ids));
     }
-  }, [rows, pkColumn, selectedRows.size]);
+  }, [rows, getRowId, selectedRows.size]);
 
   // Toggle column visibility
   const toggleColumnVisibility = useCallback((colName: string) => {
@@ -925,8 +945,10 @@ export default function TableBrowserPage() {
         case "d":
           event.preventDefault();
           if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
-            const rowId = state.rows[state.focusedRowIndex][state.pkColumn] as number;
-            setDeleteConfirm(rowId);
+            const rowId = state.rows[state.focusedRowIndex][state.pkColumn];
+            if (typeof rowId === "number") {
+              setDeleteConfirm(rowId);
+            }
           }
           break;
         case "n":
@@ -941,8 +963,10 @@ export default function TableBrowserPage() {
         case " ":
           event.preventDefault();
           if (state.focusedRowIndex !== null && state.rows[state.focusedRowIndex]) {
-            const rowId = state.rows[state.focusedRowIndex][state.pkColumn] as number;
-            callbacks.toggleRowSelection(rowId);
+            const rowId = state.rows[state.focusedRowIndex][state.pkColumn];
+            if (typeof rowId === "number") {
+              callbacks.toggleRowSelection(rowId);
+            }
           }
           break;
       }
@@ -1064,7 +1088,7 @@ export default function TableBrowserPage() {
         stats.min = Math.min(...numbers);
         stats.max = Math.max(...numbers);
         stats.sum = numbers.reduce((a, b) => a + b, 0);
-        stats.avg = (stats.sum as number / numbers.length).toFixed(2);
+        stats.avg = (stats.sum as number / numbers.length).toFixed(COLUMN_STATS_DECIMAL_PLACES);
       }
     } else if (col.type === "date" || col.type === "datetime") {
       const dates = values.map(v => new Date(String(v))).filter(d => !isNaN(d.getTime()));
@@ -1090,7 +1114,7 @@ export default function TableBrowserPage() {
       });
       const sortedValues = Array.from(valueCounts.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
+        .slice(0, TOP_VALUES_LIMIT);
       stats.topValues = sortedValues;
     }
 
@@ -1769,7 +1793,8 @@ export default function TableBrowserPage() {
 
                     {/* Data rows */}
                     {rows.map((row, rowIndex) => {
-                      const rowId = row[pkColumn] as number;
+                      const rowId = getRowId(row);
+                      if (rowId === null) return null; // Skip rows without valid PK
                       const isEditing = editingRow?.[pkColumn] === rowId;
                       const isDeleting = deleteConfirm === rowId;
                       const isSelected = selectedRows.has(rowId);
@@ -2378,7 +2403,7 @@ export default function TableBrowserPage() {
                   </div>
                 ) : fkPreviewData ? (
                   <div className="space-y-2 text-sm">
-                    {Object.entries(fkPreviewData).slice(0, 10).map(([key, value]) => (
+                    {Object.entries(fkPreviewData).slice(0, MAX_PREVIEW_FIELDS).map(([key, value]) => (
                       <div key={key} className="flex gap-2">
                         <span className="font-medium text-gray-500 dark:text-gray-400 min-w-[100px] flex-shrink-0 truncate">
                           {key}:
@@ -2396,9 +2421,9 @@ export default function TableBrowserPage() {
                         </span>
                       </div>
                     ))}
-                    {Object.keys(fkPreviewData).length > 10 && (
+                    {Object.keys(fkPreviewData).length > MAX_PREVIEW_FIELDS && (
                       <p className="text-xs text-gray-400 pt-1">
-                        ...and {Object.keys(fkPreviewData).length - 10} more fields
+                        ...and {Object.keys(fkPreviewData).length - MAX_PREVIEW_FIELDS} more fields
                       </p>
                     )}
                   </div>
