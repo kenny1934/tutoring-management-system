@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -200,6 +200,313 @@ function useFocusTrap(isOpen: boolean, modalRef: React.RefObject<HTMLElement | n
     };
   }, [isOpen, modalRef]);
 }
+
+// ============================================================================
+// TableDataRow - Memoized row component to prevent unnecessary re-renders
+// ============================================================================
+
+interface TableDataRowProps {
+  row: DebugRow;
+  rowIndex: number;
+  rowId: number;
+  visibleColumns: DebugColumn[];
+  pkColumn: string;
+  page: number;
+  pageSize: number;
+  isEditing: boolean;
+  isDeleting: boolean;
+  isSelected: boolean;
+  isSoftDeleted: boolean;
+  isFocused: boolean;
+  editedData: Record<string, unknown>;
+  editingRow: DebugRow | null;
+  showEditDiff: boolean;
+  hasSoftDelete: boolean;
+  allowHardDelete: boolean;
+  foreignKeys: Record<string, { table: string; column: string }>;
+  isSubmitting: boolean;
+  changedFields: Set<string>;
+  // Callbacks
+  onToggleSelect: (id: number) => void;
+  onStartEdit: (row: DebugRow) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onSetDeleteConfirm: (id: number | null) => void;
+  onDelete: (id: number) => void;
+  onClone: (row: DebugRow) => void;
+  onExpandCell: (value: unknown, column: string) => void;
+  onFKPreview: (tableName: string, rowId: number, columnName: string, rect: DOMRect) => void;
+  onEditDataChange: (col: string, value: unknown) => void;
+  onToggleEditDiff: () => void;
+  // Helper functions
+  renderCellValue: (value: unknown, columnType: string) => string;
+  formatValueForInput: (value: unknown, col: DebugColumn) => string | boolean;
+  parseInputValue: (value: string | boolean, col: DebugColumn) => unknown;
+  getInputType: (col: DebugColumn) => string;
+  isLongValue: (value: unknown) => boolean;
+}
+
+const TableDataRow = memo(function TableDataRow({
+  row,
+  rowIndex,
+  rowId,
+  visibleColumns,
+  pkColumn,
+  page,
+  pageSize,
+  isEditing,
+  isDeleting,
+  isSelected,
+  isSoftDeleted,
+  isFocused,
+  editedData,
+  editingRow,
+  showEditDiff,
+  hasSoftDelete,
+  allowHardDelete,
+  foreignKeys,
+  isSubmitting,
+  changedFields,
+  onToggleSelect,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onSetDeleteConfirm,
+  onDelete,
+  onClone,
+  onExpandCell,
+  onFKPreview,
+  onEditDataChange,
+  onToggleEditDiff,
+  renderCellValue,
+  formatValueForInput,
+  parseInputValue,
+  getInputType,
+  isLongValue,
+}: TableDataRowProps) {
+  const isEven = rowIndex % 2 === 0;
+
+  return (
+    <tr
+      aria-rowindex={page * pageSize + rowIndex + 2}
+      aria-disabled={isSoftDeleted || undefined}
+      tabIndex={isSoftDeleted ? -1 : undefined}
+      className={cn(
+        "debug-row-hover transition-colors",
+        isEditing && "bg-blue-50 dark:bg-blue-900/20",
+        isDeleting && "bg-red-50 dark:bg-red-900/20",
+        isSelected && !isEditing && !isDeleting && "bg-blue-50/50 dark:bg-blue-900/10",
+        isSoftDeleted && !isEditing && !isDeleting && "opacity-50 bg-gray-100 dark:bg-gray-800/50",
+        !isEditing && !isDeleting && !isSelected && !isSoftDeleted && isEven && "debug-row-even",
+        isFocused && !isEditing && !isDeleting && "debug-row-focused"
+      )}
+    >
+      {/* Selection checkbox */}
+      <td className="px-3 py-2">
+        <button
+          onClick={() => onToggleSelect(rowId)}
+          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+          aria-label={isSelected ? "Deselect row" : "Select row"}
+        >
+          {isSelected ? (
+            <CheckSquare className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
+          ) : (
+            <Square className="h-4 w-4 text-gray-400" aria-hidden="true" />
+          )}
+        </button>
+      </td>
+      {visibleColumns.map((col, colIndex) => (
+        <td
+          key={col.name}
+          aria-colindex={colIndex + 2}
+          className={cn(
+            "px-3 py-2",
+            col.primary_key && "sticky-pk-column bg-white dark:bg-[#1a1a1a]",
+            foreignKeys[col.name] && "fk-column-cell",
+            isEditing && changedFields.has(col.name) && "diff-cell-changed"
+          )}
+        >
+          {isEditing && !col.readonly ? (
+            <div className="relative">
+              {col.type === "boolean" ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editedData[col.name])}
+                    onChange={(e) => onEditDataChange(col.name, e.target.checked)}
+                    className={cn(
+                      "h-4 w-4 rounded text-blue-600 focus:ring-blue-500",
+                      changedFields.has(col.name)
+                        ? "border-amber-500 ring-2 ring-amber-200 dark:ring-amber-800"
+                        : "border-blue-300"
+                    )}
+                  />
+                  {showEditDiff && changedFields.has(col.name) && editingRow && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                      <GitCompare className="h-3 w-3" aria-hidden="true" />
+                      was {editingRow[col.name] ? "true" : "false"}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <input
+                    type={getInputType(col)}
+                    value={String(formatValueForInput(editedData[col.name], col))}
+                    step={col.type === "decimal" ? "0.01" : undefined}
+                    onChange={(e) => onEditDataChange(col.name, parseInputValue(e.target.value, col))}
+                    className={cn(
+                      "w-full px-2 py-1 text-sm rounded bg-white dark:bg-[#1a1a1a]",
+                      changedFields.has(col.name)
+                        ? "border-2 border-amber-500 dark:border-amber-600 ring-2 ring-amber-200/50 dark:ring-amber-800/50"
+                        : "border border-blue-300 dark:border-blue-700"
+                    )}
+                  />
+                  {showEditDiff && changedFields.has(col.name) && editingRow && (
+                    <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 truncate">
+                      <GitCompare className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate" title={renderCellValue(editingRow[col.name], col.type)}>
+                        was: {renderCellValue(editingRow[col.name], col.type) || <em className="text-gray-400">empty</em>}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              {/* FK preview button */}
+              {foreignKeys[col.name] && row[col.name] !== null ? (
+                <button
+                  onClick={(e) => {
+                    const fkInfo = foreignKeys[col.name];
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onFKPreview(fkInfo.table, row[col.name] as number, fkInfo.column, rect);
+                  }}
+                  className="flex items-center gap-1 text-[#a0704b] hover:underline truncate max-w-[200px]"
+                  title={`Preview ${foreignKeys[col.name].table} record`}
+                >
+                  {renderCellValue(row[col.name], col.type)}
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                </button>
+              ) : (
+                <span
+                  className={cn(
+                    "truncate block max-w-[200px]",
+                    row[col.name] === null && "text-gray-400 italic"
+                  )}
+                  title={renderCellValue(row[col.name], col.type)}
+                >
+                  {renderCellValue(row[col.name], col.type)}
+                </span>
+              )}
+              {isLongValue(row[col.name]) && !foreignKeys[col.name] && (
+                <button
+                  onClick={() => onExpandCell(row[col.name], col.name)}
+                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+                  aria-label="View full value"
+                >
+                  <Expand className="h-3 w-3" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          )}
+        </td>
+      ))}
+      <td className="px-3 py-2">
+        {isEditing ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onToggleEditDiff}
+              className={cn(
+                "p-1 rounded btn-press",
+                showEditDiff
+                  ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600"
+                  : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
+              )}
+              title={showEditDiff ? "Hide diff" : "Show diff"}
+              aria-label="Toggle diff view"
+            >
+              <GitCompare className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              onClick={onSaveEdit}
+              disabled={isSubmitting}
+              className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-600"
+              aria-label="Save changes"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Check className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+            <button
+              onClick={onCancelEdit}
+              disabled={isSubmitting}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+              aria-label="Cancel edit"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : isDeleting ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onDelete(rowId)}
+              disabled={isSubmitting}
+              className="p-1 rounded hover:bg-red-200 dark:hover:bg-red-800 text-red-600 text-xs"
+              aria-label="Confirm delete"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                "Confirm"
+              )}
+            </button>
+            <button
+              onClick={() => onSetDeleteConfirm(null)}
+              disabled={isSubmitting}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
+              aria-label="Cancel delete"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onStartEdit(row)}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 btn-press"
+              title="Edit"
+              aria-label="Edit row"
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              onClick={() => onClone(row)}
+              className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-gray-500 hover:text-green-600 btn-press"
+              title="Clone"
+              aria-label="Clone row"
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            </button>
+            {(allowHardDelete || hasSoftDelete) && (
+              <button
+                onClick={() => onSetDeleteConfirm(rowId)}
+                className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 btn-press"
+                title={hasSoftDelete ? "Soft Delete" : "Delete"}
+                aria-label={hasSoftDelete ? "Soft delete row" : "Delete row"}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+});
 
 export default function TableBrowserPage() {
   const params = useParams();
@@ -878,6 +1185,35 @@ export default function TableBrowserPage() {
     setEditingRow(null);
     setDeleteConfirm(null);
   }, [pkColumn]);
+
+  // Stable callbacks for TableDataRow component (prevents re-renders)
+  const handleSetDeleteConfirm = useCallback((id: number | null) => {
+    setDeleteConfirm(id);
+  }, []);
+
+  const handleExpandCell = useCallback((value: unknown, column: string) => {
+    setDetailCell({ value, column });
+  }, []);
+
+  const handleFKPreview = useCallback((tableName: string, rowId: number, columnName: string, rect: DOMRect) => {
+    setFkPreview({
+      tableName,
+      rowId,
+      columnName,
+      position: { x: Math.min(rect.left, window.innerWidth - 420), y: rect.bottom + 8 },
+    });
+  }, []);
+
+  const handleEditDataChange = useCallback((col: string, value: unknown) => {
+    setEditedData((prev) => ({
+      ...prev,
+      [col]: value,
+    }));
+  }, []);
+
+  const handleToggleEditDiff = useCallback(() => {
+    setShowEditDiff((prev) => !prev);
+  }, []);
 
   // Keep keyboard state ref in sync (avoids re-attaching event listener)
   useEffect(() => {
@@ -1826,252 +2162,51 @@ export default function TableBrowserPage() {
                       </tr>
                     )}
 
-                    {/* Data rows */}
+                    {/* Data rows - using memoized component for performance */}
                     {rows.map((row, rowIndex) => {
                       const rowId = getRowId(row);
                       if (rowId === null) return null; // Skip rows without valid PK
-                      const isEditing = editingRow?.[pkColumn] === rowId;
-                      const isDeleting = deleteConfirm === rowId;
-                      const isSelected = selectedRows.has(rowId);
-                      const isSoftDeleted = schema?.has_soft_delete && row.deleted_at !== null;
-                      const isEven = rowIndex % 2 === 0;
-                      const isFocused = focusedRowIndex === rowIndex;
 
                       return (
-                        <tr
+                        <TableDataRow
                           key={rowId}
-                          aria-rowindex={page * PAGE_SIZE + rowIndex + 2}
-                          aria-disabled={isSoftDeleted || undefined}
-                          tabIndex={isSoftDeleted ? -1 : undefined}
-                          className={cn(
-                            "debug-row-hover transition-colors",
-                            isEditing && "bg-blue-50 dark:bg-blue-900/20",
-                            isDeleting && "bg-red-50 dark:bg-red-900/20",
-                            isSelected && !isEditing && !isDeleting && "bg-blue-50/50 dark:bg-blue-900/10",
-                            isSoftDeleted && !isEditing && !isDeleting && "opacity-50 bg-gray-100 dark:bg-gray-800/50",
-                            !isEditing && !isDeleting && !isSelected && !isSoftDeleted && isEven && "debug-row-even",
-                            isFocused && !isEditing && !isDeleting && "debug-row-focused"
-                          )}
-                        >
-                          {/* Selection checkbox */}
-                          <td className="px-3 py-2">
-                            <button
-                              onClick={() => toggleRowSelection(rowId)}
-                              className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                              aria-label={isSelected ? "Deselect row" : "Select row"}
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="h-4 w-4 text-[#a0704b]" aria-hidden="true" />
-                              ) : (
-                                <Square className="h-4 w-4 text-gray-400" aria-hidden="true" />
-                              )}
-                            </button>
-                          </td>
-                          {visibleColumns.map((col, colIndex) => (
-                            <td
-                              key={col.name}
-                              aria-colindex={colIndex + 2}
-                              className={cn(
-                                "px-3 py-2",
-                                col.primary_key && "sticky-pk-column bg-white dark:bg-[#1a1a1a]",
-                                schema?.foreign_keys[col.name] && "fk-column-cell",
-                                isEditing && getChangedFields.has(col.name) && "diff-cell-changed"
-                              )}
-                            >
-                              {isEditing && !col.readonly ? (
-                                <div className="relative">
-                                  {col.type === "boolean" ? (
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={Boolean(editedData[col.name])}
-                                        onChange={(e) =>
-                                          setEditedData((prev) => ({
-                                            ...prev,
-                                            [col.name]: e.target.checked,
-                                          }))
-                                        }
-                                        className={cn(
-                                          "h-4 w-4 rounded text-blue-600 focus:ring-blue-500",
-                                          getChangedFields.has(col.name)
-                                            ? "border-amber-500 ring-2 ring-amber-200 dark:ring-amber-800"
-                                            : "border-blue-300"
-                                        )}
-                                      />
-                                      {showEditDiff && getChangedFields.has(col.name) && (
-                                        <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                                          <GitCompare className="h-3 w-3" aria-hidden="true" />
-                                          was {editingRow[col.name] ? "true" : "false"}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <input
-                                        type={getInputType(col)}
-                                        value={String(formatValueForInput(editedData[col.name], col))}
-                                        step={col.type === "decimal" ? "0.01" : undefined}
-                                        onChange={(e) =>
-                                          setEditedData((prev) => ({
-                                            ...prev,
-                                            [col.name]: parseInputValue(e.target.value, col),
-                                          }))
-                                        }
-                                        className={cn(
-                                          "w-full px-2 py-1 text-sm rounded bg-white dark:bg-[#1a1a1a]",
-                                          getChangedFields.has(col.name)
-                                            ? "border-2 border-amber-500 dark:border-amber-600 ring-2 ring-amber-200/50 dark:ring-amber-800/50"
-                                            : "border border-blue-300 dark:border-blue-700"
-                                        )}
-                                      />
-                                      {showEditDiff && getChangedFields.has(col.name) && (
-                                        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 truncate">
-                                          <GitCompare className="h-3 w-3 flex-shrink-0" />
-                                          <span className="truncate" title={renderCellValue(editingRow[col.name], col.type)}>
-                                            was: {renderCellValue(editingRow[col.name], col.type) || <em className="text-gray-400">empty</em>}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1">
-                                  {/* FK preview button */}
-                                  {schema?.foreign_keys[col.name] && row[col.name] !== null ? (
-                                    <button
-                                      onClick={(e) => {
-                                        const fkInfo = schema.foreign_keys[col.name];
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        setFkPreview({
-                                          tableName: fkInfo.table,
-                                          rowId: row[col.name] as number,
-                                          columnName: fkInfo.column,
-                                          position: { x: Math.min(rect.left, window.innerWidth - 420), y: rect.bottom + 8 },
-                                        });
-                                      }}
-                                      className="flex items-center gap-1 text-[#a0704b] hover:underline truncate max-w-[200px]"
-                                      title={`Preview ${schema.foreign_keys[col.name].table} record`}
-                                    >
-                                      {renderCellValue(row[col.name], col.type)}
-                                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                                    </button>
-                                  ) : (
-                                    <span
-                                      className={cn(
-                                        "truncate block max-w-[200px]",
-                                        row[col.name] === null && "text-gray-400 italic"
-                                      )}
-                                      title={renderCellValue(row[col.name], col.type)}
-                                    >
-                                      {renderCellValue(row[col.name], col.type)}
-                                    </span>
-                                  )}
-                                  {isLongValue(row[col.name]) && !schema?.foreign_keys[col.name] && (
-                                    <button
-                                      onClick={() => setDetailCell({ value: row[col.name], column: col.name })}
-                                      className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
-                                      aria-label="View full value"
-                                    >
-                                      <Expand className="h-3 w-3" aria-hidden="true" />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          ))}
-                          <td className="px-3 py-2">
-                            {isEditing ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => setShowEditDiff(!showEditDiff)}
-                                  className={cn(
-                                    "p-1 rounded btn-press",
-                                    showEditDiff
-                                      ? "bg-amber-100 dark:bg-amber-900/40 text-amber-600"
-                                      : "hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400"
-                                  )}
-                                  title={showEditDiff ? "Hide diff" : "Show diff"}
-                                  aria-label="Toggle diff view"
-                                >
-                                  <GitCompare className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                                <button
-                                  onClick={handleSaveEdit}
-                                  disabled={isSubmitting}
-                                  className="p-1 rounded hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-600"
-                                  aria-label="Save changes"
-                                >
-                                  {isSubmitting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                  ) : (
-                                    <Check className="h-4 w-4" aria-hidden="true" />
-                                  )}
-                                </button>
-                                <button
-                                  onClick={handleCancelEdit}
-                                  disabled={isSubmitting}
-                                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-                                  aria-label="Cancel edit"
-                                >
-                                  <X className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                              </div>
-                            ) : isDeleting ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleDelete(rowId)}
-                                  disabled={isSubmitting}
-                                  className="p-1 rounded hover:bg-red-200 dark:hover:bg-red-800 text-red-600 text-xs"
-                                  aria-label="Confirm delete"
-                                >
-                                  {isSubmitting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                  ) : (
-                                    "Confirm"
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => setDeleteConfirm(null)}
-                                  disabled={isSubmitting}
-                                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500"
-                                  aria-label="Cancel delete"
-                                >
-                                  <X className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleStartEdit(row)}
-                                  className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 btn-press"
-                                  title="Edit"
-                                  aria-label="Edit row"
-                                >
-                                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                                <button
-                                  onClick={() => handleCloneRow(row)}
-                                  className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-gray-500 hover:text-green-600 btn-press"
-                                  title="Clone"
-                                  aria-label="Clone row"
-                                >
-                                  <Copy className="h-4 w-4" aria-hidden="true" />
-                                </button>
-                                {(schema?.allow_hard_delete || schema?.has_soft_delete) && (
-                                  <button
-                                    onClick={() => setDeleteConfirm(rowId)}
-                                    className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-500 hover:text-red-600 btn-press"
-                                    title={schema?.has_soft_delete ? "Soft Delete" : "Delete"}
-                                    aria-label={schema?.has_soft_delete ? "Soft delete row" : "Delete row"}
-                                  >
-                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
+                          row={row}
+                          rowIndex={rowIndex}
+                          rowId={rowId}
+                          visibleColumns={visibleColumns}
+                          pkColumn={pkColumn}
+                          page={page}
+                          pageSize={PAGE_SIZE}
+                          isEditing={editingRow?.[pkColumn] === rowId}
+                          isDeleting={deleteConfirm === rowId}
+                          isSelected={selectedRows.has(rowId)}
+                          isSoftDeleted={Boolean(schema?.has_soft_delete && row.deleted_at !== null)}
+                          isFocused={focusedRowIndex === rowIndex}
+                          editedData={editedData}
+                          editingRow={editingRow}
+                          showEditDiff={showEditDiff}
+                          hasSoftDelete={schema?.has_soft_delete || false}
+                          allowHardDelete={schema?.allow_hard_delete || false}
+                          foreignKeys={schema?.foreign_keys || {}}
+                          isSubmitting={isSubmitting}
+                          changedFields={getChangedFields}
+                          onToggleSelect={toggleRowSelection}
+                          onStartEdit={handleStartEdit}
+                          onSaveEdit={handleSaveEdit}
+                          onCancelEdit={handleCancelEdit}
+                          onSetDeleteConfirm={handleSetDeleteConfirm}
+                          onDelete={handleDelete}
+                          onClone={handleCloneRow}
+                          onExpandCell={handleExpandCell}
+                          onFKPreview={handleFKPreview}
+                          onEditDataChange={handleEditDataChange}
+                          onToggleEditDiff={handleToggleEditDiff}
+                          renderCellValue={renderCellValue}
+                          formatValueForInput={formatValueForInput}
+                          parseInputValue={parseInputValue}
+                          getInputType={getInputType}
+                          isLongValue={isLongValue}
+                        />
                       );
                     })}
 
