@@ -152,6 +152,9 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     The last lesson is on the Nth non-holiday date where N = lessons_paid.
     Extension weeks provide additional deadline buffer beyond the last lesson.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     if not enrollment.first_lesson_date:
         return None
 
@@ -164,9 +167,9 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     if total_lesson_dates <= 0:
         return enrollment.first_lesson_date
 
-    # Calculate date range needed (1.5x total weeks, minimum 20 weeks)
-    # This accounts for holiday clusters while not over-fetching
-    weeks_buffer = max(20, int(total_lesson_dates * 1.5))
+    # Calculate date range needed (2x total weeks for long enrollments, minimum 30 weeks)
+    # Increased from 1.5x to 2x to handle extended holiday clusters
+    weeks_buffer = max(30, int(total_lesson_dates * 2))
     end_range = enrollment.first_lesson_date + timedelta(weeks=weeks_buffer)
     holidays = get_holidays_in_range(db, enrollment.first_lesson_date, end_range)
 
@@ -174,7 +177,20 @@ def calculate_effective_end_date(enrollment: Enrollment, db: Session) -> Optiona
     lessons_counted = 0
     effective_end = current_date
 
+    # Max iterations guard to prevent infinite loops
+    # Set to 3x expected iterations as a safety limit
+    max_iterations = total_lesson_dates * 3
+    iterations = 0
+
     while lessons_counted < total_lesson_dates:
+        iterations += 1
+        if iterations > max_iterations:
+            logger.warning(
+                f"Effective end date calculation exceeded max iterations ({max_iterations}) "
+                f"for enrollment {enrollment.id}. Lessons counted: {lessons_counted}/{total_lesson_dates}"
+            )
+            break
+
         if current_date not in holidays:
             lessons_counted += 1
             effective_end = current_date
@@ -192,6 +208,9 @@ def calculate_effective_end_date_bulk(
     Use this for bulk operations to avoid repeated DB queries.
     Caller should load holidays once with get_holidays_in_range().
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     if not enrollment.first_lesson_date:
         return None
 
@@ -206,7 +225,20 @@ def calculate_effective_end_date_bulk(
     lessons_counted = 0
     effective_end = current_date
 
+    # Max iterations guard to prevent infinite loops
+    # Set to 3x expected iterations as a safety limit
+    max_iterations = total_lesson_dates * 3
+    iterations = 0
+
     while lessons_counted < total_lesson_dates:
+        iterations += 1
+        if iterations > max_iterations:
+            logger.warning(
+                f"Effective end date calculation exceeded max iterations ({max_iterations}) "
+                f"for enrollment {enrollment.id}. Lessons counted: {lessons_counted}/{total_lesson_dates}"
+            )
+            break
+
         if current_date not in holidays:
             lessons_counted += 1
             effective_end = current_date

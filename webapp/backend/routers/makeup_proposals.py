@@ -449,19 +449,39 @@ async def approve_slot(
     - Creates the make-up session automatically
     - Auto-rejects sibling slots
     - Updates proposal status to 'approved'
+    - Uses pessimistic locking to prevent race conditions
     """
     tutor_id = current_user.id
 
-    # Get the slot with proposal
-    slot = db.query(MakeupProposalSlot).options(
-        joinedload(MakeupProposalSlot.proposal).joinedload(MakeupProposal.original_session),
-        joinedload(MakeupProposalSlot.proposed_tutor),
-    ).filter(MakeupProposalSlot.id == slot_id).first()
+    # Acquire row-level lock on slot first to prevent concurrent approvals
+    slot = db.query(MakeupProposalSlot).with_for_update().filter(
+        MakeupProposalSlot.id == slot_id
+    ).first()
 
     if not slot:
         raise HTTPException(status_code=404, detail="Slot not found")
 
-    proposal = slot.proposal
+    # Re-verify slot status after acquiring lock (another transaction may have changed it)
+    if slot.slot_status != 'pending':
+        raise HTTPException(
+            status_code=400,
+            detail=f"Slot is already {slot.slot_status}"
+        )
+
+    # Acquire lock on proposal
+    proposal = db.query(MakeupProposal).with_for_update().filter(
+        MakeupProposal.id == slot.proposal_id
+    ).first()
+
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    # Re-verify proposal status after acquiring lock
+    if proposal.status != 'pending':
+        raise HTTPException(
+            status_code=400,
+            detail=f"Proposal is already {proposal.status}"
+        )
 
     # Check permissions: target tutor, proposer, or admin/super_admin
     is_target_tutor = slot.proposed_tutor_id == tutor_id
@@ -475,26 +495,15 @@ async def approve_slot(
             detail="Only the target tutor, proposer, or admin can approve this slot"
         )
 
-    # Verify slot is pending
-    if slot.slot_status != 'pending':
-        raise HTTPException(
-            status_code=400,
-            detail=f"Slot is already {slot.slot_status}"
-        )
-
-    # Verify proposal is pending
-    if proposal.status != 'pending':
-        raise HTTPException(
-            status_code=400,
-            detail=f"Proposal is already {proposal.status}"
-        )
-
-    # Get original session for validation and make-up creation
-    original_session = db.query(SessionLog).options(
+    # Acquire lock on original session for validation and make-up creation
+    original_session = db.query(SessionLog).with_for_update().options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
         joinedload(SessionLog.enrollment),
     ).filter(SessionLog.id == proposal.original_session_id).first()
+
+    # Load the proposed tutor relationship for later use (after locks acquired)
+    slot_proposed_tutor = db.query(Tutor).filter(Tutor.id == slot.proposed_tutor_id).first()
 
     if not original_session:
         raise HTTPException(status_code=404, detail="Original session not found")
@@ -659,13 +668,17 @@ async def approve_slot(
     slot.resolved_at = datetime.now()
     slot.resolved_by_tutor_id = tutor_id
 
-    # Auto-reject sibling slots
-    for sibling in proposal.slots:
-        if sibling.id != slot_id and sibling.slot_status == 'pending':
-            sibling.slot_status = 'rejected'
-            sibling.resolved_at = datetime.now()
-            sibling.resolved_by_tutor_id = tutor_id
-            sibling.rejection_reason = "Another slot was approved"
+    # Auto-reject sibling slots (query them directly to avoid stale data)
+    sibling_slots = db.query(MakeupProposalSlot).with_for_update().filter(
+        MakeupProposalSlot.proposal_id == proposal.id,
+        MakeupProposalSlot.id != slot_id,
+        MakeupProposalSlot.slot_status == 'pending'
+    ).all()
+    for sibling in sibling_slots:
+        sibling.slot_status = 'rejected'
+        sibling.resolved_at = datetime.now()
+        sibling.resolved_by_tutor_id = tutor_id
+        sibling.rejection_reason = "Another slot was approved"
 
     # Update proposal status
     proposal.status = 'approved'
@@ -676,7 +689,7 @@ async def approve_slot(
     student = original_session.student
     student_id = student.school_student_id or f"#{student.id}"
     student_name = student.student_name
-    slot_tutor = slot.proposed_tutor
+    slot_tutor = slot_proposed_tutor  # Use the tutor we loaded earlier
     slot_tutor_name = slot_tutor.tutor_name if slot_tutor else "Unknown"
     formatted_date = _format_date_with_day(slot.proposed_date)
     approving_tutor_name = acting_tutor.tutor_name if acting_tutor else "Unknown"
@@ -741,7 +754,8 @@ View proposal: /proposals?id={proposal.id}"""
         notified_tutor_ids.add(enrollment_tutor_id)
 
     # 4. Notify other target tutors whose slots weren't picked (FYI)
-    other_target_ids = set(s.proposed_tutor_id for s in proposal.slots if s.id != slot_id)
+    # Use the sibling_slots we already queried with locks
+    other_target_ids = set(s.proposed_tutor_id for s in sibling_slots)
     for other_tutor_id in other_target_ids:
         if (other_tutor_id
             and other_tutor_id != tutor_id

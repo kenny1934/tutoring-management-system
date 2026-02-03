@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from "react";
 
@@ -65,6 +66,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/a
 const IMPERSONATION_KEY = "csm_impersonated_role";
 const IMPERSONATED_TUTOR_KEY = "csm_impersonated_tutor";
 
+// Token refresh configuration
+const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000; // Refresh every 30 minutes
+const TOKEN_REFRESH_BEFORE_EXPIRY_MS = 30 * 60 * 1000; // Refresh when <30 min left
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -74,6 +79,69 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [impersonatedRole, setImpersonatedRoleState] = useState<Role | null>(null);
   const [impersonatedTutor, setImpersonatedTutorState] = useState<ImpersonatedTutor | null>(null);
+
+  // Ref to track refresh timer
+  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Proactive token refresh function
+  const refreshAuthToken = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[Auth] Token refreshed proactively, expires in:", data.expires_in, "seconds");
+        return true;
+      } else {
+        console.warn("[Auth] Proactive token refresh failed");
+        return false;
+      }
+    } catch (error) {
+      console.error("[Auth] Error during proactive token refresh:", error);
+      return false;
+    }
+  }, []);
+
+  // Set up proactive refresh timer when user is authenticated
+  useEffect(() => {
+    // Clear any existing timer
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    // Only set up timer if user is authenticated
+    if (user) {
+      console.log("[Auth] Setting up proactive token refresh timer");
+
+      // Refresh periodically
+      refreshTimerRef.current = setInterval(() => {
+        console.log("[Auth] Running proactive token refresh");
+        refreshAuthToken();
+      }, TOKEN_REFRESH_INTERVAL_MS);
+
+      // Also refresh on visibility change (when user returns to tab)
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible" && user) {
+          console.log("[Auth] Tab became visible, checking token refresh");
+          refreshAuthToken();
+        }
+      };
+
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+
+      return () => {
+        if (refreshTimerRef.current) {
+          clearInterval(refreshTimerRef.current);
+          refreshTimerRef.current = null;
+        }
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
+    }
+  }, [user, refreshAuthToken]);
 
   // Load impersonated role and tutor from sessionStorage on mount
   useEffect(() => {
