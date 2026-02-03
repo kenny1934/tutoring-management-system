@@ -925,3 +925,52 @@ export interface SlotDefaults {
   location?: string;
   notes?: string;
 }
+
+// =============================================================================
+// BATCH RENEWAL TYPES
+// =============================================================================
+
+/**
+ * Eligibility result for a single enrollment in batch renewal check
+ */
+export interface EligibilityResult {
+  enrollment_id: number;
+  eligible: boolean;
+  reason: string | null;
+  student_name: string;
+  details: string | null;
+  // Student info for StudentInfoBadges display
+  student_id: number | null;
+  school_student_id: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  school: string | null;
+  // Schedule preview info
+  assigned_day: string | null;
+  assigned_time: string | null;
+  suggested_first_lesson_date: string | null;
+  // Override capability (True for pending_makeups, extension_pending; False for conflicts)
+  overridable: boolean;
+}
+
+/**
+ * Response from batch renewal eligibility check endpoint
+ * Used in: enrollmentsAPI.batchRenewCheck()
+ */
+export interface BatchRenewCheckResponse {
+  eligible: EligibilityResult[];
+  ineligible: EligibilityResult[];
+}
+
+// =============================================================================
+// ERROR TYPES
+// =============================================================================
+
+/**
+ * Structured API error response
+ * Used for typed error handling in API responses
+ */
+export interface ApiError {
+  detail: string | { message: string; code?: string; [key: string]: unknown };
+  status?: number;
+}
