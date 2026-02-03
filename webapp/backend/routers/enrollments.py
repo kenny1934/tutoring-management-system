@@ -1713,9 +1713,13 @@ async def update_enrollment(
 
     # If marking enrollment as paid, update all sessions' financial_status to Paid
     if updating_to_paid:
+        enrollment.payment_date = date.today()
         db.query(SessionLog).filter(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Paid'})
+
+    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_by = admin.user_email
 
     db.commit()
     # Re-query with joins to ensure relationships are loaded
@@ -1781,6 +1785,8 @@ async def update_enrollment_extension(
     enrollment.deadline_extension_weeks = new_weeks
     enrollment.last_extension_date = now.date()
     enrollment.extension_granted_by = admin.user_email
+    enrollment.last_modified_time = now
+    enrollment.last_modified_by = admin.user_email
 
     db.commit()
 
@@ -2210,7 +2216,7 @@ async def batch_mark_paid(
 async def batch_mark_sent(
     request: BatchEnrollmentRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: Tutor = Depends(require_admin)
 ):
     """
     Mark fee message as sent for multiple enrollments.
@@ -2221,6 +2227,8 @@ async def batch_mark_sent(
         enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
         if enrollment and not enrollment.fee_message_sent:
             enrollment.fee_message_sent = True
+            enrollment.last_modified_time = datetime.now()
+            enrollment.last_modified_by = current_user.user_email
             updated.append(eid)
 
     db.commit()
