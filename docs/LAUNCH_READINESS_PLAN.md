@@ -152,26 +152,62 @@
 
 ---
 
-## PHASE 4: LOW PRIORITY (Nice to Have)
+## PHASE 5: UX POLISH (Nice to Have)
 
 ### 17. Skeleton Loading UI
-**Current**: Spinner or "loading..." text
+**Current**: Mixed patterns (acceptable for launch)
 **Improvement**: Skeleton cards during data fetch
+**Status**: ✅ Audited - acceptable for launch
 
-### 18. Manual Refresh UI
+**Audit Findings (2026-02-03):**
+
+| Component | Pattern | Notes |
+|-----------|---------|-------|
+| **Dashboard** | `shimmer-sepia` skeletons | ✅ Excellent - proper skeleton loading |
+| `DashboardHeader.tsx` | shimmer pills | Stats row skeleton |
+| `TodaySessionsCard.tsx` | shimmer cards | Session list skeleton |
+| `ActivityFeed.tsx` | shimmer rows | Feed items skeleton |
+| `TestCalendar.tsx` | shimmer rows | Event list skeleton |
+| **List Pages** | `Loader2` spinner | Acceptable - centered spinner |
+| `sessions/page.tsx` | Loader2 spinner | GridViewLoading component |
+| `students/page.tsx` | Loader2 spinner | Full page and detail panel |
+| `inbox/page.tsx` | Loader2 spinner | Thread list |
+| `renewals/page.tsx` | Loading skeleton | Custom skeleton pattern |
+
+**Conclusion:** Dashboard has excellent shimmer skeletons. List pages use spinners which is acceptable for MVP. Future improvement would standardize all pages to shimmer skeletons.
+
+### 18. ✅ Manual Refresh UI
 **Current**: No way for users to force-fetch
 **Improvement**: Add refresh buttons to key lists
+**Status**: Done (e637202)
+**Fix Applied**:
+- Added `RefreshButton` component with icon-only mode and loading state
+- Added refresh buttons to Sessions, Renewals, and Dashboard pages
+- Dashboard: placed next to notification bell
 
 ### 19. Context Consolidation
 **Current**: 7+ contexts (Auth, Role, Location, Toast, etc.)
 **Improvement**: Consider merging related contexts
+**Status**: Deferred
 
-### 20. Offline Support
+### 20. ✅ Offline Support
 **Current**: No service workers
 **Improvement**: Add offline indicators, queue failed requests
+**Status**: Done (e637202)
+**Fix Applied**:
+- Added `useNetworkStatus` hook for online/offline detection
+- Added `OfflineBanner` component that shows when user goes offline
+- Integrated into Providers.tsx
 
 ### 21. Analytics Integration Points
 **Improvement**: Add event tracking hooks for user actions
+**Status**: Deferred
+
+### 22. ✅ Dashboard UX Tweaks
+**Status**: Done (e637202)
+**Fix Applied**:
+- Shortened "Make-up Proposals" quick link to "Make-up"
+- Welcome message now shows first name only (e.g., "Kenny" instead of "Mr Kenny Chiu")
 
 ---
 
@@ -213,6 +249,15 @@ Based on code patterns, these areas may have bugs:
 ---
 
 ## CHANGELOG
+
+### 2026-02-03 - Phase 5 Round 1 Complete (e637202) - UX Polish
+- Added `RefreshButton` component with icon-only mode and loading state
+- Added `useNetworkStatus` hook for online/offline detection
+- Added `OfflineBanner` component that shows when user goes offline
+- Added refresh buttons to Sessions, Renewals, and Dashboard pages
+- Dashboard UX tweaks: shortened "Make-up Proposals" to "Make-up", first name in welcome
+- Files created: RefreshButton.tsx, OfflineBanner.tsx, useNetworkStatus.ts
+- Files modified: DashboardHeader.tsx, ProposalQuickLink.tsx, Providers.tsx, sessions/page.tsx, renewals/page.tsx, page.tsx
 
 ### 2026-02-03 - Phase 4 Round 2 Complete - Interface Migration
 - Moved 30 interfaces from `api.ts` to `types/index.ts`:
