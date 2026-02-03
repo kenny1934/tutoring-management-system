@@ -1090,3 +1090,427 @@ export interface DebugBulkUpdateResponse {
   updated_count: number;
   message: string;
 }
+
+// =============================================================================
+// ENROLLMENT PREVIEW & RENEWAL TYPES
+// =============================================================================
+
+/** Session preview for enrollment creation */
+export interface SessionPreview {
+  session_date: string;
+  time_slot: string;
+  location: string;
+  is_holiday: boolean;
+  holiday_name?: string;
+  conflict?: string;
+}
+
+/** Student conflict info during enrollment creation */
+export interface StudentConflict {
+  session_date: string;
+  time_slot: string;
+  existing_tutor_name: string;
+  session_status: string;
+  enrollment_id: number;
+}
+
+/** Potential renewal link for enrollment creation */
+export interface PotentialRenewalLink {
+  id: number;
+  effective_end_date: string;
+  lessons_paid: number;
+  tutor_name: string;
+}
+
+/** Response from enrollment preview endpoint */
+export interface EnrollmentPreviewResponse {
+  enrollment_data: EnrollmentCreate;
+  sessions: SessionPreview[];
+  effective_end_date: string;
+  conflicts: StudentConflict[];
+  warnings: string[];
+  skipped_holidays: Array<{ date: string; name: string }>;
+  potential_renewals: PotentialRenewalLink[];
+}
+
+/** Response from renewal data endpoint */
+export interface RenewalDataResponse {
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  suggested_first_lesson_date: string;
+  previous_lessons_paid: number;
+  enrollment_type: string;
+  renewed_from_enrollment_id: number;
+  previous_effective_end_date: string;
+  discount_id?: number;
+  discount_name?: string;
+}
+
+/** Renewal list item for renewals page */
+export interface RenewalListItem {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  lessons_paid: number;
+  effective_end_date: string;
+  days_until_expiry: number;
+  sessions_remaining: number;
+  payment_status: string;
+  renewal_status: 'not_renewed' | 'pending_message' | 'message_sent' | 'paid';
+  renewal_enrollment_id?: number;
+  renewal_first_lesson_date?: string;
+  renewal_lessons_paid?: number;
+  renewal_payment_status?: string;
+}
+
+/** Renewal counts response */
+export interface RenewalCountsResponse {
+  expiring_soon: number;
+  expired: number;
+  total: number;
+}
+
+/** Trial list item for trials page */
+export interface TrialListItem {
+  enrollment_id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  tutor_id: number;
+  tutor_name: string;
+  session_id: number;
+  session_date: string;
+  time_slot: string;
+  location: string;
+  session_status: string;
+  payment_status: string;
+  trial_status: 'scheduled' | 'attended' | 'no_show' | 'converted' | 'pending';
+  subsequent_enrollment_id?: number;
+  created_at: string;
+}
+
+/** Pending makeup session info */
+export interface PendingMakeupSession {
+  id: number;
+  session_date: string;
+  time_slot?: string;
+  session_status: string;
+  tutor_name?: string;
+  has_extension_request: boolean;
+  extension_request_status?: string;
+}
+
+/** Detailed enrollment response */
+export interface EnrollmentDetailResponse {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  home_location?: string;
+  tutor_id: number;
+  tutor_name: string;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  effective_end_date: string;
+  days_until_expiry: number;
+  lessons_paid: number;
+  sessions_finished: number;
+  sessions_total: number;
+  pending_makeups: PendingMakeupSession[];
+  payment_status: string;
+  phone?: string;
+  fee_message_sent: boolean;
+}
+
+// =============================================================================
+// SCHEDULE CHANGE TYPES
+// =============================================================================
+
+/** Schedule change request */
+export interface ScheduleChangeRequest {
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  tutor_id: number;
+}
+
+/** Session that cannot be changed */
+export interface UnchangeableSession {
+  session_id: number;
+  session_date: string;
+  time_slot: string;
+  tutor_name: string;
+  session_status: string;
+  reason: string;
+}
+
+/** Session that can be updated */
+export interface UpdatableSession {
+  session_id: number;
+  current_date: string;
+  current_time_slot: string;
+  current_tutor_name: string;
+  new_date: string;
+  new_time_slot: string;
+  new_tutor_name: string;
+  is_holiday: boolean;
+  holiday_name?: string;
+  shifted_date?: string;
+}
+
+/** Schedule change preview response */
+export interface ScheduleChangePreviewResponse {
+  enrollment_id: number;
+  current_schedule: {
+    assigned_day: string;
+    assigned_time: string;
+    location: string;
+    tutor_id: number;
+    tutor_name: string;
+  };
+  new_schedule: {
+    assigned_day: string;
+    assigned_time: string;
+    location: string;
+    tutor_id: number;
+    tutor_name: string;
+  };
+  unchangeable_sessions: UnchangeableSession[];
+  updatable_sessions: UpdatableSession[];
+  conflicts: StudentConflict[];
+  warnings: string[];
+  can_apply: boolean;
+}
+
+/** Apply schedule change request */
+export interface ApplyScheduleChangeRequest {
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  tutor_id: number;
+  apply_to_sessions: boolean;
+  date_overrides?: Record<number, string>;
+  time_overrides?: Record<number, string>;
+}
+
+/** Schedule change result */
+export interface ScheduleChangeResult {
+  enrollment_id: number;
+  sessions_updated: number;
+  new_effective_end_date?: string;
+  message: string;
+}
+
+// =============================================================================
+// SEARCH TYPES
+// =============================================================================
+
+/** Search results from global search */
+export interface SearchResults {
+  students: Array<{
+    id: number;
+    student_name: string;
+    school_student_id: string | null;
+    school: string | null;
+    grade: string | null;
+    phone: string | null;
+  }>;
+  sessions: Array<{
+    id: number;
+    student_id: number;
+    student_name: string | null;
+    session_date: string | null;
+    session_status: string | null;
+    tutor_name: string | null;
+  }>;
+  enrollments: Array<{
+    id: number;
+    student_id: number;
+    student_name: string | null;
+    tutor_name: string | null;
+    location: string | null;
+    payment_status: string | null;
+  }>;
+}
+
+// =============================================================================
+// PAPERLESS-NGX TYPES
+// =============================================================================
+
+/** Paperless document */
+export interface PaperlessDocument {
+  id: number;
+  title: string;
+  original_path: string | null;
+  converted_path: string | null;
+  tags: string[];
+  created: string | null;
+  correspondent: string | null;
+}
+
+/** Paperless search response */
+export interface PaperlessSearchResponse {
+  results: PaperlessDocument[];
+  count: number;
+  has_more: boolean;
+}
+
+/** Paperless status */
+export interface PaperlessStatus {
+  configured: boolean;
+  reachable: boolean;
+  url?: string;
+  error?: string;
+}
+
+/** Paperless tag */
+export interface PaperlessTag {
+  id: number;
+  name: string;
+}
+
+/** Paperless tags response */
+export interface PaperlessTagsResponse {
+  tags: PaperlessTag[];
+}
+
+export type PaperlessSearchMode = "all" | "title" | "content" | "advanced";
+export type PaperlessTagMatchMode = "all" | "any";
+
+// =============================================================================
+// PATH ALIASES TYPES
+// =============================================================================
+
+/** Path alias definition */
+export interface PathAliasDefinition {
+  id: number;
+  alias: string;
+  description: string | null;
+}
+
+// =============================================================================
+// DOCUMENT PROCESSING TYPES
+// =============================================================================
+
+export type ProcessingMode = 'conservative' | 'balanced' | 'aggressive';
+
+/** Handwriting removal options */
+export interface HandwritingRemovalOptions {
+  removeBlue?: boolean;
+  removeRed?: boolean;
+  removeGreen?: boolean;
+  removePencil?: boolean;
+  pencilThreshold?: number;
+  removeBlackInk?: boolean;
+  blackInkMode?: ProcessingMode;
+  blackInkStrokeThreshold?: number;
+}
+
+/** Handwriting removal response */
+export interface HandwritingRemovalResponse {
+  pdf_base64: string;
+  pages_processed: number;
+  success: boolean;
+  message: string;
+}
+
+/** Document processing status */
+export interface DocumentProcessingStatus {
+  available: boolean;
+  opencv: boolean;
+  pymupdf: boolean;
+  features: {
+    remove_colored_ink: boolean;
+    remove_pencil: boolean;
+    remove_black_ink: boolean;
+    pdf_processing: boolean;
+  };
+}
+
+// =============================================================================
+// PARENT COMMUNICATIONS TYPES
+// =============================================================================
+
+/** Parent communication record */
+export interface ParentCommunication {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  school: string | null;
+  home_location: string | null;
+  tutor_id: number;
+  tutor_name: string;
+  contact_date: string;
+  contact_method: string;
+  contact_type: string;
+  brief_notes: string | null;
+  follow_up_needed: boolean | null;
+  follow_up_date: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+/** Student contact status */
+export interface StudentContactStatus {
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  grade: string | null;
+  lang_stream: string | null;
+  school: string | null;
+  home_location: string | null;
+  last_contact_date: string | null;
+  last_contacted_by: string | null;
+  days_since_contact: number;
+  contact_status: 'Never Contacted' | 'Recent' | 'Been a While' | 'Contact Needed';
+  pending_follow_up: boolean;
+  follow_up_date: string | null;
+  enrollment_count: number;
+}
+
+/** Location settings */
+export interface LocationSettings {
+  id: number;
+  location: string;
+  contact_recent_days: number;
+  contact_warning_days: number;
+}
+
+/** Parent communication create payload */
+export interface ParentCommunicationCreate {
+  student_id: number;
+  contact_method?: string;
+  contact_type?: string;
+  brief_notes?: string;
+  follow_up_needed?: boolean;
+  follow_up_date?: string;
+  contact_date?: string;
+}
