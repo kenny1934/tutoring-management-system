@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed } from "@/lib/hooks";
+import { useDashboardStats, useSessions, useCalendarEvents, useActivityFeed, usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useZenSession } from "@/contexts/ZenSessionContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
@@ -51,6 +51,7 @@ function ZenSpinner() {
 }
 
 export default function ZenDashboardPage() {
+  usePageTitle("Zen Mode");
   const { selectedLocation } = useLocation();
   const { isFocused } = useZenKeyboardFocus();
   const [showCalendar, setShowCalendar] = useState(false);

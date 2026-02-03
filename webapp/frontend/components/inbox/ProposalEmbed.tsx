@@ -144,7 +144,7 @@ function SlotItem({
         title="Approve Make-up Slot"
         message={`Approve this slot on ${formatDateCompact(slot.proposed_date)} at ${slot.proposed_time_slot}?`}
         confirmText="Approve"
-        variant="primary"
+        variant="default"
       />
       <ConfirmDialog
         isOpen={showRejectConfirm}

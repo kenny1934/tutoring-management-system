@@ -27,8 +27,9 @@ export function parseQuery(q: string): { type: string | null; term: string } {
  */
 export function evaluateMath(expr: string): number {
   // Tokenize: numbers (including decimals), operators, parentheses
-  const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
-  if (!tokens) throw new Error('Invalid expression');
+  const matchResult = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
+  if (!matchResult) throw new Error('Invalid expression');
+  const tokens: string[] = matchResult;
 
   let pos = 0;
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { RefreshCcw, Plus, AlertCircle, Clock, CheckCircle2, Copy, CreditCard, Eye, Send, ArrowRight, X, Loader2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -310,6 +311,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
 });
 
 export default function AdminRenewalsPage() {
+  usePageTitle("Enrollment Renewals");
   const { user, isLoading, isAdmin } = useAuth();
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
