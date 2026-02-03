@@ -521,7 +521,7 @@ export function ProposalQuickLink({ tutorId, className }: ProposalQuickLinkProps
         )}
       >
         <CalendarClock className="h-4 w-4" />
-        <span>Make-up Proposals</span>
+        <span>Make-up</span>
         {totalPending > 0 && (
           <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
             {totalPending > 99 ? "99+" : totalPending}

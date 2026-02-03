@@ -19,6 +19,7 @@ import { BatchRenewModal } from "@/components/enrollments/BatchRenewModal";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 
 // Status icon component - matches tab icons (memoized for performance)
 const StatusIcon = React.memo(function StatusIcon({ status }: { status: RenewalListItem['renewal_status'] }) {
@@ -367,6 +368,10 @@ export default function AdminRenewalsPage() {
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchRenewModalOpen, setBatchRenewModalOpen] = useState(false);
 
+  // Refresh state tracking
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -705,10 +710,18 @@ export default function AdminRenewalsPage() {
     setComparisonRenewalId(null);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     // Refresh the renewals list and counts without closing modals
-    mutate(['renewals', selectedLocation, showExpired]);
-    mutate(['renewal-counts', selectedLocation]);
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        mutate(['renewals', selectedLocation, showExpired]),
+        mutate(['renewal-counts', selectedLocation]),
+      ]);
+      setLastUpdated(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleSuccess = () => {
@@ -845,14 +858,21 @@ export default function AdminRenewalsPage() {
               </div>
             </div>
 
-            {/* New Enrollment button */}
-            <button
-              onClick={handleNewEnrollment}
-              className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden xs:inline">New</span> Enrollment
-            </button>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              <RefreshButton
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
+                lastUpdated={lastUpdated}
+              />
+              <button
+                onClick={handleNewEnrollment}
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden xs:inline">New</span> Enrollment
+              </button>
+            </div>
           </div>
         </div>
 

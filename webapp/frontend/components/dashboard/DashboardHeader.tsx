@@ -11,12 +11,13 @@ import { leaveRecords, getLeaveRecordUrl } from "@/config/leave-records";
 import { DailyPuzzle } from "./DailyPuzzle";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderStats } from "./HeaderStats";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTutors } from "@/lib/hooks";
-import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { getTutorSortName, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
 import { FloatingPortal } from "@floating-ui/react";
@@ -32,6 +33,9 @@ interface DashboardHeaderProps {
   stats?: DashboardStats | null;
   tutorId?: number;
   isStatsLoading?: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  lastUpdated?: Date | null;
 }
 
 // Random greeting emojis
@@ -40,7 +44,7 @@ const greetingEmojis = ["🎯","🌟","✨","🎉","🚀","💫","🔥","⚡","�
 // Quick link definitions
 const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
-  { id: 'proposals', label: 'Make-up Proposals', icon: CalendarClock, href: null }, // Special: ProposalQuickLink component
+  { id: 'proposals', label: 'Make-up', icon: CalendarClock, href: null }, // Special: ProposalQuickLink component
   { id: 'trials', label: 'Trials', icon: ClipboardList, href: null }, // Special: TrialsQuickLink component
   { id: 'parents', label: 'Parent Contacts', icon: Users, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
@@ -49,7 +53,7 @@ const quickLinks = [
 ];
 
 
-export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false }: DashboardHeaderProps) {
+export function DashboardHeader({ userName = "Kenny", location, isMobile = false, pendingPayments = 0, stats, tutorId, isStatsLoading = false, onRefresh, isRefreshing, lastUpdated }: DashboardHeaderProps) {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
@@ -114,7 +118,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         <div className="flex items-center justify-between gap-3">
           {/* Welcome message */}
           <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
-            Welcome back, {userName} {greetingEmoji}
+            Welcome back, {getTutorFirstName(userName)} {greetingEmoji}
           </p>
 
           {/* Right side: Search + Date/Weather + Location */}
@@ -176,8 +180,16 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         ) : stats ? (
           <HeaderStats stats={stats} tutorId={tutorId} />
         ) : null}
-        <div className="px-4 sm:px-6">
+        <div className="px-4 sm:px-6 flex items-center gap-2">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
+          {onRefresh && (
+            <RefreshButton
+              onRefresh={onRefresh}
+              isRefreshing={isRefreshing}
+              lastUpdated={lastUpdated}
+              iconOnly
+            />
+          )}
         </div>
       </div>
 
@@ -297,7 +309,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                     )}
                   >
                     <CalendarClock className="h-4 w-4" />
-                    <span>Make-up Proposals</span>
+                    <span>Make-up</span>
                     <ChevronDown className="h-3.5 w-3.5" />
                   </button>
                 );

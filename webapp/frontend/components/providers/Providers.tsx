@@ -13,6 +13,7 @@ import { ZenProvider } from "@/contexts/ZenContext";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ZenActivator } from "@/components/zen";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -37,6 +38,7 @@ export function Providers({ children }: { children: ReactNode }) {
                       </PageErrorBoundary>
                       <CommandPalette />
                       <ZenActivator />
+                      <OfflineBanner />
                     </ToastProvider>
                   </CommandPaletteProvider>
                 </ZenProvider>

@@ -21,3 +21,6 @@ export { useKonamiCode } from './useKonamiCode';
 // Feature hooks
 export { useWeather, getWeatherIcon, getWeatherDescription } from './useWeather';
 export { useDailyPuzzle } from './useDailyPuzzle';
+
+// Network hooks
+export { useNetworkStatus } from './useNetworkStatus';
