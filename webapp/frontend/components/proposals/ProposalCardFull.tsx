@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
@@ -496,7 +496,7 @@ function SlotItem({
   );
 }
 
-export function ProposalCardFull({
+export const ProposalCardFull = memo(function ProposalCardFull({
   proposal,
   currentTutorId,
   onSelectSlot,
@@ -999,4 +999,4 @@ export function ProposalCardFull({
       )}
     </>
   );
-}
+});

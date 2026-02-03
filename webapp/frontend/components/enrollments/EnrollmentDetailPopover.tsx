@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, memo } from "react";
 import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
@@ -46,7 +46,7 @@ interface EnrollmentDetailPopoverProps {
   onStatusChange?: () => void;
 }
 
-export function EnrollmentDetailPopover({
+export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   enrollment,
   isOpen,
   onClose,
@@ -753,4 +753,4 @@ export function EnrollmentDetailPopover({
       </div>
     </FloatingPortal>
   );
-}
+});

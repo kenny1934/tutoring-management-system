@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "@/contexts/LocationContext";
 import { ChevronLeft, ChevronRight, CalendarDays, Users, List, Grid3X3, X, ExternalLink, HandCoins, CheckSquare, Square, CheckCheck, UserX, CalendarClock, Ambulance, PenTool, Home, GraduationCap, Clock } from "lucide-react";
@@ -75,7 +75,7 @@ interface MonthlyCalendarViewProps {
   sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
-export function MonthlyCalendarView({
+export const MonthlyCalendarView = memo(function MonthlyCalendarView({
   sessions,
   tutors,
   selectedDate,
@@ -338,7 +338,7 @@ export function MonthlyCalendarView({
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // Day Cell Component
 interface DayCellProps {
