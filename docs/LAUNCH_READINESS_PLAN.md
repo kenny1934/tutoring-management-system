@@ -171,10 +171,10 @@
 | **List Pages** | `Loader2` spinner | Acceptable - centered spinner |
 | `sessions/page.tsx` | Loader2 spinner | GridViewLoading component |
 | `students/page.tsx` | Loader2 spinner | Full page and detail panel |
-| `inbox/page.tsx` | Loader2 spinner | Thread list |
+| `inbox/page.tsx` | ✅ `animate-pulse` skeletons | Thread list (f7893c5) |
 | `renewals/page.tsx` | Loading skeleton | Custom skeleton pattern |
 
-**Conclusion:** Dashboard has excellent shimmer skeletons. List pages use spinners which is acceptable for MVP. Future improvement would standardize all pages to shimmer skeletons.
+**Conclusion:** All major pages now have proper skeleton loading. ✅
 
 ### 18. ✅ Manual Refresh UI
 **Current**: No way for users to force-fetch
