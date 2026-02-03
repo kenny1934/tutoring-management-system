@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 
 // Loading skeleton for grid views
 const GridViewLoading = () => (
@@ -174,8 +175,23 @@ export default function SessionsPage() {
   }, [selectedDate, statusFilter, tutorFilter, selectedLocation, viewMode, specialFilter]);
 
   // SWR hooks for data fetching with caching
-  const { data: sessions = [], error, isLoading: loading } = useSessions(sessionFilters);
+  const { data: sessions = [], error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: tutors = [] } = useTutors();
+
+  // Refresh state tracking
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Handle manual refresh
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await mutateSessions();
+      setLastUpdated(new Date());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [mutateSessions]);
 
   // Get current user's tutor ID for proposal actions
   const currentTutorId = useMemo(() => {
@@ -1530,6 +1546,13 @@ export default function SessionsPage() {
       <span className="text-xs sm:text-sm font-semibold text-[#a0704b] dark:text-[#cd853f] whitespace-nowrap">
         {sessions.filter(isCountableSession).length} sessions
       </span>
+
+      {/* Refresh button */}
+      <RefreshButton
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+        lastUpdated={lastUpdated}
+      />
     </>
   );
 
