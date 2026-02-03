@@ -101,7 +101,6 @@ export default function RevenuePage() {
       const fullSession = await sessionsAPI.getById(sessionId);
       setPopoverSession(fullSession);
     } catch (error) {
-      console.error("Failed to fetch session details:", error);
       setPopoverOpen(false);
     } finally {
       setPopoverLoading(false);

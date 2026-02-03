@@ -234,7 +234,6 @@ export const ProposalCard = memo(function ProposalCard({
       showToast("Slot approved! Make-up session booked.", "success");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to approve slot:", error);
       showToast("Failed to approve slot", "error");
     } finally {
       setLoadingAction(null);
@@ -248,7 +247,6 @@ export const ProposalCard = memo(function ProposalCard({
       showToast("Slot rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject slot:", error);
       showToast("Failed to reject slot", "error");
     } finally {
       setLoadingAction(null);
@@ -262,7 +260,6 @@ export const ProposalCard = memo(function ProposalCard({
       showToast("Proposal cancelled", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to cancel proposal:", error);
       showToast("Failed to cancel proposal", "error");
     } finally {
       setLoadingAction(null);
@@ -277,7 +274,6 @@ export const ProposalCard = memo(function ProposalCard({
       showToast("Proposal rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject proposal:", error);
       showToast("Failed to reject proposal", "error");
     } finally {
       setLoadingAction(null);

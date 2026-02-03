@@ -85,7 +85,6 @@ export function ExerciseAnswerSection({
         }, 2000);
       }
     } catch (err) {
-      console.error('[AnswerSearch] Error:', err);
       setSearchState('not_found');
       // Auto-reset after 2 seconds
       setTimeout(() => {

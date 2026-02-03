@@ -223,7 +223,6 @@ function CompactProposalCard({
       showToast("Slot approved! Make-up booked.", "success");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to approve:", error);
       showToast("Failed to approve slot", "error");
     } finally {
       setLoadingSlotId(null);
@@ -237,7 +236,6 @@ function CompactProposalCard({
       showToast("Slot rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject:", error);
       showToast("Failed to reject slot", "error");
     } finally {
       setLoadingSlotId(null);

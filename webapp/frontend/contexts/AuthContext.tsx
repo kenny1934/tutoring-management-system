@@ -94,11 +94,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         return true;
       } else {
-        console.warn("[Auth] Proactive token refresh failed");
         return false;
       }
     } catch (error) {
-      console.error("[Auth] Error during proactive token refresh:", error);
       return false;
     }
   }, []);
@@ -176,7 +174,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         sessionStorage.removeItem(IMPERSONATED_TUTOR_KEY);
       }
     } catch (error) {
-      console.error("Failed to fetch user:", error);
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -199,7 +196,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         credentials: "include",
       });
     } catch (error) {
-      console.error("Logout error:", error);
+      // Logout error ignored
     } finally {
       setUser(null);
       // Clear impersonation on logout
@@ -215,7 +212,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Set impersonated role (only Super Admins can do this)
   const setImpersonatedRole = useCallback((role: Role | null) => {
     if (user?.role !== "Super Admin") {
-      console.warn("Only Super Admins can impersonate roles");
       return;
     }
     setImpersonatedRoleState(role);
@@ -232,7 +228,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Set impersonated tutor (only Super Admins can do this, when impersonating as Tutor)
   const setImpersonatedTutor = useCallback((tutor: ImpersonatedTutor | null) => {
     if (user?.role !== "Super Admin") {
-      console.warn("Only Super Admins can impersonate tutors");
       return;
     }
     setImpersonatedTutorState(tutor);

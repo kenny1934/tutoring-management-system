@@ -114,7 +114,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         const allLocations = ["All Locations", ...filteredData];
         setLocations(allLocations);
       } catch (error) {
-        console.error("Failed to fetch locations:", error);
+        // Failed to fetch locations silently
       }
     }
     fetchLocations();
@@ -129,7 +129,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         const stats = await api.stats.getDashboard(selectedLocation);
         setPendingPayments(stats.pending_payment_enrollments);
       } catch (error) {
-        console.error("Failed to fetch stats:", error);
+        // Failed to fetch stats silently
       }
     }
     fetchStats();

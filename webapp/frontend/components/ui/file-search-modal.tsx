@@ -101,7 +101,6 @@ export function FileSearchModal({
       }
     } catch (err) {
       setError("An error occurred while searching. Please try again.");
-      console.error("Search error:", err);
     } finally {
       setIsSearching(false);
     }
@@ -163,7 +162,6 @@ export function FileSearchModal({
             })
           );
         } catch (err) {
-          console.error(`Search error for ${fn}:`, err);
           setBatchStates((prev) =>
             prev.map((state, i) =>
               i === index

@@ -133,7 +133,7 @@ export function EnrollmentDetailModal({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy fee message:', err);
+      // Failed to copy fee message silently
     }
   };
 
@@ -146,7 +146,7 @@ export function EnrollmentDetailModal({
       onStatusChange?.();
       onClose();
     } catch (err) {
-      console.error('Failed to cancel enrollment:', err);
+      // Failed to cancel enrollment silently
     } finally {
       setIsCancelling(false);
     }
@@ -172,7 +172,7 @@ export function EnrollmentDetailModal({
       const enrollment = await enrollmentsAPI.getById(detail.id);
       setPopoverEnrollment(enrollment);
     } catch (err) {
-      console.error("Failed to fetch enrollment:", err);
+      // Failed to fetch enrollment silently
     } finally {
       setLoadingPopover(false);
     }
@@ -188,7 +188,7 @@ export function EnrollmentDetailModal({
       const session = await sessionsAPI.getById(sessionId);
       setPopoverSession(session);
     } catch (err) {
-      console.error("Failed to fetch session:", err);
+      // Failed to fetch session silently
     } finally {
       setLoadingPopover(false);
     }

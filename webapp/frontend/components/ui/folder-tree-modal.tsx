@@ -274,7 +274,6 @@ export function FolderTreeModal({
       }
     } catch (err) {
       setError("Failed to load folders. Please try again.");
-      console.error("Failed to load folders:", err);
     } finally {
       setLoading(false);
     }
@@ -317,7 +316,7 @@ export function FolderTreeModal({
           });
         }
       } catch (err) {
-        console.warn("Failed to lookup path mappings:", err);
+        // Failed to lookup path mappings silently
       }
     }
 
@@ -359,7 +358,6 @@ export function FolderTreeModal({
         setCurrentContents(rootFolders);
       }
     } catch (err) {
-      console.warn("Failed to navigate to initial path:", err);
       // On error, show root folders
       setCurrentContents(rootFolders);
     }
@@ -455,7 +453,6 @@ export function FolderTreeModal({
       setDisplayLimit(ITEMS_PER_PAGE); // Reset pagination when folder changes
       return true;
     } catch (err) {
-      console.error("Failed to load folder contents:", err);
       const message = err instanceof Error ? err.message : "Failed to load folder contents.";
       setError(message);
 
@@ -703,7 +700,6 @@ export function FolderTreeModal({
 
       setPreviewUrl(url);
     } catch (err) {
-      console.error("Failed to load preview:", err);
       setError("Failed to load PDF preview.");
     } finally {
       setPreviewLoading(false);
@@ -1066,7 +1062,6 @@ export function FolderTreeModal({
         await loadRootFolders();
       }
     } catch (err) {
-      console.error("Failed to add folder:", err);
       setError("Failed to add folder. Please try again.");
     }
   }, []);
@@ -1080,7 +1075,6 @@ export function FolderTreeModal({
       await removeFolder(id);
       await loadRootFolders();
     } catch (err) {
-      console.error("Failed to remove folder:", err);
       setError("Failed to remove folder. Please try again.");
     }
   }, []);

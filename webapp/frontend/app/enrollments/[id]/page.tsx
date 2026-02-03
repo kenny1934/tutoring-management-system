@@ -144,7 +144,6 @@ export default function EnrollmentDetailPage() {
       setIsEditingPayment(false);
       setEditForm({});
     } catch (error) {
-      console.error('Failed to save enrollment:', error);
       setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
     } finally {
       setIsSaving(false);
@@ -166,7 +165,6 @@ export default function EnrollmentDetailPage() {
       showToast("Fee message copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Failed to copy:", err);
       showToast("Failed to copy to clipboard", "error");
     }
   };
@@ -179,7 +177,6 @@ export default function EnrollmentDetailPage() {
       mutate(['enrollment', enrollment.id]);
       showToast("Marked as sent!");
     } catch (err) {
-      console.error("Failed to mark as sent:", err);
       showToast("Failed to mark as sent", "error");
     } finally {
       setMarkingSent(false);
@@ -194,7 +191,6 @@ export default function EnrollmentDetailPage() {
       mutate(['enrollment', enrollment.id]);
       showToast("Unmarked as sent");
     } catch (err) {
-      console.error("Failed to unmark:", err);
       showToast("Failed to unmark", "error");
     } finally {
       setMarkingSent(false);
@@ -210,7 +206,6 @@ export default function EnrollmentDetailPage() {
       showToast("Payment confirmed!");
       setConfirmPayment(false);
     } catch (err) {
-      console.error("Failed to confirm payment:", err);
       showToast("Failed to confirm payment", "error");
     } finally {
       setMarkingPaid(false);
@@ -226,7 +221,6 @@ export default function EnrollmentDetailPage() {
       showToast("Enrollment cancelled");
       setConfirmCancel(false);
     } catch (err) {
-      console.error("Failed to cancel enrollment:", err);
       showToast("Failed to cancel enrollment", "error");
     } finally {
       setIsCancelling(false);
@@ -252,7 +246,6 @@ export default function EnrollmentDetailPage() {
       setIsEditingExtension(false);
       setExtensionForm({ weeks: 0, reason: "" });
     } catch (error) {
-      console.error('Failed to save extension:', error);
       setSaveError(error instanceof Error ? error.message : 'Failed to save extension');
     } finally {
       setIsSavingExtension(false);
@@ -378,7 +371,6 @@ export default function EnrollmentDetailPage() {
       })
       .catch(err => {
         if (!cancelled) {
-          console.error("Failed to fetch fee message:", err);
           setFeeMessage("Failed to generate fee message");
         }
       })

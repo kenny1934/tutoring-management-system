@@ -578,7 +578,6 @@ export const ProposalCardFull = memo(function ProposalCardFull({
       showToast("Slot approved! Make-up session booked.", "success");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to approve slot:", error);
       showToast("Failed to approve slot", "error");
     } finally {
       setLoadingAction(null);
@@ -592,7 +591,6 @@ export const ProposalCardFull = memo(function ProposalCardFull({
       showToast("Slot rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject slot:", error);
       showToast("Failed to reject slot", "error");
     } finally {
       setLoadingAction(null);
@@ -614,7 +612,6 @@ export const ProposalCardFull = memo(function ProposalCardFull({
       setEditingSlotId(null);
       refreshProposals();
     } catch (error) {
-      console.error("Failed to update slot:", error);
       showToast("Failed to update slot", "error");
       throw error; // Re-throw so the SlotItem can handle the error state
     }
@@ -627,7 +624,6 @@ export const ProposalCardFull = memo(function ProposalCardFull({
       showToast("Proposal cancelled", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to cancel proposal:", error);
       showToast("Failed to cancel proposal", "error");
     } finally {
       setLoadingAction(null);
@@ -642,7 +638,6 @@ export const ProposalCardFull = memo(function ProposalCardFull({
       showToast("Proposal rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject proposal:", error);
       showToast("Failed to reject proposal", "error");
     } finally {
       setLoadingAction(null);

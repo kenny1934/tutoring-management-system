@@ -33,7 +33,6 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
       setAliases(data);
     } catch (err) {
       setError("Failed to load aliases. Please try again.");
-      console.error("Failed to load path aliases:", err);
     } finally {
       setLoading(false);
     }
@@ -64,7 +63,6 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
       setNewDescription("");
     } catch (err) {
       setError("Failed to create alias. Please try again.");
-      console.error("Failed to create path alias:", err);
     } finally {
       setSaving(false);
     }
@@ -82,7 +80,6 @@ export function PathAliasAdmin({ onClose }: PathAliasAdminProps) {
       setAliases(aliases.filter(a => a.id !== id));
     } catch (err) {
       setError("Failed to delete alias. Please try again.");
-      console.error("Failed to delete path alias:", err);
     } finally {
       setSaving(false);
     }

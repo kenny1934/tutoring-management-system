@@ -264,7 +264,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         showToast("Session marked as attended", "success");
         onAction?.(action.id, action);
       } catch (error) {
-        console.error("Failed to mark session as attended:", error);
         showToast("Failed to mark as attended", "error");
       } finally {
         setLoadingAction(null);
@@ -281,7 +280,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         showToast("Session marked as no show", "success");
         onAction?.(action.id, action);
       } catch (error) {
-        console.error("Failed to mark session as no show:", error);
         showToast("Failed to mark as no show", "error");
       } finally {
         setLoadingAction(null);
@@ -298,7 +296,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         showToast("Session marked as rescheduled", "success");
         onAction?.(action.id, action);
       } catch (error) {
-        console.error("Failed to mark session as rescheduled:", error);
         showToast("Failed to mark as rescheduled", "error");
       } finally {
         setLoadingAction(null);
@@ -315,7 +312,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         showToast("Session marked as sick leave", "success");
         onAction?.(action.id, action);
       } catch (error) {
-        console.error("Failed to mark session as sick leave:", error);
         showToast("Failed to mark as sick leave", "error");
       } finally {
         setLoadingAction(null);
@@ -332,7 +328,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         showToast("Session marked as weather cancelled", "success");
         onAction?.(action.id, action);
       } catch (error) {
-        console.error("Failed to mark session as weather cancelled:", error);
         showToast("Failed to mark as weather cancelled", "error");
       } finally {
         setLoadingAction(null);
@@ -371,7 +366,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
       showToast("Make-up cancelled", "success");
       onAction?.('cancel-makeup', sessionActions.find(a => a.id === 'cancel-makeup')!);
     } catch (error) {
-      console.error("Failed to cancel make-up:", error);
       showToast("Failed to cancel make-up", "error");
     } finally {
       setLoadingAction(null);
@@ -399,7 +393,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                 updateSessionInCache(redoneSession);
                 showToast("Status restored", "success");
               } catch (error) {
-                console.error("Failed to redo status:", error);
                 showToast("Failed to restore status", "error");
               }
             },
@@ -410,7 +403,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
       }
       onAction?.('undo', sessionActions.find(a => a.id === 'undo')!);
     } catch (error) {
-      console.error("Failed to undo status:", error);
       showToast("Failed to undo status", "error");
     } finally {
       setLoadingAction(null);

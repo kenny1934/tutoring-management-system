@@ -77,7 +77,6 @@ export function RateSessionModal({
         onSave(sessionId, currentRating, currentNotes);
       }
     } catch (error) {
-      console.error("Failed to save rating:", error);
       // Could rollback cache or show toast here
     }
   }, [session, rating, notes, onClose, onSave]);

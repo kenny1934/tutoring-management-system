@@ -201,7 +201,6 @@ export function BulkExerciseModal({
             next[sessionId] = 'success';
             successCount++;
           } else {
-            console.error(`Failed to save to session ${sessionId}:`, result.reason);
             next[sessionId] = 'error';
             failCount++;
           }
@@ -508,7 +507,6 @@ export function BulkExerciseModal({
     // No stamp for bulk modal (multiple students)
     const error = await printBulkFiles(exercisesWithPdfs, undefined, searchPaperlessByPath, printTitle);
     if (error) {
-      console.warn('Failed to print all files:', error);
       setPrintAllState('error');
       setTimeout(() => setPrintAllState('idle'), 2000);
     } else {
@@ -532,7 +530,6 @@ export function BulkExerciseModal({
 
     const error = await downloadBulkFiles(exercisesWithPdfs, filename, undefined, searchPaperlessByPath);
     if (error) {
-      console.warn('Failed to download all files:', error);
       setDownloadAllState('error');
       setTimeout(() => setDownloadAllState('idle'), 2000);
     } else {

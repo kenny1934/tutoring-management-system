@@ -52,7 +52,6 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       setFolders(foldersData);
     } catch (err) {
       setError("Failed to load data. Please try again.");
-      console.error("Failed to load path mapping data:", err);
     } finally {
       setLoading(false);
     }
@@ -81,7 +80,6 @@ export function PathMappingSettings({ onClose }: PathMappingSettingsProps) {
       }
     } catch (err) {
       setError(`Failed to grant access for "${alias}". Please try again.`);
-      console.error("Failed to grant folder access:", err);
     } finally {
       setGrantingAccess(null);
     }

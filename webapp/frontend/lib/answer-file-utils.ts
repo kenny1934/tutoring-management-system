@@ -60,7 +60,7 @@ async function getAnsTagId(): Promise<number | null> {
       return ansTag.id;
     }
   } catch (err) {
-    console.warn('[AnswerSearch] Failed to fetch tags:', err);
+    // Failed to fetch tags silently
   }
 
   return null;
@@ -241,7 +241,7 @@ async function searchShelvAnswerFile(originalPath: string): Promise<AnswerSearch
       }
     }
   } catch (err) {
-    console.warn('[AnswerSearch] Shelv search failed:', err);
+    // Shelv search failed silently
   }
 
   return null;
@@ -313,7 +313,6 @@ export async function downloadAnswerFile(result: AnswerSearchResult): Promise<bo
         URL.revokeObjectURL(url);
         return true;
       } catch (err) {
-        console.error('[AnswerDownload] Failed to download local file:', err);
         return false;
       }
     }
@@ -338,7 +337,6 @@ export async function downloadAnswerFile(result: AnswerSearchResult): Promise<bo
       URL.revokeObjectURL(url);
       return true;
     } catch (err) {
-      console.error('[AnswerDownload] Failed to download from Shelv:', err);
       return false;
     }
   }

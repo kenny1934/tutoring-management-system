@@ -22,14 +22,16 @@ export function ExerciseDeleteButton({
         <button
           type="button"
           onClick={onConfirmDelete}
-          className="px-1.5 py-0.5 text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+          className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-3 py-2 text-red-600 dark:text-red-400 font-medium hover:bg-red-100 dark:hover:bg-red-900/30 rounded flex items-center justify-center"
+          aria-label="Confirm delete"
         >
           Yes
         </button>
         <button
           type="button"
           onClick={onCancelDelete}
-          className="px-1.5 py-0.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+          className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-3 py-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center justify-center"
+          aria-label="Cancel delete"
         >
           No
         </button>
@@ -41,7 +43,7 @@ export function ExerciseDeleteButton({
     <button
       type="button"
       onClick={onRequestDelete}
-      className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
+      className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0 flex items-center justify-center"
       title="Remove exercise (Alt+Backspace)"
       aria-label="Remove exercise"
     >

@@ -166,9 +166,7 @@ export async function addFolder(): Promise<SavedFolder | null> {
 
     return folder;
   } catch (err) {
-    if ((err as Error).name !== 'AbortError') {
-      console.error('Failed to add folder:', err);
-    }
+    // User cancelled or permission denied - ignore AbortError
     return null;
   }
 }
@@ -208,9 +206,7 @@ export async function addSharedFolder(name: string): Promise<SavedFolder | null>
 
     return folder;
   } catch (err) {
-    if ((err as Error).name !== 'AbortError') {
-      console.error('Failed to add shared folder:', err);
-    }
+    // User cancelled or permission denied - ignore AbortError
     return null;
   }
 }
@@ -235,7 +231,7 @@ export async function updateFolderName(id: string, newName: string): Promise<voi
       });
     }
   } catch (err) {
-    console.error('Failed to update folder name:', err);
+    // Failed to update folder name silently
   }
 }
 
@@ -261,7 +257,7 @@ export async function removeFolder(id: string): Promise<void> {
       tx.oncomplete = () => db.close();
     });
   } catch (err) {
-    console.error('Failed to remove folder:', err);
+    // Failed to remove folder silently
   }
 }
 
@@ -363,9 +359,7 @@ export async function pickFileFromFolder(
       handle: fileHandle,
     };
   } catch (err) {
-    if ((err as Error).name !== 'AbortError') {
-      console.error('Failed to pick file:', err);
-    }
+    // User cancelled or permission denied - ignore AbortError
     return null;
   }
 }
@@ -516,7 +510,6 @@ export async function openFileInNewTab(handle: FileSystemFileHandle): Promise<bo
     setTimeout(() => URL.revokeObjectURL(url), 60000);
     return true;
   } catch (err) {
-    console.error('Failed to open file:', err);
     return false;
   }
 }
@@ -533,7 +526,6 @@ export async function printFile(handle: FileSystemFileHandle): Promise<boolean> 
     const printWindow = window.open(url, '_blank', 'width=800,height=600');
 
     if (!printWindow) {
-      console.error('Popup blocked');
       URL.revokeObjectURL(url);
       return false;
     }
@@ -553,7 +545,6 @@ export async function printFile(handle: FileSystemFileHandle): Promise<boolean> 
 
     return true;
   } catch (err) {
-    console.error('Failed to print file:', err);
     return false;
   }
 }
@@ -615,7 +606,6 @@ export async function printFilePages(
     const printWindow = window.open(url, '_blank', 'width=800,height=600');
 
     if (!printWindow) {
-      console.error('[Print] Popup blocked');
       URL.revokeObjectURL(url);
       return false;
     }
@@ -635,8 +625,6 @@ export async function printFilePages(
 
     return true;
   } catch (err) {
-    console.error('[Print] Failed to extract pages:', err);
-    console.error('[Print] Falling back to printing entire file');
     // Fallback to printing entire file
     return printFile(handle);
   }
@@ -729,7 +717,7 @@ export async function addPathMapping(mapping: PathMapping): Promise<void> {
       tx.oncomplete = () => db.close();
     });
   } catch (err) {
-    console.error('Failed to add path mapping:', err);
+    // Failed to add path mapping silently
   }
 }
 
@@ -748,7 +736,7 @@ export async function removePathMapping(alias: string): Promise<void> {
       tx.oncomplete = () => db.close();
     });
   } catch (err) {
-    console.error('Failed to remove path mapping:', err);
+    // Failed to remove path mapping silently
   }
 }
 
@@ -1065,7 +1053,6 @@ export async function printFileFromPathWithFallback(
     };
     return null;
   } catch (error) {
-    console.warn('Paperless print failed:', error);
     return 'print_failed';
   }
 }
@@ -1118,8 +1105,6 @@ export async function printBulkFiles(
         pageNumbers: getPageNumbers(exercise, '[BulkPrint]'),
         label: exercise.pdf_name,
       });
-    } else {
-      console.warn('[BulkPrint] Could not get file data for:', exercise.pdf_name);
     }
   }
 
@@ -1136,7 +1121,6 @@ export async function printBulkFiles(
     const printWindow = window.open(url, '_blank', 'width=800,height=600');
 
     if (!printWindow) {
-      console.error('[BulkPrint] Popup blocked');
       URL.revokeObjectURL(url);
       return 'print_failed';
     }
@@ -1159,7 +1143,6 @@ export async function printBulkFiles(
 
     return null;
   } catch (err) {
-    console.error('[BulkPrint] Failed to create combined print:', err);
     return 'print_failed';
   }
 }
@@ -1208,8 +1191,6 @@ export async function downloadBulkFiles(
         pageNumbers: getPageNumbers(exercise, '[BulkDownload]'),
         label: exercise.pdf_name,
       });
-    } else {
-      console.warn('[BulkDownload] Could not get file data for:', exercise.pdf_name);
     }
   }
 
@@ -1233,7 +1214,6 @@ export async function downloadBulkFiles(
 
     return null;
   } catch (err) {
-    console.error('[BulkDownload] Failed to create combined download:', err);
     return 'download_failed';
   }
 }
@@ -1308,7 +1288,6 @@ export async function downloadAllAnswerFiles(
     if (answerPath) {
       answerPaths.push({ path: answerPath, exercise, documentId });
     } else {
-      console.warn('[AnswerDownload] No answer found for:', exercise.pdf_name);
       missing++;
     }
   }
@@ -1341,7 +1320,6 @@ export async function downloadAllAnswerFiles(
         label: exercise.pdf_name,
       });
     } else {
-      console.warn('[AnswerDownload] Could not get file data for:', exercise.pdf_name);
       missing++;
     }
   }
@@ -1366,7 +1344,6 @@ export async function downloadAllAnswerFiles(
 
     return { status: 'success', found: bulkItems.length, missing };
   } catch (err) {
-    console.error('[AnswerDownload] Failed to create combined download:', err);
     return { status: 'download_failed', found: 0, missing };
   }
 }

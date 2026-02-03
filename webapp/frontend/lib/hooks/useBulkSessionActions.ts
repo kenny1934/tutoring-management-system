@@ -112,7 +112,6 @@ export function useBulkSessionActions({
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as ${config.errorLogMessage}:`, error);
         failCount++;
       }
       // Clear individual session loading state

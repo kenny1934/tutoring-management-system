@@ -49,7 +49,6 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
     setOpenState('loading');
     const error = await openFileFromPathWithFallback(pdfName, searchPaperlessByPath);
     if (error) {
-      console.warn('Failed to open file:', error);
       setOpenState('error');
       setTimeout(() => setOpenState('idle'), 2000);
     } else {
@@ -70,7 +69,6 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
       searchPaperlessByPath
     );
     if (error) {
-      console.warn('Failed to print file:', error);
       setPrintState('error');
       setTimeout(() => setPrintState('idle'), 2000);
     } else {

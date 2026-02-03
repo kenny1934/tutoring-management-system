@@ -137,7 +137,7 @@ export function ZenDistributionChart({ type, maxBars = 6, isActive = false }: Ze
         );
         setEnrollments(data);
       } catch (err) {
-        console.error("Failed to load enrollments:", err);
+        // Failed to load enrollments silently
       } finally {
         setLoading(false);
       }

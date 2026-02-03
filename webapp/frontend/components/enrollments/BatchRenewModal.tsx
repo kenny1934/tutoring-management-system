@@ -167,7 +167,6 @@ export function BatchRenewModal({
       setIneligible(response.ineligible);
       setStep("results");
     } catch (error) {
-      console.error("Eligibility check failed:", error);
       showToast("Failed to check eligibility", "error");
       onClose();
     }
@@ -264,7 +263,6 @@ export function BatchRenewModal({
         );
       }
     } catch (error) {
-      console.error("Batch renew failed:", error);
       showToast("Failed to create renewals", "error");
       setStep("results");
     }

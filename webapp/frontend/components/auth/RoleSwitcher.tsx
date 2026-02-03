@@ -40,7 +40,7 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
             default_location: t.default_location
           })));
         })
-        .catch(console.error)
+        .catch(() => { /* non-critical */ })
         .finally(() => setLoadingTutors(false));
     }
   }, [isOpen, effectiveRole, tutors.length, loadingTutors]);

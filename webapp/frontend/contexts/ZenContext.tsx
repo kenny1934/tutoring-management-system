@@ -512,7 +512,7 @@ function loadState(): Partial<ZenState> {
       return JSON.parse(saved);
     }
   } catch (e) {
-    console.error("Failed to load zen state:", e);
+    // Failed to load zen state silently
   }
   return {};
 }
@@ -522,7 +522,7 @@ function saveState(state: ZenState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
-    console.error("Failed to save zen state:", e);
+    // Failed to save zen state silently
   }
 }
 

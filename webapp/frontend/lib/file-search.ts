@@ -228,7 +228,6 @@ async function searchInFolder(
     }
   } catch (err) {
     // Permission or access error - skip this folder
-    console.warn(`Error searching folder ${basePath}:`, err);
   }
 
   return results;
@@ -281,7 +280,7 @@ async function searchShelv(
       }
     }
   } catch (err) {
-    console.warn('Error searching Shelv:', err);
+    // Error searching Shelv silently
   }
 
   return results;

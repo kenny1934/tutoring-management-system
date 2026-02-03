@@ -2,13 +2,54 @@
 FastAPI main application for tutoring management system.
 Provides read-only API endpoints for MVP testing.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 import os
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # XSS Protection (legacy but still useful)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Referrer Policy
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Content Security Policy - adjust as needed for your app
+        # In production, you may want stricter policies
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Needed for Next.js
+            "style-src 'self' 'unsafe-inline'",  # Needed for inline styles
+            "img-src 'self' data: https: blob:",
+            "font-src 'self' data:",
+            "connect-src 'self' https://lh3.googleusercontent.com https://accounts.google.com",
+            "frame-ancestors 'none'",
+        ]
+        response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
+        # HSTS - only in production with HTTPS
+        environment = os.getenv("ENVIRONMENT", "development")
+        if environment == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        return response
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -36,12 +77,24 @@ else:
     allow_origins = allowed_origins_str.split(",")
     allow_credentials = True
 
+# Add security headers middleware first
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Configure CORS with specific allowed headers (not wildcard)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
     allow_credentials=allow_credentials,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Type",
+        "Content-Language",
+        "Authorization",
+        "X-Requested-With",
+        "X-Effective-Role",  # Custom header for role switching
+    ],
 )
 
 

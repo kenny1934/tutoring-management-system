@@ -113,7 +113,7 @@ export default function StudentsPage() {
         const schools = await studentsAPI.getSchools();
         setAllSchools(schools);
       } catch (err) {
-        console.error('Failed to fetch schools:', err);
+        // Silently fail - school autocomplete is non-critical
       }
     };
     fetchSchools();
