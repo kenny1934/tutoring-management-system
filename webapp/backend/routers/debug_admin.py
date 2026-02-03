@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict
 from database import get_db, engine
 from models import Tutor, DebugAuditLog
 from auth.dependencies import require_super_admin
-from config.debug_tables import (
+from app_config.debug_tables import (
     DEBUG_TABLE_CONFIG,
     get_table_config,
     get_allowed_tables,
