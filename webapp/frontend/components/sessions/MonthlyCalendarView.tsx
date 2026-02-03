@@ -652,6 +652,7 @@ function DayPopover({
             size="sm"
             onClick={onClose}
             className="h-7 w-7 p-0 text-[#8b6f47] hover:text-[#6b5347] hover:bg-[#e8d4b8] dark:text-[#cd853f] dark:hover:bg-[#4a3f2f]"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </Button>

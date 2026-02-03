@@ -535,9 +535,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               title="User settings"
             >
               {user?.picture ? (
-                <img
+                <Image
                   src={user.picture}
                   alt={displayName}
+                  width={40}
+                  height={40}
                   className="h-10 w-10 rounded-full object-cover shadow-sm"
                   referrerPolicy="no-referrer"
                 />
@@ -563,9 +565,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               }}
             >
               {user?.picture ? (
-                <img
+                <Image
                   src={user.picture}
                   alt={displayName}
+                  width={44}
+                  height={44}
                   className="h-11 w-11 rounded-full object-cover shadow-sm flex-shrink-0"
                   referrerPolicy="no-referrer"
                 />
@@ -607,6 +611,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             <button
               onClick={() => setIsUserMenuOpen(false)}
               className="absolute top-3 right-3 p-1.5 rounded-lg hover:bg-foreground/10 transition-colors"
+              aria-label="Close settings"
             >
               <X className="h-4 w-4 text-foreground/50" />
             </button>
@@ -614,9 +619,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             {/* User info header */}
             <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10 dark:border-white/5 pr-8">
               {user?.picture ? (
-                <img
+                <Image
                   src={user.picture}
                   alt={user.name || "User"}
+                  width={48}
+                  height={48}
                   className="h-12 w-12 rounded-full object-cover shadow-sm flex-shrink-0"
                   referrerPolicy="no-referrer"
                 />

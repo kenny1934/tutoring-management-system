@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
 import { ProposalQuickLink } from "./ProposalQuickLink";
@@ -256,10 +257,13 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                             {/* Tool Icon - with warm sepia tint */}
                             <div className="w-8 h-8 flex-shrink-0 rounded-lg overflow-hidden bg-[#f5ede3] dark:bg-[#3d3628] p-1 flex items-center justify-center">
                               {tool.iconUrl ? (
-                                <img
+                                <Image
                                   src={tool.iconUrl}
                                   alt=""
+                                  width={24}
+                                  height={24}
                                   className="w-6 h-6 object-contain sepia-[.15] group-hover:sepia-0 transition-all"
+                                  unoptimized
                                   onError={(e) => {
                                     // Fallback to link icon on error
                                     e.currentTarget.style.display = 'none';
