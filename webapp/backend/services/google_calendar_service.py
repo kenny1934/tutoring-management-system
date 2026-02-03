@@ -181,12 +181,28 @@ class GoogleCalendarService:
         Returns:
             Dictionary with parsed event information
         """
-        title = event.get('summary', '')
-        description = event.get('description', '')
+        # Defensive: handle missing or malformed event data
+        if not event:
+            return {
+                'event_id': '',
+                'title': '',
+                'description': '',
+                'start_date': datetime.now(timezone.utc),
+                'end_date': datetime.now(timezone.utc),
+                'school': None,
+                'grade': None,
+                'academic_stream': None,
+                'event_type': None
+            }
 
-        # Extract dates
-        start = event['start'].get('dateTime', event['start'].get('date'))
-        end = event['end'].get('dateTime', event['end'].get('date'))
+        title = event.get('summary', '') or ''
+        description = event.get('description', '') or ''
+
+        # Extract dates with defensive handling
+        start_data = event.get('start', {})
+        end_data = event.get('end', {})
+        start = start_data.get('dateTime') or start_data.get('date', '')
+        end = end_data.get('dateTime') or end_data.get('date', '')
 
         # Parse date strings
         start_date = self._parse_date(start)
@@ -221,7 +237,17 @@ class GoogleCalendarService:
         Returns:
             Dictionary with school, grade, academic_stream, and event_type
         """
-        title = title.strip()
+        # Defensive: handle None or empty titles
+        if not title:
+            return {
+                'school': None,
+                'grade': None,
+                'academic_stream': None,
+                'event_type': None
+            }
+
+        # Normalize whitespace and strip
+        title = ' '.join(title.split()).strip()
 
         # Strategy 1: Standard pattern with grade (handles Unicode school names)
         match = EVENT_TITLE_PATTERN.match(title)
@@ -339,13 +365,21 @@ class GoogleCalendarService:
         Returns:
             datetime object
         """
-        # Handle both datetime and date formats
-        if 'T' in date_str:
-            # DateTime format: "2025-10-27T10:00:00+08:00"
-            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        else:
-            # Date format: "2025-10-27"
-            return datetime.strptime(date_str, '%Y-%m-%d')
+        # Defensive: handle None or empty date strings
+        if not date_str:
+            return datetime.now(timezone.utc)
+
+        try:
+            # Handle both datetime and date formats
+            if 'T' in date_str:
+                # DateTime format: "2025-10-27T10:00:00+08:00"
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            else:
+                # Date format: "2025-10-27"
+                return datetime.strptime(date_str, '%Y-%m-%d')
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to parse date '{date_str}': {e}")
+            return datetime.now(timezone.utc)
 
     # ============================================
     # Write Operations (require Service Account)

@@ -36,6 +36,7 @@ from config.debug_tables import (
     get_allowed_tables,
     is_table_allowed,
 )
+from utils.rate_limiter import check_user_rate_limit
 
 
 router = APIRouter(prefix="/debug", tags=["Debug Admin"])
@@ -1041,6 +1042,9 @@ async def bulk_delete_rows(
     Bulk delete multiple rows from a table.
     Requires confirmation by passing confirm='DELETE'.
     """
+    # Rate limit bulk deletes
+    check_user_rate_limit(admin.id, "debug_bulk_delete")
+
     if confirm != "DELETE":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1144,6 +1148,9 @@ async def bulk_update_rows(
     Bulk update a single column for multiple rows.
     All-or-nothing transaction with rollback on failure.
     """
+    # Rate limit bulk updates
+    check_user_rate_limit(admin.id, "debug_bulk_update")
+
     if not is_table_allowed(table_name):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1241,6 +1248,9 @@ async def export_table(
     Export table data as CSV or JSON.
     Maximum 100,000 rows per export.
     """
+    # Rate limit exports (5 per 5 minutes)
+    check_user_rate_limit(admin.id, "debug_export")
+
     if not is_table_allowed(table_name):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1518,6 +1528,9 @@ async def execute_sql_query(
     This endpoint is for debugging purposes only.
     """
     import time
+
+    # Rate limit SQL execution
+    check_user_rate_limit(admin.id, "debug_sql_execute")
 
     query = body.query.strip()
 
