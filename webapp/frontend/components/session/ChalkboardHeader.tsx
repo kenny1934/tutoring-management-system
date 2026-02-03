@@ -348,8 +348,6 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
 
     if (onAction) {
       onAction(action.id, action);
-    } else if (!action.api.enabled) {
-      console.log(`Action ${action.id} not yet implemented`);
     }
   };
 

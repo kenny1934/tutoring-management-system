@@ -92,8 +92,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        console.log("[Auth] Token refreshed proactively, expires in:", data.expires_in, "seconds");
         return true;
       } else {
         console.warn("[Auth] Proactive token refresh failed");
@@ -115,18 +113,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Only set up timer if user is authenticated
     if (user) {
-      console.log("[Auth] Setting up proactive token refresh timer");
-
       // Refresh periodically
       refreshTimerRef.current = setInterval(() => {
-        console.log("[Auth] Running proactive token refresh");
         refreshAuthToken();
       }, TOKEN_REFRESH_INTERVAL_MS);
 
       // Also refresh on visibility change (when user returns to tab)
       const handleVisibilityChange = () => {
         if (document.visibilityState === "visible" && user) {
-          console.log("[Auth] Tab became visible, checking token refresh");
           refreshAuthToken();
         }
       };

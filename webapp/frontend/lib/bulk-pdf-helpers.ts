@@ -50,7 +50,6 @@ export function getPageNumbers(exercise: BulkPrintExercise, logPrefix: string = 
 
   if (complexRange) {
     const pageNumbers = parsePageRange(complexRange);
-    console.log(`${logPrefix} Complex range for`, exercise.pdf_name, ':', pageNumbers);
     return pageNumbers;
   }
 
@@ -64,12 +63,10 @@ export function getPageNumbers(exercise: BulkPrintExercise, logPrefix: string = 
   if (pageStart !== undefined && !isNaN(pageStart)) {
     const end = pageEnd !== undefined && !isNaN(pageEnd) ? pageEnd : pageStart;
     const pageNumbers = Array.from({ length: end - pageStart + 1 }, (_, i) => pageStart + i);
-    console.log(`${logPrefix} Simple range for`, exercise.pdf_name, ':', pageNumbers);
     return pageNumbers;
   }
 
   // No page range specified - will use all pages
-  console.log(`${logPrefix} All pages (to be determined) for`, exercise.pdf_name);
   return [];
 }
 
@@ -100,8 +97,6 @@ export async function fetchPdfData(
       } catch (err) {
         console.warn(`${logPrefix} Failed to read local file:`, exercise.pdf_name, err);
       }
-    } else {
-      console.log(`${logPrefix} Local file access failed for:`, exercise.pdf_name, result.error);
     }
   }
 
@@ -120,7 +115,6 @@ export async function fetchPdfData(
       }
 
       if (documentId) {
-        console.log(`${logPrefix} Fetching from Paperless:`, exercise.pdf_name, 'documentId:', documentId);
         const response = await fetch(`/api/paperless/preview/${documentId}`);
         if (response.ok) {
           const blob = await response.blob();
