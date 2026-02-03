@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from database import get_db
 from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
-from auth.jwt_handler import create_access_token
+from auth.jwt_handler import create_access_token, create_refreshed_token, get_token_time_remaining, ACCESS_TOKEN_EXPIRE_HOURS
 from auth.dependencies import get_current_user
 from utils.rate_limiter import check_ip_rate_limit
 
@@ -108,7 +108,7 @@ async def google_callback(
             httponly=True,
             secure=ENVIRONMENT == "production",  # HTTPS only in production
             samesite="lax",  # CSRF protection
-            max_age=86400,  # 24 hours in seconds
+            max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Match token expiry
         )
 
         print(f"[OAuth] Login successful for {tutor.tutor_name}, redirecting to {FRONTEND_URL}")
@@ -165,3 +165,58 @@ async def logout(response: Response):
         samesite="lax",
     )
     return {"message": "Logged out successfully"}
+
+
+class TokenRefreshResponse(BaseModel):
+    """Response model for token refresh"""
+    success: bool
+    expires_in: int  # Seconds until new token expires
+    message: str
+
+
+@router.post("/auth/refresh", response_model=TokenRefreshResponse)
+async def refresh_token(request: Request, response: Response):
+    """
+    Refresh the authentication token.
+
+    Extends the token expiry if the current token is valid and
+    within the refresh window (expires within 30 minutes or
+    recently expired within 5 minute grace period).
+
+    Returns a new token as an HTTP-only cookie.
+    """
+    token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No token provided"
+        )
+
+    # Try to create a refreshed token
+    new_token = create_refreshed_token(token)
+
+    if not new_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token cannot be refreshed. Please log in again."
+        )
+
+    # Get the new token's expiry time
+    expires_in = get_token_time_remaining(new_token) or (ACCESS_TOKEN_EXPIRE_HOURS * 3600)
+
+    # Set new token as HTTP-only cookie
+    response.set_cookie(
+        key="access_token",
+        value=new_token,
+        httponly=True,
+        secure=ENVIRONMENT == "production",
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Cookie max age in seconds
+    )
+
+    return TokenRefreshResponse(
+        success=True,
+        expires_in=expires_in,
+        message="Token refreshed successfully"
+    )

@@ -73,8 +73,47 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-// Generic fetch wrapper with error handling
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+// Token refresh state to prevent concurrent refreshes
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Attempt to refresh the authentication token
+ * Returns true if refresh was successful
+ */
+async function refreshToken(): Promise<boolean> {
+  // If already refreshing, wait for that to complete
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        console.log("[Auth] Token refreshed successfully");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("[Auth] Token refresh failed:", error);
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+// Generic fetch wrapper with error handling and automatic token refresh
+async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = false): Promise<T> {
   try {
     // Build headers with optional impersonation role
     const headers: Record<string, string> = {
@@ -97,6 +136,17 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
       },
       ...options,
     });
+
+    // Handle 401 with automatic token refresh (but don't retry refresh endpoint itself)
+    if (response.status === 401 && !isRetry && !endpoint.includes("/auth/refresh")) {
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        // Retry the original request
+        return fetchAPI<T>(endpoint, options, true);
+      }
+      // Refresh failed, throw to trigger logout
+      throw new Error("Session expired. Please log in again.");
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: "Unknown error" }));
