@@ -87,14 +87,14 @@
 
 ## PHASE 3: COMPLETED ✅
 
-### 10. Backend Tests for Critical Paths
+### 10. ✅ Backend Tests for Critical Paths
 **Impact**: Regressions in complex business logic
-**Status**: Deferred (not blocking launch)
-**Risk Areas**:
-- Enrollment date calculations (holiday skipping)
-- Session status state machine
-- Makeup chain traversal (60-day rule)
-**Fix**: Add pytest fixtures for critical paths
+**Status**: Done (55 tests)
+**Coverage**:
+- ✅ Revenue bonus calculation (26 tests - all 5 tiers + boundaries)
+- ✅ Enrollment date calculations (16 tests - holiday skipping, boundaries)
+- ✅ Makeup chain traversal (13 tests - 60-day rule, circular refs)
+**Files**: test_revenue.py, test_enrollments.py, test_sessions.py
 
 ### 11. ✅ Session Timeout/Token Refresh
 **Impact**: 24-hour tokens are long-lived security risk
@@ -250,6 +250,54 @@ Based on code patterns, these areas may have bugs:
 
 ## CHANGELOG
 
+### 2026-02-03 - Phase 6 P2: Session Tests + Accessibility
+**Backend test coverage: 55 tests covering critical business logic**
+
+**Session Tests Added** (`backend/tests/test_sessions.py`):
+- 5 tests for `_find_root_original_session()` chain traversal
+- 3 tests for `_find_root_original_session_date()` date extraction
+- 5 tests for 60-day makeup deadline rule enforcement
+- Includes circular reference protection and orphaned chain handling
+
+**Accessibility Improvements:**
+- Added `aria-required="true"` to required form fields in 4 modal files
+- CreateEnrollmentModal, AddStudentModal, CreateRevisionSlotModal, EditRevisionSlotModal
+
+**Test Summary:**
+| Test File | Tests | Coverage |
+|-----------|-------|----------|
+| `test_revenue.py` | 26 | Monthly bonus tiers |
+| `test_enrollments.py` | 16 | Session generation, holidays |
+| `test_sessions.py` | 13 | Makeup chains, 60-day rule |
+| **Total** | **55** | Critical business logic ✅ |
+
+### 2026-02-03 - Phase 6 P1/P2: Enrollment Tests + Accessibility/Perf
+**Enrollment tests, skip navigation, bundle analyzer**
+
+**Enrollment Tests Added** (`backend/tests/test_enrollments.py`):
+- 8 tests for `generate_session_dates()` including holiday skipping
+- 5 tests for `calculate_effective_end_date()` with extensions
+- 3 tests for `get_holidays_in_range()` utility
+
+**Accessibility:**
+- Added skip navigation link in `app/layout.tsx`
+- Added `id="main-content"` to LayoutShell for skip link target
+
+**Performance:**
+- Added @next/bundle-analyzer for bundle size monitoring
+- Usage: `ANALYZE=true npm run build`
+
+### 2026-02-03 - Phase 6 P1: ARIA Labels + next/image
+**Accessibility and image optimization improvements**
+
+**ARIA Labels Added:**
+- Added `aria-label` to all icon-only buttons across components
+- SessionRow, CommandPalette, navigation buttons, etc.
+
+**Image Optimization:**
+- Replaced raw `<img>` tags with `next/image` for automatic optimization
+- Updated Sidebar.tsx, UserMenu.tsx, and other components
+
 ### 2026-02-03 - Phase 6: Comprehensive Analysis & P0 Fixes
 **Comprehensive webapp analysis conducted. Overall rating: 7.4/10**
 
@@ -271,9 +319,9 @@ Based on code patterns, these areas may have bugs:
 **Analysis Ratings:**
 - Frontend Code Quality: 8.2/10 ✅
 - Backend API Quality: 7.5/10 ⚠️ (SQL risk mitigated)
-- UX & Accessibility: 7.8/10 ✅
+- UX & Accessibility: 8.0/10 ✅ (ARIA labels, skip nav, aria-required)
 - Performance: 7.8/10 ✅
-- Test Coverage: 2.5/10 → Improved with new infrastructure
+- Test Coverage: 6.5/10 ✅ (55 tests covering critical paths)
 
 ### 2026-02-03 - Phase 5 Round 1 Complete (e637202) - UX Polish
 - Added `RefreshButton` component with icon-only mode and loading state

@@ -248,6 +248,7 @@ export function EditRevisionSlotModal({
                 hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
               )}
               required
+              aria-required="true"
             />
           </div>
 
@@ -285,6 +286,7 @@ export function EditRevisionSlotModal({
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
                     )}
                     required
+                    aria-required="true"
                   />
                   <span className="text-gray-400">–</span>
                   <input
@@ -297,6 +299,7 @@ export function EditRevisionSlotModal({
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
                     )}
                     required
+                    aria-required="true"
                   />
                 </div>
                 {!isTimeValid && (
@@ -314,6 +317,7 @@ export function EditRevisionSlotModal({
                   hasEnrolledStudents && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
                 )}
                 required
+                aria-required="true"
               >
                 {timeSlotOptions.map((slotOption) => (
                   <option key={slotOption} value={slotOption}>
@@ -341,6 +345,7 @@ export function EditRevisionSlotModal({
               aria-label="Tutor"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
+              aria-required="true"
             >
               {availableTutors.map((tutor) => (
                 <option key={tutor.id} value={tutor.id}>
@@ -372,6 +377,7 @@ export function EditRevisionSlotModal({
                 (hasEnrolledStudents || isLocationLocked) && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed opacity-60"
               )}
               required
+              aria-required="true"
             >
               {locations
                 .filter((loc) => loc !== "Various" && loc !== "All Locations")
