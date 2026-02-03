@@ -211,6 +211,7 @@ export function CreateRevisionSlotModal({
               aria-label="Session date"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
+              aria-required="true"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Exam date: {new Date(exam.start_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
@@ -249,6 +250,7 @@ export function CreateRevisionSlotModal({
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
                     )}
                     required
+                    aria-required="true"
                   />
                   <span className="text-gray-400">–</span>
                   <input
@@ -261,6 +263,7 @@ export function CreateRevisionSlotModal({
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
                     )}
                     required
+                    aria-required="true"
                   />
                 </div>
                 {!isTimeValid && (
@@ -274,6 +277,7 @@ export function CreateRevisionSlotModal({
                 aria-label="Time slot"
                 className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
                 required
+                aria-required="true"
               >
                 {timeSlotOptions.map((slot) => (
                   <option key={slot} value={slot}>
@@ -299,6 +303,7 @@ export function CreateRevisionSlotModal({
               aria-label="Tutor"
               className="w-full px-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#1a1a1a]"
               required
+              aria-required="true"
             >
               {availableTutors.map((tutor) => (
                 <option key={tutor.id} value={tutor.id}>
@@ -325,6 +330,7 @@ export function CreateRevisionSlotModal({
                 isLocationLocked && "bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
               )}
               required
+              aria-required="true"
             >
               {isLocationLocked ? (
                 <option value={selectedLocation}>{selectedLocation}</option>

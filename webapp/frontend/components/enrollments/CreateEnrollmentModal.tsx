@@ -687,6 +687,7 @@ export function CreateEnrollmentModal({
               value={firstLessonDate}
               onChange={(e) => setFirstLessonDate(e.target.value)}
               required
+              aria-required="true"
               className={cn(
                 "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
                 dayMismatchWarning
