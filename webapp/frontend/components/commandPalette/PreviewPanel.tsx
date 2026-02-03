@@ -13,6 +13,49 @@ import { getSessionStatusConfig } from "@/lib/session-status";
 import { getPaymentStatusConfig } from "@/lib/enrollment-utils";
 import { HelpTopic } from "./types";
 
+// Preview data types for command palette
+interface StudentPreviewData {
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  phone?: string;
+  home_location?: string;
+  enrollment_count?: number;
+}
+
+interface SessionPreviewData {
+  student_name: string;
+  school_student_id?: string;
+  session_date: string;
+  time_slot?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  session_status?: string;
+  tutor_name?: string;
+}
+
+interface EnrollmentPreviewData {
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  lang_stream?: string;
+  school?: string;
+  payment_status?: string;
+  assigned_day?: string;
+  assigned_time?: string;
+  tutor_name?: string;
+  lessons_paid?: number;
+}
+
+type PreviewData =
+  | { type: 'help'; data: HelpTopic }
+  | { type: 'student'; data: StudentPreviewData }
+  | { type: 'session'; data: SessionPreviewData }
+  | { type: 'enrollment'; data: EnrollmentPreviewData };
+
 // Preview panel skeleton
 export function PreviewSkeleton() {
   return (
@@ -52,7 +95,7 @@ export function HelpPreview({ topic }: { topic: HelpTopic }) {
 }
 
 // Preview content component following app-wide display patterns
-export function PreviewContent({ data }: { data: { type: string; data: any } | null }) {
+export function PreviewContent({ data }: { data: PreviewData | null }) {
   if (!data) return null;
 
   // Help topic preview
@@ -184,7 +227,7 @@ export function PreviewContent({ data }: { data: { type: string; data: any } | n
   // Enrollment preview - follows EnrollmentDetailPopover pattern
   if (data.type === 'enrollment') {
     const e = data.data;
-    const paymentConfig = getPaymentStatusConfig(e.payment_status);
+    const paymentConfig = e.payment_status ? getPaymentStatusConfig(e.payment_status) : null;
     return (
       <div className="space-y-3">
         {/* Student ID and name */}
@@ -212,7 +255,7 @@ export function PreviewContent({ data }: { data: { type: string; data: any } | n
             </span>
           )}
           {/* Payment status with color coding */}
-          {e.payment_status && (
+          {e.payment_status && paymentConfig && (
             <span className={cn(
               "px-1.5 py-0.5 text-[11px] rounded",
               paymentConfig.bgTint

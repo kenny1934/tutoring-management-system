@@ -14,7 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import type { Session } from '@/types';
-import type { ActionConfig } from './types';
+import type { ActionConfig, UserRole } from './types';
 
 // ============================================
 // VISIBILITY HELPERS
@@ -312,5 +312,5 @@ export const getSessionActionsForRole = (
   sessionActions.filter(
     (action) =>
       action.isVisible(session) &&
-      action.allowedRoles.includes(userRole as any)
+      action.allowedRoles.includes(userRole as UserRole)
   );
