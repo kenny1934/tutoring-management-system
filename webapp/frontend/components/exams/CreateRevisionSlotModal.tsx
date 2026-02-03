@@ -9,6 +9,7 @@ import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, isWeekend } from "@/lib/constants";
 import type { ExamWithRevisionSlots, SlotDefaults } from "@/types";
+import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import {
   X,
   Loader2,
@@ -117,7 +118,7 @@ export function CreateRevisionSlotModal({
     if (location) {
       filtered = filtered.filter((t) => t.default_location === location);
     }
-    return filtered.sort((a, b) => a.tutor_name.localeCompare(b.tutor_name));
+    return filtered.sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)));
   }, [tutors, location]);
 
   // Get current user's email for audit trail
