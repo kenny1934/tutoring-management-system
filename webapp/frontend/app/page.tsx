@@ -22,6 +22,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
+import { LazySection } from "@/components/ui/lazy-section";
 import { BinderClip, PaperClip, Pushpin } from "@/components/ui/stationery-accents";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -163,12 +164,14 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <BinderClip size="sm" className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" />
-            <GradeDistributionChart
-              students={filteredStudents}
-              isLoading={studentsLoading}
-              error={studentsError}
-              onRetry={mutateStudents}
-            />
+            <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
+              <GradeDistributionChart
+                students={filteredStudents}
+                isLoading={studentsLoading}
+                error={studentsError}
+                onRetry={mutateStudents}
+              />
+            </LazySection>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 16, rotate: 0.5 }}
@@ -182,12 +185,14 @@ export default function DashboardPage() {
           >
             {/* Stationery accent */}
             <PaperClip variant="gold" size="sm" className="absolute -top-1 right-4 z-10 rotate-12" />
-            <SchoolDistributionChart
-              students={filteredStudents}
-              isLoading={studentsLoading}
-              error={studentsError}
-              onRetry={mutateStudents}
-            />
+            <LazySection fallback={<div className="h-64 shimmer-sepia rounded-lg" />}>
+              <SchoolDistributionChart
+                students={filteredStudents}
+                isLoading={studentsLoading}
+                error={studentsError}
+                onRetry={mutateStudents}
+              />
+            </LazySection>
           </motion.div>
         </div>
 
