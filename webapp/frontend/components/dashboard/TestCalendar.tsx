@@ -669,18 +669,18 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       )}
 
       {/* Calendar Grid */}
-      <div className="flex-shrink-0 px-3 pb-2">
+      <div className="flex-shrink-0 px-3 pb-2" role="grid" aria-label="Calendar">
         {/* Day headers */}
-        <div className="grid grid-cols-7 mb-1">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-            <div key={i} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
-              {day}
+        <div className="grid grid-cols-7 mb-1" role="row">
+          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, i) => (
+            <div key={i} role="columnheader" className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
+              {day.charAt(0)}
             </div>
           ))}
         </div>
 
         {/* Date cells */}
-        <div className="grid grid-cols-7 gap-0.5">
+        <div className="grid grid-cols-7 gap-0.5" role="rowgroup">
           {calendarDates.map((date, i) => {
             const dateStr = toDateString(date);
             const isCurrentMonth = date.getMonth() === currentMonthNum;
@@ -689,10 +689,16 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             const dayEvents = eventsByDate.get(dateStr) || [];
             const hasEvents = dayEvents.length > 0;
             const holiday = holidayMap.get(dateStr);
+            const eventCount = dayEvents.length;
+            const ariaLabel = `${date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${holiday ? `, ${holiday.holiday_name}` : ''}${eventCount > 0 ? `, ${eventCount} event${eventCount > 1 ? 's' : ''}` : ''}`;
 
             return (
               <button
                 key={i}
+                role="gridcell"
+                aria-selected={isSelected}
+                aria-current={isToday ? "date" : undefined}
+                aria-label={ariaLabel}
                 onClick={() => setSelectedDate(isSelected ? null : dateStr)}
                 title={holiday?.holiday_name}
                 className={cn(
