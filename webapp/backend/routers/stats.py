@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, time
 from database import get_db
 from models import Student, Enrollment, SessionLog, Tutor
 from schemas import DashboardStats, StudentBasic, ActivityEvent
-from auth.dependencies import get_current_user, is_office_ip
+from auth.dependencies import get_current_user, is_office_ip, get_effective_role
 
 router = APIRouter()
 
@@ -257,11 +257,7 @@ async def global_search(
     search_term = f"%{q}%"
 
     # Get effective role (respects Super Admin impersonation)
-    effective_role = current_user.role
-    if current_user.role == "Super Admin":
-        impersonated_role = request.headers.get("X-Effective-Role")
-        if impersonated_role in ("Admin", "Tutor"):
-            effective_role = impersonated_role
+    effective_role = get_effective_role(request, current_user)
 
     # Check if user can see/search phone numbers
     can_see_phone = (

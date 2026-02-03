@@ -33,6 +33,21 @@ export function updateSessionInCache(updatedSession: Session) {
     },
     { revalidate: false }
   );
+
+  // Also revalidate related caches that depend on session status
+  // Unchecked attendance count may have changed
+  mutate(
+    (key) => {
+      if (!Array.isArray(key)) return false;
+      const [type] = key;
+      return type === 'unchecked-attendance' ||
+             type === 'unchecked-attendance-count' ||
+             type === 'dashboard-stats' ||
+             type === 'activity-feed';
+    },
+    undefined,
+    { revalidate: true }
+  );
 }
 
 /**

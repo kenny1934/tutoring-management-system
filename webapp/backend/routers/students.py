@@ -9,7 +9,7 @@ from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate
-from auth.dependencies import require_admin, get_current_user, is_office_ip
+from auth.dependencies import require_admin, get_current_user, is_office_ip, get_effective_role
 
 router = APIRouter()
 
@@ -162,11 +162,7 @@ async def get_students(
     )
 
     # Get effective role (respects Super Admin impersonation)
-    effective_role = current_user.role
-    if current_user.role == "Super Admin":
-        impersonated_role = request.headers.get("X-Effective-Role")
-        if impersonated_role in ("Admin", "Tutor"):
-            effective_role = impersonated_role
+    effective_role = get_effective_role(request, current_user)
 
     # Check if user can see/search phone numbers (admins always, tutors only from office IP)
     can_see_phone = (
@@ -252,11 +248,7 @@ async def get_student_detail(
         response.enrollments[i].tutor_name = enrollment.tutor.tutor_name if enrollment.tutor else None
 
     # Get effective role (respects Super Admin impersonation)
-    effective_role = current_user.role
-    if current_user.role == "Super Admin":
-        impersonated_role = request.headers.get("X-Effective-Role")
-        if impersonated_role in ("Admin", "Tutor"):
-            effective_role = impersonated_role
+    effective_role = get_effective_role(request, current_user)
 
     # Redact phone if tutor is not accessing from office IP
     can_see_phone = (

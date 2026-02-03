@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, api, type ParentCommunication } from './api';
 import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
@@ -1024,4 +1024,159 @@ export function useEligibleStudentsByExam(eventId: number | null | undefined, lo
     () => examRevisionAPI.getEligibleStudentsByExam(eventId!, location),
     { revalidateOnFocus: false }
   );
+}
+
+// ============================================
+// Cache Invalidation Utilities
+// ============================================
+
+/**
+ * Invalidate SWR caches after mutation operations.
+ *
+ * Use this after create/update/delete operations to ensure
+ * related lists and data are refreshed.
+ *
+ * @example
+ * // After creating an enrollment
+ * await enrollmentsAPI.create(data);
+ * invalidateCaches('enrollments', { studentId: 123, location: 'MSA' });
+ *
+ * // After marking attendance
+ * await sessionsAPI.markAttended(sessionId);
+ * invalidateCaches('sessions', { sessionId, enrollmentId });
+ */
+export function invalidateCaches(
+  type: 'sessions' | 'enrollments' | 'students' | 'proposals' | 'messages',
+  context?: {
+    sessionId?: number;
+    studentId?: number;
+    enrollmentId?: number;
+    tutorId?: number;
+    location?: string;
+  }
+) {
+  // Use a regex-based matcher to invalidate all matching keys
+  const revalidateMatchingKeys = (pattern: RegExp) => {
+    mutate(
+      key => {
+        if (typeof key === 'string') return pattern.test(key);
+        if (Array.isArray(key)) return pattern.test(key[0]);
+        return false;
+      },
+      undefined,
+      { revalidate: true }
+    );
+  };
+
+  switch (type) {
+    case 'sessions':
+      revalidateMatchingKeys(/^sessions|^session|^unchecked-attendance/);
+      // Also invalidate related enrollments and dashboard stats
+      if (context?.enrollmentId) {
+        mutate(['enrollment-sessions', context.enrollmentId]);
+        mutate(['enrollment', context.enrollmentId]);
+      }
+      if (context?.studentId) {
+        mutate(['student-sessions', context.studentId]);
+      }
+      // Dashboard stats might change (sessions this week/month)
+      revalidateMatchingKeys(/^dashboard-stats|^activity-feed/);
+      break;
+
+    case 'enrollments':
+      revalidateMatchingKeys(/^enrollments|^enrollment|^my-students|^all-students|^renewal/);
+      if (context?.studentId) {
+        mutate(['student', context.studentId]);
+        mutate(['enrollments', context.studentId]);
+      }
+      // Dashboard stats might change (enrollment counts)
+      revalidateMatchingKeys(/^dashboard-stats|^activity-feed|^overdue/);
+      break;
+
+    case 'students':
+      revalidateMatchingKeys(/^students|^student|^active-students/);
+      // Dashboard stats might change (student counts)
+      revalidateMatchingKeys(/^dashboard-stats/);
+      break;
+
+    case 'proposals':
+      revalidateMatchingKeys(/^proposals|^proposal|^pending-proposals/);
+      if (context?.sessionId) {
+        mutate(['proposal-for-session', context.sessionId]);
+      }
+      break;
+
+    case 'messages':
+      revalidateMatchingKeys(/^message|^unread-count|^archived-messages/);
+      break;
+  }
+}
+
+/**
+ * Hook that returns cache invalidation functions for common operations.
+ * Use this in components that perform mutations.
+ *
+ * @example
+ * const { invalidateAfterSessionUpdate, invalidateAfterEnrollmentCreate } = useCacheInvalidation();
+ *
+ * const handleMarkAttended = async () => {
+ *   await sessionsAPI.markAttended(sessionId);
+ *   invalidateAfterSessionUpdate({ sessionId, enrollmentId });
+ * };
+ */
+export function useCacheInvalidation() {
+  const invalidateAfterSessionUpdate = useCallback((context?: {
+    sessionId?: number;
+    studentId?: number;
+    enrollmentId?: number;
+  }) => {
+    invalidateCaches('sessions', context);
+  }, []);
+
+  const invalidateAfterEnrollmentCreate = useCallback((context?: {
+    studentId?: number;
+    location?: string;
+  }) => {
+    invalidateCaches('enrollments', context);
+  }, []);
+
+  const invalidateAfterEnrollmentUpdate = useCallback((context?: {
+    enrollmentId?: number;
+    studentId?: number;
+    location?: string;
+  }) => {
+    invalidateCaches('enrollments', context);
+  }, []);
+
+  const invalidateAfterStudentUpdate = useCallback((context?: {
+    studentId?: number;
+  }) => {
+    invalidateCaches('students', context);
+  }, []);
+
+  const invalidateAfterProposalAction = useCallback((context?: {
+    sessionId?: number;
+    tutorId?: number;
+  }) => {
+    invalidateCaches('proposals', context);
+    // Also invalidate related sessions since proposals affect session display
+    if (context?.sessionId) {
+      mutate(['session', context.sessionId]);
+    }
+  }, []);
+
+  const invalidateAfterMessageAction = useCallback((context?: {
+    tutorId?: number;
+  }) => {
+    invalidateCaches('messages', context);
+  }, []);
+
+  return {
+    invalidateAfterSessionUpdate,
+    invalidateAfterEnrollmentCreate,
+    invalidateAfterEnrollmentUpdate,
+    invalidateAfterStudentUpdate,
+    invalidateAfterProposalAction,
+    invalidateAfterMessageAction,
+  };
 }

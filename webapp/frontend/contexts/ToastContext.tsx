@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, ReactNode 
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, XCircle, Info, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 
 interface ToastAction {
   label: string;
@@ -24,6 +24,8 @@ interface ToastOptions {
 
 interface ToastContextType {
   showToast: (message: string, type?: "success" | "error" | "info", action?: ToastAction, options?: ToastOptions) => string;
+  /** Show an error toast with automatic formatting of the error message */
+  showError: (error: unknown, fallback?: string) => string;
   dismissToast: (id: string) => void;
 }
 
@@ -65,6 +67,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const showError = useCallback((error: unknown, fallback?: string) => {
+    const message = formatError(error, fallback);
+    return showToast(message, "error");
+  }, [showToast]);
+
   const getIcon = (type: Toast["type"]) => {
     switch (type) {
       case "success":
@@ -88,7 +95,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast, dismissToast }}>
+    <ToastContext.Provider value={{ showToast, showError, dismissToast }}>
       {children}
       {isMounted &&
         createPortal(

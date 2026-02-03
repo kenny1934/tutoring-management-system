@@ -17,7 +17,7 @@ import {
   RefreshCw,
   ClipboardList,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatError } from "@/lib/utils";
 import useSWR from "swr";
 import {
   enrollmentsAPI,
@@ -27,7 +27,7 @@ import {
   RenewalDataResponse,
   TrialListItem,
 } from "@/lib/api";
-import { useTutors } from "@/lib/hooks";
+import { useTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -181,7 +181,8 @@ export function CreateEnrollmentModal({
   prefillStudent,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
-  const { showToast } = useToast();
+  const { showToast, showError } = useToast();
+  const { invalidateAfterEnrollmentCreate } = useCacheInvalidation();
 
   // Form state
   const [student, setStudent] = useState<Student | null>(null);
@@ -378,8 +379,7 @@ export function CreateEnrollmentModal({
       const result = await enrollmentsAPI.preview(enrollmentData);
       setPreview(result);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to preview enrollment";
-      setPreviewError(message);
+      setPreviewError(formatError(error, "Failed to preview enrollment"));
       setPreview(null);
     } finally {
       setPreviewLoading(false);
@@ -398,11 +398,15 @@ export function CreateEnrollmentModal({
     setIsSubmitting(true);
     try {
       await enrollmentsAPI.create(enrollmentData);
+      // Invalidate caches so lists refresh with new enrollment
+      invalidateAfterEnrollmentCreate({
+        studentId: enrollmentData.student_id,
+        location: enrollmentData.location,
+      });
       showToast(`Enrollment created successfully`, "success");
       setIsSuccess(true);  // Show success screen instead of closing
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create enrollment";
-      showToast(message, "error");
+      showError(error, "Failed to create enrollment");
     } finally {
       setIsSubmitting(false);
     }
