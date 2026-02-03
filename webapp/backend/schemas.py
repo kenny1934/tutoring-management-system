@@ -211,6 +211,12 @@ class EnrollmentCreate(BaseModel):
     discount_id: Optional[int] = Field(None, gt=0)
 
 
+class HolidaySkipped(BaseModel):
+    """Holiday that was skipped during session generation"""
+    date: str = Field(..., description="Date of the skipped holiday (ISO format)")
+    name: str = Field(..., max_length=100, description="Name of the holiday")
+
+
 class SessionPreview(BaseModel):
     """Preview of a session to be generated"""
     session_date: date
@@ -245,7 +251,7 @@ class EnrollmentPreviewResponse(BaseModel):
     effective_end_date: date = Field(..., description="Date of the last generated session")
     conflicts: List[StudentConflict] = Field(default_factory=list, description="Student conflicts with existing sessions")
     warnings: List[str] = Field(default_factory=list, description="Holiday shifts and other warnings")
-    skipped_holidays: List[dict] = Field(default_factory=list, description="List of holidays that were skipped")
+    skipped_holidays: List[HolidaySkipped] = Field(default_factory=list, description="List of holidays that were skipped")
     potential_renewals: List[PotentialRenewalLink] = Field(default_factory=list, description="Potential previous enrollments to link as renewal")
 
 
@@ -555,6 +561,16 @@ class StudentInSlot(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MakeupScoreBreakdown(BaseModel):
+    """Score breakdown for make-up slot compatibility scoring"""
+    is_same_tutor: bool = Field(..., description="Whether slot is with the student's regular tutor")
+    matching_grade_count: int = Field(..., ge=0, description="Number of students with matching grade in slot")
+    matching_school_count: int = Field(..., ge=0, description="Number of students from matching school in slot")
+    matching_lang_count: int = Field(..., ge=0, description="Number of students with matching language stream")
+    days_away: int = Field(..., ge=0, description="Days from original session date")
+    current_students: int = Field(..., ge=0, description="Current student count in the slot")
+
+
 class MakeupSlotSuggestion(BaseModel):
     """Scored slot suggestion for make-up scheduling"""
     session_date: date
@@ -565,7 +581,7 @@ class MakeupSlotSuggestion(BaseModel):
     current_students: int = Field(..., ge=0, description="Only Scheduled + Make-up Class sessions")
     available_spots: int = Field(..., ge=0, description="8 - current_students")
     compatibility_score: int = Field(..., ge=0)
-    score_breakdown: dict = Field(default_factory=dict)
+    score_breakdown: MakeupScoreBreakdown = Field(..., description="Raw scoring data for frontend-side weighted scoring")
     students_in_slot: List[StudentInSlot] = Field(default_factory=list)
 
 
@@ -1328,10 +1344,10 @@ class PendingSessionInfo(BaseModel):
     """Info about a pending session that can be consumed"""
     id: int = Field(..., gt=0)
     session_date: date
-    time_slot: Optional[str] = None
-    session_status: str
-    tutor_name: Optional[str] = None
-    location: Optional[str] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    session_status: str = Field(..., max_length=50)
+    tutor_name: Optional[str] = Field(None, max_length=100)
+    location: Optional[str] = Field(None, max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1422,11 +1438,20 @@ class UpdatableSession(BaseModel):
     shifted_date: Optional[date] = Field(default=None, description="Auto-shifted date if original was a holiday")
 
 
+class ScheduleInfo(BaseModel):
+    """Schedule information with day, time, location, and tutor"""
+    assigned_day: str = Field(..., max_length=20)
+    assigned_time: str = Field(..., max_length=20)
+    location: str = Field(..., max_length=200)
+    tutor_id: int = Field(..., gt=0)
+    tutor_name: str = Field(..., max_length=200)
+
+
 class ScheduleChangePreviewResponse(BaseModel):
     """Response from schedule change preview"""
     enrollment_id: int
-    current_schedule: dict = Field(..., description="Current day, time, location, tutor")
-    new_schedule: dict = Field(..., description="Requested day, time, location, tutor")
+    current_schedule: ScheduleInfo = Field(..., description="Current day, time, location, tutor")
+    new_schedule: ScheduleInfo = Field(..., description="Requested day, time, location, tutor")
     unchangeable_sessions: List[UnchangeableSession] = Field(default_factory=list)
     updatable_sessions: List[UpdatableSession] = Field(default_factory=list)
     conflicts: List[StudentConflict] = Field(default_factory=list, description="Conflicts with new schedule")
