@@ -974,3 +974,119 @@ export interface ApiError {
   detail: string | { message: string; code?: string; [key: string]: unknown };
   status?: number;
 }
+
+// =============================================================================
+// GENERIC API RESPONSE TYPES
+// =============================================================================
+
+/** Generic message response for delete/action endpoints */
+export interface MessageResponse {
+  message: string;
+}
+
+/** Generic success response */
+export interface SuccessResponse {
+  success: boolean;
+}
+
+/** Generic count response */
+export interface CountResponse {
+  count: number;
+}
+
+/** Batch update response for mark-paid/mark-sent operations */
+export interface BatchUpdateResponse {
+  updated: number[];
+  count: number;
+}
+
+/** Response for calendar sync operations */
+export interface CalendarSyncResponse {
+  success: boolean;
+  events_synced: number;
+  message: string;
+}
+
+/** Response for enrollment cancellation */
+export interface EnrollmentCancelResponse {
+  enrollment: Enrollment;
+  sessions_cancelled: number;
+}
+
+/** Response for fee message generation */
+export interface FeeMessageResponse {
+  message: string;
+  lessons_paid: number;
+  first_lesson_date: string;
+}
+
+/** Response for school info lookup */
+export interface SchoolInfoResponse {
+  lang_stream: string | null;
+}
+
+/** Response for next student ID */
+export interface NextIdResponse {
+  next_id: string;
+}
+
+/** Duplicate student match */
+export interface DuplicateStudent {
+  id: number;
+  student_name: string;
+  school_student_id: string | null;
+  school: string | null;
+  grade: string | null;
+  match_reason: string;
+}
+
+/** Response for duplicate check */
+export interface CheckDuplicatesResponse {
+  duplicates: DuplicateStudent[];
+}
+
+/** Location revenue summary */
+export interface LocationRevenueSummary {
+  location: string;
+  period: string;
+  total_revenue: number;
+  sessions_count: number;
+  avg_revenue_per_session: number;
+}
+
+/** Active student for dashboard */
+export interface ActiveStudent {
+  id: number;
+  school_student_id: string | null;
+  student_name: string;
+  grade: string | null;
+  lang_stream: string | null;
+  school: string | null;
+  home_location: string | null;
+}
+
+/** Toggle like response */
+export interface ToggleLikeResponse {
+  success: boolean;
+  is_liked: boolean;
+  like_count: number;
+}
+
+/** Archive operation response */
+export interface ArchiveResponse {
+  success: boolean;
+  count: number;
+}
+
+/** Bulk delete response for debug API */
+export interface BulkDeleteResponse {
+  deleted_count: number;
+  failed_ids: number[];
+  message: string;
+}
+
+/** Bulk update response for debug API */
+export interface DebugBulkUpdateResponse {
+  updated_count: number;
+  message: string;
+}
