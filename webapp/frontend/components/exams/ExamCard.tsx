@@ -133,9 +133,17 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
       highlighted && "ring-2 ring-[#a0704b] ring-offset-2"
     )}>
       {/* Header - Always visible */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-4 flex items-start gap-4 text-left hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded(!isExpanded);
+          }
+        }}
+        className="w-full px-4 py-4 flex items-start gap-4 text-left hover:bg-[#faf6f1]/50 dark:hover:bg-[#2d2820]/50 transition-colors cursor-pointer"
       >
         {/* Date indicator */}
         <div className={cn(
@@ -269,7 +277,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
             </div>
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Expanded content */}
       {isExpanded && (
