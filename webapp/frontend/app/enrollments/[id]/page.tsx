@@ -222,9 +222,9 @@ export default function EnrollmentDetailPage() {
     setIsCancelling(true);
     try {
       await enrollmentsAPI.cancel(enrollment.id);
+      mutate(['enrollment', enrollment.id]);
       showToast("Enrollment cancelled");
       setConfirmCancel(false);
-      router.back();
     } catch (err) {
       console.error("Failed to cancel enrollment:", err);
       showToast("Failed to cancel enrollment", "error");

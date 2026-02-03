@@ -2051,7 +2051,7 @@ async def apply_schedule_change(
     enrollment.location = changes.location
     enrollment.tutor_id = changes.tutor_id
     enrollment.last_modified_time = datetime.now()
-    enrollment.last_modified_by = current_user.get('email', 'admin')
+    enrollment.last_modified_by = current_user.user_email
 
     sessions_updated = 0
 
@@ -2159,7 +2159,7 @@ async def cancel_enrollment(
     # Update payment_status to Cancelled
     enrollment.payment_status = "Cancelled"
     enrollment.last_modified_time = datetime.now()
-    enrollment.last_modified_by = current_user.get('email', 'admin')
+    enrollment.last_modified_by = current_user.user_email
 
     # Cancel all remaining sessions
     cancelled_count = db.query(SessionLog).filter(
@@ -2195,7 +2195,7 @@ async def batch_mark_paid(
             enrollment.payment_status = 'Paid'
             enrollment.payment_date = date.today()
             enrollment.last_modified_time = datetime.now()
-            enrollment.last_modified_by = current_user.get('email', 'admin')
+            enrollment.last_modified_by = current_user.user_email
             # Also update sessions' financial_status
             db.query(SessionLog).filter(
                 SessionLog.enrollment_id == eid
