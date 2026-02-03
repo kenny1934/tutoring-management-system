@@ -32,6 +32,7 @@ from schemas import (
 )
 from utils.response_builders import build_session_response as _build_session_response
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES
+from services.google_calendar_service import sync_calendar_events
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1247,3 +1248,56 @@ def _count_eligible_students(
         count = count.filter(Enrollment.location == location)
 
     return count.scalar() or 0
+
+
+# ============================================
+# Calendar Sync Status
+# ============================================
+
+@router.get("/exam-revision/calendar/sync-status")
+async def get_calendar_sync_status(
+    db: Session = Depends(get_db)
+):
+    """
+    Get the status of the Google Calendar sync.
+
+    Returns the last successful sync time and event counts.
+    """
+    # Get the most recently synced event's timestamp
+    last_synced = db.query(
+        func.max(CalendarEvent.last_synced_at)
+    ).scalar()
+
+    # Count total events in database
+    total_events = db.query(func.count(CalendarEvent.id)).scalar() or 0
+
+    # Count events in the upcoming window (next 90 days)
+    from datetime import timedelta
+    now = date.today()
+    upcoming_events = db.query(func.count(CalendarEvent.id)).filter(
+        CalendarEvent.start_date >= now,
+        CalendarEvent.start_date <= now + timedelta(days=90)
+    ).scalar() or 0
+
+    return {
+        "last_synced_at": last_synced.isoformat() if last_synced else None,
+        "total_events": total_events,
+        "upcoming_events": upcoming_events,
+        "sync_window_days": 90
+    }
+
+
+@router.post("/exam-revision/calendar/sync")
+async def trigger_calendar_sync(
+    force: bool = Query(False, description="Force sync regardless of TTL"),
+    days_behind: int = Query(0, ge=0, le=30, description="Days in the past to sync"),
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger a Google Calendar sync.
+
+    By default, respects the 15-minute TTL between syncs.
+    Use force=true to bypass the TTL check.
+    """
+    result = sync_calendar_events(db, force_sync=force, days_behind=days_behind)
+    return result

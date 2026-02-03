@@ -12,7 +12,8 @@ from jose import jwt, JWTError
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 4  # Reduced from 24 for security
-REFRESH_THRESHOLD_MINUTES = 30  # Allow refresh if token expires within this window
+REFRESH_THRESHOLD_MINUTES = 30  # Frontend proactive refresh threshold (refresh before this)
+REFRESH_GRACE_PERIOD_MINUTES = 15  # Backend grace period for expired tokens
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -93,7 +94,10 @@ def can_refresh_token(token: str) -> bool:
 
     A token can be refreshed if:
     - It's valid (not tampered)
-    - It expires within REFRESH_THRESHOLD_MINUTES minutes OR is recently expired (within 5 minutes)
+    - It's not yet expired, OR expired within 15-minute grace period
+
+    This enables a "sliding window" pattern where any valid token
+    can be refreshed to extend the session.
 
     Args:
         token: The JWT token string
@@ -115,10 +119,10 @@ def can_refresh_token(token: str) -> bool:
         time_remaining = exp - now
 
         # Allow refresh if:
-        # - Token expires within threshold, OR
-        # - Token expired less than 5 minutes ago (grace period for race conditions)
-        grace_period_seconds = 5 * 60
-        return time_remaining < (REFRESH_THRESHOLD_MINUTES * 60) and time_remaining > -grace_period_seconds
+        # - Token is still valid (time_remaining > 0), OR
+        # - Token expired within grace period (for 401 retries)
+        grace_period_seconds = REFRESH_GRACE_PERIOD_MINUTES * 60
+        return time_remaining > -grace_period_seconds
     except JWTError:
         return False
 

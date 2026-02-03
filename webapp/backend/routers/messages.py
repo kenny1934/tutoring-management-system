@@ -172,7 +172,7 @@ async def get_message_threads(
     tutor_id: int = Query(..., description="Current tutor ID (required for read status)"),
     category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search in subject, message, or tutor names"),
-    limit: int = Query(20, ge=1, le=50, description="Maximum threads to return"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
@@ -348,7 +348,7 @@ async def get_message_threads(
 @router.get("/messages/sent", response_model=List[MessageResponse])
 async def get_sent_messages(
     tutor_id: int = Query(..., description="Tutor ID to get sent messages for"),
-    limit: int = Query(50, ge=1, le=200, description="Maximum messages to return"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum messages to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
@@ -557,7 +557,7 @@ async def unarchive_messages(
 @router.get("/messages/archived", response_model=PaginatedThreadsResponse)
 async def get_archived_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
-    limit: int = Query(20, ge=1, le=50, description="Maximum threads to return"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):

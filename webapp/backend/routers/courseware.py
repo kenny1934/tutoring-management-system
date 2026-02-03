@@ -17,8 +17,8 @@ async def get_courseware_popularity(
     exercise_type: Optional[str] = Query(None, description="Filter by exercise type: 'Classwork' or 'Homework'"),
     grade: Optional[str] = Query(None, description="Filter by grade (e.g., 'F1', 'F2')"),
     school: Optional[str] = Query(None, description="Filter by school"),
-    limit: int = Query(1000, ge=1, le=2000),
-    offset: int = Query(0, ge=0, le=100000),
+    limit: int = Query(50, ge=1, le=500, description="Maximum items to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
     """
