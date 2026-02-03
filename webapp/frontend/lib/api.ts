@@ -190,7 +190,6 @@ async function refreshToken(): Promise<boolean> {
       });
 
       if (response.ok) {
-        console.log("[Auth] Token refreshed successfully");
         return true;
       }
       return false;

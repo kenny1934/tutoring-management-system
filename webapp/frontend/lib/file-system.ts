@@ -577,11 +577,8 @@ export async function printFilePages(
 ): Promise<boolean> {
   // If no page specification, print entire file
   if (!pageStart && !pageEnd && !complexRange) {
-    console.log('[Print] No page range specified, printing entire file');
     return printFile(handle);
   }
-
-  console.log('[Print] Page range requested:', { pageStart, pageEnd, complexRange });
 
   try {
     const file = await handle.getFile();
@@ -593,7 +590,6 @@ export async function printFilePages(
     if (complexRange) {
       // Parse complex range (from pdf-utils)
       pageNumbers = parsePageRange(complexRange);
-      console.log('[Print] Complex range parsed:', pageNumbers);
     } else if (pageStart !== undefined) {
       // Simple range (pageEnd defaults to pageStart if not specified)
       const start = pageStart;
@@ -602,23 +598,17 @@ export async function printFilePages(
         { length: end - start + 1 },
         (_, i) => start + i
       );
-      console.log('[Print] Simple range:', pageNumbers);
     } else {
       // Shouldn't happen, but fallback
-      console.log('[Print] Unexpected state, printing entire file');
       return printFile(handle);
     }
 
     if (pageNumbers.length === 0) {
-      console.log('[Print] No pages to extract, printing entire file');
       return printFile(handle);
     }
 
-    console.log('[Print] Extracting pages:', pageNumbers);
-
     // Extract pages using pdf-utils (with optional stamp)
     const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
-    console.log('[Print] Extraction successful, blob size:', extractedBlob.size);
 
     // Create URL and print
     const url = URL.createObjectURL(extractedBlob);
@@ -1113,8 +1103,6 @@ export async function printBulkFiles(
     return 'no_valid_files';
   }
 
-  console.log('[BulkPrint] Processing', validExercises.length, 'exercises');
-
   // Fetch all PDFs in parallel using shared helper
   const fsUtils = createFsUtils();
   const results = await Promise.all(
@@ -1139,12 +1127,9 @@ export async function printBulkFiles(
     return 'no_valid_files';
   }
 
-  console.log('[BulkPrint] Extracting pages from', bulkItems.length, 'PDFs');
-
   try {
     // Extract and combine all pages
     const combinedBlob = await extractBulkPagesForPrint(bulkItems, stamp);
-    console.log('[BulkPrint] Combined blob size:', combinedBlob.size);
 
     // Create URL and print
     const url = URL.createObjectURL(combinedBlob);
@@ -1208,8 +1193,6 @@ export async function downloadBulkFiles(
     return 'no_valid_files';
   }
 
-  console.log('[BulkDownload] Processing', validExercises.length, 'exercises');
-
   // Fetch all PDFs in parallel using shared helper
   const fsUtils = createFsUtils();
   const results = await Promise.all(
@@ -1234,12 +1217,9 @@ export async function downloadBulkFiles(
     return 'no_valid_files';
   }
 
-  console.log('[BulkDownload] Extracting pages from', bulkItems.length, 'PDFs');
-
   try {
     // Extract and combine all pages into actual PDF (not HTML like print)
     const combinedBlob = await extractBulkPagesForDownload(bulkItems, stamp);
-    console.log('[BulkDownload] Combined PDF blob size:', combinedBlob.size);
 
     // Trigger download
     const url = URL.createObjectURL(combinedBlob);
@@ -1305,8 +1285,6 @@ export async function downloadAllAnswerFiles(
     return { status: 'no_valid_files', found: 0, missing: 0 };
   }
 
-  console.log('[AnswerDownload] Processing', validExercises.length, 'exercises');
-
   // For each exercise, find the answer file path
   const answerPaths: { path: string; exercise: AnswerExercise; documentId?: number }[] = [];
   let missing = 0;
@@ -1338,8 +1316,6 @@ export async function downloadAllAnswerFiles(
   if (answerPaths.length === 0) {
     return { status: 'no_valid_files', found: 0, missing };
   }
-
-  console.log('[AnswerDownload] Found', answerPaths.length, 'answer files');
 
   // Build BulkPrintExercise array for the answer files
   const answerExercises: BulkPrintExercise[] = answerPaths.map(({ path, exercise }) => ({
@@ -1374,12 +1350,9 @@ export async function downloadAllAnswerFiles(
     return { status: 'no_valid_files', found: 0, missing };
   }
 
-  console.log('[AnswerDownload] Extracting pages from', bulkItems.length, 'PDFs');
-
   try {
     // Extract and combine all pages into actual PDF
     const combinedBlob = await extractBulkPagesForDownload(bulkItems, stamp);
-    console.log('[AnswerDownload] Combined PDF blob size:', combinedBlob.size);
 
     // Trigger download
     const url = URL.createObjectURL(combinedBlob);

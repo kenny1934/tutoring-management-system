@@ -332,8 +332,6 @@ export function SessionActionButtons({
   };
 
   const handleSave = (sessionId: number, updates: Partial<Session>) => {
-    // Future: call API to save updates
-    console.log("Session saved:", sessionId, updates);
     onAction?.("edit-saved", session);
   };
 

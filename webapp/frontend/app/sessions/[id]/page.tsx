@@ -547,8 +547,7 @@ export default function SessionDetailPage() {
         session={session}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        onSave={(sessionId, updates) => {
-          console.log("Session saved:", sessionId, updates);
+        onSave={() => {
           setIsEditModalOpen(false);
         }}
       />
