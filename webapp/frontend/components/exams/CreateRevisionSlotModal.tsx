@@ -191,8 +191,8 @@ export function CreateRevisionSlotModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Error message */}
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <div id="revision-slot-error" role="alert" className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
               {error}
             </div>
           )}
@@ -245,6 +245,8 @@ export function CreateRevisionSlotModal({
                     value={customStartTime}
                     onChange={(e) => setCustomStartTime(e.target.value)}
                     aria-label="Start time"
+                    aria-describedby={!isTimeValid ? "revision-time-error" : undefined}
+                    aria-invalid={!isTimeValid ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -252,12 +254,14 @@ export function CreateRevisionSlotModal({
                     required
                     aria-required="true"
                   />
-                  <span className="text-gray-400">–</span>
+                  <span className="text-gray-400" aria-hidden="true">–</span>
                   <input
                     type="time"
                     value={customEndTime}
                     onChange={(e) => setCustomEndTime(e.target.value)}
                     aria-label="End time"
+                    aria-describedby={!isTimeValid ? "revision-time-error" : undefined}
+                    aria-invalid={!isTimeValid ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 text-sm border rounded-lg bg-white dark:bg-[#1a1a1a]",
                       !isTimeValid ? "border-red-500" : "border-[#e8d4b8] dark:border-[#6b5a4a]"
@@ -267,7 +271,7 @@ export function CreateRevisionSlotModal({
                   />
                 </div>
                 {!isTimeValid && (
-                  <p className="mt-1 text-xs text-red-500">End time must be after start time</p>
+                  <p id="revision-time-error" className="mt-1 text-xs text-red-500" role="alert">End time must be after start time</p>
                 )}
               </div>
             ) : (

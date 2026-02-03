@@ -1390,9 +1390,9 @@ export function ScheduleMakeupModal({
 
         {/* Validation Error */}
         {validationError && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div id="makeup-validation-error" role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
               <span>{validationError}</span>
             </div>
             {/* Show Request Extension button for deadline exceeded errors */}
@@ -1799,7 +1799,7 @@ export function ScheduleMakeupModal({
 
             {/* 60-day makeup limit warning - Super Admin can override */}
             {is60DayExceeded && (
-              <div className={cn(
+              <div id="makeup-60day-warning" role="alert" className={cn(
                 "p-3 border rounded-lg",
                 isSuperAdmin
                   ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700"
@@ -1809,7 +1809,7 @@ export function ScheduleMakeupModal({
                   <AlertTriangle className={cn(
                     "h-4 w-4 mt-0.5 flex-shrink-0",
                     isSuperAdmin ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"
-                  )} />
+                  )} aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className={cn(
                       "text-sm",
@@ -1849,9 +1849,9 @@ export function ScheduleMakeupModal({
 
             {/* Early deadline warning - shown when scheduling to regular slot past deadline */}
             {earlyDeadlineWarning && !deadlineError && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+              <div id="makeup-deadline-warning" role="alert" className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-amber-800 dark:text-amber-200">
                       This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
@@ -1921,16 +1921,22 @@ export function ScheduleMakeupModal({
                         type="time"
                         value={customTimeStart}
                         onChange={(e) => setCustomTimeStart(e.target.value)}
+                        aria-label="Start time"
+                        aria-describedby={isInvalid ? "makeup-custom-time-error" : undefined}
+                        aria-invalid={isInvalid ? "true" : undefined}
                         className={cn(
                           "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
                           isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
                         )}
                       />
-                      <span className="text-gray-500">to</span>
+                      <span className="text-gray-500" aria-hidden="true">to</span>
                       <input
                         type="time"
                         value={customTimeEnd}
                         onChange={(e) => setCustomTimeEnd(e.target.value)}
+                        aria-label="End time"
+                        aria-describedby={isInvalid ? "makeup-custom-time-error" : undefined}
+                        aria-invalid={isInvalid ? "true" : undefined}
                         className={cn(
                           "flex-1 px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-800",
                           isInvalid ? "border-red-400" : "border-gray-200 dark:border-gray-700"
@@ -1938,7 +1944,7 @@ export function ScheduleMakeupModal({
                       />
                     </div>
                     {isInvalid && (
-                      <p className="text-xs text-red-500">End time must be after start time</p>
+                      <p id="makeup-custom-time-error" className="text-xs text-red-500" role="alert">End time must be after start time</p>
                     )}
                     <button
                       type="button"

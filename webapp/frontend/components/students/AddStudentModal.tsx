@@ -200,8 +200,8 @@ export function AddStudentModal({
       <div className="space-y-4 p-4">
         {/* Duplicate Warning */}
         {duplicates.length > 0 && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" />
+          <div id="student-duplicate-warning" role="alert" className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium text-amber-800 dark:text-amber-200">Potential duplicate found</p>
               <ul className="mt-1 space-y-1 text-amber-700 dark:text-amber-300">
@@ -229,6 +229,7 @@ export function AddStudentModal({
             placeholder="Enter student name"
             required
             aria-required="true"
+            aria-describedby={duplicates.length > 0 ? "student-duplicate-warning" : undefined}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50"
             autoFocus
           />

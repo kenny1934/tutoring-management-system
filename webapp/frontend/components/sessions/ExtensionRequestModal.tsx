@@ -364,6 +364,8 @@ export function ExtensionRequestModal({
                 type="date"
                 value={proposedDate}
                 onChange={(e) => setProposedDate(e.target.value)}
+                aria-describedby={proposedDateExceedsDeadline ? "extension-date-warning" : undefined}
+                aria-invalid={proposedDateExceedsDeadline ? "true" : undefined}
                 className={inputClass}
               />
             </div>
@@ -428,8 +430,8 @@ export function ExtensionRequestModal({
           </div>
           {/* Warning if proposed date exceeds projected deadline */}
           {proposedDateExceedsDeadline && (
-            <div className="flex items-start gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div id="extension-date-warning" role="alert" className="flex items-start gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 This date is after the projected deadline ({projectedDeadline}). The
                 makeup may still exceed the enrollment deadline even with the extension.
