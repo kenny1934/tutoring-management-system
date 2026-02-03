@@ -44,6 +44,7 @@ import {
   Trash2,
   CalendarClock,
   Circle,
+  CircleDot,
   Archive,
   ArchiveRestore,
 } from "lucide-react";
@@ -118,11 +119,12 @@ const EMPTY_MESSAGES: Record<string, string> = {
   chat: "No chat messages",
   courseware: "No courseware messages",
   "makeup-confirmation": "No pending make-up confirmations",
+  archived: "No archived messages",
   inbox: "No messages in your inbox",
 };
 
 // Mutate filter functions
-const isThreadsKey = (key: unknown) => Array.isArray(key) && key[0] === "message-threads";
+const isThreadsKey = (key: unknown) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "message-threads-paginated");
 const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
 const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
 const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
@@ -240,7 +242,7 @@ function ComposeModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 lg:pl-64">
       <div className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-[#e8d4b8] dark:border-[#6b5a4a]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <h2 className="font-semibold text-gray-900 dark:text-white">
@@ -621,13 +623,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Mark messages as read when viewing
   useEffect(() => {
     allMessages.forEach((m) => {
-      // Mark as read if: unread AND (from someone else OR it's a system-generated message)
-      const isSystemMessage = m.category === "MakeupConfirmation";
-      if (!m.is_read && (m.from_tutor_id !== currentTutorId || isSystemMessage)) {
+      if (!m.is_read) {
         onMarkRead(m.id);
       }
     });
-  }, [allMessages, currentTutorId, onMarkRead]);
+  }, [allMessages, onMarkRead]);
 
   const startEdit = (m: Message) => {
     setEditingMessageId(m.id);
@@ -690,11 +690,16 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           </div>
         </div>
         <button
-          onClick={() => onMarkUnread(msg.id)}
-          className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
-          title="Mark as unread"
+          onClick={() => msg.is_read ? onMarkUnread(msg.id) : onMarkRead(msg.id)}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
+            msg.is_read
+              ? "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+          )}
+          title={msg.is_read ? "Mark as unread" : "Mark as read"}
         >
-          <Circle className="h-4 w-4" />
+          {msg.is_read ? <Circle className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
         </button>
         {isArchived ? (
           <button
@@ -1049,6 +1054,8 @@ export default function InboxPage() {
     ? loadingSent
     : selectedCategory === "makeup-confirmation"
     ? loadingProposals
+    : selectedCategory === "archived"
+    ? loadingArchived
     : loadingThreads;
 
   // Sync selectedThread with latest data from SWR
@@ -1166,7 +1173,7 @@ export default function InboxPage() {
     const { updateThread } = createReadStatusUpdaters(messageId, true);
 
     // Optimistic updates
-    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.map(updateThread), { revalidate: false });
+    mutate(isThreadsKey, (data: MessageThread[] | undefined) => Array.isArray(data) ? data.map(updateThread) : data, { revalidate: false });
     mutate(isUnreadKey, (data: { count: number } | undefined) => data ? { count: Math.max(0, data.count - 1) } : data, { revalidate: false });
     setSelectedThread(prev => prev ? updateThread(prev) : prev);
 
@@ -1187,7 +1194,7 @@ export default function InboxPage() {
     const { updateThread } = createReadStatusUpdaters(messageId, false);
 
     // Optimistic updates
-    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.map(updateThread), { revalidate: false });
+    mutate(isThreadsKey, (data: MessageThread[] | undefined) => Array.isArray(data) ? data.map(updateThread) : data, { revalidate: false });
     mutate(isUnreadKey, (data: { count: number } | undefined) => data ? { count: data.count + 1 } : data, { revalidate: false });
     setSelectedThread(prev => prev ? updateThread(prev) : prev);
 
@@ -1414,8 +1421,8 @@ export default function InboxPage() {
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
                         <div className="flex-1 space-y-2 min-w-0">
-                          <div className="h-4 w-32 bg-gray-300 dark:bg-gray-600 rounded" />
-                          <div className="h-3 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-4 w-1/3 bg-gray-300 dark:bg-gray-600 rounded" />
+                          <div className="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded" />
                         </div>
                         <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0" />
                       </div>
