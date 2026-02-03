@@ -2,6 +2,7 @@
 Authentication router for Google OAuth.
 """
 
+import logging
 import os
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -16,6 +17,7 @@ from auth.dependencies import get_current_user
 from utils.rate_limiter import check_ip_rate_limit
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Configuration
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -66,10 +68,10 @@ async def google_callback(
         # Exchange code for user info
         user_info = await exchange_code_for_user_info(code)
         google_email = user_info.get("email")
-        print(f"[OAuth] Google email: {google_email}")
+        logger.info("OAuth callback for email: %s", google_email)
 
         if not google_email:
-            print("[OAuth] No email returned from Google")
+            logger.warning("No email returned from Google OAuth")
             return RedirectResponse(
                 url=f"{FRONTEND_URL}/login?error=no_email",
                 status_code=status.HTTP_302_FOUND,
@@ -77,7 +79,7 @@ async def google_callback(
 
         # Find tutor by email (whitelist approach)
         tutor = db.query(Tutor).filter(Tutor.user_email == google_email).first()
-        print(f"[OAuth] Tutor found: {tutor.tutor_name if tutor else 'None'}")
+        logger.info("Tutor lookup result: %s", tutor.tutor_name if tutor else "not found")
 
         if not tutor:
             # User not in system - reject login
@@ -111,12 +113,11 @@ async def google_callback(
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Match token expiry
         )
 
-        print(f"[OAuth] Login successful for {tutor.tutor_name}, redirecting to {FRONTEND_URL}")
+        logger.info("Login successful for %s", tutor.tutor_name)
         return response
 
     except Exception as e:
-        # Log the error in production
-        print(f"OAuth callback error: {e}")
+        logger.error("OAuth callback error: %s", e)
         return RedirectResponse(
             url=f"{FRONTEND_URL}/login?error=oauth_failed",
             status_code=status.HTTP_302_FOUND,

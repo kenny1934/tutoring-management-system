@@ -7,11 +7,50 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
 from decimal import Decimal
+from pydantic import BaseModel
 from database import get_db
 from models import Tutor
 from auth.dependencies import get_current_user
 
 router = APIRouter()
+
+
+# ============================================================================
+# Response Models
+# ============================================================================
+
+class MonthlySummaryResponse(BaseModel):
+    """Monthly revenue summary for a tutor."""
+    tutor_id: int
+    tutor_name: str
+    period: str
+    basic_salary: float
+    session_revenue: float
+    monthly_bonus: float
+    total_salary: float
+    sessions_count: int
+    avg_revenue_per_session: Optional[float] = None
+
+
+class SessionRevenueDetail(BaseModel):
+    """Individual session revenue detail."""
+    session_id: int
+    session_date: Optional[str] = None
+    time_slot: Optional[str] = None
+    student_id: int
+    student_name: str
+    session_status: Optional[str] = None
+    cost_per_session: float
+    enrollment_id: Optional[int] = None
+
+
+class LocationSummaryResponse(BaseModel):
+    """Location-aggregated revenue summary."""
+    location: str
+    period: str
+    total_revenue: float
+    sessions_count: int
+    avg_revenue_per_session: float
 
 
 def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
@@ -46,7 +85,7 @@ def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
         return Decimal(str(round(bonus, 2)))
 
 
-@router.get("/revenue/monthly-summary")
+@router.get("/revenue/monthly-summary", response_model=MonthlySummaryResponse)
 async def get_monthly_revenue_summary(
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
@@ -113,7 +152,7 @@ async def get_monthly_revenue_summary(
     }
 
 
-@router.get("/revenue/session-details")
+@router.get("/revenue/session-details", response_model=List[SessionRevenueDetail])
 async def get_session_revenue_details(
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
@@ -167,7 +206,7 @@ async def get_session_revenue_details(
     ]
 
 
-@router.get("/revenue/location-monthly-summary")
+@router.get("/revenue/location-monthly-summary", response_model=LocationSummaryResponse)
 async def get_location_monthly_summary(
     location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),

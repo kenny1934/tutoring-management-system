@@ -2,6 +2,7 @@
 FastAPI dependencies for authentication and authorization.
 """
 
+import logging
 from typing import List, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Tutor, SessionLog, OfficeIPWhitelist
 from .jwt_handler import verify_token
+
+logger = logging.getLogger(__name__)
 
 
 def get_current_user(
@@ -27,17 +30,17 @@ def get_current_user(
             ...
     """
     token = request.cookies.get("access_token")
-    print(f"[Auth] Cookie access_token present: {bool(token)}")
+    logger.debug("Cookie access_token present: %s", bool(token))
 
     if not token:
-        print(f"[Auth] No token found. All cookies: {request.cookies}")
+        logger.debug("No token found in request cookies")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
 
     payload = verify_token(token)
-    print(f"[Auth] Token verification result: {payload}")
+    logger.debug("Token verification result: %s", "valid" if payload else "invalid")
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

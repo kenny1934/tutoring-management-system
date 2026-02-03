@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, text
+from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
 from datetime import date
 from database import get_db
@@ -1221,7 +1222,7 @@ async def schedule_makeup(
                         )
             except HTTPException:
                 raise  # Re-raise HTTPExceptions
-            except Exception as e:
+            except SQLAlchemyError as e:
                 # Log but don't block if SQL function doesn't exist
                 logger.warning(f"Could not check enrollment deadline: {e}")
 
@@ -1680,7 +1681,7 @@ async def update_session(
                                 )
                     except HTTPException:
                         raise  # Re-raise HTTPExceptions
-                    except Exception as e:
+                    except SQLAlchemyError as e:
                         # Log but don't block if SQL function doesn't exist
                         logger.warning(f"Could not check enrollment deadline: {e}")
 
@@ -1823,8 +1824,8 @@ async def get_upcoming_tests(
     # Auto-sync calendar events (respects 15-min TTL, won't sync if recent)
     try:
         sync_calendar_events(db=db, force_sync=False)
-    except Exception as e:
-        # Log but don't fail the request if sync fails
+    except (OSError, SQLAlchemyError) as e:
+        # Log but don't fail the request if sync fails (network/db errors)
         logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
     # Get session to extract student info
@@ -1881,7 +1882,7 @@ async def sync_calendar(
             "events_deleted": result["deleted"],
             "message": f"Synced {result['synced']} events, deleted {result['deleted']} orphaned events"
         }
-    except Exception as e:
+    except (OSError, SQLAlchemyError) as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to sync calendar: {str(e)}"
@@ -1912,8 +1913,8 @@ async def get_calendar_events(
     # When include_past is True, also sync past events
     try:
         sync_calendar_events(db=db, force_sync=False, days_behind=days_behind if include_past else 0)
-    except Exception as e:
-        # Log but don't fail if sync fails
+    except (OSError, SQLAlchemyError) as e:
+        # Log but don't fail if sync fails (network/db errors)
         logger.warning(f"Calendar sync failed (non-fatal): {e}")
 
     # Fetch events within date range
@@ -1967,7 +1968,7 @@ async def create_calendar_event(
             status_code=500,
             detail=f"Google Calendar write not configured: {str(e)}"
         )
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to create event in Google Calendar: {e}")
         raise HTTPException(
             status_code=500,
@@ -2038,7 +2039,7 @@ async def update_calendar_event(
             status_code=500,
             detail=f"Google Calendar write not configured: {str(e)}"
         )
-    except Exception as e:
+    except OSError as e:
         logger.error(f"Failed to update event in Google Calendar: {e}")
         raise HTTPException(
             status_code=500,
@@ -2098,7 +2099,7 @@ async def delete_calendar_event(
             status_code=500,
             detail=f"Google Calendar write not configured: {str(e)}"
         )
-    except Exception as e:
+    except OSError as e:
         # Log warning but continue - event might already be deleted in Google
         logger.warning(f"Failed to delete from Google Calendar (continuing): {e}")
 
