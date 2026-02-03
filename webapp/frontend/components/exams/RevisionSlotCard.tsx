@@ -56,7 +56,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
     isExpanded ? slot.id : null
   );
 
-  const slotDate = new Date(slot.session_date);
+  const slotDate = new Date(slot.session_date + 'T00:00:00');
 
   // Prefer detail data when available for freshness
   const enrolledCount = slotDetail ? slotDetail.enrolled_students.length : slot.enrolled_count;

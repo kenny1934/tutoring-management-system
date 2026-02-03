@@ -1,8 +1,11 @@
 import type {
   Tutor,
   Student,
+  StudentCreate,
   Enrollment,
+  EnrollmentCreate,
   Session,
+  SessionUpdate,
   CurriculumSuggestion,
   DashboardStats,
   StudentFilters,
@@ -52,6 +55,9 @@ import type {
   PendingExtensionRequestCount,
   ExtensionRequestStatus,
 } from "@/types";
+
+// Re-export create types for convenience
+export type { StudentCreate, EnrollmentCreate, SessionUpdate } from "@/types";
 import type {
   DebugTable,
   DebugTableSchema,
@@ -188,32 +194,8 @@ export const studentsAPI = {
   },
 };
 
-// Student creation type
-export interface StudentCreate {
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  phone?: string;
-  school?: string;
-  lang_stream?: string;
-  home_location?: string;
-  academic_stream?: string;
-}
-
-// Enrollment creation types
-export interface EnrollmentCreate {
-  student_id: number;
-  tutor_id: number;
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  first_lesson_date: string;
-  lessons_paid: number;
-  enrollment_type?: string;
-  remark?: string;
-  renewed_from_enrollment_id?: number;
-  discount_id?: number;
-}
+// Note: StudentCreate, EnrollmentCreate, and SessionUpdate types are now defined in @/types
+// and re-exported above for backward compatibility
 
 export interface SessionPreview {
   session_date: string;

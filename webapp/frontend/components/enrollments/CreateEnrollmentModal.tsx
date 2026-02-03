@@ -555,13 +555,13 @@ export function CreateEnrollmentModal({
 
           {/* Student */}
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-foreground mb-2">Student</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Student <span className="text-red-500">*</span></label>
             <StudentSearch value={student} onChange={setStudent} disabled={!!renewFromId || !!convertFromTrial || !!prefillStudent} location={location} />
           </div>
 
           {/* Tutor */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Tutor</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Tutor <span className="text-red-500">*</span></label>
             <div className="relative">
               <select
                 value={tutorId || ""}
@@ -681,11 +681,12 @@ export function CreateEnrollmentModal({
 
           {/* First Lesson Date */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">First Lesson Date</label>
+            <label className="block text-sm font-medium text-foreground mb-2">First Lesson Date <span className="text-red-500">*</span></label>
             <input
               type="date"
               value={firstLessonDate}
               onChange={(e) => setFirstLessonDate(e.target.value)}
+              required
               className={cn(
                 "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
                 dayMismatchWarning

@@ -89,7 +89,8 @@ export function formatSessionDateTime(data: {
 }): string {
   if (!data.session_date) return 'N/A';
 
-  const date = new Date(data.session_date);
+  // Use T00:00:00 suffix to ensure local timezone interpretation (not UTC)
+  const date = new Date(data.session_date + 'T00:00:00');
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dayName = dayNames[date.getDay()];
 
@@ -115,7 +116,8 @@ export function formatSessionDateTime(data: {
  * Example: "2025-10-13 (Mon)"
  */
 export function formatDateWithDay(dateString: string): string {
-  const date = new Date(dateString);
+  // Use T00:00:00 suffix to ensure local timezone interpretation (not UTC)
+  const date = new Date(dateString + 'T00:00:00');
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dayName = dayNames[date.getDay()];
 
@@ -128,7 +130,9 @@ export function formatDateWithDay(dateString: string): string {
  */
 export function formatShortDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "-";
-  const date = new Date(dateStr);
+  // Use T00:00:00 suffix for date-only strings to ensure local timezone interpretation (not UTC)
+  // This prevents day-off-by-one errors for users west of UTC
+  const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T00:00:00');
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 

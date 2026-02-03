@@ -198,7 +198,7 @@ export function EditRevisionSlotModal({
               Edit Revision Slot
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-              {new Date(slot.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {slot.time_slot}
+              {new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {slot.time_slot}
             </p>
           </div>
           <button

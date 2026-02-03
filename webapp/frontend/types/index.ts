@@ -66,7 +66,29 @@ export const COMPLETED_STATUSES: SessionStatusValue[] = [
   SessionStatus.ATTENDED_MAKEUP,
 ];
 
-// Student types
+// =============================================================================
+// STUDENT TYPES
+// =============================================================================
+
+/**
+ * Student creation payload - fields for creating a new student
+ * Used in: studentsAPI.create()
+ */
+export interface StudentCreate {
+  student_name: string;
+  school_student_id?: string;
+  grade?: string;
+  phone?: string;
+  school?: string;
+  lang_stream?: string;
+  home_location?: string;
+  academic_stream?: string;
+}
+
+/**
+ * Student response - full student record from API
+ * Used in: API responses, component props
+ */
 export interface Student {
   id: number;
   school_student_id?: string;
@@ -81,7 +103,32 @@ export interface Student {
   enrollments?: Enrollment[];
 }
 
-// Enrollment types
+// =============================================================================
+// ENROLLMENT TYPES
+// =============================================================================
+
+/**
+ * Enrollment creation payload - fields for creating a new enrollment
+ * Used in: enrollmentsAPI.create(), enrollmentsAPI.preview()
+ */
+export interface EnrollmentCreate {
+  student_id: number;
+  tutor_id: number;
+  assigned_day: string;
+  assigned_time: string;
+  location: string;
+  first_lesson_date: string;
+  lessons_paid: number;
+  enrollment_type?: string;
+  remark?: string;
+  renewed_from_enrollment_id?: number;
+  discount_id?: number;
+}
+
+/**
+ * Enrollment response - full enrollment record from API
+ * Used in: API responses, component props
+ */
 export interface Enrollment {
   id: number;
   student_id: number;
@@ -202,7 +249,28 @@ export interface LinkedSessionInfo {
   session_status: string;
 }
 
-// Session types
+// =============================================================================
+// SESSION TYPES
+// =============================================================================
+
+/**
+ * Session update payload - fields for updating a session
+ * Used in: sessionsAPI.updateSession()
+ */
+export interface SessionUpdate {
+  session_date?: string;
+  time_slot?: string;
+  location?: string;
+  tutor_id?: number;
+  session_status?: string;
+  performance_rating?: string;
+  notes?: string;
+}
+
+/**
+ * Session response - full session record from API
+ * Used in: API responses, component props
+ */
 export interface Session {
   id: number;
   enrollment_id: number;

@@ -53,7 +53,7 @@ const TrialCard = React.memo(function TrialCard({
   isAdmin?: boolean;
   showContactButton?: boolean;
 }) {
-  const sessionDate = new Date(trial.session_date);
+  const sessionDate = new Date(trial.session_date + 'T00:00:00');
   const isToday = new Date().toDateString() === sessionDate.toDateString();
   const isPast = sessionDate < new Date() && !isToday;
 
@@ -393,7 +393,7 @@ export default function TrialsPage() {
         if (trial.trial_status === 'converted') {
           groups.converted.push(trial);
         } else if (trial.trial_status === 'pending' || trial.trial_status === 'attended') {
-          const sessionDate = new Date(trial.session_date);
+          const sessionDate = new Date(trial.session_date + 'T00:00:00');
           const timeSinceSession = Date.now() - sessionDate.getTime();
           if (timeSinceSession > TWO_WEEKS_MS) {
             groups.lost.push(trial);
