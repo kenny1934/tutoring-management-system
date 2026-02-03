@@ -1408,8 +1408,19 @@ export default function InboxPage() {
                 </div>
               </div>
               {isLoading ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-[#a0704b]" />
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="animate-pulse rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <div className="h-4 w-32 bg-gray-300 dark:bg-gray-600 rounded" />
+                          <div className="h-3 w-48 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                        <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (threadsError || proposalsError) ? (
                 <div className="flex-1 flex items-center justify-center text-red-500">
