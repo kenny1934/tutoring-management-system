@@ -25,7 +25,7 @@ from sqlalchemy import inspect, text, desc
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from database import get_db, engine
 from models import Tutor, DebugAuditLog
@@ -147,10 +147,8 @@ class PaginatedAuditLogs(BaseModel):
 
 
 class BulkDeleteRequest(BaseModel):
+    model_config = ConfigDict(str_max_length=1000)
     ids: list[int]
-
-    class Config:
-        max_anystr_length = 1000
 
 
 class BulkDeleteResponse(BaseModel):
@@ -160,12 +158,10 @@ class BulkDeleteResponse(BaseModel):
 
 
 class BulkUpdateRequest(BaseModel):
+    model_config = ConfigDict(str_max_length=10000)
     ids: list[int]
     column: str
     value: Any
-
-    class Config:
-        max_anystr_length = 10000
 
 
 class BulkUpdateResponse(BaseModel):
@@ -175,11 +171,8 @@ class BulkUpdateResponse(BaseModel):
 
 class RowDataRequest(BaseModel):
     """Request body for row create/update with size limits."""
+    model_config = ConfigDict(str_max_length=10000)
     data: dict[str, Any]
-
-    class Config:
-        # Limit string length to prevent abuse
-        max_anystr_length = 10000
 
     @classmethod
     def validate_data_size(cls, data: dict) -> None:
@@ -1397,10 +1390,8 @@ async def get_audit_logs(
 
 class SqlQueryRequest(BaseModel):
     """Request body for SQL query execution."""
+    model_config = ConfigDict(str_max_length=10000)
     query: str
-
-    class Config:
-        max_anystr_length = 10000
 
 
 class SqlQueryResponse(BaseModel):

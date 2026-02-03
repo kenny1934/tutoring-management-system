@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, timedelta, timezone, date
 from typing import List, Optional, Dict
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from sqlalchemy.orm import Session
@@ -33,6 +34,10 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_CALENDAR_REFRESH_TOKEN = os.getenv("GOOGLE_CALENDAR_REFRESH_TOKEN")
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+
+# Retry configuration for transient API failures
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 2
 
 # Regex patterns for parsing event titles
 # Format: SCHOOL GRADE EVENT_TYPE
@@ -140,36 +145,56 @@ class GoogleCalendarService:
         all_events = []
         page_token = None
 
-        try:
-            while True:
-                events_result = self.service.events().list(
-                    calendarId=self.calendar_id,
-                    timeMin=time_min,
-                    timeMax=time_max,
-                    maxResults=max_results_per_page,
-                    singleEvents=True,
-                    orderBy='startTime',
-                    pageToken=page_token
-                ).execute()
+        while True:
+            # Retry loop for transient API failures
+            events_result = None
+            for attempt in range(MAX_RETRIES):
+                try:
+                    events_result = self.service.events().list(
+                        calendarId=self.calendar_id,
+                        timeMin=time_min,
+                        timeMax=time_max,
+                        maxResults=max_results_per_page,
+                        singleEvents=True,
+                        orderBy='startTime',
+                        pageToken=page_token
+                    ).execute()
+                    break  # Success, exit retry loop
+                except HttpError as e:
+                    # Retry on transient errors (5xx, rate limits)
+                    if e.resp.status in (429, 500, 502, 503, 504) and attempt < MAX_RETRIES - 1:
+                        delay = RETRY_DELAY_SECONDS * (attempt + 1)
+                        logger.warning(
+                            f"Calendar API retry {attempt + 1}/{MAX_RETRIES} after {delay}s: "
+                            f"HTTP {e.resp.status}"
+                        )
+                        time.sleep(delay)
+                    else:
+                        logger.error(f"Calendar API error after {attempt + 1} attempts: {e}")
+                        raise
+                except Exception as e:
+                    logger.error(f"Unexpected error fetching calendar events: {e}")
+                    raise
 
-                events = events_result.get('items', [])
-                all_events.extend([self._parse_event(event) for event in events])
+            if events_result is None:
+                # Should not reach here, but safety check
+                logger.error("Calendar API returned no result after retries")
+                break
 
-                # Check for more pages
-                page_token = events_result.get('nextPageToken')
-                if not page_token:
-                    break
+            events = events_result.get('items', [])
+            all_events.extend([self._parse_event(event) for event in events])
 
-                # Safety limit to prevent infinite loops
-                if len(all_events) > 10000:
-                    print(f"[SYNC] Warning: Pagination safety limit reached ({len(all_events)} events)")
-                    break
+            # Check for more pages
+            page_token = events_result.get('nextPageToken')
+            if not page_token:
+                break
 
-            return all_events
+            # Safety limit to prevent infinite loops
+            if len(all_events) > 10000:
+                logger.warning(f"Pagination safety limit reached ({len(all_events)} events)")
+                break
 
-        except Exception as e:
-            print(f"Error fetching calendar events: {e}")
-            raise
+        return all_events
 
     def _parse_event(self, event: Dict) -> Dict:
         """
@@ -533,7 +558,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
 
     # Prevent concurrent sync operations
     if not _sync_lock.acquire(blocking=False):
-        print("[SYNC] Skipping - another sync is already in progress")
+        logger.info("Calendar sync skipped - another sync is already in progress")
         return {"synced": 0, "deleted": 0, "message": "Sync already in progress"}
 
     try:
@@ -549,15 +574,15 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
                 last_sync_utc = last_sync.last_synced_at.replace(tzinfo=timezone.utc) if last_sync.last_synced_at.tzinfo is None else last_sync.last_synced_at
                 time_since_sync = now_utc - last_sync_utc
                 if time_since_sync.total_seconds() / 60 < SYNC_TTL_MINUTES:
-                    print(f"[SYNC] Skipping - last sync was {time_since_sync.total_seconds() / 60:.1f} minutes ago")
+                    logger.debug(f"Calendar sync skipped - last sync was {time_since_sync.total_seconds() / 60:.1f} minutes ago")
                     return {"synced": 0, "deleted": 0}
 
         # Fetch events from Google Calendar
-        print(f"[SYNC] Starting Google Calendar fetch (days_behind={days_behind}, days_ahead=90)...")
+        logger.info(f"Calendar sync starting (days_behind={days_behind}, days_ahead=90)")
         api_start = time.time()
         service = GoogleCalendarService()
         events = service.fetch_upcoming_events(days_behind=days_behind)
-        print(f"[SYNC] Google API fetch: {time.time() - api_start:.2f}s, {len(events)} events")
+        logger.info(f"Calendar API fetch completed: {time.time() - api_start:.2f}s, {len(events)} events")
 
         # Collect fetched event IDs for orphan detection
         fetched_event_ids = {e['event_id'] for e in events}
@@ -573,19 +598,19 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
         # ============================================================
         # STEP 1: UPSERT events FIRST (before orphan deletion for safety)
         # ============================================================
-        print(f"[SYNC] Starting DB upserts for {len(events)} events...")
+        logger.info(f"Calendar sync: upserting {len(events)} events to database")
         db_start = time.time()
 
         # Filter to valid events and log rejected ones (only school is required, grade is optional)
         valid_events = [e for e in events if e.get('school')]
         rejected_count = len(events) - len(valid_events)
-        print(f"[SYNC] Valid events: {len(valid_events)}, rejected: {rejected_count}")
+        logger.info(f"Calendar sync: {len(valid_events)} valid events, {rejected_count} rejected")
 
         if rejected_count > 0:
             # Log rejected events for visibility
             for e in events:
                 if not e.get('school'):
-                    print(f"[SYNC] Rejected event (missing school): '{e.get('title', 'Unknown')}'")
+                    logger.debug(f"Calendar sync rejected event (missing school): '{e.get('title', 'Unknown')}'")
 
         synced_count = 0
         if valid_events:
@@ -632,7 +657,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
                 """)
                 db.execute(sql, params)
 
-            print(f"[SYNC] Bulk upsert: {time.time() - commit_start:.2f}s")
+            logger.debug(f"Calendar sync bulk upsert: {time.time() - commit_start:.2f}s")
             synced_count = len(valid_events)
 
         # ============================================================
@@ -654,7 +679,7 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
                 if len(event.revision_slots) == 0:
                     db.delete(event)
                     deleted_count += 1
-                    print(f"[SYNC] Deleted orphaned event {event.id}: {event.title}")
+                    logger.info(f"Calendar sync deleted orphaned event {event.id}: {event.title}")
                 else:
                     # Try to find a matching real event to migrate slots to
                     matching_event = db.query(CalendarEvent).filter(
@@ -671,22 +696,22 @@ def sync_calendar_events(db: Session, force_sync: bool = False, days_behind: int
                             slot.calendar_event_id = matching_event.id
                         db.delete(event)
                         deleted_count += 1
-                        print(f"[SYNC] Migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
+                        logger.info(f"Calendar sync migrated {slot_count} slot(s) from orphan {event.id} to {matching_event.id}, deleted orphan")
                     else:
                         # Log with details for manual review - DO NOT delete to preserve revision slot data
                         slot_info = [(s.id, s.student_id) for s in event.revision_slots]
-                        print(f"[SYNC] WARNING: Orphaned event {event.id} '{event.title}' (date: {event.start_date}) has {len(event.revision_slots)} revision slot(s): {slot_info} - preserving for manual review")
+                        logger.warning(f"Orphaned calendar event {event.id} '{event.title}' (date: {event.start_date}) has {len(event.revision_slots)} revision slot(s): {slot_info} - preserving for manual review")
         else:
-            print(f"[SYNC] Skipping orphan detection - only {fetched_count} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
+            logger.debug(f"Calendar sync skipping orphan detection - only {fetched_count} events fetched (minimum: {MIN_EVENTS_FOR_ORPHAN_CHECK})")
 
         # Single commit at the end (after both upserts and orphan handling)
         db.commit()
-        print(f"[SYNC] DB operations total: {time.time() - db_start:.2f}s, synced {synced_count}, deleted {deleted_count}")
+        logger.info(f"Calendar sync complete: {time.time() - db_start:.2f}s, synced {synced_count}, deleted {deleted_count}")
         return {"synced": synced_count, "deleted": deleted_count}
 
     except Exception as e:
         db.rollback()
-        print(f"[SYNC] Error during sync: {e}")
+        logger.error(f"Calendar sync error: {e}")
         raise
     finally:
         _sync_lock.release()
