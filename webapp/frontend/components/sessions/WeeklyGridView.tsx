@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, memo } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff, GraduationCap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ interface WeeklyGridViewProps {
   sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
-export function WeeklyGridView({
+export const WeeklyGridView = memo(function WeeklyGridView({
   sessions,
   selectedDate,
   onDateChange,
@@ -937,4 +937,4 @@ export function WeeklyGridView({
       })()}
     </div>
   );
-}
+});

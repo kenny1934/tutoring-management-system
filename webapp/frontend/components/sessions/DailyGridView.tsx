@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, memo } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays, HandCoins, Eye, EyeOff, GraduationCap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ interface DailyGridViewProps {
   sessionProposalMap?: Map<number, MakeupProposal>;
 }
 
-export function DailyGridView({
+export const DailyGridView = memo(function DailyGridView({
   sessions,
   tutors,
   selectedDate,
@@ -926,4 +926,4 @@ export function DailyGridView({
       })()}
     </div>
   );
-}
+});

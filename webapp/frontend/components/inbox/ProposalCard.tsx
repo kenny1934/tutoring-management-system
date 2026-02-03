@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
 import { formatProposalDate } from "@/lib/formatters";
@@ -196,7 +196,7 @@ function SlotItem({
   );
 }
 
-export function ProposalCard({
+export const ProposalCard = memo(function ProposalCard({
   proposal,
   currentTutorId,
   onSelectSlot,
@@ -495,4 +495,4 @@ export function ProposalCard({
       />
     </>
   );
-}
+});
