@@ -490,7 +490,6 @@ export default function TableBrowserPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tableName = params.table as string;
-  const urlFilter = searchParams.get("filter");
 
   usePageTitle(`Debug: ${tableName}`);
 
@@ -661,6 +660,74 @@ export default function TableBrowserPage() {
   const [showSaveFilterModal, setShowSaveFilterModal] = useState(false);
   const [newFilterName, setNewFilterName] = useState("");
 
+  // Filter Builder state
+  type FilterOperator = "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "like" | "null";
+  interface FilterCondition {
+    id: string;
+    column: string;
+    operator: FilterOperator;
+    value: string;
+  }
+
+  // Parse filter string from URL into FilterCondition[]
+  const parseFilterString = useCallback((filterStr: string): FilterCondition[] => {
+    if (!filterStr) return [];
+    const conditions: FilterCondition[] = [];
+
+    for (const part of filterStr.split(",")) {
+      const trimmed = part.trim();
+      if (!trimmed || !trimmed.includes(":")) continue;
+
+      const colonIndex = trimmed.indexOf(":");
+      const key = trimmed.slice(0, colonIndex);
+      const value = trimmed.slice(colonIndex + 1);
+
+      let column: string;
+      let operator: FilterOperator;
+
+      if (key.includes("__")) {
+        const underscoreIndex = key.lastIndexOf("__");
+        column = key.slice(0, underscoreIndex);
+        const op = key.slice(underscoreIndex + 2);
+        operator = (["eq", "ne", "gt", "gte", "lt", "lte", "like", "null"].includes(op) ? op : "eq") as FilterOperator;
+      } else {
+        column = key;
+        operator = "eq";
+      }
+
+      conditions.push({
+        id: crypto.randomUUID(),
+        column,
+        operator,
+        value,
+      });
+    }
+
+    return conditions;
+  }, []);
+
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>(() => {
+    const filterStr = searchParams.get("filter");
+    return filterStr ? parseFilterString(filterStr) : [];
+  });
+  const [showFilterBuilder, setShowFilterBuilder] = useState(false);
+
+  // Build filter string from conditions (for URL and API)
+  const buildFilterString = useCallback((conditions: FilterCondition[]): string => {
+    return conditions
+      .filter(c => c.column && (c.operator === "null" || c.value))
+      .map(c => {
+        if (c.operator === "eq") {
+          return `${c.column}:${c.value}`;
+        }
+        return `${c.column}__${c.operator}:${c.value}`;
+      })
+      .join(",");
+  }, []);
+
+  // Computed filter string for URL and API
+  const currentFilterString = useMemo(() => buildFilterString(filterConditions), [filterConditions, buildFilterString]);
+
   // Column statistics
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [statsColumn, setStatsColumn] = useState<string | null>(null);
@@ -693,8 +760,8 @@ export default function TableBrowserPage() {
     if (sortOrder !== "desc") params.set("order", sortOrder);
     if (debouncedSearch) params.set("search", debouncedSearch);
     if (page > 0) params.set("page", String(page + 1));
-    // Preserve existing filter param
-    if (urlFilter) params.set("filter", urlFilter);
+    // Add filter from filter builder
+    if (currentFilterString) params.set("filter", currentFilterString);
 
     const queryString = params.toString();
     const newUrl = queryString ? `?${queryString}` : window.location.pathname;
@@ -703,7 +770,7 @@ export default function TableBrowserPage() {
     if (window.location.search !== (queryString ? `?${queryString}` : "")) {
       router.replace(newUrl, { scroll: false });
     }
-  }, [sortBy, sortOrder, debouncedSearch, page, urlFilter, router]);
+  }, [sortBy, sortOrder, debouncedSearch, page, currentFilterString, router]);
 
   // Handle click outside to close column menu
   useClickOutside(columnMenuRef, () => setShowColumnMenu(false), showColumnMenu);
@@ -732,7 +799,7 @@ export default function TableBrowserPage() {
           showDeleted,
           sortBy,
           sortOrder,
-          urlFilter,
+          currentFilterString,
         ]
       : null,
     () =>
@@ -744,7 +811,7 @@ export default function TableBrowserPage() {
         include_deleted: showDeleted || undefined,
         sort_by: sortBy || undefined,
         sort_order: sortOrder,
-        filter: urlFilter || undefined,
+        filter: currentFilterString || undefined,
       })
   );
 
@@ -1350,6 +1417,10 @@ export default function TableBrowserPage() {
           event.preventDefault();
           callbacks.handleStartCreate();
           break;
+        case "f":
+          event.preventDefault();
+          setShowFilterBuilder(prev => !prev);
+          break;
         case "s":
         case "/":
           event.preventDefault();
@@ -1444,6 +1515,87 @@ export default function TableBrowserPage() {
   const handleApplySavedFilter = useCallback((filters: string[]) => {
     setActiveQuickFilters(new Set(filters));
     setPage(0);
+  }, []);
+
+  // Filter Builder helper functions
+  const handleAddFilter = useCallback(() => {
+    setFilterConditions(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        column: schema?.columns[0]?.name || "",
+        operator: "eq" as FilterOperator,
+        value: "",
+      },
+    ]);
+  }, [schema]);
+
+  const handleUpdateFilter = useCallback((id: string, updates: Partial<FilterCondition>) => {
+    setFilterConditions(prev =>
+      prev.map(c => (c.id === id ? { ...c, ...updates } : c))
+    );
+  }, []);
+
+  const handleRemoveFilter = useCallback((id: string) => {
+    setFilterConditions(prev => prev.filter(c => c.id !== id));
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilterConditions([]);
+  }, []);
+
+  const getOperatorsForType = useCallback((columnType: string, nullable: boolean): Array<{ value: FilterOperator; label: string }> => {
+    const baseOps: Array<{ value: FilterOperator; label: string }> = [
+      { value: "eq", label: "equals" },
+      { value: "ne", label: "not equals" },
+    ];
+
+    if (columnType === "integer" || columnType === "decimal" || columnType === "date" || columnType === "datetime") {
+      baseOps.push(
+        { value: "gt", label: "greater than" },
+        { value: "gte", label: "greater or equal" },
+        { value: "lt", label: "less than" },
+        { value: "lte", label: "less or equal" }
+      );
+    }
+
+    if (columnType === "string") {
+      baseOps.push({ value: "like", label: "contains" });
+    }
+
+    if (nullable) {
+      baseOps.push({ value: "null", label: "is null / not null" });
+    }
+
+    return baseOps;
+  }, []);
+
+  const getFilterInputType = useCallback((columnType: string): string => {
+    switch (columnType) {
+      case "integer":
+      case "decimal":
+        return "number";
+      case "date":
+        return "date";
+      case "datetime":
+        return "datetime-local";
+      default:
+        return "text";
+    }
+  }, []);
+
+  const getOperatorLabel = useCallback((op: FilterOperator): string => {
+    const labels: Record<FilterOperator, string> = {
+      eq: "=",
+      ne: "≠",
+      gt: ">",
+      gte: "≥",
+      lt: "<",
+      lte: "≤",
+      like: "~",
+      null: "is",
+    };
+    return labels[op];
   }, []);
 
   // Get changed fields for diff view
@@ -1976,6 +2128,186 @@ export default function TableBrowserPage() {
                 )}
               </div>
             )}
+
+            {/* Filter Builder Panel */}
+            <div className="mx-4 sm:mx-6 mb-4">
+              {/* Toggle Button + Active Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <button
+                  onClick={() => setShowFilterBuilder(!showFilterBuilder)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors btn-press",
+                    showFilterBuilder || filterConditions.length > 0
+                      ? "border-[#a0704b] bg-[#a0704b]/10 text-[#a0704b]"
+                      : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                  )}
+                >
+                  <Filter className="h-4 w-4" aria-hidden="true" />
+                  <span>Filter Builder</span>
+                  {filterConditions.length > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs rounded-full bg-[#a0704b] text-white">
+                      {filterConditions.length}
+                    </span>
+                  )}
+                  {showFilterBuilder ? (
+                    <ChevronUp className="h-3 w-3" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" aria-hidden="true" />
+                  )}
+                </button>
+
+                {/* Active filter pills (shown even when panel collapsed) */}
+                {filterConditions.length > 0 && !showFilterBuilder && (
+                  <>
+                    {filterConditions.slice(0, 3).map((condition) => (
+                        <span
+                          key={condition.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-[#f5ede3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        >
+                          <span className="font-medium text-[#a0704b]">{condition.column}</span>
+                          <span className="text-gray-500">{getOperatorLabel(condition.operator)}</span>
+                          <span className="text-gray-700 dark:text-gray-300 max-w-[100px] truncate">
+                            {condition.operator === "null" ? (condition.value === "true" ? "null" : "not null") : condition.value}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFilter(condition.id);
+                            }}
+                            className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                            aria-label="Remove filter"
+                          >
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        </span>
+                    ))}
+                    {filterConditions.length > 3 && (
+                      <span className="text-xs text-gray-500">+{filterConditions.length - 3} more</span>
+                    )}
+                    <button
+                      onClick={handleClearFilters}
+                      className="text-xs text-gray-500 hover:text-red-500"
+                    >
+                      Clear all
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Expandable Filter Builder Panel */}
+              {showFilterBuilder && (
+                <div className="p-4 rounded-lg bg-[#f5ede3] dark:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <div className="space-y-3">
+                    {filterConditions.map((condition, index) => {
+                      const col = schema?.columns.find(c => c.name === condition.column);
+                      const operators = getOperatorsForType(col?.type || "string", col?.nullable || false);
+
+                      return (
+                        <div key={condition.id} className="flex flex-wrap items-center gap-2">
+                          {index > 0 && (
+                            <span className="text-xs font-semibold text-gray-500 uppercase w-12">AND</span>
+                          )}
+                          {index === 0 && <span className="w-12" />}
+
+                          {/* Column selector */}
+                          <select
+                            value={condition.column}
+                            onChange={(e) => handleUpdateFilter(condition.id, {
+                              column: e.target.value,
+                              operator: "eq",
+                              value: ""
+                            })}
+                            className="px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] min-w-[150px]"
+                          >
+                            <option value="">Select column...</option>
+                            {schema?.columns.map((col) => (
+                              <option key={col.name} value={col.name}>
+                                {col.name} ({col.type})
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Operator selector */}
+                          <select
+                            value={condition.operator}
+                            onChange={(e) => handleUpdateFilter(condition.id, {
+                              operator: e.target.value as FilterOperator,
+                              value: e.target.value === "null" ? "true" : condition.value
+                            })}
+                            className="px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] min-w-[130px]"
+                          >
+                            {operators.map((op) => (
+                              <option key={op.value} value={op.value}>
+                                {op.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Value input */}
+                          {condition.operator === "null" ? (
+                            <select
+                              value={condition.value}
+                              onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
+                              className="px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] min-w-[120px]"
+                            >
+                              <option value="true">is null</option>
+                              <option value="false">is not null</option>
+                            </select>
+                          ) : col?.type === "boolean" ? (
+                            <select
+                              value={condition.value}
+                              onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
+                              className="px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] min-w-[120px]"
+                            >
+                              <option value="">Select...</option>
+                              <option value="true">true</option>
+                              <option value="false">false</option>
+                            </select>
+                          ) : (
+                            <input
+                              type={getFilterInputType(col?.type || "string")}
+                              value={condition.value}
+                              onChange={(e) => handleUpdateFilter(condition.id, { value: e.target.value })}
+                              placeholder="Enter value..."
+                              className="px-3 py-2 text-sm rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] min-w-[150px] flex-1"
+                            />
+                          )}
+
+                          {/* Remove button */}
+                          <button
+                            onClick={() => handleRemoveFilter(condition.id)}
+                            className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors"
+                            aria-label="Remove filter"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    {/* Add filter / action buttons */}
+                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                      <button
+                        onClick={handleAddFilter}
+                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg border-2 border-dashed border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b] hover:text-[#a0704b] transition-colors"
+                      >
+                        <Plus className="h-4 w-4" aria-hidden="true" />
+                        Add Filter
+                      </button>
+
+                      {filterConditions.length > 0 && (
+                        <button
+                          onClick={handleClearFilters}
+                          className="px-3 py-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Bulk selection bar */}
             {selectedRows.size > 0 && (
