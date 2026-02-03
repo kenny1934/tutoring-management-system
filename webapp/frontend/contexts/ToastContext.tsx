@@ -94,16 +94,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const getAriaLive = (type: Toast["type"]): "assertive" | "polite" => {
+    // Errors should interrupt screen readers immediately
+    return type === "error" ? "assertive" : "polite";
+  };
+
+  const getRole = (type: Toast["type"]): "alert" | "status" => {
+    // Error toasts get alert role, others get status
+    return type === "error" ? "alert" : "status";
+  };
+
   return (
     <ToastContext.Provider value={{ showToast, showError, dismissToast }}>
       {children}
       {isMounted &&
         createPortal(
-          <div className="fixed bottom-4 right-4 z-[10000] flex flex-col gap-2 pointer-events-none">
+          <div
+            className="fixed bottom-4 right-4 z-[10000] flex flex-col gap-2 pointer-events-none"
+            aria-label="Notifications"
+          >
             <AnimatePresence mode="popLayout">
               {toasts.map((toast) => (
                 <motion.div
                   key={toast.id}
+                  role={getRole(toast.type)}
+                  aria-live={getAriaLive(toast.type)}
+                  aria-atomic="true"
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
@@ -113,7 +129,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     getStyles(toast.type)
                   )}
                 >
-                  {getIcon(toast.type)}
+                  <span aria-hidden="true">{getIcon(toast.type)}</span>
                   <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {toast.message}
                   </span>
@@ -131,8 +147,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <button
                     onClick={() => dismissToast(toast.id)}
                     className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                    aria-label="Dismiss notification"
                   >
-                    <X className="h-4 w-4 text-gray-500" />
+                    <X className="h-4 w-4 text-gray-500" aria-hidden="true" />
                   </button>
                 </motion.div>
               ))}

@@ -25,7 +25,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import inspect, text, desc
 from sqlalchemy.orm import Session
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from pydantic import BaseModel, ConfigDict
 
 from database import get_db, engine
@@ -564,7 +564,7 @@ async def list_tables(
             try:
                 result = db.execute(text(f"SELECT COUNT(*) FROM `{table_name}`"))
                 row_count = result.scalar() or 0
-            except Exception as e:
+            except SQLAlchemyError as e:
                 # Leave as None to indicate count failed (frontend shows "?")
                 logger.warning(f"Failed to count rows in {table_name}: {e}")
 
@@ -603,7 +603,7 @@ async def get_table_schema(
         columns_info = inspector.get_columns(table_name)
         pk_constraint = inspector.get_pk_constraint(table_name)
         fk_constraints = inspector.get_foreign_keys(table_name)
-    except Exception as e:
+    except SQLAlchemyError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Table `{table_name}` not found",
@@ -772,7 +772,7 @@ async def list_rows(
                 text(f"SELECT COUNT(*) FROM `{table_name}` WHERE `deleted_at` IS NOT NULL")
             )
             deleted_count = deleted_result.scalar() or 0
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error(f"Query failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -867,7 +867,7 @@ async def create_row(
 
         # Single commit for both operation and log
         db.commit()
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Insert failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
@@ -938,7 +938,7 @@ async def update_row(
 
         # Single commit for both operation and log
         db.commit()
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Update failed for table {table_name}, row {row_id}: {e}", exc_info=True)
         raise HTTPException(
@@ -1022,7 +1022,7 @@ async def delete_row(
 
         # Single commit for both operation and log
         db.commit()
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Delete failed for table {table_name}, row {row_id}: {e}", exc_info=True)
         raise HTTPException(
@@ -1125,7 +1125,7 @@ async def bulk_delete_rows(
 
         # Commit all deletions together
         db.commit()
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Bulk delete failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
@@ -1224,7 +1224,7 @@ async def bulk_update_rows(
 
         # Commit all updates together
         db.commit()
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Bulk update failed for table {table_name}: {e}", exc_info=True)
         raise HTTPException(
@@ -1300,7 +1300,7 @@ async def export_table(
     try:
         result = db.execute(text(query), params)
         rows = [serialize_row(dict(row._mapping)) for row in result]
-    except Exception as e:
+    except SQLAlchemyError as e:
         logger.error(f"Export query failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1608,7 +1608,7 @@ async def execute_sql_query(
             execution_time_ms=round(execution_time, 2),
         )
 
-    except Exception as e:
+    except SQLAlchemyError as e:
         db.rollback()
         error_str = str(e)
 
@@ -1835,7 +1835,7 @@ async def revert_audit_log(
     except HTTPException:
         db.rollback()
         raise
-    except Exception as e:
+    except (SQLAlchemyError, IntegrityError) as e:
         db.rollback()
         logger.error(f"Revert failed for audit log #{log_id}: {e}", exc_info=True)
         raise HTTPException(
