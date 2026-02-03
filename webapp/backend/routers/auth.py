@@ -13,6 +13,7 @@ from models import Tutor
 from auth.oauth import get_google_auth_url, exchange_code_for_user_info
 from auth.jwt_handler import create_access_token
 from auth.dependencies import get_current_user
+from utils.rate_limiter import check_ip_rate_limit
 
 router = APIRouter()
 
@@ -32,19 +33,23 @@ class UserResponse(BaseModel):
 
 
 @router.get("/auth/google/login")
-async def google_login():
+async def google_login(request: Request):
     """
     Redirect to Google OAuth consent screen.
 
     The user will be redirected to Google to authenticate,
     then back to /auth/google/callback with an authorization code.
     """
+    # Rate limit login attempts to prevent abuse
+    check_ip_rate_limit(request, "auth_login")
+
     auth_url = get_google_auth_url()
     return RedirectResponse(url=auth_url)
 
 
 @router.get("/auth/google/callback")
 async def google_callback(
+    request: Request,
     code: str,
     db: Session = Depends(get_db),
 ):
@@ -54,6 +59,9 @@ async def google_callback(
     Exchanges the authorization code for user info,
     finds the matching tutor, creates a JWT, and redirects to frontend.
     """
+    # Rate limit callback attempts
+    check_ip_rate_limit(request, "auth_callback")
+
     try:
         # Exchange code for user info
         user_info = await exchange_code_for_user_info(code)

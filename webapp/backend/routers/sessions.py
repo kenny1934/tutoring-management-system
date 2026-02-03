@@ -13,6 +13,7 @@ from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompleti
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount
 from datetime import date, timedelta, datetime, timezone
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
+from utils.rate_limiter import check_user_rate_limit
 from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin
 
 router = APIRouter()
@@ -1489,6 +1490,9 @@ async def bulk_assign_exercises(
     - **page_end**: Optional end page
     - **remarks**: Optional remarks
     """
+    # Rate limit bulk operations
+    check_user_rate_limit(current_user.id, "bulk_assign_exercises")
+
     # Verify all sessions exist
     sessions = db.query(SessionLog).filter(
         SessionLog.id.in_(request.session_ids)

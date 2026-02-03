@@ -108,20 +108,27 @@
 - `sessions.py`: 2106 LOC
 **Fix**: Extract to service classes (EnrollmentService, SessionService)
 
-### 13. Hook Organization
-**Status**: To do
+### 13. ✅ Hook Organization
+**Status**: Done
 **Pattern**: Some hooks in `/lib/hooks.ts`, others in `/lib/hooks/`
-**Fix**: Consolidate hook organization
+**Fix**: Consolidated hooks under `/lib/hooks/` with re-exports for backward compatibility
+- Moved `useWeather`, `useDailyPuzzle`, `useMapSelection`, `useKonamiCode` to `/lib/hooks/`
+- Updated index.ts to export all hooks
+- Old files now re-export for backward compatibility
 
 ### 14. Missing Docstrings on Backend Endpoints
 **Status**: To do
 **Impact**: Poor OpenAPI documentation
 **Fix**: Add descriptions to complex endpoints
 
-### 15. Rate Limiting on Sensitive Endpoints
-**Status**: To do
+### 15. ✅ Rate Limiting on Sensitive Endpoints
+**Status**: Done
 **Affected**: Auth, debug panel, bulk operations
-**Fix**: Add rate limiter middleware
+**Fix Applied**:
+- Enhanced rate_limiter.py with IP-based limiting for auth endpoints
+- Added rate limits for auth (login: 5/min, callback: 10/min)
+- Added rate limits for debug (SQL: 10/min, bulk delete: 5/min, export: 5/5min)
+- Added rate limits for bulk operations (exercises: 20/min)
 
 ### 16. Pagination Inconsistency
 **Status**: To do
@@ -158,9 +165,13 @@
 Based on code patterns, these areas may have bugs:
 
 1. **Makeup proposal concurrency** - Multiple proposals can race without locks
-2. **Calendar event parsing** - Regex patterns may miss formats
+2. ✅ **Calendar event parsing** - Regex patterns may miss formats
+   - Added defensive null/empty checks to `_parse_title()`, `_parse_date()`, `_parse_event()`
+   - Added try/except handling for malformed dates
 3. **Enrollment effective_end_date** - Complex calculation, edge cases likely
-4. **Null handling in responses** - Some fields return null unexpectedly
+4. ✅ **Null handling in responses** - Some fields return null unexpectedly
+   - Audited: Backend already uses `Optional` types and conditional access properly
+   - Frontend hooks use conditional keys and null checks correctly
 5. **Google Calendar sync** - Has threading lock but error recovery unclear
 
 ---
