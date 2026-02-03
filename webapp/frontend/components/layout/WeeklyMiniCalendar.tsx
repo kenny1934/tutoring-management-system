@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
@@ -59,8 +59,58 @@ interface WeeklyMiniCalendarProps {
 
 export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const weekDays = useMemo(() => getWeekDays(weekOffset), [weekOffset]);
   const today = toDateString(new Date());
+  const dayRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, index: number) => {
+    let newIndex = index;
+    let newWeekOffset = weekOffset;
+
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        if (index === 0) {
+          // Go to previous week, last day
+          newWeekOffset = weekOffset - 1;
+          newIndex = 6;
+        } else {
+          newIndex = index - 1;
+        }
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        if (index === 6) {
+          // Go to next week, first day
+          newWeekOffset = weekOffset + 1;
+          newIndex = 0;
+        } else {
+          newIndex = index + 1;
+        }
+        break;
+      case 'Home':
+        e.preventDefault();
+        newIndex = 0;
+        break;
+      case 'End':
+        e.preventDefault();
+        newIndex = 6;
+        break;
+      default:
+        return;
+    }
+
+    setFocusedIndex(newIndex);
+    if (newWeekOffset !== weekOffset) {
+      setWeekOffset(newWeekOffset);
+      // Focus after state update
+      setTimeout(() => dayRefs.current[newIndex]?.focus(), 0);
+    } else {
+      dayRefs.current[newIndex]?.focus();
+    }
+  }, [weekOffset]);
 
   // Fetch holidays for the current week
   const firstDay = weekDays[0];
@@ -114,58 +164,72 @@ export function WeeklyMiniCalendar({ className }: WeeklyMiniCalendarProps) {
         </button>
       </div>
 
-      {/* Week days */}
-      <div className="flex justify-between gap-1">
-        {weekDays.map((day, i) => {
-          const dateStr = toDateString(day);
-          const isToday = dateStr === today;
-          const holiday = holidayMap.get(dateStr);
-          const isHoliday = !!holiday;
+      {/* Week days grid with keyboard navigation */}
+      <div
+        role="grid"
+        aria-label="Week calendar"
+        className="flex justify-between gap-1"
+      >
+        <div role="row" className="contents">
+          {weekDays.map((day, i) => {
+            const dateStr = toDateString(day);
+            const isToday = dateStr === today;
+            const holiday = holidayMap.get(dateStr);
+            const isHoliday = !!holiday;
 
-          // Build tooltip text
-          const baseTooltip = day.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-          const tooltipText = isHoliday && holiday?.holiday_name
-            ? `${baseTooltip} • ${holiday.holiday_name}`
-            : baseTooltip;
+            // Build tooltip text
+            const baseTooltip = day.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const tooltipText = isHoliday && holiday?.holiday_name
+              ? `${baseTooltip} • ${holiday.holiday_name}`
+              : baseTooltip;
 
-          return (
-            <Link
-              key={dateStr}
-              href={`/sessions?date=${dateStr}`}
-              className={cn(
-                "flex-1 flex flex-col items-center py-1.5 px-0.5 rounded-lg transition-all",
-                "hover:bg-foreground/10 hover:scale-105 active:scale-95",
-                isToday && "bg-primary/10 ring-1 ring-primary/30",
-                isHoliday && "bg-rose-500/15 ring-1 ring-rose-500/40"
-              )}
-              title={tooltipText}
-            >
-              {/* Day label */}
-              <span className={cn(
-                "text-[10px] font-semibold",
-                isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/60"
-              )}>
-                {DAY_LABELS[i]}
-              </span>
-
-              {/* Date number with optional holiday icon */}
-              <div className="flex items-center gap-0.5">
-                <span className={cn(
-                  "text-xs font-bold",
-                  isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/80"
-                )}>
-                  {day.getDate()}
-                </span>
-                {isHoliday && (
-                  <CalendarDays className={cn(
-                    "h-2.5 w-2.5",
-                    isToday ? "text-primary" : "text-rose-500"
-                  )} />
+            return (
+              <Link
+                key={dateStr}
+                ref={(el) => { dayRefs.current[i] = el; }}
+                href={`/sessions?date=${dateStr}`}
+                role="gridcell"
+                tabIndex={focusedIndex === i ? 0 : -1}
+                aria-current={isToday ? "date" : undefined}
+                aria-label={tooltipText}
+                onKeyDown={(e) => handleKeyDown(e, i)}
+                onFocus={() => setFocusedIndex(i)}
+                className={cn(
+                  "flex-1 flex flex-col items-center py-1.5 px-0.5 rounded-lg transition-all",
+                  "hover:bg-foreground/10 hover:scale-105 active:scale-95",
+                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1",
+                  isToday && "bg-primary/10 ring-1 ring-primary/30",
+                  isHoliday && "bg-rose-500/15 ring-1 ring-rose-500/40"
                 )}
-              </div>
-            </Link>
-          );
-        })}
+                title={tooltipText}
+              >
+                {/* Day label */}
+                <span className={cn(
+                  "text-[10px] font-semibold",
+                  isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/60"
+                )}>
+                  {DAY_LABELS[i]}
+                </span>
+
+                {/* Date number with optional holiday icon */}
+                <div className="flex items-center gap-0.5">
+                  <span className={cn(
+                    "text-xs font-bold",
+                    isToday ? "text-primary" : isHoliday ? "text-rose-500" : "text-foreground/80"
+                  )}>
+                    {day.getDate()}
+                  </span>
+                  {isHoliday && (
+                    <CalendarDays className={cn(
+                      "h-2.5 w-2.5",
+                      isToday ? "text-primary" : "text-rose-500"
+                    )} />
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

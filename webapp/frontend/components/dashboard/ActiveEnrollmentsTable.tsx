@@ -150,14 +150,14 @@ export function ActiveEnrollmentsTable({ compact = false }: ActiveEnrollmentsTab
               No active enrollments found
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto" role="region" aria-label="Active enrollments table">
+              <table className="w-full" aria-label="Active enrollments">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Student Details</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Schedule</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="py-3 px-4 text-sm font-medium text-muted-foreground">Lessons</th>
+                    <th scope="col" className="py-3 px-4 text-sm font-medium text-muted-foreground">Student Details</th>
+                    <th scope="col" className="py-3 px-4 text-sm font-medium text-muted-foreground">Schedule</th>
+                    <th scope="col" className="py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="py-3 px-4 text-sm font-medium text-muted-foreground">Lessons</th>
                   </tr>
                 </thead>
                 <tbody>
