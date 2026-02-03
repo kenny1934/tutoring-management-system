@@ -12,13 +12,14 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { ZenProvider } from "@/contexts/ZenContext";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ZenActivator } from "@/components/zen";
+import { PageErrorBoundary } from "@/components/ui/error-boundary";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <SWRConfig
       value={{
         revalidateOnFocus: true,
-        revalidateOnReconnect: false,
+        revalidateOnReconnect: true, // Refresh data when user returns from offline
         dedupingInterval: 5000,
         keepPreviousData: true, // Show stale data while revalidating
       }}
@@ -31,7 +32,9 @@ export function Providers({ children }: { children: ReactNode }) {
                 <ZenProvider>
                   <CommandPaletteProvider>
                     <ToastProvider>
-                      {children}
+                      <PageErrorBoundary>
+                        {children}
+                      </PageErrorBoundary>
                       <CommandPalette />
                       <ZenActivator />
                     </ToastProvider>

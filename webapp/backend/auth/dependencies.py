@@ -226,6 +226,34 @@ def get_session_with_owner_check(
     return session
 
 
+def get_effective_role(request: Request, current_user: Tutor) -> str:
+    """
+    Get the effective role of the current user, respecting Super Admin impersonation.
+
+    Only Super Admins can impersonate other roles via the X-Effective-Role header.
+    This validation happens server-side to prevent header spoofing by non-Super Admins.
+
+    Args:
+        request: The FastAPI request object
+        current_user: The authenticated user from JWT
+
+    Returns:
+        The effective role string ("Super Admin", "Admin", or "Tutor")
+    """
+    # Only Super Admins can impersonate
+    if current_user.role != "Super Admin":
+        return current_user.role
+
+    # Check for impersonation header
+    impersonated_role = request.headers.get("X-Effective-Role")
+
+    # Only allow valid role values
+    if impersonated_role in ("Admin", "Tutor"):
+        return impersonated_role
+
+    return current_user.role
+
+
 def is_office_ip(request: Request, db: Session) -> bool:
     """
     Check if the request originates from a whitelisted office IP.

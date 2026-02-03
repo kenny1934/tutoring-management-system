@@ -9,6 +9,63 @@ export interface Tutor {
   role: TutorRole;
 }
 
+// Session Status constants
+// Keep in sync with backend/constants.py
+export const SessionStatus = {
+  // Base statuses
+  SCHEDULED: 'Scheduled',
+  TRIAL_CLASS: 'Trial Class',
+  MAKEUP_CLASS: 'Make-up Class',
+
+  // Attended statuses
+  ATTENDED: 'Attended',
+  ATTENDED_MAKEUP: 'Attended (Make-up)',
+
+  // No show
+  NO_SHOW: 'No Show',
+
+  // Rescheduled statuses
+  RESCHEDULED_PENDING: 'Rescheduled - Pending Make-up',
+  RESCHEDULED_BOOKED: 'Rescheduled - Make-up Booked',
+
+  // Sick leave statuses
+  SICK_LEAVE_PENDING: 'Sick Leave - Pending Make-up',
+  SICK_LEAVE_BOOKED: 'Sick Leave - Make-up Booked',
+
+  // Weather cancelled statuses
+  WEATHER_PENDING: 'Weather Cancelled - Pending Make-up',
+  WEATHER_BOOKED: 'Weather Cancelled - Make-up Booked',
+
+  // Cancelled
+  CANCELLED: 'Cancelled',
+} as const;
+
+export type SessionStatusValue = typeof SessionStatus[keyof typeof SessionStatus];
+
+// Session status groupings for UI logic
+export const ATTENDABLE_STATUSES: SessionStatusValue[] = [
+  SessionStatus.SCHEDULED,
+  SessionStatus.MAKEUP_CLASS,
+  SessionStatus.TRIAL_CLASS,
+];
+
+export const PENDING_MAKEUP_STATUSES: SessionStatusValue[] = [
+  SessionStatus.RESCHEDULED_PENDING,
+  SessionStatus.SICK_LEAVE_PENDING,
+  SessionStatus.WEATHER_PENDING,
+];
+
+export const MAKEUP_BOOKED_STATUSES: SessionStatusValue[] = [
+  SessionStatus.RESCHEDULED_BOOKED,
+  SessionStatus.SICK_LEAVE_BOOKED,
+  SessionStatus.WEATHER_BOOKED,
+];
+
+export const COMPLETED_STATUSES: SessionStatusValue[] = [
+  SessionStatus.ATTENDED,
+  SessionStatus.ATTENDED_MAKEUP,
+];
+
 // Student types
 export interface Student {
   id: number;

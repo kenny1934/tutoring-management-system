@@ -88,3 +88,37 @@ export function CompactErrorBoundary({ children, onReset }: { children: ReactNod
     </ErrorBoundary>
   );
 }
+
+/**
+ * Full-page error boundary for wrapping app-level content.
+ * Displays a centered error message with refresh option.
+ */
+export function PageErrorBoundary({ children }: { children: ReactNode }) {
+  return (
+    <ErrorBoundary
+      onReset={() => window.location.reload()}
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background">
+          <div className="max-w-md text-center">
+            <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-xl font-semibold text-foreground mb-2">
+              Something went wrong
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              An unexpected error occurred. Please try refreshing the page.
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
