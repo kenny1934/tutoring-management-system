@@ -888,8 +888,7 @@ export function ScheduleMakeupModal({
       if (extensionRequestId) {
         try {
           await extensionRequestsAPI.markRescheduled(extensionRequestId);
-        } catch (err) {
-          console.error("Failed to mark extension request as rescheduled:", err);
+        } catch {
           // Non-critical - don't fail the whole operation
         }
       }

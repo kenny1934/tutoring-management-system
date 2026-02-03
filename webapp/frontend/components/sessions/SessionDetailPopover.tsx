@@ -57,7 +57,6 @@ const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_
       setTimeout(() => setCopyState('idle'), 1500);
     } catch (err) {
       // Clipboard API may not be available on some mobile browsers
-      console.warn('Clipboard not available:', err);
       setCopyState('failed');
       setTimeout(() => setCopyState('idle'), 1500);
     }
@@ -68,7 +67,6 @@ const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_
     setOpenState('loading');
     const error = await openFileFromPathWithFallback(exercise.pdf_name, searchPaperlessByPath);
     if (error) {
-      console.warn('Failed to open file:', error);
       setOpenState('error');
       setTimeout(() => setOpenState('idle'), 2000);
     } else {
@@ -88,7 +86,6 @@ const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_
       searchPaperlessByPath
     );
     if (error) {
-      console.warn('Failed to print file:', error);
       setPrintState('error');
       setTimeout(() => setPrintState('idle'), 2000);
     } else {
@@ -218,7 +215,6 @@ function ExercisesList({ exercises, session }: {
 
     const error = await printBulkFiles(bulkExercises, stamp, searchPaperlessByPath, title);
     if (error) {
-      console.warn('Failed to print all:', error);
       setLoading('error');
       setTimeout(() => setLoading('idle'), 2000);
     } else {
@@ -250,7 +246,6 @@ function ExercisesList({ exercises, session }: {
 
     const error = await downloadBulkFiles(bulkExercises, filename, stamp, searchPaperlessByPath);
     if (error) {
-      console.warn('Failed to download all:', error);
       setLoading('error');
       setTimeout(() => setLoading('idle'), 2000);
     } else {
@@ -419,7 +414,6 @@ export function SessionDetailPopover({
       setExtensionRequest(detail);
       setIsExtensionModalOpen(true);
     } catch (error) {
-      console.error("Failed to fetch extension request:", error);
       showToast("Failed to load extension request", "error");
     } finally {
       setIsLoadingExtension(false);
@@ -448,7 +442,6 @@ export function SessionDetailPopover({
               updateSessionInCache(updatedSession);
               showToast("Session marked as attended", "success");
             } catch (error) {
-              console.error("Failed to mark as attended:", error);
               showToast("Failed to mark as attended", "error");
             } finally {
               setLoadingActionId(null);
@@ -465,7 +458,6 @@ export function SessionDetailPopover({
               updateSessionInCache(updatedSession);
               showToast("Session marked as no show", "success");
             } catch (error) {
-              console.error("Failed to mark as no show:", error);
               showToast("Failed to mark as no show", "error");
             } finally {
               setLoadingActionId(null);

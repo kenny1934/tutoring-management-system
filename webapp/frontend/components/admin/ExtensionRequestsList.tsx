@@ -92,7 +92,6 @@ export function ExtensionRequestsList({
         _isLoading: false,
       } as ExtensionRequestDetail & { _isLoading?: boolean });
     } catch (error) {
-      console.error("Failed to load request details:", error);
       // Keep modal open but mark loading as done
       setSelectedRequest(prev => prev ? { ...prev, _isLoading: false } : null);
     }

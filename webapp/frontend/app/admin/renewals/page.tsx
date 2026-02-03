@@ -795,7 +795,6 @@ export default function AdminRenewalsPage() {
         }
       }
     } catch (error) {
-      console.error('Batch mark paid failed:', error);
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       showToast(`Failed to confirm payments: ${errorMsg}`, "error");
     } finally {
@@ -825,7 +824,6 @@ export default function AdminRenewalsPage() {
         }
       }
     } catch (error) {
-      console.error('Batch mark sent failed:', error);
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       showToast(`Failed to mark messages as sent: ${errorMsg}`, "error");
     } finally {

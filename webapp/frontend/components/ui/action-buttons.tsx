@@ -237,7 +237,6 @@ export function SessionActionButtons({
         showToast("Session marked as attended", "success");
         onAction?.("attended", updatedSession);
       } catch (error) {
-        console.error("Failed to mark session as attended:", error);
         showToast("Failed to mark as attended", "error");
       } finally {
         setLoadingAction(null);
@@ -256,7 +255,6 @@ export function SessionActionButtons({
         showToast("Session marked as no show", "success");
         onAction?.("no-show", updatedSession);
       } catch (error) {
-        console.error("Failed to mark session as no show:", error);
         showToast("Failed to mark as no show", "error");
       } finally {
         setLoadingAction(null);
@@ -275,7 +273,6 @@ export function SessionActionButtons({
         showToast("Session marked as rescheduled", "success");
         onAction?.("reschedule", updatedSession);
       } catch (error) {
-        console.error("Failed to mark session as rescheduled:", error);
         showToast("Failed to mark as rescheduled", "error");
       } finally {
         setLoadingAction(null);
@@ -294,7 +291,6 @@ export function SessionActionButtons({
         showToast("Session marked as sick leave", "success");
         onAction?.("sick-leave", updatedSession);
       } catch (error) {
-        console.error("Failed to mark session as sick leave:", error);
         showToast("Failed to mark as sick leave", "error");
       } finally {
         setLoadingAction(null);
@@ -313,7 +309,6 @@ export function SessionActionButtons({
         showToast("Session marked as weather cancelled", "success");
         onAction?.("weather-cancelled", updatedSession);
       } catch (error) {
-        console.error("Failed to mark session as weather cancelled:", error);
         showToast("Failed to mark as weather cancelled", "error");
       } finally {
         setLoadingAction(null);
@@ -361,7 +356,6 @@ export function SessionActionButtons({
       showToast("Make-up cancelled", "success");
       onAction?.("cancel-makeup", originalSession);
     } catch (error) {
-      console.error("Failed to cancel make-up:", error);
       showToast("Failed to cancel make-up", "error");
     } finally {
       setLoadingAction(null);
@@ -390,7 +384,6 @@ export function SessionActionButtons({
                 updateSessionInCache(redoneSession);
                 showToast("Status restored", "success");
               } catch (error) {
-                console.error("Failed to redo status:", error);
                 showToast("Failed to restore status", "error");
               }
             },
@@ -401,7 +394,6 @@ export function SessionActionButtons({
       }
       onAction?.("undo", updatedSession);
     } catch (error) {
-      console.error("Failed to undo status:", error);
       showToast("Failed to undo status", "error");
     } finally {
       setLoadingAction(null);

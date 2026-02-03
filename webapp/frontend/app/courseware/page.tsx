@@ -913,7 +913,6 @@ function CoursewareBrowserTab() {
       setCurrentContents(nodes);
     } catch (err) {
       setError("Failed to load folders");
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -995,7 +994,6 @@ function CoursewareBrowserTab() {
       setCurrentContents(contents);
       setDisplayLimit(ITEMS_PER_PAGE);
     } catch (err) {
-      console.error("Failed to load folder contents:", err);
       const message = err instanceof Error ? err.message : "Failed to load folder contents.";
       setError(message);
       if (folderId && (message.includes("timeout") || message.includes("unavailable"))) {
@@ -1128,7 +1126,6 @@ function CoursewareBrowserTab() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(url);
     } catch (err) {
-      console.error(err);
       setError("Failed to load preview");
     } finally {
       setPreviewLoading(false);
@@ -1150,7 +1147,7 @@ function CoursewareBrowserTab() {
           const pageCount = await getPageCount(arrayBuffer);
           updateFileSelection(path, (sel) => ({ ...sel, pageCount }));
         } catch (err) {
-          console.warn("Failed to get page count:", err);
+          // Page count fetch failed - non-critical
         }
       }
     }
@@ -1212,7 +1209,7 @@ function CoursewareBrowserTab() {
               return next;
             });
           } catch (err) {
-            console.warn("Failed to get page count:", err);
+            // Page count fetch failed - non-critical
           }
         });
       return;
@@ -1281,7 +1278,6 @@ function CoursewareBrowserTab() {
       const newFolder = await addFolder();
       if (newFolder) await loadRootFolders();
     } catch (err) {
-      console.error("Failed to add folder:", err);
       setError("Failed to add folder.");
     }
   }, []);
@@ -1294,7 +1290,6 @@ function CoursewareBrowserTab() {
       await removeFolder(id);
       await loadRootFolders();
     } catch (err) {
-      console.error("Failed to remove folder:", err);
       setError("Failed to remove folder.");
     }
   }, []);
@@ -1392,8 +1387,8 @@ function CoursewareBrowserTab() {
                     if (existing) next.set(n.path, { ...existing, pageCount });
                     return next;
                   });
-                } catch (err) {
-                  console.warn("Failed to get page count:", err);
+                } catch {
+                  // Non-critical - page count is optional
                 }
               });
           }
@@ -2052,7 +2047,6 @@ function CoursewareSearchTab() {
       setHasMore(response.has_more || false);
       setOffset(currentOffset + RESULTS_PER_PAGE);
     } catch (err) {
-      console.error("Search failed:", err);
       setError("Search failed. Please try again.");
     } finally {
       setLoading(false);
@@ -2783,7 +2777,7 @@ export default function CoursewarePage() {
   useEffect(() => {
     studentsAPI.getSchools()
       .then((data) => setSchools(data))
-      .catch((err) => console.error("Failed to fetch schools:", err));
+      .catch(() => { /* School fetch failed - non-critical */ });
   }, []);
 
   // Detect mobile - only update state when crossing threshold

@@ -213,7 +213,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
       setMarkedAsPaid(true);
       onStatusChange?.();
     } catch (err) {
-      console.error('Failed to mark as paid:', err);
+      // Failed to mark as paid silently
     } finally {
       setMarkingPaid(false);
     }
@@ -228,7 +228,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
       onStatusChange?.();
       onClose();
     } catch (err) {
-      console.error('Failed to cancel enrollment:', err);
+      // Failed to cancel enrollment silently
     } finally {
       setIsCancelling(false);
     }

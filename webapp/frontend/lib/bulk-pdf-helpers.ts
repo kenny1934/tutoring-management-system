@@ -95,7 +95,7 @@ export async function fetchPdfData(
         const file = await result.handle.getFile();
         arrayBuffer = await file.arrayBuffer();
       } catch (err) {
-        console.warn(`${logPrefix} Failed to read local file:`, exercise.pdf_name, err);
+        // Failed to read local file silently
       }
     }
   }
@@ -122,7 +122,7 @@ export async function fetchPdfData(
         }
       }
     } catch (err) {
-      console.warn(`${logPrefix} Paperless fallback failed for:`, exercise.pdf_name, err);
+      // Paperless fallback failed silently
     }
   }
 

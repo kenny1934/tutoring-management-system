@@ -213,7 +213,6 @@ export function RecordContactModal({
 
       onClose(true);
     } catch (err) {
-      console.error('Failed to save contact:', err);
       setError(err instanceof Error ? err.message : 'Failed to save contact');
     } finally {
       setSaving(false);

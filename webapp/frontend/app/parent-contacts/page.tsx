@@ -206,7 +206,6 @@ export default function ParentContactsPage() {
       refreshData();
       showToast('Contact record deleted', 'success');
     } catch (error) {
-      console.error('Failed to delete contact:', error);
       showToast('Failed to delete contact record', 'error');
     } finally {
       setIsDeleting(false);

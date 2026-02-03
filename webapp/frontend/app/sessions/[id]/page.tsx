@@ -130,7 +130,7 @@ export default function SessionDetailPage() {
           const updatedSession = await sessionsAPI.markAttended(session.id);
           updateSessionInCache(updatedSession);
         } catch (error) {
-          console.error("Failed to mark attended:", error);
+          // Failed to mark attended silently
         } finally {
           setLoadingActionId(null);
         }
@@ -145,7 +145,7 @@ export default function SessionDetailPage() {
           const updatedSession = await sessionsAPI.markNoShow(session.id);
           updateSessionInCache(updatedSession);
         } catch (error) {
-          console.error("Failed to mark no show:", error);
+          // Failed to mark no show silently
         } finally {
           setLoadingActionId(null);
         }

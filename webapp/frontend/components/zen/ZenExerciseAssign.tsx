@@ -329,7 +329,6 @@ export function ZenExerciseAssign({
       setBrowseIndex(0);
     } catch (err) {
       setBrowseError("Failed to load folder");
-      console.error("Browse error:", err);
     } finally {
       setBrowseLoading(false);
     }

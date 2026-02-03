@@ -313,7 +313,6 @@ export function SessionSelectorModal({
       onAssignComplete?.();
       onClose();
     } catch (err) {
-      console.error("Failed to assign exercises:", err);
       showToast("Failed to assign exercises", "error");
       // Keep modal open on error
     } finally {

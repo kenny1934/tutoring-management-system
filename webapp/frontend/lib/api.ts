@@ -194,7 +194,6 @@ async function refreshToken(): Promise<boolean> {
       }
       return false;
     } catch (error) {
-      console.error("[Auth] Token refresh failed:", error);
       return false;
     } finally {
       isRefreshing = false;
@@ -252,7 +251,6 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit, isRetry = fa
 
     return await response.json();
   } catch (error) {
-    console.error(`API Error (${endpoint}):`, error);
     throw error;
   }
 }

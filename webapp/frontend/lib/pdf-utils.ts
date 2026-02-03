@@ -357,7 +357,6 @@ export async function extractBulkPagesForDownload(
       const copiedPages = await pdfDoc.copyPages(srcDoc, pageIndices);
       copiedPages.forEach(page => pdfDoc.addPage(page));
     } catch (err) {
-      console.warn('[extractBulkPagesForDownload] Failed to process PDF:', item.label, err);
       // Continue with other PDFs even if one fails
     }
   }

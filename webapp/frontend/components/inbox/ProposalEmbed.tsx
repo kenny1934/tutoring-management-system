@@ -191,7 +191,6 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       showToast("Slot approved! Make-up booked.", "success");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to approve:", error);
       showToast("Failed to approve slot", "error");
     } finally {
       setLoadingSlotId(null);
@@ -205,7 +204,6 @@ export function ProposalEmbed({ messageText, currentTutorId }: ProposalEmbedProp
       showToast("Slot rejected", "info");
       refreshProposals();
     } catch (error) {
-      console.error("Failed to reject:", error);
       showToast("Failed to reject slot", "error");
     } finally {
       setLoadingSlotId(null);

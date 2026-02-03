@@ -261,7 +261,7 @@ export function CommandPalette() {
           saveRecentSearch(query);
         }
       } catch (error) {
-        console.error("Search error:", error);
+        // Search failed silently
       } finally {
         setLoading(false);
       }

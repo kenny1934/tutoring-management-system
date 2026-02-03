@@ -70,7 +70,7 @@ export function AddStudentModal({
 
   // Fetch schools for autocomplete
   useEffect(() => {
-    studentsAPI.getSchools().then(setAllSchools).catch(console.error);
+    studentsAPI.getSchools().then(setAllSchools).catch(() => { /* non-critical */ });
   }, []);
 
   // Reset form when modal closes

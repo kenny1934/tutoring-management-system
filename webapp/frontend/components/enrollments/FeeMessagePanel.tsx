@@ -41,7 +41,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       })
       .catch(err => {
         if (!cancelled) {
-          console.error("Failed to fetch fee message:", err);
           setMessage("Failed to generate fee message");
           setLoading(false);
         }
@@ -60,7 +59,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
         onClose();
       }, 500);
     } catch (err) {
-      console.error("Failed to copy:", err);
       showToast("Failed to copy to clipboard");
     }
   };
@@ -81,7 +79,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       showToast("Marked as sent!");
       onMarkSent?.();
     } catch (err) {
-      console.error("Failed to mark as sent:", err);
       const errorMsg = err instanceof Error ? err.message : "Please try again";
       showToast(`Failed to mark as sent: ${errorMsg}`, "error");
     } finally {
@@ -100,7 +97,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       showToast("Unmarked as sent");
       onMarkSent?.();
     } catch (err) {
-      console.error("Failed to unmark as sent:", err);
       const errorMsg = err instanceof Error ? err.message : "Please try again";
       showToast(`Failed to unmark: ${errorMsg}`, "error");
     } finally {

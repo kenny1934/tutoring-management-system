@@ -344,7 +344,7 @@ export default function ZenSettingsPage() {
         setMappings(mappingsData);
         setFolders(foldersData);
       } catch (err) {
-        console.error("Failed to load path mapping data:", err);
+        // Failed to load path mapping data silently
       } finally {
         setMappingsLoading(false);
       }

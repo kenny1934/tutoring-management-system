@@ -74,7 +74,7 @@ export function MobileBottomSheet({
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="p-2 -mr-2 rounded-full hover:bg-muted transition-colors"
+                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 -mr-2 rounded-full hover:bg-muted transition-colors flex items-center justify-center"
                   aria-label="Close"
                 >
                   <X className="h-5 w-5" />

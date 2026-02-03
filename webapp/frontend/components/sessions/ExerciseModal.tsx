@@ -306,7 +306,6 @@ export function ExerciseModal({
         onSave(sessionId, currentExercises);
       }
     } catch (error) {
-      console.error("Failed to save exercises:", error);
       // Rollback to original state and show error
       updateSessionInCache(originalSession);
       showToast("Failed to save exercises. Changes reverted.", "error");
@@ -726,7 +725,6 @@ export function ExerciseModal({
 
     const error = await printBulkFiles(exercisesWithPdfs, stamp, searchPaperlessByPath, printTitle);
     if (error) {
-      console.warn('Failed to print all files:', error);
       setPrintAllState('error');
       setTimeout(() => setPrintAllState('idle'), 2000);
     } else {
@@ -752,7 +750,6 @@ export function ExerciseModal({
 
     const error = await downloadBulkFiles(exercisesWithPdfs, filename, stamp, searchPaperlessByPath);
     if (error) {
-      console.warn('Failed to download all files:', error);
       setDownloadAllState('error');
       setTimeout(() => setDownloadAllState('idle'), 2000);
     } else {
@@ -780,7 +777,6 @@ export function ExerciseModal({
     if (result.status === 'success') {
       setDownloadAllAnswersState('idle');
     } else {
-      console.warn('Failed to download all answer files:', result);
       setDownloadAllAnswersState('error');
       setTimeout(() => setDownloadAllAnswersState('idle'), 2000);
     }

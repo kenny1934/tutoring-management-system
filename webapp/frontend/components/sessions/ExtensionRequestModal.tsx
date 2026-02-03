@@ -103,8 +103,7 @@ export function ExtensionRequestModal({
             }
           }
         })
-        .catch((error) => {
-          console.error("Failed to fetch enrollment data:", error);
+        .catch(() => {
           showToast("Failed to load enrollment data", "error");
         })
         .finally(() => {
@@ -189,7 +188,6 @@ export function ExtensionRequestModal({
       setCustomTimeStart("");
       setCustomTimeEnd("");
     } catch (error) {
-      console.error("Failed to submit extension request:", error);
       showToast(
         error instanceof Error ? error.message : "Failed to submit request",
         "error"

@@ -156,7 +156,6 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
       const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
 
       if (error) {
-        console.warn('Failed to open file:', error);
         setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
         setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
       } else {
@@ -184,7 +183,6 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
       const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
 
       if (error) {
-        console.warn('Failed to print file:', error);
         setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
         setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
       } else {

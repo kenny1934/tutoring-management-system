@@ -92,7 +92,7 @@ export function ExtensionRequestReviewModal({
   // Pre-fetch session for approved requests to show rescheduled info
   React.useEffect(() => {
     if (isOpen && request.request_status === "Approved" && !sessionForMakeup) {
-      sessionsAPI.getById(request.session_id).then(setSessionForMakeup).catch(console.error);
+      sessionsAPI.getById(request.session_id).then(setSessionForMakeup).catch(() => { /* non-critical */ });
     }
   }, [isOpen, request.session_id, request.request_status]);
 
@@ -113,7 +113,7 @@ export function ExtensionRequestReviewModal({
         const session = await sessionsAPI.getById(request.session_id);
         setSessionForMakeup(session);
       } catch (error) {
-        console.error("Failed to fetch session:", error);
+        // Failed to fetch session silently
       } finally {
         setIsFetchingSession(false);
       }
@@ -135,7 +135,7 @@ export function ExtensionRequestReviewModal({
         if (type === 'source') setSourceEnrollment(enrollment);
         else setTargetEnrollment(enrollment);
       } catch (error) {
-        console.error("Failed to fetch enrollment:", error);
+        // Failed to fetch enrollment silently
       } finally {
         setIsFetchingEnrollment(false);
       }
@@ -155,7 +155,6 @@ export function ExtensionRequestReviewModal({
       showToast("Extension request approved", "success");
       setMode("approved");
     } catch (error) {
-      console.error("Failed to approve extension request:", error);
       showToast(
         error instanceof Error ? error.message : "Failed to approve",
         "error"
@@ -172,7 +171,6 @@ export function ExtensionRequestReviewModal({
       setSessionForMakeup(session);
       setShowMakeupModal(true);
     } catch (error) {
-      console.error("Failed to fetch session:", error);
       showToast("Failed to load session for scheduling", "error");
     } finally {
       setIsFetchingSession(false);
@@ -201,7 +199,6 @@ export function ExtensionRequestReviewModal({
       onRejected?.();
       onClose();
     } catch (error) {
-      console.error("Failed to reject extension request:", error);
       showToast(
         error instanceof Error ? error.message : "Failed to reject",
         "error"

@@ -720,7 +720,6 @@ export default function SessionsPage() {
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as attended:`, error);
         failCount++;
       }
       // Remove this session from loading state
@@ -763,7 +762,6 @@ export default function SessionsPage() {
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as no show:`, error);
         failCount++;
       }
       // Remove this session from loading state
@@ -807,7 +805,6 @@ export default function SessionsPage() {
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as rescheduled:`, error);
         failCount++;
       }
       // Remove this session from loading state
@@ -851,7 +848,6 @@ export default function SessionsPage() {
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as sick leave:`, error);
         failCount++;
       }
       // Remove this session from loading state
@@ -895,7 +891,6 @@ export default function SessionsPage() {
         updateSessionInCache(updatedSession);
         successCount++;
       } catch (error) {
-        console.error(`Failed to mark session ${session.id} as weather cancelled:`, error);
         failCount++;
       }
       // Remove this session from loading state

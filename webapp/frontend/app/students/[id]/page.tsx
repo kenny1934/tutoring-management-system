@@ -114,7 +114,7 @@ export default function StudentDetailPage() {
 
   // Fetch all schools for autocomplete
   useEffect(() => {
-    studentsAPI.getSchools().then(setAllSchools).catch(console.error);
+    studentsAPI.getSchools().then(setAllSchools).catch(() => { /* non-critical */ });
   }, []);
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(studentId);
   const { data: calendarEvents = [] } = useCalendarEvents(60, true); // Include past tests
@@ -256,7 +256,6 @@ export default function StudentDetailPage() {
       setIsEditingAcademic(false);
       setEditForm({});
     } catch (error) {
-      console.error('Failed to save student:', error);
       setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
       // Don't close edit mode on error - let user fix and retry
     } finally {

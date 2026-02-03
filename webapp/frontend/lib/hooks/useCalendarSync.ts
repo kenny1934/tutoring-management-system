@@ -37,7 +37,6 @@ export function useCalendarSync({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setLastSyncMessage(`Sync failed: ${errorMsg}`);
-      console.error('Calendar sync error:', error);
       setTimeout(() => setLastSyncMessage(null), 10000);
     } finally {
       setIsSyncing(false);
@@ -66,7 +65,6 @@ export function useCalendarSync({
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setLastSyncMessage(`Sync failed: ${errorMsg}`);
-      console.error('Calendar load older month error:', error);
       setTimeout(() => setLastSyncMessage(null), 10000);
     } finally {
       setIsSyncing(false);

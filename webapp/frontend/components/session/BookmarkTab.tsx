@@ -21,7 +21,6 @@ function CopyButton({ text }: { text: string }) {
       setTimeout(() => setCopyState('idle'), 1500);
     } catch (err) {
       // Clipboard API may not be available on some mobile browsers
-      console.warn('Clipboard not available:', err);
       setCopyState('failed');
       setTimeout(() => setCopyState('idle'), 1500);
     }

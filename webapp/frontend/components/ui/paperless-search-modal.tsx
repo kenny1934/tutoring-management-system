@@ -269,7 +269,6 @@ export function PaperlessSearchModal({
         setError(null);
       }
     } catch (err) {
-      console.error("Shelv search error:", err);
       setError(err instanceof Error ? err.message : "Search failed");
       if (!append) {
         setResults([]);

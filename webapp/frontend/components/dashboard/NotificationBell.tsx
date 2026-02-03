@@ -184,7 +184,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         ref={refs.setReference}
         {...getReferenceProps()}
         className={cn(
-          "relative p-2 rounded-full transition-all",
+          "relative min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 p-2.5 rounded-full transition-all flex items-center justify-center",
           "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
           isOpen && "bg-[#f5ede3] dark:bg-[#3d3628]"
         )}

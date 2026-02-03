@@ -368,7 +368,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         mutateExams(),
       ]);
     } catch (error) {
-      console.error('Failed to refresh calendar data:', error);
+      // Silently fail - calendar will show stale data
     }
   };
 

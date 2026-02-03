@@ -413,7 +413,6 @@ export function EditSessionModal({
           updateSessionInCache(session); // Rollback to original
         }
       } else {
-        console.error("Failed to save session:", error);
         showToast(message, "error");
 
         // Rollback cache if we did optimistic update

@@ -16,7 +16,6 @@ export async function searchPaperlessByPath(searchPath: string): Promise<number 
     }
     return null;
   } catch (error) {
-    console.warn('Paperless search failed:', error);
     return null;
   }
 }
