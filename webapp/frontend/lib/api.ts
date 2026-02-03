@@ -55,6 +55,22 @@ import type {
   PendingExtensionRequestCount,
   ExtensionRequestStatus,
   BatchRenewCheckResponse,
+  MessageResponse,
+  SuccessResponse,
+  CountResponse,
+  BatchUpdateResponse,
+  CalendarSyncResponse,
+  EnrollmentCancelResponse,
+  FeeMessageResponse,
+  SchoolInfoResponse,
+  NextIdResponse,
+  CheckDuplicatesResponse,
+  LocationRevenueSummary,
+  ActiveStudent,
+  ToggleLikeResponse,
+  ArchiveResponse,
+  BulkDeleteResponse,
+  DebugBulkUpdateResponse,
 } from "@/types";
 
 // Re-export create types for convenience
@@ -224,24 +240,17 @@ export const studentsAPI = {
   },
 
   getSchoolInfo: (schoolName: string) => {
-    return fetchAPI<{ lang_stream: string | null }>(`/students/school-info/${encodeURIComponent(schoolName)}`);
+    return fetchAPI<SchoolInfoResponse>(`/students/school-info/${encodeURIComponent(schoolName)}`);
   },
 
   getNextId: (location: string) => {
-    return fetchAPI<{ next_id: string }>(`/students/next-id/${encodeURIComponent(location)}`);
+    return fetchAPI<NextIdResponse>(`/students/next-id/${encodeURIComponent(location)}`);
   },
 
   checkDuplicates: (studentName: string, location: string, phone?: string) => {
     const params = new URLSearchParams({ student_name: studentName, location });
     if (phone) params.append("phone", phone);
-    return fetchAPI<{ duplicates: Array<{
-      id: number;
-      student_name: string;
-      school_student_id: string | null;
-      school: string | null;
-      grade: string | null;
-      match_reason: string;
-    }> }>(`/students/check-duplicates?${params}`);
+    return fetchAPI<CheckDuplicatesResponse>(`/students/check-duplicates?${params}`);
   },
 };
 
@@ -571,20 +580,18 @@ export const enrollmentsAPI = {
 
   getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
     const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
-    return fetchAPI<{ message: string; lessons_paid: number; first_lesson_date: string }>(
-      `/enrollments/${id}/fee-message?${params}`
-    );
+    return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 
   batchMarkPaid: (enrollmentIds: number[]) => {
-    return fetchAPI<{ updated: number[]; count: number }>("/enrollments/batch-mark-paid", {
+    return fetchAPI<BatchUpdateResponse>("/enrollments/batch-mark-paid", {
       method: "POST",
       body: JSON.stringify({ enrollment_ids: enrollmentIds }),
     });
   },
 
   batchMarkSent: (enrollmentIds: number[]) => {
-    return fetchAPI<{ updated: number[]; count: number }>("/enrollments/batch-mark-sent", {
+    return fetchAPI<BatchUpdateResponse>("/enrollments/batch-mark-sent", {
       method: "POST",
       body: JSON.stringify({ enrollment_ids: enrollmentIds }),
     });
@@ -629,10 +636,7 @@ export const enrollmentsAPI = {
   },
 
   cancel: (id: number) => {
-    return fetchAPI<{ enrollment: Enrollment; sessions_cancelled: number }>(
-      `/enrollments/${id}/cancel`,
-      { method: 'PATCH' }
-    );
+    return fetchAPI<EnrollmentCancelResponse>(`/enrollments/${id}/cancel`, { method: 'PATCH' });
   },
 };
 
@@ -828,10 +832,7 @@ export const calendarAPI = {
     if (force) params.append('force', 'true');
     if (daysBehind) params.append('days_behind', String(daysBehind));
     const queryString = params.toString();
-    return fetchAPI<{ success: boolean; events_synced: number; message: string }>(
-      `/calendar/sync${queryString ? '?' + queryString : ''}`,
-      { method: 'POST' }
-    );
+    return fetchAPI<CalendarSyncResponse>(`/calendar/sync${queryString ? '?' + queryString : ''}`, { method: 'POST' });
   },
 
   createEvent: (data: CalendarEventCreate) =>
@@ -847,9 +848,7 @@ export const calendarAPI = {
     }),
 
   deleteEvent: (id: number) =>
-    fetchAPI<{ message: string }>(`/calendar/events/${id}`, {
-      method: 'DELETE',
-    }),
+    fetchAPI<MessageResponse>(`/calendar/events/${id}`, { method: 'DELETE' }),
 };
 
 // Search result types
@@ -916,15 +915,7 @@ export const statsAPI = {
     if (location && location !== "All Locations") params.set("location", location);
     if (tutorId) params.set("tutor_id", tutorId.toString());
     const query = params.toString();
-    return fetchAPI<Array<{
-      id: number;
-      school_student_id: string | null;
-      student_name: string;
-      grade: string | null;
-      lang_stream: string | null;
-      school: string | null;
-      home_location: string | null;
-    }>>(`/active-students${query ? `?${query}` : ""}`);
+    return fetchAPI<ActiveStudent[]>(`/active-students${query ? `?${query}` : ""}`);
   },
 };
 
@@ -949,13 +940,7 @@ export const revenueAPI = {
   getLocationMonthlySummary: (location: string | null, period: string) => {
     const params = new URLSearchParams({ period });
     if (location) params.set("location", location);
-    return fetchAPI<{
-      location: string;
-      period: string;
-      total_revenue: number;
-      sessions_count: number;
-      avg_revenue_per_session: number;
-    }>(`/revenue/location-monthly-summary?${params.toString()}`);
+    return fetchAPI<LocationRevenueSummary>(`/revenue/location-monthly-summary?${params.toString()}`);
   },
 };
 
@@ -1095,9 +1080,7 @@ export const pathAliasesAPI = {
   },
 
   delete: (id: number) => {
-    return fetchAPI<{ message: string }>(`/path-aliases/${id}`, {
-      method: "DELETE",
-    });
+    return fetchAPI<MessageResponse>(`/path-aliases/${id}`, { method: "DELETE" });
   },
 };
 
@@ -1301,7 +1284,7 @@ export const parentCommunicationsAPI = {
     if (tutor_id) params.append('tutor_id', tutor_id.toString());
     if (location) params.append('location', location);
     const queryString = params.toString();
-    return fetchAPI<{ count: number }>(`/parent-communications/contact-needed-count${queryString ? `?${queryString}` : ''}`);
+    return fetchAPI<CountResponse>(`/parent-communications/contact-needed-count${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get single communication
@@ -1332,9 +1315,7 @@ export const parentCommunicationsAPI = {
   // Delete communication
   delete: (id: number, deleted_by?: string) => {
     const params = deleted_by ? `?deleted_by=${encodeURIComponent(deleted_by)}` : '';
-    return fetchAPI<{ message: string }>(`/parent-communications/${id}${params}`, {
-      method: 'DELETE',
-    });
+    return fetchAPI<MessageResponse>(`/parent-communications/${id}${params}`, { method: 'DELETE' });
   },
 };
 
@@ -1446,7 +1427,7 @@ export const messagesAPI = {
 
   // Get unread count for a tutor
   getUnreadCount: (tutorId: number) => {
-    return fetchAPI<{ count: number }>(`/messages/unread-count?tutor_id=${tutorId}`);
+    return fetchAPI<CountResponse>(`/messages/unread-count?tutor_id=${tutorId}`);
   },
 
   // Get a specific thread
@@ -1464,9 +1445,7 @@ export const messagesAPI = {
 
   // Mark message as read
   markRead: (messageId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean }>(`/messages/${messageId}/read?tutor_id=${tutorId}`, {
-      method: "POST",
-    });
+    return fetchAPI<SuccessResponse>(`/messages/${messageId}/read?tutor_id=${tutorId}`, { method: "POST" });
   },
 
   // Mark message as unread
@@ -1478,10 +1457,7 @@ export const messagesAPI = {
 
   // Toggle like on a message
   toggleLike: (messageId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean; is_liked: boolean; like_count: number }>(
-      `/messages/${messageId}/like?tutor_id=${tutorId}`,
-      { method: "POST" }
-    );
+    return fetchAPI<ToggleLikeResponse>(`/messages/${messageId}/like?tutor_id=${tutorId}`, { method: "POST" });
   },
 
   // Update a message (only by sender)
@@ -1494,32 +1470,23 @@ export const messagesAPI = {
 
   // Delete a message (only by sender)
   delete: (messageId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean; message: string }>(
-      `/messages/${messageId}?tutor_id=${tutorId}`,
-      { method: "DELETE" }
-    );
+    return fetchAPI<SuccessResponse & MessageResponse>(`/messages/${messageId}?tutor_id=${tutorId}`, { method: "DELETE" });
   },
 
   // Archive messages (bulk)
   archive: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<{ success: boolean; count: number }>(
-      `/messages/archive?tutor_id=${tutorId}`,
-      {
-        method: "POST",
-        body: JSON.stringify({ message_ids: messageIds }),
-      }
-    );
+    return fetchAPI<ArchiveResponse>(`/messages/archive?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
   },
 
   // Unarchive messages (bulk)
   unarchive: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<{ success: boolean; count: number }>(
-      `/messages/archive?tutor_id=${tutorId}`,
-      {
-        method: "DELETE",
-        body: JSON.stringify({ message_ids: messageIds }),
-      }
-    );
+    return fetchAPI<ArchiveResponse>(`/messages/archive?tutor_id=${tutorId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
   },
 
   // Get archived threads
@@ -1639,7 +1606,7 @@ export const proposalsAPI = {
 
   // Cancel proposal (by proposer)
   cancel: (proposalId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean; message: string }>(
+    return fetchAPI<SuccessResponse & MessageResponse>(
       `/makeup-proposals/${proposalId}?tutor_id=${tutorId}`,
       { method: "DELETE" }
     );
@@ -1774,9 +1741,7 @@ export const examRevisionAPI = {
   // Delete a slot (use force=true to unenroll students and delete)
   deleteSlot: (slotId: number, force: boolean = false) => {
     const params = force ? "?force=true" : "";
-    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}${params}`, {
-      method: "DELETE",
-    });
+    return fetchAPI<MessageResponse>(`/exam-revision/slots/${slotId}${params}`, { method: "DELETE" });
   },
 
   // Get eligible students for a slot
@@ -1800,9 +1765,7 @@ export const examRevisionAPI = {
 
   // Remove a student's enrollment from a slot
   removeEnrollment: (slotId: number, sessionId: number) => {
-    return fetchAPI<{ message: string }>(`/exam-revision/slots/${slotId}/enrollments/${sessionId}`, {
-      method: "DELETE",
-    });
+    return fetchAPI<MessageResponse>(`/exam-revision/slots/${slotId}/enrollments/${sessionId}`, { method: "DELETE" });
   },
 
   // Get exams (calendar events) with their revision slot summaries
@@ -1871,29 +1834,21 @@ export const debugAPI = {
 
   // Delete row (requires confirmation)
   deleteRow: (tableName: string, rowId: number) =>
-    fetchAPI<{ message: string }>(`/debug/tables/${tableName}/rows/${rowId}?confirm=DELETE`, {
-      method: "DELETE",
-    }),
+    fetchAPI<MessageResponse>(`/debug/tables/${tableName}/rows/${rowId}?confirm=DELETE`, { method: "DELETE" }),
 
   // Bulk delete rows
   bulkDeleteRows: (tableName: string, rowIds: number[]) =>
-    fetchAPI<{ deleted_count: number; failed_ids: number[]; message: string }>(
-      `/debug/tables/${tableName}/bulk-delete?confirm=DELETE`,
-      {
-        method: "DELETE",
-        body: JSON.stringify({ ids: rowIds }),
-      }
-    ),
+    fetchAPI<BulkDeleteResponse>(`/debug/tables/${tableName}/bulk-delete?confirm=DELETE`, {
+      method: "DELETE",
+      body: JSON.stringify({ ids: rowIds }),
+    }),
 
   // Bulk update rows
   bulkUpdateRows: (tableName: string, rowIds: number[], column: string, value: unknown) =>
-    fetchAPI<{ updated_count: number; message: string }>(
-      `/debug/tables/${tableName}/bulk-update`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ ids: rowIds, column, value }),
-      }
-    ),
+    fetchAPI<DebugBulkUpdateResponse>(`/debug/tables/${tableName}/bulk-update`, {
+      method: "PATCH",
+      body: JSON.stringify({ ids: rowIds, column, value }),
+    }),
 
   // Export table as CSV or JSON
   exportTable: async (
