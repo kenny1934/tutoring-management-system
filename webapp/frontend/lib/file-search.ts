@@ -258,14 +258,11 @@ async function searchShelv(
 
     if (response.results) {
       for (const doc of response.results) {
-        // Use converted_path if available (already in alias format), otherwise construct path
-        const path = (doc as any).converted_path ||
-          (doc.archive_serial_number
-            ? `[Shelv]\\${doc.archive_serial_number}\\${doc.original_file_name}`
-            : doc.original_file_name || `Document ${doc.id}`);
+        // Use converted_path if available (already in alias format), otherwise use original_path
+        const path = doc.converted_path || doc.original_path || `Document ${doc.id}`;
 
         // Determine match type for display badge only (not filtering)
-        const docFilename = doc.original_file_name?.toLowerCase() || '';
+        const docFilename = doc.title?.toLowerCase() || '';
         const searchLower = filename.toLowerCase();
         const isExact = docFilename === searchLower;
         const isPartial = !isExact && docFilename.includes(searchLower.replace(/\.pdf$/i, ''));
