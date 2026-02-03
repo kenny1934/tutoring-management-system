@@ -1,4 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { MATH_PUZZLES, type MathPuzzle } from '@/lib/data/math-puzzles';
+import {
+  getSeenPuzzles,
+  getSeenPuzzlesStorage,
+  markPuzzleSeen,
+  resetSeenPuzzles,
+} from '@/lib/puzzle-storage';
 
 interface PuzzleQuestion {
   question: string;
@@ -8,6 +15,7 @@ interface PuzzleQuestion {
 
 interface CachedPuzzle {
   date: string;
+  puzzleId: string;
   question: PuzzleQuestion;
   userAnswer: string | null;
   isCorrect: boolean | null;
@@ -24,28 +32,61 @@ interface UseDailyPuzzleResult {
 }
 
 const STORAGE_KEY = 'daily-puzzle';
-const API_URL = 'https://opentdb.com/api.php?amount=1&category=19&difficulty=hard&type=multiple';
 
 // Get today's date as YYYY-MM-DD
 function getTodayKey(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-// Decode HTML entities from API response
-function decodeHTML(html: string): string {
-  const txt = document.createElement('textarea');
-  txt.innerHTML = html;
-  return txt.value;
+/**
+ * Generate a deterministic hash from a date string
+ * Same date always produces the same hash
+ */
+function hashDate(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return (year * 10000 + month * 100 + day) * 31337;
 }
 
-// Shuffle array using Fisher-Yates
-function shuffleArray<T>(array: T[]): T[] {
+/**
+ * Shuffle an array deterministically using a seed
+ * Ensures all users see the same answer order for the same day
+ */
+function seededShuffle<T>(array: T[], seed: number): T[] {
   const shuffled = [...array];
+  let currentSeed = seed;
+
+  const random = () => {
+    currentSeed = (currentSeed * 9301 + 49297) % 233280;
+    return currentSeed / 233280;
+  };
+
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+
   return shuffled;
+}
+
+/**
+ * Select a puzzle for the given date
+ * Uses deterministic selection so all users see the same puzzle each day
+ * Filters out already-seen puzzles to prevent repetition
+ */
+function selectPuzzleForDate(dateStr: string): MathPuzzle {
+  const seenIds = getSeenPuzzles();
+  let availablePuzzles = MATH_PUZZLES.filter((p) => !seenIds.has(p.id));
+
+  if (availablePuzzles.length === 0) {
+    resetSeenPuzzles(true);
+    availablePuzzles = [...MATH_PUZZLES];
+  }
+
+  const storage = getSeenPuzzlesStorage();
+  const dateHash = hashDate(dateStr) + storage.cycleCount * 7919;
+  const index = Math.abs(dateHash) % availablePuzzles.length;
+
+  return availablePuzzles[index];
 }
 
 export function useDailyPuzzle(): UseDailyPuzzleResult {
@@ -55,17 +96,14 @@ export function useDailyPuzzle(): UseDailyPuzzleResult {
   const [userAnswer, setUserAnswer] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
 
-  // Load cached puzzle or fetch new one
   useEffect(() => {
     const todayKey = getTodayKey();
 
-    // Check localStorage for cached puzzle
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed: CachedPuzzle = JSON.parse(cached);
         if (parsed.date === todayKey) {
-          // Use cached question
           setQuestion(parsed.question);
           setUserAnswer(parsed.userAnswer);
           setIsCorrect(parsed.isCorrect);
@@ -74,75 +112,65 @@ export function useDailyPuzzle(): UseDailyPuzzleResult {
         }
       }
     } catch {
-      // Invalid cache, will fetch new
+      // Invalid cache, will select new puzzle
     }
 
-    // Fetch new puzzle
-    async function fetchPuzzle() {
-      try {
-        setIsLoading(true);
-        const response = await fetch(API_URL);
+    try {
+      const puzzle = selectPuzzleForDate(todayKey);
+      const dateHash = hashDate(todayKey);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch puzzle');
-        }
+      const puzzleQuestion: PuzzleQuestion = {
+        question: puzzle.question,
+        correctAnswer: puzzle.correctAnswer,
+        allAnswers: seededShuffle(
+          [puzzle.correctAnswer, ...puzzle.incorrectAnswers],
+          dateHash
+        ),
+      };
 
-        const data = await response.json();
+      const toCache: CachedPuzzle = {
+        date: todayKey,
+        puzzleId: puzzle.id,
+        question: puzzleQuestion,
+        userAnswer: null,
+        isCorrect: null,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toCache));
 
-        if (data.response_code !== 0 || !data.results || data.results.length === 0) {
-          throw new Error('No puzzle available');
-        }
+      markPuzzleSeen(puzzle.id);
 
-        const result = data.results[0];
-        const decodedQuestion = decodeHTML(result.question);
-        const decodedCorrect = decodeHTML(result.correct_answer);
-        const decodedIncorrect = result.incorrect_answers.map(decodeHTML);
-
-        const puzzleQuestion: PuzzleQuestion = {
-          question: decodedQuestion,
-          correctAnswer: decodedCorrect,
-          allAnswers: shuffleArray([decodedCorrect, ...decodedIncorrect]),
-        };
-
-        // Cache for today
-        const toCache: CachedPuzzle = {
-          date: todayKey,
-          question: puzzleQuestion,
-          userAnswer: null,
-          isCorrect: null,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toCache));
-
-        setQuestion(puzzleQuestion);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load puzzle');
-      } finally {
-        setIsLoading(false);
-      }
+      setQuestion(puzzleQuestion);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load puzzle');
+    } finally {
+      setIsLoading(false);
     }
-
-    fetchPuzzle();
   }, []);
 
-  // Submit an answer
-  const submitAnswer = useCallback((answer: string) => {
-    if (!question || userAnswer !== null) return;
+  const submitAnswer = useCallback(
+    (answer: string) => {
+      if (!question || userAnswer !== null) return;
 
-    const correct = answer === question.correctAnswer;
-    setUserAnswer(answer);
-    setIsCorrect(correct);
+      const correct = answer === question.correctAnswer;
+      setUserAnswer(answer);
+      setIsCorrect(correct);
 
-    // Update cache with answer
-    const todayKey = getTodayKey();
-    const toCache: CachedPuzzle = {
-      date: todayKey,
-      question,
-      userAnswer: answer,
-      isCorrect: correct,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toCache));
-  }, [question, userAnswer]);
+      const todayKey = getTodayKey();
+      try {
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) {
+          const parsed: CachedPuzzle = JSON.parse(cached);
+          parsed.userAnswer = answer;
+          parsed.isCorrect = correct;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    },
+    [question, userAnswer]
+  );
 
   return {
     question,
