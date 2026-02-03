@@ -523,6 +523,12 @@ export function EditSessionModal({
               type="date"
               value={form.session_date}
               onChange={(e) => updateField("session_date", e.target.value)}
+              aria-describedby={
+                is60DayExceeded ? "session-60day-warning" :
+                showEarlyDeadlineWarning ? "session-deadline-warning" :
+                deadlineError ? "session-deadline-error" : undefined
+              }
+              aria-invalid={is60DayExceeded || showEarlyDeadlineWarning || deadlineError ? "true" : undefined}
               className={inputClass}
             />
           </div>
@@ -548,9 +554,9 @@ export function EditSessionModal({
 
         {/* 60-day makeup limit warning - hard block for non-Super Admin, override warning for Super Admin */}
         {is60DayExceeded && (
-          <div className={`p-3 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
+          <div id="session-60day-warning" role="alert" className={`p-3 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'} border rounded-lg`}>
             <div className="flex items-start gap-2">
-              <AlertTriangle className={`h-4 w-4 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} />
+              <AlertTriangle className={`h-4 w-4 ${isSuperAdmin ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'} mt-0.5 flex-shrink-0`} aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className={`text-sm ${isSuperAdmin ? 'text-orange-800 dark:text-orange-200' : 'text-red-800 dark:text-red-200'}`}>
                   {isSuperAdmin
@@ -602,9 +608,9 @@ export function EditSessionModal({
 
         {/* Early Deadline Warning - shown when moving to regular slot past deadline */}
         {showEarlyDeadlineWarning && !deadlineError && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+          <div id="session-deadline-warning" role="alert" className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-amber-800 dark:text-amber-200">
                   This is the student&apos;s regular slot ({currentEnrollment?.assigned_day} {currentEnrollment?.assigned_time}) past the enrollment deadline
@@ -638,9 +644,9 @@ export function EditSessionModal({
 
         {/* Deadline Error Alert */}
         {deadlineError && (
-          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div id="session-deadline-error" role="alert" className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
               <span>Cannot move session past enrollment end date ({deadlineError.effective_end_date})</span>
             </div>
             <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">

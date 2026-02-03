@@ -645,16 +645,22 @@ export function CreateEnrollmentModal({
                     type="time"
                     value={customTimeStart}
                     onChange={(e) => setCustomTimeStart(e.target.value)}
+                    aria-label="Start time"
+                    aria-describedby={!isCustomTimeValid && customTimeStart && customTimeEnd ? "custom-time-error" : undefined}
+                    aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
                       !isCustomTimeValid ? "border-red-400" : "border-gray-300 dark:border-gray-600"
                     )}
                   />
-                  <span className="text-foreground/50 text-center">to</span>
+                  <span className="text-foreground/50 text-center" aria-hidden="true">to</span>
                   <input
                     type="time"
                     value={customTimeEnd}
                     onChange={(e) => setCustomTimeEnd(e.target.value)}
+                    aria-label="End time"
+                    aria-describedby={!isCustomTimeValid && customTimeStart && customTimeEnd ? "custom-time-error" : undefined}
+                    aria-invalid={!isCustomTimeValid && customTimeStart && customTimeEnd ? "true" : undefined}
                     className={cn(
                       "flex-1 px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-800",
                       !isCustomTimeValid ? "border-red-400" : "border-gray-300 dark:border-gray-600"
@@ -662,7 +668,7 @@ export function CreateEnrollmentModal({
                   />
                 </div>
                 {!isCustomTimeValid && customTimeStart && customTimeEnd && (
-                  <p className="text-xs text-red-500">End time must be after start time</p>
+                  <p id="custom-time-error" className="text-xs text-red-500" role="alert">End time must be after start time</p>
                 )}
                 <button
                   type="button"
@@ -688,6 +694,8 @@ export function CreateEnrollmentModal({
               onChange={(e) => setFirstLessonDate(e.target.value)}
               required
               aria-required="true"
+              aria-describedby={dayMismatchWarning ? "first-lesson-date-warning" : undefined}
+              aria-invalid={dayMismatchWarning ? "true" : undefined}
               className={cn(
                 "w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary",
                 dayMismatchWarning
@@ -696,8 +704,8 @@ export function CreateEnrollmentModal({
               )}
             />
             {dayMismatchWarning && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+              <div id="first-lesson-date-warning" className="flex items-center gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400" role="alert">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
                 <span className="text-xs">{dayMismatchWarning}</span>
               </div>
             )}
