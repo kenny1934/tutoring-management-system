@@ -71,10 +71,87 @@ import type {
   ArchiveResponse,
   BulkDeleteResponse,
   DebugBulkUpdateResponse,
+  // Enrollment preview & renewal types
+  SessionPreview,
+  StudentConflict,
+  PotentialRenewalLink,
+  EnrollmentPreviewResponse,
+  RenewalDataResponse,
+  RenewalListItem,
+  RenewalCountsResponse,
+  TrialListItem,
+  PendingMakeupSession,
+  EnrollmentDetailResponse,
+  // Schedule change types
+  ScheduleChangeRequest,
+  UnchangeableSession,
+  UpdatableSession,
+  ScheduleChangePreviewResponse,
+  ApplyScheduleChangeRequest,
+  ScheduleChangeResult,
+  // Search types
+  SearchResults,
+  // Paperless types
+  PaperlessDocument,
+  PaperlessSearchResponse,
+  PaperlessStatus,
+  PaperlessTag,
+  PaperlessTagsResponse,
+  PaperlessSearchMode,
+  PaperlessTagMatchMode,
+  // Path aliases types
+  PathAliasDefinition,
+  // Document processing types
+  ProcessingMode,
+  HandwritingRemovalOptions,
+  HandwritingRemovalResponse,
+  DocumentProcessingStatus,
+  // Parent communications types
+  ParentCommunication,
+  StudentContactStatus,
+  LocationSettings,
+  ParentCommunicationCreate,
 } from "@/types";
 
-// Re-export create types for convenience
-export type { StudentCreate, EnrollmentCreate, SessionUpdate } from "@/types";
+// Re-export types for backward compatibility
+export type {
+  StudentCreate,
+  EnrollmentCreate,
+  SessionUpdate,
+  SessionPreview,
+  StudentConflict,
+  PotentialRenewalLink,
+  EnrollmentPreviewResponse,
+  RenewalDataResponse,
+  RenewalListItem,
+  RenewalCountsResponse,
+  TrialListItem,
+  PendingMakeupSession,
+  EnrollmentDetailResponse,
+  ScheduleChangeRequest,
+  UnchangeableSession,
+  UpdatableSession,
+  ScheduleChangePreviewResponse,
+  ApplyScheduleChangeRequest,
+  ScheduleChangeResult,
+  SearchResults,
+  PaperlessDocument,
+  PaperlessSearchResponse,
+  PaperlessStatus,
+  PaperlessTag,
+  PaperlessTagsResponse,
+  PaperlessSearchMode,
+  PaperlessTagMatchMode,
+  PathAliasDefinition,
+  ProcessingMode,
+  HandwritingRemovalOptions,
+  HandwritingRemovalResponse,
+  DocumentProcessingStatus,
+  ParentCommunication,
+  StudentContactStatus,
+  LocationSettings,
+  ParentCommunicationCreate,
+} from "@/types";
 import type {
   DebugTable,
   DebugTableSchema,
@@ -253,223 +330,6 @@ export const studentsAPI = {
     return fetchAPI<CheckDuplicatesResponse>(`/students/check-duplicates?${params}`);
   },
 };
-
-// Note: StudentCreate, EnrollmentCreate, and SessionUpdate types are now defined in @/types
-// and re-exported above for backward compatibility
-
-export interface SessionPreview {
-  session_date: string;
-  time_slot: string;
-  location: string;
-  is_holiday: boolean;
-  holiday_name?: string;
-  conflict?: string;
-}
-
-export interface StudentConflict {
-  session_date: string;
-  time_slot: string;
-  existing_tutor_name: string;
-  session_status: string;
-  enrollment_id: number;
-}
-
-export interface PotentialRenewalLink {
-  id: number;
-  effective_end_date: string;
-  lessons_paid: number;
-  tutor_name: string;
-}
-
-export interface EnrollmentPreviewResponse {
-  enrollment_data: EnrollmentCreate;
-  sessions: SessionPreview[];
-  effective_end_date: string;
-  conflicts: StudentConflict[];
-  warnings: string[];
-  skipped_holidays: Array<{ date: string; name: string }>;
-  potential_renewals: PotentialRenewalLink[];
-}
-
-export interface RenewalDataResponse {
-  student_id: number;
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  tutor_id: number;
-  tutor_name: string;
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  suggested_first_lesson_date: string;
-  previous_lessons_paid: number;
-  enrollment_type: string;
-  renewed_from_enrollment_id: number;
-  previous_effective_end_date: string;
-  discount_id?: number;
-  discount_name?: string;
-}
-
-export interface RenewalListItem {
-  id: number;
-  student_id: number;
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  lang_stream?: string;
-  school?: string;
-  tutor_id: number;
-  tutor_name: string;
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  first_lesson_date: string;
-  lessons_paid: number;
-  effective_end_date: string;
-  days_until_expiry: number;
-  sessions_remaining: number;
-  payment_status: string;
-  // Renewal status tracking
-  renewal_status: 'not_renewed' | 'pending_message' | 'message_sent' | 'paid';
-  renewal_enrollment_id?: number;
-  // Renewal enrollment details (populated when renewal_enrollment_id exists)
-  renewal_first_lesson_date?: string;
-  renewal_lessons_paid?: number;
-  renewal_payment_status?: string;
-}
-
-export interface RenewalCountsResponse {
-  expiring_soon: number;
-  expired: number;
-  total: number;
-}
-
-export interface TrialListItem {
-  enrollment_id: number;
-  student_id: number;
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  lang_stream?: string;
-  school?: string;
-  tutor_id: number;
-  tutor_name: string;
-  session_id: number;
-  session_date: string;
-  time_slot: string;
-  location: string;
-  session_status: string;
-  payment_status: string;
-  trial_status: 'scheduled' | 'attended' | 'no_show' | 'converted' | 'pending';
-  subsequent_enrollment_id?: number;
-  created_at: string;
-}
-
-export interface PendingMakeupSession {
-  id: number;
-  session_date: string;
-  time_slot?: string;
-  session_status: string;
-  tutor_name?: string;
-  has_extension_request: boolean;
-  extension_request_status?: string;
-}
-
-export interface EnrollmentDetailResponse {
-  id: number;
-  student_id: number;
-  student_name: string;
-  school_student_id?: string;
-  grade?: string;
-  lang_stream?: string;
-  school?: string;
-  home_location?: string;
-  tutor_id: number;
-  tutor_name: string;
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  first_lesson_date: string;
-  effective_end_date: string;
-  days_until_expiry: number;
-  lessons_paid: number;
-  sessions_finished: number;
-  sessions_total: number;
-  pending_makeups: PendingMakeupSession[];
-  payment_status: string;
-  phone?: string;
-  fee_message_sent: boolean;
-}
-
-// Schedule Change types
-export interface ScheduleChangeRequest {
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  tutor_id: number;
-}
-
-export interface UnchangeableSession {
-  session_id: number;
-  session_date: string;
-  time_slot: string;
-  tutor_name: string;
-  session_status: string;
-  reason: string;
-}
-
-export interface UpdatableSession {
-  session_id: number;
-  current_date: string;
-  current_time_slot: string;
-  current_tutor_name: string;
-  new_date: string;
-  new_time_slot: string;
-  new_tutor_name: string;
-  is_holiday: boolean;
-  holiday_name?: string;
-  shifted_date?: string;
-}
-
-export interface ScheduleChangePreviewResponse {
-  enrollment_id: number;
-  current_schedule: {
-    assigned_day: string;
-    assigned_time: string;
-    location: string;
-    tutor_id: number;
-    tutor_name: string;
-  };
-  new_schedule: {
-    assigned_day: string;
-    assigned_time: string;
-    location: string;
-    tutor_id: number;
-    tutor_name: string;
-  };
-  unchangeable_sessions: UnchangeableSession[];
-  updatable_sessions: UpdatableSession[];
-  conflicts: StudentConflict[];
-  warnings: string[];
-  can_apply: boolean;
-}
-
-export interface ApplyScheduleChangeRequest {
-  assigned_day: string;
-  assigned_time: string;
-  location: string;
-  tutor_id: number;
-  apply_to_sessions: boolean;
-  date_overrides?: Record<number, string>; // session_id -> ISO date string for manual overrides
-  time_overrides?: Record<number, string>; // session_id -> time string for manual overrides (e.g. "14:30")
-}
-
-export interface ScheduleChangeResult {
-  enrollment_id: number;
-  sessions_updated: number;
-  new_effective_end_date?: string;
-  message: string;
-}
 
 // Enrollments API
 export const enrollmentsAPI = {
@@ -851,34 +711,6 @@ export const calendarAPI = {
     fetchAPI<MessageResponse>(`/calendar/events/${id}`, { method: 'DELETE' }),
 };
 
-// Search result types
-export interface SearchResults {
-  students: Array<{
-    id: number;
-    student_name: string;
-    school_student_id: string | null;
-    school: string | null;
-    grade: string | null;
-    phone: string | null;
-  }>;
-  sessions: Array<{
-    id: number;
-    student_id: number;
-    student_name: string | null;
-    session_date: string | null;
-    session_status: string | null;
-    tutor_name: string | null;
-  }>;
-  enrollments: Array<{
-    id: number;
-    student_id: number;
-    student_name: string | null;
-    tutor_name: string | null;
-    location: string | null;
-    payment_status: string | null;
-  }>;
-}
-
 // Stats API
 export const statsAPI = {
   getDashboard: (location?: string, tutorId?: number) => {
@@ -986,41 +818,6 @@ export const coursewareAPI = {
 };
 
 // Paperless-ngx API
-export interface PaperlessDocument {
-  id: number;
-  title: string;
-  original_path: string | null;
-  converted_path: string | null;
-  tags: string[];
-  created: string | null;
-  correspondent: string | null;
-}
-
-export interface PaperlessSearchResponse {
-  results: PaperlessDocument[];
-  count: number;
-  has_more: boolean;
-}
-
-export interface PaperlessStatus {
-  configured: boolean;
-  reachable: boolean;
-  url?: string;
-  error?: string;
-}
-
-export type PaperlessSearchMode = "all" | "title" | "content" | "advanced";
-export type PaperlessTagMatchMode = "all" | "any";
-
-export interface PaperlessTag {
-  id: number;
-  name: string;
-}
-
-export interface PaperlessTagsResponse {
-  tags: PaperlessTag[];
-}
-
 export const paperlessAPI = {
   search: (
     query: string,
@@ -1061,12 +858,6 @@ export const paperlessAPI = {
 };
 
 // Path Aliases API
-export interface PathAliasDefinition {
-  id: number;
-  alias: string;
-  description: string | null;
-}
-
 export const pathAliasesAPI = {
   getAll: () => {
     return fetchAPI<PathAliasDefinition[]>("/path-aliases");
@@ -1096,40 +887,6 @@ export const holidaysAPI = {
 };
 
 // Document processing API
-export type ProcessingMode = 'conservative' | 'balanced' | 'aggressive';
-
-export interface HandwritingRemovalOptions {
-  removeBlue?: boolean;
-  removeRed?: boolean;
-  removeGreen?: boolean;
-  removePencil?: boolean;
-  pencilThreshold?: number;
-  // Black ink removal (stroke-based detection)
-  removeBlackInk?: boolean;
-  blackInkMode?: ProcessingMode;
-  // Manual stroke threshold (0 = use preset, 1-20 = manual override)
-  blackInkStrokeThreshold?: number;
-}
-
-export interface HandwritingRemovalResponse {
-  pdf_base64: string;
-  pages_processed: number;
-  success: boolean;
-  message: string;
-}
-
-export interface DocumentProcessingStatus {
-  available: boolean;
-  opencv: boolean;
-  pymupdf: boolean;
-  features: {
-    remove_colored_ink: boolean;
-    remove_pencil: boolean;
-    remove_black_ink: boolean;
-    pdf_processing: boolean;
-  };
-}
-
 export const documentProcessingAPI = {
   /**
    * Remove handwriting from a PDF (base64 input/output)
@@ -1174,61 +931,6 @@ export const documentProcessingAPI = {
 };
 
 // Parent Communications API
-export interface ParentCommunication {
-  id: number;
-  student_id: number;
-  student_name: string;
-  school_student_id: string | null;
-  grade: string | null;
-  lang_stream: string | null;
-  school: string | null;
-  home_location: string | null;
-  tutor_id: number;
-  tutor_name: string;
-  contact_date: string;
-  contact_method: string;
-  contact_type: string;
-  brief_notes: string | null;
-  follow_up_needed: boolean | null;  // Can be null for legacy data
-  follow_up_date: string | null;
-  created_at: string;
-  created_by: string | null;
-}
-
-export interface StudentContactStatus {
-  student_id: number;
-  student_name: string;
-  school_student_id: string | null;
-  grade: string | null;
-  lang_stream: string | null;
-  school: string | null;
-  home_location: string | null;
-  last_contact_date: string | null;
-  last_contacted_by: string | null;
-  days_since_contact: number;
-  contact_status: 'Never Contacted' | 'Recent' | 'Been a While' | 'Contact Needed';
-  pending_follow_up: boolean;
-  follow_up_date: string | null;
-  enrollment_count: number;
-}
-
-export interface LocationSettings {
-  id: number;
-  location: string;
-  contact_recent_days: number;
-  contact_warning_days: number;
-}
-
-export interface ParentCommunicationCreate {
-  student_id: number;
-  contact_method?: string;
-  contact_type?: string;
-  brief_notes?: string;
-  follow_up_needed?: boolean;
-  follow_up_date?: string;
-  contact_date?: string;
-}
-
 export const parentCommunicationsAPI = {
   // Get all communications with filters
   getAll: (params?: {
