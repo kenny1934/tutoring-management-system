@@ -43,6 +43,7 @@ export function ExerciseDeleteButton({
       onClick={onRequestDelete}
       className="p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors shrink-0"
       title="Remove exercise (Alt+Backspace)"
+      aria-label="Remove exercise"
     >
       <Trash2 className="h-4 w-4" />
     </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, User, ChevronDown, Shield, Eye } from "lucide-react";
 import { RoleSwitcher } from "./RoleSwitcher";
@@ -50,9 +51,11 @@ export function UserMenu({ className = "" }: UserMenuProps) {
       >
         {/* Avatar */}
         {user.picture ? (
-          <img
+          <Image
             src={user.picture}
             alt={user.name}
+            width={32}
+            height={32}
             className="w-8 h-8 rounded-full object-cover"
             referrerPolicy="no-referrer"
           />
@@ -107,9 +110,11 @@ export function UserMenu({ className = "" }: UserMenuProps) {
           <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-700">
             <div className="flex items-center gap-3">
               {user.picture ? (
-                <img
+                <Image
                   src={user.picture}
                   alt={user.name}
+                  width={40}
+                  height={40}
                   className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                   referrerPolicy="no-referrer"
                 />
