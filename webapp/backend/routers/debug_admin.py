@@ -14,6 +14,7 @@ Security: All endpoints require Super Admin role.
 import csv
 import io
 import json
+import os
 import re
 from typing import Optional, Any
 from datetime import date, datetime
@@ -78,6 +79,16 @@ MAX_FILTERS = 10
 
 import logging
 logger = logging.getLogger(__name__)
+
+# Environment flag to enable/disable raw SQL execution endpoint
+# Default: disabled in production, enabled elsewhere
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENABLE_RAW_SQL_EXECUTION = os.getenv("ENABLE_RAW_SQL_EXECUTION", "false").lower() == "true"
+if _ENVIRONMENT == "production" and not ENABLE_RAW_SQL_EXECUTION:
+    logger.warning(
+        "Raw SQL execution endpoint is DISABLED in production. "
+        "Set ENABLE_RAW_SQL_EXECUTION=true to enable (NOT recommended)."
+    )
 
 
 # ============================================================================
@@ -1517,11 +1528,31 @@ async def execute_sql_query(
 
     Only SELECT queries are allowed. Queries are limited to 1000 rows.
     This endpoint is for debugging purposes only.
+
+    SECURITY: Disabled by default in production. Set ENABLE_RAW_SQL_EXECUTION=true to enable.
     """
     import time
 
+    # Security check: Disable in production unless explicitly enabled
+    if _ENVIRONMENT == "production" and not ENABLE_RAW_SQL_EXECUTION:
+        logger.warning(
+            f"SQL execution blocked in production. Admin: {admin.user_email}, "
+            f"Query (first 100 chars): {body.query[:100]}"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Raw SQL execution is disabled in production for security. "
+                   "Contact system administrator if this feature is required.",
+        )
+
     # Rate limit SQL execution
     check_user_rate_limit(admin.id, "debug_sql_execute")
+
+    # Security audit log - always log SQL execution attempts
+    logger.warning(
+        f"SQL_EXECUTION_AUDIT: Admin={admin.user_email} ({admin.id}), "
+        f"Query length={len(body.query)}, First 200 chars: {body.query[:200]}"
+    )
 
     query = body.query.strip()
 

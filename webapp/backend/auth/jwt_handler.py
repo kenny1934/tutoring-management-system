@@ -11,6 +11,14 @@ from jose import jwt, JWTError
 # Configuration
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
+
+# Security validation: Fail startup in production if using default secret key
+_ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+if _ENVIRONMENT == "production" and SECRET_KEY == "dev-secret-key-change-in-production":
+    raise RuntimeError(
+        "SECURITY ERROR: JWT_SECRET_KEY environment variable must be set in production. "
+        "Generate a secure key with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
 ACCESS_TOKEN_EXPIRE_HOURS = 4  # Reduced from 24 for security
 REFRESH_THRESHOLD_MINUTES = 30  # Frontend proactive refresh threshold (refresh before this)
 REFRESH_GRACE_PERIOD_MINUTES = 15  # Backend grace period for expired tokens
@@ -40,7 +48,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     })
 
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    print(f"[JWT] Token created with SECRET_KEY (first 10 chars): {SECRET_KEY[:10]}...")
     return encoded_jwt
 
 
@@ -57,9 +64,7 @@ def verify_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError as e:
-        print(f"[JWT] Verification failed: {e}")
-        print(f"[JWT] SECRET_KEY (first 10 chars): {SECRET_KEY[:10]}...")
+    except JWTError:
         return None
 
 
