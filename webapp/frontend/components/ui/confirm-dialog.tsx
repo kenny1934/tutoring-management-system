@@ -10,13 +10,14 @@ import {
   FloatingPortal,
 } from "@floating-ui/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { ReactNode } from "react";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   title: string;
-  message: string;
+  message: ReactNode;
   /** Optional list of consequences to display as bullet points */
   consequences?: string[];
   confirmText?: string;

@@ -1224,10 +1224,10 @@ function GridView({ tutorIds, tutorMap, sessionsByTutor, setOpenSessionId, setPo
                             </span>
                           )}
                           {session.exam_revision_slot_id && (
-                            <GraduationCap className="h-2.5 w-2.5 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                            <span title="Exam Revision"><GraduationCap className="h-2.5 w-2.5 text-purple-500 flex-shrink-0" /></span>
                           )}
                           {session.extension_request_id && (
-                            <Clock className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+                            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-2.5 w-2.5 text-amber-500 flex-shrink-0" /></span>
                           )}
                         </div>
                       </div>
@@ -1343,10 +1343,10 @@ function SessionCard({ session, onClick, isSelected, onToggleSelect }: SessionCa
             </span>
           )}
           {session.exam_revision_slot_id && (
-            <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
           )}
           {session.extension_request_id && (
-            <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
           )}
         </div>
 

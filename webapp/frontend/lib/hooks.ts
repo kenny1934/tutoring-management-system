@@ -292,8 +292,19 @@ export function useActivityFeed(location?: string, tutorId?: number, limit?: num
 const BASE_TITLE = "CSM Pro";
 
 export function usePageTitle(title?: string) {
+  // Set title immediately on render (not just in effect) to prevent flicker
+  if (typeof document !== 'undefined' && title) {
+    const newTitle = `${BASE_TITLE} - ${title}`;
+    if (document.title !== newTitle) {
+      document.title = newTitle;
+    }
+  }
+
+  // Also set in effect to ensure it persists after any framework resets
   useEffect(() => {
-    document.title = title ? `${BASE_TITLE} - ${title}` : BASE_TITLE;
+    if (title) {
+      document.title = `${BASE_TITLE} - ${title}`;
+    }
   }, [title]);
 }
 

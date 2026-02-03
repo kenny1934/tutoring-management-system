@@ -500,12 +500,12 @@ const SessionRow = memo(function SessionRow({ session, isAlternate, isSelected, 
 
           {/* Exam Revision indicator */}
           {session.exam_revision_slot_id && (
-            <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+            <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
           )}
 
           {/* Extension Request indicator */}
           {session.extension_request_id && (
-            <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+            <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
           )}
         </div>
 

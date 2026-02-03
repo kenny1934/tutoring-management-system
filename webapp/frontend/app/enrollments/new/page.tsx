@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/lib/hooks";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { Loader2 } from "lucide-react";
 
@@ -13,6 +14,7 @@ import { Loader2 } from "lucide-react";
  * Renders the CreateEnrollmentModal and redirects on close/success.
  */
 export default function NewEnrollmentPage() {
+  usePageTitle("New Enrollment");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: authLoading, isAdmin } = useAuth();

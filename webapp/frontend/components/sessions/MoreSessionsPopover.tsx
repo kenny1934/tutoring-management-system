@@ -152,10 +152,10 @@ export function MoreSessionsPopover({
                         <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                       )}
                       {session.exam_revision_slot_id && (
-                        <GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                        <span title="Exam Revision"><GraduationCap className="h-3 w-3 text-purple-500 flex-shrink-0" /></span>
                       )}
                       {session.extension_request_id && (
-                        <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3 w-3 text-amber-500 flex-shrink-0" /></span>
                       )}
                     </p>
                   </div>

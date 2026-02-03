@@ -4,9 +4,11 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { ExtensionRequestsList } from "@/components/admin/ExtensionRequestsList";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePageTitle } from "@/lib/hooks";
 import { Clock } from "lucide-react";
 
 export default function AdminExtensionsPage() {
+  usePageTitle("Extension Requests");
   const { user, isLoading, isAdmin } = useAuth();
 
   // Get current tutor ID from authenticated user

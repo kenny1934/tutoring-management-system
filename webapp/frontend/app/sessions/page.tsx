@@ -1876,10 +1876,10 @@ export default function SessionsPage() {
                                               {session.time_slot}
                                             </span>
                                             {session.exam_revision_slot_id && (
-                                              <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" title="Exam Revision" />
+                                              <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" /></span>
                                             )}
                                             {session.extension_request_id && (
-                                              <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" title={`Extension ${session.extension_request_status}`} />
+                                              <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" /></span>
                                             )}
                                           </div>
 
@@ -2140,10 +2140,10 @@ export default function SessionsPage() {
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
                                       )}
                                       {session.exam_revision_slot_id && (
-                                        <GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" title="Exam Revision" />
+                                        <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" /></span>
                                       )}
                                       {session.extension_request_id && (
-                                        <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" title={`Extension ${session.extension_request_status}`} />
+                                        <span title={`Extension ${session.extension_request_status}`}><Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 hidden sm:inline" /></span>
                                       )}
                                       {session.enrollment_payment_status === 'Cancelled' ? (
                                         <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap font-medium">

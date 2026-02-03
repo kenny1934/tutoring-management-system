@@ -1692,7 +1692,7 @@ function CoursewareBrowserTab() {
 
                     {/* Warning for unavailable folders */}
                     {node.kind === "folder" && unavailableFolders.has(node.id) && (
-                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" title="Folder unavailable" />
+                      <span title="Folder unavailable"><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /></span>
                     )}
                     {node.kind === "folder" && <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />}
 
@@ -1907,7 +1907,7 @@ const SEARCH_MODE_OPTIONS: { value: PaperlessSearchMode; label: string }[] = [
 
 // Search tab - Shelv search interface with full features
 function CoursewareSearchTab() {
-  const { location } = useLocation();
+  const { selectedLocation } = useLocation();
   const resultsContainerRef = useRef<HTMLDivElement>(null);
 
   // Search state
@@ -1972,12 +1972,7 @@ function CoursewareSearchTab() {
   const [recentDocs, setRecentDocs] = useState<RecentDocument[]>([]);
 
   // Trending courseware
-  const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity({
-    days: 14,
-    limit: 10,
-    grade: undefined,
-    school: undefined,
-  });
+  const { data: trendingData, isLoading: trendingLoading } = useCoursewarePopularity('recent');
 
   // Memoize top 10 trending to avoid repeated slicing
   const top10Trending = useMemo(() => trendingData?.slice(0, 10) || [], [trendingData]);
@@ -2462,7 +2457,7 @@ function CoursewareSearchTab() {
                     const trendingId = -(index + 1000);
                     return (
                       <div
-                        key={item.stable_id || `trending-${index}`}
+                        key={`trending-${index}`}
                         data-result-item
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
@@ -2471,7 +2466,7 @@ function CoursewareSearchTab() {
                           focusedIndex === index && "ring-2 ring-amber-400/50 ring-inset",
                           selectedDocs.has(trendingId) && "bg-green-50 dark:bg-green-900/20"
                         )}
-                        onClick={() => handleCopyPath(item.path || item.filename)}
+                        onClick={() => handleCopyPath(getTrendingPath(item))}
                       >
                         <input
                           type="checkbox"
@@ -2491,15 +2486,15 @@ function CoursewareSearchTab() {
                             <span>{item.assignment_count}× assignments</span>
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              {item.unique_students}
+                              {item.unique_student_count}
                             </span>
                           </div>
                         </div>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleCopyPath(item.path || item.filename); }}
+                          onClick={(e) => { e.stopPropagation(); handleCopyPath(getTrendingPath(item)); }}
                           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
                         >
-                          {copiedPath === (item.path || item.filename) ? (
+                          {copiedPath === getTrendingPath(item) ? (
                             <Check className="h-4 w-4 text-green-500" />
                           ) : (
                             <Copy className="h-4 w-4 text-gray-400" />

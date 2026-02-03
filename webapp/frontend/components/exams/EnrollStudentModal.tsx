@@ -74,7 +74,7 @@ export function EnrollStudentModal({
   }, [isOpen, enrollingStudent, onClose]);
 
   // Filter students by search
-  const filteredStudents = useFilteredList(
+  const filteredStudents = useFilteredList<EligibleStudent>(
     eligibleStudents,
     searchQuery,
     ['student_name', 'school_student_id', 'grade', 'school']

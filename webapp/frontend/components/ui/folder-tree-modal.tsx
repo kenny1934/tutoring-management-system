@@ -1428,10 +1428,9 @@ export function FolderTreeModal({
 
                           {/* Warning icon for unavailable folders */}
                           {node.kind === "folder" && unavailableFolders.has(node.id) && (
-                            <AlertTriangle
-                              className="h-4 w-4 text-amber-500 shrink-0"
-                              title="Folder unavailable - network may be disconnected"
-                            />
+                            <span title="Folder unavailable - network may be disconnected">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                            </span>
                           )}
 
                           {/* Folder arrow */}

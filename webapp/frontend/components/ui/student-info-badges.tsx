@@ -17,6 +17,8 @@ interface StudentInfoBadgesProps {
   showLink?: boolean;
   showLocationPrefix?: boolean;
   trailing?: React.ReactNode;
+  /** Display in compact mode (reserved for future styling) */
+  compact?: boolean;
 }
 
 /**

@@ -470,7 +470,7 @@ function SlotItem({
         title="Approve Make-up Slot"
         message={`Are you sure you want to approve this slot? This will schedule a make-up session on ${formatProposalDate(slot.proposed_date)} at ${slot.proposed_time_slot}.`}
         confirmText="Approve"
-        variant="primary"
+        variant="default"
       />
 
       {/* Reject confirmation dialog */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePageTitle } from "@/lib/hooks";
 import { useZen, ZEN_THEMES, type ZenTheme } from "@/contexts/ZenContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useZenKeyboardFocus } from "@/contexts/ZenKeyboardFocusContext";
@@ -289,6 +290,7 @@ function LivePreview() {
 }
 
 export default function ZenSettingsPage() {
+  usePageTitle("Zen Settings");
   const {
     theme,
     effectiveTheme,

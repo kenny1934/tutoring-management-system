@@ -11,7 +11,7 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "CSM Pro - Tutoring Management System",
+  title: "CSM Pro",
   description: "Professional tutoring management and scheduling platform",
 };
 

@@ -6,6 +6,7 @@ import Image from "next/image";
 import { AlertCircle, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Pushpin } from "@/components/ui/stationery-accents";
+import { usePageTitle } from "@/lib/hooks";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -45,6 +46,7 @@ function FloatingParticle({ style }: { style: React.CSSProperties }) {
 }
 
 function LoginContent() {
+  usePageTitle("Login");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, login } = useAuth();

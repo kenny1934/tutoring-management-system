@@ -2,18 +2,23 @@
 
 import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, ElementType } from "react";
+import { LucideProps } from "lucide-react";
 
-interface StickyNoteProps extends Omit<HTMLMotionProps<"div">, "children"> {
+interface StickyNoteProps extends Omit<HTMLMotionProps<"div">, "children" | "color"> {
   children: ReactNode;
-  /** Color variant of the sticky note */
+  /** Color variant of the sticky note (alias: color) */
   variant?: "yellow" | "pink" | "blue" | "green";
+  /** Alias for variant prop */
+  color?: "yellow" | "pink" | "blue" | "green";
   /** Size of the sticky note */
   size?: "sm" | "md" | "lg";
   /** Rotation angle in degrees (randomized if not specified) */
   rotation?: number;
   /** Whether to show tape at the top */
   showTape?: boolean;
+  /** Optional icon to display at the top */
+  icon?: ElementType<LucideProps>;
 }
 
 const variantColors = {
@@ -68,10 +73,12 @@ const outerSizeClasses = {
  */
 export function StickyNote({
   children,
-  variant = "yellow",
+  variant,
+  color,
   size = "md",
   rotation,
   showTape = false,
+  icon: Icon,
   className,
   ...props
 }: StickyNoteProps) {
@@ -86,7 +93,9 @@ export function StickyNote({
 
   // Use 0 rotation during SSR, then apply random rotation after mount
   const finalRotation = rotation ?? (mounted ? randomRotation : 0);
-  const colors = variantColors[variant];
+  // Support both variant and color props (color is an alias for variant)
+  const finalVariant = variant || color || "yellow";
+  const colors = variantColors[finalVariant];
 
   return (
     <motion.div
@@ -135,6 +144,11 @@ export function StickyNote({
 
         {/* Content */}
         <div className="relative z-10 h-full flex flex-col">
+          {Icon && (
+            <div className="flex justify-center mb-2">
+              <Icon className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
           {children}
         </div>
 

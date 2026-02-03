@@ -260,7 +260,7 @@ export default function TerminatedStudentsPage() {
       setPendingChanges(new Map());
 
       if (failCount > 0) {
-        showToast(`Saved ${successCount} changes, ${failCount} failed`, "warning");
+        showToast(`Saved ${successCount} changes, ${failCount} failed`, "info");
       } else {
         showToast(`Saved ${successCount} change${successCount !== 1 ? 's' : ''} successfully`, "success");
       }
