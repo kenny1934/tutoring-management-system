@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { List } from "react-window";
 import { useTheme } from "next-themes";
 import { SuperAdminPageGuard } from "@/components/auth/SuperAdminPageGuard";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -20,10 +19,6 @@ import { sql, MySQL } from "@codemirror/lang-sql";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { defaultKeymap, history as cmHistory, historyKeymap } from "@codemirror/commands";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
-
-// Virtual scrolling constants
-const ROW_HEIGHT = 32;
-const MAX_VISIBLE_HEIGHT = 480; // 15 rows * 32px
 
 import {
   ArrowLeft,
@@ -179,55 +174,6 @@ function SqlEditor({ value, onChange, onExecute, isDark }: SqlEditorProps) {
       ref={containerRef}
       className="w-full min-h-[168px] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl overflow-hidden [&_.cm-editor]:min-h-[168px] [&_.cm-scroller]:min-h-[168px]"
     />
-  );
-}
-
-// Row component for virtual scrolling (react-window v2 API)
-// The component receives ariaAttributes, index, style from List, plus custom props from rowProps
-interface SqlResultRowData {
-  rows: Record<string, unknown>[];
-  columns: string[];
-}
-
-function SqlResultRow({
-  ariaAttributes,
-  index,
-  style,
-  rows,
-  columns,
-}: {
-  ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
-  index: number;
-  style: React.CSSProperties;
-} & SqlResultRowData) {
-  const row = rows[index];
-
-  return (
-    <div
-      {...ariaAttributes}
-      style={style}
-      className={cn(
-        "flex border-b border-[#e8d4b8] dark:border-[#6b5a4a] debug-row-hover font-mono-data text-xs",
-        index % 2 === 0 && "bg-gray-50/50 dark:bg-[#252118]/50"
-      )}
-    >
-      {columns.map((col) => (
-        <div
-          key={col}
-          className="px-3 py-1.5 whitespace-nowrap overflow-hidden text-ellipsis"
-          style={{ minWidth: 120, flex: '1 0 auto' }}
-          title={row[col] !== null ? String(row[col]) : "NULL"}
-        >
-          {row[col] === null ? (
-            <em className="text-gray-400">NULL</em>
-          ) : (
-            <span className="truncate block max-w-[300px]">
-              {String(row[col])}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -650,27 +596,50 @@ export default function SqlExecutorPage() {
 
                 {/* Results Table */}
                 {result.rows.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    {/* Fixed header */}
-                    <div className="bg-[#f5ede3] dark:bg-[#2d2618] flex border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-                      {result.columns.map((col) => (
-                        <div
-                          key={col}
-                          className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm"
-                          style={{ minWidth: 120, flex: '1 0 auto' }}
-                        >
-                          {col}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Virtualized rows (react-window v2 API) */}
-                    <List
-                      style={{ height: Math.min(result.rows.length * ROW_HEIGHT, MAX_VISIBLE_HEIGHT) }}
-                      rowCount={result.rows.length}
-                      rowHeight={ROW_HEIGHT}
-                      rowComponent={SqlResultRow}
-                      rowProps={{ rows: result.rows, columns: result.columns }}
-                    />
+                  <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
+                    <table className="w-full border-collapse min-w-max">
+                      <thead className="sticky top-0 z-10">
+                        <tr className="bg-[#f5ede3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                          {result.columns.map((col) => (
+                            <th
+                              key={col}
+                              className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap text-sm"
+                              style={{ minWidth: 120 }}
+                            >
+                              {col}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.rows.map((row, index) => (
+                          <tr
+                            key={index}
+                            className={cn(
+                              "border-b border-[#e8d4b8] dark:border-[#6b5a4a] debug-row-hover",
+                              index % 2 === 0 && "bg-gray-50/50 dark:bg-[#252118]/50"
+                            )}
+                          >
+                            {result.columns.map((col) => (
+                              <td
+                                key={col}
+                                className="px-3 py-1.5 whitespace-nowrap font-mono-data text-xs"
+                                style={{ minWidth: 120 }}
+                                title={row[col] !== null ? String(row[col]) : "NULL"}
+                              >
+                                {row[col] === null ? (
+                                  <em className="text-gray-400">NULL</em>
+                                ) : (
+                                  <span className="truncate block max-w-[300px]">
+                                    {String(row[col])}
+                                  </span>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ) : (
                   <div className="p-8 text-center text-gray-500">
