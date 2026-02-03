@@ -162,7 +162,7 @@ export function EnrollStudentModal({
             <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mt-0.5">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                {new Date(slot.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                {new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
               </span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
@@ -287,7 +287,7 @@ export function EnrollStudentModal({
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-3.5 w-3.5 text-gray-400" />
                                 <span className="text-gray-700 dark:text-gray-300">
-                                  {new Date(session.session_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                                  {new Date(session.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                                 </span>
                                 {session.time_slot && (
                                   <span className="text-gray-500 dark:text-gray-400">

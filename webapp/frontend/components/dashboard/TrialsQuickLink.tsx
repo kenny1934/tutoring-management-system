@@ -55,7 +55,7 @@ function ScheduledTrialCard({
   trial: TrialListItem;
   onClose: () => void;
 }) {
-  const sessionDate = new Date(trial.session_date);
+  const sessionDate = new Date(trial.session_date + 'T00:00:00');
   const isToday = new Date().toDateString() === sessionDate.toDateString();
 
   return (
@@ -123,7 +123,7 @@ function AwaitingTrialCard({
   onConvert: (trial: TrialListItem) => void;
   isAdmin: boolean;
 }) {
-  const sessionDate = new Date(trial.session_date);
+  const sessionDate = new Date(trial.session_date + 'T00:00:00');
   const isToday = new Date().toDateString() === sessionDate.toDateString();
   const isPast = sessionDate < new Date() && !isToday;
 
