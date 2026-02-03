@@ -158,3 +158,42 @@ def sample_holidays() -> list[dict]:
         {"holiday_date": date(2026, 1, 31), "holiday_name": "Chinese New Year Day 3"},
         {"holiday_date": date(2026, 12, 25), "holiday_name": "Christmas Day"},
     ]
+
+
+# ============================================================================
+# Google Calendar Mocking Fixtures
+# ============================================================================
+
+@pytest.fixture
+def mock_google_calendar_build():
+    """
+    Mock googleapiclient.discovery.build to avoid real API initialization.
+    Returns a mock service object.
+    """
+    from unittest.mock import patch
+
+    mock_service = MagicMock()
+    with patch('services.google_calendar_service.build', return_value=mock_service):
+        yield mock_service
+
+
+@pytest.fixture
+def mock_google_credentials():
+    """Mock Google OAuth credentials to avoid real token refresh."""
+    from unittest.mock import patch
+
+    mock_creds = MagicMock()
+    with patch('services.google_calendar_service.Credentials', return_value=mock_creds):
+        with patch('services.google_calendar_service.Request'):
+            yield mock_creds
+
+
+@pytest.fixture
+def mock_calendar_env(monkeypatch):
+    """Set minimal environment variables for Google Calendar tests."""
+    monkeypatch.setenv("GOOGLE_CALENDAR_ID", "test-calendar@test.com")
+    monkeypatch.setenv("GOOGLE_CALENDAR_API_KEY", "test-api-key")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("GOOGLE_CALENDAR_REFRESH_TOKEN", "test-refresh-token")
+    monkeypatch.setenv("CALENDAR_SYNC_TTL_MINUTES", "15")
