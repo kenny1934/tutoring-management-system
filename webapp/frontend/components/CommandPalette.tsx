@@ -501,7 +501,7 @@ export function CommandPalette() {
     if (!filterType || filterType === "page") {
       const fuseResults = fuse.search(searchTerm);
       const matchedPages = fuseResults
-        .filter(r => r.item.itemType === 'page')
+        .filter(r => r.item.itemType === 'page' || r.item.itemType === 'action')
         .map(r => r.item);
 
       matchedPages.forEach((p) => {

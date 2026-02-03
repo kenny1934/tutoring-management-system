@@ -142,6 +142,34 @@ export default function SessionsPage() {
     return (param as ViewMode) || 'list';
   });
 
+  // Sync state from URL when searchParams change (for client-side navigation)
+  useEffect(() => {
+    const urlFilter = searchParams.get('filter') || "";
+    const urlView = searchParams.get('view') as ViewMode | null;
+    const urlDate = searchParams.get('date');
+    const urlStatus = searchParams.get('status') || "";
+
+    if (urlFilter !== specialFilter) {
+      setSpecialFilter(urlFilter);
+    }
+    if (urlView && urlView !== viewMode) {
+      setViewMode(urlView);
+    } else if (!urlView && viewMode !== 'list') {
+      // Reset to list if no view param in URL
+      setViewMode('list');
+    }
+    if (urlDate) {
+      const parsed = new Date(urlDate + 'T00:00:00');
+      if (!isNaN(parsed.getTime()) && parsed.toDateString() !== selectedDate.toDateString()) {
+        setSelectedDate(parsed);
+      }
+    }
+    if (urlStatus !== statusFilter) {
+      setStatusFilter(urlStatus);
+    }
+    // Note: tutorFilter is managed by roleViewMode effect, don't sync from URL here
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Build filters for SWR hook
   const sessionFilters = useMemo(() => {
     const filters: Record<string, string | number | undefined> = {
