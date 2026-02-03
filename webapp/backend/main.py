@@ -19,8 +19,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
-        # Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
+        # Check if this is a paperless preview/thumbnail endpoint that needs iframe embedding
+        is_iframe_allowed = (
+            request.url.path.startswith("/api/paperless/preview/") or
+            request.url.path.startswith("/api/paperless/thumbnail/")
+        )
+
+        # Prevent clickjacking (except for iframe-allowed routes)
+        # For iframe-allowed routes, we skip X-Frame-Options and rely on CSP frame-ancestors
+        # (X-Frame-Options doesn't support cross-origin allowlisting)
+        if not is_iframe_allowed:
+            response.headers["X-Frame-Options"] = "DENY"
 
         # Prevent MIME type sniffing
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -32,16 +41,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Content Security Policy - adjust as needed for your app
-        # In production, you may want stricter policies
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Needed for Next.js
-            "style-src 'self' 'unsafe-inline'",  # Needed for inline styles
-            "img-src 'self' data: https: blob:",
-            "font-src 'self' data:",
-            "connect-src 'self' https://lh3.googleusercontent.com https://accounts.google.com",
-            "frame-ancestors 'none'",
-        ]
+        # Allow iframe embedding only for paperless preview/thumbnail routes
+        if is_iframe_allowed:
+            # Get allowed origins for frame-ancestors (frontend URLs that can embed these)
+            frontend_origins = os.getenv(
+                "ALLOWED_ORIGINS",
+                "http://localhost:3000 http://127.0.0.1:3000 http://localhost:3001 http://127.0.0.1:3001"
+            ).replace(",", " ")  # CSP uses space-separated, env uses comma-separated
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+                "style-src 'self' 'unsafe-inline'",
+                "img-src 'self' data: https: blob:",
+                "font-src 'self' data:",
+                "connect-src 'self' https://lh3.googleusercontent.com https://accounts.google.com",
+                f"frame-ancestors 'self' {frontend_origins}",  # Allow frontend to embed
+            ]
+        else:
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Needed for Next.js
+                "style-src 'self' 'unsafe-inline'",  # Needed for inline styles
+                "img-src 'self' data: https: blob:",
+                "font-src 'self' data:",
+                "connect-src 'self' https://lh3.googleusercontent.com https://accounts.google.com",
+                "frame-ancestors 'none'",
+            ]
         response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
 
         # HSTS - only in production with HTTPS

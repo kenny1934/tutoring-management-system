@@ -167,6 +167,10 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+// Direct backend URL for iframe sources (bypasses Next.js proxy)
+// Iframes load URLs directly and don't go through Next.js rewrites
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api";
+
 // Token refresh state to prevent concurrent refreshes
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
@@ -842,11 +846,13 @@ export const paperlessAPI = {
   },
 
   getThumbnailUrl: (documentId: number) => {
-    return `${API_BASE_URL}/paperless/thumbnail/${documentId}`;
+    // Use direct backend URL for img src (bypasses Next.js proxy)
+    return `${BACKEND_DIRECT_URL}/paperless/thumbnail/${documentId}`;
   },
 
   getPreviewUrl: (documentId: number) => {
-    return `${API_BASE_URL}/paperless/preview/${documentId}`;
+    // Use direct backend URL for iframe src (bypasses Next.js proxy)
+    return `${BACKEND_DIRECT_URL}/paperless/preview/${documentId}`;
   },
 
   getStatus: () => {
