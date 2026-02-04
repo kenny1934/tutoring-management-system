@@ -7,6 +7,7 @@ import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeS
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
+import { canBeMarked } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
 import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
@@ -102,11 +103,23 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const {
     selectedIds,
     toggleSelect,
-    toggleSelectAll,
+    selectIds,
     clearSelection,
     hasSelection,
-    isAllSelected,
   } = useBulkSelection(allSessionIds);
+
+  // Markable sessions (can have attendance marked)
+  const markableSessions = useMemo(() => sessions.filter(canBeMarked), [sessions]);
+  const markableIds = useMemo(() => markableSessions.map(s => s.id), [markableSessions]);
+  const isAllMarkableSelected = markableIds.length > 0 && markableIds.every(id => selectedIds.has(id));
+
+  const toggleSelectMarkable = useCallback(() => {
+    if (isAllMarkableSelected) {
+      clearSelection();
+    } else {
+      selectIds(markableIds);
+    }
+  }, [isAllMarkableSelected, clearSelection, selectIds, markableIds]);
 
   // Bulk action handlers
   const {
@@ -165,18 +178,18 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 strokeWidth={3}
               />
             )}
-            {/* Select All checkbox */}
-            {stats.total > 0 && (
+            {/* Select Markable checkbox */}
+            {markableIds.length > 0 && (
               <button
-                onClick={toggleSelectAll}
+                onClick={toggleSelectMarkable}
                 className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
               >
-                {isAllSelected ? (
+                {isAllMarkableSelected ? (
                   <CheckSquare className="h-3.5 w-3.5 text-[#a0704b] dark:text-[#cd853f]" />
                 ) : (
                   <Square className="h-3.5 w-3.5" />
                 )}
-                <span className="hidden sm:inline">Select All</span>
+                <span className="hidden sm:inline">Select Markable</span>
               </button>
             )}
           </div>

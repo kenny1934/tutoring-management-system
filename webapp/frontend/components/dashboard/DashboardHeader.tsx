@@ -184,12 +184,14 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
         <div className="px-4 sm:px-6 flex items-center gap-2">
           <NotificationBell pendingPayments={pendingPayments} location={location} tutorId={currentTutorId} showOverduePayments={isAdmin} />
           {onRefresh && (
-            <RefreshButton
-              onRefresh={onRefresh}
-              isRefreshing={isRefreshing}
-              lastUpdated={lastUpdated}
-              iconOnly
-            />
+            <div className="hidden sm:flex">
+              <RefreshButton
+                onRefresh={onRefresh}
+                isRefreshing={isRefreshing}
+                lastUpdated={lastUpdated}
+                iconOnly
+              />
+            </div>
           )}
         </div>
       </div>
