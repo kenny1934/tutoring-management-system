@@ -25,6 +25,45 @@ Do NOT include Claude Code Footer in commit message.
 - Run E2E tests: `cd webapp/frontend && npm run test:e2e`
 - Create PR: `gh pr create --fill`
 
+## CI/CD Pipeline (GitHub Actions → GCP)
+
+**Authentication:** Workload Identity Federation (no secrets stored in GitHub)
+
+**Workload Identity Pool:**
+- Pool: `github-pool`
+- Provider: `github-provider`
+- Project: `csm-database-project` (284725664511)
+
+**Service Account:** `284725664511-compute@developer.gserviceaccount.com`
+
+**Required IAM Roles on the service account:**
+
+| Role | Purpose |
+|------|---------|
+| `roles/cloudbuild.builds.builder` | Submit Cloud Build jobs |
+| `roles/serviceusage.serviceUsageConsumer` | Use GCP services |
+| `roles/iam.serviceAccountUser` (on self) | Cloud Build impersonation |
+| `roles/run.admin` | Deploy to Cloud Run |
+| `roles/artifactregistry.writer` | Push Docker images |
+| `roles/storage.objectAdmin` | Upload build sources |
+
+**To grant permissions (if needed):**
+```bash
+export CLOUDSDK_PYTHON_SITEPACKAGES=1  # Faster on WSL
+
+# Project-level roles
+gcloud projects add-iam-policy-binding csm-database-project \
+  --member="serviceAccount:284725664511-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
+
+# Service account impersonation (required for Cloud Build)
+gcloud iam service-accounts add-iam-policy-binding \
+  284725664511-compute@developer.gserviceaccount.com \
+  --project=csm-database-project \
+  --member="serviceAccount:284725664511-compute@developer.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+```
+
 ## Custom Domain Setup (Cloudflare)
 
 Custom domains `csm.mathconceptsecondary.academy` and `csm-pro.mathconceptsecondary.academy` are routed through Cloudflare Workers because Cloud Run rejects requests with non-matching Host headers.
