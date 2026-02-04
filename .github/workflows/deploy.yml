@@ -12,6 +12,8 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: development
     steps:
       - uses: actions/checkout@v4
 
