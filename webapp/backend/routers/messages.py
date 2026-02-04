@@ -2,7 +2,7 @@
 Messages API endpoints.
 Provides messaging system for tutor-to-tutor communication.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from typing import List, Optional
@@ -21,6 +21,7 @@ from schemas import (
     ArchiveResponse
 )
 from utils.rate_limiter import check_user_rate_limit
+from services.image_storage import upload_image
 
 router = APIRouter()
 
@@ -75,7 +76,8 @@ def build_message_response(
         is_read=is_read,
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
-        reply_count=reply_count
+        reply_count=reply_count,
+        image_attachments=message.image_attachments or []
     )
 
 
@@ -161,7 +163,8 @@ def batch_build_message_responses(
             is_read=msg.id in read_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
-            reply_count=reply_count_map.get(msg.id, 0)
+            reply_count=reply_count_map.get(msg.id, 0),
+            image_attachments=msg.image_attachments or []
         )
         for msg in messages
     ]
@@ -490,7 +493,8 @@ async def create_message(
         message=message_data.message,
         priority=message_data.priority,
         category=message_data.category,
-        reply_to_id=message_data.reply_to_id
+        reply_to_id=message_data.reply_to_id,
+        image_attachments=message_data.image_attachments or []
     )
 
     db.add(new_message)
@@ -509,6 +513,33 @@ async def create_message(
     )
 
     return build_message_response(new_message, from_tutor_id, db)
+
+
+@router.post("/messages/upload-image")
+async def upload_message_image(
+    file: UploadFile = File(...),
+    tutor_id: int = Query(..., description="Tutor ID for authentication")
+):
+    """
+    Upload an image for message attachment.
+    Returns the public URL of the uploaded image.
+    Images are automatically resized (max 1920px) and compressed.
+    """
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    # Read file contents
+    contents = await file.read()
+
+    # Upload to GCS (includes resize and compression)
+    try:
+        url = upload_image(contents, file.filename)
+        return {"url": url, "filename": file.filename}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 # ============================================
