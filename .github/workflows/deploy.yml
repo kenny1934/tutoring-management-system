@@ -51,14 +51,16 @@ jobs:
         with:
           workload_identity_provider: 'projects/284725664511/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: '284725664511-compute@developer.gserviceaccount.com'
+          project_id: 'csm-database-project'
       - uses: google-github-actions/setup-gcloud@v2
       - name: Build and Deploy Backend
         run: |
           cd webapp/backend
-          gcloud builds submit --config cloudbuild.yaml --region asia-east2
+          gcloud builds submit --config cloudbuild.yaml --region asia-east2 --project csm-database-project
           gcloud run deploy tutoring-backend \
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-backend/tutoring-backend:latest \
-            --region asia-east2
+            --region asia-east2 \
+            --project csm-database-project
 
   deploy-frontend:
     needs: test
@@ -72,14 +74,16 @@ jobs:
         with:
           workload_identity_provider: 'projects/284725664511/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: '284725664511-compute@developer.gserviceaccount.com'
+          project_id: 'csm-database-project'
       - uses: google-github-actions/setup-gcloud@v2
       - name: Build and Deploy Frontend
         run: |
           cd webapp/frontend
-          gcloud builds submit --config cloudbuild.yaml --region asia-east2
+          gcloud builds submit --config cloudbuild.yaml --region asia-east2 --project csm-database-project
           gcloud run deploy tutoring-frontend \
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest \
-            --region asia-east2
+            --region asia-east2 \
+            --project csm-database-project
 
   summary:
     needs: [deploy-backend, deploy-frontend]
