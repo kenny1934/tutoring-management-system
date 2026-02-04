@@ -10,14 +10,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
+  # Detect which paths changed to enable path-based deployment
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'webapp/backend/**'
+            frontend:
+              - 'webapp/frontend/**'
+
+  test-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: development
     steps:
       - uses: actions/checkout@v4
-
-      # Backend tests
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -28,7 +45,14 @@ jobs:
       - name: Run backend tests
         run: cd webapp/backend && pytest tests/ -v --tb=short
 
-      # Frontend tests
+  test-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ENVIRONMENT: development
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
@@ -40,7 +64,8 @@ jobs:
         run: cd webapp/frontend && (npm run lint || true) && npm run test:run
 
   deploy-backend:
-    needs: test
+    needs: [changes, test-backend]
+    if: always() && (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch') && needs.test-backend.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,7 +88,8 @@ jobs:
             --project csm-database-project
 
   deploy-frontend:
-    needs: test
+    needs: [changes, test-frontend]
+    if: always() && (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch') && needs.test-frontend.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -86,7 +112,7 @@ jobs:
             --project csm-database-project
 
   summary:
-    needs: [deploy-backend, deploy-frontend]
+    needs: [changes, deploy-backend, deploy-frontend]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -94,6 +120,21 @@ jobs:
         run: |
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Backend: https://tutoring-backend-284725664511.asia-east2.run.app" >> $GITHUB_STEP_SUMMARY
-          echo "- Frontend: https://tutoring-frontend-284725664511.asia-east2.run.app" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployed Services" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-backend.result }}" == "success" ]; then
+            echo "- ✅ Backend: https://tutoring-backend-284725664511.asia-east2.run.app" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.changes.outputs.backend }}" == "false" ]; then
+            echo "- ⏭️ Backend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Backend: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ needs.deploy-frontend.result }}" == "success" ]; then
+            echo "- ✅ Frontend: https://tutoring-frontend-284725664511.asia-east2.run.app" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.changes.outputs.frontend }}" == "false" ]; then
+            echo "- ⏭️ Frontend: Skipped (no changes)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ Frontend: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Custom Domain: https://csm.mathconceptsecondary.academy" >> $GITHUB_STEP_SUMMARY
