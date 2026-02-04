@@ -29,6 +29,10 @@ export function useBulkSelection(allIds: number[]) {
     });
   }, [allIds]);
 
+  const selectIds = useCallback((ids: number[]) => {
+    setSelectedIds(new Set(ids));
+  }, []);
+
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
@@ -40,6 +44,7 @@ export function useBulkSelection(allIds: number[]) {
     selectedIds,
     toggleSelect,
     toggleSelectAll,
+    selectIds,
     clearSelection,
     hasSelection,
     isAllSelected,
