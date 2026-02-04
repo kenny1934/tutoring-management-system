@@ -197,3 +197,7 @@ def mock_calendar_env(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setenv("GOOGLE_CALENDAR_REFRESH_TOKEN", "test-refresh-token")
     monkeypatch.setenv("CALENDAR_SYNC_TTL_MINUTES", "15")
+    # Also patch module-level constants (read at import time)
+    monkeypatch.setattr("services.google_calendar_service.GOOGLE_CLIENT_ID", "test-client-id")
+    monkeypatch.setattr("services.google_calendar_service.GOOGLE_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setattr("services.google_calendar_service.GOOGLE_CALENDAR_REFRESH_TOKEN", "test-refresh-token")
