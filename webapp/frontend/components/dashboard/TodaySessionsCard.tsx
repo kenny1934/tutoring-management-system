@@ -221,22 +221,31 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
 
                 {/* Sessions in this time slot */}
                 <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
-                  {group.sessions.map((session, idx) => (
-                    <SessionRow
-                      key={session.id}
-                      session={session}
-                      isAlternate={idx % 2 === 1}
-                      isSelected={selectedIds.has(session.id)}
-                      onToggleSelect={() => toggleSelect(session.id)}
-                      onRowClick={(e) => {
-                        setClickPosition({ x: e.clientX, y: e.clientY });
-                        setPopoverSession(session);
-                      }}
-                      isLoading={loadingSessionActions.has(session.id)}
-                      loadingActionId={loadingSessionActions.get(session.id) || null}
-                      onLoadingChange={handleActionLoadingChange}
-                    />
-                  ))}
+                  {group.sessions.map((session, idx) => {
+                    const prevSession = idx > 0 ? group.sessions[idx - 1] : null;
+                    const isNewTutor = prevSession && prevSession.tutor_name !== session.tutor_name;
+
+                    return (
+                      <div key={session.id}>
+                        {isNewTutor && (
+                          <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
+                        )}
+                        <SessionRow
+                          session={session}
+                          isAlternate={idx % 2 === 1}
+                          isSelected={selectedIds.has(session.id)}
+                          onToggleSelect={() => toggleSelect(session.id)}
+                          onRowClick={(e) => {
+                            setClickPosition({ x: e.clientX, y: e.clientY });
+                            setPopoverSession(session);
+                          }}
+                          isLoading={loadingSessionActions.has(session.id)}
+                          loadingActionId={loadingSessionActions.get(session.id) || null}
+                          onLoadingChange={handleActionLoadingChange}
+                        />
+                      </div>
+                    );
+                  })}
                   {/* Proposed sessions in this time slot */}
                   {group.proposedSessions.map((ps, idx) => (
                     <ProposedSessionRow

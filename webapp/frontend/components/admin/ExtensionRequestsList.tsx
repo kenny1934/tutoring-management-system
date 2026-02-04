@@ -354,7 +354,8 @@ export function ExtensionRequestsList({
                 </div>
 
                 <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="text-right">
+                  {/* Hide dates on mobile - visible in detail modal */}
+                  <div className="hidden sm:block text-right">
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       {request.original_session_date && (
                         <span className="flex items-center gap-1">
