@@ -608,6 +608,7 @@ export interface Message {
   like_count: number;
   is_liked_by_me: boolean;
   reply_count: number;
+  image_attachments?: string[];  // List of image URLs
 }
 
 export interface MessageThread {
@@ -639,6 +640,7 @@ export interface MessageCreate {
   message: string;
   priority?: MessagePriority;
   category?: MessageCategory;
+  image_attachments?: string[];  // List of uploaded image URLs
 }
 
 // Make-up scheduling types
