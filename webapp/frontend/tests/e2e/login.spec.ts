@@ -5,7 +5,7 @@ test.describe('Login Page', () => {
     await page.goto('/login');
 
     // Check page title/branding is visible
-    await expect(page.locator('text=Kenny')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=CSM Pro')).toBeVisible({ timeout: 10000 });
 
     // Check for Google sign-in button
     const googleButton = page.getByRole('button', { name: /sign in with google/i });
