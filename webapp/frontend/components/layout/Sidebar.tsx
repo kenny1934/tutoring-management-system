@@ -236,7 +236,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 relative min-h-0">
+      <div
+        ref={desktopNavRef as React.RefObject<HTMLDivElement> | undefined}
+        className="flex-1 relative min-h-0 overflow-y-auto scrollbar-hide"
+      >
         {/* Top scroll indicator */}
         <div
           className={cn(
@@ -245,10 +248,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
             canScrollUp ? "opacity-100" : "opacity-0"
           )}
         />
-        <nav
-          ref={desktopNavRef as React.RefObject<HTMLElement> | undefined}
-          className="h-full overflow-y-auto scrollbar-hide space-y-2 px-3 py-4"
-        >
+        <nav className="space-y-2 px-3 py-4">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
           const showExpanded = isMobile || !isCollapsed;
@@ -257,6 +257,16 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               key={item.name}
               className={cn("relative", !showExpanded && "tooltip-wrapper")}
               data-tooltip={item.name}
+              onMouseEnter={(e) => {
+                if (!showExpanded) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                  if (sidebarRect) {
+                    const top = rect.top - sidebarRect.top + rect.height / 2;
+                    e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
+                  }
+                }
+              }}
             >
               <Link
                 href={item.href}
@@ -400,6 +410,14 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         key={item.name}
                         className="tooltip-wrapper"
                         data-tooltip={item.name}
+                        onMouseEnter={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                          if (sidebarRect) {
+                            const top = rect.top - sidebarRect.top + rect.height / 2;
+                            e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
+                          }
+                        }}
                       >
                         <Link
                           href={item.href}
@@ -418,7 +436,18 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   })}
                   {/* Debug link - Super Admin only, hidden when impersonating */}
                   {isSuperAdmin && !isImpersonating && (
-                    <div className="tooltip-wrapper" data-tooltip="Debug">
+                    <div
+                      className="tooltip-wrapper"
+                      data-tooltip="Debug"
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const sidebarRect = e.currentTarget.closest('.backdrop-blur-md')?.getBoundingClientRect();
+                        if (sidebarRect) {
+                          const top = rect.top - sidebarRect.top + rect.height / 2;
+                          e.currentTarget.style.setProperty('--tooltip-top', `${top}px`);
+                        }
+                      }}
+                    >
                       <Link
                         href="/admin/debug"
                         onClick={handleNavClick}

@@ -32,7 +32,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         />
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden z-40">
         {/* Mobile Header with Hamburger - only visible on mobile, hidden on login */}
         {!isLoginPage && (
         <header className="flex md:hidden items-center justify-between h-14 px-4 border-b border-white/10 dark:border-white/5 bg-[rgba(255,255,255,0.8)] dark:bg-[rgba(17,17,17,0.8)] backdrop-blur-md">
