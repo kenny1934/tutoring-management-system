@@ -570,7 +570,8 @@ class TutorMessage(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, nullable=True)  # Set when message is edited
     reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
-    image_attachments = Column(JSON, default=list)  # List of image URLs
+    image_attachment = Column(String(500))  # KEEP for AppSheet compatibility (single URL)
+    image_attachments = Column(JSON, default=list)  # NEW for webapp (multiple URLs)
 
     # Relationships
     from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")
