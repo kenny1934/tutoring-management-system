@@ -7,6 +7,7 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: 'standalone', // Required for Docker deployment
   eslint: {
     // Allow production builds with ESLint warnings (errors will still fail)
     ignoreDuringBuilds: true,
@@ -34,7 +35,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Only use rewrites in development (production calls API directly via NEXT_PUBLIC_API_URL)
   async rewrites() {
+    if (process.env.NODE_ENV === 'production') {
+      return [];
+    }
     return [
       {
         source: '/api/:path*',
