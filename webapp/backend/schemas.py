@@ -958,6 +958,7 @@ class MessageCreate(MessageBase):
     """Schema for creating a new message"""
     to_tutor_id: Optional[int] = Field(None, gt=0)  # NULL = broadcast
     reply_to_id: Optional[int] = Field(None, gt=0)
+    image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
 
 
 class MessageUpdate(BaseModel):
@@ -979,6 +980,7 @@ class MessageResponse(MessageBase):
     like_count: int = Field(default=0, ge=0)
     is_liked_by_me: bool = False
     reply_count: int = Field(default=0, ge=0)
+    image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
 
     model_config = ConfigDict(from_attributes=True)
 

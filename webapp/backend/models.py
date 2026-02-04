@@ -2,7 +2,7 @@
 SQLAlchemy models for the tutoring management system database.
 These models map to the existing tables from database/init.sql
 """
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -570,7 +570,8 @@ class TutorMessage(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, nullable=True)  # Set when message is edited
     reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
-    image_attachment = Column(String(500))  # Optional image URL/path
+    image_attachment = Column(String(500))  # KEEP for AppSheet compatibility (single URL)
+    image_attachments = Column(JSON, default=list)  # NEW for webapp (multiple URLs)
 
     # Relationships
     from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")

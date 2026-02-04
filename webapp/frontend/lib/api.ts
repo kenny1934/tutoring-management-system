@@ -1201,6 +1201,25 @@ export const messagesAPI = {
     if (offset) params.append("offset", offset.toString());
     return fetchAPI<PaginatedThreadsResponse>(`/messages/archived?${params}`);
   },
+
+  // Upload an image for message attachment
+  uploadImage: async (file: File, tutorId: number): Promise<{ url: string; filename: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE_URL}/messages/upload-image?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(error.detail || "Upload failed");
+    }
+
+    return response.json();
+  },
 };
 
 // Make-up Proposals API
