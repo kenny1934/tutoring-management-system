@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://tutoring-backend-284725664511.asia-east2.run.app/api'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_GOOGLE_CLIENT_ID=284725664511-ctv2u8ah3pld8j72unv151jjdfffg5ne.apps.googleusercontent.com'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_BACKEND_URL=https://tutoring-backend-284725664511.asia-east2.run.app/api'
+      - '-t'
+      - 'asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest'
+      - '.'
+images:
+  - 'asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest'
+timeout: '1800s'

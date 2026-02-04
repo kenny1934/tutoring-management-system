@@ -104,12 +104,13 @@ async def google_callback(
         )
 
         # Set HTTP-only cookie
+        # Use samesite="none" for cross-origin (frontend/backend on different domains)
         response.set_cookie(
             key="access_token",
             value=token,
             httponly=True,
-            secure=ENVIRONMENT == "production",  # HTTPS only in production
-            samesite="lax",  # CSRF protection
+            secure=True,  # Required when samesite="none"
+            samesite="none",  # Allow cross-origin cookie
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Match token expiry
         )
 
