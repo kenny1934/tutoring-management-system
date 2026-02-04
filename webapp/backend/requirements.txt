@@ -31,6 +31,12 @@ python-dateutil==2.8.2
 # Google Calendar API
 google-api-python-client==2.115.0
 
+# Google Cloud Storage (for inbox image uploads)
+google-cloud-storage==2.14.0
+
+# Image processing
+Pillow==10.2.0
+
 # Document processing (optional - for handwriting removal)
 numpy<2.0  # Required for opencv compatibility
 opencv-python-headless==4.9.0.80

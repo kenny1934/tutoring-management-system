@@ -47,6 +47,7 @@ import {
   CircleDot,
   Archive,
   ArchiveRestore,
+  Image as ImageIcon,
 } from "lucide-react";
 
 // Category definition
@@ -154,6 +155,9 @@ function ComposeModal({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
@@ -175,6 +179,31 @@ function ComposeModal({
     }, 0);
   };
 
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, fromTutorId);
+        newUrls.push(result.url);
+      }
+      setUploadedImages(prev => [...prev, ...newUrls]);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   // Reset form when opening/closing
   useEffect(() => {
     if (isOpen) {
@@ -189,6 +218,7 @@ function ComposeModal({
       }
       setMessage("");
       setPriority("Normal");
+      setUploadedImages([]);
     }
   }, [isOpen, replyTo]);
 
@@ -197,7 +227,7 @@ function ComposeModal({
   useClickOutside(priorityDropdownRef, () => setPriorityDropdownOpen(false), priorityDropdownOpen);
 
   // Check for unsaved changes
-  const hasUnsavedChanges = message.trim().length > 0 || (subject.trim().length > 0 && !replyTo);
+  const hasUnsavedChanges = message.trim().length > 0 || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
@@ -232,6 +262,7 @@ function ComposeModal({
         priority,
         category: category || undefined,
         reply_to_id: replyTo?.id,
+        image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
       });
       onClose();
     } finally {
@@ -420,6 +451,57 @@ function ComposeModal({
             </div>
           </div>
 
+          {/* Image Attachments */}
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => handleImageUpload(e.target.files)}
+              className="hidden"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-4 w-4" />
+                )}
+                {isUploading ? 'Uploading...' : 'Add Images'}
+              </button>
+              {uploadedImages.length > 0 && (
+                <span className="text-xs text-gray-500">{uploadedImages.length} image(s) attached</span>
+              )}
+            </div>
+            {/* Image Previews */}
+            {uploadedImages.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {uploadedImages.map((url, index) => (
+                  <div key={url} className="relative group">
+                    <img
+                      src={url}
+                      alt={`Attachment ${index + 1}`}
+                      className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -431,7 +513,7 @@ function ComposeModal({
             </button>
             <button
               type="submit"
-              disabled={isSending || !message.trim()}
+              disabled={isSending || isUploading || !message.trim()}
               className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -821,6 +903,28 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               ) : (
                 <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                   {m.message}
+                </div>
+              )}
+
+              {/* Image attachments */}
+              {m.image_attachments && m.image_attachments.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {m.image_attachments.map((url, idx) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={url}
+                        alt={`Attachment ${idx + 1}`}
+                        className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
                 </div>
               )}
 
