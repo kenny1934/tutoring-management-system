@@ -44,6 +44,7 @@ export default function EnrollmentDetailPage() {
   const { effectiveRole } = useAuth();
   const { showToast } = useToast();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const isTutor = effectiveRole === "Tutor";
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -1093,8 +1094,8 @@ export default function EnrollmentDetailPage() {
                               {copied ? "Copied!" : "Copy Fee"}
                             </button>
 
-                            {/* Mark Sent / Unmark Sent */}
-                            {enrollment?.fee_message_sent ? (
+                            {/* Mark Sent / Unmark Sent - Admin only */}
+                            {!isTutor && (enrollment?.fee_message_sent ? (
                               <button
                                 onClick={handleUnmarkSent}
                                 disabled={markingSent}
@@ -1112,10 +1113,10 @@ export default function EnrollmentDetailPage() {
                                 {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                                 Mark Sent
                               </button>
-                            )}
+                            ))}
 
-                            {/* Confirm Payment - only show for pending/overdue */}
-                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
+                            {/* Confirm Payment - only show for pending/overdue - Admin only */}
+                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
                               <button
                                 onClick={() => setConfirmPayment(true)}
                                 disabled={markingPaid}
@@ -1126,8 +1127,8 @@ export default function EnrollmentDetailPage() {
                               </button>
                             )}
 
-                            {/* Cancel Enrollment - only for pending/overdue with no completed sessions */}
-                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
+                            {/* Cancel Enrollment - only for pending/overdue with no completed sessions - Admin only */}
+                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
                               <button
                                 onClick={() => setConfirmCancel(true)}
                                 disabled={isCancelling}
