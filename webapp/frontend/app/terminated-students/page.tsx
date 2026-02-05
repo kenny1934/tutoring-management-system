@@ -31,7 +31,7 @@ export default function TerminatedStudentsPage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isAdmin, canViewAdminPages, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -76,8 +76,8 @@ export default function TerminatedStudentsPage() {
 
   // Determine effective tutor ID for API calls
   const effectiveTutorId = useMemo(() => {
-    // Tutors always see only their own data
-    if (!isAdmin) {
+    // Non-admin-level users always see only their own data
+    if (!canViewAdminPages) {
       // Handle impersonation
       if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
         return impersonatedTutor.id;
@@ -85,7 +85,7 @@ export default function TerminatedStudentsPage() {
       return user?.id;
     }
 
-    // Admin in my-view sees own data
+    // Admin-level users in my-view sees own data
     if (viewMode === 'my-view') {
       if (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id) {
         return impersonatedTutor.id;
@@ -93,11 +93,11 @@ export default function TerminatedStudentsPage() {
       return user?.id;
     }
 
-    // Admin in center-view can select any tutor
+    // Admin-level users in center-view can select any tutor
     if (selectedTutorId === ALL_TUTORS) return undefined;
     if (typeof selectedTutorId === 'number') return selectedTutorId;
     return undefined;
-  }, [isAdmin, viewMode, selectedTutorId, user?.id, isImpersonating, effectiveRole, impersonatedTutor]);
+  }, [canViewAdminPages, viewMode, selectedTutorId, user?.id, isImpersonating, effectiveRole, impersonatedTutor]);
 
   // Fetch available quarters
   const { data: quarters = [], isLoading: loadingQuarters } = useTerminationQuarters(effectiveLocation);
@@ -369,8 +369,8 @@ export default function TerminatedStudentsPage() {
                   )}
                 </div>
 
-                {/* Tutor Selector (admin in center-view only) */}
-                {isAdmin && viewMode === 'center-view' && (
+                {/* Tutor Selector (admin-level users in center-view only) */}
+                {canViewAdminPages && viewMode === 'center-view' && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -380,8 +380,8 @@ export default function TerminatedStudentsPage() {
                 )}
               </div>
 
-              {/* Save Changes Button */}
-              {pendingChanges.size > 0 && (
+              {/* Save Changes Button - hide for read-only users */}
+              {!isReadOnly && pendingChanges.size > 0 && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleDiscardChanges}
@@ -569,6 +569,7 @@ export default function TerminatedStudentsPage() {
                                 effectiveReason={getEffectiveValue(student, 'reason') as string}
                                 hasPendingChanges={hasPendingChanges(student.student_id)}
                                 showLocationPrefix={selectedLocation === "All Locations"}
+                                readOnly={isReadOnly}
                               />
                             ))}
                           </React.Fragment>
@@ -659,6 +660,7 @@ function TerminatedStudentRow({
   effectiveReason,
   hasPendingChanges,
   showLocationPrefix,
+  readOnly = false,
 }: {
   student: TerminatedStudent;
   onCheckboxToggle: (student: TerminatedStudent) => void;
@@ -667,6 +669,7 @@ function TerminatedStudentRow({
   effectiveReason: string;
   hasPendingChanges: boolean;
   showLocationPrefix: boolean;
+  readOnly?: boolean;
 }) {
   const [localReason, setLocalReason] = useState(effectiveReason);
   const [isEditing, setIsEditing] = useState(false);
@@ -691,13 +694,17 @@ function TerminatedStudentRow({
       {/* Checkbox */}
       <td className="px-4 py-3">
         <button
-          onClick={() => onCheckboxToggle(student)}
+          onClick={() => !readOnly && onCheckboxToggle(student)}
+          disabled={readOnly}
           className={cn(
             "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+            readOnly && "opacity-50 cursor-not-allowed",
             effectiveCountAsTerminated
               ? "bg-[#dc2626] dark:bg-red-600 border-[#dc2626] dark:border-red-600 text-white"
-              : "border-[#d4a574] dark:border-[#6b5a4a] hover:border-[#a0704b] dark:hover:border-[#8b6f47]"
+              : "border-[#d4a574] dark:border-[#6b5a4a]",
+            !readOnly && !effectiveCountAsTerminated && "hover:border-[#a0704b] dark:hover:border-[#8b6f47]"
           )}
+          title={readOnly ? "Read-only access" : undefined}
         >
           {effectiveCountAsTerminated && <Check className="h-3 w-3" />}
         </button>
@@ -731,15 +738,17 @@ function TerminatedStudentRow({
         <input
           type="text"
           value={localReason}
-          onChange={(e) => setLocalReason(e.target.value)}
-          onFocus={() => setIsEditing(true)}
+          onChange={(e) => !readOnly && setLocalReason(e.target.value)}
+          onFocus={() => !readOnly && setIsEditing(true)}
           onBlur={handleReasonBlur}
-          placeholder="Enter reason..."
+          placeholder={readOnly ? "-" : "Enter reason..."}
+          disabled={readOnly}
           className={cn(
             "w-full px-2 py-1 text-sm rounded border transition-colors",
-            isEditing
+            readOnly && "opacity-60 cursor-not-allowed bg-transparent",
+            !readOnly && isEditing
               ? "border-[#a0704b] dark:border-[#cd853f] ring-1 ring-[#a0704b]/20 dark:ring-[#cd853f]/20"
-              : hasPendingChanges
+              : !readOnly && hasPendingChanges
                 ? "border-[#d4a574] dark:border-[#6b5a4a] bg-[#fef9f3]/50 dark:bg-[#3d3628]/50"
                 : "border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a] bg-transparent"
           )}
