@@ -1384,8 +1384,9 @@ export const extensionRequestsAPI = {
   },
 
   // Get pending extension request count for admin badge
-  getPendingCount: () => {
-    return fetchAPI<PendingExtensionRequestCount>(`/extension-requests/pending-count`);
+  getPendingCount: (location?: string) => {
+    const params = location && location !== "All Locations" ? `?location=${encodeURIComponent(location)}` : "";
+    return fetchAPI<PendingExtensionRequestCount>(`/extension-requests/pending-count${params}`);
   },
 
   // Get single extension request with full context

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
-import { useUnreadMessageCount } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -29,6 +29,7 @@ const navigation = [
 // Admin navigation items - only visible to Admin and Super Admin
 const adminNavigation = [
   { name: "Renewals", href: "/admin/renewals", icon: RefreshCcw },
+  { name: "Overdue Payments", href: "/overdue-payments", icon: CreditCard },
   { name: "Extensions", href: "/admin/extensions", icon: Clock },
   // Future admin items:
   // { name: "Audit Log", href: "/admin/audit", icon: FileText },
@@ -63,6 +64,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch unread message count for Inbox badge
   const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
+
+  // Fetch admin badge counts (renewal, extension)
+  const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);
+  const { data: extensionCount } = usePendingExtensionCount(isAdminOrAbove, selectedLocation);
 
   // App-wide new message notification toast
   const router = useRouter();
@@ -122,7 +127,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch stats for notification bell (when not on dashboard)
   useEffect(() => {
-    if (!mounted || isOnDashboard) return;
+    if (!mounted) return;
 
     async function fetchStats() {
       try {
@@ -364,6 +369,20 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <div className="mt-1 ml-3 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
+                    // Get badge count for each admin item
+                    const badgeCount = item.name === "Renewals"
+                      ? renewalCounts?.total
+                      : item.name === "Overdue Payments"
+                        ? pendingPayments
+                        : item.name === "Extensions"
+                          ? extensionCount?.count
+                          : 0;
+                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
+                    const badgeColor = item.name === "Overdue Payments"
+                      ? "bg-red-500"
+                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
+                        ? "bg-red-500"
+                        : "bg-orange-500";
                     return (
                       <Link
                         key={item.name}
@@ -377,7 +396,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         )}
                       >
                         <item.icon className="h-4 w-4" />
-                        <span>{item.name}</span>
+                        <span className="flex-1">{item.name}</span>
+                        {badgeCount > 0 && (
+                          <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}
@@ -405,10 +429,24 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <div className="mt-1 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
+                    // Get badge count for each admin item
+                    const badgeCount = item.name === "Renewals"
+                      ? renewalCounts?.total
+                      : item.name === "Overdue Payments"
+                        ? pendingPayments
+                        : item.name === "Extensions"
+                          ? extensionCount?.count
+                          : 0;
+                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
+                    const badgeColor = item.name === "Overdue Payments"
+                      ? "bg-red-500"
+                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
+                        ? "bg-red-500"
+                        : "bg-orange-500";
                     return (
                       <div
                         key={item.name}
-                        className="tooltip-wrapper"
+                        className="tooltip-wrapper relative"
                         data-tooltip={item.name}
                         onMouseEnter={(e) => {
                           const rect = e.currentTarget.getBoundingClientRect();
@@ -431,6 +469,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         >
                           <item.icon className="h-5 w-5" />
                         </Link>
+                        {badgeCount > 0 && (
+                          <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
+                            {badgeCount > 99 ? "99+" : badgeCount}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
