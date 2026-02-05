@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState, memo } from "react";
-import { useEnrollmentSessions, useLocations, useTutors } from "@/lib/hooks";
+import { useEnrollmentSessions, useLocations, useActiveTutors } from "@/lib/hooks";
 import { enrollmentsAPI } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -104,7 +104,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
 
   // Fetch locations and tutors for editing
   const { data: allLocations = [] } = useLocations();
-  const { data: allTutors = [] } = useTutors();
+  const { data: allTutors = [] } = useActiveTutors();
   const { effectiveRole } = useAuth();
   const isTutor = effectiveRole === "Tutor";
 

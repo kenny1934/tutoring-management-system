@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { proposalsAPI } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
-import { useTutors, useSessions, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useSessions, useLocations } from "@/lib/hooks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { mutate } from "swr";
@@ -504,7 +504,7 @@ export const ProposalCardFull = memo(function ProposalCardFull({
   defaultExpanded = false,
 }: ProposalCardFullProps) {
   const { showToast } = useToast();
-  const { data: tutors = [] } = useTutors();
+  const { data: tutors = [] } = useActiveTutors();
   const { data: locations = [] } = useLocations();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);

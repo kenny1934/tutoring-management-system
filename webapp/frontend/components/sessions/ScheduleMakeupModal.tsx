@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { useActiveTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { sessionsAPI, proposalsAPI, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
@@ -432,7 +432,7 @@ export function ScheduleMakeupModal({
   const { showToast, dismissToast } = useToast();
   const { effectiveRole } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
-  const { data: tutors } = useTutors();
+  const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)

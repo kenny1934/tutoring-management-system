@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Session } from "@/types";
 import { sessionsAPI } from "@/lib/api";
-import { useTutors, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useLocations } from "@/lib/hooks";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { parseTimeSlot } from "@/lib/calendar-utils";
 
@@ -45,7 +45,7 @@ export function ZenEditSession({
   onClose,
   onSave,
 }: ZenEditSessionProps) {
-  const { data: tutors } = useTutors();
+  const { data: tutors } = useActiveTutors();
   const { data: locations } = useLocations();
 
   // Parse initial time slot

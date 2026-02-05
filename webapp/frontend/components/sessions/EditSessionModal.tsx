@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
-import { useTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { useActiveTutors, useLocations, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { getSessionStatusConfig } from "@/lib/session-status";
 import { Plus, Trash2, PenTool, Home, ChevronDown, AlertTriangle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,7 @@ export function EditSessionModal({
   onClose,
   onSave,
 }: EditSessionModalProps) {
-  const { data: tutors } = useTutors();
+  const { data: tutors } = useActiveTutors();
   const { data: locations } = useLocations();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
   const { effectiveRole } = useAuth();
