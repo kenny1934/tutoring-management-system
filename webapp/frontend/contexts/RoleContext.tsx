@@ -19,23 +19,27 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const { effectiveRole, isImpersonating } = useAuth();
 
   // Hydration-safe: Only read from localStorage after component mounts
-  // Default view mode based on role: Tutor → my-view, Admin/Super Admin → center-view
+  // Default view mode based on role: Tutor → my-view, Admin/Super Admin/Supervisor → center-view
   // When impersonating, always use role-based default (ignore localStorage)
   useEffect(() => {
     setMounted(true);
 
+    // Helper to determine default view mode based on role
+    const getDefaultViewMode = (role: string | null) => {
+      // Tutor sees their own data, everyone else (Admin, Super Admin, Supervisor) sees all
+      return role === "Tutor" ? "my-view" : "center-view";
+    };
+
     if (isImpersonating && effectiveRole) {
       // When impersonating, always use role-based default
-      const defaultMode = effectiveRole === "Tutor" ? "my-view" : "center-view";
-      setViewMode(defaultMode);
+      setViewMode(getDefaultViewMode(effectiveRole));
     } else {
       // Normal mode - use saved preference or role-based default
       const saved = localStorage.getItem("viewMode");
       if (saved === "my-view" || saved === "center-view") {
         setViewMode(saved);
       } else if (effectiveRole) {
-        const defaultMode = effectiveRole === "Tutor" ? "my-view" : "center-view";
-        setViewMode(defaultMode);
+        setViewMode(getDefaultViewMode(effectiveRole));
       }
     }
   }, [effectiveRole, isImpersonating]);

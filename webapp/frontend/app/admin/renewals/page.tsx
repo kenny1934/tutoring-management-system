@@ -52,10 +52,12 @@ interface RenewalCardProps {
   showCheckbox: boolean;
   // Location context
   selectedLocation: string;
+  // Read-only mode (Supervisor)
+  readOnly?: boolean;
 }
 
 // Memoized RenewalCard to prevent unnecessary re-renders
-const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation }: RenewalCardProps) {
+const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected, onClick, onQuickRenew, onViewRenewal, expandedFeePanel, onToggleFeePanel, onRefresh, isChecked, onToggleCheck, showCheckbox, selectedLocation, readOnly = false }: RenewalCardProps) {
   const isExpired = renewal.days_until_expiry < 0;
   const isThisWeek = renewal.days_until_expiry >= 0 && renewal.days_until_expiry <= 7;
   const isVeryOld = renewal.days_until_expiry < -30;
@@ -228,20 +230,25 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
               ) : (
                 <button
                   onClick={handleRenewClick}
+                  disabled={readOnly}
                   className={cn(
                     "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
-                    "hover:scale-[1.02] active:scale-[0.98]",
-                    isVeryOld
-                      ? "bg-primary hover:bg-primary/90 text-primary-foreground"
-                      : isExpired
-                      ? "bg-red-500 hover:bg-red-600 text-white"
-                      : isThisWeek
-                      ? "bg-orange-500 hover:bg-orange-600 text-white"
-                      : isNextWeek
-                      ? "bg-purple-500 hover:bg-purple-600 text-white"
-                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    readOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : cn(
+                          "hover:scale-[1.02] active:scale-[0.98]",
+                          isVeryOld
+                            ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                            : isExpired
+                            ? "bg-red-500 hover:bg-red-600 text-white"
+                            : isThisWeek
+                            ? "bg-orange-500 hover:bg-orange-600 text-white"
+                            : isNextWeek
+                            ? "bg-purple-500 hover:bg-purple-600 text-white"
+                            : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                        )
                   )}
-                  title="Create renewal"
+                  title={readOnly ? "Read-only access" : "Create renewal"}
                 >
                   <RefreshCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Renew</span>
@@ -312,7 +319,7 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
 
 export default function AdminRenewalsPage() {
   usePageTitle("Enrollment Renewals");
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, canViewAdminPages, isReadOnly } = useAuth();
   const { selectedLocation } = useLocation();
   const { showToast } = useToast();
   const [showExpired, setShowExpired] = useState(true);
@@ -390,7 +397,7 @@ export default function AdminRenewalsPage() {
 
   // Fetch renewals list
   const { data: renewals, isLoading: renewalsLoading } = useSWR(
-    user && isAdmin ? ['renewals', selectedLocation, showExpired] : null,
+    user && canViewAdminPages ? ['renewals', selectedLocation, showExpired] : null,
     () => enrollmentsAPI.getRenewals({
       location: selectedLocation !== "All Locations" ? selectedLocation : undefined,
       include_expired: showExpired,
@@ -854,6 +861,7 @@ export default function AdminRenewalsPage() {
                 </h1>
                 <p className="text-xs sm:text-sm text-foreground/60">
                   Enrollments expiring soon or already expired
+                  {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
                 </p>
               </div>
             </div>
@@ -867,7 +875,14 @@ export default function AdminRenewalsPage() {
               />
               <button
                 onClick={handleNewEnrollment}
-                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
+                disabled={isReadOnly}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm font-medium transition-all",
+                  isReadOnly
+                    ? "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-[1.02] active:scale-[0.98]"
+                )}
+                title={isReadOnly ? "Read-only access" : undefined}
               >
                 <Plus className="h-4 w-4" />
                 <span className="hidden xs:inline">New</span> Enrollment
@@ -924,7 +939,7 @@ export default function AdminRenewalsPage() {
         </div>
 
         {/* Tab bar - only show when data is loaded */}
-        {!isLoading && !renewalsLoading && user && isAdmin && renewals && renewals.length > 0 && (
+        {!isLoading && !renewalsLoading && user && canViewAdminPages && renewals && renewals.length > 0 && (
           <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide px-4 sm:px-6 -mx-4 sm:-mx-6">
             <button
               onClick={() => setActiveTab('not_renewed')}
@@ -1002,7 +1017,7 @@ export default function AdminRenewalsPage() {
                 </div>
               ))}
             </div>
-          ) : !user || !isAdmin ? (
+          ) : !user || !canViewAdminPages ? (
             <div className="text-center py-12">
               <p className="text-foreground/60">Admin access required</p>
             </div>
@@ -1042,6 +1057,7 @@ export default function AdminRenewalsPage() {
                             onToggleCheck={toggleCheck}
                             showCheckbox={showCheckboxes}
                             selectedLocation={selectedLocation}
+                            readOnly={isReadOnly}
                           />
                         );
                       })}
@@ -1080,6 +1096,7 @@ export default function AdminRenewalsPage() {
                             onToggleCheck={toggleCheck}
                             showCheckbox={showCheckboxes}
                             selectedLocation={selectedLocation}
+                            readOnly={isReadOnly}
                           />
                         );
                       })}
@@ -1118,6 +1135,7 @@ export default function AdminRenewalsPage() {
                             onToggleCheck={toggleCheck}
                             showCheckbox={showCheckboxes}
                             selectedLocation={selectedLocation}
+                            readOnly={isReadOnly}
                           />
                         );
                       })}
@@ -1156,6 +1174,7 @@ export default function AdminRenewalsPage() {
                             onToggleCheck={toggleCheck}
                             showCheckbox={showCheckboxes}
                             selectedLocation={selectedLocation}
+                            readOnly={isReadOnly}
                           />
                         );
                       })}
@@ -1209,8 +1228,14 @@ export default function AdminRenewalsPage() {
               {activeTab === 'not_renewed' && (
                 <button
                   onClick={() => setBatchRenewModalOpen(true)}
-                  disabled={batchLoading}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  disabled={batchLoading || isReadOnly}
+                  className={cn(
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
+                    isReadOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                  )}
+                  title={isReadOnly ? "Read-only access" : undefined}
                 >
                   <RefreshCcw className="h-4 w-4" />
                   <span className="hidden xs:inline">Batch</span> Renew
@@ -1219,8 +1244,14 @@ export default function AdminRenewalsPage() {
               {activeTab === 'to_send' && (
                 <button
                   onClick={handleBatchMarkSent}
-                  disabled={batchLoading}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  disabled={batchLoading || isReadOnly}
+                  className={cn(
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
+                    isReadOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600 text-white"
+                  )}
+                  title={isReadOnly ? "Read-only access" : undefined}
                 >
                   {batchLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1233,8 +1264,14 @@ export default function AdminRenewalsPage() {
               {activeTab === 'awaiting_payment' && (
                 <button
                   onClick={handleBatchMarkPaid}
-                  disabled={batchLoading}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  disabled={batchLoading || isReadOnly}
+                  className={cn(
+                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50",
+                    isReadOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : "bg-green-500 hover:bg-green-600 text-white"
+                  )}
+                  title={isReadOnly ? "Read-only access" : undefined}
                 >
                   {batchLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
