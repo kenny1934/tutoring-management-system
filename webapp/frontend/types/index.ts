@@ -99,6 +99,8 @@ export interface Student {
   lang_stream?: string;
   home_location?: string;
   academic_stream?: string;
+  is_staff_referral?: boolean;
+  staff_referral_notes?: string;
   enrollment_count?: number;
   enrollments?: Enrollment[];
 }
@@ -314,6 +316,10 @@ export interface Session {
   grade?: string;
   lang_stream?: string;
   school?: string;
+  last_modified_time?: string;
+  last_modified_by?: string;
+  attendance_marked_by?: string;
+  attendance_mark_time?: string;
   previous_session_status?: string;
   undone_from_status?: string;  // Only set in undo response for redo toast
   rescheduled_to_id?: number;
@@ -357,6 +363,7 @@ export interface ActivityEvent {
   description?: string;
   timestamp: string;
   link?: string;
+  modified_by?: string;
 }
 
 // API response types

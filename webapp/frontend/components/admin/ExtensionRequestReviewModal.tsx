@@ -94,7 +94,7 @@ export function ExtensionRequestReviewModal({
     if (isOpen && request.request_status === "Approved" && !sessionForMakeup) {
       sessionsAPI.getById(request.session_id).then(setSessionForMakeup).catch(() => { /* non-critical */ });
     }
-  }, [isOpen, request.session_id, request.request_status]);
+  }, [isOpen, request.session_id, request.request_status, sessionForMakeup]);
 
   // Reset enrollment state when request changes
   React.useEffect(() => {
@@ -315,7 +315,7 @@ export function ExtensionRequestReviewModal({
             <Button variant="outline" onClick={handleCloseApproved}>
               Close
             </Button>
-            {request.proposed_reschedule_date && !sessionForMakeup?.rescheduled_to_id && (
+            {!sessionForMakeup?.rescheduled_to_id && (
               <Button
                 onClick={handleScheduleMakeup}
                 disabled={isFetchingSession}

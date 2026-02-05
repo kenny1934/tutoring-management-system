@@ -526,7 +526,8 @@ async def approve_slot(
     # Only Regular enrollments count - ignore One-Time and Trial
     current_enrollment = db.query(Enrollment).filter(
         Enrollment.student_id == original_session.student_id,
-        Enrollment.enrollment_type == 'Regular'
+        Enrollment.enrollment_type == 'Regular',
+        Enrollment.payment_status != "Cancelled"
     ).order_by(Enrollment.first_lesson_date.desc()).first()
 
     if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:

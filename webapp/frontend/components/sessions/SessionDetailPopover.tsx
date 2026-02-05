@@ -26,6 +26,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
 import { EditSessionModal } from "./EditSessionModal";
@@ -373,6 +374,8 @@ export function SessionDetailPopover({
   onProposalClick,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
+  const { user, effectiveRole } = useAuth();
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -405,6 +408,17 @@ export function SessionDetailPopover({
     return ['Scheduled', 'Trial Class', 'Make-up Class'].includes(s.session_status);
   }, []);
 
+  // Check if current user can mark attendance (tutors can only mark their own sessions)
+  const canMarkAttendance = useCallback((s: Session | null) => {
+    if (!s) return false;
+    if (!canBeMarked(s)) return false;
+    // Tutors can only mark their own sessions
+    if (effectiveRole === 'Tutor') {
+      return s.tutor_id === user?.id;
+    }
+    return true;
+  }, [canBeMarked, effectiveRole, user?.id]);
+
   // Handler to open extension request modal
   const handleOpenExtensionRequest = useCallback(async () => {
     if (!session?.extension_request_id) return;
@@ -433,8 +447,8 @@ export function SessionDetailPopover({
 
       switch (key) {
         case 'a':
-          // Mark Attended
-          if (canBeMarked(session)) {
+          // Mark Attended (tutors can only mark their own sessions)
+          if (canMarkAttendance(session)) {
             e.preventDefault();
             setLoadingActionId('attended');
             try {
@@ -449,8 +463,8 @@ export function SessionDetailPopover({
           }
           break;
         case 'n':
-          // Mark No Show
-          if (canBeMarked(session)) {
+          // Mark No Show (tutors can only mark their own sessions)
+          if (canMarkAttendance(session)) {
             e.preventDefault();
             setLoadingActionId('no-show');
             try {
@@ -489,7 +503,7 @@ export function SessionDetailPopover({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canBeMarked, showToast]);
+  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canMarkAttendance, showToast]);
 
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {
@@ -535,7 +549,9 @@ export function SessionDetailPopover({
     }
   }, [virtualReference, refs]);
 
-  const dismiss = useDismiss(context);
+  // Disable click-outside dismissal when any modal is open
+  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen;
+  const dismiss = useDismiss(context, { enabled: !anyModalOpen });
   const { getFloatingProps } = useInteractions([dismiss]);
 
   if (!isOpen) return null;
@@ -553,8 +569,9 @@ export function SessionDetailPopover({
             "bg-[#fef9f3] dark:bg-[#2d2618]",
             "border-2 border-[#d4a574] dark:border-[#8b6f47]",
             "rounded-lg shadow-lg",
-            "p-4 w-[280px]",
-            "paper-texture"
+            "p-4",
+            "paper-texture",
+            "w-[280px]"
           )}
         >
           <button
@@ -622,9 +639,10 @@ export function SessionDetailPopover({
           "bg-[#fef9f3] dark:bg-[#2d2618]",
           "border-2 border-[#d4a574] dark:border-[#8b6f47]",
           "rounded-lg shadow-lg",
-          "p-4 w-[280px]",
+          "p-4",
           "max-h-[80vh] overflow-y-auto",
-          "paper-texture"
+          "paper-texture",
+          "w-[280px]"
         )}
       >
         {/* Close button */}
@@ -1144,8 +1162,18 @@ export function SessionDetailPopover({
             setIsExtensionModalOpen(false);
             setExtensionRequest(null);
           }}
-          adminTutorId={0}
-          readOnly={true}
+          onApproved={() => {
+            if (session) {
+              updateSessionInCache({ ...session, extension_request_status: "Approved" });
+            }
+          }}
+          onRejected={() => {
+            if (session) {
+              updateSessionInCache({ ...session, extension_request_status: "Rejected" });
+            }
+          }}
+          adminTutorId={user?.id ?? 0}
+          readOnly={!isAdmin}
         />
       )}
     </FloatingPortal>

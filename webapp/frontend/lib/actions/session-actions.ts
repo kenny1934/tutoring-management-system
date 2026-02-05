@@ -14,7 +14,7 @@ import {
   Clock,
 } from 'lucide-react';
 import type { Session } from '@/types';
-import type { ActionConfig, UserRole } from './types';
+import type { ActionConfig, UserRole, VisibilityContext } from './types';
 
 // ============================================
 // VISIBILITY HELPERS
@@ -77,7 +77,14 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'Attended',
     icon: CheckCircle2,
     colorClass: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
-    isVisible: isNotAttended,
+    isVisible: (s: Session, ctx?: VisibilityContext) => {
+      if (!isNotAttended(s)) return false;
+      // Tutors can only mark attendance on their own sessions
+      if (ctx?.effectiveRole === 'Tutor') {
+        return s.tutor_id === ctx.userId;
+      }
+      return true;
+    },
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
@@ -92,7 +99,14 @@ export const sessionActions: ActionConfig<Session>[] = [
     shortLabel: 'No Show',
     icon: UserX,
     colorClass: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-    isVisible: isNotAttended,
+    isVisible: (s: Session, ctx?: VisibilityContext) => {
+      if (!isNotAttended(s)) return false;
+      // Tutors can only mark no-show on their own sessions
+      if (ctx?.effectiveRole === 'Tutor') {
+        return s.tutor_id === ctx.userId;
+      }
+      return true;
+    },
     allowedRoles: ['Tutor', 'Admin', 'Super Admin'],
     api: {
       enabled: true,
@@ -299,18 +313,22 @@ export const sessionActions: ActionConfig<Session>[] = [
  * Get visible session actions for a given session.
  * Filters by visibility conditions only (not permissions).
  */
-export const getVisibleSessionActions = (session: Session): ActionConfig<Session>[] =>
-  sessionActions.filter((action) => action.isVisible(session));
+export const getVisibleSessionActions = (
+  session: Session,
+  ctx?: VisibilityContext
+): ActionConfig<Session>[] =>
+  sessionActions.filter((action) => action.isVisible(session, ctx));
 
 /**
  * Get visible session actions filtered by user role.
  */
 export const getSessionActionsForRole = (
   session: Session,
-  userRole: string
+  userRole: string,
+  ctx?: VisibilityContext
 ): ActionConfig<Session>[] =>
   sessionActions.filter(
     (action) =>
-      action.isVisible(session) &&
+      action.isVisible(session, ctx) &&
       action.allowedRoles.includes(userRole as UserRole)
   );
