@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, api, type ParentCommunication } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, api, type ParentCommunication } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -734,6 +734,20 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
   return useSWR<{ expiring_soon: number; expired: number; total: number }>(
     isAdmin ? ['renewal-counts', location] : null,
     () => enrollmentsAPI.getRenewalCounts(location),
+    { refreshInterval, revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching pending extension request count (for notification badge)
+ * Only enabled for admins
+ * Pauses polling when tab is hidden to save API calls
+ */
+export function usePendingExtensionCount(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(60000); // 1 minute refresh
+  return useSWR<PendingExtensionRequestCount>(
+    isAdmin ? ['pending-extension-count', location] : null,
+    () => extensionRequestsAPI.getPendingCount(location),
     { refreshInterval, revalidateOnFocus: false }
   );
 }
