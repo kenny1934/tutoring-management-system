@@ -112,7 +112,7 @@ class TestGenerateSessionDates:
         assert sessions[0].is_holiday is True
         assert sessions[0].holiday_name == "Chinese New Year"
         assert len(skipped) == 1
-        assert skipped[0]["date"] == first_lesson
+        assert skipped[0]["date"] == first_lesson.isoformat()
 
         # The 3 actual lessons should be on subsequent weeks
         regular_sessions = [s for s in sessions if not s.is_holiday]
