@@ -170,6 +170,8 @@ export interface CreateEnrollmentModalProps {
   convertFromTrial?: TrialListItem;
   /** Pre-fill student (skips student search) - used from student detail page */
   prefillStudent?: Student;
+  /** Pre-fill tutor ID - used from student detail page to carry over from latest enrollment */
+  prefillTutorId?: number | null;
 }
 
 export function CreateEnrollmentModal({
@@ -181,6 +183,7 @@ export function CreateEnrollmentModal({
   trialMode = false,
   convertFromTrial,
   prefillStudent,
+  prefillTutorId,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
   const { showToast, showError } = useToast();
@@ -305,6 +308,13 @@ export function CreateEnrollmentModal({
     }
   }, [prefillStudent, isOpen, convertFromTrial, renewFromId]);
 
+  // Pre-fill tutor from props (used from student detail page to carry over from latest enrollment)
+  useEffect(() => {
+    if (prefillTutorId && isOpen && !convertFromTrial && !renewFromId) {
+      setTutorId(prefillTutorId);
+    }
+  }, [prefillTutorId, isOpen, convertFromTrial, renewFromId]);
+
   // Pre-fill form when converting trial to regular
   useEffect(() => {
     if (convertFromTrial && isOpen) {
@@ -343,15 +353,15 @@ export function CreateEnrollmentModal({
     }
   }, [convertFromTrial, isOpen, discounts]);
 
-  // Auto-select first tutor from location (only if not renewing/converting and no tutor selected)
+  // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
-    if (!renewFromId && !convertFromTrial && !tutorId && tutors.length > 0 && location && isOpen) {
+    if (!renewFromId && !convertFromTrial && !prefillTutorId && !tutorId && tutors.length > 0 && location && isOpen) {
       const newLocationTutors = tutors.filter((t) => t.default_location === location);
       if (newLocationTutors.length > 0) {
         setTutorId(newLocationTutors[0].id);
       }
     }
-  }, [renewFromId, convertFromTrial, tutorId, tutors, location, isOpen]);
+  }, [renewFromId, convertFromTrial, prefillTutorId, tutorId, tutors, location, isOpen]);
 
   // Auto-select discount based on student status (staff referral > student coupon)
   // Skip if converting from trial (uses special $150 trial discount instead)
