@@ -127,7 +127,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch stats for notification bell (when not on dashboard)
   useEffect(() => {
-    if (!mounted || isOnDashboard) return;
+    if (!mounted) return;
 
     async function fetchStats() {
       try {
@@ -377,6 +377,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         : item.name === "Extensions"
                           ? extensionCount?.count
                           : 0;
+                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
+                    const badgeColor = item.name === "Overdue Payments"
+                      ? "bg-red-500"
+                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
+                        ? "bg-red-500"
+                        : "bg-orange-500";
                     return (
                       <Link
                         key={item.name}
@@ -391,8 +397,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                       >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{item.name}</span>
-                        {badgeCount && badgeCount > 0 && (
-                          <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {badgeCount > 0 && (
+                          <span className={cn("text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}
@@ -431,6 +437,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         : item.name === "Extensions"
                           ? extensionCount?.count
                           : 0;
+                    // Color: red for danger (Overdue Payments, or Renewals with expired), orange for warning
+                    const badgeColor = item.name === "Overdue Payments"
+                      ? "bg-red-500"
+                      : item.name === "Renewals" && (renewalCounts?.expired ?? 0) > 0
+                        ? "bg-red-500"
+                        : "bg-orange-500";
                     return (
                       <div
                         key={item.name}
@@ -457,8 +469,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                         >
                           <item.icon className="h-5 w-5" />
                         </Link>
-                        {badgeCount && badgeCount > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
+                        {badgeCount > 0 && (
+                          <span className={cn("absolute -top-1 -right-1 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5", badgeColor)}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>
                         )}

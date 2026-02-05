@@ -67,17 +67,6 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
 
-    if (showOverduePayments && pendingPayments > 0) {
-      items.push({
-        id: "payments",
-        icon: <CreditCard className="h-4 w-4" />,
-        label: "Overdue Payments",
-        count: pendingPayments,
-        severity: "danger",
-        href: "/overdue-payments",
-      });
-    }
-
     // Renewals needing attention (admin only)
     if (showOverduePayments && renewalCounts?.total && renewalCounts.total > 0) {
       items.push({
@@ -87,6 +76,17 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
         count: renewalCounts.total,
         severity: renewalCounts.expired > 0 ? "danger" : "warning",
         href: "/admin/renewals",
+      });
+    }
+
+    if (showOverduePayments && pendingPayments > 0) {
+      items.push({
+        id: "payments",
+        icon: <CreditCard className="h-4 w-4" />,
+        label: "Overdue Payments",
+        count: pendingPayments,
+        severity: "danger",
+        href: "/overdue-payments",
       });
     }
 
@@ -193,6 +193,10 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     return null;
   }
 
+  // Determine badge color based on severity (red if any danger, orange if only warnings)
+  const hasDanger = notifications.some(n => n.severity === 'danger');
+  const badgeColor = hasDanger ? 'bg-red-500' : 'bg-orange-500';
+
   return (
     <div className="relative">
       <button
@@ -207,7 +211,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       >
         <Bell className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
         {/* Badge */}
-        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+        <span className={cn("absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white rounded-full", badgeColor)}>
           {totalCount > 99 ? "99+" : totalCount}
         </span>
       </button>
