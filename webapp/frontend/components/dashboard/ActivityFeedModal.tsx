@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useActivityFeed } from "@/lib/hooks";
+import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ActivityEvent } from "@/types";
 import {
@@ -134,6 +134,24 @@ const formatDate = (date: Date): string => {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 };
 
+// Format full timestamp for tooltip
+const formatFullTimestamp = (date: Date): string => {
+  return date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+};
+
+// Extract username from email
+const extractUsername = (email?: string): string | undefined => {
+  if (!email) return undefined;
+  return email.includes('@') ? email.split('@')[0] : email;
+};
+
 interface ActivityFeedModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -142,10 +160,21 @@ interface ActivityFeedModalProps {
 
 export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModalProps) {
   const { selectedLocation } = useLocation();
+  const { data: tutors } = useTutors();
   const [mounted, setMounted] = useState(false);
   const [offset, setOffset] = useState(0);
   const [allEvents, setAllEvents] = useState<ActivityEvent[]>([]);
   const [hasMore, setHasMore] = useState(true);
+
+  // Get tutor name by email, fallback to username from email
+  const getTutorName = (email?: string): string | undefined => {
+    if (!email) return undefined;
+    if (tutors) {
+      const tutor = tutors.find(t => t.user_email === email);
+      if (tutor) return tutor.tutor_name;
+    }
+    return extractUsername(email);
+  };
 
   // Fetch current batch
   const { data: newBatch, isLoading } = useActivityFeed(
@@ -349,8 +378,16 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                                 )}
                               </div>
 
-                              {/* Right: Time */}
-                              <span className="flex-shrink-0 text-[10px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                              {/* Right: Modified by + Time */}
+                              <span
+                                className="flex-shrink-0 text-[10px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap"
+                                title={formatFullTimestamp(event.time)}
+                              >
+                                {event.modified_by && (
+                                  <span className="text-gray-500 dark:text-gray-400 mr-1">
+                                    {getTutorName(event.modified_by)}
+                                  </span>
+                                )}
                                 {formatTime(event.time)}
                               </span>
                             </div>

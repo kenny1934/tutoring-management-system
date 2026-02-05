@@ -58,6 +58,10 @@ export default function TerminatedStudentsPage() {
     column: 'id' | 'lastLesson';
     direction: 'asc' | 'desc';
   }>({ column: 'lastLesson', direction: 'asc' });
+  const [tutorStatsSortConfig, setTutorStatsSortConfig] = useState<{
+    column: 'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate';
+    direction: 'asc' | 'desc';
+  }>({ column: 'instructor', direction: 'asc' });
 
   // Pending changes state for batch save
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
@@ -211,6 +215,14 @@ export default function TerminatedStudentsPage() {
   // Handle sort column click
   const handleSort = useCallback((column: 'id' | 'lastLesson') => {
     setSortConfig(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  }, []);
+
+  // Handle tutor stats sort column click
+  const handleTutorStatsSort = useCallback((column: 'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate') => {
+    setTutorStatsSortConfig(prev => ({
       column,
       direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
@@ -591,17 +603,107 @@ export default function TerminatedStudentsPage() {
                       <table className="w-full text-sm">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="px-4 py-3 text-left font-medium">Instructor</th>
-                            <th className="px-4 py-3 text-right font-medium">Opening</th>
-                            <th className="px-4 py-3 text-right font-medium">Enroll/Transfer</th>
-                            <th className="px-4 py-3 text-right font-medium">Terminated</th>
-                            <th className="px-4 py-3 text-right font-medium">Closing</th>
-                            <th className="px-4 py-3 text-right font-medium">Term Rate</th>
+                            <th className="px-4 py-3 text-left font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('instructor')}
+                                className="flex items-center gap-1 hover:text-foreground/80"
+                              >
+                                Instructor
+                                {tutorStatsSortConfig.column === 'instructor' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('opening')}
+                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
+                              >
+                                Opening
+                                {tutorStatsSortConfig.column === 'opening' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('enrollTransfer')}
+                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
+                              >
+                                Enroll/Transfer
+                                {tutorStatsSortConfig.column === 'enrollTransfer' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('terminated')}
+                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
+                              >
+                                Terminated
+                                {tutorStatsSortConfig.column === 'terminated' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('closing')}
+                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
+                              >
+                                Closing
+                                {tutorStatsSortConfig.column === 'closing' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                              <button
+                                onClick={() => handleTutorStatsSort('termRate')}
+                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
+                              >
+                                Term Rate
+                                {tutorStatsSortConfig.column === 'termRate' ? (
+                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                                ) : (
+                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
+                                )}
+                              </button>
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
                           {[...stats.tutor_stats]
-                            .sort((a, b) => getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name)))
+                            .sort((a, b) => {
+                              const dir = tutorStatsSortConfig.direction === 'asc' ? 1 : -1;
+                              switch (tutorStatsSortConfig.column) {
+                                case 'instructor':
+                                  return dir * getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
+                                case 'opening':
+                                  return dir * (a.opening - b.opening);
+                                case 'enrollTransfer':
+                                  return dir * (a.enrollment_transfer - b.enrollment_transfer);
+                                case 'terminated':
+                                  return dir * (a.terminated - b.terminated);
+                                case 'closing':
+                                  return dir * (a.closing - b.closing);
+                                case 'termRate':
+                                  return dir * (a.term_rate - b.term_rate);
+                                default:
+                                  return 0;
+                              }
+                            })
                             .map((tutor) => (
                             <TutorStatsRow key={tutor.tutor_id} stats={tutor} />
                           ))}
@@ -768,7 +870,7 @@ function TutorStatsRow({ stats }: { stats: TutorTerminationStats }) {
       <td className={cn("px-4 py-3 text-right", enrollTransferColor)}>
         {stats.enrollment_transfer >= 0 ? "+" : ""}{stats.enrollment_transfer}
       </td>
-      <td className="px-4 py-3 text-right">{stats.terminated}</td>
+      <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">{stats.terminated}</td>
       <td className="px-4 py-3 text-right">{stats.closing}</td>
       <td className={cn("px-4 py-3 text-right font-medium", termRateColor)}>
         {stats.term_rate.toFixed(2)}%

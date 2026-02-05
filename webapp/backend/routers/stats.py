@@ -457,7 +457,8 @@ async def get_activity_feed(
             location=s.location,
             description=grade_desc if grade_desc else None,
             timestamp=event_timestamp,
-            link=f"/sessions/{s.id}"
+            link=f"/sessions/{s.id}",
+            modified_by=s.last_modified_by
         ))
 
     # 2. Enrollments: new (14 days) + payments (30 days)
@@ -489,7 +490,8 @@ async def get_activity_feed(
                 location=e.location,
                 description=f"{e.lessons_paid} lessons" if e.lessons_paid else None,
                 timestamp=datetime.combine(e.payment_date, time(12, 0)),
-                link=f"/enrollments/{e.id}"
+                link=f"/enrollments/{e.id}",
+                modified_by=e.last_modified_by
             ))
         # New enrollment (only past/today, not future dates)
         if e.first_lesson_date and e.first_lesson_date >= (today - timedelta(days=14)) and e.first_lesson_date <= today:
@@ -505,7 +507,8 @@ async def get_activity_feed(
                 location=e.location,
                 description=grade_desc if grade_desc else None,
                 timestamp=e.last_modified_time,
-                link=f"/enrollments/{e.id}"
+                link=f"/enrollments/{e.id}",
+                modified_by=e.last_modified_by
             ))
 
     # Sort by timestamp descending and apply pagination
