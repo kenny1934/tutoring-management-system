@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useActivityFeed } from "@/lib/hooks";
+import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { ActivityFeedModal } from "./ActivityFeedModal";
 import {
@@ -154,7 +154,18 @@ interface ActivityFeedProps {
 export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityFeedProps) {
   const { selectedLocation } = useLocation();
   const { data: apiEvents, isLoading } = useActivityFeed(selectedLocation, tutorId, 10);
+  const { data: tutors } = useTutors();
   const [showModal, setShowModal] = useState(false);
+
+  // Get tutor name by email, fallback to username from email
+  const getTutorName = (email?: string): string | undefined => {
+    if (!email) return undefined;
+    if (tutors) {
+      const tutor = tutors.find(t => t.user_email === email);
+      if (tutor) return tutor.tutor_name;
+    }
+    return extractUsername(email);
+  };
 
   const events = useMemo(() => {
     if (!apiEvents) return [];
@@ -311,7 +322,7 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
                         >
                           {!isMobile && event.modified_by && (
                             <span className="text-gray-500 dark:text-gray-400 mr-1">
-                              {extractUsername(event.modified_by)}
+                              {getTutorName(event.modified_by)}
                             </span>
                           )}
                           {formatTime(event.time)}

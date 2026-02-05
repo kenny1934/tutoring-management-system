@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
+import { useTutors } from "@/lib/hooks";
 import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -172,39 +173,10 @@ interface ChalkboardHeaderProps {
   loadingActionId?: string | null;
 }
 
-// Helper to format the "last modified by" tooltip
-function formatModifiedByTooltip(modifiedBy?: string, modifiedTime?: string): string | undefined {
-  if (!modifiedBy && !modifiedTime) return undefined;
-
-  const parts: string[] = [];
-
-  if (modifiedBy) {
-    // Extract username from email (before @)
-    const username = modifiedBy.includes('@')
-      ? modifiedBy.split('@')[0]
-      : modifiedBy;
-    parts.push(`Modified by ${username}`);
-  }
-
-  if (modifiedTime) {
-    const date = new Date(modifiedTime);
-    const formatted = date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-    parts.push(modifiedBy ? `at ${formatted}` : `Modified at ${formatted}`);
-  }
-
-  return parts.join(' ');
-}
-
 export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }: ChalkboardHeaderProps) {
   const displayStatus = getDisplayStatus(session);
   const statusConfig = getSessionStatusConfig(displayStatus);
-  const statusTooltip = formatModifiedByTooltip(session.last_modified_by, session.last_modified_time);
+  const { data: tutors } = useTutors();
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
@@ -218,6 +190,44 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
   const { effectiveRole } = useAuth();
+
+  // Get tutor name by email, fallback to username from email
+  const getTutorName = (email?: string): string | undefined => {
+    if (!email) return undefined;
+    if (tutors) {
+      const tutor = tutors.find(t => t.user_email === email);
+      if (tutor) return tutor.tutor_name;
+    }
+    // Fallback to username from email
+    return email.includes('@') ? email.split('@')[0] : email;
+  };
+
+  // Generate "Attendance Marked by" tooltip with tutor name lookup
+  const statusTooltip = useMemo(() => {
+    if (!session.last_modified_by && !session.last_modified_time) return undefined;
+
+    const parts: string[] = [];
+
+    if (session.last_modified_by) {
+      const name = getTutorName(session.last_modified_by);
+      parts.push(`Attendance Marked by ${name}`);
+    }
+
+    if (session.last_modified_time) {
+      const date = new Date(session.last_modified_time);
+      const formatted = date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      parts.push(session.last_modified_by ? `at ${formatted}` : `Attendance Marked at ${formatted}`);
+    }
+
+    return parts.join(' ');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.last_modified_by, session.last_modified_time, tutors]);
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;

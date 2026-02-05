@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useActivityFeed } from "@/lib/hooks";
+import { useActivityFeed, useTutors } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import type { ActivityEvent } from "@/types";
 import {
@@ -160,10 +160,21 @@ interface ActivityFeedModalProps {
 
 export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModalProps) {
   const { selectedLocation } = useLocation();
+  const { data: tutors } = useTutors();
   const [mounted, setMounted] = useState(false);
   const [offset, setOffset] = useState(0);
   const [allEvents, setAllEvents] = useState<ActivityEvent[]>([]);
   const [hasMore, setHasMore] = useState(true);
+
+  // Get tutor name by email, fallback to username from email
+  const getTutorName = (email?: string): string | undefined => {
+    if (!email) return undefined;
+    if (tutors) {
+      const tutor = tutors.find(t => t.user_email === email);
+      if (tutor) return tutor.tutor_name;
+    }
+    return extractUsername(email);
+  };
 
   // Fetch current batch
   const { data: newBatch, isLoading } = useActivityFeed(
@@ -374,7 +385,7 @@ export function ActivityFeedModal({ isOpen, onClose, tutorId }: ActivityFeedModa
                               >
                                 {event.modified_by && (
                                   <span className="text-gray-500 dark:text-gray-400 mr-1">
-                                    {extractUsername(event.modified_by)}
+                                    {getTutorName(event.modified_by)}
                                   </span>
                                 )}
                                 {formatTime(event.time)}
