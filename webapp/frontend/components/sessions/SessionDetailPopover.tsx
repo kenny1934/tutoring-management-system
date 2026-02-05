@@ -408,6 +408,17 @@ export function SessionDetailPopover({
     return ['Scheduled', 'Trial Class', 'Make-up Class'].includes(s.session_status);
   }, []);
 
+  // Check if current user can mark attendance (tutors can only mark their own sessions)
+  const canMarkAttendance = useCallback((s: Session | null) => {
+    if (!s) return false;
+    if (!canBeMarked(s)) return false;
+    // Tutors can only mark their own sessions
+    if (effectiveRole === 'Tutor') {
+      return s.tutor_id === user?.id;
+    }
+    return true;
+  }, [canBeMarked, effectiveRole, user?.id]);
+
   // Handler to open extension request modal
   const handleOpenExtensionRequest = useCallback(async () => {
     if (!session?.extension_request_id) return;
@@ -436,8 +447,8 @@ export function SessionDetailPopover({
 
       switch (key) {
         case 'a':
-          // Mark Attended
-          if (canBeMarked(session)) {
+          // Mark Attended (tutors can only mark their own sessions)
+          if (canMarkAttendance(session)) {
             e.preventDefault();
             setLoadingActionId('attended');
             try {
@@ -452,8 +463,8 @@ export function SessionDetailPopover({
           }
           break;
         case 'n':
-          // Mark No Show
-          if (canBeMarked(session)) {
+          // Mark No Show (tutors can only mark their own sessions)
+          if (canMarkAttendance(session)) {
             e.preventDefault();
             setLoadingActionId('no-show');
             try {
@@ -492,7 +503,7 @@ export function SessionDetailPopover({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canBeMarked, showToast]);
+  }, [isOpen, session, exerciseModalType, isRateModalOpen, isEditModalOpen, canMarkAttendance, showToast]);
 
   // Virtual reference based on click position
   const virtualReference = useMemo(() => {

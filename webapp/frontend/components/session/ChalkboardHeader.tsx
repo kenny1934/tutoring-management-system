@@ -211,17 +211,17 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
 
   // Generate "Attendance Marked by" tooltip with tutor name lookup
   const statusTooltip = useMemo(() => {
-    if (!session.last_modified_by && !session.last_modified_time) return undefined;
+    if (!session.attendance_marked_by && !session.attendance_mark_time) return undefined;
 
     const parts: string[] = [];
 
-    if (session.last_modified_by) {
-      const name = getTutorName(session.last_modified_by);
+    if (session.attendance_marked_by) {
+      const name = getTutorName(session.attendance_marked_by);
       parts.push(`Attendance Marked by ${name}`);
     }
 
-    if (session.last_modified_time) {
-      const date = new Date(session.last_modified_time);
+    if (session.attendance_mark_time) {
+      const date = new Date(session.attendance_mark_time);
       const formatted = date.toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -229,21 +229,22 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         minute: '2-digit',
         hour12: true
       });
-      parts.push(session.last_modified_by ? `at ${formatted}` : `Attendance Marked at ${formatted}`);
+      parts.push(session.attendance_marked_by ? `at ${formatted}` : `Attendance Marked at ${formatted}`);
     }
 
     return parts.join(' ');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.last_modified_by, session.last_modified_time, tutors]);
+  }, [session.attendance_marked_by, session.attendance_mark_time, tutors]);
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;
   const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'undo'].includes(effectiveLoadingAction || '');
 
   // Get visible actions for this session (filtered by visibility and role)
+  const visibilityContext = { userId: user?.id, effectiveRole };
   const visibleActions = sessionActions.filter((action) => {
-    if (!action.isVisible(session)) return false;
-    if (effectiveRole && !action.allowedRoles.includes(effectiveRole)) return false;
+    if (!action.isVisible(session, visibilityContext)) return false;
+    if (effectiveRole && !action.allowedRoles.includes(effectiveRole as typeof action.allowedRoles[number])) return false;
     return true;
   });
 
