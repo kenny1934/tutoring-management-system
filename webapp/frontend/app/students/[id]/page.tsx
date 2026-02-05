@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
+import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal, StudentCouponResponse } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
+import useSWR from "swr";
 import { mutate } from "swr";
 import Link from "next/link";
 import {
@@ -13,7 +14,8 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
+  Ticket, Gift
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -29,6 +31,7 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
+import { useAuth } from "@/contexts/AuthContext";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
@@ -67,6 +70,7 @@ export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAdmin } = useAuth();
   const studentId = params.id ? parseInt(params.id as string) : null;
 
   // Read initial tab from URL, default to "profile"
@@ -111,6 +115,12 @@ export default function StudentDetailPage() {
   const [newEnrollmentModalOpen, setNewEnrollmentModalOpen] = useState(false);
 
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
+
+  // Fetch student coupon info
+  const { data: couponInfo } = useSWR<StudentCouponResponse>(
+    studentId ? ['student-coupon', studentId] : null,
+    () => studentsAPI.getCoupon(studentId!)
+  );
 
   // Fetch all schools for autocomplete
   useEffect(() => {
@@ -218,6 +228,16 @@ export default function StudentDetailPage() {
     );
   }, [enrollments]);
 
+  // Get latest enrollment (by start date) for prefilling new enrollment tutor
+  const latestEnrollment = useMemo(() => {
+    if (enrollments.length === 0) return null;
+    return enrollments.reduce((latest, e) => {
+      const eDate = e.first_lesson_date ? new Date(e.first_lesson_date) : new Date(0);
+      const latestDate = latest.first_lesson_date ? new Date(latest.first_lesson_date) : new Date(0);
+      return eDate > latestDate ? e : latest;
+    });
+  }, [enrollments]);
+
   // Edit handlers
   const handleEditPersonal = () => {
     if (student) {
@@ -239,7 +259,7 @@ export default function StudentDetailPage() {
     setEditForm({});
   };
 
-  const handleFormChange = (field: string, value: string) => {
+  const handleFormChange = (field: string, value: string | boolean | null) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -513,6 +533,7 @@ export default function StudentDetailPage() {
                     setPopoverEnrollment(enrollment);
                   }}
                   selectedEnrollmentId={popoverEnrollment?.id}
+                  couponInfo={couponInfo}
                   // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
@@ -527,6 +548,7 @@ export default function StudentDetailPage() {
                   allSchools={allSchools}
                   onNewTrial={() => setNewTrialModalOpen(true)}
                   onNewEnrollment={() => setNewEnrollmentModalOpen(true)}
+                  isAdmin={isAdmin}
                 />
               )}
 
@@ -644,6 +666,7 @@ export default function StudentDetailPage() {
           isOpen={newEnrollmentModalOpen}
           onClose={() => setNewEnrollmentModalOpen(false)}
           prefillStudent={student}
+          prefillTutorId={latestEnrollment?.tutor_id}
           onSuccess={() => {
             mutate(['student-enrollments', studentId]);
             setNewEnrollmentModalOpen(false);
@@ -699,6 +722,7 @@ function ProfileTab({
   isMobile,
   onEnrollmentClick,
   selectedEnrollmentId,
+  couponInfo,
   // Edit props
   isEditingPersonal,
   isEditingAcademic,
@@ -713,12 +737,14 @@ function ProfileTab({
   allSchools,
   onNewTrial,
   onNewEnrollment,
+  isAdmin,
 }: {
   student: Student;
   enrollments: Enrollment[];
   isMobile: boolean;
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
+  couponInfo?: StudentCouponResponse;
   // Edit props
   isEditingPersonal: boolean;
   isEditingAcademic: boolean;
@@ -727,13 +753,46 @@ function ProfileTab({
   onEditAcademic: () => void;
   onCancelEdit: () => void;
   onSave: () => void;
-  onFormChange: (field: string, value: string) => void;
+  onFormChange: (field: string, value: string | boolean | null) => void;
   isSaving: boolean;
   saveError: string | null;
   allSchools: string[];
   onNewTrial: () => void;
   onNewEnrollment: () => void;
+  isAdmin?: boolean;
 }) {
+  // Staff referral edit state
+  const [isEditingStaffReferral, setIsEditingStaffReferral] = useState(false);
+  const [staffReferralForm, setStaffReferralForm] = useState({
+    is_staff_referral: student.is_staff_referral ?? false,
+    staff_referral_notes: student.staff_referral_notes ?? '',
+  });
+
+  // Reset staff referral form when student changes or edit is cancelled
+  const handleEditStaffReferral = () => {
+    setStaffReferralForm({
+      is_staff_referral: student.is_staff_referral ?? false,
+      staff_referral_notes: student.staff_referral_notes ?? '',
+    });
+    setIsEditingStaffReferral(true);
+  };
+
+  const handleCancelStaffReferralEdit = () => {
+    setIsEditingStaffReferral(false);
+    setStaffReferralForm({
+      is_staff_referral: student.is_staff_referral ?? false,
+      staff_referral_notes: student.staff_referral_notes ?? '',
+    });
+  };
+
+  const handleSaveStaffReferral = () => {
+    // Update the parent's editForm with staff referral fields
+    onFormChange("is_staff_referral", staffReferralForm.is_staff_referral);
+    onFormChange("staff_referral_notes", staffReferralForm.staff_referral_notes);
+    onSave();
+    setIsEditingStaffReferral(false);
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
@@ -864,6 +923,160 @@ function ProfileTab({
           )}
         </div>
       </div>
+
+      {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
+      {(couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2 transition-all",
+          !isMobile && "paper-texture",
+          isEditingStaffReferral && "ring-2 ring-amber-400"
+        )}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Discounts & Coupons
+            </h3>
+            {isAdmin && !isEditingStaffReferral && (
+              <button
+                onClick={handleEditStaffReferral}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                title="Edit staff referral"
+              >
+                <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+              </button>
+            )}
+            {isEditingStaffReferral && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCancelStaffReferralEdit}
+                  disabled={isSaving}
+                  className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveStaffReferral}
+                  disabled={isSaving}
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isEditingStaffReferral ? (
+            // Edit mode
+            <div className="space-y-3">
+              {/* Student Coupons - read only */}
+              {couponInfo?.has_coupon && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
+                    </span>
+                    {couponInfo.value && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                        (${couponInfo.value} each)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Staff Referral Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={staffReferralForm.is_staff_referral}
+                  onChange={(e) => setStaffReferralForm(prev => ({
+                    ...prev,
+                    is_staff_referral: e.target.checked
+                  }))}
+                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                    Staff Referral
+                  </span>
+                  <span className="text-xs text-purple-600 dark:text-purple-400">
+                    ($500 discount)
+                  </span>
+                </div>
+              </label>
+
+              {/* Staff Referral Notes */}
+              {staffReferralForm.is_staff_referral && (
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Notes (e.g., which staff member, relationship)
+                  </label>
+                  <input
+                    type="text"
+                    value={staffReferralForm.staff_referral_notes}
+                    onChange={(e) => setStaffReferralForm(prev => ({
+                      ...prev,
+                      staff_referral_notes: e.target.value
+                    }))}
+                    placeholder="Enter staff referral details..."
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            // View mode
+            <>
+              <div className="flex flex-wrap gap-4">
+                {/* Student Coupons */}
+                {couponInfo?.has_coupon && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
+                      </span>
+                      {couponInfo.value && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                          (${couponInfo.value} each)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* Staff Referral */}
+                {student.is_staff_referral && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                    <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <div>
+                      <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                        Staff Referral
+                      </span>
+                      <span className="text-xs text-purple-600 dark:text-purple-400 ml-1">
+                        ($500 discount)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {/* Show message if nothing to display */}
+                {!couponInfo?.has_coupon && !student.is_staff_referral && isAdmin && (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                    No discounts or coupons. Click Edit to add staff referral.
+                  </p>
+                )}
+              </div>
+              {/* Staff Referral Notes */}
+              {student.is_staff_referral && student.staff_referral_notes && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                  {student.staff_referral_notes}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Active Enrollments Card */}
       {enrollments.length > 0 ? (
@@ -1329,6 +1542,24 @@ function SessionsTab({
                 <span className="text-xs text-gray-400">•</span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                   Cancelled
+                </span>
+              </>
+            )}
+            {/* Extension request indicator */}
+            {session.extension_request_id && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <span
+                  title={`Extension ${session.extension_request_status}`}
+                  className={cn(
+                    "flex items-center gap-0.5 text-xs",
+                    session.extension_request_status === "Pending" && "text-amber-600",
+                    session.extension_request_status === "Approved" && "text-green-600",
+                    session.extension_request_status === "Rejected" && "text-red-600"
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  <span className="hidden sm:inline">{session.extension_request_status}</span>
                 </span>
               </>
             )}
@@ -1962,7 +2193,7 @@ function CoursewareTab({
                 </div>
 
                 {/* Exercises in this session */}
-                <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                   {exercises.map((exercise, index) => {
                     const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
 
@@ -2017,7 +2248,7 @@ function CoursewareTab({
               </div>
 
               {/* Instances of this PDF */}
-              <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
 

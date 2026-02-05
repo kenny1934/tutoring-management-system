@@ -45,6 +45,8 @@ class Student(Base):
     lang_stream = Column(String(50))
     home_location = Column(String(50))
     academic_stream = Column(String(50), comment='Academic stream for F4-F6: Science, Arts, or NULL for junior forms')
+    is_staff_referral = Column(Boolean, default=False, comment='TRUE if student is staff relative (unlimited $500 discount)')
+    staff_referral_notes = Column(Text, comment='Which staff member, relationship, etc.')
 
     # Relationships
     enrollments = relationship("Enrollment", back_populates="student")

@@ -8,6 +8,15 @@ import type { LucideIcon } from 'lucide-react';
 export type UserRole = 'Tutor' | 'Admin' | 'Super Admin';
 
 /**
+ * Context passed to visibility checks for user-specific logic.
+ * Used to check session ownership for tutors.
+ */
+export interface VisibilityContext {
+  userId?: number | null;
+  effectiveRole?: string | null;
+}
+
+/**
  * Configuration for an action button.
  * This defines both the UI appearance and the API contract for an action.
  *
@@ -43,8 +52,9 @@ export interface ActionConfig<T = any> {
   /**
    * Function to determine if this action should be visible for a given item.
    * Return true to show the button, false to hide it.
+   * Optional context provides user info for ownership checks.
    */
-  isVisible: (item: T) => boolean;
+  isVisible: (item: T, ctx?: VisibilityContext) => boolean;
 
   /**
    * Which roles can see and use this action.
