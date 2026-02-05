@@ -228,6 +228,16 @@ export default function StudentDetailPage() {
     );
   }, [enrollments]);
 
+  // Get latest enrollment (by start date) for prefilling new enrollment tutor
+  const latestEnrollment = useMemo(() => {
+    if (enrollments.length === 0) return null;
+    return enrollments.reduce((latest, e) => {
+      const eDate = e.first_lesson_date ? new Date(e.first_lesson_date) : new Date(0);
+      const latestDate = latest.first_lesson_date ? new Date(latest.first_lesson_date) : new Date(0);
+      return eDate > latestDate ? e : latest;
+    });
+  }, [enrollments]);
+
   // Edit handlers
   const handleEditPersonal = () => {
     if (student) {
@@ -656,6 +666,7 @@ export default function StudentDetailPage() {
           isOpen={newEnrollmentModalOpen}
           onClose={() => setNewEnrollmentModalOpen(false)}
           prefillStudent={student}
+          prefillTutorId={latestEnrollment?.tutor_id}
           onSuccess={() => {
             mutate(['student-enrollments', studentId]);
             setNewEnrollmentModalOpen(false);
@@ -1531,6 +1542,24 @@ function SessionsTab({
                 <span className="text-xs text-gray-400">•</span>
                 <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
                   Cancelled
+                </span>
+              </>
+            )}
+            {/* Extension request indicator */}
+            {session.extension_request_id && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <span
+                  title={`Extension ${session.extension_request_status}`}
+                  className={cn(
+                    "flex items-center gap-0.5 text-xs",
+                    session.extension_request_status === "Pending" && "text-amber-600",
+                    session.extension_request_status === "Approved" && "text-green-600",
+                    session.extension_request_status === "Rejected" && "text-red-600"
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  <span className="hidden sm:inline">{session.extension_request_status}</span>
                 </span>
               </>
             )}
