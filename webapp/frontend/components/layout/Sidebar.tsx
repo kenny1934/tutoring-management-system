@@ -135,13 +135,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     fetchStats();
   }, [mounted, isOnDashboard, selectedLocation]);
 
-  // Set tutor's default location on mount if not admin
+  // Set user's default location on mount (for Admin and Tutor, not Super Admin)
   // Skip this when impersonating - location is set by RoleSwitcher
   useEffect(() => {
-    if (!isAdminOrAbove && !isImpersonating && user?.default_location && mounted) {
+    if (!isSuperAdmin && !isImpersonating && user?.default_location && mounted) {
       setSelectedLocation(user.default_location);
     }
-  }, [isAdminOrAbove, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
+  }, [isSuperAdmin, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
 
   // Check scroll position for gradient indicators
   const checkScrollPosition = () => {
