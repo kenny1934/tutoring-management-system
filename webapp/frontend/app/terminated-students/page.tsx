@@ -768,7 +768,7 @@ function TutorStatsRow({ stats }: { stats: TutorTerminationStats }) {
       <td className={cn("px-4 py-3 text-right", enrollTransferColor)}>
         {stats.enrollment_transfer >= 0 ? "+" : ""}{stats.enrollment_transfer}
       </td>
-      <td className="px-4 py-3 text-right">{stats.terminated}</td>
+      <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">{stats.terminated}</td>
       <td className="px-4 py-3 text-right">{stats.closing}</td>
       <td className={cn("px-4 py-3 text-right font-medium", termRateColor)}>
         {stats.term_rate.toFixed(2)}%
