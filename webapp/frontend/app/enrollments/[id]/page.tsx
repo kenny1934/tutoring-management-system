@@ -41,9 +41,9 @@ export default function EnrollmentDetailPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const { selectedLocation } = useLocation();
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, isReadOnly } = useAuth();
   const { showToast } = useToast();
-  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const canViewAdminData = effectiveRole === "Admin" || effectiveRole === "Super Admin" || effectiveRole === "Supervisor";
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -551,14 +551,23 @@ export default function EnrollmentDetailPage() {
                 ) : (
                   <button
                     onClick={handleEditSchedule}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-                    title="Edit schedule"
+                    disabled={isReadOnly}
+                    className={cn(
+                      "p-1 rounded transition-colors group",
+                      isReadOnly
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                    title={isReadOnly ? "Read-only access" : "Edit schedule"}
                   >
-                    <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+                    <Pencil className={cn(
+                      "h-3.5 w-3.5",
+                      isReadOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                    )} />
                   </button>
                 )}
               </div>
-              
+
               <div className="space-y-4">
                 {isEditingSchedule ? (
                   // EDIT MODE
@@ -819,10 +828,19 @@ export default function EnrollmentDetailPage() {
                 ) : (
                   <button
                     onClick={handleEditPayment}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-                    title="Edit payment"
+                    disabled={isReadOnly}
+                    className={cn(
+                      "p-1 rounded transition-colors group",
+                      isReadOnly
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                    title={isReadOnly ? "Read-only access" : "Edit payment"}
                   >
-                    <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+                    <Pencil className={cn(
+                      "h-3.5 w-3.5",
+                      isReadOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+                    )} />
                   </button>
                 )}
               </div>
@@ -1097,8 +1115,14 @@ export default function EnrollmentDetailPage() {
                             {enrollment?.fee_message_sent ? (
                               <button
                                 onClick={handleUnmarkSent}
-                                disabled={markingSent}
-                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                                disabled={markingSent || isReadOnly}
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+                                  isReadOnly
+                                    ? "border border-gray-200 text-gray-400 cursor-not-allowed"
+                                    : "border border-gray-300 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                )}
+                                title={isReadOnly ? "Read-only access" : undefined}
                               >
                                 {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
                                 Unmark Sent
@@ -1106,8 +1130,14 @@ export default function EnrollmentDetailPage() {
                             ) : (
                               <button
                                 onClick={handleMarkSent}
-                                disabled={markingSent}
-                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+                                disabled={markingSent || isReadOnly}
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+                                  isReadOnly
+                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                                )}
+                                title={isReadOnly ? "Read-only access" : undefined}
                               >
                                 {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                                 Mark Sent
@@ -1118,8 +1148,14 @@ export default function EnrollmentDetailPage() {
                             {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
                               <button
                                 onClick={() => setConfirmPayment(true)}
-                                disabled={markingPaid}
-                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50"
+                                disabled={markingPaid || isReadOnly}
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors disabled:opacity-50",
+                                  isReadOnly
+                                    ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                                    : "bg-green-600 hover:bg-green-700"
+                                )}
+                                title={isReadOnly ? "Read-only access" : undefined}
                               >
                                 {markingPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
                                 Confirm Payment
@@ -1130,8 +1166,14 @@ export default function EnrollmentDetailPage() {
                             {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
                               <button
                                 onClick={() => setConfirmCancel(true)}
-                                disabled={isCancelling}
-                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+                                disabled={isCancelling || isReadOnly}
+                                className={cn(
+                                  "flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+                                  isReadOnly
+                                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed"
+                                    : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+                                )}
+                                title={isReadOnly ? "Read-only access" : undefined}
                               >
                                 {isCancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
                                 Cancel Enrollment
@@ -1147,8 +1189,8 @@ export default function EnrollmentDetailPage() {
             </motion.div>
           </div>
 
-          {/* Deadline Extension Section - Admin Only */}
-          {isAdmin && (
+          {/* Deadline Extension Section - Admin/Supervisor viewable */}
+          {canViewAdminData && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1166,7 +1208,14 @@ export default function EnrollmentDetailPage() {
                 {!isEditingExtension && (
                   <button
                     onClick={handleEditExtension}
-                    className="text-xs px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors flex items-center gap-1"
+                    disabled={isReadOnly}
+                    className={cn(
+                      "text-xs px-2 py-1 rounded-md transition-colors flex items-center gap-1",
+                      isReadOnly
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
+                        : "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    )}
+                    title={isReadOnly ? "Read-only access" : undefined}
                   >
                     <Pencil className="h-3 w-3" />
                     Edit

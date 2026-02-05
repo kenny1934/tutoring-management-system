@@ -187,15 +187,21 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, isReadOnly } = useAuth();
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;
   const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'undo'].includes(effectiveLoadingAction || '');
 
   // Get visible actions for this session (filtered by visibility and role)
+  // Supervisors can see all admin actions but cannot execute them
   const visibleActions = sessionActions.filter((action) => {
     if (!action.isVisible(session)) return false;
+    // Allow Supervisor to see actions that Admin can see
+    if (effectiveRole === "Supervisor") {
+      // Show if Admin is in allowedRoles
+      return action.allowedRoles.includes("Admin") || action.allowedRoles.includes("Super Admin");
+    }
     if (effectiveRole && !action.allowedRoles.includes(effectiveRole)) return false;
     return true;
   });
@@ -511,12 +517,12 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
             <ChalkStub
               key={action.id}
               id={action.id}
-              label={action.label}
+              label={isReadOnly ? `${action.label} (Read-only)` : action.label}
               shortLabel={action.shortLabel || action.label}
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled}
+              disabled={isReadOnly || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
               loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
