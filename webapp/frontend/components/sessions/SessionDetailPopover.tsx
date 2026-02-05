@@ -26,6 +26,7 @@ import { parseTimeSlot } from "@/lib/calendar-utils";
 import { sessionsAPI, api, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ExerciseModal } from "./ExerciseModal";
 import { RateSessionModal } from "./RateSessionModal";
 import { EditSessionModal } from "./EditSessionModal";
@@ -373,6 +374,8 @@ export function SessionDetailPopover({
   onProposalClick,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
+  const { user, effectiveRole } = useAuth();
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Modal state for keyboard shortcuts
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
@@ -535,7 +538,9 @@ export function SessionDetailPopover({
     }
   }, [virtualReference, refs]);
 
-  const dismiss = useDismiss(context);
+  // Disable click-outside dismissal when any modal is open
+  const anyModalOpen = !!exerciseModalType || isRateModalOpen || isEditModalOpen || isExtensionModalOpen;
+  const dismiss = useDismiss(context, { enabled: !anyModalOpen });
   const { getFloatingProps } = useInteractions([dismiss]);
 
   if (!isOpen) return null;
@@ -553,8 +558,9 @@ export function SessionDetailPopover({
             "bg-[#fef9f3] dark:bg-[#2d2618]",
             "border-2 border-[#d4a574] dark:border-[#8b6f47]",
             "rounded-lg shadow-lg",
-            "p-4 w-[280px]",
-            "paper-texture"
+            "p-4",
+            "paper-texture",
+            "w-[280px]"
           )}
         >
           <button
@@ -622,9 +628,10 @@ export function SessionDetailPopover({
           "bg-[#fef9f3] dark:bg-[#2d2618]",
           "border-2 border-[#d4a574] dark:border-[#8b6f47]",
           "rounded-lg shadow-lg",
-          "p-4 w-[280px]",
+          "p-4",
           "max-h-[80vh] overflow-y-auto",
-          "paper-texture"
+          "paper-texture",
+          "w-[280px]"
         )}
       >
         {/* Close button */}
@@ -1144,8 +1151,18 @@ export function SessionDetailPopover({
             setIsExtensionModalOpen(false);
             setExtensionRequest(null);
           }}
-          adminTutorId={0}
-          readOnly={true}
+          onApproved={() => {
+            if (session) {
+              updateSessionInCache({ ...session, extension_request_status: "Approved" });
+            }
+          }}
+          onRejected={() => {
+            if (session) {
+              updateSessionInCache({ ...session, extension_request_status: "Rejected" });
+            }
+          }}
+          adminTutorId={user?.id ?? 0}
+          readOnly={!isAdmin}
         />
       )}
     </FloatingPortal>
