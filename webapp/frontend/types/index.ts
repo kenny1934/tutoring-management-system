@@ -104,6 +104,30 @@ export interface Student {
 }
 
 // =============================================================================
+// DISCOUNT TYPES
+// =============================================================================
+
+/**
+ * Discount - available discount types in the system
+ */
+export interface Discount {
+  id: number;
+  discount_name: string;
+  discount_type?: string;
+  discount_value?: number;
+  is_active: boolean;
+}
+
+/**
+ * Student coupon availability check response
+ */
+export interface StudentCouponResponse {
+  has_coupon: boolean;
+  available?: number;
+  value?: number;
+}
+
+// =============================================================================
 // ENROLLMENT TYPES
 // =============================================================================
 

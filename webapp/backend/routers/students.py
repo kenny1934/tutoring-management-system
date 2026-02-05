@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select, or_, cast, Integer
 from typing import List, Optional
 from database import get_db
-from models import Student, Enrollment, Tutor
-from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate
+from models import Student, Enrollment, Tutor, StudentCoupon
+from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse
 from auth.dependencies import require_admin, get_current_user, is_office_ip, get_effective_role
 
 router = APIRouter()
@@ -259,6 +259,27 @@ async def get_student_detail(
         response.phone = None
 
     return response
+
+
+@router.get("/students/{student_id}/coupon", response_model=StudentCouponResponse)
+async def get_student_coupon(
+    student_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Check if a student has available discount coupons.
+
+    Returns coupon availability and value for enrollment discount auto-selection.
+    """
+    coupon = db.query(StudentCoupon).filter(StudentCoupon.student_id == student_id).first()
+    if coupon and coupon.available_coupons and coupon.available_coupons > 0:
+        return StudentCouponResponse(
+            has_coupon=True,
+            available=coupon.available_coupons,
+            value=coupon.coupon_value
+        )
+    return StudentCouponResponse(has_coupon=False)
 
 
 @router.patch("/students/{student_id}", response_model=StudentResponse)
