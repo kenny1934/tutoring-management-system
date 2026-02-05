@@ -82,6 +82,7 @@ class TutorBase(BaseModel):
     default_location: Optional[str] = Field(None, max_length=200)
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
+    is_active_tutor: bool = Field(True, description="Whether this user teaches students")
 
 
 class TutorResponse(TutorBase):

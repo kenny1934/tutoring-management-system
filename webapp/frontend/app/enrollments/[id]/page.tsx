@@ -79,12 +79,14 @@ export default function EnrollmentDetailPage() {
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
-  // For tutor dropdown
+  // For tutor dropdown (only active teaching staff)
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
 
   // Fetch tutor for dropdown
   useEffect(() => {
-    tutorsAPI.getAll().then(setAllTutors).catch(() => setAllTutors([]));
+    tutorsAPI.getAll()
+      .then(tutors => setAllTutors(tutors.filter(t => t.is_active_tutor !== false)))
+      .catch(() => setAllTutors([]));
   }, []);
 
   // Fetch discounts for dropdown

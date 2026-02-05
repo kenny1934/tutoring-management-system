@@ -29,7 +29,7 @@ import {
   TrialListItem,
 } from "@/lib/api";
 import type { Discount } from "@/types";
-import { useTutors, useCacheInvalidation } from "@/lib/hooks";
+import { useActiveTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
@@ -217,8 +217,8 @@ export function CreateEnrollmentModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Fetch tutors
-  const { data: tutors = [] } = useTutors();
+  // Fetch tutors (only active teaching staff)
+  const { data: tutors = [] } = useActiveTutors();
 
   // Fetch discounts
   const { data: discounts = [] } = useSWR<Discount[]>(

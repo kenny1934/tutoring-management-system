@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useTutors, useArchivedMessages } from "@/lib/hooks";
+import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages } from "@/lib/hooks";
 import { useSwipeGesture } from "@/lib/hooks/useSwipeGesture";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -993,7 +993,7 @@ export default function InboxPage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
-  const { data: tutors = [] } = useTutors();  // For ComposeModal recipient selection
+  const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
   const { showToast } = useToast();
 
   // Get initial category from URL param

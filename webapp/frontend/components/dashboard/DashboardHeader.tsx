@@ -17,7 +17,7 @@ import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors } from "@/lib/hooks";
+import { useActiveTutors } from "@/lib/hooks";
 import { getTutorSortName, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
@@ -60,7 +60,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const { open: openCommandPalette } = useCommandPalette();
   const { viewMode } = useRole();
   const { isAdmin } = useAuth();
-  const { data: tutors = [] } = useTutors();
+  const { data: tutors = [] } = useActiveTutors();
 
   // Daily emoji - deterministic based on date to avoid hydration mismatch
   const greetingEmoji = useMemo(() => {

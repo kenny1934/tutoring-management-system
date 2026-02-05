@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { toDateString, isTimeRangeValid } from "@/lib/calendar-utils";
-import { useTutors, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useLocations } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
@@ -37,7 +37,7 @@ export function EditRevisionSlotModal({
   currentTutorId,
 }: EditRevisionSlotModalProps) {
   const { showToast } = useToast();
-  const { data: tutors = [] } = useTutors();
+  const { data: tutors = [] } = useActiveTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
 

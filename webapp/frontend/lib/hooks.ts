@@ -100,6 +100,16 @@ export function useTutors() {
 }
 
 /**
+ * Hook for fetching only active tutors (those who teach students)
+ * Filters out Supervisors and non-teaching admin staff
+ */
+export function useActiveTutors() {
+  const { data: tutors, ...rest } = useTutors();
+  const activeTutors = tutors?.filter(t => t.is_active_tutor !== false) ?? [];
+  return { data: activeTutors, ...rest };
+}
+
+/**
  * Hook for fetching locations list
  */
 export function useLocations() {
