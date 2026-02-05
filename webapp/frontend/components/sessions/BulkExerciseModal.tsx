@@ -12,7 +12,7 @@ import { sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
 import { useToast } from "@/contexts/ToastContext";
 import type { Session, PageSelection } from "@/types";
-import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles } from "@/lib/file-system";
+import { isFileSystemAccessSupported, printBulkFiles, downloadBulkFiles, convertToAliasPath } from "@/lib/file-system";
 import { FolderTreeModal, type FileSelection } from "@/components/ui/folder-tree-modal";
 import { PaperlessSearchModal } from "@/components/ui/paperless-search-modal";
 import { FileSearchModal } from "@/components/ui/file-search-modal";
@@ -292,6 +292,27 @@ export function BulkExerciseModal({
       validationErrors.some((e) => e.index === index && e.field === field),
     [validationErrors]
   );
+
+  // Handle paste - auto-convert Windows drive paths to alias paths
+  const handlePasteConvert = useCallback(async (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    const pastedText = e.clipboardData.getData('text');
+
+    // Check if Windows path with drive letter (e.g., "Z:\path" or Z:\path)
+    const driveMatch = pastedText.match(/^["']?([A-Za-z]):[\\\/]/);
+    if (!driveMatch) return; // Let default paste happen
+
+    e.preventDefault();
+
+    // Clean quotes and normalize separators (forward slashes to backslashes)
+    const cleanPath = pastedText.replace(/^["']|["']$/g, '').replace(/\//g, '\\');
+
+    // Convert to alias path if mapping exists
+    const convertedPath = await convertToAliasPath(cleanPath);
+    updateExercise(index, "pdf_name", convertedPath);
+  }, []);
 
   // Handle file browse for PDF selection
   const handleBrowseFile = useCallback((index: number) => {
@@ -849,6 +870,7 @@ export function BulkExerciseModal({
                       type="text"
                       value={exercise.pdf_name}
                       onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
+                      onPaste={(e) => handlePasteConvert(e, index)}
                       onFocus={() => setFocusedRowIndex(index)}
                       placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF name or path (drag & drop supported)"}
                       className={cn(

@@ -1060,9 +1060,9 @@ function CoursewareBrowserTab() {
       switch (sortBy) {
         case "date-desc": return (b.lastModified || 0) - (a.lastModified || 0);
         case "date-asc": return (a.lastModified || 0) - (b.lastModified || 0);
-        case "name-desc": return b.name.localeCompare(a.name);
+        case "name-desc": return b.name.localeCompare(a.name, undefined, { numeric: true });
         case "name-asc":
-        default: return a.name.localeCompare(b.name);
+        default: return a.name.localeCompare(b.name, undefined, { numeric: true });
       }
     });
   }, [sortBy]);

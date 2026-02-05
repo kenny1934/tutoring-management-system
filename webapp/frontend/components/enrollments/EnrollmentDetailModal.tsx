@@ -10,6 +10,7 @@ import useSWR from "swr";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { useLocation } from "@/contexts/LocationContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -47,6 +48,8 @@ export function EnrollmentDetailModal({
   onStatusChange,
 }: EnrollmentDetailModalProps) {
   const { selectedLocation } = useLocation();
+  const { effectiveRole } = useAuth();
+  const isTutor = effectiveRole === "Tutor";
 
   // Use SWR for caching
   const { data: detail, isLoading: loading, error, mutate } = useSWR<EnrollmentDetailResponse>(
@@ -529,8 +532,8 @@ export function EnrollmentDetailModal({
                   {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-foreground/60" />}
                 </button>
 
-                {/* Mark/Unmark Sent toggle */}
-                {detail.fee_message_sent ? (
+                {/* Mark/Unmark Sent toggle - Admin only */}
+                {!isTutor && (detail.fee_message_sent ? (
                   <button
                     onClick={handleUnmarkSent}
                     disabled={markingSent}
@@ -554,10 +557,10 @@ export function EnrollmentDetailModal({
                       Mark Sent
                     </span>
                   </button>
-                )}
+                ))}
 
-                {/* Confirm Payment (only when not paid) */}
-                {detail.payment_status !== "Paid" && (
+                {/* Confirm Payment (only when not paid) - Admin only */}
+                {!isTutor && detail.payment_status !== "Paid" && (
                   <button
                     onClick={() => setConfirmPayment(true)}
                     disabled={markingPaid}
@@ -571,8 +574,8 @@ export function EnrollmentDetailModal({
                   </button>
                 )}
 
-                {/* Cancel Enrollment (only for pending/overdue without attended sessions) */}
-                {(detail.payment_status === "Pending Payment" || detail.payment_status === "Overdue") && detail.sessions_finished === 0 && (
+                {/* Cancel Enrollment (only for pending/overdue without attended sessions) - Admin only */}
+                {!isTutor && (detail.payment_status === "Pending Payment" || detail.payment_status === "Overdue") && detail.sessions_finished === 0 && (
                   <button
                     onClick={() => setConfirmCancel(true)}
                     disabled={isCancelling}

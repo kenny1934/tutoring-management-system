@@ -371,6 +371,8 @@ async def get_termination_stats(
 
     # Query for Terminated count per tutor
     # Count students marked as terminated in termination_records
+    # Also validates against terminated_students view to ensure student's actual
+    # termination date falls in this quarter (handles cases where effective_end_date changed)
     terminated_query = text("""
         SELECT
             tr.tutor_id,
@@ -379,9 +381,12 @@ async def get_termination_stats(
         FROM termination_records tr
         JOIN tutors t ON tr.tutor_id = t.id
         JOIN students s ON tr.student_id = s.id
+        JOIN terminated_students ts ON tr.student_id = ts.student_id
         WHERE tr.quarter = :quarter
         AND tr.year = :year
         AND tr.count_as_terminated = TRUE
+        AND ts.termination_quarter = :quarter
+        AND ts.termination_year = :year
         AND (:location IS NULL OR s.home_location = :location)
         AND (:tutor_id IS NULL OR tr.tutor_id = :tutor_id)
         GROUP BY tr.tutor_id, t.tutor_name
@@ -414,7 +419,7 @@ async def get_termination_stats(
         opening = opening_rows.get(tid, (tutor_name, 0))[1]
         terminated = terminated_rows.get(tid, 0)
         closing = closing_rows.get(tid, 0)
-        enrollment_transfer = closing - opening - terminated
+        enrollment_transfer = closing - opening + terminated
         term_rate = round(terminated / opening * 100, 1) if opening > 0 else 0.0
 
         tutor_stats.append(TutorTerminationStats(
@@ -435,7 +440,7 @@ async def get_termination_stats(
     tutor_stats.sort(key=lambda x: x.tutor_name)
 
     # Calculate location-wide stats
-    total_enrollment_transfer = total_closing - total_opening - total_terminated
+    total_enrollment_transfer = total_closing - total_opening + total_terminated
     location_term_rate = round(total_terminated / total_opening * 100, 1) if total_opening > 0 else 0.0
     location_stats = LocationTerminationStats(
         opening=total_opening,

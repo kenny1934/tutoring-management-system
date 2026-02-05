@@ -5,6 +5,7 @@ import { Loader2, Copy, Check, X, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enrollmentsAPI, RenewalListItem } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FeeMessagePanelProps {
   enrollment: RenewalListItem;
@@ -14,6 +15,8 @@ interface FeeMessagePanelProps {
 
 export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessagePanelProps) {
   const { showToast } = useToast();
+  const { effectiveRole } = useAuth();
+  const isTutor = effectiveRole === "Tutor";
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [isEditable, setIsEditable] = useState(false);
   const [message, setMessage] = useState('');
@@ -56,7 +59,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       showToast("Fee message copied!");
       setTimeout(() => {
         setCopied(false);
-        onClose();
       }, 500);
     } catch (err) {
       showToast("Failed to copy to clipboard");
@@ -105,9 +107,10 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
   };
 
   // Show Mark Sent for pending_message status, Unmark Sent for message_sent status
-  const showMarkSentButton = enrollment.renewal_enrollment_id &&
+  // Tutors can only see the Copy button, not Mark Sent/Unmark Sent
+  const showMarkSentButton = !isTutor && enrollment.renewal_enrollment_id &&
     enrollment.renewal_status === 'pending_message';
-  const showUnmarkSentButton = enrollment.renewal_enrollment_id &&
+  const showUnmarkSentButton = !isTutor && enrollment.renewal_enrollment_id &&
     enrollment.renewal_status === 'message_sent';
 
   return (
@@ -256,7 +259,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
             ) : (
               <>
                 <Copy className="h-4 w-4" />
-                Copy & Close
+                Copy
               </>
             )}
           </button>
