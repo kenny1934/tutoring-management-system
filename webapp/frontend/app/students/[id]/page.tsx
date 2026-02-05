@@ -44,6 +44,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Tab types
 type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";
@@ -68,6 +69,7 @@ export default function StudentDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const studentId = params.id ? parseInt(params.id as string) : null;
+  const { isReadOnly } = useAuth();
 
   // Read initial tab from URL, default to "profile"
   const initialTab = (searchParams.get('tab') as TabId) || 'profile';
@@ -527,6 +529,7 @@ export default function StudentDetailPage() {
                   allSchools={allSchools}
                   onNewTrial={() => setNewTrialModalOpen(true)}
                   onNewEnrollment={() => setNewEnrollmentModalOpen(true)}
+                  readOnly={isReadOnly}
                 />
               )}
 
@@ -588,6 +591,7 @@ export default function StudentDetailPage() {
                     setContactModalOpen(true);
                   }}
                   contactStatus={contactStatus}
+                  readOnly={isReadOnly}
                 />
               )}
             </motion.div>
@@ -713,6 +717,7 @@ function ProfileTab({
   allSchools,
   onNewTrial,
   onNewEnrollment,
+  readOnly = false,
 }: {
   student: Student;
   enrollments: Enrollment[];
@@ -733,6 +738,8 @@ function ProfileTab({
   allSchools: string[];
   onNewTrial: () => void;
   onNewEnrollment: () => void;
+  /** When true, disables edit buttons (Supervisor mode) */
+  readOnly?: boolean;
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -772,10 +779,19 @@ function ProfileTab({
           ) : (
             <button
               onClick={onEditPersonal}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-              title="Edit personal info"
+              disabled={readOnly}
+              className={cn(
+                "p-1 rounded transition-colors group",
+                readOnly
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              )}
+              title={readOnly ? "Read-only access" : "Edit personal info"}
             >
-              <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+              <Pencil className={cn(
+                "h-3.5 w-3.5",
+                readOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+              )} />
             </button>
           )}
         </div>
@@ -839,10 +855,19 @@ function ProfileTab({
           ) : (
             <button
               onClick={onEditAcademic}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-              title="Edit academic info"
+              disabled={readOnly}
+              className={cn(
+                "p-1 rounded transition-colors group",
+                readOnly
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-800"
+              )}
+              title={readOnly ? "Read-only access" : "Edit academic info"}
             >
-              <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+              <Pencil className={cn(
+                "h-3.5 w-3.5",
+                readOnly ? "text-gray-300 dark:text-gray-600" : "text-gray-400 group-hover:text-amber-600"
+              )} />
             </button>
           )}
         </div>
@@ -878,7 +903,14 @@ function ProfileTab({
             </h3>
             <button
               onClick={onNewEnrollment}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium transition-colors"
+              disabled={readOnly}
+              className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-lg text-white text-xs font-medium transition-colors",
+                readOnly
+                  ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                  : "bg-teal-600 hover:bg-teal-700"
+              )}
+              title={readOnly ? "Read-only access" : undefined}
             >
               <Plus className="h-3 w-3" />
               <span>New</span>
@@ -956,7 +988,14 @@ function ProfileTab({
             </p>
             <button
               onClick={onNewTrial}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors"
+              disabled={readOnly}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors",
+                readOnly
+                  ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                  : "bg-teal-600 hover:bg-teal-700"
+              )}
+              title={readOnly ? "Read-only access" : undefined}
             >
               <Plus className="h-4 w-4" />
               New Trial
@@ -2353,6 +2392,7 @@ function ParentContactsTab({
   onRecordContact,
   onEditContact,
   contactStatus,
+  readOnly = false,
 }: {
   contacts: ParentCommunication[];
   loading: boolean;
@@ -2360,6 +2400,8 @@ function ParentContactsTab({
   onRecordContact: () => void;
   onEditContact: (contact: ParentCommunication) => void;
   contactStatus: string;
+  /** When true, disables record/edit contact buttons (Supervisor mode) */
+  readOnly?: boolean;
 }) {
   // Format date helper
   const formatContactDate = (dateStr: string) => {
@@ -2408,11 +2450,14 @@ function ParentContactsTab({
         </div>
         <button
           onClick={onRecordContact}
+          disabled={readOnly}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium",
-            "bg-[#a0704b] dark:bg-[#8b6f47] text-white",
-            "hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a] transition-colors"
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-colors",
+            readOnly
+              ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+              : "bg-[#a0704b] dark:bg-[#8b6f47] hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
           )}
+          title={readOnly ? "Read-only access" : undefined}
         >
           <MessageSquarePlus className="h-4 w-4" />
           Record Contact
@@ -2427,7 +2472,7 @@ function ParentContactsTab({
               <History className="h-10 w-10 mx-auto mb-3 text-gray-600 dark:text-gray-400" />
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No parent contacts yet</p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                Record your first contact with this student's parent
+                {readOnly ? "No contacts have been recorded for this student" : "Record your first contact with this student's parent"}
               </p>
             </div>
           </StickyNote>
@@ -2441,12 +2486,14 @@ function ParentContactsTab({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: isMobile ? 0 : index * 0.03, duration: 0.2 }}
-              onClick={() => onEditContact(contact)}
+              onClick={readOnly ? undefined : () => onEditContact(contact)}
               className={cn(
-                "p-3 rounded-lg cursor-pointer transition-all",
+                "p-3 rounded-lg transition-all",
                 "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a]",
-                "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
-                !isMobile && "paper-texture"
+                !isMobile && "paper-texture",
+                readOnly
+                  ? "cursor-default"
+                  : "cursor-pointer hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
               )}
             >
               <div className="flex items-start gap-3">
