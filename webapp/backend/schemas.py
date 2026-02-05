@@ -977,6 +977,13 @@ class QuarterOption(BaseModel):
 # Message Schemas
 # ============================================
 
+class ReadReceiptDetail(BaseModel):
+    """Detail of who read a message and when"""
+    tutor_id: int
+    tutor_name: str
+    read_at: datetime
+
+
 class MessageBase(BaseModel):
     """Base message schema with common fields"""
     subject: Optional[str] = Field(None, max_length=200)
@@ -1012,6 +1019,10 @@ class MessageResponse(MessageBase):
     is_liked_by_me: bool = False
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
+    # Read receipt fields for sender's messages (WhatsApp-style seen status)
+    read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
+    total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)
+    read_by_all: Optional[bool] = None  # True when all recipients have read
 
     model_config = ConfigDict(from_attributes=True)
 
