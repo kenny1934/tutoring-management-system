@@ -1181,7 +1181,8 @@ async def schedule_makeup(
     # Only Regular enrollments count - ignore One-Time and Trial
     current_enrollment = db.query(Enrollment).filter(
         Enrollment.student_id == original_session.student_id,
-        Enrollment.enrollment_type == 'Regular'
+        Enrollment.enrollment_type == 'Regular',
+        Enrollment.payment_status != "Cancelled"
     ).order_by(Enrollment.first_lesson_date.desc()).first()
 
     if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
@@ -1261,7 +1262,7 @@ async def schedule_makeup(
         time_slot=request.time_slot,
         location=request.location,
         session_status="Make-up Class",
-        financial_status="Unpaid",  # Inherits from original or set to Unpaid
+        financial_status=original_session.financial_status,  # Inherit from original session
         make_up_for_id=original_session.id,
         notes=request.notes,  # Optional reason for scheduling
         last_modified_by=current_user.user_email,
@@ -1639,7 +1640,8 @@ async def update_session(
         if session.student_id and request.session_date != session.session_date:
             current_enrollment = db.query(Enrollment).filter(
                 Enrollment.student_id == session.student_id,
-                Enrollment.enrollment_type == 'Regular'
+                Enrollment.enrollment_type == 'Regular',
+                Enrollment.payment_status != "Cancelled"
             ).order_by(Enrollment.first_lesson_date.desc()).first()
 
             if current_enrollment and current_enrollment.assigned_day and current_enrollment.assigned_time:
