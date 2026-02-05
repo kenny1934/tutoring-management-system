@@ -56,7 +56,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       showToast("Fee message copied!");
       setTimeout(() => {
         setCopied(false);
-        onClose();
       }, 500);
     } catch (err) {
       showToast("Failed to copy to clipboard");
@@ -256,7 +255,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
             ) : (
               <>
                 <Copy className="h-4 w-4" />
-                Copy & Close
+                Copy
               </>
             )}
           </button>
