@@ -13,6 +13,9 @@ interface AdminPageGuardProps {
  * AdminPageGuard component that restricts access to admin-only pages.
  * Shows a loading state while checking auth, and an access denied message for non-admins.
  *
+ * Allows access for: Super Admin, Admin, and Supervisor roles.
+ * Supervisor has read-only access (buttons should be disabled in the UI).
+ *
  * Usage:
  *   <AdminPageGuard>
  *     <YourAdminContent />
@@ -22,7 +25,7 @@ export function AdminPageGuard({
   children,
   accessDeniedMessage = "Admin access required to view this page",
 }: AdminPageGuardProps) {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, canViewAdminPages } = useAuth();
 
   // Loading state
   if (isLoading) {
@@ -43,8 +46,8 @@ export function AdminPageGuard({
     );
   }
 
-  // Not an admin
-  if (!isAdmin) {
+  // Not authorized to view admin pages
+  if (!canViewAdminPages) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
         <ShieldAlert className="h-12 w-12 text-red-500/50" />
@@ -56,6 +59,6 @@ export function AdminPageGuard({
     );
   }
 
-  // Admin - render children
+  // Authorized - render children
   return <>{children}</>;
 }

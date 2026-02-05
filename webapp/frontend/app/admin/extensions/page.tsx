@@ -9,7 +9,7 @@ import { Clock } from "lucide-react";
 
 export default function AdminExtensionsPage() {
   usePageTitle("Extension Requests");
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, canViewAdminPages, isReadOnly } = useAuth();
 
   // Get current tutor ID from authenticated user
   const currentTutorId = user?.id;
@@ -29,6 +29,7 @@ export default function AdminExtensionsPage() {
               </h1>
               <p className="text-sm text-foreground/60">
                 Review and approve enrollment extension requests
+                {isReadOnly && <span className="ml-2 text-amber-600">(Read-only)</span>}
               </p>
             </div>
           </div>
@@ -60,12 +61,12 @@ export default function AdminExtensionsPage() {
           <div className="text-center py-12 text-foreground/60">
             Please sign in to view extension requests
           </div>
-        ) : !isAdmin ? (
+        ) : !canViewAdminPages ? (
           <div className="text-center py-12 text-foreground/60">
             Admin access required to manage extension requests
           </div>
         ) : currentTutorId ? (
-          <ExtensionRequestsList adminTutorId={currentTutorId} />
+          <ExtensionRequestsList adminTutorId={currentTutorId} readOnly={isReadOnly} />
         ) : (
           <div className="text-center py-12 text-foreground/60">
             Unable to identify current user

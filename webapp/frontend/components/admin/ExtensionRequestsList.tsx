@@ -30,10 +30,13 @@ type SortDirection = 'asc' | 'desc';
 
 interface ExtensionRequestsListProps {
   adminTutorId: number;
+  /** When true, disables approve/reject actions (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function ExtensionRequestsList({
   adminTutorId,
+  readOnly = false,
 }: ExtensionRequestsListProps) {
   const { selectedLocation } = useLocation();
   const [statusFilter, setStatusFilter] = useState<ExtensionRequestStatus | "all">("Pending");
@@ -413,6 +416,7 @@ export function ExtensionRequestsList({
           onRejected={handleRequestResolved}
           adminTutorId={adminTutorId}
           showLocationPrefix={selectedLocation === "All Locations"}
+          readOnly={readOnly}
         />
       )}
 
