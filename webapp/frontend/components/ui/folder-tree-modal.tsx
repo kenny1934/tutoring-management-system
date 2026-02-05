@@ -555,10 +555,10 @@ export function FolderTreeModal({
         case "date-asc":
           return (a.lastModified || 0) - (b.lastModified || 0);
         case "name-desc":
-          return b.name.localeCompare(a.name);
+          return b.name.localeCompare(a.name, undefined, { numeric: true });
         case "name-asc":
         default:
-          return a.name.localeCompare(b.name);
+          return a.name.localeCompare(b.name, undefined, { numeric: true });
       }
     });
   }, [sortBy]);

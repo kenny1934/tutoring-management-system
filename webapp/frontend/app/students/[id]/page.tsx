@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
+import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal, StudentCouponResponse } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
+import useSWR from "swr";
 import { mutate } from "swr";
 import Link from "next/link";
 import {
@@ -13,7 +14,8 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
+Copy, Check, Ticket, Gift
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -29,8 +31,10 @@ import { SessionDetailPopover } from "@/components/sessions/SessionDetailPopover
 import { ProposalIndicatorBadge } from "@/components/sessions/ProposalIndicatorBadge";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
+import { useAuth } from "@/contexts/AuthContext";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
+import { useToast } from "@/contexts/ToastContext";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
@@ -68,6 +72,7 @@ export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAdmin } = useAuth();
   const studentId = params.id ? parseInt(params.id as string) : null;
   const { isReadOnly } = useAuth();
 
@@ -75,6 +80,9 @@ export default function StudentDetailPage() {
   const initialTab = (searchParams.get('tab') as TabId) || 'profile';
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Toast notifications
+  const { showToast } = useToast();
 
   // Fetch student data
   const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
@@ -113,6 +121,12 @@ export default function StudentDetailPage() {
   const [newEnrollmentModalOpen, setNewEnrollmentModalOpen] = useState(false);
 
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
+
+  // Fetch student coupon info
+  const { data: couponInfo } = useSWR<StudentCouponResponse>(
+    studentId ? ['student-coupon', studentId] : null,
+    () => studentsAPI.getCoupon(studentId!)
+  );
 
   // Fetch all schools for autocomplete
   useEffect(() => {
@@ -220,6 +234,16 @@ export default function StudentDetailPage() {
     );
   }, [enrollments]);
 
+  // Get latest enrollment (by start date) for prefilling new enrollment tutor
+  const latestEnrollment = useMemo(() => {
+    if (enrollments.length === 0) return null;
+    return enrollments.reduce((latest, e) => {
+      const eDate = e.first_lesson_date ? new Date(e.first_lesson_date) : new Date(0);
+      const latestDate = latest.first_lesson_date ? new Date(latest.first_lesson_date) : new Date(0);
+      return eDate > latestDate ? e : latest;
+    });
+  }, [enrollments]);
+
   // Edit handlers
   const handleEditPersonal = () => {
     if (student) {
@@ -241,7 +265,7 @@ export default function StudentDetailPage() {
     setEditForm({});
   };
 
-  const handleFormChange = (field: string, value: string) => {
+  const handleFormChange = (field: string, value: string | boolean | null) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -515,6 +539,7 @@ export default function StudentDetailPage() {
                     setPopoverEnrollment(enrollment);
                   }}
                   selectedEnrollmentId={popoverEnrollment?.id}
+                  couponInfo={couponInfo}
                   // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
@@ -530,6 +555,7 @@ export default function StudentDetailPage() {
                   onNewTrial={() => setNewTrialModalOpen(true)}
                   onNewEnrollment={() => setNewEnrollmentModalOpen(true)}
                   readOnly={isReadOnly}
+                  isAdmin={isAdmin}
                 />
               )}
 
@@ -547,6 +573,7 @@ export default function StudentDetailPage() {
                   selectedSessionId={popoverSession?.id}
                   sessionProposalMap={sessionProposalMap}
                   onProposalClick={setSelectedProposal}
+                  showToast={showToast}
                 />
               )}
 
@@ -648,6 +675,7 @@ export default function StudentDetailPage() {
           isOpen={newEnrollmentModalOpen}
           onClose={() => setNewEnrollmentModalOpen(false)}
           prefillStudent={student}
+          prefillTutorId={latestEnrollment?.tutor_id}
           onSuccess={() => {
             mutate(['student-enrollments', studentId]);
             setNewEnrollmentModalOpen(false);
@@ -703,6 +731,7 @@ function ProfileTab({
   isMobile,
   onEnrollmentClick,
   selectedEnrollmentId,
+  couponInfo,
   // Edit props
   isEditingPersonal,
   isEditingAcademic,
@@ -718,12 +747,14 @@ function ProfileTab({
   onNewTrial,
   onNewEnrollment,
   readOnly = false,
+  isAdmin,
 }: {
   student: Student;
   enrollments: Enrollment[];
   isMobile: boolean;
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
+  couponInfo?: StudentCouponResponse;
   // Edit props
   isEditingPersonal: boolean;
   isEditingAcademic: boolean;
@@ -732,7 +763,7 @@ function ProfileTab({
   onEditAcademic: () => void;
   onCancelEdit: () => void;
   onSave: () => void;
-  onFormChange: (field: string, value: string) => void;
+  onFormChange: (field: string, value: string | boolean | null) => void;
   isSaving: boolean;
   saveError: string | null;
   allSchools: string[];
@@ -740,7 +771,40 @@ function ProfileTab({
   onNewEnrollment: () => void;
   /** When true, disables edit buttons (Supervisor mode) */
   readOnly?: boolean;
+  isAdmin?: boolean;
 }) {
+  // Staff referral edit state
+  const [isEditingStaffReferral, setIsEditingStaffReferral] = useState(false);
+  const [staffReferralForm, setStaffReferralForm] = useState({
+    is_staff_referral: student.is_staff_referral ?? false,
+    staff_referral_notes: student.staff_referral_notes ?? '',
+  });
+
+  // Reset staff referral form when student changes or edit is cancelled
+  const handleEditStaffReferral = () => {
+    setStaffReferralForm({
+      is_staff_referral: student.is_staff_referral ?? false,
+      staff_referral_notes: student.staff_referral_notes ?? '',
+    });
+    setIsEditingStaffReferral(true);
+  };
+
+  const handleCancelStaffReferralEdit = () => {
+    setIsEditingStaffReferral(false);
+    setStaffReferralForm({
+      is_staff_referral: student.is_staff_referral ?? false,
+      staff_referral_notes: student.staff_referral_notes ?? '',
+    });
+  };
+
+  const handleSaveStaffReferral = () => {
+    // Update the parent's editForm with staff referral fields
+    onFormChange("is_staff_referral", staffReferralForm.is_staff_referral);
+    onFormChange("staff_referral_notes", staffReferralForm.staff_referral_notes);
+    onSave();
+    setIsEditingStaffReferral(false);
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* Personal Info Card */}
@@ -889,6 +953,160 @@ function ProfileTab({
           )}
         </div>
       </div>
+
+      {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
+      {(couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2 transition-all",
+          !isMobile && "paper-texture",
+          isEditingStaffReferral && "ring-2 ring-amber-400"
+        )}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Discounts & Coupons
+            </h3>
+            {isAdmin && !isEditingStaffReferral && (
+              <button
+                onClick={handleEditStaffReferral}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                title="Edit staff referral"
+              >
+                <Pencil className="h-3.5 w-3.5 text-gray-400 group-hover:text-amber-600" />
+              </button>
+            )}
+            {isEditingStaffReferral && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCancelStaffReferralEdit}
+                  disabled={isSaving}
+                  className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveStaffReferral}
+                  disabled={isSaving}
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isEditingStaffReferral ? (
+            // Edit mode
+            <div className="space-y-3">
+              {/* Student Coupons - read only */}
+              {couponInfo?.has_coupon && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                      {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
+                    </span>
+                    {couponInfo.value && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                        (${couponInfo.value} each)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Staff Referral Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={staffReferralForm.is_staff_referral}
+                  onChange={(e) => setStaffReferralForm(prev => ({
+                    ...prev,
+                    is_staff_referral: e.target.checked
+                  }))}
+                  className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                    Staff Referral
+                  </span>
+                  <span className="text-xs text-purple-600 dark:text-purple-400">
+                    ($500 discount)
+                  </span>
+                </div>
+              </label>
+
+              {/* Staff Referral Notes */}
+              {staffReferralForm.is_staff_referral && (
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                    Notes (e.g., which staff member, relationship)
+                  </label>
+                  <input
+                    type="text"
+                    value={staffReferralForm.staff_referral_notes}
+                    onChange={(e) => setStaffReferralForm(prev => ({
+                      ...prev,
+                      staff_referral_notes: e.target.value
+                    }))}
+                    placeholder="Enter staff referral details..."
+                    className="w-full px-3 py-2 text-sm rounded-md border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            // View mode
+            <>
+              <div className="flex flex-wrap gap-4">
+                {/* Student Coupons */}
+                {couponInfo?.has_coupon && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
+                      </span>
+                      {couponInfo.value && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                          (${couponInfo.value} each)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* Staff Referral */}
+                {student.is_staff_referral && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                    <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <div>
+                      <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                        Staff Referral
+                      </span>
+                      <span className="text-xs text-purple-600 dark:text-purple-400 ml-1">
+                        ($500 discount)
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {/* Show message if nothing to display */}
+                {!couponInfo?.has_coupon && !student.is_staff_referral && isAdmin && (
+                  <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+                    No discounts or coupons. Click Edit to add staff referral.
+                  </p>
+                )}
+              </div>
+              {/* Staff Referral Notes */}
+              {student.is_staff_referral && student.staff_referral_notes && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+                  {student.staff_referral_notes}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Active Enrollments Card */}
       {enrollments.length > 0 ? (
@@ -1206,6 +1424,168 @@ function EditableInfoRow({
   );
 }
 
+// Copy Lesson Dates Button Component
+type DateFormat = 'compact' | 'detailed';
+
+const COPYABLE_STATUSES = ['Scheduled', 'Make-up Class', 'Trial Class'];
+
+function formatSessionDate(session: Session, format: DateFormat): string {
+  const date = new Date(session.session_date + 'T00:00:00');
+  const timeSlot = session.time_slot.replace(/\s/g, ''); // Remove spaces from time slot
+
+  if (format === 'compact') {
+    // Format: 15/2 (Sat) 09:00-10:00
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${day}/${month} (${weekday}) ${timeSlot}`;
+  } else {
+    // Format: Feb 15, 2026 (Saturday) 09:00 - 10:00
+    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${monthName} ${day}, ${year} (${weekday}) ${session.time_slot}`;
+  }
+}
+
+function getUpcomingSessions(sessions: Session[]): Session[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return sessions
+    .filter(session => {
+      const sessionDate = new Date(session.session_date + 'T00:00:00');
+      const status = getDisplayStatus(session);
+      return sessionDate >= today && COPYABLE_STATUSES.includes(status);
+    })
+    .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
+}
+
+function CopyLessonDatesButton({
+  sessions,
+  showToast,
+  label = "Copy upcoming",
+  inEnrollment = false,
+}: {
+  sessions: Session[];
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  label?: string;
+  inEnrollment?: boolean;
+}) {
+  const [dateFormat, setDateFormat] = useState<DateFormat>('compact');
+  const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const upcomingSessions = useMemo(() => getUpcomingSessions(sessions), [sessions]);
+
+  const handleCopy = async (format: DateFormat = dateFormat) => {
+    if (upcomingSessions.length === 0) {
+      showToast('No upcoming lessons to copy', 'info');
+      return;
+    }
+
+    const formattedDates = upcomingSessions
+      .map(session => formatSessionDate(session, format))
+      .join('\n');
+
+    try {
+      await navigator.clipboard.writeText(formattedDates);
+      setCopied(true);
+      setDateFormat(format); // Remember the last used format
+      setIsOpen(false); // Close dropdown
+      showToast(`Copied ${upcomingSessions.length} lesson${upcomingSessions.length !== 1 ? 's' : ''} to clipboard`, 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      showToast('Failed to copy to clipboard', 'error');
+    }
+  };
+
+  if (upcomingSessions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-stretch">
+        <button
+          onClick={() => handleCopy()}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-full transition-colors",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
+          )}
+          title={`Copy ${upcomingSessions.length} upcoming lesson date${upcomingSessions.length !== 1 ? 's' : ''}${inEnrollment ? ' in this enrollment' : ''}`}
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+          <span className="hidden sm:inline">{label}</span>
+          <span className="text-[10px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+            {upcomingSessions.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "flex items-center px-2 text-xs rounded-r-full transition-colors border-l-0",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
+          )}
+        >
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1 z-50 min-w-[180px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Copy as</div>
+          <button
+            onClick={() => handleCopy('compact')}
+            className={cn(
+              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
+              dateFormat === 'compact' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+            )}
+          >
+            <div className="font-medium flex items-center gap-1.5">
+              <Copy className="h-3 w-3" />
+              Compact
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">15/2 (Sat) 09:00-10:00</div>
+          </button>
+          <button
+            onClick={() => handleCopy('detailed')}
+            className={cn(
+              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
+              dateFormat === 'detailed' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+            )}
+          >
+            <div className="font-medium flex items-center gap-1.5">
+              <Copy className="h-3 w-3" />
+              Detailed
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">Feb 15, 2026 (Saturday) 09:00 - 10:00</div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Sessions Tab Component
 type SessionViewMode = 'by-enrollment' | 'by-date';
 type SortOrder = 'asc' | 'desc';
@@ -1219,6 +1599,7 @@ function SessionsTab({
   selectedSessionId,
   sessionProposalMap,
   onProposalClick,
+  showToast,
 }: {
   sessions: Session[];
   enrollments: Enrollment[];
@@ -1228,6 +1609,7 @@ function SessionsTab({
   selectedSessionId?: number;
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }) {
   // View mode and sort order state
   const [viewMode, setViewMode] = useState<SessionViewMode>('by-enrollment');
@@ -1371,6 +1753,24 @@ function SessionsTab({
                 </span>
               </>
             )}
+            {/* Extension request indicator */}
+            {session.extension_request_id && (
+              <>
+                <span className="text-xs text-gray-400">•</span>
+                <span
+                  title={`Extension ${session.extension_request_status}`}
+                  className={cn(
+                    "flex items-center gap-0.5 text-xs",
+                    session.extension_request_status === "Pending" && "text-amber-600",
+                    session.extension_request_status === "Approved" && "text-green-600",
+                    session.extension_request_status === "Rejected" && "text-red-600"
+                  )}
+                >
+                  <Clock className="h-3 w-3" />
+                  <span className="hidden sm:inline">{session.extension_request_status}</span>
+                </span>
+              </>
+            )}
             {/* Proposal indicator for pending makeup sessions */}
             {sessionProposalMap?.has(session.id) && (
               <ProposalIndicatorBadge
@@ -1432,14 +1832,23 @@ function SessionsTab({
           </button>
         </div>
 
-        {/* Sort Order Toggle (shown in both modes) */}
-        <button
-          onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
-        >
-          {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
-          {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Copy All Upcoming Dates Button */}
+          <CopyLessonDatesButton
+            sessions={sessions}
+            showToast={showToast}
+            label="Copy upcoming"
+          />
+
+          {/* Sort Order Toggle (shown in both modes) */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
+          >
+            {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+            {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+          </button>
+        </div>
       </div>
 
       {/* Sessions List */}
@@ -1452,47 +1861,56 @@ function SessionsTab({
 
             return (
               <div key={enrollmentId} className="space-y-2">
-                {/* Enrollment Header - Clickable */}
-                <button
-                  onClick={(e) => {
-                    if (enrollment) {
-                      e.stopPropagation();
-                      setClickedEnrollment(enrollment);
-                      setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
-                    }
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] w-full text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
-                >
-                  <Calendar className="h-4 w-4 text-[#a0704b]" />
-                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                    {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
-                  </span>
-                  {enrollment?.tutor_name && (
-                    <>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {enrollment.tutor_name}
-                      </span>
-                    </>
-                  )}
-                  {enrollment?.location && (
-                    <>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        {enrollment.location}
-                      </span>
-                    </>
-                  )}
-                  {enrollment?.payment_status === 'Cancelled' ? (
-                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
-                      Cancelled
+                {/* Enrollment Header - Clickable with Copy Button */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      if (enrollment) {
+                        e.stopPropagation();
+                        setClickedEnrollment(enrollment);
+                        setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                    className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
+                  >
+                    <Calendar className="h-4 w-4 text-[#a0704b]" />
+                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                      {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
                     </span>
-                  ) : (
-                    <span className="ml-auto text-xs text-gray-500">
-                      {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
-                    </span>
-                  )}
-                </button>
+                    {enrollment?.tutor_name && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {enrollment.tutor_name}
+                        </span>
+                      </>
+                    )}
+                    {enrollment?.location && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                          {enrollment.location}
+                        </span>
+                      </>
+                    )}
+                    {enrollment?.payment_status === 'Cancelled' ? (
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                        Cancelled
+                      </span>
+                    ) : (
+                      <span className="ml-auto text-xs text-gray-500">
+                        {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
+                      </span>
+                    )}
+                  </button>
+                  {/* Copy Button for this enrollment */}
+                  <CopyLessonDatesButton
+                    sessions={enrollmentSessions}
+                    showToast={showToast}
+                    label="Copy upcoming"
+                    inEnrollment
+                  />
+                </div>
 
                 {/* Session Cards */}
                 <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -2001,7 +2419,7 @@ function CoursewareTab({
                 </div>
 
                 {/* Exercises in this session */}
-                <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                   {exercises.map((exercise, index) => {
                     const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
 
@@ -2056,7 +2474,7 @@ function CoursewareTab({
               </div>
 
               {/* Instances of this PDF */}
-              <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
 
