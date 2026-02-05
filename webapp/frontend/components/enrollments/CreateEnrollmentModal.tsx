@@ -353,12 +353,24 @@ export function CreateEnrollmentModal({
     }
   }, [renewFromId, convertFromTrial, tutorId, tutors, location, isOpen]);
 
-  // Auto-select discount when student has available coupons (student_coupons table is source of truth)
+  // Auto-select discount based on student status (staff referral > student coupon)
   // Skip if converting from trial (uses special $150 trial discount instead)
   useEffect(() => {
     if (!student || !isOpen || convertFromTrial || discounts.length === 0) return;
 
-    // Check if student has available coupons
+    // Priority 1: Staff Referral ($500 discount)
+    if (student.is_staff_referral) {
+      const staffDiscount = discounts.find(
+        (d) => d.discount_name.toLowerCase().includes('staff') ||
+          (d.discount_value && Math.abs(Number(d.discount_value) - 500) < 0.01)
+      );
+      if (staffDiscount) {
+        setDiscountId(staffDiscount.id);
+        return; // Staff referral takes priority, don't check coupons
+      }
+    }
+
+    // Priority 2: Check if student has available coupons
     studentsAPI.getCoupon(student.id).then((couponData) => {
       if (couponData.has_coupon && couponData.value) {
         // Find a discount matching the coupon value
@@ -372,7 +384,7 @@ export function CreateEnrollmentModal({
     }).catch(() => {
       // Silently fail if coupon check fails
     });
-  }, [student?.id, isOpen, convertFromTrial, discounts]);
+  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts]);
 
   // Reset tutor when location changes if current tutor is not from new location
   useEffect(() => {

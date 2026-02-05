@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useStudent, useStudentEnrollments, useStudentSessions, useStudentParentContacts, useCalendarEvents, usePageTitle, useProposals, useTutors, useExamsWithSlots } from "@/lib/hooks";
-import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal } from "@/types";
+import type { Session, CalendarEvent, Enrollment, Student, MakeupProposal, StudentCouponResponse } from "@/types";
 import type { ParentCommunication } from "@/lib/api";
 import { studentsAPI } from "@/lib/api";
+import useSWR from "swr";
 import { mutate } from "swr";
 import Link from "next/link";
 import {
@@ -13,7 +14,8 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
+  Ticket, Gift
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -111,6 +113,12 @@ export default function StudentDetailPage() {
   const [newEnrollmentModalOpen, setNewEnrollmentModalOpen] = useState(false);
 
   const { data: enrollments = [] } = useStudentEnrollments(studentId);
+
+  // Fetch student coupon info
+  const { data: couponInfo } = useSWR<StudentCouponResponse>(
+    studentId ? ['student-coupon', studentId] : null,
+    () => studentsAPI.getCoupon(studentId!)
+  );
 
   // Fetch all schools for autocomplete
   useEffect(() => {
@@ -513,6 +521,7 @@ export default function StudentDetailPage() {
                     setPopoverEnrollment(enrollment);
                   }}
                   selectedEnrollmentId={popoverEnrollment?.id}
+                  couponInfo={couponInfo}
                   // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
@@ -699,6 +708,7 @@ function ProfileTab({
   isMobile,
   onEnrollmentClick,
   selectedEnrollmentId,
+  couponInfo,
   // Edit props
   isEditingPersonal,
   isEditingAcademic,
@@ -719,6 +729,7 @@ function ProfileTab({
   isMobile: boolean;
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
+  couponInfo?: StudentCouponResponse;
   // Edit props
   isEditingPersonal: boolean;
   isEditingAcademic: boolean;
@@ -864,6 +875,57 @@ function ProfileTab({
           )}
         </div>
       </div>
+
+      {/* Discounts & Coupons Card */}
+      {(couponInfo?.has_coupon || student.is_staff_referral) && (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          !isMobile && "paper-texture"
+        )}>
+          <h3 className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-2 mb-3">
+            <Gift className="h-4 w-4" />
+            Discounts & Coupons
+          </h3>
+          <div className="flex flex-wrap gap-4">
+            {/* Student Coupons */}
+            {couponInfo?.has_coupon && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
+                  </span>
+                  {couponInfo.value && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                      (${couponInfo.value} each)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Staff Referral */}
+            {student.is_staff_referral && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+                <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <div>
+                  <span className="text-sm font-medium text-purple-800 dark:text-purple-200">
+                    Staff Referral
+                  </span>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 ml-1">
+                    ($500 discount)
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Staff Referral Notes */}
+          {student.is_staff_referral && student.staff_referral_notes && (
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 italic">
+              {student.staff_referral_notes}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Active Enrollments Card */}
       {enrollments.length > 0 ? (
