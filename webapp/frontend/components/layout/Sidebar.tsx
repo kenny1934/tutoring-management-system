@@ -629,7 +629,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           <div
             className={cn(
               "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-              "w-[400px] p-5 rounded-2xl shadow-2xl z-[9999]",
+              "w-[calc(100vw-2rem)] max-w-[400px] p-5 rounded-2xl shadow-2xl z-[9999]",
               "bg-[rgba(254,249,243,0.98)] dark:bg-[rgba(45,38,24,0.98)]",
               "border border-white/20 dark:border-white/10",
               "animate-in zoom-in-95 fade-in duration-200",

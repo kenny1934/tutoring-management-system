@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useEnrollment, useEnrollmentSessions, usePageTitle, useLocations } from "@/lib/hooks";
-import type { Session, Enrollment, Tutor } from "@/types";
+import type { Session, Enrollment, Tutor, Discount } from "@/types";
 import Link from "next/link";
-import { tutorsAPI, enrollmentsAPI } from "@/lib/api";
+import useSWR from "swr";
+import { tutorsAPI, enrollmentsAPI, discountsAPI } from "@/lib/api";
 import { mutate } from "swr";
 import {
   ArrowLeft, User, BookOpen, Calendar, MapPin, Clock, CreditCard,
@@ -44,6 +45,7 @@ export default function EnrollmentDetailPage() {
   const { effectiveRole } = useAuth();
   const { showToast } = useToast();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const isTutor = effectiveRole === "Tutor";
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -83,6 +85,10 @@ export default function EnrollmentDetailPage() {
   useEffect(() => {
     tutorsAPI.getAll().then(setAllTutors).catch(() => setAllTutors([]));
   }, []);
+
+  // Fetch discounts for dropdown
+  const { data: discounts = [] } = useSWR<Discount[]>('discounts', discountsAPI.getAll);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<number | null>(null);
 
   const handleEditSchedule = () => {
     if (enrollment) {
@@ -138,11 +144,16 @@ export default function EnrollmentDetailPage() {
     setSaveError(null);
 
     try {
-      const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, editForm);
+      // Include discount_id if editing payment
+      const updateData = isEditingPayment
+        ? { ...editForm, discount_id: selectedDiscountId }
+        : editForm;
+      const updatedEnrollment = await enrollmentsAPI.update(enrollment.id, updateData);
       mutate(['enrollment', enrollment.id], { ...enrollment, ...updatedEnrollment }, false);
       setIsEditingSchedule(false);
       setIsEditingPayment(false);
       setEditForm({});
+      setSelectedDiscountId(null);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save changes');
     } finally {
@@ -268,6 +279,19 @@ export default function EnrollmentDetailPage() {
   // Fetch locations for dropdown
   const { data: locations = [] } = useLocations();
   const locationOptions = locations.filter(loc => loc !== "Various");
+
+  // Sync discount selection when entering edit mode
+  useEffect(() => {
+    if (isEditingPayment && enrollment) {
+      // Find current discount ID from discounts list based on discount_name
+      if (enrollment.discount_name && discounts.length > 0) {
+        const currentDiscount = discounts.find(d => d.discount_name === enrollment.discount_name);
+        setSelectedDiscountId(currentDiscount?.id ?? null);
+      } else {
+        setSelectedDiscountId(null);
+      }
+    }
+  }, [isEditingPayment, enrollment, discounts]);
 
   // Calculate preview effective end date when extension weeks change
   const previewEffectiveEndDate = useMemo(() => {
@@ -868,15 +892,23 @@ export default function EnrollmentDetailPage() {
                       />
                     </div>
 
-                    {/* Discount - read only */}
-                    {enrollment.discount_name && (
-                      <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 font-medium">
-                          {enrollment.discount_name}
-                        </span>
-                      </div>
-                    )}
+                    {/* Discount */}
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-500 w-24">Discount</label>
+                      <select
+                        value={selectedDiscountId || ""}
+                        onChange={(e) => setSelectedDiscountId(e.target.value ? parseInt(e.target.value) : null)}
+                        className="flex-1 px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 text-sm"
+                      >
+                        <option value="">No discount</option>
+                        {discounts.filter(d => d.is_active).map(discount => (
+                          <option key={discount.id} value={discount.id}>
+                            {discount.discount_name}
+                            {discount.discount_value ? ` ($${discount.discount_value})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </>
                 ) : (
                   // VIEW MODE
@@ -1093,8 +1125,8 @@ export default function EnrollmentDetailPage() {
                               {copied ? "Copied!" : "Copy Fee"}
                             </button>
 
-                            {/* Mark Sent / Unmark Sent */}
-                            {enrollment?.fee_message_sent ? (
+                            {/* Mark Sent / Unmark Sent - Admin only */}
+                            {!isTutor && (enrollment?.fee_message_sent ? (
                               <button
                                 onClick={handleUnmarkSent}
                                 disabled={markingSent}
@@ -1112,10 +1144,10 @@ export default function EnrollmentDetailPage() {
                                 {markingSent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                                 Mark Sent
                               </button>
-                            )}
+                            ))}
 
-                            {/* Confirm Payment - only show for pending/overdue */}
-                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
+                            {/* Confirm Payment - only show for pending/overdue - Admin only */}
+                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && (
                               <button
                                 onClick={() => setConfirmPayment(true)}
                                 disabled={markingPaid}
@@ -1126,8 +1158,8 @@ export default function EnrollmentDetailPage() {
                               </button>
                             )}
 
-                            {/* Cancel Enrollment - only for pending/overdue with no completed sessions */}
-                            {(enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
+                            {/* Cancel Enrollment - only for pending/overdue with no completed sessions - Admin only */}
+                            {!isTutor && (enrollment?.payment_status === "Pending Payment" || enrollment?.payment_status === "Overdue") && sessionStats.completed === 0 && (
                               <button
                                 onClick={() => setConfirmCancel(true)}
                                 disabled={isCancelling}
