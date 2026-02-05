@@ -35,6 +35,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Plus,
 } from "lucide-react";
 
 type ViewStyle = "list" | "calendar";
@@ -467,6 +468,12 @@ export default function ExamsPage() {
     setEditingEvent(undefined);
   }, [mutate]);
 
+  // Handle opening create event modal
+  const handleOpenCreateEvent = useCallback(() => {
+    setEditingEvent(undefined);
+    setIsEditEventModalOpen(true);
+  }, []);
+
   // Auto-scroll to highlighted exam after data loads
   useEffect(() => {
     if (highlightExamId && !isLoading && highlightedRef.current && stickyHeaderRef.current) {
@@ -526,6 +533,16 @@ export default function ExamsPage() {
                   </p>
                 </div>
               </div>
+              {/* Mobile-only Add Event button */}
+              {canManageEvents && (
+                <button
+                  onClick={handleOpenCreateEvent}
+                  className="sm:hidden ml-auto p-2 rounded-lg bg-[#a0704b] hover:bg-[#8a5f3d] transition-colors"
+                  title="Add Event"
+                >
+                  <Plus className="h-5 w-5 text-white" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -609,6 +626,17 @@ export default function ExamsPage() {
                 <Calendar className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Desktop Add Event button */}
+            {canManageEvents && (
+              <button
+                onClick={handleOpenCreateEvent}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] hover:bg-[#8a5f3d] text-white transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden md:inline">Add Event</span>
+              </button>
+            )}
           </div>
 
           {/* Date range row */}
