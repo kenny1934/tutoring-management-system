@@ -23,6 +23,7 @@ import { getDisplayStatus } from "@/lib/session-status";
 import { ScheduleChangeReviewModal } from "@/components/enrollments/ScheduleChangeReviewModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { Enrollment } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Day options (short form)
 const DAY_OPTIONS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -104,6 +105,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   // Fetch locations and tutors for editing
   const { data: allLocations = [] } = useLocations();
   const { data: allTutors = [] } = useTutors();
+  const { effectiveRole } = useAuth();
+  const isTutor = effectiveRole === "Tutor";
 
   // Filter locations (exclude "Various" placeholder)
   const locations = useMemo(() =>
@@ -186,7 +189,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   if (!isOpen || !enrollment) return null;
 
   const isPending = enrollment.payment_status === 'Pending Payment';
-  const showMarkAsPaid = isPending && !markedAsPaid;
+  const showMarkAsPaid = isPending && !markedAsPaid && !isTutor;
 
   // Check if any sessions have been attended - cannot cancel if so
   const hasAttendedSessions = sessions.some(
@@ -194,7 +197,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   );
   const showCancelButton = (enrollment.payment_status === 'Pending Payment'
     || enrollment.payment_status === 'Overdue')
-    && !hasAttendedSessions;
+    && !hasAttendedSessions
+    && !isTutor;
 
   // Format date relative to today
   const formatSessionDate = (dateStr: string) => {
