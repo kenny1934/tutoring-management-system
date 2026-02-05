@@ -13,7 +13,8 @@ import {
   GraduationCap, Phone, MapPin, ExternalLink, Clock, CreditCard, X,
   CheckCircle2, HandCoins, BookMarked, PenTool, Home, Pencil,
   Palette, FlaskConical, Briefcase, ChevronDown, Tag, Search, BarChart3,
-  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight
+  Users, UserCheck, Star, ArrowUp, ArrowDown, Plus, MessageSquarePlus, History, ChevronRight,
+  Copy, Check
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -31,6 +32,7 @@ import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { createSessionProposalMap } from "@/lib/proposal-utils";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
+import { useToast } from "@/contexts/ToastContext";
 import { ContactStatusBadge } from "@/components/parent-contacts/ContactStatusBadge";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { getMethodIcon, getContactTypeIcon, getContactTypeColor } from "@/components/parent-contacts/contact-utils";
@@ -73,6 +75,9 @@ export default function StudentDetailPage() {
   const initialTab = (searchParams.get('tab') as TabId) || 'profile';
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Toast notifications
+  const { showToast } = useToast();
 
   // Fetch student data
   const { data: student, error: studentError, isLoading: studentLoading } = useStudent(studentId);
@@ -544,6 +549,7 @@ export default function StudentDetailPage() {
                   selectedSessionId={popoverSession?.id}
                   sessionProposalMap={sessionProposalMap}
                   onProposalClick={setSelectedProposal}
+                  showToast={showToast}
                 />
               )}
 
@@ -1167,6 +1173,158 @@ function EditableInfoRow({
   );
 }
 
+// Copy Lesson Dates Button Component
+type DateFormat = 'compact' | 'detailed';
+
+const COPYABLE_STATUSES = ['Scheduled', 'Make-up Class', 'Trial Class'];
+
+function formatSessionDate(session: Session, format: DateFormat): string {
+  const date = new Date(session.session_date + 'T00:00:00');
+  const timeSlot = session.time_slot.replace(/\s/g, ''); // Remove spaces from time slot
+
+  if (format === 'compact') {
+    // Format: 15/2 (Sat) 09:00-10:00
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+    return `${day}/${month} (${weekday}) ${timeSlot}`;
+  } else {
+    // Format: Feb 15, 2026 (Saturday) 09:00 - 10:00
+    const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${monthName} ${day}, ${year} (${weekday}) ${session.time_slot}`;
+  }
+}
+
+function getUpcomingSessions(sessions: Session[]): Session[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return sessions
+    .filter(session => {
+      const sessionDate = new Date(session.session_date + 'T00:00:00');
+      const status = getDisplayStatus(session);
+      return sessionDate >= today && COPYABLE_STATUSES.includes(status);
+    })
+    .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
+}
+
+function CopyLessonDatesButton({
+  sessions,
+  showToast,
+  label = "Copy dates",
+}: {
+  sessions: Session[];
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  label?: string;
+}) {
+  const [dateFormat, setDateFormat] = useState<DateFormat>('compact');
+  const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const upcomingSessions = useMemo(() => getUpcomingSessions(sessions), [sessions]);
+
+  const handleCopy = async () => {
+    if (upcomingSessions.length === 0) {
+      showToast('No upcoming lessons to copy', 'info');
+      return;
+    }
+
+    const formattedDates = upcomingSessions
+      .map(session => formatSessionDate(session, dateFormat))
+      .join('\n');
+
+    try {
+      await navigator.clipboard.writeText(formattedDates);
+      setCopied(true);
+      showToast(`Copied ${upcomingSessions.length} lesson${upcomingSessions.length !== 1 ? 's' : ''} to clipboard`, 'success');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      showToast('Failed to copy to clipboard', 'error');
+    }
+  };
+
+  if (upcomingSessions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center">
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-md transition-colors",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
+          )}
+          title={`Copy ${upcomingSessions.length} upcoming lesson dates`}
+        >
+          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+          <span>{label}</span>
+          <span className="text-[10px] px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+            {upcomingSessions.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "flex items-center px-1.5 py-1.5 text-xs rounded-r-md transition-colors border-l-0",
+            "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
+            "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+            "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
+          )}
+        >
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", isOpen && "rotate-180")} />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-1 z-50 min-w-[160px] rounded-md shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Format</div>
+          <button
+            onClick={() => { setDateFormat('compact'); setIsOpen(false); }}
+            className={cn(
+              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
+              dateFormat === 'compact' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+            )}
+          >
+            <div className="font-medium">Compact</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">15/2 (Sat) 09:00-10:00</div>
+          </button>
+          <button
+            onClick={() => { setDateFormat('detailed'); setIsOpen(false); }}
+            className={cn(
+              "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
+              dateFormat === 'detailed' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
+            )}
+          >
+            <div className="font-medium">Detailed</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">Feb 15, 2026 (Saturday) 09:00 - 10:00</div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Sessions Tab Component
 type SessionViewMode = 'by-enrollment' | 'by-date';
 type SortOrder = 'asc' | 'desc';
@@ -1180,6 +1338,7 @@ function SessionsTab({
   selectedSessionId,
   sessionProposalMap,
   onProposalClick,
+  showToast,
 }: {
   sessions: Session[];
   enrollments: Enrollment[];
@@ -1189,6 +1348,7 @@ function SessionsTab({
   selectedSessionId?: number;
   sessionProposalMap?: Map<number, MakeupProposal>;
   onProposalClick?: (proposal: MakeupProposal) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }) {
   // View mode and sort order state
   const [viewMode, setViewMode] = useState<SessionViewMode>('by-enrollment');
@@ -1393,14 +1553,23 @@ function SessionsTab({
           </button>
         </div>
 
-        {/* Sort Order Toggle (shown in both modes) */}
-        <button
-          onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
-        >
-          {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
-          {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Copy All Upcoming Dates Button */}
+          <CopyLessonDatesButton
+            sessions={sessions}
+            showToast={showToast}
+            label="Copy all"
+          />
+
+          {/* Sort Order Toggle (shown in both modes) */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] rounded-md transition-colors"
+          >
+            {sortOrder === 'desc' ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />}
+            {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+          </button>
+        </div>
       </div>
 
       {/* Sessions List */}
@@ -1413,47 +1582,55 @@ function SessionsTab({
 
             return (
               <div key={enrollmentId} className="space-y-2">
-                {/* Enrollment Header - Clickable */}
-                <button
-                  onClick={(e) => {
-                    if (enrollment) {
-                      e.stopPropagation();
-                      setClickedEnrollment(enrollment);
-                      setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
-                    }
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] w-full text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
-                >
-                  <Calendar className="h-4 w-4 text-[#a0704b]" />
-                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
-                    {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
-                  </span>
-                  {enrollment?.tutor_name && (
-                    <>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {enrollment.tutor_name}
-                      </span>
-                    </>
-                  )}
-                  {enrollment?.location && (
-                    <>
-                      <span className="text-gray-400">•</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                        {enrollment.location}
-                      </span>
-                    </>
-                  )}
-                  {enrollment?.payment_status === 'Cancelled' ? (
-                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
-                      Cancelled
+                {/* Enrollment Header - Clickable with Copy Button */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      if (enrollment) {
+                        e.stopPropagation();
+                        setClickedEnrollment(enrollment);
+                        setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                    className="flex-1 flex items-center gap-2 px-3 py-2 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-left hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a] transition-colors cursor-pointer"
+                  >
+                    <Calendar className="h-4 w-4 text-[#a0704b]" />
+                    <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                      {enrollment?.assigned_day || 'Unassigned'} {enrollment?.assigned_time || ''}
                     </span>
-                  ) : (
-                    <span className="ml-auto text-xs text-gray-500">
-                      {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
-                    </span>
-                  )}
-                </button>
+                    {enrollment?.tutor_name && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {enrollment.tutor_name}
+                        </span>
+                      </>
+                    )}
+                    {enrollment?.location && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                          {enrollment.location}
+                        </span>
+                      </>
+                    )}
+                    {enrollment?.payment_status === 'Cancelled' ? (
+                      <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
+                        Cancelled
+                      </span>
+                    ) : (
+                      <span className="ml-auto text-xs text-gray-500">
+                        {enrollment?.lessons_paid ?? 0} lesson{(enrollment?.lessons_paid ?? 0) !== 1 ? 's' : ''} paid
+                      </span>
+                    )}
+                  </button>
+                  {/* Copy Button for this enrollment */}
+                  <CopyLessonDatesButton
+                    sessions={enrollmentSessions}
+                    showToast={showToast}
+                    label="Copy"
+                  />
+                </div>
 
                 {/* Session Cards */}
                 <div className="space-y-2 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
