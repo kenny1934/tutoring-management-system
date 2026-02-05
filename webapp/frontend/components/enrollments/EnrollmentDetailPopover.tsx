@@ -14,7 +14,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle } from "lucide-react";
+import { X, Calendar, Clock, MapPin, HandCoins, ExternalLink, User, Check, Edit2, CalendarDays, Loader2, Tag, CalendarX, XCircle, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
@@ -128,6 +128,10 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   // Confirmation dialog states
   const [confirmPayment, setConfirmPayment] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+
+  // Copy fee message states
+  const [isCopying, setIsCopying] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Filter tutors by selected location
   const filteredTutors = useMemo(() => {
@@ -270,6 +274,23 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     const newOptions = getTimeOptions(newDay);
     if (!isCustomTime && editedTime && !newOptions.includes(editedTime)) {
       setEditedTime('');
+    }
+  };
+
+  // Handle copy fee message
+  const handleCopyFeeMessage = async () => {
+    if (!enrollment?.id) return;
+    setIsCopying(true);
+    setCopySuccess(false);
+    try {
+      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', 0);
+      await navigator.clipboard.writeText(response.message);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy fee message:', error);
+    } finally {
+      setIsCopying(false);
     }
   };
 
@@ -679,6 +700,32 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               Cancel Enrollment
             </button>
           )}
+
+          {/* Copy Fee Message button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopyFeeMessage();
+            }}
+            disabled={isCopying}
+            className={cn(
+              "w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md",
+              "border border-[#d4a574] dark:border-[#8b6f47]",
+              copySuccess
+                ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                : "bg-[#fef9f3] dark:bg-[#2d2618] text-[#8b6914] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+              "transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+          >
+            {isCopying ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : copySuccess ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {isCopying ? 'Copying...' : copySuccess ? 'Copied!' : 'Copy Fee Message'}
+          </button>
 
           {/* View Details link */}
           <Link
