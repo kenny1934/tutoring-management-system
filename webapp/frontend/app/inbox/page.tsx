@@ -709,7 +709,7 @@ const SeenBadge = React.memo(function SeenBadge({
           {/* Popover content */}
           <div
             ref={popoverRef}
-            className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+            className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
           >
             <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
               Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}

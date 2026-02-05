@@ -179,7 +179,6 @@ def batch_build_message_responses(
     total_active_tutors = 0
     if has_broadcast:
         total_active_tutors = db.query(func.count(Tutor.id)).filter(
-            Tutor.is_active == True,
             Tutor.id != current_tutor_id
         ).scalar() or 0
 
@@ -370,8 +369,61 @@ async def get_message_threads(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
+    # 7. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
+    all_messages = list(root_messages) + list(all_replies)
+    my_sent_ids = [m.id for m in all_messages if m.from_tutor_id == tutor_id]
+    sender_read_receipts_map: dict = {}
+    if my_sent_ids:
+        sender_receipts = (
+            db.query(
+                MessageReadReceipt.message_id,
+                MessageReadReceipt.tutor_id,
+                MessageReadReceipt.read_at,
+                Tutor.tutor_name
+            )
+            .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
+            .filter(MessageReadReceipt.message_id.in_(my_sent_ids))
+            .order_by(MessageReadReceipt.read_at.asc())
+            .all()
+        )
+        for receipt in sender_receipts:
+            if receipt.message_id not in sender_read_receipts_map:
+                sender_read_receipts_map[receipt.message_id] = []
+            sender_read_receipts_map[receipt.message_id].append(
+                ReadReceiptDetail(
+                    tutor_id=receipt.tutor_id,
+                    tutor_name=receipt.tutor_name or "Unknown",
+                    read_at=receipt.read_at
+                )
+            )
+
+    # 8. Get total tutor count for broadcast messages (excluding sender)
+    has_broadcast = any(m.from_tutor_id == tutor_id and m.to_tutor_id is None for m in all_messages)
+    total_active_tutors = 0
+    if has_broadcast:
+        total_active_tutors = db.query(func.count(Tutor.id)).filter(
+            Tutor.id != tutor_id
+        ).scalar() or 0
+
     # Helper to build MessageResponse from pre-fetched data
     def build_response(msg: TutorMessage) -> MessageResponse:
+        is_own_message = msg.from_tutor_id == tutor_id
+        is_broadcast = msg.to_tutor_id is None
+
+        read_receipts_list = None
+        total_recipients = None
+        read_by_all = None
+
+        if is_own_message:
+            read_receipts_list = sender_read_receipts_map.get(msg.id, [])
+            read_count = len(read_receipts_list)
+            if is_broadcast:
+                total_recipients = total_active_tutors
+                read_by_all = read_count >= total_recipients if total_recipients > 0 else True
+            else:
+                total_recipients = 1
+                read_by_all = read_count >= 1
+
         return MessageResponse(
             id=msg.id,
             from_tutor_id=msg.from_tutor_id,
@@ -388,7 +440,10 @@ async def get_message_threads(
             is_read=msg.id in read_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
-            reply_count=reply_count_map.get(msg.id, 0)
+            reply_count=reply_count_map.get(msg.id, 0),
+            read_receipts=read_receipts_list,
+            total_recipients=total_recipients,
+            read_by_all=read_by_all
         )
 
     # Build thread responses
