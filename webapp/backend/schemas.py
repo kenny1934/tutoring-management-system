@@ -447,6 +447,8 @@ class SessionResponse(SessionBase):
     notes: Optional[str] = Field(None, max_length=2000)
     last_modified_time: Optional[datetime] = None
     last_modified_by: Optional[str] = Field(None, max_length=255)
+    attendance_marked_by: Optional[str] = Field(None, max_length=255)
+    attendance_mark_time: Optional[datetime] = None
     previous_session_status: Optional[str] = Field(None, max_length=100)
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)

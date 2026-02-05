@@ -318,6 +318,8 @@ export interface Session {
   school?: string;
   last_modified_time?: string;
   last_modified_by?: string;
+  attendance_marked_by?: string;
+  attendance_mark_time?: string;
   previous_session_status?: string;
   undone_from_status?: string;  // Only set in undo response for redo toast
   rescheduled_to_id?: number;
