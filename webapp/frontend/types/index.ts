@@ -615,6 +615,12 @@ export interface UncheckedAttendanceCount {
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
 export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation';
 
+export interface ReadReceiptDetail {
+  tutor_id: number;
+  tutor_name: string;
+  read_at: string;
+}
+
 export interface Message {
   id: number;
   from_tutor_id: number;
@@ -633,6 +639,10 @@ export interface Message {
   is_liked_by_me: boolean;
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
+  // Read receipt fields for sender's messages (WhatsApp-style seen status)
+  read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
+  total_recipients?: number;  // Total recipients for broadcasts
+  read_by_all?: boolean;  // True when all recipients have read
 }
 
 export interface MessageThread {

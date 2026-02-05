@@ -632,6 +632,119 @@ const ThreadItem = React.memo(function ThreadItem({
   );
 });
 
+// Seen Badge Component - WhatsApp-style read receipts
+const SeenBadge = React.memo(function SeenBadge({
+  message,
+  currentTutorId,
+}: {
+  message: Message;
+  currentTutorId: number;
+}) {
+  const [showPopover, setShowPopover] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Only show for sender's own messages
+  if (message.from_tutor_id !== currentTutorId) {
+    return null;
+  }
+
+  const readReceipts = message.read_receipts || [];
+  const readCount = readReceipts.length;
+  const totalRecipients = message.total_recipients || 0;
+  const readByAll = message.read_by_all || false;
+  const hasBeenRead = readCount > 0;
+
+  // Determine checkmark color and style
+  // Gray single check = sent (no one read)
+  // Gray double check = read by some (for broadcasts)
+  // Blue double check = read by all / read by recipient
+  const isBlue = readByAll;
+  const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-500";
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        onClick={() => setShowPopover(!showPopover)}
+        className={cn(
+          "flex items-center gap-0.5 text-xs transition-colors hover:opacity-80",
+          checkColor
+        )}
+        title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
+      >
+        {/* Double checkmark SVG for read, single for sent */}
+        {hasBeenRead ? (
+          <svg
+            viewBox="0 0 16 11"
+            width="16"
+            height="11"
+            className={checkColor}
+            fill="currentColor"
+          >
+            {/* Double checkmark */}
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+            <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 12 11"
+            width="12"
+            height="11"
+            className={checkColor}
+            fill="currentColor"
+          >
+            {/* Single checkmark */}
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+          </svg>
+        )}
+      </button>
+
+      {/* Popover showing who read the message */}
+      {showPopover && hasBeenRead && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowPopover(false)}
+          />
+          {/* Popover content */}
+          <div
+            ref={popoverRef}
+            className="absolute bottom-full right-0 mb-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+          >
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {readReceipts.map((receipt) => (
+                <div
+                  key={receipt.tutor_id}
+                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Check className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {receipt.tutor_name}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(receipt.read_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+});
+
 // Thread Detail Panel Component - memoized to prevent unnecessary re-renders
 const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   thread,
@@ -851,6 +964,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   {m.updated_at && (
                     <span className="text-gray-400 dark:text-gray-500 italic">(edited)</span>
                   )}
+                  <SeenBadge message={m} currentTutorId={currentTutorId} />
                 </span>
               </div>
 
