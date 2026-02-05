@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,22 +14,24 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
 import { useTutors } from "@/lib/hooks";
-import { sessionsAPI } from "@/lib/api";
+import { sessionsAPI, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Session } from "@/types";
+import type { Session, ExtensionRequestDetail } from "@/types";
 import type { ActionConfig } from "@/lib/actions/types";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { RateSessionModal } from "@/components/sessions/RateSessionModal";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import { ExtensionRequestModal } from "@/components/sessions/ExtensionRequestModal";
+import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequestReviewModal";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 
 // Muted dusty chalk palette (top-down view colors)
@@ -187,9 +189,14 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [confirmCancelMakeup, setConfirmCancelMakeup] = useState(false);
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  // Extension request viewing state
+  const [extensionRequestToView, setExtensionRequestToView] = useState<ExtensionRequestDetail | null>(null);
+  const [isExtensionReviewModalOpen, setIsExtensionReviewModalOpen] = useState(false);
+  const [isLoadingExtensionView, setIsLoadingExtensionView] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
+  const { user, effectiveRole } = useAuth();
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Get tutor name by email, fallback to username from email
   const getTutorName = (email?: string): string | undefined => {
@@ -385,6 +392,21 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
       onAction(action.id, action);
     }
   };
+
+  // Handler to view existing extension request
+  const handleViewExtensionRequest = useCallback(async () => {
+    if (!session.extension_request_id) return;
+    setIsLoadingExtensionView(true);
+    try {
+      const detail = await extensionRequestsAPI.getById(session.extension_request_id);
+      setExtensionRequestToView(detail);
+      setIsExtensionReviewModalOpen(true);
+    } catch {
+      showToast("Failed to load extension request", "error");
+    } finally {
+      setIsLoadingExtensionView(false);
+    }
+  }, [session.extension_request_id, showToast]);
 
   const handleCancelMakeup = async () => {
     setLoadingAction('cancel-makeup');
@@ -881,24 +903,30 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
               {session.extension_request_id && (
                 <>
                   <span className="text-white/50">•</span>
-                  <motion.div
+                  <motion.button
+                    onClick={handleViewExtensionRequest}
+                    disabled={isLoadingExtensionView}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.5, duration: 0.25, ease: [0.38, 1.21, 0.22, 1.00] }}
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity",
                       session.extension_request_status === "Pending"
                         ? "bg-amber-500/80 text-white"
                         : session.extension_request_status === "Approved"
                         ? "bg-green-500/80 text-white"
                         : "bg-red-500/80 text-white"
                     )}
-                    title={`Extension Request: ${session.extension_request_status}`}
+                    title={`Extension Request: ${session.extension_request_status} (click to view)`}
                   >
-                    <Clock className="h-3 w-3" />
+                    {isLoadingExtensionView ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Clock className="h-3 w-3" />
+                    )}
                     <span className="hidden sm:inline">Extension {session.extension_request_status}</span>
                     <span className="sm:hidden">{session.extension_request_status}</span>
-                  </motion.div>
+                  </motion.button>
                 </>
               )}
             </motion.div>
@@ -1043,7 +1071,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         />
       )}
 
-      {/* Extension Request Modal */}
+      {/* Extension Request Modal (for creating new requests) */}
       {isExtensionModalOpen && session.tutor_id && (
         <ExtensionRequestModal
           session={session}
@@ -1055,6 +1083,26 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
           }}
           tutorId={session.tutor_id}
           isProactive={true}
+        />
+      )}
+
+      {/* Extension Request Review Modal (for viewing/approving existing requests) */}
+      {isExtensionReviewModalOpen && extensionRequestToView && (
+        <ExtensionRequestReviewModal
+          request={extensionRequestToView}
+          isOpen={true}
+          onClose={() => {
+            setIsExtensionReviewModalOpen(false);
+            setExtensionRequestToView(null);
+          }}
+          onApproved={() => {
+            updateSessionInCache({ ...session, extension_request_status: "Approved" });
+          }}
+          onRejected={() => {
+            updateSessionInCache({ ...session, extension_request_status: "Rejected" });
+          }}
+          adminTutorId={user?.id ?? 0}
+          readOnly={!isAdmin}
         />
       )}
 

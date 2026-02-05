@@ -99,6 +99,8 @@ export interface Student {
   lang_stream?: string;
   home_location?: string;
   academic_stream?: string;
+  is_staff_referral?: boolean;
+  staff_referral_notes?: string;
   enrollment_count?: number;
   enrollments?: Enrollment[];
 }

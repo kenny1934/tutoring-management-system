@@ -2351,18 +2351,18 @@ export function ScheduleMakeupModal({
       />
 
       {/* Extension Request Modal */}
-      {deadlineError && proposerTutorId && (
+      {(deadlineError || (currentEnrollment && effectiveEndDate)) && (proposerTutorId || session.tutor_id) && (
         <ExtensionRequestModal
           session={session}
-          enrollmentId={deadlineError.enrollment_id}
-          effectiveEndDate={deadlineError.effective_end_date}
+          enrollmentId={deadlineError?.enrollment_id ?? currentEnrollment?.id!}
+          effectiveEndDate={deadlineError?.effective_end_date ?? effectiveEndDate!}
           isOpen={showExtensionModal}
           onClose={() => setShowExtensionModal(false)}
           onRequestSubmitted={() => {
             setShowExtensionModal(false);
             showToast("Extension request submitted. You'll be notified when reviewed.", "success");
           }}
-          tutorId={proposerTutorId}
+          tutorId={(proposerTutorId || session.tutor_id)!}
         />
       )}
     </Modal>

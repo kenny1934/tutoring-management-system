@@ -22,6 +22,8 @@ class StudentBase(BaseModel):
     lang_stream: Optional[str] = Field(None, max_length=50)
     home_location: Optional[str] = Field(None, max_length=200)
     academic_stream: Optional[str] = Field(None, max_length=50)
+    is_staff_referral: Optional[bool] = Field(False, description="TRUE if student is staff relative (unlimited $500 discount)")
+    staff_referral_notes: Optional[str] = Field(None, max_length=1000, description="Which staff member, relationship, etc.")
 
 
 class StudentResponse(StudentBase):
@@ -47,6 +49,8 @@ class StudentUpdate(BaseModel):
     grade: Optional[str] = Field(None, max_length=20)
     lang_stream: Optional[str] = Field(None, max_length=50)
     academic_stream: Optional[str] = Field(None, max_length=50)
+    is_staff_referral: Optional[bool] = None
+    staff_referral_notes: Optional[str] = Field(None, max_length=1000)
 
 
 class StudentCreate(StudentBase):
@@ -165,6 +169,7 @@ class EnrollmentUpdate(BaseModel):
     payment_status: Optional[str] = Field(None, max_length=50)
     enrollment_type: Optional[str] = Field(None, max_length=50)
     fee_message_sent: Optional[bool] = None
+    discount_id: Optional[int] = Field(None, gt=0)
 
 
 class EnrollmentExtensionUpdate(BaseModel):

@@ -170,6 +170,8 @@ export interface CreateEnrollmentModalProps {
   convertFromTrial?: TrialListItem;
   /** Pre-fill student (skips student search) - used from student detail page */
   prefillStudent?: Student;
+  /** Pre-fill tutor ID - used from student detail page to carry over from latest enrollment */
+  prefillTutorId?: number | null;
 }
 
 export function CreateEnrollmentModal({
@@ -181,6 +183,7 @@ export function CreateEnrollmentModal({
   trialMode = false,
   convertFromTrial,
   prefillStudent,
+  prefillTutorId,
 }: CreateEnrollmentModalProps) {
   const { selectedLocation } = useLocation();
   const { showToast, showError } = useToast();
@@ -305,6 +308,13 @@ export function CreateEnrollmentModal({
     }
   }, [prefillStudent, isOpen, convertFromTrial, renewFromId]);
 
+  // Pre-fill tutor from props (used from student detail page to carry over from latest enrollment)
+  useEffect(() => {
+    if (prefillTutorId && isOpen && !convertFromTrial && !renewFromId) {
+      setTutorId(prefillTutorId);
+    }
+  }, [prefillTutorId, isOpen, convertFromTrial, renewFromId]);
+
   // Pre-fill form when converting trial to regular
   useEffect(() => {
     if (convertFromTrial && isOpen) {
@@ -343,22 +353,34 @@ export function CreateEnrollmentModal({
     }
   }, [convertFromTrial, isOpen, discounts]);
 
-  // Auto-select first tutor from location (only if not renewing/converting and no tutor selected)
+  // Auto-select first tutor from location (only if not renewing/converting/prefilling and no tutor selected)
   useEffect(() => {
-    if (!renewFromId && !convertFromTrial && !tutorId && tutors.length > 0 && location && isOpen) {
+    if (!renewFromId && !convertFromTrial && !prefillTutorId && !tutorId && tutors.length > 0 && location && isOpen) {
       const newLocationTutors = tutors.filter((t) => t.default_location === location);
       if (newLocationTutors.length > 0) {
         setTutorId(newLocationTutors[0].id);
       }
     }
-  }, [renewFromId, convertFromTrial, tutorId, tutors, location, isOpen]);
+  }, [renewFromId, convertFromTrial, prefillTutorId, tutorId, tutors, location, isOpen]);
 
-  // Auto-select discount when student has available coupons (student_coupons table is source of truth)
+  // Auto-select discount based on student status (staff referral > student coupon)
   // Skip if converting from trial (uses special $150 trial discount instead)
   useEffect(() => {
     if (!student || !isOpen || convertFromTrial || discounts.length === 0) return;
 
-    // Check if student has available coupons
+    // Priority 1: Staff Referral ($500 discount)
+    if (student.is_staff_referral) {
+      const staffDiscount = discounts.find(
+        (d) => d.discount_name.toLowerCase().includes('staff') ||
+          (d.discount_value && Math.abs(Number(d.discount_value) - 500) < 0.01)
+      );
+      if (staffDiscount) {
+        setDiscountId(staffDiscount.id);
+        return; // Staff referral takes priority, don't check coupons
+      }
+    }
+
+    // Priority 2: Check if student has available coupons
     studentsAPI.getCoupon(student.id).then((couponData) => {
       if (couponData.has_coupon && couponData.value) {
         // Find a discount matching the coupon value
@@ -372,7 +394,7 @@ export function CreateEnrollmentModal({
     }).catch(() => {
       // Silently fail if coupon check fails
     });
-  }, [student?.id, isOpen, convertFromTrial, discounts]);
+  }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts]);
 
   // Reset tutor when location changes if current tutor is not from new location
   useEffect(() => {
