@@ -2024,7 +2024,7 @@ function CoursewareTab({
                 </div>
 
                 {/* Exercises in this session */}
-                <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                   {exercises.map((exercise, index) => {
                     const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
 
@@ -2079,7 +2079,7 @@ function CoursewareTab({
               </div>
 
               {/* Instances of this PDF */}
-              <div className="space-y-1 pl-3 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="space-y-1 pl-5 border-l-2 border-[#e8d4b8] dark:border-[#6b5a4a]">
                 {exercises.map((exercise, index) => {
                   const sessionDate = new Date(exercise.session_date + 'T00:00:00');
 
