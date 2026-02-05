@@ -1214,11 +1214,13 @@ function getUpcomingSessions(sessions: Session[]): Session[] {
 function CopyLessonDatesButton({
   sessions,
   showToast,
-  label = "Copy dates",
+  label = "Copy upcoming",
+  inEnrollment = false,
 }: {
   sessions: Session[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   label?: string;
+  inEnrollment?: boolean;
 }) {
   const [dateFormat, setDateFormat] = useState<DateFormat>('compact');
   const [isOpen, setIsOpen] = useState(false);
@@ -1240,19 +1242,21 @@ function CopyLessonDatesButton({
 
   const upcomingSessions = useMemo(() => getUpcomingSessions(sessions), [sessions]);
 
-  const handleCopy = async () => {
+  const handleCopy = async (format: DateFormat = dateFormat) => {
     if (upcomingSessions.length === 0) {
       showToast('No upcoming lessons to copy', 'info');
       return;
     }
 
     const formattedDates = upcomingSessions
-      .map(session => formatSessionDate(session, dateFormat))
+      .map(session => formatSessionDate(session, format))
       .join('\n');
 
     try {
       await navigator.clipboard.writeText(formattedDates);
       setCopied(true);
+      setDateFormat(format); // Remember the last used format
+      setIsOpen(false); // Close dropdown
       showToast(`Copied ${upcomingSessions.length} lesson${upcomingSessions.length !== 1 ? 's' : ''} to clipboard`, 'success');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -1266,27 +1270,27 @@ function CopyLessonDatesButton({
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div className="flex items-center">
+      <div className="flex items-stretch">
         <button
-          onClick={handleCopy}
+          onClick={() => handleCopy()}
           className={cn(
-            "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-md transition-colors",
+            "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-l-full transition-colors",
             "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
             "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
           )}
-          title={`Copy ${upcomingSessions.length} upcoming lesson dates`}
+          title={`Copy ${upcomingSessions.length} upcoming lesson date${upcomingSessions.length !== 1 ? 's' : ''}${inEnrollment ? ' in this enrollment' : ''}`}
         >
           {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-          <span>{label}</span>
-          <span className="text-[10px] px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+          <span className="hidden sm:inline">{label}</span>
+          <span className="text-[10px] px-1 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
             {upcomingSessions.length}
           </span>
         </button>
         <button
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "flex items-center px-1.5 py-1.5 text-xs rounded-r-md transition-colors border-l-0",
+            "flex items-center px-2 text-xs rounded-r-full transition-colors border-l-0",
             "bg-[#f5ede3] dark:bg-[#2d2820] border border-[#e8d4b8] dark:border-[#6b5a4a]",
             "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
             "hover:bg-[#f0e6d8] dark:hover:bg-[#3a342a]"
@@ -1297,27 +1301,33 @@ function CopyLessonDatesButton({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 z-50 min-w-[160px] rounded-md shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
-          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Format</div>
+        <div className="absolute right-0 mt-1 z-50 min-w-[180px] rounded-lg shadow-lg bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] py-1">
+          <div className="px-2 py-1 text-[10px] text-gray-400 uppercase tracking-wider">Copy as</div>
           <button
-            onClick={() => { setDateFormat('compact'); setIsOpen(false); }}
+            onClick={() => handleCopy('compact')}
             className={cn(
               "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
               dateFormat === 'compact' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
             )}
           >
-            <div className="font-medium">Compact</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">15/2 (Sat) 09:00-10:00</div>
+            <div className="font-medium flex items-center gap-1.5">
+              <Copy className="h-3 w-3" />
+              Compact
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">15/2 (Sat) 09:00-10:00</div>
           </button>
           <button
-            onClick={() => { setDateFormat('detailed'); setIsOpen(false); }}
+            onClick={() => handleCopy('detailed')}
             className={cn(
               "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors",
               dateFormat === 'detailed' && "bg-[#f5ede3] dark:bg-[#2d2820] text-[#a0704b]"
             )}
           >
-            <div className="font-medium">Detailed</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">Feb 15, 2026 (Saturday) 09:00 - 10:00</div>
+            <div className="font-medium flex items-center gap-1.5">
+              <Copy className="h-3 w-3" />
+              Detailed
+            </div>
+            <div className="text-[10px] text-gray-400 mt-0.5 pl-4.5">Feb 15, 2026 (Saturday) 09:00 - 10:00</div>
           </button>
         </div>
       )}
@@ -1558,7 +1568,7 @@ function SessionsTab({
           <CopyLessonDatesButton
             sessions={sessions}
             showToast={showToast}
-            label="Copy all"
+            label="Copy upcoming"
           />
 
           {/* Sort Order Toggle (shown in both modes) */}
@@ -1628,7 +1638,8 @@ function SessionsTab({
                   <CopyLessonDatesButton
                     sessions={enrollmentSessions}
                     showToast={showToast}
-                    label="Copy"
+                    label="Copy upcoming"
+                    inEnrollment
                   />
                 </div>
 
