@@ -314,6 +314,8 @@ export interface Session {
   grade?: string;
   lang_stream?: string;
   school?: string;
+  last_modified_time?: string;
+  last_modified_by?: string;
   previous_session_status?: string;
   undone_from_status?: string;  // Only set in undo response for redo toast
   rescheduled_to_id?: number;
@@ -357,6 +359,7 @@ export interface ActivityEvent {
   description?: string;
   timestamp: string;
   link?: string;
+  modified_by?: string;
 }
 
 // API response types

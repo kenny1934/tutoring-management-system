@@ -127,6 +127,24 @@ const formatDate = (date: Date): string => {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+// Format full timestamp for tooltip
+const formatFullTimestamp = (date: Date): string => {
+  return date.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+};
+
+// Extract username from email
+const extractUsername = (email?: string): string | undefined => {
+  if (!email) return undefined;
+  return email.includes('@') ? email.split('@')[0] : email;
+};
+
 interface ActivityFeedProps {
   className?: string;
   isMobile?: boolean;
@@ -286,8 +304,16 @@ export function ActivityFeed({ className, isMobile = false, tutorId }: ActivityF
                           )}
                         </div>
 
-                        {/* Right: Time */}
-                        <span className="flex-shrink-0 text-[10px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                        {/* Right: Modified by + Time */}
+                        <span
+                          className="flex-shrink-0 text-[10px] font-mono text-gray-400 dark:text-gray-500 whitespace-nowrap"
+                          title={formatFullTimestamp(event.time)}
+                        >
+                          {!isMobile && event.modified_by && (
+                            <span className="text-gray-500 dark:text-gray-400 mr-1">
+                              {extractUsername(event.modified_by)}
+                            </span>
+                          )}
                           {formatTime(event.time)}
                         </span>
                       </div>

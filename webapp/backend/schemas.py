@@ -441,6 +441,7 @@ class SessionResponse(SessionBase):
     performance_rating: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)
     last_modified_time: Optional[datetime] = None
+    last_modified_by: Optional[str] = Field(None, max_length=255)
     previous_session_status: Optional[str] = Field(None, max_length=100)
     rescheduled_to_id: Optional[int] = Field(None, gt=0)
     make_up_for_id: Optional[int] = Field(None, gt=0)
@@ -700,6 +701,7 @@ class ActivityEvent(BaseModel):
     description: Optional[str] = Field(None, max_length=200)
     timestamp: datetime
     link: Optional[str] = Field(None, max_length=200)
+    modified_by: Optional[str] = Field(None, max_length=255, description="User who triggered this activity")
 
 
 # ============================================

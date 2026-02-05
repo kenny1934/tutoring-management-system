@@ -172,9 +172,39 @@ interface ChalkboardHeaderProps {
   loadingActionId?: string | null;
 }
 
+// Helper to format the "last modified by" tooltip
+function formatModifiedByTooltip(modifiedBy?: string, modifiedTime?: string): string | undefined {
+  if (!modifiedBy && !modifiedTime) return undefined;
+
+  const parts: string[] = [];
+
+  if (modifiedBy) {
+    // Extract username from email (before @)
+    const username = modifiedBy.includes('@')
+      ? modifiedBy.split('@')[0]
+      : modifiedBy;
+    parts.push(`Modified by ${username}`);
+  }
+
+  if (modifiedTime) {
+    const date = new Date(modifiedTime);
+    const formatted = date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    parts.push(modifiedBy ? `at ${formatted}` : `Modified at ${formatted}`);
+  }
+
+  return parts.join(' ');
+}
+
 export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }: ChalkboardHeaderProps) {
   const displayStatus = getDisplayStatus(session);
   const statusConfig = getSessionStatusConfig(displayStatus);
+  const statusTooltip = formatModifiedByTooltip(session.last_modified_by, session.last_modified_time);
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
@@ -897,6 +927,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                   statusConfig.bgClass
                 )}
                 aria-label={`Status: ${displayStatus}`}
+                title={statusTooltip}
               >
                 {isAnyStatusLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -944,6 +975,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                     transition: 'all 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)',
                     letterSpacing: '0.02em',
                   }}
+                  title={statusTooltip}
                 >
                   {isAnyStatusLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
