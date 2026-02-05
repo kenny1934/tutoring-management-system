@@ -88,6 +88,28 @@ class TutorResponse(TutorBase):
 
 
 # ============================================
+# Discount Schemas
+# ============================================
+
+class DiscountResponse(BaseModel):
+    """Discount response for API"""
+    id: int
+    discount_name: str
+    discount_type: Optional[str] = None
+    discount_value: Optional[Decimal] = None
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StudentCouponResponse(BaseModel):
+    """Student coupon availability check response"""
+    has_coupon: bool
+    available: Optional[int] = None
+    value: Optional[Decimal] = None
+
+
+# ============================================
 # Enrollment Schemas
 # ============================================
 

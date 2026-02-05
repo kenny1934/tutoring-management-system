@@ -22,11 +22,13 @@ import useSWR from "swr";
 import {
   enrollmentsAPI,
   studentsAPI,
+  discountsAPI,
   EnrollmentCreate,
   EnrollmentPreviewResponse,
   RenewalDataResponse,
   TrialListItem,
 } from "@/lib/api";
+import type { Discount } from "@/types";
 import { useTutors, useCacheInvalidation } from "@/lib/hooks";
 import { formatProposalDate, formatShortDate } from "@/lib/formatters";
 import { WEEKDAY_TIME_SLOTS, WEEKEND_TIME_SLOTS, DAY_NAMES } from "@/lib/constants";
@@ -193,6 +195,7 @@ export function CreateEnrollmentModal({
   const [firstLessonDate, setFirstLessonDate] = useState<string>("");
   const [lessonsPaid, setLessonsPaid] = useState<number>(6);
   const [enrollmentType, setEnrollmentType] = useState<string>("Regular");
+  const [discountId, setDiscountId] = useState<number | null>(null);
 
   // Custom time state
   const [useCustomTime, setUseCustomTime] = useState(false);
@@ -213,6 +216,12 @@ export function CreateEnrollmentModal({
 
   // Fetch tutors
   const { data: tutors = [] } = useTutors();
+
+  // Fetch discounts
+  const { data: discounts = [] } = useSWR<Discount[]>(
+    isOpen ? 'discounts' : null,
+    () => discountsAPI.getAll()
+  );
 
   // Fetch renewal data if renewing
   const { data: renewalData, isLoading: renewalLoading } = useSWR<RenewalDataResponse>(
@@ -252,6 +261,7 @@ export function CreateEnrollmentModal({
       setFirstLessonDate("");
       setLessonsPaid(6);
       setEnrollmentType("Regular");
+      setDiscountId(null);
       setUseCustomTime(false);
       setCustomTimeStart("");
       setCustomTimeEnd("");
@@ -284,6 +294,7 @@ export function CreateEnrollmentModal({
       setFirstLessonDate(renewalData.suggested_first_lesson_date);
       setLessonsPaid(renewalData.previous_lessons_paid);
       setEnrollmentType(renewalData.enrollment_type);
+      // Note: discount is NOT prefilled from renewal - always check student coupons instead
     }
   }, [renewalData, isOpen]);
 
@@ -313,8 +324,24 @@ export function CreateEnrollmentModal({
       // Set as Regular enrollment
       setEnrollmentType("Regular");
       setLessonsPaid(6);
+      // Link as renewal from the trial enrollment
+      setSelectedRenewalLinkId(convertFromTrial.enrollment_id);
     }
   }, [convertFromTrial, isOpen]);
+
+  // Auto-select trial discount ($150) when converting from trial
+  useEffect(() => {
+    if (!convertFromTrial || !isOpen || discounts.length === 0) return;
+
+    // Find the "Trial to Enrollment" discount ($150)
+    const trialDiscount = discounts.find(
+      (d) => d.discount_name.toLowerCase().includes('trial') ||
+        (d.discount_value && Math.abs(Number(d.discount_value) - 150) < 0.01)
+    );
+    if (trialDiscount) {
+      setDiscountId(trialDiscount.id);
+    }
+  }, [convertFromTrial, isOpen, discounts]);
 
   // Auto-select first tutor from location (only if not renewing/converting and no tutor selected)
   useEffect(() => {
@@ -324,7 +351,28 @@ export function CreateEnrollmentModal({
         setTutorId(newLocationTutors[0].id);
       }
     }
-  }, [renewFromId, tutorId, tutors, location, isOpen]);
+  }, [renewFromId, convertFromTrial, tutorId, tutors, location, isOpen]);
+
+  // Auto-select discount when student has available coupons (student_coupons table is source of truth)
+  // Skip if converting from trial (uses special $150 trial discount instead)
+  useEffect(() => {
+    if (!student || !isOpen || convertFromTrial || discounts.length === 0) return;
+
+    // Check if student has available coupons
+    studentsAPI.getCoupon(student.id).then((couponData) => {
+      if (couponData.has_coupon && couponData.value) {
+        // Find a discount matching the coupon value
+        const matchingDiscount = discounts.find(
+          (d) => d.discount_value && Math.abs(Number(d.discount_value) - Number(couponData.value)) < 0.01
+        );
+        if (matchingDiscount) {
+          setDiscountId(matchingDiscount.id);
+        }
+      }
+    }).catch(() => {
+      // Silently fail if coupon check fails
+    });
+  }, [student?.id, isOpen, convertFromTrial, discounts]);
 
   // Reset tutor when location changes if current tutor is not from new location
   useEffect(() => {
@@ -355,8 +403,9 @@ export function CreateEnrollmentModal({
       lessons_paid: lessonsPaid,
       enrollment_type: enrollmentType,
       renewed_from_enrollment_id: effectiveRenewalLinkId,
+      discount_id: discountId || undefined,
     };
-  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, useCustomTime, isCustomTimeValid]);
+  }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, discountId, useCustomTime, isCustomTimeValid]);
 
   // Check if first lesson date matches selected day of week
   const dayMismatchWarning = useMemo(() => {
@@ -722,6 +771,26 @@ export function CreateEnrollmentModal({
               onChange={(e) => setLessonsPaid(parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
+          </div>
+
+          {/* Discount */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Discount</label>
+            <div className="relative">
+              <select
+                value={discountId || ""}
+                onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+              >
+                <option value="">No discount</option>
+                {discounts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.discount_name}{d.discount_value ? ` ($${d.discount_value})` : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
+            </div>
           </div>
 
           {/* Enrollment Type - hidden when in trial mode or converting from trial */}

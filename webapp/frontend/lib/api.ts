@@ -2,6 +2,8 @@ import type {
   Tutor,
   Student,
   StudentCreate,
+  Discount,
+  StudentCouponResponse,
   Enrollment,
   EnrollmentCreate,
   Session,
@@ -329,6 +331,17 @@ export const studentsAPI = {
     const params = new URLSearchParams({ student_name: studentName, location });
     if (phone) params.append("phone", phone);
     return fetchAPI<CheckDuplicatesResponse>(`/students/check-duplicates?${params}`);
+  },
+
+  getCoupon: (studentId: number) => {
+    return fetchAPI<StudentCouponResponse>(`/students/${studentId}/coupon`);
+  },
+};
+
+// Discounts API
+export const discountsAPI = {
+  getAll: () => {
+    return fetchAPI<Discount[]>('/discounts');
   },
 };
 
@@ -1658,4 +1671,5 @@ export const api = {
   extensionRequests: extensionRequestsAPI,
   examRevision: examRevisionAPI,
   debug: debugAPI,
+  discounts: discountsAPI,
 };
