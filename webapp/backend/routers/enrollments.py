@@ -71,7 +71,7 @@ def generate_session_dates(
         if holiday_name:
             # Record skipped holiday
             skipped_holidays.append({
-                'date': current_date,
+                'date': current_date.isoformat(),
                 'name': holiday_name
             })
             # Add to sessions list as skipped

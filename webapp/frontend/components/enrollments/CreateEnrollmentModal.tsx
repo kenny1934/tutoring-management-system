@@ -316,9 +316,9 @@ export function CreateEnrollmentModal({
     }
   }, [convertFromTrial, isOpen]);
 
-  // Auto-select first tutor from location (only if not renewing and no tutor selected)
+  // Auto-select first tutor from location (only if not renewing/converting and no tutor selected)
   useEffect(() => {
-    if (!renewFromId && !tutorId && tutors.length > 0 && location && isOpen) {
+    if (!renewFromId && !convertFromTrial && !tutorId && tutors.length > 0 && location && isOpen) {
       const newLocationTutors = tutors.filter((t) => t.default_location === location);
       if (newLocationTutors.length > 0) {
         setTutorId(newLocationTutors[0].id);
