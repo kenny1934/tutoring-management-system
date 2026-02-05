@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getSessionStatusConfig, getDisplayStatus } from "@/lib/session-status";
 import { sessionActions } from "@/lib/actions";
+import { useTutors } from "@/lib/hooks";
 import { sessionsAPI, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache, removeSessionFromCache } from "@/lib/session-cache";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -177,6 +178,7 @@ interface ChalkboardHeaderProps {
 export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }: ChalkboardHeaderProps) {
   const displayStatus = getDisplayStatus(session);
   const statusConfig = getSessionStatusConfig(displayStatus);
+  const { data: tutors } = useTutors();
   const [showAcademicInfo, setShowAcademicInfo] = useState(false);
   const [showMobileStatus, setShowMobileStatus] = useState(false);
   const [popoverAlign, setPopoverAlign] = useState<'left' | 'center' | 'right'>('left');
@@ -195,6 +197,44 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const { showToast } = useToast();
   const { user, effectiveRole } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+
+  // Get tutor name by email, fallback to username from email
+  const getTutorName = (email?: string): string | undefined => {
+    if (!email) return undefined;
+    if (tutors) {
+      const tutor = tutors.find(t => t.user_email === email);
+      if (tutor) return tutor.tutor_name;
+    }
+    // Fallback to username from email
+    return email.includes('@') ? email.split('@')[0] : email;
+  };
+
+  // Generate "Attendance Marked by" tooltip with tutor name lookup
+  const statusTooltip = useMemo(() => {
+    if (!session.last_modified_by && !session.last_modified_time) return undefined;
+
+    const parts: string[] = [];
+
+    if (session.last_modified_by) {
+      const name = getTutorName(session.last_modified_by);
+      parts.push(`Attendance Marked by ${name}`);
+    }
+
+    if (session.last_modified_time) {
+      const date = new Date(session.last_modified_time);
+      const formatted = date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      parts.push(session.last_modified_by ? `at ${formatted}` : `Attendance Marked at ${formatted}`);
+    }
+
+    return parts.join(' ');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.last_modified_by, session.last_modified_time, tutors]);
 
   // Combine external loadingActionId with internal loadingAction
   const effectiveLoadingAction = loadingActionId || loadingAction;
@@ -925,6 +965,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                   statusConfig.bgClass
                 )}
                 aria-label={`Status: ${displayStatus}`}
+                title={statusTooltip}
               >
                 {isAnyStatusLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -972,6 +1013,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
                     transition: 'all 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)',
                     letterSpacing: '0.02em',
                   }}
+                  title={statusTooltip}
                 >
                   {isAnyStatusLoading ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
