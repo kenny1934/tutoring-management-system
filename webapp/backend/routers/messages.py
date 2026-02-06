@@ -323,6 +323,12 @@ async def get_message_threads(
         MessageArchive.tutor_id == tutor_id
     ).subquery()
 
+    # Subquery: root message IDs that have replies from other tutors
+    has_replies_subq = db.query(TutorMessage.reply_to_id).filter(
+        TutorMessage.reply_to_id.isnot(None),
+        TutorMessage.from_tutor_id != tutor_id
+    ).subquery()
+
     # Base query for root messages (excluding archived)
     base_query = (
         db.query(TutorMessage)
@@ -333,6 +339,7 @@ async def get_message_threads(
             or_(
                 TutorMessage.to_tutor_id == tutor_id,      # Direct messages to me
                 TutorMessage.to_tutor_id.is_(None),        # Broadcasts
+                TutorMessage.id.in_(has_replies_subq),     # Threads I started with replies
             )
         )
     )
