@@ -24,6 +24,9 @@ from auth.dependencies import require_admin, get_current_user
 
 router = APIRouter()
 
+# Grace period: students remain in "active" lists for this many days after enrollment expires
+ACTIVE_GRACE_PERIOD_DAYS = 21
+
 
 # ============================================
 # Session Generation Helpers
@@ -1016,8 +1019,8 @@ async def get_active_enrollments(
         if latest.first_lesson_date:
             effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
-            # Only include if still active
-            if effective_end_date and effective_end_date >= today:
+            # Only include if still active (with grace period)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
                 latest_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
@@ -1187,8 +1190,8 @@ async def get_my_students(
         if latest.first_lesson_date:
             effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
-            # Only include if still active
-            if effective_end_date and effective_end_date >= today:
+            # Only include if still active (with grace period)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
                 active_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)

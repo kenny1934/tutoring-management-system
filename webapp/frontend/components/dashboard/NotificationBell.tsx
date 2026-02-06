@@ -7,7 +7,7 @@ import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUn
 import { useRole } from "@/contexts/RoleContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -117,7 +117,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     if (contactNeeded?.count && contactNeeded.count > 0) {
       items.push({
         id: "parent-contact",
-        icon: <Users className="h-4 w-4" />,
+        icon: <Phone className="h-4 w-4" />,
         label: "Parent Contact Needed",
         count: contactNeeded.count,
         severity: "warning",
