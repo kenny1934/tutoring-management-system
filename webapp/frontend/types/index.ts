@@ -575,7 +575,20 @@ export interface TerminationStatsResponse {
 export interface QuarterOption {
   quarter: number;
   year: number;
-  count: number;
+}
+
+export interface StatDetailStudent {
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  tutor_name: string | null;
+  grade: string | null;
+  school: string | null;
+  lang_stream: string | null;
+  home_location: string | null;
+  enrollment_id: number | null;
+  assigned_day: string | null;
+  assigned_time: string | null;
 }
 
 // Overdue enrollment types
