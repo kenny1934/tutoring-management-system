@@ -1269,6 +1269,7 @@ export interface TrialListItem {
   payment_status: string;
   trial_status: 'scheduled' | 'attended' | 'no_show' | 'converted' | 'pending';
   subsequent_enrollment_id?: number;
+  subsequent_payment_status?: string;
   created_at: string;
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,8 @@ import { enrollmentsAPI, TrialListItem } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { CreateEnrollmentModal } from "@/components/enrollments/CreateEnrollmentModal";
+import { EnrollmentDetailModal } from "@/components/enrollments/EnrollmentDetailModal";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
   FlaskConical,
   ChevronDown,
@@ -202,6 +204,18 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
   const [contactStudentId, setContactStudentId] = useState<number | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [convertFromTrial, setConvertFromTrial] = useState<TrialListItem | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
+  const [modalTabView, setModalTabView] = useState<'detail' | 'create'>('detail');
+
+  // Track screen size for responsive modal layout
+  const [isLargeScreen, setIsLargeScreen] = useState(true);
+  useEffect(() => {
+    const checkScreenSize = () => setIsLargeScreen(window.innerWidth >= 1024);
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   // Fetch trials
   const { data: trials = [], isLoading } = useSWR(
@@ -260,8 +274,24 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
 
   const handleConvert = (trial: TrialListItem) => {
     setConvertFromTrial(trial);
+    setSelectedEnrollmentId(trial.enrollment_id);
+    setDetailModalOpen(true);
     setCreateModalOpen(true);
     setIsOpen(false);
+    if (!isLargeScreen) {
+      setModalTabView('create');
+    }
+  };
+
+  const handleConvertCloseAll = () => {
+    setDetailModalOpen(false);
+    setSelectedEnrollmentId(null);
+    setCreateModalOpen(false);
+    setConvertFromTrial(null);
+  };
+
+  const handleConvertSuccess = () => {
+    handleConvertCloseAll();
   };
 
   // Floating UI
@@ -418,15 +448,123 @@ export function TrialsQuickLink({ className }: TrialsQuickLinkProps) {
         currentUserRole={effectiveRole as "Tutor" | "Admin" | "Super Admin"}
       />
 
-      {/* Create Enrollment Modal (for conversion) */}
-      <CreateEnrollmentModal
-        isOpen={createModalOpen}
-        onClose={() => {
-          setCreateModalOpen(false);
-          setConvertFromTrial(null);
-        }}
-        convertFromTrial={convertFromTrial || undefined}
-      />
+      {/* Unified modal container - trial detail + create form side-by-side for conversion */}
+      <AnimatePresence mode="wait">
+        {detailModalOpen && (
+          <motion.div
+            key="convert-modal-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+          >
+            {/* Backdrop */}
+            <motion.div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={handleConvertCloseAll}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
+
+            {/* Modal Container */}
+            <div className={cn(
+              "relative flex flex-col",
+              isLargeScreen
+                ? "h-[85vh] max-w-[60rem]"
+                : "h-[90vh] max-w-[32rem] w-full"
+            )}>
+              {/* Tabs for narrow screens */}
+              {!isLargeScreen && createModalOpen && (
+                <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                  <button
+                    onClick={() => setModalTabView('detail')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tl-lg",
+                      modalTabView === 'detail'
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-foreground/60 hover:text-foreground/80"
+                    )}
+                  >
+                    Trial Details
+                  </button>
+                  <button
+                    onClick={() => setModalTabView('create')}
+                    className={cn(
+                      "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tr-lg",
+                      modalTabView === 'create'
+                        ? "text-primary border-b-2 border-primary bg-primary/5"
+                        : "text-foreground/60 hover:text-foreground/80"
+                    )}
+                  >
+                    Convert to Regular
+                  </button>
+                </div>
+              )}
+
+              <LayoutGroup>
+                <motion.div
+                  layout
+                  className={cn(
+                    "relative flex",
+                    isLargeScreen
+                      ? "items-stretch gap-4 h-full"
+                      : "flex-col flex-1 overflow-hidden"
+                  )}
+                >
+                  {/* Detail Modal */}
+                  {(isLargeScreen || !createModalOpen || modalTabView === 'detail') && (
+                    <motion.div
+                      layoutId="trial-detail-modal"
+                      transition={{
+                        layout: { type: "spring", stiffness: 300, damping: 30 }
+                      }}
+                      className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
+                    >
+                      <EnrollmentDetailModal
+                        isOpen={true}
+                        onClose={handleConvertCloseAll}
+                        enrollmentId={selectedEnrollmentId}
+                        compact={isLargeScreen && createModalOpen}
+                        standalone={false}
+                        headerLabel="Trial"
+                      />
+                    </motion.div>
+                  )}
+
+                  {/* Create Form */}
+                  <AnimatePresence mode="popLayout">
+                    {createModalOpen && (isLargeScreen || modalTabView === 'create') && (
+                      <motion.div
+                        key="create-form"
+                        initial={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                        animate={isLargeScreen ? { opacity: 1, x: 0, scale: 1 } : { opacity: 1 }}
+                        exit={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                          delay: isLargeScreen ? 0.05 : 0
+                        }}
+                        className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
+                      >
+                        <CreateEnrollmentModal
+                          isOpen={true}
+                          onClose={handleConvertCloseAll}
+                          onSuccess={handleConvertSuccess}
+                          convertFromTrial={convertFromTrial || undefined}
+                          standalone={false}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </LayoutGroup>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -1278,7 +1278,8 @@ async def get_trials(
             Enrollment.student_id,
             Enrollment.id,
             Enrollment.first_lesson_date,
-            Enrollment.renewed_from_enrollment_id
+            Enrollment.renewed_from_enrollment_id,
+            Enrollment.payment_status
         )
         .filter(
             Enrollment.student_id.in_(student_ids),
@@ -1288,23 +1289,23 @@ async def get_trials(
         .all()
     )
 
-    # Build map: trial_enrollment_id -> subsequent enrollment info
+    # Build map: trial_enrollment_id -> (subsequent_id, subsequent_payment_status)
     # Check both renewed_from_enrollment_id link and date-based
     subsequent_map = {}
-    for student_id, subsequent_id, first_lesson, renewed_from in subsequent_enrollments:
+    for student_id, subsequent_id, first_lesson, renewed_from, sub_payment_status in subsequent_enrollments:
         # If directly linked via renewed_from_enrollment_id
         if renewed_from in enrollment_ids:
-            subsequent_map[renewed_from] = subsequent_id
+            subsequent_map[renewed_from] = (subsequent_id, sub_payment_status)
 
     # Also check by date: find any regular enrollment after the trial for the same student
     trial_dates = {e.id: (e.student_id, e.first_lesson_date) for e, _ in results}
-    for student_id, subsequent_id, first_lesson, _ in subsequent_enrollments:
+    for student_id, subsequent_id, first_lesson, _, sub_payment_status in subsequent_enrollments:
         if first_lesson:
             for trial_id, (trial_student_id, trial_date) in trial_dates.items():
                 if (trial_student_id == student_id and
                     trial_date and first_lesson > trial_date and
                     trial_id not in subsequent_map):
-                    subsequent_map[trial_id] = subsequent_id
+                    subsequent_map[trial_id] = (subsequent_id, sub_payment_status)
 
     # Build result items - deduplicate by enrollment (keep most relevant session)
     # Group sessions by enrollment_id (an enrollment may have multiple sessions if rescheduled)
@@ -1334,7 +1335,9 @@ async def get_trials(
 
         # Derive trial status
         session_status = session.session_status
-        subsequent_id = subsequent_map.get(enrollment.id)
+        subsequent_info = subsequent_map.get(enrollment.id)
+        subsequent_id = subsequent_info[0] if subsequent_info else None
+        subsequent_payment_status = subsequent_info[1] if subsequent_info else None
 
         if subsequent_id:
             trial_status = 'converted'
@@ -1366,6 +1369,7 @@ async def get_trials(
             payment_status=enrollment.payment_status,
             trial_status=trial_status,
             subsequent_enrollment_id=subsequent_id,
+            subsequent_payment_status=subsequent_payment_status,
             created_at=datetime.combine(session.session_date, datetime.min.time())
         ))
 
