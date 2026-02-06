@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
-import { useTutors, usePageTitle, useOverdueEnrollments } from "@/lib/hooks";
+import { useTutors, usePageTitle, useOverdueEnrollments, useDebouncedValue, useFilteredList } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { enrollmentsAPI } from "@/lib/api";
-import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check } from "lucide-react";
+import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { OverdueEnrollment } from "@/types";
@@ -92,6 +92,8 @@ function getUrgencyLevel(daysOverdue: number): UrgencyLevel {
   return 'dueSoon';
 }
 
+const OVERDUE_SEARCH_FIELDS: (keyof OverdueEnrollment)[] = ['student_name', 'school_student_id', 'tutor_name', 'grade'];
+
 export default function OverduePaymentsPage() {
   usePageTitle("Overdue Payments");
 
@@ -105,6 +107,9 @@ export default function OverduePaymentsPage() {
 
   const [selectedTutorId, setSelectedTutorId] = useState<TutorValue>(ALL_TUTORS);
   const [isMobile, setIsMobile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [markingPaidId, setMarkingPaidId] = useState<number | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
@@ -173,7 +178,14 @@ export default function OverduePaymentsPage() {
       new: 10,
       dueSoon: 10,
     });
-  }, [effectiveLocation, effectiveTutorId]);
+  }, [effectiveLocation, effectiveTutorId, debouncedSearch]);
+
+  // Search filter (applied before urgency grouping so counts update)
+  const searchFilteredEnrollments = useFilteredList(
+    overdueEnrollments,
+    debouncedSearch,
+    OVERDUE_SEARCH_FIELDS
+  );
 
   // Group enrollments by urgency level
   const enrollmentsByUrgency = useMemo(() => {
@@ -184,12 +196,12 @@ export default function OverduePaymentsPage() {
       new: [],
       dueSoon: [],
     };
-    for (const enrollment of overdueEnrollments) {
+    for (const enrollment of searchFilteredEnrollments) {
       const level = getUrgencyLevel(enrollment.days_overdue);
       grouped[level].push(enrollment);
     }
     return grouped;
-  }, [overdueEnrollments]);
+  }, [searchFilteredEnrollments]);
 
   // Filter by URL param if present
   const filteredEnrollmentsByUrgency = useMemo(() => {
@@ -262,7 +274,7 @@ export default function OverduePaymentsPage() {
           <div className="flex flex-col gap-3 p-2 sm:p-4">
             {/* Toolbar */}
             <div className={cn(
-              "sticky top-0 z-30 flex flex-wrap items-center gap-2 sm:gap-3",
+              "sticky top-0 z-30",
               "bg-[#fef9f3] dark:bg-[#2d2618] border-2 border-[#d4a574] dark:border-[#8b6f47]",
               "rounded-lg px-3 sm:px-4 py-2",
               !isMobile && "paper-texture"
@@ -311,6 +323,37 @@ export default function OverduePaymentsPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Search input */}
+              <div className="mt-2 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by student, ID, tutor, or grade..."
+                  className={cn(
+                    "w-full pl-9 pr-8 py-1.5 text-sm rounded-lg",
+                    "border border-[#e8d4b8] dark:border-[#6b5a4a]",
+                    "bg-white dark:bg-[#1a1a1a]",
+                    "placeholder-gray-400",
+                    "focus:outline-none focus:ring-1 focus:ring-[#a0704b] dark:focus:ring-[#cd853f]",
+                    "focus:border-[#a0704b] dark:focus:border-[#cd853f]"
+                  )}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-[#3d3628]"
+                  >
+                    <X className="h-4 w-4 text-gray-400" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Main content */}
@@ -348,6 +391,19 @@ export default function OverduePaymentsPage() {
                   <p className="text-muted-foreground">
                     No overdue payments found for the current filters.
                   </p>
+                </StickyNote>
+              ) : searchFilteredEnrollments.length === 0 ? (
+                <StickyNote icon={Search} color="yellow">
+                  <p className="text-lg font-medium">No results found</p>
+                  <p className="text-muted-foreground">
+                    No overdue enrollments match &quot;{debouncedSearch}&quot;
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="mt-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:underline"
+                  >
+                    Clear search
+                  </button>
                 </StickyNote>
               ) : (
                 <>
