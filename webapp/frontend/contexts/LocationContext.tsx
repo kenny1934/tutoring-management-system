@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 
 interface LocationContextType {
   selectedLocation: string;
@@ -26,12 +26,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const handleSetLocation = (location: string) => {
+  const handleSetLocation = useCallback((location: string) => {
     setSelectedLocation(location);
     if (typeof window !== "undefined") {
       localStorage.setItem("selectedLocation", location);
     }
-  };
+  }, []);
 
   return (
     <LocationContext.Provider
