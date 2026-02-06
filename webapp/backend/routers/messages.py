@@ -451,8 +451,8 @@ async def get_message_threads(
     threads = []
     for root in root_messages:
         replies = replies_by_root.get(root.id, [])
-        all_ids_in_thread = [root.id] + [r.id for r in replies]
-        unread_count = sum(1 for mid in all_ids_in_thread if mid not in read_ids)
+        all_msgs_in_thread = [root] + replies
+        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and (m.to_tutor_id == tutor_id or m.to_tutor_id is None))
 
         threads.append(ThreadResponse(
             root_message=build_response(root),
@@ -500,12 +500,18 @@ async def get_unread_count(
     db: Session = Depends(get_db)
 ):
     """Get the count of unread messages for a tutor."""
-    # Single query: count visible messages that have no read receipt
+    # Exclude archived messages for this tutor
+    archived_ids_subq = db.query(MessageArchive.message_id).filter(
+        MessageArchive.tutor_id == tutor_id
+    ).subquery()
+
+    # Count visible messages that have no read receipt (excluding archived)
     unread_count = db.query(func.count(TutorMessage.id)).filter(
         or_(
             TutorMessage.to_tutor_id == tutor_id,
             TutorMessage.to_tutor_id.is_(None)  # Broadcasts
         ),
+        ~TutorMessage.id.in_(archived_ids_subq),
         ~db.query(MessageReadReceipt.id).filter(
             MessageReadReceipt.message_id == TutorMessage.id,
             MessageReadReceipt.tutor_id == tutor_id
@@ -567,8 +573,8 @@ async def get_thread(
     root_response = all_responses[0]
     reply_responses = all_responses[1:]
 
-    # Count unread from responses (already computed by batch function)
-    total_unread = sum(1 for r in all_responses if not r.is_read)
+    # Count unread: only messages addressed to current tutor (matching unread-count endpoint logic)
+    total_unread = sum(1 for r in all_responses if not r.is_read and (r.to_tutor_id == tutor_id or r.to_tutor_id is None))
 
     return ThreadResponse(
         root_message=root_response,
@@ -853,8 +859,8 @@ async def get_archived_messages(
     threads = []
     for root in root_messages:
         replies = replies_by_root.get(root.id, [])
-        all_ids_in_thread = [root.id] + [r.id for r in replies]
-        unread_count = sum(1 for mid in all_ids_in_thread if mid not in read_ids)
+        all_msgs_in_thread = [root] + replies
+        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and (m.to_tutor_id == tutor_id or m.to_tutor_id is None))
 
         threads.append(ThreadResponse(
             root_message=build_response(root),

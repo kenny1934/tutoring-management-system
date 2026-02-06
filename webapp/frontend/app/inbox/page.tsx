@@ -1257,7 +1257,7 @@ export default function InboxPage() {
       if (thread.total_unread > 0) {
         const cat = thread.root_message.category;
         // Map to category id
-        const catId = cat ? CATEGORIES.find(c => c.filter === cat)?.id : "inbox";
+        const catId = cat ? CATEGORIES.find(c => c.filter === cat)?.id : null;
         if (catId) {
           counts[catId] = (counts[catId] || 0) + thread.total_unread;
         }
