@@ -998,6 +998,13 @@ class ReadReceiptDetail(BaseModel):
     read_at: datetime
 
 
+class LikeDetail(BaseModel):
+    """Detail of who liked a message and when"""
+    tutor_id: int
+    tutor_name: str
+    liked_at: datetime
+
+
 class MessageBase(BaseModel):
     """Base message schema with common fields"""
     subject: Optional[str] = Field(None, max_length=200)
@@ -1031,6 +1038,7 @@ class MessageResponse(MessageBase):
     is_read: bool = False
     like_count: int = Field(default=0, ge=0)
     is_liked_by_me: bool = False
+    like_details: Optional[List[LikeDetail]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
     # Read receipt fields for sender's messages (WhatsApp-style seen status)

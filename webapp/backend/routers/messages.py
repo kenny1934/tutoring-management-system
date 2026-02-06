@@ -19,7 +19,8 @@ from schemas import (
     PaginatedMessagesResponse,
     ArchiveRequest,
     ArchiveResponse,
-    ReadReceiptDetail
+    ReadReceiptDetail,
+    LikeDetail
 )
 from utils.rate_limiter import check_user_rate_limit
 from services.image_storage import upload_image
@@ -61,6 +62,33 @@ def build_message_response(
         TutorMessage.reply_to_id == message.id
     ).count()
 
+    # Fetch like details (who liked this message)
+    from sqlalchemy import desc
+    like_details_subq = (
+        db.query(
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=MessageLike.tutor_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id == message.id)
+        .subquery()
+    )
+    current_likers = (
+        db.query(like_details_subq.c.tutor_id, like_details_subq.c.liked_at, Tutor.tutor_name)
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(like_details_subq.c.rn == 1, like_details_subq.c.action_type == "LIKE")
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details = [
+        LikeDetail(tutor_id=l.tutor_id, tutor_name=l.tutor_name or "Unknown", liked_at=l.liked_at)
+        for l in current_likers
+    ]
+
     return MessageResponse(
         id=message.id,
         from_tutor_id=message.from_tutor_id,
@@ -77,6 +105,7 @@ def build_message_response(
         is_read=is_read,
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
+        like_details=like_details,
         reply_count=reply_count,
         image_attachments=message.image_attachments or []
     )
@@ -137,7 +166,49 @@ def batch_build_message_responses(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 4. Batch fetch reply counts
+    # 4. Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
+
+    # 5. Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
         func.count(TutorMessage.id).label('count')
@@ -146,7 +217,7 @@ def batch_build_message_responses(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 5. Fetch read receipts with tutor names for messages sent by current tutor (WhatsApp-style seen)
+    # 6. Fetch read receipts with tutor names for messages sent by current tutor (WhatsApp-style seen)
     my_sent_ids = [m.id for m in messages if m.from_tutor_id == current_tutor_id]
     sender_read_receipts_map: dict = {}  # message_id -> list of ReadReceiptDetail
     if my_sent_ids:
@@ -223,6 +294,7 @@ def batch_build_message_responses(
                 is_read=msg.id in read_ids,
                 like_count=like_count_map.get(msg.id, 0),
                 is_liked_by_me=msg.id in liked_by_me,
+                like_details=like_details_map.get(msg.id, []),
                 reply_count=reply_count_map.get(msg.id, 0),
                 image_attachments=msg.image_attachments or [],
                 read_receipts=read_receipts_list,
@@ -360,7 +432,49 @@ async def get_message_threads(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 6. Batch fetch reply counts
+    # 6. Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(all_message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
+
+    # 7. Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
         func.count(TutorMessage.id).label('count')
@@ -369,7 +483,7 @@ async def get_message_threads(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 7. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
+    # 8. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
     all_messages = list(root_messages) + list(all_replies)
     my_sent_ids = [m.id for m in all_messages if m.from_tutor_id == tutor_id]
     sender_read_receipts_map: dict = {}
@@ -440,6 +554,7 @@ async def get_message_threads(
             is_read=msg.id in read_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
+            like_details=like_details_map.get(msg.id, []),
             reply_count=reply_count_map.get(msg.id, 0),
             image_attachments=msg.image_attachments or [],
             read_receipts=read_receipts_list,
@@ -825,6 +940,48 @@ async def get_archived_messages(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
+    # Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(all_message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
+
     # Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
@@ -852,6 +1009,7 @@ async def get_archived_messages(
             is_read=msg.id in read_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
+            like_details=like_details_map.get(msg.id, []),
             reply_count=reply_count_map.get(msg.id, 0)
         )
 

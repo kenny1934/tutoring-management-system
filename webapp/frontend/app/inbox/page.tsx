@@ -745,6 +745,68 @@ const SeenBadge = React.memo(function SeenBadge({
   );
 });
 
+// Likes Badge Component - shows who liked a message in a popover
+const LikesBadge = React.memo(function LikesBadge({
+  message,
+}: {
+  message: Message;
+}) {
+  const [showPopover, setShowPopover] = useState(false);
+
+  const likeDetails = message.like_details || [];
+  if (likeDetails.length === 0) return null;
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        onClick={() => setShowPopover(!showPopover)}
+        className="text-sm text-red-500 hover:opacity-80 transition-opacity"
+        title={`Liked by ${likeDetails.length}`}
+      >
+        {likeDetails.length}
+      </button>
+
+      {showPopover && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowPopover(false)}
+          />
+          <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]">
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Liked by {likeDetails.length}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {likeDetails.map((detail) => (
+                <div
+                  key={detail.tutor_id}
+                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Heart className="h-3 w-3 text-red-500 fill-current flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {detail.tutor_name}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(detail.liked_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+});
+
 // Thread Detail Panel Component - memoized to prevent unnecessary re-renders
 const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   thread,
@@ -1049,18 +1111,20 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
               {/* Message footer */}
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
-                <button
-                  onClick={() => onLike(m.id)}
-                  className={cn(
-                    "flex items-center gap-1 text-sm transition-colors",
-                    m.is_liked_by_me
-                      ? "text-red-500"
-                      : "text-gray-500 hover:text-red-500"
-                  )}
-                >
-                  <Heart className={cn("h-4 w-4", m.is_liked_by_me && "fill-current")} />
-                  {m.like_count > 0 && m.like_count}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onLike(m.id)}
+                    className={cn(
+                      "flex items-center text-sm transition-colors",
+                      m.is_liked_by_me
+                        ? "text-red-500"
+                        : "text-gray-500 hover:text-red-500"
+                    )}
+                  >
+                    <Heart className={cn("h-4 w-4", m.is_liked_by_me && "fill-current")} />
+                  </button>
+                  <LikesBadge message={m} />
+                </div>
                 {isOwn && !isEditing && (
                   <>
                     <button
