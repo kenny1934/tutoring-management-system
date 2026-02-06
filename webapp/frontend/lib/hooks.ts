@@ -525,10 +525,10 @@ export function useMessageThreads(
   tutorId: number | null | undefined,
   category?: MessageCategory
 ) {
-  const refreshInterval = useVisibilityAwareInterval(60000);
+  const refreshInterval = useVisibilityAwareInterval(30000);
   const result = useSWR<PaginatedThreadsResponse>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
-    () => messagesAPI.getThreads(tutorId!, category, 50), // Max allowed by backend
+    () => messagesAPI.getThreads(tutorId!, category, 500),
     { refreshInterval, revalidateOnFocus: false }
   );
 
