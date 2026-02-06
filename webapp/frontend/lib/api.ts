@@ -453,8 +453,9 @@ export const enrollmentsAPI = {
     return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
 
-  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
+  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6, isNewStudent?: boolean) => {
     const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
+    if (isNewStudent !== undefined) params.set('is_new_student', String(isNewStudent));
     return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 

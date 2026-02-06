@@ -149,6 +149,7 @@ export interface EnrollmentCreate {
   remark?: string;
   renewed_from_enrollment_id?: number;
   discount_id?: number;
+  is_new_student?: boolean;
 }
 
 /**
@@ -181,6 +182,7 @@ export interface Enrollment {
   last_modified_time?: string;
   effective_end_date?: string;
   fee_message_sent?: boolean;
+  is_new_student?: boolean;
   student?: Student;
 }
 
@@ -1309,6 +1311,7 @@ export interface EnrollmentDetailResponse {
   payment_status: string;
   phone?: string;
   fee_message_sent: boolean;
+  is_new_student?: boolean;
 }
 
 // =============================================================================

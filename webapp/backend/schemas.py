@@ -148,12 +148,18 @@ class EnrollmentResponse(EnrollmentBase):
     last_modified_time: Optional[datetime] = None
     effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
     fee_message_sent: bool = False
+    is_new_student: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
     @field_validator('fee_message_sent', mode='before')
     @classmethod
     def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
+
+    @field_validator('is_new_student', mode='before')
+    @classmethod
+    def coerce_is_new_student(cls, v):
         return v if v is not None else False
 
 
@@ -170,6 +176,7 @@ class EnrollmentUpdate(BaseModel):
     enrollment_type: Optional[str] = Field(None, max_length=50)
     fee_message_sent: Optional[bool] = None
     discount_id: Optional[int] = Field(None, gt=0)
+    is_new_student: Optional[bool] = None
 
 
 class EnrollmentExtensionUpdate(BaseModel):
@@ -236,6 +243,7 @@ class EnrollmentCreate(BaseModel):
     remark: Optional[str] = Field(None, max_length=1000)
     renewed_from_enrollment_id: Optional[int] = Field(None, gt=0, description="Link to previous enrollment for renewals")
     discount_id: Optional[int] = Field(None, gt=0)
+    is_new_student: Optional[bool] = Field(None, description="New student flag (None = auto-detect based on prior non-Trial enrollments)")
 
 
 class HolidaySkipped(BaseModel):
@@ -401,10 +409,16 @@ class EnrollmentDetailResponse(BaseModel):
     payment_status: str
     phone: Optional[str] = None
     fee_message_sent: bool = False
+    is_new_student: bool = False
 
     @field_validator('fee_message_sent', mode='before')
     @classmethod
     def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
+
+    @field_validator('is_new_student', mode='before')
+    @classmethod
+    def coerce_is_new_student_detail(cls, v):
         return v if v is not None else False
 
 
