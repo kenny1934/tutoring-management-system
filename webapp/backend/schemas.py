@@ -359,6 +359,7 @@ class TrialListItem(BaseModel):
     payment_status: str
     trial_status: str = Field(..., description="Derived: scheduled, attended, no_show, converted, pending")
     subsequent_enrollment_id: Optional[int] = Field(default=None, description="ID if student converted to regular")
+    subsequent_payment_status: Optional[str] = Field(default=None, description="Payment status of subsequent enrollment")
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

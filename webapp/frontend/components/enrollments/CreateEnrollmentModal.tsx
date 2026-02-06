@@ -802,7 +802,7 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (
