@@ -27,6 +27,7 @@ import type {
   TerminationRecordResponse,
   TerminationStatsResponse,
   QuarterOption,
+  StatDetailStudent,
   OverdueEnrollment,
   UncheckedAttendanceReminder,
   UncheckedAttendanceCount,
@@ -1114,6 +1115,28 @@ export const terminationsAPI = {
       params.append("tutor_id", tutorId.toString());
     }
     return fetchAPI<TerminationStatsResponse>(`/terminations/stats?${params}`);
+  },
+
+  // Get student list for a specific stat type (drill-down)
+  getStatDetails: (
+    statType: string,
+    quarter: number,
+    year: number,
+    location?: string,
+    tutorId?: number
+  ) => {
+    const params = new URLSearchParams({
+      stat_type: statType,
+      quarter: quarter.toString(),
+      year: year.toString(),
+    });
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    return fetchAPI<StatDetailStudent[]>(`/terminations/stats/details?${params}`);
   },
 };
 
