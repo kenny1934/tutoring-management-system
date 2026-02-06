@@ -967,10 +967,24 @@ class TerminationStatsResponse(BaseModel):
 
 
 class QuarterOption(BaseModel):
-    """Available quarter with count"""
+    """Available quarter option for dropdown"""
     quarter: int = Field(..., ge=1, le=4)
     year: int = Field(..., ge=2020)
-    count: int = Field(default=0, ge=0)
+
+
+class StatDetailStudent(BaseModel):
+    """Student detail for stat drill-down"""
+    student_id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    tutor_name: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    home_location: Optional[str] = None
+    enrollment_id: Optional[int] = None
+    assigned_day: Optional[str] = None
+    assigned_time: Optional[str] = None
 
 
 # ============================================
