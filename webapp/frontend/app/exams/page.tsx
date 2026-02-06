@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } from "@/lib/calendar-utils";
 import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { examRevisionAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExamCard } from "@/components/exams/ExamCard";
 
@@ -473,6 +474,20 @@ export default function ExamsPage() {
     setEditingEvent(undefined);
     setIsEditEventModalOpen(true);
   }, []);
+
+  // If URL has ?exam=ID and the exam isn't in current results, expand date range to include it
+  useEffect(() => {
+    if (highlightExamId && !isLoading) {
+      const found = exams.some(e => String(e.id) === highlightExamId);
+      if (!found) {
+        examRevisionAPI.getExamDate(highlightExamId).then(data => {
+          if (data?.start_date && data.start_date < fromDate) {
+            setFromDate(data.start_date);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [highlightExamId, isLoading, exams]);
 
   // Auto-scroll to highlighted exam after data loads
   useEffect(() => {

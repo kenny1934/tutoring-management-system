@@ -1529,6 +1529,10 @@ export const examRevisionAPI = {
     return fetchAPI<MessageResponse>(`/exam-revision/slots/${slotId}/enrollments/${sessionId}`, { method: "DELETE" });
   },
 
+  // Get the start date of an exam by event ID
+  getExamDate: (eventId: string) =>
+    fetchAPI<{ start_date: string }>(`/exam-revision/calendar/${eventId}/date`),
+
   // Get exams (calendar events) with their revision slot summaries
   getCalendarWithSlots: (params?: {
     school?: string;
