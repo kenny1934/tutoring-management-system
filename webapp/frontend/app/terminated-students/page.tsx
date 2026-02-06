@@ -12,11 +12,12 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { terminationsAPI, enrollmentsAPI } from "@/lib/api";
-import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Info, X, LayoutList, Grid3X3, Search } from "lucide-react";
+import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Info, LayoutList, Grid3X3, Search } from "lucide-react";
 import { getGradeColor } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
 import { Modal } from "@/components/ui/modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
@@ -31,6 +32,35 @@ type EnrolledStudent = StatDetailStudent & { transferred_from_tutor: string | nu
 interface PendingChange {
   countAsTerminated?: boolean;
   reason?: string;
+}
+
+// --- Shared helpers ---
+
+function formatSchedule(schedule: string | undefined): string {
+  if (!schedule) return "-";
+  // Backend format: "[10:00 - 11:30], Sun" → "Sun 10:00 - 11:30"
+  const match = schedule.match(/^\[(.+?)\],?\s*(\w+)$/);
+  if (match) return `${match[2]} ${match[1]}`;
+  return schedule;
+}
+
+function deduplicateByStudentId<T extends { student_id: number }>(arr: T[]): T[] {
+  const seen = new Map<number, T>();
+  for (const s of arr) if (!seen.has(s.student_id)) seen.set(s.student_id, s);
+  return Array.from(seen.values());
+}
+
+function SortIcon({ active, direction }: { active: boolean; direction: 'asc' | 'desc' }) {
+  if (!active) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
+  return direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+}
+
+function useToggleSort<T extends string>(defaultColumn: T, defaultDir: 'asc' | 'desc' = 'asc') {
+  const [config, setConfig] = useState({ column: defaultColumn, direction: defaultDir });
+  const toggle = useCallback((col: T) => {
+    setConfig(prev => ({ column: col, direction: prev.column === col && prev.direction === 'asc' ? 'desc' : 'asc' }));
+  }, []);
+  return [config, toggle] as const;
 }
 
 export default function TerminatedStudentsPage() {
@@ -63,14 +93,8 @@ export default function TerminatedStudentsPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{
-    column: 'id' | 'lastLesson';
-    direction: 'asc' | 'desc';
-  }>({ column: 'lastLesson', direction: 'asc' });
-  const [tutorStatsSortConfig, setTutorStatsSortConfig] = useState<{
-    column: 'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate';
-    direction: 'asc' | 'desc';
-  }>({ column: 'instructor', direction: 'asc' });
+  const [sortConfig, handleSort] = useToggleSort<'id' | 'endDate'>('endDate');
+  const [tutorStatsSortConfig, handleTutorStatsSort] = useToggleSort<'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate'>('instructor');
 
   // Pending changes state for batch save
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
@@ -83,9 +107,7 @@ export default function TerminatedStudentsPage() {
   }, [selectedQuarter, selectedYear]);
 
   // Determine effective location
-  const effectiveLocation = useMemo(() => {
-    return selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
-  }, [selectedLocation]);
+  const effectiveLocation = selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
 
   // Determine effective tutor ID for API calls
   const effectiveTutorId = useMemo(() => {
@@ -224,14 +246,8 @@ export default function TerminatedStudentsPage() {
     if (statDetailModal?.statType !== "enrollTransfer") return null;
     if (!openingStudents || !closingStudents || !terminatedStudentsForDiff) return null;
 
-    // Deduplicate each list by student_id
-    const dedup = (arr: StatDetailStudent[]) => {
-      const seen = new Map<number, StatDetailStudent>();
-      for (const s of arr) { if (!seen.has(s.student_id)) seen.set(s.student_id, s); }
-      return Array.from(seen.values());
-    };
-    const opening = dedup(openingStudents);
-    const closing = dedup(closingStudents);
+    const opening = deduplicateByStudentId(openingStudents);
+    const closing = deduplicateByStudentId(closingStudents);
 
     const openingIds = new Set(opening.map(s => s.student_id));
     const closingIds = new Set(closing.map(s => s.student_id));
@@ -342,21 +358,10 @@ export default function TerminatedStudentsPage() {
     setPendingChanges(new Map());
   }, []);
 
-  // Handle sort column click
-  const handleSort = useCallback((column: 'id' | 'lastLesson') => {
-    setSortConfig(prev => ({
-      column,
-      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
+  const handleTutorStatClick = useCallback((statType: string, tutorId: number, tutorName: string) => {
+    setStatDetailModal({ statType, tutorId, tutorName });
   }, []);
 
-  // Handle tutor stats sort column click
-  const handleTutorStatsSort = useCallback((column: 'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate') => {
-    setTutorStatsSortConfig(prev => ({
-      column,
-      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  }, []);
 
   // Save all pending changes
   const handleSaveChanges = useCallback(async () => {
@@ -413,12 +418,13 @@ export default function TerminatedStudentsPage() {
     }
   }, [selectedQuarter, selectedYear, pendingChanges, terminatedStudents, effectiveLocation, effectiveTutorId, mutateStudents, showToast]);
 
-  // Get effective value for a student field (pending or original)
-  const getEffectiveValue = useCallback((student: TerminatedStudent, field: 'countAsTerminated' | 'reason') => {
+  const getEffectiveChecked = useCallback((student: TerminatedStudent): boolean => {
     const pending = pendingChanges.get(student.student_id);
-    if (field === 'countAsTerminated') {
-      return pending?.countAsTerminated ?? student.count_as_terminated;
-    }
+    return pending?.countAsTerminated ?? student.count_as_terminated;
+  }, [pendingChanges]);
+
+  const getEffectiveReason = useCallback((student: TerminatedStudent): string => {
+    const pending = pendingChanges.get(student.student_id);
     return pending?.reason ?? student.reason ?? '';
   }, [pendingChanges]);
 
@@ -438,12 +444,44 @@ export default function TerminatedStudentsPage() {
     return grouped;
   }, [terminatedStudents]);
 
-  const countChecked = useCallback((list: TerminatedStudent[]) => {
-    return list.filter(s => {
-      const pending = pendingChanges.get(s.student_id);
-      return pending?.countAsTerminated ?? s.count_as_terminated;
-    }).length;
-  }, [pendingChanges]);
+  // Pre-compute sorted tutor groups with checked counts to avoid inline sort/filter on every render
+  const sortedTutorGroups = useMemo(() => {
+    return Object.entries(studentsByTutor)
+      .sort(([a], [b]) => getTutorSortName(a).localeCompare(getTutorSortName(b)))
+      .map(([tutorName, students]) => {
+        const sorted = [...students].sort((a, b) => {
+          const dir = sortConfig.direction === 'asc' ? 1 : -1;
+          if (sortConfig.column === 'id') {
+            return dir * (a.school_student_id || '').localeCompare(b.school_student_id || '');
+          }
+          return dir * (a.termination_date || '').localeCompare(b.termination_date || '');
+        });
+        const checkedCount = students.filter(s => getEffectiveChecked(s)).length;
+        return { tutorName, students: sorted, checkedCount, totalCount: students.length };
+      });
+  }, [studentsByTutor, sortConfig, getEffectiveChecked]);
+
+  const totalCheckedCount = useMemo(() => {
+    return sortedTutorGroups.reduce((sum, g) => sum + g.checkedCount, 0);
+  }, [sortedTutorGroups]);
+
+  // Memoize tutor stats sorting
+  const sortedTutorStats = useMemo(() => {
+    if (!stats?.tutor_stats) return [];
+    const dir = tutorStatsSortConfig.direction === 'asc' ? 1 : -1;
+    return [...stats.tutor_stats].sort((a, b) => {
+      switch (tutorStatsSortConfig.column) {
+        case 'instructor':
+          return dir * getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
+        case 'opening': return dir * (a.opening - b.opening);
+        case 'enrollTransfer': return dir * (a.enrollment_transfer - b.enrollment_transfer);
+        case 'terminated': return dir * (a.terminated - b.terminated);
+        case 'closing': return dir * (a.closing - b.closing);
+        case 'termRate': return dir * (a.term_rate - b.term_rate);
+        default: return 0;
+      }
+    });
+  }, [stats?.tutor_stats, tutorStatsSortConfig]);
 
   const isLoading = loadingQuarters || loadingStudents || loadingStats;
 
@@ -672,7 +710,7 @@ export default function TerminatedStudentsPage() {
                   <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
                     <h2 className="font-medium flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Terminated Students ({countChecked(terminatedStudents)}/{terminatedStudents.length})
+                      Terminated Students ({totalCheckedCount}/{terminatedStudents.length})
                     </h2>
                   </div>
 
@@ -688,11 +726,7 @@ export default function TerminatedStudentsPage() {
                               className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
                             >
                               ID#
-                              {sortConfig.column === 'id' ? (
-                                sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                              ) : (
-                                <ArrowUpDown className="h-3 w-3 opacity-30" />
-                              )}
+                              <SortIcon active={sortConfig.column === 'id'} direction={sortConfig.direction} />
                             </button>
                           </th>
                           <th className="px-4 py-3 text-left font-medium">Student</th>
@@ -701,48 +735,32 @@ export default function TerminatedStudentsPage() {
                           <th className="px-4 py-3 text-left font-medium">Schedule</th>
                           <th className="px-4 py-3 text-left font-medium">
                             <button
-                              onClick={() => handleSort('lastLesson')}
+                              onClick={() => handleSort('endDate')}
                               className="flex items-center gap-1 hover:text-[#a0704b] dark:hover:text-[#cd853f] transition-colors"
                             >
-                              Last Lesson
-                              {sortConfig.column === 'lastLesson' ? (
-                                sortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                              ) : (
-                                <ArrowUpDown className="h-3 w-3 opacity-30" />
-                              )}
+                              End Date
+                              <SortIcon active={sortConfig.column === 'endDate'} direction={sortConfig.direction} />
                             </button>
                           </th>
                           <th className="px-4 py-3 text-left font-medium min-w-[200px]">Reason</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-                        {Object.entries(studentsByTutor)
-                          .sort(([a], [b]) => getTutorSortName(a).localeCompare(getTutorSortName(b)))
-                          .map(([tutorName, students]) => (
+                        {sortedTutorGroups.map(({ tutorName, students, checkedCount, totalCount }) => (
                           <React.Fragment key={tutorName}>
-                            {/* Tutor group header */}
                             <tr className="bg-muted/30">
                               <td colSpan={8} className="px-4 py-2 font-medium text-muted-foreground">
-                                {tutorName} ({countChecked(students)}/{students.length})
+                                {tutorName} ({checkedCount}/{totalCount})
                               </td>
                             </tr>
-                            {/* Students */}
-                            {[...students]
-                              .sort((a, b) => {
-                                const dir = sortConfig.direction === 'asc' ? 1 : -1;
-                                if (sortConfig.column === 'id') {
-                                  return dir * (a.school_student_id || '').localeCompare(b.school_student_id || '');
-                                }
-                                return dir * (a.termination_date || '').localeCompare(b.termination_date || '');
-                              })
-                              .map((student) => (
+                            {students.map((student) => (
                               <TerminatedStudentRow
                                 key={student.student_id}
                                 student={student}
                                 onCheckboxToggle={handleCheckboxToggle}
                                 onReasonUpdate={handleReasonUpdate}
-                                effectiveCountAsTerminated={getEffectiveValue(student, 'countAsTerminated') as boolean}
-                                effectiveReason={getEffectiveValue(student, 'reason') as string}
+                                effectiveCountAsTerminated={getEffectiveChecked(student)}
+                                effectiveReason={getEffectiveReason(student)}
                                 hasPendingChanges={hasPendingChanges(student.student_id)}
                                 showLocationPrefix={selectedLocation === "All Locations"}
                               />
@@ -773,118 +791,49 @@ export default function TerminatedStudentsPage() {
                                 className="flex items-center gap-1 hover:text-foreground/80"
                               >
                                 Instructor
-                                {tutorStatsSortConfig.column === 'instructor' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <SortIcon active={tutorStatsSortConfig.column === 'instructor'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
-                              <button
-                                onClick={() => handleTutorStatsSort('opening')}
-                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
-                              >
+                              <button onClick={() => handleTutorStatsSort('opening')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Opening
-                                <Tooltip content="Students active during the first week, plus continuing students renewing within 21 days after.">
-                                  <Info className="h-3 w-3 opacity-40" />
-                                </Tooltip>
-                                {tutorStatsSortConfig.column === 'opening' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <Tooltip content="Students active during the first week, plus continuing students renewing within 21 days after."><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <SortIcon active={tutorStatsSortConfig.column === 'opening'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
-                              <button
-                                onClick={() => handleTutorStatsSort('enrollTransfer')}
-                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
-                              >
+                              <button onClick={() => handleTutorStatsSort('enrollTransfer')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Enroll/Transfer
-                                <Tooltip content="Net student change: Closing − Opening + Terminated.">
-                                  <Info className="h-3 w-3 opacity-40" />
-                                </Tooltip>
-                                {tutorStatsSortConfig.column === 'enrollTransfer' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <Tooltip content="Net student change: Closing − Opening + Terminated."><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <SortIcon active={tutorStatsSortConfig.column === 'enrollTransfer'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
-                              <button
-                                onClick={() => handleTutorStatsSort('terminated')}
-                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
-                              >
+                              <button onClick={() => handleTutorStatsSort('terminated')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Terminated
-                                <Tooltip content="Students marked as &quot;Count as Terminated&quot; for this quarter.">
-                                  <Info className="h-3 w-3 opacity-40" />
-                                </Tooltip>
-                                {tutorStatsSortConfig.column === 'terminated' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <Tooltip content="Students marked as &quot;Count as Terminated&quot; for this quarter."><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <SortIcon active={tutorStatsSortConfig.column === 'terminated'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
-                              <button
-                                onClick={() => handleTutorStatsSort('closing')}
-                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
-                              >
+                              <button onClick={() => handleTutorStatsSort('closing')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Closing
-                                <Tooltip content="Students still active at quarter end, including renewals within 21 days after the boundary.">
-                                  <Info className="h-3 w-3 opacity-40" />
-                                </Tooltip>
-                                {tutorStatsSortConfig.column === 'closing' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <Tooltip content="Students still active at quarter end, including renewals within 21 days after the boundary."><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <SortIcon active={tutorStatsSortConfig.column === 'closing'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                             <th className="px-4 py-3 text-right font-medium">
-                              <button
-                                onClick={() => handleTutorStatsSort('termRate')}
-                                className="flex items-center gap-1 hover:text-foreground/80 ml-auto"
-                              >
+                              <button onClick={() => handleTutorStatsSort('termRate')} className="flex items-center gap-1 hover:text-foreground/80 ml-auto">
                                 Term Rate
-                                <Tooltip content="Terminated ÷ Opening × 100%." align="right">
-                                  <Info className="h-3 w-3 opacity-40" />
-                                </Tooltip>
-                                {tutorStatsSortConfig.column === 'termRate' ? (
-                                  tutorStatsSortConfig.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-                                ) : (
-                                  <ArrowUpDown className="h-3 w-3 opacity-30" />
-                                )}
+                                <Tooltip content="Terminated ÷ Opening × 100%." align="right"><Info className="h-3 w-3 opacity-40" /></Tooltip>
+                                <SortIcon active={tutorStatsSortConfig.column === 'termRate'} direction={tutorStatsSortConfig.direction} />
                               </button>
                             </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-                          {[...stats.tutor_stats]
-                            .sort((a, b) => {
-                              const dir = tutorStatsSortConfig.direction === 'asc' ? 1 : -1;
-                              switch (tutorStatsSortConfig.column) {
-                                case 'instructor':
-                                  return dir * getTutorSortName(a.tutor_name).localeCompare(getTutorSortName(b.tutor_name));
-                                case 'opening':
-                                  return dir * (a.opening - b.opening);
-                                case 'enrollTransfer':
-                                  return dir * (a.enrollment_transfer - b.enrollment_transfer);
-                                case 'terminated':
-                                  return dir * (a.terminated - b.terminated);
-                                case 'closing':
-                                  return dir * (a.closing - b.closing);
-                                case 'termRate':
-                                  return dir * (a.term_rate - b.term_rate);
-                                default:
-                                  return 0;
-                              }
-                            })
-                            .map((tutor) => (
-                            <TutorStatsRow key={tutor.tutor_id} stats={tutor} onStatClick={(statType) => setStatDetailModal({ statType, tutorId: tutor.tutor_id, tutorName: tutor.tutor_name })} />
+                          {sortedTutorStats.map((tutor) => (
+                            <TutorStatsRow key={tutor.tutor_id} stats={tutor} onStatClick={handleTutorStatClick} />
                           ))}
                         </tbody>
                       </table>
@@ -897,35 +846,15 @@ export default function TerminatedStudentsPage() {
           </div>
         </div>
         {/* Confirmation Dialog */}
-        {showConfirmDialog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/50" onClick={() => setShowConfirmDialog(false)} />
-            <div className={cn(
-              "relative bg-[#fef9f3] dark:bg-[#2d2618] rounded-xl shadow-xl max-w-md w-full min-w-[400px] mx-4 p-6",
-              "border-2 border-[#d4a574] dark:border-[#8b6f47]",
-              "paper-texture"
-            )}>
-              <h3 className="text-lg font-semibold mb-2">Confirm Changes</h3>
-              <p className="text-muted-foreground mb-4">
-                You are about to save {pendingChanges.size} change{pendingChanges.size !== 1 ? 's' : ''} to terminated student records.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowConfirmDialog(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveChanges}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-[#a0704b] text-white hover:bg-[#8b6140]"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog
+          isOpen={showConfirmDialog}
+          onConfirm={handleSaveChanges}
+          onCancel={() => setShowConfirmDialog(false)}
+          title="Confirm Changes"
+          message={`You are about to save ${pendingChanges.size} change${pendingChanges.size !== 1 ? 's' : ''} to terminated student records.`}
+          confirmText="Save Changes"
+          loading={isSaving}
+        />
       </PageTransition>
 
       {/* Stat Detail Modal */}
@@ -1110,11 +1039,13 @@ function StatDetailContent({
     </div>
   );
 
-  if (statType === "enrollTransfer" && filteredEnrollTransferData) {
-    return (
-      <div>
-        {toolbar}
-        {gridViewActive ? (
+  const isEnrollTransfer = statType === "enrollTransfer" && filteredEnrollTransferData;
+
+  return (
+    <div>
+      {toolbar}
+      {isEnrollTransfer ? (
+        gridViewActive ? (
           <TimetableGridEnrollTransfer
             enrollTransferData={filteredEnrollTransferData}
             onStudentClick={handleStudentClick}
@@ -1126,48 +1057,29 @@ function StatDetailContent({
           <StatDetailEnrollTransfer
             enrollTransferData={filteredEnrollTransferData}
             sortBy={sortBy}
-            setSortBy={setSortBy}
             onStudentClick={handleStudentClick}
             fetchingEnrollmentId={fetchingEnrollmentId}
-            popoverEnrollment={popoverEnrollment}
-            popoverClickPosition={popoverClickPosition}
-            onPopoverClose={onPopoverClose}
             showLocationPrefix={showLocationPrefix}
           />
-        )}
-        <EnrollmentDetailPopover
-          enrollment={popoverEnrollment}
-          isOpen={!!popoverEnrollment}
-          onClose={onPopoverClose}
-          clickPosition={popoverClickPosition}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {toolbar}
-      {gridViewActive ? (
-        <TimetableGrid
-          students={filteredStudents}
-          onStudentClick={handleStudentClick}
-          fetchingEnrollmentId={fetchingEnrollmentId}
-          sortBy={sortBy}
-          showLocationPrefix={showLocationPrefix}
-        />
+        )
       ) : (
-        <StatDetailList
-          students={filteredStudents}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          onStudentClick={handleStudentClick}
-          fetchingEnrollmentId={fetchingEnrollmentId}
-          popoverEnrollment={popoverEnrollment}
-          popoverClickPosition={popoverClickPosition}
-          onPopoverClose={onPopoverClose}
-          showLocationPrefix={showLocationPrefix}
-        />
+        gridViewActive ? (
+          <TimetableGrid
+            students={filteredStudents}
+            onStudentClick={handleStudentClick}
+            fetchingEnrollmentId={fetchingEnrollmentId}
+            sortBy={sortBy}
+            showLocationPrefix={showLocationPrefix}
+          />
+        ) : (
+          <StatDetailList
+            students={filteredStudents}
+            sortBy={sortBy}
+            onStudentClick={handleStudentClick}
+            fetchingEnrollmentId={fetchingEnrollmentId}
+            showLocationPrefix={showLocationPrefix}
+          />
+        )
       )}
       <EnrollmentDetailPopover
         enrollment={popoverEnrollment}
@@ -1182,22 +1094,14 @@ function StatDetailContent({
 function StatDetailEnrollTransfer({
   enrollTransferData,
   sortBy,
-  setSortBy,
   onStudentClick,
   fetchingEnrollmentId,
-  popoverEnrollment,
-  popoverClickPosition,
-  onPopoverClose,
   showLocationPrefix,
 }: {
   enrollTransferData: { enrolledIn: EnrolledStudent[]; exited: ExitedStudent[] };
   sortBy: StatDetailSort;
-  setSortBy: (v: StatDetailSort) => void;
   onStudentClick: (e: React.MouseEvent, s: StatDetailStudent) => void;
   fetchingEnrollmentId: number | null;
-  popoverEnrollment: import("@/types").Enrollment | null;
-  popoverClickPosition: { x: number; y: number } | null;
-  onPopoverClose: () => void;
   showLocationPrefix: boolean;
 }) {
   const sortedEnrolledIn = useSortedStudents(enrollTransferData.enrolledIn, sortBy);
@@ -1240,31 +1144,17 @@ function StatDetailEnrollTransfer({
 function StatDetailList({
   students,
   sortBy,
-  setSortBy,
   onStudentClick,
   fetchingEnrollmentId,
-  popoverEnrollment,
-  popoverClickPosition,
-  onPopoverClose,
   showLocationPrefix,
 }: {
   students: StatDetailStudent[] | undefined;
   sortBy: StatDetailSort;
-  setSortBy: (v: StatDetailSort) => void;
   onStudentClick: (e: React.MouseEvent, s: StatDetailStudent) => void;
   fetchingEnrollmentId: number | null;
-  popoverEnrollment: import("@/types").Enrollment | null;
-  popoverClickPosition: { x: number; y: number } | null;
-  onPopoverClose: () => void;
   showLocationPrefix: boolean;
 }) {
-  const deduped = useMemo(() => {
-    const seen = new Map<number, StatDetailStudent>();
-    for (const s of students ?? []) {
-      if (!seen.has(s.student_id)) seen.set(s.student_id, s);
-    }
-    return Array.from(seen.values());
-  }, [students]);
+  const deduped = useMemo(() => deduplicateByStudentId(students ?? []), [students]);
 
   const sorted = useSortedStudents(deduped, sortBy);
 
@@ -1286,7 +1176,7 @@ function StatDetailList({
   );
 }
 
-function StudentDetailItem({
+const StudentDetailItem = React.memo(function StudentDetailItem({
   student,
   onClick,
   fetchingEnrollmentId,
@@ -1343,7 +1233,7 @@ function StudentDetailItem({
       </span>
     </li>
   );
-}
+});
 
 // Day ordering for grid columns (Sun first)
 const DAY_ORDER: Record<string, number> = {
@@ -1358,12 +1248,9 @@ function useGridData(students: StatDetailStudent[], sortBy: StatDetailSort) {
     const timeSet = new Set<string>();
 
     // Dedup first
-    const seen = new Map<number, StatDetailStudent>();
-    for (const s of students) {
-      if (!seen.has(s.student_id)) seen.set(s.student_id, s);
-    }
+    const deduped = deduplicateByStudentId(students);
 
-    for (const student of seen.values()) {
+    for (const student of deduped) {
       if (!student.assigned_day || !student.assigned_time) {
         unscheduled.push(student);
         continue;
@@ -1402,7 +1289,7 @@ function useGridData(students: StatDetailStudent[], sortBy: StatDetailSort) {
       (a, b) => parseStartMinutes(a) - parseStartMinutes(b)
     );
 
-    return { grid: gridMap, unscheduled, days: sortedDays, timeSlots: sortedTimes, total: seen.size };
+    return { grid: gridMap, unscheduled, days: sortedDays, timeSlots: sortedTimes, total: deduped.length };
   }, [students, sortBy]);
 }
 
@@ -1633,7 +1520,7 @@ function TimetableGridEnrollTransfer({
 }
 
 // Terminated Student Row Component
-function TerminatedStudentRow({
+const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
   student,
   onCheckboxToggle,
   onReasonUpdate,
@@ -1705,9 +1592,11 @@ function TerminatedStudentRow({
       {/* Tutor */}
       <td className="px-4 py-3">{student.tutor_name || "-"}</td>
       {/* Schedule */}
-      <td className="px-4 py-3 text-xs">{student.schedule || "-"}</td>
-      {/* Last Lesson */}
-      <td className="px-4 py-3 text-xs">{student.termination_date}</td>
+      <td className="px-4 py-3 text-xs">{formatSchedule(student.schedule)}</td>
+      {/* End Date */}
+      <td className="px-4 py-3 text-xs">
+        {new Date(student.termination_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+      </td>
       {/* Reason */}
       <td className="px-4 py-3">
         <input
@@ -1729,40 +1618,35 @@ function TerminatedStudentRow({
       </td>
     </tr>
   );
-}
+});
 
-// Tutor Stats Row Component
-function TutorStatsRow({ stats, onStatClick }: { stats: TutorTerminationStats; onStatClick: (statType: string) => void }) {
-  const termRateColor = useMemo(() => {
-    if (stats.term_rate > 30) return "text-red-600 dark:text-red-400";
-    if (stats.term_rate > 15) return "text-amber-600 dark:text-amber-400";
-    return "text-green-600 dark:text-green-400";
-  }, [stats.term_rate]);
+const TutorStatsRow = React.memo(function TutorStatsRow({ stats, onStatClick }: { stats: TutorTerminationStats; onStatClick: (statType: string, tutorId: number, tutorName: string) => void }) {
+  const termRateColor = stats.term_rate > 30 ? "text-red-600 dark:text-red-400"
+    : stats.term_rate > 15 ? "text-amber-600 dark:text-amber-400"
+    : "text-green-600 dark:text-green-400";
 
-  const enrollTransferColor = useMemo(() => {
-    return stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400";
-  }, [stats.enrollment_transfer]);
+  const enrollTransferColor = stats.enrollment_transfer >= 0 ? "text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400";
 
   return (
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3 font-medium">{stats.tutor_name}</td>
       <td className="px-4 py-3 text-right">
-        <button onClick={() => onStatClick("opening")} className="hover:underline cursor-pointer">{stats.opening}</button>
+        <button onClick={() => onStatClick("opening", stats.tutor_id, stats.tutor_name)} className="hover:underline cursor-pointer">{stats.opening}</button>
       </td>
       <td className={cn("px-4 py-3 text-right", enrollTransferColor)}>
-        <button onClick={() => onStatClick("enrollTransfer")} className="hover:underline cursor-pointer">
+        <button onClick={() => onStatClick("enrollTransfer", stats.tutor_id, stats.tutor_name)} className="hover:underline cursor-pointer">
           {stats.enrollment_transfer >= 0 ? "+" : ""}{stats.enrollment_transfer}
         </button>
       </td>
       <td className="px-4 py-3 text-right text-red-600 dark:text-red-400">
-        <button onClick={() => onStatClick("terminated")} className="hover:underline cursor-pointer">{stats.terminated}</button>
+        <button onClick={() => onStatClick("terminated", stats.tutor_id, stats.tutor_name)} className="hover:underline cursor-pointer">{stats.terminated}</button>
       </td>
       <td className="px-4 py-3 text-right">
-        <button onClick={() => onStatClick("closing")} className="hover:underline cursor-pointer">{stats.closing}</button>
+        <button onClick={() => onStatClick("closing", stats.tutor_id, stats.tutor_name)} className="hover:underline cursor-pointer">{stats.closing}</button>
       </td>
       <td className={cn("px-4 py-3 text-right font-medium", termRateColor)}>
-        <button onClick={() => onStatClick("termRate")} className="hover:underline cursor-pointer">{stats.term_rate.toFixed(2)}%</button>
+        <button onClick={() => onStatClick("termRate", stats.tutor_id, stats.tutor_name)} className="hover:underline cursor-pointer">{stats.term_rate.toFixed(2)}%</button>
       </td>
     </tr>
   );
-}
+});
