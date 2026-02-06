@@ -386,7 +386,7 @@ export default function EnrollmentDetailPage() {
     let cancelled = false;
     setFeeMessageLoading(true);
 
-    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6)
+    enrollmentsAPI.getFeeMessage(enrollment.id, feeLanguage, enrollment.lessons_paid || 6, enrollment.enrollment_type === 'Trial' ? undefined : (enrollment.is_new_student ?? undefined))
       .then(response => {
         if (!cancelled) {
           setFeeMessage(response.message);
@@ -403,7 +403,7 @@ export default function EnrollmentDetailPage() {
       });
 
     return () => { cancelled = true; };
-  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid]);
+  }, [showFeePanel, enrollment?.id, feeLanguage, enrollment?.lessons_paid, enrollment?.is_new_student]);
 
   // Calculate session stats
   const sessionStats = useMemo(() => {
@@ -909,6 +909,22 @@ export default function EnrollmentDetailPage() {
                         ))}
                       </select>
                     </div>
+
+                    {/* New Student - not applicable to Trial */}
+                    {editForm.enrollment_type !== 'Trial' && (
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-500 w-24">New Student</label>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.is_new_student === true}
+                            onChange={(e) => handleFormChange("is_new_student", e.target.checked)}
+                            className="rounded border-amber-300 text-primary focus:ring-primary"
+                          />
+                          +$100 reg fee
+                        </label>
+                      </div>
+                    )}
                   </>
                 ) : (
                   // VIEW MODE
@@ -984,6 +1000,16 @@ export default function EnrollmentDetailPage() {
                         <span className="text-sm text-gray-500 dark:text-gray-400">Discount</span>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 font-medium">
                           {enrollment.discount_name}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* New Student - not applicable to Trial */}
+                    {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">New Student</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 font-medium">
+                          +$100 Reg Fee
                         </span>
                       </div>
                     )}

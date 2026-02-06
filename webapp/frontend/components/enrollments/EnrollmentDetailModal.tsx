@@ -131,7 +131,8 @@ export function EnrollmentDetailModal({
   const handleCopyFee = async () => {
     if (!enrollmentId || !detail) return;
     try {
-      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid);
+      const isNewParam = detail.enrollment_type === 'Trial' ? undefined : (detail.is_new_student ?? undefined);
+      const { message } = await enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', detail.lessons_paid, isNewParam);
       await navigator.clipboard.writeText(message);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -379,6 +380,14 @@ export function EnrollmentDetailModal({
                   {detail.payment_status}
                 </span>
               </div>
+              {detail.is_new_student && detail.enrollment_type !== 'Trial' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">New Student</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    +$100 Reg Fee
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Session Stats - hide progress bar in compact mode */}

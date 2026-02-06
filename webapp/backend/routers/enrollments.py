@@ -425,6 +425,17 @@ async def create_enrollment(
             detail=f"Cannot create enrollment: student has conflicting sessions at: {', '.join(conflict_details)}"
         )
 
+    # Determine is_new_student: use explicit value if provided, otherwise auto-detect
+    if enrollment_data.is_new_student is not None:
+        is_new_student = enrollment_data.is_new_student
+    else:
+        # Auto-detect: student is "new" if they have no prior non-Trial enrollments
+        prior_non_trial = db.query(Enrollment).filter(
+            Enrollment.student_id == enrollment_data.student_id,
+            Enrollment.enrollment_type != 'Trial'
+        ).first()
+        is_new_student = prior_non_trial is None
+
     # Create the enrollment
     enrollment = Enrollment(
         student_id=enrollment_data.student_id,
@@ -438,6 +449,7 @@ async def create_enrollment(
         payment_status='Pending Payment',
         discount_id=enrollment_data.discount_id,
         renewed_from_enrollment_id=enrollment_data.renewed_from_enrollment_id,
+        is_new_student=is_new_student,
         last_modified_time=datetime.now(),
         last_modified_by=admin.user_email
     )
@@ -1522,7 +1534,8 @@ async def get_enrollment_detail_for_modal(
         pending_makeups=pending_makeups,
         payment_status=enrollment.payment_status or "",
         phone=enrollment.student.phone if enrollment.student else None,
-        fee_message_sent=enrollment.fee_message_sent or False
+        fee_message_sent=enrollment.fee_message_sent or False,
+        is_new_student=enrollment.is_new_student or False
     )
 
 
@@ -1531,6 +1544,7 @@ async def get_fee_message(
     enrollment_id: int,
     lang: str = Query("zh", description="Language: 'zh' for Chinese, 'en' for English"),
     lessons_paid: int = Query(6, description="Number of lessons for renewal (default 6)"),
+    is_new_student: Optional[bool] = Query(None, description="Override new student flag (None = use enrollment value)"),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1589,6 +1603,12 @@ async def get_fee_message(
         # Fall back to enrollment's discount (if any)
         discount_value = int(enrollment.discount.discount_value) if enrollment.discount and enrollment.discount.discount_value else 0
 
+    # Determine new student status: use override if provided, otherwise use enrollment value
+    # Trial enrollments never have reg fee
+    effective_is_new_student = is_new_student if is_new_student is not None else (enrollment.is_new_student or False)
+    if enrollment.enrollment_type == 'Trial':
+        effective_is_new_student = False
+
     # Format the fee message
     message = format_fee_message(
         lang=lang,
@@ -1599,7 +1619,8 @@ async def get_fee_message(
         location=enrollment.location or "",
         lessons_paid=lessons_paid,
         session_dates=session_dates,
-        discount_value=discount_value
+        discount_value=discount_value,
+        is_new_student=effective_is_new_student
     )
 
     return {"message": message, "lessons_paid": lessons_paid, "first_lesson_date": str(first_lesson_date)}
@@ -1614,7 +1635,8 @@ def format_fee_message(
     location: str,
     lessons_paid: int,
     session_dates: list,
-    discount_value: int = 0
+    discount_value: int = 0,
+    is_new_student: bool = False
 ) -> str:
     """Format a fee message in Chinese or English."""
     day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
@@ -1629,12 +1651,22 @@ def format_fee_message(
     bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
 
     base_fee = 400 * lessons_paid
+    reg_fee = 100 if is_new_student else 0
     discount_value = int(discount_value)  # Ensure no decimals
-    total_fee = base_fee - discount_value
+    total_fee = base_fee - discount_value + reg_fee
     lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])
 
     if lang == 'zh':
-        discount_text = f' (已折扣${discount_value}學費禮劵，原價為${base_fee})' if discount_value > 0 else ''
+        # Build fee description parts
+        fee_parts = []
+        if discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'已折扣${discount_value}學費禮劵，含$100報名費，原價為${base_fee}+$100報名費')
+        elif discount_value > 0:
+            fee_parts.append(f'已折扣${discount_value}學費禮劵，原價為${base_fee}')
+        elif reg_fee > 0:
+            fee_parts.append(f'含$100報名費')
+
+        discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
         closed_days = ' (星期二三公休)' if location == 'MSB' else ''
 
         return f"""家長您好，以下是 MathConcept中學教室 常規課程 之【繳費提示訊息】：
@@ -1659,7 +1691,16 @@ def format_fee_message(
 MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
 
     else:  # English
-        discount_text = f' (Discounted ${discount_value}, original price ${base_fee})' if discount_value > 0 else ''
+        # Build fee description parts
+        fee_parts = []
+        if discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'Discounted ${discount_value}, includes $100 registration fee, original price ${base_fee} + $100 registration fee')
+        elif discount_value > 0:
+            fee_parts.append(f'Discounted ${discount_value}, original price ${base_fee}')
+        elif reg_fee > 0:
+            fee_parts.append(f'includes $100 registration fee')
+
+        discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
         closed_days = ' (Closed Tue & Wed)' if location == 'MSB' else ''
 
         return f"""Dear Parent,
