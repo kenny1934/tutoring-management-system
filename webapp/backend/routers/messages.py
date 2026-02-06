@@ -441,6 +441,7 @@ async def get_message_threads(
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
             reply_count=reply_count_map.get(msg.id, 0),
+            image_attachments=msg.image_attachments or [],
             read_receipts=read_receipts_list,
             total_recipients=total_recipients,
             read_by_all=read_by_all

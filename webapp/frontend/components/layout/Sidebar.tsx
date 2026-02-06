@@ -76,7 +76,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   useEffect(() => {
     if (unreadCount?.count !== undefined && currentTutorId) {
-      if (prevUnreadRef.current !== null && unreadCount.count > prevUnreadRef.current) {
+      if (prevUnreadRef.current !== null && unreadCount.count > prevUnreadRef.current && pathname !== '/inbox') {
         const newCount = unreadCount.count - prevUnreadRef.current;
         showToast(
           `You have ${newCount} new message${newCount > 1 ? 's' : ''}`,
@@ -87,7 +87,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       }
       prevUnreadRef.current = unreadCount.count;
     }
-  }, [unreadCount?.count, currentTutorId, showToast, router]);
+  }, [unreadCount?.count, currentTutorId, showToast, router, pathname]);
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
