@@ -287,7 +287,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     setIsCopying(true);
     setCopySuccess(false);
     try {
-      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', 0);
+      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid);
       await navigator.clipboard.writeText(response.message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
