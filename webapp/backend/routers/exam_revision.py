@@ -1099,6 +1099,15 @@ async def remove_enrollment(
 # Calendar View with Revision Summaries
 # ============================================
 
+@router.get("/exam-revision/calendar/{event_id}/date")
+async def get_exam_date(event_id: int, db: Session = Depends(get_db)):
+    """Get the start date of a calendar event by ID."""
+    event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"start_date": event.start_date.isoformat()}
+
+
 @router.get("/exam-revision/calendar", response_model=List[ExamWithRevisionSlotsResponse])
 async def get_exams_with_revision_slots(
     school: Optional[str] = Query(None, description="Filter by school"),
