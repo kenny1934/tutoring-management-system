@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { ParentCommunication, StudentContactStatus } from "@/lib/api";
 import {
@@ -129,22 +129,97 @@ export function ContactCalendar({
     return days;
   }, [selectedDate]);
 
-  // Navigate months
-  const goToPrevMonth = () => {
+  // Generate week days for week view
+  const weekDays = useMemo(() => {
+    const start = new Date(selectedDate);
+    start.setDate(start.getDate() - start.getDay()); // Go to Sunday
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      return {
+        date,
+        day: date.getDate(),
+        isCurrentMonth: true,
+        isToday: date.toDateString() === today.toDateString(),
+        dateKey: date.toLocaleDateString('en-CA'),
+      };
+    });
+  }, [selectedDate]);
+
+  // View-aware navigation
+  const goToPrev = () => {
     const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() - 1);
+    if (view === 'day') {
+      newDate.setDate(newDate.getDate() - 1);
+    } else if (view === 'week') {
+      newDate.setDate(newDate.getDate() - 7);
+    } else {
+      newDate.setMonth(newDate.getMonth() - 1);
+    }
     onDateChange(newDate);
   };
 
-  const goToNextMonth = () => {
+  const goToNext = () => {
     const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + 1);
+    if (view === 'day') {
+      newDate.setDate(newDate.getDate() + 1);
+    } else if (view === 'week') {
+      newDate.setDate(newDate.getDate() + 7);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
     onDateChange(newDate);
   };
 
   const goToToday = () => {
     onDateChange(new Date());
   };
+
+  // View-aware header title
+  const headerTitle = useMemo(() => {
+    if (view === 'day') {
+      return selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    } else if (view === 'week') {
+      const start = new Date(selectedDate);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endStr = start.getMonth() === end.getMonth()
+        ? end.getDate().toString()
+        : end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${startStr} – ${endStr}, ${end.getFullYear()}`;
+    }
+    return `${MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+  }, [selectedDate, view]);
+
+  // Track which day's popover is open + its position
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const openPopover = (dateKey: string, e: React.MouseEvent) => {
+    if (expandedDay === dateKey) {
+      setExpandedDay(null);
+      return;
+    }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPopoverPos({ top: rect.bottom + 4, left: rect.left });
+    setExpandedDay(dateKey);
+  };
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!expandedDay) return;
+    const handleClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setExpandedDay(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [expandedDay]);
 
   // Get contact type color
   const getContactTypeColor = (type: string) => {
@@ -171,16 +246,16 @@ export function ContactCalendar({
           {/* Navigation */}
           <div className="flex items-center gap-2">
             <button
-              onClick={goToPrevMonth}
+              onClick={goToPrev}
               className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors"
             >
               <ChevronLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             </button>
             <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 min-w-[140px] text-center">
-              {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+              {headerTitle}
             </h3>
             <button
-              onClick={goToNextMonth}
+              onClick={goToNext}
               className="p-1.5 rounded hover:bg-white dark:hover:bg-gray-800 transition-colors"
             >
               <ChevronRight className="h-4 w-4 text-gray-600 dark:text-gray-400" />
@@ -294,9 +369,100 @@ export function ContactCalendar({
                         </button>
                       ))}
                       {dayEvents.length > 3 && (
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400 text-center">
+                        <button
+                          onClick={(e) => openPopover(day.dateKey, e)}
+                          className="w-full text-[10px] text-gray-500 dark:text-gray-400 text-center hover:text-[#a0704b] hover:underline transition-colors"
+                        >
                           +{dayEvents.length - 3} more
-                        </div>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Fixed popover for expanded day */}
+            {expandedDay && eventsByDate[expandedDay] && (
+              <div
+                ref={popoverRef}
+                className="fixed z-50 w-40 p-1.5 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-[#1a1a1a] space-y-0.5"
+                style={{ top: popoverPos.top, left: popoverPos.left }}
+              >
+                {eventsByDate[expandedDay].map(event => (
+                  <button
+                    key={event.id}
+                    onClick={() => onEventClick(event)}
+                    className={cn(
+                      "w-full text-left px-1.5 py-0.5 rounded text-[10px] truncate transition-all",
+                      getContactTypeColor(event.contact_type),
+                      "text-white hover:brightness-110",
+                      selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
+                    )}
+                    title={`${event.student_name} - ${event.contact_type}`}
+                  >
+                    {event.student_name.split(' ')[0]} · {event.contact_type}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : view === 'week' ? (
+          // Week view - 7-column grid for one week
+          <div className="h-full flex flex-col">
+            {/* Day headers with dates */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {weekDays.map((day) => (
+                <div
+                  key={day.dateKey}
+                  className={cn(
+                    "text-center text-xs font-medium py-1",
+                    day.isToday ? "text-[#a0704b]" : "text-gray-500 dark:text-gray-400"
+                  )}
+                >
+                  {DAYS_OF_WEEK[day.date.getDay()]} {day.day}
+                </div>
+              ))}
+            </div>
+
+            {/* Week grid */}
+            <div className="flex-1 grid grid-cols-7 gap-1">
+              {weekDays.map((day) => {
+                const dayEvents = eventsByDate[day.dateKey] || [];
+                const hasFollowup = followupDates.has(day.dateKey);
+
+                return (
+                  <div
+                    key={day.dateKey}
+                    className={cn(
+                      "p-1 rounded border transition-colors overflow-auto",
+                      "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-gray-700",
+                      day.isToday && "ring-2 ring-[#a0704b] ring-offset-1"
+                    )}
+                  >
+                    {hasFollowup && (
+                      <div className="flex justify-end mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" title="Follow-up scheduled" />
+                      </div>
+                    )}
+                    <div className="space-y-0.5">
+                      {dayEvents.map(event => (
+                        <button
+                          key={event.id}
+                          onClick={() => onEventClick(event)}
+                          className={cn(
+                            "w-full text-left px-1 py-0.5 rounded text-[10px] truncate transition-all",
+                            getContactTypeColor(event.contact_type),
+                            "text-white hover:brightness-110",
+                            selectedContactId === event.id && "ring-2 ring-offset-1 ring-[#a0704b]"
+                          )}
+                          title={`${event.student_name} - ${event.contact_type}`}
+                        >
+                          {event.student_name.split(' ')[0]}
+                        </button>
+                      ))}
+                      {dayEvents.length === 0 && (
+                        <p className="text-[10px] text-gray-400 text-center py-2">—</p>
                       )}
                     </div>
                   </div>
@@ -305,15 +471,20 @@ export function ContactCalendar({
             </div>
           </div>
         ) : (
-          // Day/Week view placeholder - simplified list view
+          // Day view - single day event list
           <div className="space-y-2">
-            {events.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No contacts in this period</p>
-              </div>
-            ) : (
-              events.map(event => (
+            {(() => {
+              const dayKey = selectedDate.toLocaleDateString('en-CA');
+              const dayEvents = eventsByDate[dayKey] || [];
+              if (dayEvents.length === 0) {
+                return (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No contacts on this day</p>
+                  </div>
+                );
+              }
+              return dayEvents.map(event => (
                 <button
                   key={event.id}
                   onClick={() => onEventClick(event)}
@@ -340,23 +511,17 @@ export function ContactCalendar({
                         }}
                         showLocationPrefix={showLocationPrefix}
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(event.contact_date).toLocaleDateString('en-US', {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </p>
                       <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
                         {event.contact_type} · {event.contact_method}
                       </p>
+                      {event.notes && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{event.notes}</p>
+                      )}
                     </div>
                   </div>
                 </button>
-              ))
-            )}
+              ));
+            })()}
           </div>
         )}
       </div>

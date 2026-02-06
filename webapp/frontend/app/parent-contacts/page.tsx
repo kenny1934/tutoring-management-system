@@ -19,7 +19,7 @@ import { PendingFollowupsSection } from "@/components/parent-contacts/PendingFol
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
-import { Users, Plus, Loader2, RefreshCw, LayoutList, Calendar as CalendarIcon } from "lucide-react";
+import { Phone, Plus, Loader2, LayoutList, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useSWR, { mutate } from "swr";
 
@@ -241,6 +241,9 @@ export default function ParentContactsPage() {
   const handleStudentClick = (student: StudentContactStatus) => {
     setSelectedStudentId(student.student_id);
     setSelectedContactId(null); // Clear contact selection to show history view
+    if (isMobile) {
+      setMobileTab('details');
+    }
   };
 
   // Get student contact history for detail panel
@@ -289,7 +292,7 @@ export default function ParentContactsPage() {
               {/* Title + Tutor Selector */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
+                  <Phone className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
                   <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
                     Parent Contacts
                   </h1>
@@ -310,14 +313,6 @@ export default function ParentContactsPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 sm:ml-auto">
-                <button
-                  onClick={refreshData}
-                  className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                  title="Refresh"
-                >
-                  <RefreshCw className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                </button>
-
                 <button
                   onClick={() => handleRecordContact()}
                   className={cn(
@@ -368,9 +363,9 @@ export default function ParentContactsPage() {
                   mobileTab === 'details'
                     ? "bg-white dark:bg-[#1a1a1a] text-[#a0704b] shadow-sm"
                     : "text-gray-600 dark:text-gray-400",
-                  !selectedContact && "opacity-50"
+                  !selectedContact && !selectedStudentId && "opacity-50"
                 )}
-                disabled={!selectedContact}
+                disabled={!selectedContact && !selectedStudentId}
               >
                 Details
               </button>

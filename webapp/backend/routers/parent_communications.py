@@ -7,8 +7,10 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc
 from typing import List, Optional
 from datetime import date, datetime, timedelta
+from collections import defaultdict
 from database import get_db
 from models import ParentCommunication, Student, Tutor, Enrollment, LocationSettings
+from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range, ACTIVE_GRACE_PERIOD_DAYS
 from schemas import (
     ParentCommunicationCreate,
     ParentCommunicationUpdate,
@@ -124,31 +126,56 @@ async def get_student_contact_statuses(
 ):
     """
     Get students with their parent contact status.
-    Shows all historical students for a tutor with their last contact info.
+    Uses the same active enrollment filtering as "My Students" tab.
     Contact status counts contacts from ANY tutor (student-centric).
     """
     recent_threshold, warning_threshold = get_location_thresholds(db, location)
 
-    # Get students based on filter
-    if tutor_id:
-        # Get all students this tutor has ever had (via enrollments)
-        student_ids = db.query(Enrollment.student_id).filter(
-            Enrollment.tutor_id == tutor_id
-        ).distinct()
-        if location:
-            student_ids = student_ids.filter(Enrollment.location == location)
-        student_ids = student_ids.scalar_subquery()
-        students_query = db.query(Student).filter(Student.id.in_(student_ids))
-    elif location:
-        # Get all students at this location
-        student_ids = db.query(Enrollment.student_id).filter(
-            Enrollment.location == location
-        ).distinct().scalar_subquery()
-        students_query = db.query(Student).filter(Student.id.in_(student_ids))
-    else:
-        students_query = db.query(Student)
+    # Get active students using the same logic as /enrollments/my-students
+    today = date.today()
+    max_possible_weeks = 60
+    cutoff_date = today - timedelta(weeks=max_possible_weeks)
 
-    students = students_query.all()
+    enrollment_query = (
+        db.query(Enrollment)
+        .options(joinedload(Enrollment.student))
+        .filter(
+            Enrollment.payment_status != "Cancelled",
+            Enrollment.enrollment_type == "Regular",
+            Enrollment.student_id.isnot(None),
+            or_(
+                Enrollment.first_lesson_date == None,
+                Enrollment.first_lesson_date >= cutoff_date
+            )
+        )
+    )
+
+    if tutor_id:
+        enrollment_query = enrollment_query.filter(Enrollment.tutor_id == tutor_id)
+    if location:
+        enrollment_query = enrollment_query.filter(Enrollment.location == location)
+
+    all_enrollments = enrollment_query.all()
+
+    # Load holidays for effective end date calculation
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
+    # Group by student_id, keep latest enrollment per student, filter by active status
+    student_enrollments = defaultdict(list)
+    for enrollment in all_enrollments:
+        student_enrollments[enrollment.student_id].append(enrollment)
+
+    students = []
+    for student_id, enrollments_list in student_enrollments.items():
+        latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
+        if latest.first_lesson_date:
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
+                if latest.student:
+                    students.append(latest.student)
+        else:
+            if latest.student:
+                students.append(latest.student)
 
     # Get last contact for each student (from any tutor)
     last_contacts = {}
