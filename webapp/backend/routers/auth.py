@@ -4,7 +4,8 @@ Authentication router for Google OAuth.
 
 import logging
 import os
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -23,6 +24,17 @@ logger = logging.getLogger(__name__)
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
+# Allowed origins for validating redirect targets (prevent open redirects)
+_allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+ALLOWED_ORIGINS = [o.strip() for o in _allowed_origins_str.split(",") if o.strip()]
+
+
+def _get_redirect_base(state: Optional[str] = None) -> str:
+    """Get the frontend URL to redirect to, using OAuth state if valid."""
+    if state and state in ALLOWED_ORIGINS:
+        return state
+    return FRONTEND_URL
+
 
 class UserResponse(BaseModel):
     """Response model for current user info"""
@@ -35,7 +47,10 @@ class UserResponse(BaseModel):
 
 
 @router.get("/auth/google/login")
-async def google_login(request: Request):
+async def google_login(
+    request: Request,
+    redirect_origin: Optional[str] = Query(None),
+):
     """
     Redirect to Google OAuth consent screen.
 
@@ -45,7 +60,9 @@ async def google_login(request: Request):
     # Rate limit login attempts to prevent abuse
     check_ip_rate_limit(request, "auth_login")
 
-    auth_url = get_google_auth_url()
+    # Pass the caller's origin through OAuth state so we can redirect back to the right domain
+    state = redirect_origin if redirect_origin and redirect_origin in ALLOWED_ORIGINS else None
+    auth_url = get_google_auth_url(state=state)
     return RedirectResponse(url=auth_url)
 
 
@@ -53,6 +70,7 @@ async def google_login(request: Request):
 async def google_callback(
     request: Request,
     code: str,
+    state: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -60,9 +78,13 @@ async def google_callback(
 
     Exchanges the authorization code for user info,
     finds the matching tutor, creates a JWT, and redirects to frontend.
+    The state parameter carries the caller's origin so we redirect to the correct custom domain.
     """
     # Rate limit callback attempts
     check_ip_rate_limit(request, "auth_callback")
+
+    # Determine redirect base from state (validated against ALLOWED_ORIGINS)
+    redirect_base = _get_redirect_base(state)
 
     try:
         # Exchange code for user info
@@ -73,7 +95,7 @@ async def google_callback(
         if not google_email:
             logger.warning("No email returned from Google OAuth")
             return RedirectResponse(
-                url=f"{FRONTEND_URL}/login?error=no_email",
+                url=f"{redirect_base}/login?error=no_email",
                 status_code=status.HTTP_302_FOUND,
             )
 
@@ -84,7 +106,7 @@ async def google_callback(
         if not tutor:
             # User not in system - reject login
             return RedirectResponse(
-                url=f"{FRONTEND_URL}/login?error=unauthorized",
+                url=f"{redirect_base}/login?error=unauthorized",
                 status_code=status.HTTP_302_FOUND,
             )
 
@@ -99,7 +121,7 @@ async def google_callback(
 
         # Create redirect response with cookie
         response = RedirectResponse(
-            url=FRONTEND_URL,
+            url=redirect_base,
             status_code=status.HTTP_302_FOUND,
         )
 
@@ -120,7 +142,7 @@ async def google_callback(
     except Exception as e:
         logger.error("OAuth callback error: %s", e)
         return RedirectResponse(
-            url=f"{FRONTEND_URL}/login?error=oauth_failed",
+            url=f"{redirect_base}/login?error=oauth_failed",
             status_code=status.HTTP_302_FOUND,
         )
 
