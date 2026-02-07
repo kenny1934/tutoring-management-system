@@ -254,20 +254,22 @@ const RenewalCard = React.memo(function RenewalCard({ renewal, index, isSelected
                   <span className="hidden sm:inline">Renew</span>
                 </button>
               )}
-              <button
-                onClick={handleCopyFeeClick}
-                className={cn(
-                  "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
-                  "hover:scale-[1.02] active:scale-[0.98]",
-                  isFeePanelOpen
-                    ? "bg-gray-600 hover:bg-gray-700 text-white"
-                    : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground/80"
-                )}
-                title="Copy fee message"
-              >
-                <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                <span className="hidden sm:inline">Fee</span>
-              </button>
+              {renewal.renewal_enrollment_id && (
+                <button
+                  onClick={handleCopyFeeClick}
+                  className={cn(
+                    "flex items-center gap-1.5 p-2 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-medium transition-all",
+                    "hover:scale-[1.02] active:scale-[0.98]",
+                    isFeePanelOpen
+                      ? "bg-gray-600 hover:bg-gray-700 text-white"
+                      : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-foreground/80"
+                  )}
+                  title="Copy fee message"
+                >
+                  <Copy className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Fee</span>
+                </button>
+              )}
             </div>
 
             {/* Status indicator - hidden on mobile (buttons visible), hidden on hover on desktop */}
@@ -371,6 +373,9 @@ export default function AdminRenewalsPage() {
 
   // Keyboard navigation state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Fee message pre-fetch cache (keyed by enrollment ID, default params: zh, 6 lessons)
+  const feeMessageCache = useRef<Map<number, string>>(new Map());
 
   // Batch selection state
   const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
@@ -481,6 +486,29 @@ export default function AdminRenewalsPage() {
     return map;
   }, [navigableItems]);
 
+  // Pre-fetch fee messages for active list so M key is instant
+  useEffect(() => {
+    if (!activeList || activeList.length === 0) return;
+
+    let cancelled = false;
+
+    activeList.forEach(item => {
+      if (!item.renewal_enrollment_id) return;
+      const enrollmentId = item.renewal_enrollment_id;
+      if (!feeMessageCache.current.has(enrollmentId)) {
+        enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
+          .then(response => {
+            if (!cancelled) {
+              feeMessageCache.current.set(enrollmentId, response.message);
+            }
+          })
+          .catch(() => {}); // Silently fail — will fetch on demand
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [activeList]);
+
   // Pre-compute section checkbox states to avoid repeated calculations
   const sectionStates = useMemo(() => ({
     expired: {
@@ -539,24 +567,36 @@ export default function AdminRenewalsPage() {
           }
           break;
         case 'f':
-          if (selectedIndex !== null && navigableItems[selectedIndex]) {
+          if (selectedIndex !== null && navigableItems[selectedIndex] &&
+              navigableItems[selectedIndex].renewal_enrollment_id) {
             const id = navigableItems[selectedIndex].id;
             setExpandedFeePanel(prev => prev === id ? null : id);
           }
           break;
         case 'm':
-          // Quick copy fee message for selected renewal
-          if (selectedIndex !== null && navigableItems[selectedIndex]) {
+          // Quick copy fee message for selected renewal (uses pre-fetched cache)
+          if (selectedIndex !== null && navigableItems[selectedIndex] &&
+              navigableItems[selectedIndex].renewal_enrollment_id) {
             const item = navigableItems[selectedIndex];
-            // Use the renewal enrollment if it exists, otherwise original enrollment
-            const enrollmentId = item.renewal_enrollment_id || item.id;
-            enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
-              .then(response => {
-                navigator.clipboard.writeText(response.message)
-                  .then(() => showToast("Fee message copied!"))
-                  .catch(() => showToast("Failed to copy to clipboard", "error"));
-              })
-              .catch(() => showToast("Failed to generate fee message", "error"));
+            const enrollmentId = item.renewal_enrollment_id;
+            const cached = feeMessageCache.current.get(enrollmentId);
+
+            if (cached) {
+              // Instant copy from cache
+              navigator.clipboard.writeText(cached)
+                .then(() => showToast("Fee message copied!"))
+                .catch(() => showToast("Failed to copy to clipboard", "error"));
+            } else {
+              // Fallback to API call if not yet cached
+              enrollmentsAPI.getFeeMessage(enrollmentId, 'zh', 6)
+                .then(response => {
+                  feeMessageCache.current.set(enrollmentId, response.message);
+                  navigator.clipboard.writeText(response.message)
+                    .then(() => showToast("Fee message copied!"))
+                    .catch(() => showToast("Failed to copy to clipboard", "error"));
+                })
+                .catch(() => showToast("Failed to generate fee message", "error"));
+            }
           }
           break;
         case ' ':  // Spacebar to toggle checkbox
@@ -724,6 +764,7 @@ export default function AdminRenewalsPage() {
   const handleRefresh = async () => {
     // Refresh the renewals list and counts without closing modals
     setIsRefreshing(true);
+    feeMessageCache.current.clear(); // Invalidate pre-fetched messages
     try {
       await Promise.all([
         mutate(['renewals', selectedLocation, showExpired]),
