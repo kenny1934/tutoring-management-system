@@ -52,8 +52,8 @@ export const StudentContactList = memo(function StudentContactList({
   showLocationPrefix,
   readOnly = false,
 }: StudentContactListProps) {
-  const [groupMode, setGroupMode] = useState<GroupMode>('grade');
-  const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('urgency');
+  const [groupMode, setGroupMode] = useState<GroupMode>('urgency');
+  const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('student_id');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -178,6 +178,21 @@ export const StudentContactList = memo(function StudentContactList({
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-md p-0.5">
               <button
+                onClick={() => {
+                  setGroupMode('urgency');
+                  if (withinGroupSort === 'urgency') setWithinGroupSort('student_id');
+                }}
+                className={cn(
+                  "p-1 rounded text-xs",
+                  groupMode === 'urgency'
+                    ? "bg-white dark:bg-[#2d2618] text-[#a0704b] shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                )}
+                title="Group by Urgency"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+              </button>
+              <button
                 onClick={() => setGroupMode('grade')}
                 className={cn(
                   "p-1 rounded text-xs",
@@ -189,32 +204,20 @@ export const StudentContactList = memo(function StudentContactList({
               >
                 <GraduationCap className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={() => setGroupMode('urgency')}
-                className={cn(
-                  "p-1 rounded text-xs",
-                  groupMode === 'urgency'
-                    ? "bg-white dark:bg-[#2d2618] text-[#a0704b] shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                )}
-                title="Group by Urgency"
-              >
-                <AlertTriangle className="h-3.5 w-3.5" />
-              </button>
             </div>
             {/* Within-group sort */}
             <select
               value={withinGroupSort}
               onChange={(e) => setWithinGroupSort(e.target.value as WithinGroupSort)}
               className={cn(
-                "text-xs px-1.5 py-1 rounded-md",
+                "text-xs px-1.5 py-1 rounded-md w-16",
                 "bg-gray-100 dark:bg-gray-800 border-0",
                 "text-gray-600 dark:text-gray-400",
                 "focus:outline-none focus:ring-1 focus:ring-[#a0704b]"
               )}
               title="Sort within groups"
             >
-              <option value="urgency">Urgency</option>
+              {groupMode !== 'urgency' && <option value="urgency">Urgency</option>}
               <option value="name">Name</option>
               <option value="student_id">ID</option>
             </select>

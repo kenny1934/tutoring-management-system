@@ -356,14 +356,20 @@ async def get_extension_requests(
 
 @router.get("/extension-requests/pending-count", response_model=PendingExtensionRequestCount)
 async def get_pending_count(
+    location: Optional[str] = Query(None, description="Filter by location"),
     db: Session = Depends(get_db)
 ):
     """
     Get count of pending extension requests for admin badge.
     """
-    count = db.query(func.count(ExtensionRequest.id)).filter(
+    query = db.query(func.count(ExtensionRequest.id)).filter(
         ExtensionRequest.request_status == 'Pending'
-    ).scalar() or 0
+    )
+
+    if location and location != "All Locations":
+        query = query.join(ExtensionRequest.enrollment).filter(Enrollment.location == location)
+
+    count = query.scalar() or 0
 
     return PendingExtensionRequestCount(count=count)
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, api, type ParentCommunication } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, api, type ParentCommunication } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, StatDetailStudent, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -473,6 +473,21 @@ export function useTerminationStats(
   );
 }
 
+export function useStatDetails(
+  statType: string | null,
+  quarter: number | null,
+  year: number | null,
+  location?: string,
+  tutorId?: number
+) {
+  return useSWR<StatDetailStudent[]>(
+    statType && quarter && year
+      ? ['stat-details', statType, quarter, year, location || 'all', tutorId || 'all']
+      : null,
+    () => terminationsAPI.getStatDetails(statType!, quarter!, year!, location, tutorId)
+  );
+}
+
 /**
  * Hook for fetching overdue enrollments (pending payment with lessons started)
  * Returns enrollments sorted by days overdue (most overdue first)
@@ -520,10 +535,10 @@ export function useMessageThreads(
   tutorId: number | null | undefined,
   category?: MessageCategory
 ) {
-  const refreshInterval = useVisibilityAwareInterval(60000);
+  const refreshInterval = useVisibilityAwareInterval(30000);
   const result = useSWR<PaginatedThreadsResponse>(
     tutorId ? ['message-threads', tutorId, category || 'all'] : null,
-    () => messagesAPI.getThreads(tutorId!, category, 50), // Max allowed by backend
+    () => messagesAPI.getThreads(tutorId!, category, 500),
     { refreshInterval, revalidateOnFocus: false }
   );
 
@@ -744,6 +759,20 @@ export function useRenewalCounts(isAdmin: boolean, location?: string) {
   return useSWR<{ expiring_soon: number; expired: number; total: number }>(
     isAdmin ? ['renewal-counts', location] : null,
     () => enrollmentsAPI.getRenewalCounts(location),
+    { refreshInterval, revalidateOnFocus: false }
+  );
+}
+
+/**
+ * Hook for fetching pending extension request count (for notification badge)
+ * Only enabled for admins
+ * Pauses polling when tab is hidden to save API calls
+ */
+export function usePendingExtensionCount(isAdmin: boolean, location?: string) {
+  const refreshInterval = useVisibilityAwareInterval(60000); // 1 minute refresh
+  return useSWR<PendingExtensionRequestCount>(
+    isAdmin ? ['pending-extension-count', location] : null,
+    () => extensionRequestsAPI.getPendingCount(location),
     { refreshInterval, revalidateOnFocus: false }
   );
 }

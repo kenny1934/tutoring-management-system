@@ -84,7 +84,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const IMPERSONATION_KEY = "csm_impersonated_role";
 const IMPERSONATED_TUTOR_KEY = "csm_impersonated_tutor";
 
@@ -207,8 +207,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [fetchUser]);
 
   const login = useCallback(() => {
-    // Redirect to backend OAuth endpoint
-    window.location.href = `${API_BASE_URL}/auth/google/login`;
+    // Redirect to backend OAuth endpoint, passing current origin so we redirect back to the right domain
+    window.location.href = `${API_BASE_URL}/auth/google/login?redirect_origin=${encodeURIComponent(window.location.origin)}`;
   }, []);
 
   const logout = useCallback(async () => {

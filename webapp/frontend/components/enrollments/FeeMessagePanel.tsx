@@ -15,14 +15,15 @@ interface FeeMessagePanelProps {
 
 export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessagePanelProps) {
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
-  const isTutor = effectiveRole === "Tutor";
+  const { effectiveRole, isReadOnly } = useAuth();
+  const isTutor = effectiveRole === "Tutor" || isReadOnly;
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [isEditable, setIsEditable] = useState(false);
   const [message, setMessage] = useState('');
   const [originalMessage, setOriginalMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [lessonsPaid, setLessonsPaid] = useState(6);
+  const [isNewStudent, setIsNewStudent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
 
@@ -34,7 +35,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
     let cancelled = false;
     setLoading(true);
 
-    enrollmentsAPI.getFeeMessage(feeMessageEnrollmentId, lang, lessonsPaid)
+    enrollmentsAPI.getFeeMessage(feeMessageEnrollmentId, lang, lessonsPaid, isNewStudent)
       .then(response => {
         if (!cancelled) {
           setMessage(response.message);
@@ -50,7 +51,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       });
 
     return () => { cancelled = true; };
-  }, [feeMessageEnrollmentId, lang, lessonsPaid]);
+  }, [feeMessageEnrollmentId, lang, lessonsPaid, isNewStudent]);
 
   const handleCopy = async () => {
     try {
@@ -149,6 +150,15 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
         </div>
 
         <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-foreground/60 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isNewStudent}
+              onChange={(e) => setIsNewStudent(e.target.checked)}
+              className="rounded border-gray-300 text-primary focus:ring-primary h-3.5 w-3.5"
+            />
+            New Student (+$100)
+          </label>
           <div className="flex items-center gap-2">
             <span className="text-xs text-foreground/60">Lessons:</span>
             <input

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { toDateString, getWeekBounds, getMonthBounds, getMonthCalendarDates } from "@/lib/calendar-utils";
 import { useExamsWithSlots, useTutors, usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { examRevisionAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { ExamCard } from "@/components/exams/ExamCard";
 
@@ -35,6 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Plus,
 } from "lucide-react";
 
 type ViewStyle = "list" | "calendar";
@@ -468,6 +470,26 @@ export default function ExamsPage() {
     setEditingEvent(undefined);
   }, [mutate]);
 
+  // Handle opening create event modal
+  const handleOpenCreateEvent = useCallback(() => {
+    setEditingEvent(undefined);
+    setIsEditEventModalOpen(true);
+  }, []);
+
+  // If URL has ?exam=ID and the exam isn't in current results, expand date range to include it
+  useEffect(() => {
+    if (highlightExamId && !isLoading) {
+      const found = exams.some(e => String(e.id) === highlightExamId);
+      if (!found) {
+        examRevisionAPI.getExamDate(highlightExamId).then(data => {
+          if (data?.start_date && data.start_date < fromDate) {
+            setFromDate(data.start_date);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [highlightExamId, isLoading, exams]);
+
   // Auto-scroll to highlighted exam after data loads
   useEffect(() => {
     if (highlightExamId && !isLoading && highlightedRef.current && stickyHeaderRef.current) {
@@ -527,6 +549,17 @@ export default function ExamsPage() {
                   </p>
                 </div>
               </div>
+              {/* Add Event button */}
+              {canManageEvents && (
+                <button
+                  onClick={handleOpenCreateEvent}
+                  className="ml-auto flex items-center gap-1.5 px-2 sm:px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] hover:bg-[#8a5f3d] text-white transition-colors"
+                  title="Add Event"
+                >
+                  <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
+                  <span className="hidden md:inline">Add Event</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -610,6 +643,7 @@ export default function ExamsPage() {
                 <Calendar className="h-4 w-4" />
               </button>
             </div>
+
           </div>
 
           {/* Date range row */}

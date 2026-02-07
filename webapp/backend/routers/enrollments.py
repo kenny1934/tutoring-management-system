@@ -24,6 +24,9 @@ from auth.dependencies import require_admin_write, get_current_user
 
 router = APIRouter()
 
+# Grace period: students remain in "active" lists for this many days after enrollment expires
+ACTIVE_GRACE_PERIOD_DAYS = 21
+
 
 # ============================================
 # Session Generation Helpers
@@ -422,6 +425,17 @@ async def create_enrollment(
             detail=f"Cannot create enrollment: student has conflicting sessions at: {', '.join(conflict_details)}"
         )
 
+    # Determine is_new_student: use explicit value if provided, otherwise auto-detect
+    if enrollment_data.is_new_student is not None:
+        is_new_student = enrollment_data.is_new_student
+    else:
+        # Auto-detect: student is "new" if they have no prior non-Trial enrollments
+        prior_non_trial = db.query(Enrollment).filter(
+            Enrollment.student_id == enrollment_data.student_id,
+            Enrollment.enrollment_type != 'Trial'
+        ).first()
+        is_new_student = prior_non_trial is None
+
     # Create the enrollment
     enrollment = Enrollment(
         student_id=enrollment_data.student_id,
@@ -435,6 +449,7 @@ async def create_enrollment(
         payment_status='Pending Payment',
         discount_id=enrollment_data.discount_id,
         renewed_from_enrollment_id=enrollment_data.renewed_from_enrollment_id,
+        is_new_student=is_new_student,
         last_modified_time=datetime.now(),
         last_modified_by=admin.user_email
     )
@@ -1016,8 +1031,8 @@ async def get_active_enrollments(
         if latest.first_lesson_date:
             effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
-            # Only include if still active
-            if effective_end_date and effective_end_date >= today:
+            # Only include if still active (with grace period)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
                 latest_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
@@ -1187,8 +1202,8 @@ async def get_my_students(
         if latest.first_lesson_date:
             effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
 
-            # Only include if still active
-            if effective_end_date and effective_end_date >= today:
+            # Only include if still active (with grace period)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
                 active_enrollments.append(latest)
         else:
             # No first_lesson_date - include it (enrollment hasn't started yet)
@@ -1275,7 +1290,8 @@ async def get_trials(
             Enrollment.student_id,
             Enrollment.id,
             Enrollment.first_lesson_date,
-            Enrollment.renewed_from_enrollment_id
+            Enrollment.renewed_from_enrollment_id,
+            Enrollment.payment_status
         )
         .filter(
             Enrollment.student_id.in_(student_ids),
@@ -1285,23 +1301,23 @@ async def get_trials(
         .all()
     )
 
-    # Build map: trial_enrollment_id -> subsequent enrollment info
+    # Build map: trial_enrollment_id -> (subsequent_id, subsequent_payment_status)
     # Check both renewed_from_enrollment_id link and date-based
     subsequent_map = {}
-    for student_id, subsequent_id, first_lesson, renewed_from in subsequent_enrollments:
+    for student_id, subsequent_id, first_lesson, renewed_from, sub_payment_status in subsequent_enrollments:
         # If directly linked via renewed_from_enrollment_id
         if renewed_from in enrollment_ids:
-            subsequent_map[renewed_from] = subsequent_id
+            subsequent_map[renewed_from] = (subsequent_id, sub_payment_status)
 
     # Also check by date: find any regular enrollment after the trial for the same student
     trial_dates = {e.id: (e.student_id, e.first_lesson_date) for e, _ in results}
-    for student_id, subsequent_id, first_lesson, _ in subsequent_enrollments:
+    for student_id, subsequent_id, first_lesson, _, sub_payment_status in subsequent_enrollments:
         if first_lesson:
             for trial_id, (trial_student_id, trial_date) in trial_dates.items():
                 if (trial_student_id == student_id and
                     trial_date and first_lesson > trial_date and
                     trial_id not in subsequent_map):
-                    subsequent_map[trial_id] = subsequent_id
+                    subsequent_map[trial_id] = (subsequent_id, sub_payment_status)
 
     # Build result items - deduplicate by enrollment (keep most relevant session)
     # Group sessions by enrollment_id (an enrollment may have multiple sessions if rescheduled)
@@ -1331,7 +1347,9 @@ async def get_trials(
 
         # Derive trial status
         session_status = session.session_status
-        subsequent_id = subsequent_map.get(enrollment.id)
+        subsequent_info = subsequent_map.get(enrollment.id)
+        subsequent_id = subsequent_info[0] if subsequent_info else None
+        subsequent_payment_status = subsequent_info[1] if subsequent_info else None
 
         if subsequent_id:
             trial_status = 'converted'
@@ -1363,6 +1381,7 @@ async def get_trials(
             payment_status=enrollment.payment_status,
             trial_status=trial_status,
             subsequent_enrollment_id=subsequent_id,
+            subsequent_payment_status=subsequent_payment_status,
             created_at=datetime.combine(session.session_date, datetime.min.time())
         ))
 
@@ -1515,7 +1534,8 @@ async def get_enrollment_detail_for_modal(
         pending_makeups=pending_makeups,
         payment_status=enrollment.payment_status or "",
         phone=enrollment.student.phone if enrollment.student else None,
-        fee_message_sent=enrollment.fee_message_sent or False
+        fee_message_sent=enrollment.fee_message_sent or False,
+        is_new_student=enrollment.is_new_student or False
     )
 
 
@@ -1524,6 +1544,7 @@ async def get_fee_message(
     enrollment_id: int,
     lang: str = Query("zh", description="Language: 'zh' for Chinese, 'en' for English"),
     lessons_paid: int = Query(6, description="Number of lessons for renewal (default 6)"),
+    is_new_student: Optional[bool] = Query(None, description="Override new student flag (None = use enrollment value)"),
     current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -1582,6 +1603,12 @@ async def get_fee_message(
         # Fall back to enrollment's discount (if any)
         discount_value = int(enrollment.discount.discount_value) if enrollment.discount and enrollment.discount.discount_value else 0
 
+    # Determine new student status: use override if provided, otherwise use enrollment value
+    # Trial enrollments never have reg fee
+    effective_is_new_student = is_new_student if is_new_student is not None else (enrollment.is_new_student or False)
+    if enrollment.enrollment_type == 'Trial':
+        effective_is_new_student = False
+
     # Format the fee message
     message = format_fee_message(
         lang=lang,
@@ -1592,7 +1619,8 @@ async def get_fee_message(
         location=enrollment.location or "",
         lessons_paid=lessons_paid,
         session_dates=session_dates,
-        discount_value=discount_value
+        discount_value=discount_value,
+        is_new_student=effective_is_new_student
     )
 
     return {"message": message, "lessons_paid": lessons_paid, "first_lesson_date": str(first_lesson_date)}
@@ -1607,7 +1635,8 @@ def format_fee_message(
     location: str,
     lessons_paid: int,
     session_dates: list,
-    discount_value: int = 0
+    discount_value: int = 0,
+    is_new_student: bool = False
 ) -> str:
     """Format a fee message in Chinese or English."""
     day_map_zh = {'Mon': '一', 'Tue': '二', 'Wed': '三', 'Thu': '四', 'Fri': '五', 'Sat': '六', 'Sun': '日',
@@ -1618,17 +1647,26 @@ def format_fee_message(
                   'Monday': 'Monday', 'Tuesday': 'Tuesday', 'Wednesday': 'Wednesday',
                   'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday'}
     location_map_zh = {'MSA': '華士古分校', 'MSB': '二龍喉分校'}
-    location_map_en = {'MSA': 'Vasco Branch', 'MSB': 'Flora Garden Branch'}
+    location_map_en = {'MSA': 'Vasco Center', 'MSB': 'Flora Garden Center'}
     bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
 
     base_fee = 400 * lessons_paid
+    reg_fee = 100 if is_new_student else 0
     discount_value = int(discount_value)  # Ensure no decimals
-    total_fee = base_fee - discount_value
+    total_fee = base_fee - discount_value + reg_fee
     lesson_dates_str = '\n                  '.join([d.strftime('%Y/%m/%d') for d in session_dates])
 
     if lang == 'zh':
-        discount_text = f' (已折扣${discount_value}學費禮劵，原價為${base_fee})' if discount_value > 0 else ''
-        closed_days = ' (星期二三公休)' if location == 'MSB' else ''
+        # Build fee description parts
+        fee_parts = []
+        if discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'已折扣${discount_value}學費禮劵，含$100報名費，原價為${base_fee}+$100報名費')
+        elif discount_value > 0:
+            fee_parts.append(f'已折扣${discount_value}學費禮劵，原價為${base_fee}')
+        elif reg_fee > 0:
+            fee_parts.append(f'含$100報名費')
+
+        discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
 
         return f"""家長您好，以下是 MathConcept中學教室 常規課程 之【繳費提示訊息】：
 
@@ -1641,19 +1679,27 @@ def format_fee_message(
 
 費用： ${total_fee:,}{discount_text}
 
-請於第一堂之前繳交學費。逾期繳費者，本中心將收取$200手續費，並保留權利拒絕學生上課。
-家長可親臨中學教室({location_map_zh.get(location, location)}){closed_days} 以現金方式繳交學費，或選擇把學費存入以下戶口：
-
+家長可選擇以下繳費方式：
+1. 自動轉賬（如已開通自動轉賬，將於7天內自動扣費，請家長留意並確保賬戶餘額充足）
+2. 交付現金 或
+3. 把學費存入以下戶口，請於備註註明學生姓名及其編號，並發收條至中心微信群。
 銀行：中國銀行
 名稱：弘教數學教育中心
 號碼：{bank_map.get(location, '')}
-請於備註註明學生姓名及其編號，並發收條至中心微信號確認，謝謝
 
 MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
 
     else:  # English
-        discount_text = f' (Discounted ${discount_value}, original price ${base_fee})' if discount_value > 0 else ''
-        closed_days = ' (Closed Tue & Wed)' if location == 'MSB' else ''
+        # Build fee description parts
+        fee_parts = []
+        if discount_value > 0 and reg_fee > 0:
+            fee_parts.append(f'Discounted ${discount_value}, includes $100 registration fee, original price ${base_fee} + $100 registration fee')
+        elif discount_value > 0:
+            fee_parts.append(f'Discounted ${discount_value}, original price ${base_fee}')
+        elif reg_fee > 0:
+            fee_parts.append(f'includes $100 registration fee')
+
+        discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
 
         return f"""Dear Parent,
 
@@ -1668,17 +1714,14 @@ Lesson Dates:
 
 Fee: ${total_fee:,}{discount_text}
 
-Please pay before the first lesson. Late payment will incur a $200 administrative fee, and we reserve the right to refuse admission.
+Parents may choose one of the following payment methods:
+1. Auto-transfer (if auto-transfer is enabled, the fee will be deducted automatically within 7 days — please ensure sufficient balance)
+2. Cash payment, or
+3. Bank transfer to the following account. Please include the student name and ID in the remarks, and send the receipt to our center's WeChat group.
+Bank: Bank of China
+Account Name: 弘教數學教育中心
+Account Number: {bank_map.get(location, '')}
 
-Payment options:
-1. Cash payment at our center ({location_map_en.get(location, location)}){closed_days}
-2. Bank transfer:
-   Bank: Bank of China
-   Account Name: 弘教數學教育中心
-   Account Number: {bank_map.get(location, '')}
-   Please include student name and ID in the transfer remarks, and send the receipt to our WeChat for confirmation.
-
-Thank you!
 MathConcept Secondary Academy ({location_map_en.get(location, location)})"""
 
 

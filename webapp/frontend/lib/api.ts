@@ -27,6 +27,7 @@ import type {
   TerminationRecordResponse,
   TerminationStatsResponse,
   QuarterOption,
+  StatDetailStudent,
   OverdueEnrollment,
   UncheckedAttendanceReminder,
   UncheckedAttendanceCount,
@@ -167,11 +168,11 @@ import type {
   RevertResponse,
 } from "@/types/debug";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-// Direct backend URL for iframe sources (bypasses Next.js proxy)
-// Iframes load URLs directly and don't go through Next.js rewrites
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api";
+// Direct backend URL for iframe sources
+// In production, goes through the same Cloudflare Worker proxy as API calls
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "/api";
 
 // Token refresh state to prevent concurrent refreshes
 let isRefreshing = false;
@@ -452,8 +453,9 @@ export const enrollmentsAPI = {
     return fetchAPI<EnrollmentDetailResponse>(`/enrollments/${id}/detail`);
   },
 
-  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6) => {
+  getFeeMessage: (id: number, lang: 'zh' | 'en' = 'zh', lessonsPaid: number = 6, isNewStudent?: boolean) => {
     const params = new URLSearchParams({ lang, lessons_paid: lessonsPaid.toString() });
+    if (isNewStudent !== undefined) params.set('is_new_student', String(isNewStudent));
     return fetchAPI<FeeMessageResponse>(`/enrollments/${id}/fee-message?${params}`);
   },
 
@@ -1115,6 +1117,28 @@ export const terminationsAPI = {
     }
     return fetchAPI<TerminationStatsResponse>(`/terminations/stats?${params}`);
   },
+
+  // Get student list for a specific stat type (drill-down)
+  getStatDetails: (
+    statType: string,
+    quarter: number,
+    year: number,
+    location?: string,
+    tutorId?: number
+  ) => {
+    const params = new URLSearchParams({
+      stat_type: statType,
+      quarter: quarter.toString(),
+      year: year.toString(),
+    });
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    return fetchAPI<StatDetailStudent[]>(`/terminations/stats/details?${params}`);
+  },
 };
 
 // Messages API
@@ -1384,8 +1408,9 @@ export const extensionRequestsAPI = {
   },
 
   // Get pending extension request count for admin badge
-  getPendingCount: () => {
-    return fetchAPI<PendingExtensionRequestCount>(`/extension-requests/pending-count`);
+  getPendingCount: (location?: string) => {
+    const params = location && location !== "All Locations" ? `?location=${encodeURIComponent(location)}` : "";
+    return fetchAPI<PendingExtensionRequestCount>(`/extension-requests/pending-count${params}`);
   },
 
   // Get single extension request with full context
@@ -1504,6 +1529,10 @@ export const examRevisionAPI = {
   removeEnrollment: (slotId: number, sessionId: number) => {
     return fetchAPI<MessageResponse>(`/exam-revision/slots/${slotId}/enrollments/${sessionId}`, { method: "DELETE" });
   },
+
+  // Get the start date of an exam by event ID
+  getExamDate: (eventId: string) =>
+    fetchAPI<{ start_date: string }>(`/exam-revision/calendar/${eventId}/date`),
 
   // Get exams (calendar events) with their revision slot summaries
   getCalendarWithSlots: (params?: {
