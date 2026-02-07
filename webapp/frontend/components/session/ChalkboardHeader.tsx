@@ -585,7 +585,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={isReadOnly || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
+              disabled={(isReadOnly && !['cw', 'hw', 'rate', 'schedule-makeup'].includes(action.id)) || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
               loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
@@ -1058,6 +1058,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
           exerciseType={exerciseModalType}
           isOpen={true}
           onClose={() => setExerciseModalType(null)}
+          readOnly={isReadOnly}
         />
       )}
 
@@ -1066,6 +1067,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         session={session}
         isOpen={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
+        readOnly={isReadOnly}
       />
 
       {/* Schedule Makeup Modal */}
@@ -1075,6 +1077,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
           isOpen={isMakeupModalOpen}
           onClose={() => setIsMakeupModalOpen(false)}
           proposerTutorId={session.tutor_id}
+          readOnly={isReadOnly}
         />
       )}
 

@@ -152,7 +152,7 @@ export function SessionActionButtons({
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, isReadOnly } = useAuth();
 
   // Combine internal loadingAction with external loadingActionId
   const effectiveLoadingAction = loadingActionId || loadingAction;
@@ -163,6 +163,10 @@ export function SessionActionButtons({
     if (!action.isVisible(session, visibilityContext)) return false;
     // Use effectiveRole from context, or fallback to userRole prop if provided
     const roleToCheck = effectiveRole || userRole;
+    // Supervisor can see actions that Admin can see (but they'll be disabled)
+    if (roleToCheck === "Supervisor") {
+      return action.allowedRoles.includes("Admin") || action.allowedRoles.includes("Super Admin");
+    }
     if (roleToCheck && !action.allowedRoles.includes(roleToCheck as typeof action.allowedRoles[number])) return false;
     return true;
   });
@@ -415,21 +419,26 @@ export function SessionActionButtons({
             : undefined;
           // Check if this action has active content (CW/HW assigned, or rating/notes)
           const isActive = action.id === "cw" ? hasCW : action.id === "hw" ? hasHW : action.id === "rate" ? hasRating : false;
+          // Actions that open view-friendly modals (Supervisor can open but save is disabled inside)
+          const isViewableAction = ["cw", "hw", "rate", "schedule-makeup"].includes(action.id);
+          const isDisabledByReadOnly = isReadOnly && !isViewableAction;
 
           return (
             <button
               key={action.id}
-              disabled={!isEnabled || isLoading}
+              disabled={isDisabledByReadOnly || !isEnabled || isLoading}
               onClick={(e) => handleClick(e, action)}
               className={cn(
                 "flex items-center gap-1 rounded font-medium transition-all",
                 sizeClasses[size],
-                isEnabled && !isLoading
-                  ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
-                  : cn(action.colorClass, "cursor-not-allowed opacity-50"),
-                isActive && "ring-1 ring-green-400 ring-offset-1"
+                isDisabledByReadOnly
+                  ? cn(action.colorClass, "cursor-not-allowed opacity-40")
+                  : isEnabled && !isLoading
+                    ? cn(action.colorClass, "hover:opacity-90 hover:scale-[1.05] hover:shadow-sm active:scale-[0.95]")
+                    : cn(action.colorClass, "cursor-not-allowed opacity-50"),
+                isActive && !isDisabledByReadOnly && "ring-1 ring-green-400 ring-offset-1"
               )}
-              title={isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
+              title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
             >
               <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
               {label && <span>{isLoading ? "..." : label}</span>}
@@ -455,6 +464,7 @@ export function SessionActionButtons({
           exerciseType={exerciseModalType}
           isOpen={true}
           onClose={() => setExerciseModalType(null)}
+          readOnly={isReadOnly}
         />
       )}
 
@@ -464,6 +474,7 @@ export function SessionActionButtons({
           session={session}
           isOpen={true}
           onClose={() => setIsRateModalOpen(false)}
+          readOnly={isReadOnly}
         />
       )}
 
@@ -474,6 +485,7 @@ export function SessionActionButtons({
           isOpen={isMakeupModalOpen}
           onClose={() => setIsMakeupModalOpen(false)}
           proposerTutorId={currentTutorId}
+          readOnly={isReadOnly}
         />
       )}
 

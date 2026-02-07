@@ -10,7 +10,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 from database import get_db
 from models import Tutor
-from auth.dependencies import get_current_user
+from auth.dependencies import get_current_user, can_view_admin_data
 
 router = APIRouter()
 
@@ -100,7 +100,7 @@ async def get_monthly_revenue_summary(
     Non-admins can only view their own revenue (tutor_id is ignored).
     Admins can view any tutor's revenue.
     """
-    is_admin = current_user.role in ('Admin', 'Super Admin')
+    is_admin = can_view_admin_data(current_user.role)
 
     # Non-admins can only see their own revenue
     if not is_admin:
@@ -167,7 +167,7 @@ async def get_session_revenue_details(
     Non-admins can only view their own revenue details (tutor_id is ignored).
     Admins can view any tutor's details.
     """
-    is_admin = current_user.role in ('Admin', 'Super Admin')
+    is_admin = can_view_admin_data(current_user.role)
 
     # Non-admins can only see their own revenue
     if not is_admin:
@@ -229,7 +229,7 @@ async def get_location_monthly_summary(
         response.headers["Cache-Control"] = "private, max-age=3600"  # 1 hour
 
     # Only admins can view location-wide revenue
-    is_admin = current_user.role in ('Admin', 'Super Admin')
+    is_admin = can_view_admin_data(current_user.role)
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required for location-wide revenue")
 

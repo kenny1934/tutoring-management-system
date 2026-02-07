@@ -17,6 +17,8 @@ interface RateSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (sessionId: number, rating: number, notes: string) => void;
+  /** When true, disables save action (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function RateSessionModal({
@@ -24,6 +26,7 @@ export function RateSessionModal({
   isOpen,
   onClose,
   onSave,
+  readOnly = false,
 }: RateSessionModalProps) {
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
@@ -178,7 +181,7 @@ export function RateSessionModal({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={readOnly} title={readOnly ? "Read-only access" : undefined}>
               Save Changes
             </Button>
           </div>

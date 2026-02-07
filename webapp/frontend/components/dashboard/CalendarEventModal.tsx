@@ -58,6 +58,7 @@ interface CalendarEventModalProps {
   onSuccess: (event?: CalendarEvent, action?: 'create' | 'update' | 'delete') => void;
   event?: CalendarEvent;  // If provided, edit mode; otherwise create mode
   prefilledDate?: string; // For create mode: pre-fill start date (YYYY-MM-DD)
+  readOnly?: boolean;
 }
 
 export function CalendarEventModal({
@@ -66,6 +67,7 @@ export function CalendarEventModal({
   onSuccess,
   event,
   prefilledDate,
+  readOnly = false,
 }: CalendarEventModalProps) {
   const { showToast } = useToast();
   const isEditMode = !!event;
@@ -590,8 +592,8 @@ export function CalendarEventModal({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={isSubmitting || isDeleting || hasRevisionSlots}
-                title={hasRevisionSlots ? `Cannot delete: event has ${event?.revision_slot_count} revision slot(s)` : undefined}
+                disabled={readOnly || isSubmitting || isDeleting || hasRevisionSlots}
+                title={readOnly ? "Read-only access" : hasRevisionSlots ? `Cannot delete: event has ${event?.revision_slot_count} revision slot(s)` : undefined}
                 className={cn(
                   "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-1.5",
                   hasRevisionSlots
@@ -619,7 +621,8 @@ export function CalendarEventModal({
                 type="submit"
                 form="calendar-event-form"
                 onClick={handleSubmit}
-                disabled={!canSubmit || isSubmitting || isDeleting}
+                disabled={readOnly || !canSubmit || isSubmitting || isDeleting}
+                title={readOnly ? "Read-only access" : undefined}
                 className={cn(
                   "px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2",
                   "bg-[#d4a574] text-white hover:bg-[#c4956a]",
