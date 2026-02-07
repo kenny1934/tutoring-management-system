@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-import { MapPin, Wrench, Users, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
+import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
 import { usefulTools } from "@/config/useful-tools";
@@ -47,7 +47,7 @@ const quickLinks = [
   { id: 'tools', label: 'Useful Tools', icon: Wrench, href: null }, // Special: opens dropdown
   { id: 'proposals', label: 'Make-up', icon: CalendarClock, href: null }, // Special: ProposalQuickLink component
   { id: 'trials', label: 'Trials', icon: ClipboardList, href: null }, // Special: TrialsQuickLink component
-  { id: 'parents', label: 'Parent Contacts', icon: Users, href: '/parent-contacts' },
+  { id: 'parents', label: 'Parent Contacts', icon: Phone, href: '/parent-contacts' },
   { id: 'revenue', label: 'My Revenue', icon: DollarSign, href: '/revenue' },
   { id: 'terminated', label: 'Terminated Students', icon: UserMinus, href: '/terminated-students' },
   { id: 'leave', label: 'Leave Record', icon: ClipboardList, href: null }, // Special: dropdown or direct link based on role

@@ -35,15 +35,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Only use rewrites in development (production calls API directly via NEXT_PUBLIC_API_URL)
+  // Rewrite /api/* to the backend
+  // - Development: proxy to localhost backend
+  // - Production: proxy to Cloud Run backend (fallback when not going through Cloudflare Worker)
   async rewrites() {
-    if (process.env.NODE_ENV === 'production') {
-      return [];
-    }
+    const backendUrl = process.env.NODE_ENV === 'production'
+      ? 'https://tutoring-backend-284725664511.asia-east2.run.app/api/:path*'
+      : 'http://localhost:8000/api/:path*';
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: backendUrl,
       },
     ];
   },

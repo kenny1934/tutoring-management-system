@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount } from "@/lib/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Users, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -54,6 +54,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Fetch renewal counts (only for admins - showOverduePayments indicates admin)
   const { data: renewalCounts } = useRenewalCounts(showOverduePayments, location);
 
+  // Fetch pending extension count (only for admins)
+  const { data: pendingExtensions } = usePendingExtensionCount(showOverduePayments, location);
+
   // Fetch unchecked attendance count
   // For admins in center-view: show all tutors at location (no tutorId filter)
   // For tutors or my-view: show only own sessions (filter by tutorId)
@@ -63,6 +66,18 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // Build notification items
   const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
+
+    // Renewals needing attention (admin only)
+    if (showOverduePayments && renewalCounts?.total && renewalCounts.total > 0) {
+      items.push({
+        id: "renewals",
+        icon: <RefreshCcw className="h-4 w-4" />,
+        label: "Renewals",
+        count: renewalCounts.total,
+        severity: renewalCounts.expired > 0 ? "danger" : "warning",
+        href: "/admin/renewals",
+      });
+    }
 
     if (showOverduePayments && pendingPayments > 0) {
       items.push({
@@ -75,15 +90,15 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       });
     }
 
-    // Renewals needing attention (admin only)
-    if (showOverduePayments && renewalCounts?.total && renewalCounts.total > 0) {
+    // Pending extension requests (admin only)
+    if (showOverduePayments && pendingExtensions?.count && pendingExtensions.count > 0) {
       items.push({
-        id: "renewals",
-        icon: <RefreshCcw className="h-4 w-4" />,
-        label: "Renewals",
-        count: renewalCounts.total,
-        severity: renewalCounts.expired > 0 ? "danger" : "warning",
-        href: "/admin/renewals",
+        id: "extensions",
+        icon: <Clock className="h-4 w-4" />,
+        label: "Pending Extensions",
+        count: pendingExtensions.count,
+        severity: "warning",
+        href: "/admin/extensions",
       });
     }
 
@@ -102,7 +117,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     if (contactNeeded?.count && contactNeeded.count > 0) {
       items.push({
         id: "parent-contact",
-        icon: <Users className="h-4 w-4" />,
+        icon: <Phone className="h-4 w-4" />,
         label: "Parent Contact Needed",
         count: contactNeeded.count,
         severity: "warning",
@@ -133,7 +148,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     }
 
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, uncheckedAttendance]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
@@ -178,6 +193,10 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
     return null;
   }
 
+  // Determine badge color based on severity (red if any danger, orange if only warnings)
+  const hasDanger = notifications.some(n => n.severity === 'danger');
+  const badgeColor = hasDanger ? 'bg-red-500' : 'bg-orange-500';
+
   return (
     <div className="relative">
       <button
@@ -192,7 +211,7 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       >
         <Bell className="h-5 w-5 text-[#a0704b] dark:text-[#cd853f]" />
         {/* Badge */}
-        <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full">
+        <span className={cn("absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white rounded-full", badgeColor)}>
           {totalCount > 99 ? "99+" : totalCount}
         </span>
       </button>

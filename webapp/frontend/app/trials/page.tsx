@@ -89,15 +89,22 @@ const TrialCard = React.memo(function TrialCard({
             showLocationPrefix={showLocationPrefix}
           />
         </div>
-        {/* Payment Status Badge */}
-        <span className={cn(
-          "px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
-          trial.payment_status === "Paid"
-            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-            : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-        )}>
-          {trial.payment_status === "Paid" ? "Paid" : "Pending"}
-        </span>
+        {/* Payment Status Badge - show subsequent enrollment's status for converted trials */}
+        {(() => {
+          const displayStatus = trial.trial_status === 'converted' && trial.subsequent_payment_status
+            ? trial.subsequent_payment_status
+            : trial.payment_status;
+          return (
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+              displayStatus === "Paid"
+                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                : "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+            )}>
+              {displayStatus === "Paid" ? "Paid" : "Pending"}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Session Info */}
@@ -273,6 +280,9 @@ export default function TrialsPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<number | null>(null);
   const [convertFromTrial, setConvertFromTrial] = useState<TrialListItem | null>(null);
+
+  // Tab view for narrow screens (when detail + create are both open)
+  const [modalTabView, setModalTabView] = useState<'detail' | 'create'>('detail');
 
   // Comparison mode state (trial + subsequent enrollment side-by-side)
   const [comparisonMode, setComparisonMode] = useState(false);
@@ -463,8 +473,13 @@ export default function TrialsPage() {
 
   const handleConvert = useCallback((trial: TrialListItem) => {
     setConvertFromTrial(trial);
+    setSelectedEnrollmentId(trial.enrollment_id);
+    setDetailModalOpen(true);
     setCreateModalOpen(true);
-  }, []);
+    if (!isLargeScreen) {
+      setModalTabView('create');
+    }
+  }, [isLargeScreen]);
 
   const handleNewTrial = useCallback(() => {
     setConvertFromTrial(null);
@@ -475,7 +490,21 @@ export default function TrialsPage() {
     mutate();
     setCreateModalOpen(false);
     setConvertFromTrial(null);
+    setDetailModalOpen(false);
+    setSelectedEnrollmentId(null);
   }, [mutate]);
+
+  const handleConvertCloseAll = useCallback(() => {
+    setDetailModalOpen(false);
+    setSelectedEnrollmentId(null);
+    setCreateModalOpen(false);
+    setConvertFromTrial(null);
+  }, []);
+
+  const handleConvertCreateClose = useCallback(() => {
+    setCreateModalOpen(false);
+    setConvertFromTrial(null);
+  }, []);
 
   const handleRecordContact = useCallback((studentId: number) => {
     setContactStudentId(studentId);
@@ -651,28 +680,135 @@ export default function TrialsPage() {
           )}
         </div>
 
-        {/* Create Enrollment Modal */}
-        <CreateEnrollmentModal
-          isOpen={createModalOpen}
-          onClose={() => {
-            setCreateModalOpen(false);
-            setConvertFromTrial(null);
-          }}
-          onSuccess={handleCreateSuccess}
-          trialMode={!convertFromTrial}
-          // When converting, pre-fill student info
-          convertFromTrial={convertFromTrial || undefined}
-        />
+        {/* Unified modal container - morphs between centered detail and side-by-side for conversion */}
+        <AnimatePresence mode="wait">
+          {detailModalOpen && (
+            <motion.div
+              key="detail-modal-container"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
+            >
+              {/* Backdrop */}
+              <motion.div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onClick={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              />
 
-        {/* Enrollment Detail Modal */}
-        {selectedEnrollmentId && (
-          <EnrollmentDetailModal
-            isOpen={detailModalOpen}
+              {/* Modal Container - responsive: side-by-side on large, tabs on narrow */}
+              <div className={cn(
+                "relative flex flex-col",
+                isLargeScreen
+                  ? "h-[85vh] max-w-[60rem]"
+                  : "h-[90vh] max-w-[32rem] w-full"
+              )}>
+                {/* Tabs for narrow screens when both modals open (converting) */}
+                {!isLargeScreen && createModalOpen && convertFromTrial && (
+                  <div className="flex bg-[#fef9f3] dark:bg-[#2d2618] rounded-t-lg border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+                    <button
+                      onClick={() => setModalTabView('detail')}
+                      className={cn(
+                        "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tl-lg",
+                        modalTabView === 'detail'
+                          ? "text-primary border-b-2 border-primary bg-primary/5"
+                          : "text-foreground/60 hover:text-foreground/80"
+                      )}
+                    >
+                      Trial Details
+                    </button>
+                    <button
+                      onClick={() => setModalTabView('create')}
+                      className={cn(
+                        "flex-1 px-4 py-2.5 text-sm font-medium transition-colors rounded-tr-lg",
+                        modalTabView === 'create'
+                          ? "text-primary border-b-2 border-primary bg-primary/5"
+                          : "text-foreground/60 hover:text-foreground/80"
+                      )}
+                    >
+                      Convert to Regular
+                    </button>
+                  </div>
+                )}
+
+                <LayoutGroup>
+                  <motion.div
+                    layout
+                    className={cn(
+                      "relative flex",
+                      isLargeScreen
+                        ? "items-stretch gap-4 h-full"
+                        : "flex-col flex-1 overflow-hidden",
+                      isLargeScreen && !(createModalOpen && convertFromTrial) && "justify-center"
+                    )}
+                  >
+                    {/* Detail Modal - always on large, conditional on narrow when create is open */}
+                    {(isLargeScreen || !(createModalOpen && convertFromTrial) || modalTabView === 'detail') && (
+                      <motion.div
+                        layoutId="enrollment-detail-modal"
+                        transition={{
+                          layout: { type: "spring", stiffness: 300, damping: 30 }
+                        }}
+                        className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
+                      >
+                        <EnrollmentDetailModal
+                          isOpen={true}
+                          onClose={convertFromTrial ? handleConvertCloseAll : () => { setDetailModalOpen(false); setSelectedEnrollmentId(null); }}
+                          enrollmentId={selectedEnrollmentId}
+                          compact={isLargeScreen && !!(createModalOpen && convertFromTrial)}
+                          standalone={false}
+                          headerLabel={convertFromTrial ? "Trial" : undefined}
+                        />
+                      </motion.div>
+                    )}
+
+                    {/* Create Form - slides in on large, tab-based on narrow */}
+                    <AnimatePresence mode="popLayout">
+                      {createModalOpen && convertFromTrial && (isLargeScreen || modalTabView === 'create') && (
+                        <motion.div
+                          key="create-form"
+                          initial={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                          animate={isLargeScreen ? { opacity: 1, x: 0, scale: 1 } : { opacity: 1 }}
+                          exit={isLargeScreen ? { opacity: 0, x: 50, scale: 0.95 } : { opacity: 0 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 30,
+                            delay: isLargeScreen ? 0.05 : 0
+                          }}
+                          className={!isLargeScreen ? "flex-1 overflow-y-auto" : undefined}
+                        >
+                          <CreateEnrollmentModal
+                            isOpen={true}
+                            onClose={handleConvertCreateClose}
+                            onSuccess={handleCreateSuccess}
+                            convertFromTrial={convertFromTrial}
+                            standalone={false}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                </LayoutGroup>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Standalone create modal (when opened from "New Trial" button without detail) */}
+        {createModalOpen && !detailModalOpen && (
+          <CreateEnrollmentModal
+            isOpen={true}
             onClose={() => {
-              setDetailModalOpen(false);
-              setSelectedEnrollmentId(null);
+              setCreateModalOpen(false);
+              setConvertFromTrial(null);
             }}
-            enrollmentId={selectedEnrollmentId}
+            onSuccess={handleCreateSuccess}
+            trialMode={true}
           />
         )}
 
@@ -700,7 +836,7 @@ export default function TrialsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
             >
               {/* Backdrop */}
               <motion.div
@@ -782,6 +918,8 @@ export default function TrialsPage() {
                         standalone={false}
                         hideCloseButton={true}
                         headerLabel="Enrolled"
+                        showRenewalActions={true}
+                        onStatusChange={() => mutate()}
                       />
                     </motion.div>
                   </motion.div>

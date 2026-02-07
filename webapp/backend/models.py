@@ -126,6 +126,7 @@ class Enrollment(Base):
 
     # Notes
     remark = Column(Text)
+    is_new_student = Column(Boolean, default=False, comment='TRUE if student is new (adds $100 reg fee)')
 
     # Extension tracking (from migration 017)
     deadline_extension_weeks = Column(Integer, default=0, comment='Number of weeks deadline extended')

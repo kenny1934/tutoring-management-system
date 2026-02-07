@@ -70,16 +70,29 @@ Custom domains `csm.mathconceptsecondary.academy` and `csm-pro.mathconceptsecond
 
 **Architecture:**
 ```
-User → Cloudflare (csm.domain) → Worker (rewrites Host header) → Cloud Run
+User → Cloudflare (csm.domain) → Worker → /api/* → Cloud Run Backend
+                                        → /*     → Cloud Run Frontend
 ```
 
 **Cloudflare Worker:** `cloud-run-proxy`
 - Location: dash.cloudflare.com → Workers & Pages → cloud-run-proxy
-- Code rewrites Host header to `tutoring-frontend-284725664511.asia-east2.run.app`
-- Routes: `csm.mathconceptsecondary.academy/*` and `csm-pro.mathconceptsecondary.academy/*`
+- Routes `/api/*` to `tutoring-backend-284725664511.asia-east2.run.app` (backend)
+- Routes everything else to `tutoring-frontend-284725664511.asia-east2.run.app` (frontend)
+- Sets `X-Forwarded-Host` header with the original custom domain hostname
+- Uses `redirect: 'manual'` to pass through 302 redirects (important for OAuth flow)
+
+**Why the Worker proxies API calls:**
+- Auth cookies must be first-party (same domain as the page) to avoid third-party cookie blocking
+- Without the proxy, cookies set by the backend (different domain) are blocked by modern browsers
+- The Worker makes the cookie appear as first-party by routing both frontend and API through the same domain
+
+**Cloud Run direct access (dev testing):**
+- `next.config.ts` has production rewrites that proxy `/api/*` to the backend
+- This allows using the Cloud Run frontend URL without Cloudflare (saves free tier quota)
+- OAuth works if the Cloud Run frontend callback URI is registered in Google OAuth console
 
 **Limits:**
-- Free tier: 100,000 requests/day (only frontend pages, not API calls)
+- Free tier: 100,000 requests/day (frontend pages + API calls through Worker)
 - Check usage: Workers & Pages → cloud-run-proxy → Metrics
 - If exceeded: Upgrade to $5/month for 10M requests/month
 
@@ -87,3 +100,9 @@ User → Cloudflare (csm.domain) → Worker (rewrites Host header) → Cloud Run
 - CNAME `csm` → `tutoring-frontend-284725664511.asia-east2.run.app` (Proxied)
 - CNAME `csm-pro` → `tutoring-frontend-284725664511.asia-east2.run.app` (Proxied)
 - SSL/TLS mode: Full
+
+**Google OAuth Authorized Redirect URIs:**
+- `https://csm.mathconceptsecondary.academy/api/auth/google/callback`
+- `https://csm-pro.mathconceptsecondary.academy/api/auth/google/callback`
+- `https://tutoring-frontend-284725664511.asia-east2.run.app/api/auth/google/callback`
+- `http://localhost:8000/api/auth/google/callback` (development)

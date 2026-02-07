@@ -199,6 +199,7 @@ export function CreateEnrollmentModal({
   const [lessonsPaid, setLessonsPaid] = useState<number>(6);
   const [enrollmentType, setEnrollmentType] = useState<string>("Regular");
   const [discountId, setDiscountId] = useState<number | null>(null);
+  const [isNewStudent, setIsNewStudent] = useState<boolean | null>(null);
 
   // Custom time state
   const [useCustomTime, setUseCustomTime] = useState(false);
@@ -271,6 +272,7 @@ export function CreateEnrollmentModal({
       setPreview(null);
       setPreviewError(null);
       setSelectedRenewalLinkId(null);
+      setIsNewStudent(null);
       setIsSuccess(false);
     } else if (trialMode && !convertFromTrial && !renewFromId) {
       // Initialize trial mode on open (when not converting or renewing)
@@ -396,6 +398,19 @@ export function CreateEnrollmentModal({
     });
   }, [student?.id, student?.is_staff_referral, isOpen, convertFromTrial, discounts]);
 
+  // Auto-detect is_new_student when student is selected (skip for Trial enrollments)
+  useEffect(() => {
+    if (!student || !isOpen || enrollmentType === 'Trial') {
+      setIsNewStudent(null);
+      return;
+    }
+
+    enrollmentsAPI.getAll(student.id).then((enrollments) => {
+      const hasNonTrialEnrollment = enrollments.some(e => e.enrollment_type !== 'Trial');
+      setIsNewStudent(!hasNonTrialEnrollment);
+    }).catch(() => {});
+  }, [student?.id, isOpen, enrollmentType]);
+
   // Reset tutor when location changes if current tutor is not from new location
   useEffect(() => {
     if (tutorId && tutors.length > 0 && location) {
@@ -426,6 +441,7 @@ export function CreateEnrollmentModal({
       enrollment_type: enrollmentType,
       renewed_from_enrollment_id: effectiveRenewalLinkId,
       discount_id: discountId || undefined,
+      is_new_student: isNewStudent ?? undefined,
     };
   }, [student, tutorId, assignedDay, effectiveTimeSlot, location, firstLessonDate, lessonsPaid, enrollmentType, effectiveRenewalLinkId, discountId, useCustomTime, isCustomTimeValid]);
 
@@ -802,7 +818,7 @@ export function CreateEnrollmentModal({
               <select
                 value={discountId || ""}
                 onChange={(e) => setDiscountId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none"
+                className="w-full pl-3 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-primary/30 focus:border-primary appearance-none truncate"
               >
                 <option value="">No discount</option>
                 {discounts.map((d) => (
@@ -814,6 +830,21 @@ export function CreateEnrollmentModal({
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 pointer-events-none" />
             </div>
           </div>
+
+          {/* New Student - not applicable to Trial enrollments */}
+          {enrollmentType !== 'Trial' && (
+            <div className="flex items-center">
+              <label className="flex items-center gap-2 text-sm text-foreground/70 cursor-pointer pt-6">
+                <input
+                  type="checkbox"
+                  checked={isNewStudent === true}
+                  onChange={(e) => setIsNewStudent(e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                New Student (+$100 reg fee)
+              </label>
+            </div>
+          )}
 
           {/* Enrollment Type - hidden when in trial mode or converting from trial */}
           {!trialMode && !convertFromTrial && (

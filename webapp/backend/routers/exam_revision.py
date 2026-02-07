@@ -30,9 +30,13 @@ from schemas import (
     SessionResponse,
     SessionExerciseResponse,
 )
-from utils.response_builders import build_session_response as _build_session_response
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from utils.response_builders import build_session_response as _build_session_response, _find_root_original_session_date
+from utils.makeup_validators import validate_makeup_constraints
 from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES
 from services.google_calendar_service import sync_calendar_events
+from auth.dependencies import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -178,6 +182,55 @@ def _build_slot_response(
         calendar_event=CalendarEventResponse.model_validate(slot.calendar_event) if slot.calendar_event else None,
         warning=warning
     )
+
+
+def _check_past_deadline(
+    db: Session,
+    student_id: int,
+    target_date: date,
+    target_time_slot: str,
+) -> bool:
+    """
+    Check if the target date/time falls on the student's regular slot
+    past their enrollment end date.
+    """
+    current_enrollment = db.query(Enrollment).filter(
+        Enrollment.student_id == student_id,
+        Enrollment.enrollment_type == 'Regular',
+        Enrollment.payment_status != "Cancelled"
+    ).order_by(Enrollment.first_lesson_date.desc()).first()
+
+    if not current_enrollment or not current_enrollment.assigned_day or not current_enrollment.assigned_time:
+        return False
+
+    proposed_day = target_date.strftime('%a')
+    is_regular_slot = (
+        proposed_day == current_enrollment.assigned_day and
+        target_time_slot == current_enrollment.assigned_time
+    )
+
+    if not is_regular_slot or not current_enrollment.first_lesson_date or not current_enrollment.lessons_paid:
+        return False
+
+    try:
+        effective_end_result = db.execute(text("""
+            SELECT calculate_effective_end_date(
+                :first_lesson_date,
+                :lessons_paid,
+                COALESCE(:extension_weeks, 0)
+            ) as effective_end_date
+        """), {
+            "first_lesson_date": current_enrollment.first_lesson_date,
+            "lessons_paid": current_enrollment.lessons_paid,
+            "extension_weeks": current_enrollment.deadline_extension_weeks or 0
+        }).fetchone()
+
+        if effective_end_result and effective_end_result.effective_end_date:
+            return target_date > effective_end_result.effective_end_date
+    except SQLAlchemyError as e:
+        logger.warning(f"Could not check enrollment deadline: {e}")
+
+    return False
 
 
 def _check_tutor_conflicts(
@@ -760,6 +813,7 @@ async def get_eligible_students(
 
         if pending_sessions:
             enrollment = enrollment_map.get(student.id)
+            past_deadline = _check_past_deadline(db, student.id, slot.session_date, slot.time_slot)
             eligible_students.append(EligibleStudentResponse(
                 student_id=student.id,
                 student_name=student.student_name,
@@ -770,6 +824,7 @@ async def get_eligible_students(
                 academic_stream=student.academic_stream,
                 home_location=student.home_location,
                 enrollment_tutor_name=enrollment.tutor.tutor_name if enrollment and enrollment.tutor else None,
+                is_past_deadline=past_deadline,
                 pending_sessions=[
                     PendingSessionInfo(
                         id=s.id,
@@ -777,7 +832,8 @@ async def get_eligible_students(
                         time_slot=s.time_slot,
                         session_status=s.session_status,
                         tutor_name=s.tutor.tutor_name if s.tutor else None,
-                        location=s.location
+                        location=s.location,
+                        root_original_session_date=_find_root_original_session_date(s, db),
                     )
                     for s in pending_sessions
                 ]
@@ -868,7 +924,8 @@ async def get_eligible_students_by_exam(
                         time_slot=s.time_slot,
                         session_status=s.session_status,
                         tutor_name=s.tutor.tutor_name if s.tutor else None,
-                        location=s.location
+                        location=s.location,
+                        root_original_session_date=_find_root_original_session_date(s, db),
                     )
                     for s in pending_sessions
                 ]
@@ -884,6 +941,7 @@ async def get_eligible_students_by_exam(
 async def enroll_student(
     slot_id: int,
     request: EnrollStudentRequest,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -946,18 +1004,13 @@ async def enroll_student(
     if not student:
         raise HTTPException(status_code=404, detail=f"Student with ID {request.student_id} not found")
 
-    # Check for student time conflicts (warning, not blocking)
-    student_conflicts = _check_student_conflicts(
-        db, request.student_id, slot.session_date, slot.time_slot,
-        exclude_session_id=request.consume_session_id
+    # Shared validation: 60-day window, holiday, enrollment deadline, student conflict
+    validate_makeup_constraints(
+        db, request.student_id, consume_session,
+        slot.session_date, slot.time_slot, slot.location,
+        is_super_admin=current_user.role == "Super Admin",
+        exclude_session_id=request.consume_session_id,
     )
-    student_warning = None
-    if student_conflicts:
-        conflict_info = ", ".join([
-            f"{c['tutor_name']} at {c['location']} ({c['time_slot']})"
-            for c in student_conflicts
-        ])
-        student_warning = f"Student has {len(student_conflicts)} conflicting session(s): {conflict_info}"
 
     # Find the student's enrollment at this location
     enrollment = db.query(Enrollment).filter(
@@ -1039,7 +1092,7 @@ async def enroll_student(
     return EnrollStudentResponse(
         revision_session=_build_session_response(revision_session),
         consumed_session=_build_session_response(consume_session),
-        warning=student_warning
+        warning=None
     )
 
 
@@ -1098,6 +1151,15 @@ async def remove_enrollment(
 # ============================================
 # Calendar View with Revision Summaries
 # ============================================
+
+@router.get("/exam-revision/calendar/{event_id}/date")
+async def get_exam_date(event_id: int, db: Session = Depends(get_db)):
+    """Get the start date of a calendar event by ID."""
+    event = db.query(CalendarEvent).filter(CalendarEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"start_date": event.start_date.isoformat()}
+
 
 @router.get("/exam-revision/calendar", response_model=List[ExamWithRevisionSlotsResponse])
 async def get_exams_with_revision_slots(

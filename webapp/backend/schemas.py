@@ -149,12 +149,18 @@ class EnrollmentResponse(EnrollmentBase):
     last_modified_time: Optional[datetime] = None
     effective_end_date: Optional[date] = Field(None, description="Calculated end date based on first lesson + lessons paid + extensions")
     fee_message_sent: bool = False
+    is_new_student: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
     @field_validator('fee_message_sent', mode='before')
     @classmethod
     def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
+
+    @field_validator('is_new_student', mode='before')
+    @classmethod
+    def coerce_is_new_student(cls, v):
         return v if v is not None else False
 
 
@@ -171,6 +177,7 @@ class EnrollmentUpdate(BaseModel):
     enrollment_type: Optional[str] = Field(None, max_length=50)
     fee_message_sent: Optional[bool] = None
     discount_id: Optional[int] = Field(None, gt=0)
+    is_new_student: Optional[bool] = None
 
 
 class EnrollmentExtensionUpdate(BaseModel):
@@ -237,6 +244,7 @@ class EnrollmentCreate(BaseModel):
     remark: Optional[str] = Field(None, max_length=1000)
     renewed_from_enrollment_id: Optional[int] = Field(None, gt=0, description="Link to previous enrollment for renewals")
     discount_id: Optional[int] = Field(None, gt=0)
+    is_new_student: Optional[bool] = Field(None, description="New student flag (None = auto-detect based on prior non-Trial enrollments)")
 
 
 class HolidaySkipped(BaseModel):
@@ -360,6 +368,7 @@ class TrialListItem(BaseModel):
     payment_status: str
     trial_status: str = Field(..., description="Derived: scheduled, attended, no_show, converted, pending")
     subsequent_enrollment_id: Optional[int] = Field(default=None, description="ID if student converted to regular")
+    subsequent_payment_status: Optional[str] = Field(default=None, description="Payment status of subsequent enrollment")
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -401,10 +410,16 @@ class EnrollmentDetailResponse(BaseModel):
     payment_status: str
     phone: Optional[str] = None
     fee_message_sent: bool = False
+    is_new_student: bool = False
 
     @field_validator('fee_message_sent', mode='before')
     @classmethod
     def coerce_fee_message_sent(cls, v):
+        return v if v is not None else False
+
+    @field_validator('is_new_student', mode='before')
+    @classmethod
+    def coerce_is_new_student_detail(cls, v):
         return v if v is not None else False
 
 
@@ -968,15 +983,43 @@ class TerminationStatsResponse(BaseModel):
 
 
 class QuarterOption(BaseModel):
-    """Available quarter with count"""
+    """Available quarter option for dropdown"""
     quarter: int = Field(..., ge=1, le=4)
     year: int = Field(..., ge=2020)
-    count: int = Field(default=0, ge=0)
+
+
+class StatDetailStudent(BaseModel):
+    """Student detail for stat drill-down"""
+    student_id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    tutor_name: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    lang_stream: Optional[str] = None
+    home_location: Optional[str] = None
+    enrollment_id: Optional[int] = None
+    assigned_day: Optional[str] = None
+    assigned_time: Optional[str] = None
 
 
 # ============================================
 # Message Schemas
 # ============================================
+
+class ReadReceiptDetail(BaseModel):
+    """Detail of who read a message and when"""
+    tutor_id: int
+    tutor_name: str
+    read_at: datetime
+
+
+class LikeDetail(BaseModel):
+    """Detail of who liked a message and when"""
+    tutor_id: int
+    tutor_name: str
+    liked_at: datetime
+
 
 class MessageBase(BaseModel):
     """Base message schema with common fields"""
@@ -1011,8 +1054,13 @@ class MessageResponse(MessageBase):
     is_read: bool = False
     like_count: int = Field(default=0, ge=0)
     is_liked_by_me: bool = False
+    like_details: Optional[List[LikeDetail]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
+    # Read receipt fields for sender's messages (WhatsApp-style seen status)
+    read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
+    total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)
+    read_by_all: Optional[bool] = None  # True when all recipients have read
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1382,6 +1430,7 @@ class PendingSessionInfo(BaseModel):
     session_status: str = Field(..., max_length=50)
     tutor_name: Optional[str] = Field(None, max_length=100)
     location: Optional[str] = Field(None, max_length=100)
+    root_original_session_date: Optional[date] = Field(None, description="Root original session date for 60-day rule")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1398,6 +1447,7 @@ class EligibleStudentResponse(BaseModel):
     home_location: Optional[str] = Field(None, max_length=200, description="Student's home location for display prefix")
     enrollment_tutor_name: Optional[str] = Field(None, description="Tutor from student's enrollment")
     pending_sessions: List[PendingSessionInfo] = Field(default_factory=list, description="Sessions available to consume")
+    is_past_deadline: bool = Field(False, description="True if revision slot is on student's regular slot past enrollment end date")
 
     model_config = ConfigDict(from_attributes=True)
 

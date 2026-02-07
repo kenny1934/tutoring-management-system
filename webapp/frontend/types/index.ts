@@ -150,6 +150,7 @@ export interface EnrollmentCreate {
   remark?: string;
   renewed_from_enrollment_id?: number;
   discount_id?: number;
+  is_new_student?: boolean;
 }
 
 /**
@@ -182,6 +183,7 @@ export interface Enrollment {
   last_modified_time?: string;
   effective_end_date?: string;
   fee_message_sent?: boolean;
+  is_new_student?: boolean;
   student?: Student;
 }
 
@@ -576,7 +578,20 @@ export interface TerminationStatsResponse {
 export interface QuarterOption {
   quarter: number;
   year: number;
-  count: number;
+}
+
+export interface StatDetailStudent {
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  tutor_name: string | null;
+  grade: string | null;
+  school: string | null;
+  lang_stream: string | null;
+  home_location: string | null;
+  enrollment_id: number | null;
+  assigned_day: string | null;
+  assigned_time: string | null;
 }
 
 // Overdue enrollment types
@@ -623,6 +638,18 @@ export interface UncheckedAttendanceCount {
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
 export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation';
 
+export interface ReadReceiptDetail {
+  tutor_id: number;
+  tutor_name: string;
+  read_at: string;
+}
+
+export interface LikeDetail {
+  tutor_id: number;
+  tutor_name: string;
+  liked_at: string;
+}
+
 export interface Message {
   id: number;
   from_tutor_id: number;
@@ -639,8 +666,13 @@ export interface Message {
   is_read: boolean;
   like_count: number;
   is_liked_by_me: boolean;
+  like_details?: LikeDetail[];
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
+  // Read receipt fields for sender's messages (WhatsApp-style seen status)
+  read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
+  total_recipients?: number;  // Total recipients for broadcasts
+  read_by_all?: boolean;  // True when all recipients have read
 }
 
 export interface MessageThread {
@@ -899,6 +931,7 @@ export interface PendingSessionInfo {
   session_status: string;
   tutor_name?: string;
   location?: string;
+  root_original_session_date?: string;
 }
 
 export interface EligibleStudent {
@@ -912,6 +945,7 @@ export interface EligibleStudent {
   home_location?: string;
   enrollment_tutor_name?: string;
   pending_sessions: PendingSessionInfo[];
+  is_past_deadline?: boolean;
 }
 
 export interface ExamRevisionSlotCreate {
@@ -1240,6 +1274,7 @@ export interface TrialListItem {
   payment_status: string;
   trial_status: 'scheduled' | 'attended' | 'no_show' | 'converted' | 'pending';
   subsequent_enrollment_id?: number;
+  subsequent_payment_status?: string;
   created_at: string;
 }
 
@@ -1279,6 +1314,7 @@ export interface EnrollmentDetailResponse {
   payment_status: string;
   phone?: string;
   fee_message_sent: boolean;
+  is_new_student?: boolean;
 }
 
 // =============================================================================

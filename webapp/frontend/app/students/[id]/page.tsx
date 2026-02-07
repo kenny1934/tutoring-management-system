@@ -48,7 +48,6 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { useAuth } from "@/contexts/AuthContext";
 
 // Tab types
 type TabId = "profile" | "sessions" | "courseware" | "tests" | "ratings" | "contacts";

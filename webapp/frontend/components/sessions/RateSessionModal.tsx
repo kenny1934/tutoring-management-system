@@ -155,7 +155,7 @@ export function RateSessionModal({
       footer={
         <div className="space-y-2">
           {/* Keyboard shortcuts hint */}
-          <div className="flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
+          <div className="hidden sm:flex items-center justify-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">1-5</kbd>
               <span>rate</span>

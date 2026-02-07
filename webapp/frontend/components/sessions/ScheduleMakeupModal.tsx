@@ -433,7 +433,7 @@ export function ScheduleMakeupModal({
   readOnly = false,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
-  const { effectiveRole } = useAuth();
+  const { effectiveRole, user } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
   const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
@@ -482,10 +482,8 @@ export function ScheduleMakeupModal({
   const [mode, setMode] = useState<"book" | "propose">("book");
   const [proposalSlots, setProposalSlots] = useState<ProposalSlotLocal[]>([]);
   const [isProposing, setIsProposing] = useState(false);
-  // Track selected proposer (defaults to prop, but can be changed in modal)
-  const [selectedProposerTutorId, setSelectedProposerTutorId] = useState<number | null>(
-    proposerTutorId ?? null
-  );
+  // Use prop if provided, otherwise current user's ID from OAuth
+  const selectedProposerTutorId = proposerTutorId ?? user?.id ?? null;
 
   // Custom time state (consolidated: start, end, enabled)
   const [customTime, setCustomTime] = useState({ start: "", end: "", enabled: false });
@@ -967,7 +965,7 @@ export function ScheduleMakeupModal({
   // Submit proposal
   const submitProposal = async () => {
     if (!selectedProposerTutorId) {
-      showToast("Please select who you are proposing as", "info");
+      showToast("Unable to determine current user", "error");
       return;
     }
     if (proposalSlots.length === 0) {
@@ -1310,31 +1308,9 @@ export function ScheduleMakeupModal({
             </button>
           </div>
           {mode === "propose" && (
-            <>
-              <span className="text-xs text-gray-500">
-                Select up to 3 time slots
-              </span>
-              {/* Proposer selector - show as text if prop provided, dropdown otherwise */}
-              <div className="flex items-center gap-1.5 ml-auto">
-                <span className="text-xs text-gray-500">As:</span>
-                {proposerTutorId ? (
-                  <span className="px-2 py-1 text-xs font-medium text-[#a0704b]">
-                    {tutors?.find(t => t.id === proposerTutorId)?.tutor_name || "Unknown"}
-                  </span>
-                ) : (
-                  <select
-                    value={selectedProposerTutorId || ""}
-                    onChange={(e) => setSelectedProposerTutorId(e.target.value ? Number(e.target.value) : null)}
-                    className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-[#2a2a2a]"
-                  >
-                    <option value="">Select tutor...</option>
-                    {tutors?.map((t) => (
-                      <option key={t.id} value={t.id}>{t.tutor_name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </>
+            <span className="text-xs text-gray-500">
+              Select up to 3 time slots
+            </span>
           )}
         </div>
 

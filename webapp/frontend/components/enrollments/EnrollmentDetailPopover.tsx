@@ -105,8 +105,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   // Fetch locations and tutors for editing
   const { data: allLocations = [] } = useLocations();
   const { data: allTutors = [] } = useActiveTutors();
-  const { effectiveRole } = useAuth();
-  const isTutor = effectiveRole === "Tutor";
+  const { effectiveRole, isReadOnly } = useAuth();
+  const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
   // Filter locations (exclude "Various" placeholder)
   const locations = useMemo(() =>
@@ -287,7 +287,8 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
     setIsCopying(true);
     setCopySuccess(false);
     try {
-      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', 0);
+      const isNewParam = enrollment.enrollment_type === 'Trial' ? undefined : (enrollment.is_new_student ?? undefined);
+      const response = await enrollmentsAPI.getFeeMessage(enrollment.id, 'zh', enrollment.lessons_paid, isNewParam);
       await navigator.clipboard.writeText(response.message);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
@@ -560,6 +561,16 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
               {markedAsPaid ? "Payment Confirmed ✓" : enrollment.payment_status}
             </span>
           </div>
+
+          {/* New Student - not applicable to Trial */}
+          {enrollment.is_new_student && enrollment.enrollment_type !== 'Trial' && (
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400">New Student:</span>
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300">
+                +$100 Reg Fee
+              </span>
+            </div>
+          )}
 
           {/* Lessons Paid */}
           {enrollment.lessons_paid !== undefined && (
