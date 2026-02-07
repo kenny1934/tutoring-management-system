@@ -661,6 +661,8 @@ export default function AdminRenewalsPage() {
 
   // Handler: Quick renew from list (without opening detail modal)
   const handleQuickRenew = (enrollmentId: number) => {
+    setSelectedEnrollmentId(enrollmentId);
+    setDetailModalOpen(true);
     setRenewFromId(enrollmentId);
     setCreateModalOpen(true);
     // Close fee panel if open
