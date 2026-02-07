@@ -530,6 +530,7 @@ export interface TerminatedStudent {
   schedule?: string;
   record_id?: number;
   reason?: string;
+  reason_category?: string;
   count_as_terminated: boolean;
 }
 
@@ -537,6 +538,7 @@ export interface TerminationRecordUpdate {
   quarter: number;
   year: number;
   reason?: string;
+  reason_category?: string;
   count_as_terminated: boolean;
 }
 
@@ -546,6 +548,7 @@ export interface TerminationRecordResponse {
   quarter: number;
   year: number;
   reason?: string;
+  reason_category?: string;
   count_as_terminated: boolean;
   tutor_id?: number;
   updated_by?: string;
@@ -578,6 +581,17 @@ export interface TerminationStatsResponse {
 export interface QuarterOption {
   quarter: number;
   year: number;
+}
+
+export interface QuarterTrendPoint {
+  quarter: number;
+  year: number;
+  label: string;
+  opening: number;
+  terminated: number;
+  closing: number;
+  term_rate: number;
+  reason_breakdown: Record<string, number>;
 }
 
 export interface StatDetailStudent {
@@ -1563,7 +1577,22 @@ export interface StudentContactStatus {
   contact_status: 'Never Contacted' | 'Recent' | 'Been a While' | 'Contact Needed';
   pending_follow_up: boolean;
   follow_up_date: string | null;
+  follow_up_communication_id: number | null;
   enrollment_count: number;
+}
+
+/** Parent communication stats for dashboard */
+export interface ParentCommunicationStats {
+  total_active_students: number;
+  students_contacted_recently: number;
+  contact_coverage_percent: number;
+  progress_update_count: number;
+  concern_count: number;
+  general_count: number;
+  contacts_this_week: number;
+  contacts_last_week: number;
+  average_days_since_contact: number | null;
+  pending_followups_count: number;
 }
 
 /** Location settings */

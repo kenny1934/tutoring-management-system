@@ -23,6 +23,10 @@ interface StudentContactListProps {
   showLocationPrefix?: boolean;
   /** When true, disables record contact buttons (Supervisor mode) */
   readOnly?: boolean;
+  /** Controlled search query from parent (enables backend notes search) */
+  searchQuery?: string;
+  /** Callback when search changes (lifts state to parent for backend search) */
+  onSearchChange?: (query: string) => void;
 }
 
 type GroupMode = 'grade' | 'urgency';
@@ -51,14 +55,22 @@ export const StudentContactList = memo(function StudentContactList({
   onRecordContact,
   showLocationPrefix,
   readOnly = false,
+  searchQuery: controlledSearchQuery,
+  onSearchChange,
 }: StudentContactListProps) {
   const [groupMode, setGroupMode] = useState<GroupMode>('urgency');
   const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('student_id');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Filter students by search
+  // Use controlled search if provided, otherwise local
+  const searchQuery = controlledSearchQuery ?? localSearchQuery;
+  const setSearchQuery = onSearchChange ?? setLocalSearchQuery;
+
+  // When using controlled search (backend handles filtering), skip client-side filter
+  // When using local search, filter client-side as before
   const filteredStudents = useMemo(() => {
+    if (onSearchChange) return students; // Backend already filtered
     if (!searchQuery.trim()) return students;
     const query = searchQuery.toLowerCase();
     return students.filter(s =>
@@ -66,7 +78,7 @@ export const StudentContactList = memo(function StudentContactList({
       s.school_student_id?.toLowerCase().includes(query) ||
       s.grade?.toLowerCase().includes(query)
     );
-  }, [students, searchQuery]);
+  }, [students, searchQuery, onSearchChange]);
 
   // Group students
   const groupedStudents = useMemo((): SortedGroup[] => {
@@ -229,7 +241,7 @@ export const StudentContactList = memo(function StudentContactList({
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search students..."
+            placeholder={onSearchChange ? "Search students & notes..." : "Search students..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className={cn(

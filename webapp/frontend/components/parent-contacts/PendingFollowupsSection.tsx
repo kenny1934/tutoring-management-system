@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { StudentContactStatus } from "@/lib/api";
 import {
   Bell,
+  Check,
   ChevronDown,
   ChevronUp,
   MessageSquarePlus,
@@ -16,6 +17,7 @@ import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 interface PendingFollowupsSectionProps {
   followups: StudentContactStatus[];
   onRecordContact: (studentId: number) => void;
+  onMarkDone?: (communicationId: number, studentName: string) => void;
   showLocationPrefix?: boolean;
   /** When true, disables record contact buttons (Supervisor mode) */
   readOnly?: boolean;
@@ -24,6 +26,7 @@ interface PendingFollowupsSectionProps {
 export function PendingFollowupsSection({
   followups,
   onRecordContact,
+  onMarkDone,
   showLocationPrefix,
   readOnly = false,
 }: PendingFollowupsSectionProps) {
@@ -142,21 +145,39 @@ export function PendingFollowupsSection({
                     </p>
                   </div>
 
-                  {/* Action */}
-                  <button
-                    onClick={() => onRecordContact(followup.student_id)}
-                    disabled={readOnly}
-                    className={cn(
-                      "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
-                      readOnly
-                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
-                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {followup.follow_up_communication_id && onMarkDone && (
+                      <button
+                        onClick={() => onMarkDone(followup.follow_up_communication_id!, followup.student_name)}
+                        disabled={readOnly}
+                        className={cn(
+                          "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                          readOnly
+                            ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                            : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                        )}
+                        title={readOnly ? "Read-only access" : "Mark follow-up as done"}
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Done
+                      </button>
                     )}
-                    title={readOnly ? "Read-only access" : undefined}
-                  >
-                    <MessageSquarePlus className="h-3.5 w-3.5" />
-                    Contact
-                  </button>
+                    <button
+                      onClick={() => onRecordContact(followup.student_id)}
+                      disabled={readOnly}
+                      className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                        readOnly
+                          ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                          : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                      )}
+                      title={readOnly ? "Read-only access" : undefined}
+                    >
+                      <MessageSquarePlus className="h-3.5 w-3.5" />
+                      Contact
+                    </button>
+                  </div>
                 </div>
               );
             })}
