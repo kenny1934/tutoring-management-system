@@ -689,7 +689,7 @@ export default function TrialsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
             >
               {/* Backdrop */}
               <motion.div
@@ -836,7 +836,7 @@ export default function TrialsPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-hidden"
+              className="fixed inset-0 md:left-[var(--sidebar-width,72px)] z-50 flex items-center justify-center p-4 overflow-hidden transition-[left] duration-350"
             >
               {/* Backdrop */}
               <motion.div
