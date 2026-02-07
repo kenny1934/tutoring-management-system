@@ -1562,6 +1562,69 @@ class ScheduleChangeResult(BaseModel):
     message: str
 
 
+# ============================================
+# WeCom Schemas
+# ============================================
+
+class WecomWebhookResponse(BaseModel):
+    """Response for listing WeCom webhooks (URL masked for security)"""
+    id: int = Field(..., gt=0)
+    webhook_name: str = Field(..., max_length=100)
+    target_description: Optional[str] = Field(None, max_length=255)
+    is_active: bool = True
+    last_used_at: Optional[datetime] = None
+    total_messages_sent: int = Field(default=0, ge=0)
+    notes: Optional[str] = None
+    webhook_url_configured: bool = Field(default=False, description="Whether a real webhook URL is set (not placeholder)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WecomWebhookAdminResponse(WecomWebhookResponse):
+    """Admin response that includes the full webhook URL"""
+    webhook_url: str = Field(..., description="Full webhook URL (admin only)")
+
+
+class WecomWebhookUpdate(BaseModel):
+    """Schema for updating a webhook configuration"""
+    webhook_url: Optional[str] = Field(None, max_length=2000, description="Full webhook URL from WeCom robot")
+    target_description: Optional[str] = Field(None, max_length=255)
+    is_active: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class WecomSendRequest(BaseModel):
+    """Request to send a message to a WeCom group"""
+    webhook_name: str = Field(..., max_length=100, description="Target webhook (e.g., admin_group, tutor_group)")
+    msg_type: str = Field(default="text", pattern="^(text|markdown)$", description="Message type: text or markdown")
+    content: str = Field(..., min_length=1, max_length=5000, description="Message content")
+
+
+class WecomSendResponse(BaseModel):
+    """Response after sending a WeCom message"""
+    success: bool
+    message: str
+    log_id: Optional[int] = None
+    wecom_errcode: Optional[int] = Field(None, description="WeCom API error code (0 = success)")
+    wecom_errmsg: Optional[str] = Field(None, description="WeCom API error message")
+
+
+class WecomMessageLogResponse(BaseModel):
+    """Response for viewing WeCom message send history"""
+    id: int = Field(..., gt=0)
+    webhook_name: str = Field(..., max_length=100)
+    message_type: Optional[str] = Field(None, max_length=50)
+    message_content: str
+    enrollment_id: Optional[int] = None
+    session_id: Optional[int] = None
+    send_status: str = Field(..., max_length=20)
+    send_timestamp: Optional[datetime] = None
+    error_message: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()
