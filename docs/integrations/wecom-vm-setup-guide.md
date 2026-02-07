@@ -1,5 +1,11 @@
 # WeCom API Proxy: GCE VM Setup Guide
 
+> **Status (Feb 2026): ON HOLD.** This guide is complete and tested, but the WeCom API
+> integration is blocked by China's ICP filing (备案) requirement. Our Macau entity cannot
+> obtain ICP filing for our domain. The VM was set up, tested, and then decommissioned.
+> This guide is preserved for future use if the blocker is resolved — the full setup takes
+> ~30 minutes. See `wecom-webapp-integration-plan.md` for details on the blocker.
+
 This guide sets up a lightweight GCE VM to proxy WeCom API calls from our Cloud Run backend. The VM provides the **static IP** that WeCom requires for API authentication.
 
 **Cost:** $0/month (GCP free tier)
