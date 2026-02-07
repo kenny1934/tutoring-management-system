@@ -32,9 +32,10 @@ interface RevisionSlotCardProps {
   onDuplicate: () => void;
   onRefresh: () => void;
   showLocationPrefix?: boolean;
+  readOnly?: boolean;
 }
 
-export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onEnroll, onEdit, onDuplicate, onRefresh, showLocationPrefix }: RevisionSlotCardProps) {
+export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onEnroll, onEdit, onDuplicate, onRefresh, showLocationPrefix, readOnly }: RevisionSlotCardProps) {
   const { showToast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -159,10 +160,13 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
         <div className="flex items-center gap-1">
           <button
             onClick={onEnroll}
+            disabled={readOnly}
+            title={readOnly ? "Read-only access" : undefined}
             className={cn(
               "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors",
               "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400",
-              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
+              "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
             <UserPlus className="h-3 w-3" />
@@ -170,27 +174,35 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
           </button>
           <button
             onClick={onEdit}
-            className="p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
-            title="Edit slot"
+            disabled={readOnly}
+            className={cn(
+              "p-1.5 rounded-md text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+            title={readOnly ? "Read-only access" : "Edit slot"}
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={onDuplicate}
-            className="p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
-            title="Duplicate slot"
+            disabled={readOnly}
+            className={cn(
+              "p-1.5 rounded-md text-gray-400 hover:text-purple-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            )}
+            title={readOnly ? "Read-only access" : "Duplicate slot"}
           >
             <Copy className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={handleDeleteClick}
-            disabled={isDeleting}
+            disabled={readOnly || isDeleting}
             className={cn(
               "p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors",
               "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
-            title={slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
+            title={readOnly ? "Read-only access" : slot.enrolled_count > 0 ? "Delete (will unenroll students)" : "Delete slot"}
           >
             {isDeleting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -248,9 +260,9 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
                         e.stopPropagation();
                         handleRemoveClick(student);
                       }}
-                      disabled={isRemovingId === student.session_id}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                      title="Remove enrollment"
+                      disabled={readOnly || isRemovingId === student.session_id}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={readOnly ? "Read-only access" : "Remove enrollment"}
                     >
                       {isRemovingId === student.session_id ? (
                         <Loader2 className="h-3 w-3 animate-spin" />

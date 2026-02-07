@@ -415,6 +415,8 @@ interface ScheduleMakeupModalProps {
   viaExtensionRequest?: boolean;
   /** Extension request ID to mark as rescheduled after successful booking */
   extensionRequestId?: number;
+  /** When true, disables submit actions (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function ScheduleMakeupModal({
@@ -428,6 +430,7 @@ export function ScheduleMakeupModal({
   initialTimeSlot,
   viaExtensionRequest,
   extensionRequestId,
+  readOnly = false,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { effectiveRole } = useAuth();
@@ -1211,7 +1214,8 @@ export function ScheduleMakeupModal({
           {mode === "propose" ? (
             <Button
               onClick={submitProposal}
-              disabled={isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+              disabled={readOnly || isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+              title={readOnly ? "Read-only access" : undefined}
             >
               {isProposing ? (
                 <>
@@ -1231,7 +1235,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
+            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

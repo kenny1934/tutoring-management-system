@@ -40,6 +40,8 @@ interface ExerciseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
+  /** When true, disables save action (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function ExerciseModal({
@@ -48,6 +50,7 @@ export function ExerciseModal({
   isOpen,
   onClose,
   onSave,
+  readOnly = false,
 }: ExerciseModalProps) {
   // Filter existing exercises to only show the relevant type
   const [exercises, setExercises] = useState<ExerciseFormItem[]>([]);
@@ -830,7 +833,7 @@ export function ExerciseModal({
             <Button variant="outline" onClick={handleCloseAttempt}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={readOnly} title={readOnly ? "Read-only access" : undefined}>
               Save Changes
             </Button>
           </div>

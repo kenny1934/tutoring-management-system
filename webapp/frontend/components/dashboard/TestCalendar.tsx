@@ -325,8 +325,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
 
   // All authenticated users can manage calendar events (collaborative calendar)
-  const { user } = useAuth();
-  const canManageEvents = !!user;
+  // Supervisors can view but not create/edit/delete events
+  const { user, isReadOnly } = useAuth();
+  const canManageEvents = !!user && !isReadOnly;
 
   // Ref to hold mutators for sync callback (avoids circular dependency)
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
@@ -854,6 +855,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
         onSuccess={handleModalSuccess}
         event={editingEvent}
         prefilledDate={prefilledDate}
+        readOnly={isReadOnly}
       />
     </div>
   );
