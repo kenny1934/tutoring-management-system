@@ -241,7 +241,7 @@ def get_effective_role(request: Request, current_user: Tutor) -> str:
         current_user: The authenticated user from JWT
 
     Returns:
-        The effective role string ("Super Admin", "Admin", or "Tutor")
+        The effective role string ("Super Admin", "Admin", "Supervisor", or "Tutor")
     """
     # Only Super Admins can impersonate
     if current_user.role != "Super Admin":
@@ -251,10 +251,97 @@ def get_effective_role(request: Request, current_user: Tutor) -> str:
     impersonated_role = request.headers.get("X-Effective-Role")
 
     # Only allow valid role values
-    if impersonated_role in ("Admin", "Tutor"):
+    if impersonated_role in ("Admin", "Supervisor", "Tutor"):
         return impersonated_role
 
     return current_user.role
+
+
+# Valid roles in the system
+VALID_ROLES = ("Super Admin", "Admin", "Supervisor", "Tutor")
+
+# Roles that can view admin pages (all data, admin features)
+ADMIN_VIEW_ROLES = ("Super Admin", "Admin", "Supervisor")
+
+# Roles that can perform write operations (create, update, delete)
+ADMIN_WRITE_ROLES = ("Super Admin", "Admin")
+
+# Read-only roles that can view but not modify
+READ_ONLY_ROLES = ("Supervisor",)
+
+
+def is_read_only_role(role: str) -> bool:
+    """Check if a role is read-only (can view but not modify)."""
+    return role in READ_ONLY_ROLES
+
+
+def can_view_admin_data(role: str) -> bool:
+    """Check if a role can view admin-level data (all students, enrollments, etc.)."""
+    return role in ADMIN_VIEW_ROLES
+
+
+def can_write_data(role: str) -> bool:
+    """Check if a role can perform write operations."""
+    return role in ADMIN_WRITE_ROLES
+
+
+def require_admin_write(
+    request: Request,
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Require the current user to be an Admin or Super Admin with write permissions.
+
+    Blocks Supervisors and Tutors from write operations.
+    Respects impersonation for Super Admins.
+
+    Raises HTTPException 403 if not authorized to write.
+
+    Usage:
+        @router.post("/create-something")
+        def create_route(admin: Tutor = Depends(require_admin_write)):
+            ...
+    """
+    effective_role = get_effective_role(request, current_user)
+
+    if effective_role not in ADMIN_WRITE_ROLES:
+        if effective_role == "Supervisor":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Supervisors have read-only access",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+def require_admin_view(
+    request: Request,
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Require the current user to have admin-level view access.
+
+    Allows Super Admin, Admin, and Supervisor roles.
+    Respects impersonation for Super Admins.
+
+    Raises HTTPException 403 if not authorized to view.
+
+    Usage:
+        @router.get("/admin-data")
+        def view_route(user: Tutor = Depends(require_admin_view)):
+            ...
+    """
+    effective_role = get_effective_role(request, current_user)
+
+    if effective_role not in ADMIN_VIEW_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
 
 
 def is_office_ip(request: Request, db: Session) -> bool:

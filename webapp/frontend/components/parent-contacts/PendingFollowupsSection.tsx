@@ -17,12 +17,15 @@ interface PendingFollowupsSectionProps {
   followups: StudentContactStatus[];
   onRecordContact: (studentId: number) => void;
   showLocationPrefix?: boolean;
+  /** When true, disables record contact buttons (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function PendingFollowupsSection({
   followups,
   onRecordContact,
   showLocationPrefix,
+  readOnly = false,
 }: PendingFollowupsSectionProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -142,11 +145,14 @@ export function PendingFollowupsSection({
                   {/* Action */}
                   <button
                     onClick={() => onRecordContact(followup.student_id)}
+                    disabled={readOnly}
                     className={cn(
-                      "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
-                      "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
-                      "hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                      "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
+                      readOnly
+                        ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                        : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
                     )}
+                    title={readOnly ? "Read-only access" : undefined}
                   >
                     <MessageSquarePlus className="h-3.5 w-3.5" />
                     Contact

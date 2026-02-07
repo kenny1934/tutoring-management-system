@@ -15,8 +15,8 @@ interface FeeMessagePanelProps {
 
 export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessagePanelProps) {
   const { showToast } = useToast();
-  const { effectiveRole } = useAuth();
-  const isTutor = effectiveRole === "Tutor";
+  const { effectiveRole, isReadOnly } = useAuth();
+  const isTutor = effectiveRole === "Tutor" || isReadOnly;
   const [lang, setLang] = useState<'zh' | 'en'>('zh');
   const [isEditable, setIsEditable] = useState(false);
   const [message, setMessage] = useState('');

@@ -32,7 +32,7 @@ export default function ParentContactsPage() {
   const { viewMode } = useRole();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
-  const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isAdmin, canViewAdminPages, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
   // Calculate current tutor ID (respects impersonation)
   const currentTutorId = useMemo(() => {
@@ -131,17 +131,17 @@ export default function ParentContactsPage() {
 
   // Force tutor ID based on role
   useEffect(() => {
-    if (!isAdmin && currentTutorId) {
+    if (!canViewAdminPages && currentTutorId) {
       // Non-admins always see their own data
       setSelectedTutorId(currentTutorId);
-    } else if (isAdmin && viewMode === 'my-view' && currentTutorId) {
-      // Admins in my-view default to their own data
+    } else if (canViewAdminPages && viewMode === 'my-view' && currentTutorId) {
+      // Admin-level users in my-view default to their own data
       setSelectedTutorId(currentTutorId);
-    } else if (isAdmin && viewMode === 'center-view') {
-      // Admins in center-view reset to all tutors
+    } else if (canViewAdminPages && viewMode === 'center-view') {
+      // Admin-level users in center-view reset to all tutors
       setSelectedTutorId(ALL_TUTORS);
     }
-  }, [isAdmin, viewMode, currentTutorId]);
+  }, [canViewAdminPages, viewMode, currentTutorId]);
 
   // Detect mobile
   useEffect(() => {
@@ -300,8 +300,8 @@ export default function ParentContactsPage() {
 
                 <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
-                {/* Tutor Selector - show for admins only */}
-                {isAdmin && (
+                {/* Tutor Selector - show for admin-level users */}
+                {canViewAdminPages && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -315,11 +315,14 @@ export default function ParentContactsPage() {
               <div className="flex items-center gap-2 sm:ml-auto">
                 <button
                   onClick={() => handleRecordContact()}
+                  disabled={isReadOnly}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium",
-                    "bg-[#a0704b] dark:bg-[#8b6f47] text-white",
-                    "hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a] transition-colors"
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                    isReadOnly
+                      ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : "bg-[#a0704b] dark:bg-[#8b6f47] text-white hover:bg-[#8b5d3b] dark:hover:bg-[#7a5f3a]"
                   )}
+                  title={isReadOnly ? "Read-only access" : undefined}
                 >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Record Contact</span>
@@ -378,6 +381,7 @@ export default function ParentContactsPage() {
               followups={pendingFollowups}
               onRecordContact={(studentId) => handleRecordContact(studentId)}
               showLocationPrefix={showLocationPrefix}
+              readOnly={isReadOnly}
             />
           )}
 
@@ -423,6 +427,7 @@ export default function ParentContactsPage() {
                     onStudentClick={handleStudentClick}
                     onRecordContact={handleRecordContact}
                     showLocationPrefix={showLocationPrefix}
+                    readOnly={isReadOnly}
                   />
                 </div>
               )}
@@ -465,6 +470,7 @@ export default function ParentContactsPage() {
                     onDelete={handleDeleteContact}
                     onRecordNew={(studentId) => handleRecordContact(studentId)}
                     showLocationPrefix={showLocationPrefix}
+                    readOnly={isReadOnly}
                   />
                 </div>
               )}

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -204,7 +204,7 @@ export default function SessionsPage() {
 
   // SWR hooks for data fetching with caching
   const { data: sessions = [], error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
-  const { data: tutors = [] } = useTutors();
+  const { data: tutors = [] } = useActiveTutors();
 
   // Refresh state tracking
   const [isRefreshing, setIsRefreshing] = useState(false);

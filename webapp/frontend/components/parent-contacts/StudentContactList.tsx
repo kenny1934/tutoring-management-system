@@ -21,6 +21,8 @@ interface StudentContactListProps {
   onStudentClick: (student: StudentContactStatus) => void;
   onRecordContact: (studentId: number) => void;
   showLocationPrefix?: boolean;
+  /** When true, disables record contact buttons (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 type GroupMode = 'grade' | 'urgency';
@@ -48,6 +50,7 @@ export const StudentContactList = memo(function StudentContactList({
   onStudentClick,
   onRecordContact,
   showLocationPrefix,
+  readOnly = false,
 }: StudentContactListProps) {
   const [groupMode, setGroupMode] = useState<GroupMode>('urgency');
   const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('student_id');
@@ -315,13 +318,16 @@ export const StudentContactList = memo(function StudentContactList({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRecordContact(student.student_id);
+                          if (!readOnly) onRecordContact(student.student_id);
                         }}
+                        disabled={readOnly}
                         className={cn(
-                          "p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors",
-                          "text-gray-400 hover:text-[#a0704b]"
+                          "p-1 rounded transition-colors",
+                          readOnly
+                            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                            : "text-gray-400 hover:text-[#a0704b] hover:bg-gray-200 dark:hover:bg-gray-700"
                         )}
-                        title="Record contact"
+                        title={readOnly ? "Read-only access" : "Record contact"}
                       >
                         <MessageSquarePlus className="h-4 w-4" />
                       </button>

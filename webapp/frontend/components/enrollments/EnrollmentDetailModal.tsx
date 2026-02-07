@@ -48,8 +48,8 @@ export function EnrollmentDetailModal({
   onStatusChange,
 }: EnrollmentDetailModalProps) {
   const { selectedLocation } = useLocation();
-  const { effectiveRole } = useAuth();
-  const isTutor = effectiveRole === "Tutor";
+  const { effectiveRole, isReadOnly } = useAuth();
+  const isTutor = effectiveRole === "Tutor" || isReadOnly;
 
   // Use SWR for caching
   const { data: detail, isLoading: loading, error, mutate } = useSWR<EnrollmentDetailResponse>(

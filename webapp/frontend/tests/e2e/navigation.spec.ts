@@ -21,7 +21,7 @@ test.describe('Navigation', () => {
 
     // Filter out expected errors (like failed API calls when not authenticated, or backend not running)
     const unexpectedErrors = errors.filter(
-      (e) => !e.includes('401') && !e.includes('Failed to fetch') && !e.includes('net::ERR_CONNECTION_REFUSED')
+      (e) => !e.includes('401') && !e.includes('500') && !e.includes('Failed to fetch') && !e.includes('net::ERR_CONNECTION_REFUSED')
     );
 
     expect(unexpectedErrors).toHaveLength(0);

@@ -195,7 +195,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [isLoadingExtensionView, setIsLoadingExtensionView] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, isReadOnly } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Get tutor name by email, fallback to username from email
@@ -241,9 +241,15 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const isAnyStatusLoading = ['attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'undo'].includes(effectiveLoadingAction || '');
 
   // Get visible actions for this session (filtered by visibility and role)
+  // Supervisors can see all admin actions but cannot execute them
   const visibilityContext = { userId: user?.id, effectiveRole };
   const visibleActions = sessionActions.filter((action) => {
     if (!action.isVisible(session, visibilityContext)) return false;
+    // Allow Supervisor to see actions that Admin can see
+    if (effectiveRole === "Supervisor") {
+      // Show if Admin is in allowedRoles
+      return action.allowedRoles.includes("Admin") || action.allowedRoles.includes("Super Admin");
+    }
     if (effectiveRole && !action.allowedRoles.includes(effectiveRole as typeof action.allowedRoles[number])) return false;
     return true;
   });
@@ -574,12 +580,12 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
             <ChalkStub
               key={action.id}
               id={action.id}
-              label={action.label}
+              label={isReadOnly ? `${action.label} (Read-only)` : action.label}
               shortLabel={action.shortLabel || action.label}
               icon={action.icon}
               colors={getChalkColor(action.id)}
               onClick={() => handleActionClick(action)}
-              disabled={!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled}
+              disabled={(isReadOnly && !['cw', 'hw', 'rate', 'schedule-makeup'].includes(action.id)) || (!['edit', 'cw', 'hw', 'rate', 'attended', 'no-show', 'reschedule', 'sick-leave', 'weather-cancelled', 'cancel-makeup', 'schedule-makeup', 'request-extension'].includes(action.id) && !action.api.enabled)}
               loading={effectiveLoadingAction === action.id}
               index={index}
               active={action.id === 'cw' ? hasCW : action.id === 'hw' ? hasHW : action.id === 'rate' ? hasRating : undefined}
@@ -1052,6 +1058,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
           exerciseType={exerciseModalType}
           isOpen={true}
           onClose={() => setExerciseModalType(null)}
+          readOnly={isReadOnly}
         />
       )}
 
@@ -1060,6 +1067,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
         session={session}
         isOpen={isRateModalOpen}
         onClose={() => setIsRateModalOpen(false)}
+        readOnly={isReadOnly}
       />
 
       {/* Schedule Makeup Modal */}
@@ -1069,6 +1077,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
           isOpen={isMakeupModalOpen}
           onClose={() => setIsMakeupModalOpen(false)}
           proposerTutorId={session.tutor_id}
+          readOnly={isReadOnly}
         />
       )}
 

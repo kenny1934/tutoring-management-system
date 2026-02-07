@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { useTutors } from "@/lib/hooks";
+import { useActiveTutors } from "@/lib/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { parentCommunicationsAPI, studentsAPI, type ParentCommunication, type ParentCommunicationCreate } from "@/lib/api";
@@ -52,7 +52,7 @@ export function RecordContactModal({
   currentUserTutorId,
   currentUserRole,
 }: RecordContactModalProps) {
-  const { data: allTutors = [] } = useTutors();
+  const { data: allTutors = [] } = useActiveTutors();
   const { user, isAdmin, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
   // Calculate current tutor ID (respects super admin impersonation)

@@ -22,6 +22,7 @@ class Tutor(Base):
     role = Column(String(50), nullable=False)
     profile_picture = Column(String(500), comment='AppSheet file path for tutor profile picture')
     basic_salary = Column(DECIMAL(10, 2), default=0.00, comment='Monthly base salary (before session revenue)')
+    is_active_tutor = Column(Boolean, default=True, nullable=False, comment='Whether this user teaches students (false for Supervisors, non-teaching admins)')
 
     # Relationships
     enrollments = relationship("Enrollment", back_populates="tutor", foreign_keys="[Enrollment.tutor_id]")

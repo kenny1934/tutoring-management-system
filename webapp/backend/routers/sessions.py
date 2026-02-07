@@ -16,7 +16,7 @@ from datetime import date, timedelta, datetime, timezone
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
-from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin
+from auth.dependencies import get_current_user, get_session_with_owner_check, require_admin_write
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1748,7 +1748,7 @@ async def get_upcoming_tests(
 async def sync_calendar(
     force: bool = False,
     days_behind: int = Query(0, ge=0, le=730, description="Days in past to sync"),
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """

@@ -9,7 +9,7 @@ from typing import List, Optional
 from database import get_db
 from models import Student, Enrollment, Tutor, StudentCoupon
 from schemas import StudentResponse, StudentDetailResponse, StudentUpdate, StudentCreate, StudentCouponResponse
-from auth.dependencies import require_admin, get_current_user, is_office_ip, get_effective_role
+from auth.dependencies import require_admin_write, get_current_user, is_office_ip, get_effective_role
 
 router = APIRouter()
 
@@ -286,7 +286,7 @@ async def get_student_coupon(
 async def update_student(
     student_id: int,
     student_update: StudentUpdate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """Update a student's information. Admin only."""
@@ -306,7 +306,7 @@ async def update_student(
 @router.post("/students", response_model=StudentResponse)
 async def create_student(
     student_data: StudentCreate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """Create a new student. Admin only."""

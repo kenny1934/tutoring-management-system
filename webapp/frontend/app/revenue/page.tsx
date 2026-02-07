@@ -57,7 +57,7 @@ export default function RevenuePage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { user, isAdmin, isLoading: authLoading, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, canViewAdminPages, isLoading: authLoading, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
 
   // State from URL params - admins can select any tutor, non-admins use their own ID
@@ -68,7 +68,7 @@ export default function RevenuePage() {
 
   // In center-view, admins can select tutors; in my-view, everyone sees their own
   // When impersonating a tutor, use the impersonated tutor's ID
-  const effectiveTutorId = (isAdmin && viewMode === 'center-view')
+  const effectiveTutorId = (canViewAdminPages && viewMode === 'center-view')
     ? selectedTutorId
     : (isImpersonating && effectiveRole === 'Tutor' && impersonatedTutor?.id)
       ? impersonatedTutor.id
@@ -114,7 +114,7 @@ export default function RevenuePage() {
 
   // Auto-select first tutor for admins when no tutor selected
   useEffect(() => {
-    if (isAdmin && selectedTutorId === null && tutors.length > 0) {
+    if (canViewAdminPages && selectedTutorId === null && tutors.length > 0) {
       // Filter tutors by location if needed
       const filteredTutors = selectedLocation && selectedLocation !== "All Locations"
         ? tutors.filter(t => t.default_location === selectedLocation)
@@ -123,7 +123,7 @@ export default function RevenuePage() {
         setSelectedTutorId(filteredTutors[0].id);
       }
     }
-  }, [isAdmin, selectedTutorId, tutors, selectedLocation]);
+  }, [canViewAdminPages, selectedTutorId, tutors, selectedLocation]);
 
   // Detect mobile
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function RevenuePage() {
 
   // Sync state to URL (only for admins who can change tutor selection)
   useEffect(() => {
-    if (!isAdmin) return; // Non-admins don't need URL sync for tutor
+    if (!canViewAdminPages) return; // Non-admins don't need URL sync for tutor
     const params = new URLSearchParams();
     if (selectedTutorId && typeof selectedTutorId === 'number') {
       params.set('tutor', selectedTutorId.toString());
@@ -150,7 +150,7 @@ export default function RevenuePage() {
     }
     const query = params.toString();
     router.replace(`/revenue${query ? `?${query}` : ''}`, { scroll: false });
-  }, [isAdmin, selectedTutorId, selectedPeriod, router]);
+  }, [canViewAdminPages, selectedTutorId, selectedPeriod, router]);
 
   // Fetch data - use effectiveTutorId which respects role-based access
   const tutorIdForQuery = typeof effectiveTutorId === 'number' ? effectiveTutorId : null;
@@ -199,7 +199,7 @@ export default function RevenuePage() {
                 <div className="h-6 w-px bg-[#d4a574]/50 hidden sm:block" />
 
                 {/* Tutor Selector - show for admins in center-view only */}
-                {viewMode === 'center-view' && isAdmin && (
+                {viewMode === 'center-view' && canViewAdminPages && (
                   <TutorSelector
                     value={selectedTutorId}
                     onChange={setSelectedTutorId}
@@ -280,7 +280,7 @@ export default function RevenuePage() {
           )}
 
           {/* No tutor selected message - only show for admins */}
-          {!authLoading && isAdmin && !effectiveTutorId && !isLoading && (
+          {!authLoading && canViewAdminPages && !effectiveTutorId && !isLoading && (
             <div className="flex justify-center py-12">
               <StickyNote variant="yellow" size="lg" showTape>
                 <div className="text-center">

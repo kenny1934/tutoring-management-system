@@ -20,7 +20,7 @@ from schemas import (
     ScheduleChangeRequest, ScheduleChangePreviewResponse, UnchangeableSession, UpdatableSession,
     ApplyScheduleChangeRequest, ScheduleChangeResult
 )
-from auth.dependencies import require_admin, get_current_user
+from auth.dependencies import require_admin_write, get_current_user
 
 router = APIRouter()
 
@@ -359,7 +359,7 @@ async def preview_enrollment(
 @router.post("/enrollments", response_model=EnrollmentResponse)
 async def create_enrollment(
     enrollment_data: EnrollmentCreate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """
@@ -1729,7 +1729,7 @@ MathConcept Secondary Academy ({location_map_en.get(location, location)})"""
 async def update_enrollment(
     enrollment_id: int,
     enrollment_update: EnrollmentUpdate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """Update an enrollment's information. Admin only."""
@@ -1790,7 +1790,7 @@ async def update_enrollment(
 async def update_enrollment_extension(
     enrollment_id: int,
     extension_update: EnrollmentExtensionUpdate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """
@@ -1906,7 +1906,7 @@ async def preview_schedule_change(
     enrollment_id: int,
     new_schedule: ScheduleChangeRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_write)
 ):
     """
     Preview the impact of a schedule change on an enrollment.
@@ -2070,7 +2070,7 @@ async def apply_schedule_change(
     enrollment_id: int,
     changes: ApplyScheduleChangeRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_write)
 ):
     """
     Apply a schedule change to an enrollment and optionally update future sessions.
@@ -2180,7 +2180,7 @@ async def apply_schedule_change(
 async def cancel_enrollment(
     enrollment_id: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_write)
 ):
     """
     Cancel an enrollment and all its sessions.
@@ -2230,7 +2230,7 @@ async def cancel_enrollment(
 async def batch_mark_paid(
     request: BatchEnrollmentRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_admin_write)
 ):
     """
     Mark multiple enrollments as paid.
@@ -2259,7 +2259,7 @@ async def batch_mark_paid(
 async def batch_mark_sent(
     request: BatchEnrollmentRequest,
     db: Session = Depends(get_db),
-    current_user: Tutor = Depends(require_admin)
+    current_user: Tutor = Depends(require_admin_write)
 ):
     """
     Mark fee message as sent for multiple enrollments.
@@ -2281,7 +2281,7 @@ async def batch_mark_sent(
 @router.post("/enrollments/batch-renew-check", response_model=BatchRenewCheckResponse)
 async def batch_renew_check(
     request: BatchEnrollmentRequest,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """
@@ -2480,7 +2480,7 @@ async def batch_renew_check(
 @router.post("/enrollments/batch-renew", response_model=BatchRenewResponse)
 async def batch_renew(
     request: BatchRenewRequest,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """
