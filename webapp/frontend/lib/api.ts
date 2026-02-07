@@ -114,6 +114,13 @@ import type {
   StudentContactStatus,
   LocationSettings,
   ParentCommunicationCreate,
+  // WeCom types
+  WecomWebhook,
+  WecomWebhookAdmin,
+  WecomWebhookUpdate,
+  WecomSendRequest,
+  WecomSendResponse,
+  WecomMessageLog,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -1678,6 +1685,69 @@ export const debugAPI = {
     }),
 };
 
+// ============================================
+// WeCom API
+// ============================================
+const wecomAPI = {
+  // List webhooks (URL masked)
+  getWebhooks: () => fetchAPI<WecomWebhook[]>("/wecom/webhooks"),
+
+  // Get webhook details including full URL (admin only)
+  getWebhook: (id: number) => fetchAPI<WecomWebhookAdmin>(`/wecom/webhooks/${id}`),
+
+  // Update webhook config
+  updateWebhook: (id: number, data: WecomWebhookUpdate) =>
+    fetchAPI<WecomWebhookAdmin>(`/wecom/webhooks/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  // Send message to WeCom group
+  sendMessage: (data: WecomSendRequest) =>
+    fetchAPI<WecomSendResponse>("/wecom/send", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Send image to WeCom group
+  sendImage: async (webhookName: string, file: File): Promise<WecomSendResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(
+      `${API_BASE_URL}/wecom/send-image?webhook_name=${encodeURIComponent(webhookName)}`,
+      {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(error.detail || "Failed to send image");
+    }
+
+    return response.json();
+  },
+
+  // Get message log
+  getMessageLog: (params?: {
+    webhook_name?: string;
+    send_status?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.webhook_name) searchParams.append("webhook_name", params.webhook_name);
+    if (params?.send_status) searchParams.append("send_status", params.send_status);
+    if (params?.limit) searchParams.append("limit", String(params.limit));
+    if (params?.offset) searchParams.append("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchAPI<WecomMessageLog[]>(`/wecom/message-log${query ? `?${query}` : ""}`);
+  },
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -1701,4 +1771,5 @@ export const api = {
   examRevision: examRevisionAPI,
   debug: debugAPI,
   discounts: discountsAPI,
+  wecom: wecomAPI,
 };

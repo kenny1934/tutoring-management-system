@@ -757,3 +757,41 @@ class DebugAuditLog(Base):
 
     # Relationship
     admin = relationship("Tutor", foreign_keys=[admin_id])
+
+
+class WecomWebhook(Base):
+    """
+    WeCom group robot webhook configurations.
+    Maps to wecom_webhooks table from migration 023.
+    """
+    __tablename__ = "wecom_webhooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    webhook_name = Column(String(100), nullable=False, unique=True, comment='Identifier like admin_group, tutor_group')
+    webhook_url = Column(Text, nullable=False, comment='Full webhook URL with key from WeCom robot')
+    target_description = Column(String(255), comment='Description of who receives these messages')
+    is_active = Column(Boolean, default=True)
+    last_used_at = Column(DateTime, nullable=True)
+    total_messages_sent = Column(Integer, default=0)
+    created_at = Column(DateTime, server_default=func.now())
+    created_by = Column(String(255))
+    notes = Column(Text)
+
+
+class WecomMessageLog(Base):
+    """
+    Log of WeCom messages sent to groups.
+    Maps to wecom_message_log table from migration 023.
+    """
+    __tablename__ = "wecom_message_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    webhook_name = Column(String(100), nullable=False)
+    message_type = Column(String(50), comment='fee_reminder, attendance_alert, etc.')
+    message_content = Column(Text, nullable=False)
+    enrollment_id = Column(Integer, ForeignKey("enrollments.id", ondelete="SET NULL"), nullable=True)
+    session_id = Column(Integer, ForeignKey("session_log.id", ondelete="SET NULL"), nullable=True)
+    send_status = Column(String(20), default='pending', comment='pending, sent, failed')
+    send_timestamp = Column(DateTime, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())

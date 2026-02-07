@@ -18,6 +18,7 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
+import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 import {
   Inbox,
   Send,
@@ -48,6 +49,7 @@ import {
   Archive,
   ArchiveRestore,
   Image as ImageIcon,
+  MessageSquareShare,
 } from "lucide-react";
 
 // Category definition
@@ -1170,7 +1172,7 @@ export default function InboxPage() {
 
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
-  const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin } = useAuth();
   const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
   const { showToast } = useToast();
 
@@ -1197,6 +1199,7 @@ export default function InboxPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [showCompose, setShowCompose] = useState(false);
+  const [showWecom, setShowWecom] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(false);
@@ -1590,6 +1593,16 @@ export default function InboxPage() {
                 )}
               </div>
               <div className="flex items-center gap-3">
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowWecom(true)}
+                    className="flex items-center gap-2 px-4 py-2 border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                    title="Send to WeCom group"
+                  >
+                    <MessageSquareShare className="h-4 w-4" />
+                    <span className="hidden sm:inline">WeCom</span>
+                  </button>
+                )}
                 <button
                   onClick={handleCompose}
                   disabled={!hasTutor}
@@ -1843,6 +1856,12 @@ export default function InboxPage() {
         fromTutorId={tutorId ?? 0}
         replyTo={replyTo}
         onSend={handleSendMessage}
+      />
+
+      {/* WeCom Send Modal */}
+      <SendToWecomModal
+        isOpen={showWecom}
+        onClose={() => setShowWecom(false)}
       />
 
       {/* Schedule Makeup Modal for needs_input proposals */}

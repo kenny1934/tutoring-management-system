@@ -11,12 +11,13 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { enrollmentsAPI } from "@/lib/api";
-import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X } from "lucide-react";
+import { AlertTriangle, Loader2, DollarSign, Calendar, ExternalLink, Check, Search, X, MessageSquareShare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { OverdueEnrollment } from "@/types";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
 import { useAuth } from "@/contexts/AuthContext";
+import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -103,7 +104,7 @@ export default function OverduePaymentsPage() {
 
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { isReadOnly } = useAuth();
+  const { isReadOnly, isAdmin } = useAuth();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -116,6 +117,7 @@ export default function OverduePaymentsPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedEnrollment, setSelectedEnrollment] = useState<OverdueEnrollment | null>(null);
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [showWecom, setShowWecom] = useState(false);
 
   // Pagination limits per urgency section
   const [sectionLimits, setSectionLimits] = useState<Record<UrgencyLevel, number>>({
@@ -313,7 +315,7 @@ export default function OverduePaymentsPage() {
                   )}
                 </div>
 
-                {/* Total count badge */}
+                {/* Total count badge + WeCom */}
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "px-3 py-1 rounded-full text-sm font-medium",
@@ -323,6 +325,16 @@ export default function OverduePaymentsPage() {
                   )}>
                     {overdueCount} Overdue
                   </span>
+                  {isAdmin && overdueCount > 0 && (
+                    <button
+                      onClick={() => setShowWecom(true)}
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm border border-[#d4a574] dark:border-[#8b6f47] text-[#a0704b] dark:text-[#c4a77d] hover:bg-[#f5e6d3] dark:hover:bg-[#3d2e1e] rounded-lg transition-colors"
+                      title="Send overdue payment reminder to WeCom"
+                    >
+                      <MessageSquareShare className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">WeCom</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -556,6 +568,13 @@ export default function OverduePaymentsPage() {
           </div>
         )}
       </PageTransition>
+
+      {/* WeCom Send Modal */}
+      <SendToWecomModal
+        isOpen={showWecom}
+        onClose={() => setShowWecom(false)}
+        initialContent={`Payment Reminder: There are currently ${overdueCount} overdue enrollment(s) requiring follow-up. Please check the overdue payments page for details.`}
+      />
       </AdminPageGuard>
     </DeskSurface>
   );
