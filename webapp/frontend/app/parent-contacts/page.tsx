@@ -227,6 +227,7 @@ export default function ParentContactsPage() {
   // Handle edit contact
   const handleEditContact = (contact: ParentCommunication) => {
     setEditingContact(contact);
+    setModalPreselectedStudentId(contact.student_id);
     setShowRecordModal(true);
   };
 
@@ -436,6 +437,8 @@ export default function ParentContactsPage() {
               followups={pendingFollowups}
               onRecordContact={(studentId) => handleRecordContact(studentId)}
               onMarkDone={handleMarkFollowUpDone}
+              onStudentClick={handleStudentClick}
+              selectedStudentId={selectedStudentId}
               showLocationPrefix={showLocationPrefix}
               readOnly={isReadOnly}
             />

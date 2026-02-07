@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { StudentContactStatus } from "@/lib/api";
 import {
@@ -18,6 +18,8 @@ interface PendingFollowupsSectionProps {
   followups: StudentContactStatus[];
   onRecordContact: (studentId: number) => void;
   onMarkDone?: (communicationId: number, studentName: string) => void;
+  onStudentClick?: (student: StudentContactStatus) => void;
+  selectedStudentId?: number | null;
   showLocationPrefix?: boolean;
   /** When true, disables record contact buttons (Supervisor mode) */
   readOnly?: boolean;
@@ -27,22 +29,31 @@ export function PendingFollowupsSection({
   followups,
   onRecordContact,
   onMarkDone,
+  onStudentClick,
+  selectedStudentId,
   showLocationPrefix,
   readOnly = false,
 }: PendingFollowupsSectionProps) {
   const [expanded, setExpanded] = useState(true);
 
   // Sort by follow-up date (overdue first, then upcoming)
-  const sortedFollowups = [...followups].sort((a, b) => {
-    if (!a.follow_up_date) return 1;
-    if (!b.follow_up_date) return -1;
-    return new Date(a.follow_up_date).getTime() - new Date(b.follow_up_date).getTime();
-  });
+  const sortedFollowups = useMemo(() =>
+    [...followups].sort((a, b) => {
+      if (!a.follow_up_date) return 1;
+      if (!b.follow_up_date) return -1;
+      return new Date(a.follow_up_date).getTime() - new Date(b.follow_up_date).getTime();
+    }),
+    [followups]
+  );
 
-  const today = new Date().toISOString().split('T')[0];
-  const overdueCount = sortedFollowups.filter(f =>
-    f.follow_up_date && f.follow_up_date < today
-  ).length;
+  const today = useMemo(() => new Date().toISOString().split('T')[0], [followups]);
+
+  const overdueCount = useMemo(() =>
+    sortedFollowups.filter(f =>
+      f.follow_up_date && f.follow_up_date < today
+    ).length,
+    [sortedFollowups, today]
+  );
 
   if (followups.length === 0) return null;
 
@@ -93,12 +104,15 @@ export function PendingFollowupsSection({
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md",
                     "bg-white dark:bg-[#1a1a1a] border",
+                    onStudentClick && "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+                    selectedStudentId === followup.student_id && "ring-2 ring-[#a0704b]/50 dark:ring-[#cd853f]/50",
                     isOverdue
                       ? "border-red-200 dark:border-red-800"
                       : isToday
                         ? "border-orange-200 dark:border-orange-800"
                         : "border-blue-200 dark:border-blue-800"
                   )}
+                  onClick={() => onStudentClick?.(followup)}
                 >
                   {/* Status Icon */}
                   {isOverdue ? (
@@ -149,7 +163,7 @@ export function PendingFollowupsSection({
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {followup.follow_up_communication_id && onMarkDone && (
                       <button
-                        onClick={() => onMarkDone(followup.follow_up_communication_id!, followup.student_name)}
+                        onClick={(e) => { e.stopPropagation(); onMarkDone(followup.follow_up_communication_id!, followup.student_name); }}
                         disabled={readOnly}
                         className={cn(
                           "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
@@ -164,7 +178,7 @@ export function PendingFollowupsSection({
                       </button>
                     )}
                     <button
-                      onClick={() => onRecordContact(followup.student_id)}
+                      onClick={(e) => { e.stopPropagation(); onRecordContact(followup.student_id); }}
                       disabled={readOnly}
                       className={cn(
                         "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors",
