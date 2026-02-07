@@ -101,10 +101,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     }
   }, [mounted]);
 
-  // Save collapsed state to localStorage
+  // Save collapsed state to localStorage + set CSS variable for modal positioning
   useEffect(() => {
     if (!mounted) return;
     localStorage.setItem('sidebar-collapsed', String(isCollapsed));
+    document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '72px' : '256px');
   }, [isCollapsed, mounted]);
 
   // Fetch locations on mount (only on client-side)
