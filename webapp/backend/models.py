@@ -546,6 +546,7 @@ class TerminationRecord(Base):
     quarter = Column(Integer, nullable=False)
     year = Column(Integer, nullable=False)
     reason = Column(Text, nullable=True)
+    reason_category = Column(String(50), nullable=True)
     count_as_terminated = Column(Boolean, default=False, nullable=False)
     tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="SET NULL"), nullable=True)
     updated_by = Column(String(255), nullable=True)

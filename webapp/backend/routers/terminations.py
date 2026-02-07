@@ -18,6 +18,7 @@ from schemas import (
     LocationTerminationStats,
     TerminationStatsResponse,
     QuarterOption,
+    QuarterTrendPoint,
     StatDetailStudent
 )
 from auth.dependencies import require_admin_write
@@ -204,6 +205,7 @@ async def get_terminated_students(
             CONCAT('[', te.assigned_time, '], ', te.assigned_day) as schedule,
             tr.id as record_id,
             tr.reason,
+            tr.reason_category,
             COALESCE(tr.count_as_terminated, FALSE) as count_as_terminated
         FROM termed te
         JOIN students s ON te.student_id = s.id
@@ -238,6 +240,7 @@ async def get_terminated_students(
             schedule=row.schedule,
             record_id=row.record_id,
             reason=row.reason,
+            reason_category=row.reason_category,
             count_as_terminated=bool(row.count_as_terminated)
         )
         for row in rows
@@ -286,6 +289,7 @@ async def update_termination_record(
     if existing:
         # Update existing record
         existing.reason = data.reason
+        existing.reason_category = data.reason_category
         existing.count_as_terminated = data.count_as_terminated
         existing.updated_by = updated_by
         existing.tutor_id = tutor_id
@@ -297,6 +301,7 @@ async def update_termination_record(
             quarter=existing.quarter,
             year=existing.year,
             reason=existing.reason,
+            reason_category=existing.reason_category,
             count_as_terminated=existing.count_as_terminated,
             tutor_id=existing.tutor_id,
             updated_by=existing.updated_by,
@@ -309,6 +314,7 @@ async def update_termination_record(
             quarter=data.quarter,
             year=data.year,
             reason=data.reason,
+            reason_category=data.reason_category,
             count_as_terminated=data.count_as_terminated,
             tutor_id=tutor_id,
             updated_by=updated_by
@@ -322,6 +328,7 @@ async def update_termination_record(
             quarter=new_record.quarter,
             year=new_record.year,
             reason=new_record.reason,
+            reason_category=new_record.reason_category,
             count_as_terminated=new_record.count_as_terminated,
             tutor_id=new_record.tutor_id,
             updated_by=new_record.updated_by,
@@ -653,6 +660,218 @@ async def get_termination_stats(
         tutor_stats=tutor_stats,
         location_stats=location_stats
     )
+
+
+def _compute_location_stats(
+    db: Session,
+    quarter: int,
+    year: int,
+    location: Optional[str],
+    tutor_id: Optional[int]
+) -> dict:
+    """
+    Compute location-wide opening, terminated, closing stats for a single quarter.
+    Returns dict with keys: opening, terminated, closing, term_rate, reason_breakdown.
+    """
+    opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
+    prev_closing_end = opening_start - timedelta(days=1)
+
+    # Opening count
+    opening_query = text("""
+        SELECT COUNT(DISTINCT e.student_id) as cnt
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.id
+        WHERE e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+        AND e.first_lesson_date <= DATE_ADD(:opening_end, INTERVAL 21 DAY)
+        AND calculate_effective_end_date(
+            e.first_lesson_date, e.lessons_paid,
+            COALESCE(e.deadline_extension_weeks, 0)
+        ) >= :opening_start
+        AND (
+            e.first_lesson_date <= :opening_end
+            OR e.student_id IN (
+                SELECT DISTINCT e2.student_id
+                FROM enrollments e2
+                WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+                AND e2.enrollment_type = 'Regular'
+                AND e2.first_lesson_date IS NOT NULL
+                AND e2.first_lesson_date <= :opening_end
+                AND calculate_effective_end_date(
+                    e2.first_lesson_date, e2.lessons_paid,
+                    COALESCE(e2.deadline_extension_weeks, 0)
+                ) >= DATE_SUB(:prev_closing_end, INTERVAL 21 DAY)
+            )
+        )
+        AND (:location IS NULL OR e.location = :location)
+        AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
+    """)
+    total_opening = db.execute(opening_query, {
+        "opening_start": opening_start, "opening_end": opening_end,
+        "prev_closing_end": prev_closing_end,
+        "location": location, "tutor_id": tutor_id
+    }).scalar() or 0
+
+    # Closing count
+    closing_query = text("""
+        SELECT COUNT(DISTINCT e.student_id) as cnt
+        FROM enrollments e
+        JOIN students s ON e.student_id = s.id
+        WHERE e.payment_status IN ('Paid', 'Pending Payment')
+        AND e.enrollment_type = 'Regular'
+        AND e.first_lesson_date IS NOT NULL
+        AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 21 DAY)
+        AND calculate_effective_end_date(
+            e.first_lesson_date, e.lessons_paid,
+            COALESCE(e.deadline_extension_weeks, 0)
+        ) > :closing_end
+        AND e.student_id IN (
+            SELECT DISTINCT e2.student_id
+            FROM enrollments e2
+            WHERE e2.payment_status IN ('Paid', 'Pending Payment')
+            AND e2.enrollment_type = 'Regular'
+            AND e2.first_lesson_date IS NOT NULL
+            AND e2.first_lesson_date <= :closing_end
+            AND calculate_effective_end_date(
+                e2.first_lesson_date, e2.lessons_paid,
+                COALESCE(e2.deadline_extension_weeks, 0)
+            ) >= :opening_start
+        )
+        AND (:location IS NULL OR e.location = :location)
+        AND (:tutor_id IS NULL OR e.tutor_id = :tutor_id)
+    """)
+    total_closing = db.execute(closing_query, {
+        "opening_start": opening_start, "closing_end": closing_end,
+        "location": location, "tutor_id": tutor_id
+    }).scalar() or 0
+
+    # Terminated count
+    terminated_query = text("""
+        WITH quarter_enrollments AS (
+            SELECT e.*,
+                   calculate_effective_end_date(
+                       e.first_lesson_date, e.lessons_paid,
+                       COALESCE(e.deadline_extension_weeks, 0)
+                   ) as eff_end_date,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY e.first_lesson_date DESC
+                   ) as rn
+            FROM enrollments e
+            WHERE e.payment_status IN ('Paid', 'Pending Payment')
+            AND e.enrollment_type = 'Regular'
+            AND e.first_lesson_date IS NOT NULL
+            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        ),
+        termed AS (
+            SELECT qe.student_id
+            FROM quarter_enrollments qe
+            WHERE qe.rn = 1
+            AND qe.eff_end_date >= :opening_start
+            AND qe.eff_end_date <= :closing_end
+        )
+        SELECT COUNT(DISTINCT te.student_id) as cnt
+        FROM termed te
+        JOIN students s ON te.student_id = s.id
+        JOIN termination_records tr ON te.student_id = tr.student_id
+            AND tr.quarter = :quarter AND tr.year = :year
+        WHERE tr.count_as_terminated = TRUE
+        AND (:location IS NULL OR s.home_location = :location)
+        AND (:tutor_id IS NULL OR tr.tutor_id = :tutor_id)
+    """)
+    total_terminated = db.execute(terminated_query, {
+        "quarter": quarter, "year": year,
+        "opening_start": opening_start, "closing_end": closing_end,
+        "location": location, "tutor_id": tutor_id
+    }).scalar() or 0
+
+    term_rate = round(total_terminated / total_opening * 100, 1) if total_opening > 0 else 0.0
+
+    # Reason category breakdown
+    reason_query = text("""
+        WITH quarter_enrollments AS (
+            SELECT e.*,
+                   calculate_effective_end_date(
+                       e.first_lesson_date, e.lessons_paid,
+                       COALESCE(e.deadline_extension_weeks, 0)
+                   ) as eff_end_date,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY e.first_lesson_date DESC
+                   ) as rn
+            FROM enrollments e
+            WHERE e.payment_status IN ('Paid', 'Pending Payment')
+            AND e.enrollment_type = 'Regular'
+            AND e.first_lesson_date IS NOT NULL
+            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        ),
+        termed AS (
+            SELECT qe.student_id
+            FROM quarter_enrollments qe
+            WHERE qe.rn = 1
+            AND qe.eff_end_date >= :opening_start
+            AND qe.eff_end_date <= :closing_end
+        )
+        SELECT COALESCE(tr.reason_category, 'Uncategorized') as category, COUNT(*) as cnt
+        FROM termed te
+        JOIN students s ON te.student_id = s.id
+        JOIN termination_records tr ON te.student_id = tr.student_id
+            AND tr.quarter = :quarter AND tr.year = :year
+        WHERE tr.count_as_terminated = TRUE
+        AND (:location IS NULL OR s.home_location = :location)
+        AND (:tutor_id IS NULL OR tr.tutor_id = :tutor_id)
+        GROUP BY tr.reason_category
+    """)
+    reason_rows = db.execute(reason_query, {
+        "quarter": quarter, "year": year,
+        "opening_start": opening_start, "closing_end": closing_end,
+        "location": location, "tutor_id": tutor_id
+    }).fetchall()
+    reason_breakdown = {row.category: row.cnt for row in reason_rows}
+
+    return {
+        "opening": total_opening,
+        "terminated": total_terminated,
+        "closing": total_closing,
+        "term_rate": term_rate,
+        "reason_breakdown": reason_breakdown,
+    }
+
+
+@router.get("/terminations/stats/trends", response_model=List[QuarterTrendPoint])
+async def get_termination_trends(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get termination stats across all available quarters for trend analysis.
+    Returns data points ordered chronologically (oldest first).
+    Capped at 8 most recent quarters.
+    """
+    # Get available quarters (already in descending order)
+    # Exclude current in-progress quarter — its data is incomplete
+    quarters_result = await get_available_quarters(location=location, db=db)
+    current_q, current_y = get_quarter_for_date(date.today())
+    quarters = [q for q in quarters_result
+                if not (q.quarter == current_q and q.year == current_y)][:8]
+
+    trend_points = []
+    for q in reversed(quarters):  # Oldest first
+        stats = _compute_location_stats(db, q.quarter, q.year, location, tutor_id)
+        trend_points.append(QuarterTrendPoint(
+            quarter=q.quarter,
+            year=q.year,
+            label=f"Q{q.quarter} {q.year}",
+            opening=stats["opening"],
+            terminated=stats["terminated"],
+            closing=stats["closing"],
+            term_rate=stats["term_rate"],
+            reason_breakdown=stats["reason_breakdown"],
+        ))
+
+    return trend_points
 
 
 @router.get("/terminations/stats/details", response_model=List[StatDetailStudent])
