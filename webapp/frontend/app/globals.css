@@ -2008,3 +2008,44 @@ html {
 .animate-btn-success {
   animation: btn-success-pulse 500ms ease-out;
 }
+
+/* Tiptap editor styles */
+.tiptap p.is-editor-empty:first-child::before {
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.tiptap:focus {
+  outline: none;
+}
+
+.tiptap blockquote {
+  border-left: 3px solid #d4a574;
+  padding-left: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.tiptap code {
+  background-color: #f3f4f6;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  font-family: monospace;
+  font-size: 0.875em;
+}
+
+.dark .tiptap code {
+  background-color: #374151;
+}
+
+.dark .tiptap p.is-editor-empty:first-child::before {
+  color: #6b7280;
+}
+
+.dark .tiptap blockquote {
+  border-color: #8b6f47;
+  color: #9ca3af;
+}

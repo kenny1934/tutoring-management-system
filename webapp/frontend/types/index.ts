@@ -1584,3 +1584,62 @@ export interface ParentCommunicationCreate {
   follow_up_date?: string;
   contact_date?: string;
 }
+
+// ============================================
+// WeCom Types
+// ============================================
+
+/** WeCom webhook configuration (URL masked) */
+export interface WecomWebhook {
+  id: number;
+  webhook_name: string;
+  target_description: string | null;
+  is_active: boolean;
+  last_used_at: string | null;
+  total_messages_sent: number;
+  notes: string | null;
+  webhook_url_configured: boolean;
+}
+
+/** WeCom webhook admin response (includes full URL) */
+export interface WecomWebhookAdmin extends WecomWebhook {
+  webhook_url: string;
+}
+
+/** WeCom webhook update payload */
+export interface WecomWebhookUpdate {
+  webhook_url?: string;
+  target_description?: string;
+  is_active?: boolean;
+  notes?: string;
+}
+
+/** WeCom send message request */
+export interface WecomSendRequest {
+  webhook_name: string;
+  msg_type: 'text' | 'markdown';
+  content: string;
+}
+
+/** WeCom send message response */
+export interface WecomSendResponse {
+  success: boolean;
+  message: string;
+  log_id: number | null;
+  wecom_errcode: number | null;
+  wecom_errmsg: string | null;
+}
+
+/** WeCom message log entry */
+export interface WecomMessageLog {
+  id: number;
+  webhook_name: string;
+  message_type: string | null;
+  message_content: string;
+  enrollment_id: number | null;
+  session_id: number | null;
+  send_status: 'pending' | 'sent' | 'failed';
+  send_timestamp: string | null;
+  error_message: string | null;
+  created_at: string;
+}
