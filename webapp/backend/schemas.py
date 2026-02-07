@@ -1006,6 +1006,14 @@ class QuarterOption(BaseModel):
     year: int = Field(..., ge=2020)
 
 
+class TerminationReviewCount(BaseModel):
+    """Count of terminated students needing reason review"""
+    count: int = Field(default=0, ge=0)
+    in_review_period: bool = False
+    review_quarter: Optional[int] = None
+    review_year: Optional[int] = None
+
+
 class QuarterTrendPoint(BaseModel):
     """Single data point in the quarterly trend chart"""
     quarter: int = Field(..., ge=1, le=4)

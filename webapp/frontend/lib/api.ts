@@ -29,6 +29,7 @@ import type {
   QuarterOption,
   QuarterTrendPoint,
   StatDetailStudent,
+  TerminationReviewCount,
   OverdueEnrollment,
   UncheckedAttendanceReminder,
   UncheckedAttendanceCount,
@@ -1149,6 +1150,19 @@ export const terminationsAPI = {
     }
     const queryString = params.toString();
     return fetchAPI<QuarterTrendPoint[]>(`/terminations/stats/trends${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get count of terminated students needing reason review (for notification badge)
+  getReviewNeededCount: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    const queryString = params.toString();
+    return fetchAPI<TerminationReviewCount>(`/terminations/review-needed-count${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get student list for a specific stat type (drill-down)

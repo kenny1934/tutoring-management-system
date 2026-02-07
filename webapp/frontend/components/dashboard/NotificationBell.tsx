@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount } from "@/lib/hooks";
+import { useUnreadMessageCount, usePendingProposalCount, useRenewalCounts, useUncheckedAttendanceCount, usePendingExtensionCount, useTerminationReviewCount } from "@/lib/hooks";
 import { useRole } from "@/contexts/RoleContext";
 import { parentCommunicationsAPI } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock } from "lucide-react";
+import { Bell, CreditCard, Phone, ChevronRight, MessageSquare, CalendarClock, RefreshCcw, ClipboardList, Clock, UserMinus } from "lucide-react";
 import {
   useFloating,
   offset,
@@ -62,6 +62,9 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
   // For tutors or my-view: show only own sessions (filter by tutorId)
   const uncheckedAttendanceTutorId = (showOverduePayments && viewMode === 'center-view') ? undefined : tutorId;
   const { data: uncheckedAttendance } = useUncheckedAttendanceCount(location, uncheckedAttendanceTutorId);
+
+  // Fetch termination review count (all users)
+  const { data: reviewCount } = useTerminationReviewCount(location, tutorId);
 
   // Build notification items
   const notifications = useMemo(() => {
@@ -147,8 +150,19 @@ export function NotificationBell({ pendingPayments, location, tutorId, showOverd
       });
     }
 
+    if (reviewCount?.in_review_period && reviewCount.count > 0) {
+      items.push({
+        id: "termination-review",
+        icon: <UserMinus className="h-4 w-4" />,
+        label: "Termination Reasons Needed",
+        count: reviewCount.count,
+        severity: "warning",
+        href: "/terminated-students",
+      });
+    }
+
     return items;
-  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance]);
+  }, [showOverduePayments, pendingPayments, contactNeeded, unreadMessages, pendingProposals, renewalCounts, pendingExtensions, uncheckedAttendance, reviewCount]);
 
   const totalCount = notifications.reduce((sum, n) => sum + n.count, 0);
 
