@@ -51,6 +51,61 @@ def calculate_contact_status(days: int, recent_threshold: int, warning_threshold
         return "Contact Needed"
 
 
+def get_active_student_ids(
+    db: Session,
+    tutor_id: Optional[int] = None,
+    location: Optional[str] = None
+) -> set[int]:
+    """
+    Get IDs of students with active enrollments.
+    Uses the same filtering logic as /enrollments/my-students:
+    - payment_status != "Cancelled", enrollment_type == "Regular"
+    - first_lesson_date within 60 weeks
+    - effective end date within ACTIVE_GRACE_PERIOD_DAYS grace period
+    """
+    today = date.today()
+    max_possible_weeks = 60
+    cutoff_date = today - timedelta(weeks=max_possible_weeks)
+
+    enrollment_query = (
+        db.query(Enrollment)
+        .filter(
+            Enrollment.payment_status != "Cancelled",
+            Enrollment.enrollment_type == "Regular",
+            Enrollment.student_id.isnot(None),
+            or_(
+                Enrollment.first_lesson_date == None,
+                Enrollment.first_lesson_date >= cutoff_date
+            )
+        )
+    )
+
+    if tutor_id:
+        enrollment_query = enrollment_query.filter(Enrollment.tutor_id == tutor_id)
+    if location:
+        enrollment_query = enrollment_query.filter(Enrollment.location == location)
+
+    all_enrollments = enrollment_query.all()
+
+    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
+
+    student_enrollments = defaultdict(list)
+    for enrollment in all_enrollments:
+        student_enrollments[enrollment.student_id].append(enrollment)
+
+    active_ids = set()
+    for student_id, enrollments_list in student_enrollments.items():
+        latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
+        if latest.first_lesson_date:
+            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
+            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
+                active_ids.add(student_id)
+        else:
+            active_ids.add(student_id)
+
+    return active_ids
+
+
 @router.get("/parent-communications", response_model=List[ParentCommunicationResponse])
 async def get_communications(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
@@ -131,51 +186,13 @@ async def get_student_contact_statuses(
     """
     recent_threshold, warning_threshold = get_location_thresholds(db, location)
 
-    # Get active students using the same logic as /enrollments/my-students
-    today = date.today()
-    max_possible_weeks = 60
-    cutoff_date = today - timedelta(weeks=max_possible_weeks)
+    # Get active student IDs using shared helper
+    active_ids = get_active_student_ids(db, tutor_id=tutor_id, location=location)
 
-    enrollment_query = (
-        db.query(Enrollment)
-        .options(joinedload(Enrollment.student))
-        .filter(
-            Enrollment.payment_status != "Cancelled",
-            Enrollment.enrollment_type == "Regular",
-            Enrollment.student_id.isnot(None),
-            or_(
-                Enrollment.first_lesson_date == None,
-                Enrollment.first_lesson_date >= cutoff_date
-            )
-        )
-    )
+    if not active_ids:
+        return []
 
-    if tutor_id:
-        enrollment_query = enrollment_query.filter(Enrollment.tutor_id == tutor_id)
-    if location:
-        enrollment_query = enrollment_query.filter(Enrollment.location == location)
-
-    all_enrollments = enrollment_query.all()
-
-    # Load holidays for effective end date calculation
-    holidays = get_holidays_in_range(db, today - timedelta(weeks=52), today + timedelta(weeks=104))
-
-    # Group by student_id, keep latest enrollment per student, filter by active status
-    student_enrollments = defaultdict(list)
-    for enrollment in all_enrollments:
-        student_enrollments[enrollment.student_id].append(enrollment)
-
-    students = []
-    for student_id, enrollments_list in student_enrollments.items():
-        latest = max(enrollments_list, key=lambda e: e.first_lesson_date or date.min)
-        if latest.first_lesson_date:
-            effective_end_date = calculate_effective_end_date_bulk(latest, holidays)
-            if effective_end_date and effective_end_date >= today - timedelta(days=ACTIVE_GRACE_PERIOD_DAYS):
-                if latest.student:
-                    students.append(latest.student)
-        else:
-            if latest.student:
-                students.append(latest.student)
+    students = db.query(Student).filter(Student.id.in_(active_ids)).all()
 
     # Get last contact for each student (from any tutor)
     last_contacts = {}
@@ -437,26 +454,17 @@ async def get_contact_needed_count(
 ):
     """
     Get count of students who need to be contacted (for dashboard badge).
-    Optimized to use SQL aggregation instead of loading all student data.
+    Uses the same active student filtering as the students list page.
     """
     _, warning_threshold = get_location_thresholds(db, location)
+
+    # Get active student IDs using the same filtering as the page
+    active_ids = get_active_student_ids(db, tutor_id=tutor_id, location=location)
+
+    if not active_ids:
+        return {"count": 0}
+
     cutoff_date = date.today() - timedelta(days=warning_threshold)
-
-    # Build base student query based on filters
-    if tutor_id:
-        student_ids_query = db.query(Enrollment.student_id).filter(
-            Enrollment.tutor_id == tutor_id
-        ).distinct()
-        if location:
-            student_ids_query = student_ids_query.filter(Enrollment.location == location)
-    elif location:
-        student_ids_query = db.query(Enrollment.student_id).filter(
-            Enrollment.location == location
-        ).distinct()
-    else:
-        student_ids_query = db.query(Student.id)
-
-    student_ids_subquery = student_ids_query.scalar_subquery()
 
     # Subquery to get max contact date per student
     last_contact_subquery = db.query(
@@ -464,11 +472,11 @@ async def get_contact_needed_count(
         func.max(ParentCommunication.contact_date).label('last_date')
     ).group_by(ParentCommunication.student_id).subquery()
 
-    # Count students where either:
-    # 1. No contact record exists (never contacted) - LEFT JOIN will have NULL
+    # Count active students where either:
+    # 1. No contact record exists (never contacted)
     # 2. Last contact was before the cutoff date
     count = db.query(func.count(Student.id)).filter(
-        Student.id.in_(student_ids_subquery)
+        Student.id.in_(active_ids)
     ).outerjoin(
         last_contact_subquery,
         Student.id == last_contact_subquery.c.student_id

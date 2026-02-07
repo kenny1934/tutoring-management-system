@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { MapPin, Wrench, Phone, DollarSign, ClipboardList, ExternalLink, ChevronDown, Search, Command, UserMinus, FileSpreadsheet, CalendarClock } from "lucide-react";
+import useSWR from "swr";
+import { parentCommunicationsAPI } from "@/lib/api";
 import { ProposalQuickLink } from "./ProposalQuickLink";
 import { TrialsQuickLink } from "./TrialsQuickLink";
 import { usefulTools } from "@/config/useful-tools";
@@ -75,6 +77,12 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     const currentTutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
     return currentTutor?.id;
   }, [tutorId, tutors]);
+
+  // Fetch contact-needed count for Parent Contacts badge (shares SWR cache with NotificationBell)
+  const { data: contactNeeded } = useSWR(
+    ['contact-needed-count', currentTutorId, location],
+    () => parentCommunicationsAPI.getContactNeededCount(currentTutorId, location)
+  );
 
   // Current user's leave record URL (for my-view mode)
   const currentUserLeaveUrl = getLeaveRecordUrl(CURRENT_USER_TUTOR);
@@ -452,6 +460,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                   {link.id === 'revenue' && 'Revenue'}
                   {link.id === 'terminated' && 'Termed'}
                 </span>
+                {link.id === 'parents' && contactNeeded?.count != null && contactNeeded.count > 0 && (
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full">
+                    {contactNeeded.count > 99 ? "99+" : contactNeeded.count}
+                  </span>
+                )}
               </Link>
             );
           })}
