@@ -42,11 +42,10 @@ export default function EnrollmentDetailPage() {
 
   const [isMobile, setIsMobile] = useState(false);
   const { selectedLocation } = useLocation();
-  const { effectiveRole, isReadOnly } = useAuth();
+  const { effectiveRole, isReadOnly, canViewAdminPages } = useAuth();
   const { showToast } = useToast();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
   const isTutor = effectiveRole === "Tutor";
-  const canViewAdminData = isAdmin || effectiveRole === "Supervisor";
 
   // Edit mode state
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
@@ -1225,7 +1224,7 @@ export default function EnrollmentDetailPage() {
           </div>
 
           {/* Deadline Extension Section - Admin/Supervisor viewable */}
-          {canViewAdminData && (
+          {canViewAdminPages && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

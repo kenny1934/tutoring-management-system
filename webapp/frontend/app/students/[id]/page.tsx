@@ -72,9 +72,8 @@ export default function StudentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isReadOnly } = useAuth();
   const studentId = params.id ? parseInt(params.id as string) : null;
-  const { isReadOnly } = useAuth();
 
   // Read initial tab from URL, default to "profile"
   const initialTab = (searchParams.get('tab') as TabId) || 'profile';
