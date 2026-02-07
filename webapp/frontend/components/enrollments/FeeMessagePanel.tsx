@@ -23,7 +23,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
   const [originalMessage, setOriginalMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [lessonsPaid, setLessonsPaid] = useState(6);
-  const [isNewStudent, setIsNewStudent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [markingSent, setMarkingSent] = useState(false);
 
@@ -35,7 +34,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
     let cancelled = false;
     setLoading(true);
 
-    enrollmentsAPI.getFeeMessage(feeMessageEnrollmentId, lang, lessonsPaid, isNewStudent)
+    enrollmentsAPI.getFeeMessage(feeMessageEnrollmentId, lang, lessonsPaid)
       .then(response => {
         if (!cancelled) {
           setMessage(response.message);
@@ -51,7 +50,7 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
       });
 
     return () => { cancelled = true; };
-  }, [feeMessageEnrollmentId, lang, lessonsPaid, isNewStudent]);
+  }, [feeMessageEnrollmentId, lang, lessonsPaid]);
 
   const handleCopy = async () => {
     try {
@@ -150,15 +149,6 @@ export function FeeMessagePanel({ enrollment, onClose, onMarkSent }: FeeMessageP
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-foreground/60 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isNewStudent}
-              onChange={(e) => setIsNewStudent(e.target.checked)}
-              className="rounded border-gray-300 text-primary focus:ring-primary h-3.5 w-3.5"
-            />
-            New Student (+$100)
-          </label>
           <div className="flex items-center gap-2">
             <span className="text-xs text-foreground/60">Lessons:</span>
             <input
