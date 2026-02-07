@@ -930,6 +930,7 @@ export interface PendingSessionInfo {
   session_status: string;
   tutor_name?: string;
   location?: string;
+  root_original_session_date?: string;
 }
 
 export interface EligibleStudent {
@@ -943,6 +944,7 @@ export interface EligibleStudent {
   home_location?: string;
   enrollment_tutor_name?: string;
   pending_sessions: PendingSessionInfo[];
+  is_past_deadline?: boolean;
 }
 
 export interface ExamRevisionSlotCreate {
