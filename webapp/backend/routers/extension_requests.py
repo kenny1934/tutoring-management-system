@@ -20,7 +20,7 @@ from schemas import (
     ExtensionRequestDetailResponse,
     PendingExtensionRequestCount,
 )
-from auth.dependencies import get_current_user, require_admin
+from auth.dependencies import get_current_user, require_admin_write
 
 router = APIRouter()
 
@@ -400,7 +400,7 @@ async def get_extension_request(
 async def approve_extension_request(
     request_id: int,
     approval: ExtensionRequestApprove,
-    admin_tutor: Tutor = Depends(require_admin),
+    admin_tutor: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """
@@ -476,7 +476,7 @@ async def approve_extension_request(
 async def reject_extension_request(
     request_id: int,
     rejection: ExtensionRequestReject,
-    admin_tutor: Tutor = Depends(require_admin),
+    admin_tutor: Tutor = Depends(require_admin_write),
     db: Session = Depends(get_db)
 ):
     """

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { OverdueEnrollment } from "@/types";
 import { AdminPageGuard } from "@/components/auth/AdminPageGuard";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Urgency levels
 type UrgencyLevel = 'critical' | 'high' | 'medium' | 'new' | 'dueSoon';
@@ -102,6 +103,7 @@ export default function OverduePaymentsPage() {
 
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
+  const { isReadOnly } = useAuth();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -466,6 +468,7 @@ export default function OverduePaymentsPage() {
                                   isMarking={markingPaidId === enrollment.id}
                                   urgencyConfig={config}
                                   showLocationPrefix={selectedLocation === "All Locations"}
+                                  readOnly={isReadOnly}
                                 />
                               ))}
                             </tbody>
@@ -565,12 +568,14 @@ function OverdueRow({
   isMarking,
   urgencyConfig,
   showLocationPrefix,
+  readOnly = false,
 }: {
   enrollment: OverdueEnrollment;
   onMarkPaid: (enrollment: OverdueEnrollment) => void;
   isMarking: boolean;
   urgencyConfig: UrgencyConfig;
   showLocationPrefix: boolean;
+  readOnly?: boolean;
 }) {
   const schedule = useMemo(() => {
     if (enrollment.assigned_day && enrollment.assigned_time) {
@@ -625,13 +630,15 @@ function OverdueRow({
         <div className="flex items-center justify-end gap-2 flex-nowrap">
           <button
             onClick={() => onMarkPaid(enrollment)}
-            disabled={isMarking}
+            disabled={isMarking || readOnly}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all",
-              "bg-green-600 text-white shadow-sm",
-              "hover:bg-green-700 hover:shadow",
+              readOnly
+                ? "bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                : "bg-green-600 text-white shadow-sm hover:bg-green-700 hover:shadow",
               "disabled:opacity-50"
             )}
+            title={readOnly ? "Read-only access" : undefined}
           >
             {isMarking ? (
               <Loader2 className="h-3 w-3 animate-spin" />

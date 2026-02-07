@@ -31,9 +31,10 @@ interface ExamCardProps {
   canManageEvents?: boolean;
   highlighted?: boolean;
   defaultExpanded?: boolean;
+  readOnly?: boolean;
 }
 
-export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, onEditEvent, canManageEvents, highlighted, defaultExpanded }: ExamCardProps) {
+export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, location, onCreateSlot, onRefresh, onEditEvent, canManageEvents, highlighted, defaultExpanded, readOnly }: ExamCardProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded ?? false);
   const [selectedSlot, setSelectedSlot] = useState<ExamRevisionSlot | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
@@ -301,10 +302,13 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                   e.stopPropagation();
                   onCreateSlot();
                 }}
+                disabled={readOnly}
+                title={readOnly ? "Read-only access" : undefined}
                 className={cn(
                   "inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
                   "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",
-                  "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1"
+                  "focus-visible:ring-2 focus-visible:ring-[#a0704b] focus-visible:ring-offset-1",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
                 )}
               >
                 <Plus className="h-4 w-4" />
@@ -334,6 +338,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
                     onDuplicate={() => handleDuplicateSlot(slot)}
                     onRefresh={onRefresh}
                     showLocationPrefix={!location}
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -452,6 +457,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
           onClose={handleEditModalClose}
           onUpdated={handleEditSuccess}
           currentTutorId={currentTutorId}
+          readOnly={readOnly}
         />
       )}
     </div>

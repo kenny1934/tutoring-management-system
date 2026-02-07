@@ -14,7 +14,7 @@ import {
 } from "@floating-ui/react";
 import { ChevronDown, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTutors } from "@/lib/hooks";
+import { useActiveTutors } from "@/lib/hooks";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import type { Tutor } from "@/types";
 
@@ -42,7 +42,7 @@ export function TutorSelector({
   showAllTutors = false,
 }: TutorSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { data: allTutors = [] } = useTutors();
+  const { data: allTutors = [] } = useActiveTutors();
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,

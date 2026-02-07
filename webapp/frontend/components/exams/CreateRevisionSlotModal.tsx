@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { toDateString, getDayName, isTimeRangeValid } from "@/lib/calendar-utils";
-import { useTutors, useLocations } from "@/lib/hooks";
+import { useActiveTutors, useLocations } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { examRevisionAPI } from "@/lib/api";
 import { useLocation } from "@/contexts/LocationContext";
@@ -28,6 +28,7 @@ interface CreateRevisionSlotModalProps {
   onCreated: () => void;
   currentTutorId: number;
   defaults?: SlotDefaults;
+  readOnly?: boolean;
 }
 
 export function CreateRevisionSlotModal({
@@ -37,9 +38,10 @@ export function CreateRevisionSlotModal({
   onCreated,
   currentTutorId,
   defaults,
+  readOnly = false,
 }: CreateRevisionSlotModalProps) {
   const { showToast } = useToast();
-  const { data: tutors = [] } = useTutors();
+  const { data: tutors = [] } = useActiveTutors();
   const { data: locations = [] } = useLocations();
   const { selectedLocation } = useLocation();
 
@@ -386,7 +388,8 @@ export function CreateRevisionSlotModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !isTimeValid}
+              disabled={readOnly || isSubmitting || !isTimeValid}
+              title={readOnly ? "Read-only access" : undefined}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                 "bg-[#a0704b] hover:bg-[#8a5f3e] text-white",

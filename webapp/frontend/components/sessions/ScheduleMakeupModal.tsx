@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/contexts/ToastContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
+import { useActiveTutors, useHolidays, useEnrollment, useStudentEnrollments } from "@/lib/hooks";
 import { sessionsAPI, proposalsAPI, extensionRequestsAPI } from "@/lib/api";
 import { updateSessionInCache, addSessionToCache, removeSessionFromCache } from "@/lib/session-cache";
 import {
@@ -415,6 +415,8 @@ interface ScheduleMakeupModalProps {
   viaExtensionRequest?: boolean;
   /** Extension request ID to mark as rescheduled after successful booking */
   extensionRequestId?: number;
+  /** When true, disables submit actions (Supervisor mode) */
+  readOnly?: boolean;
 }
 
 export function ScheduleMakeupModal({
@@ -428,11 +430,12 @@ export function ScheduleMakeupModal({
   initialTimeSlot,
   viaExtensionRequest,
   extensionRequestId,
+  readOnly = false,
 }: ScheduleMakeupModalProps) {
   const { showToast, dismissToast } = useToast();
   const { effectiveRole, user } = useAuth();
   const isSuperAdmin = effectiveRole === "Super Admin";
-  const { data: tutors } = useTutors();
+  const { data: tutors } = useActiveTutors();
   const { data: enrollment } = useEnrollment(session.enrollment_id);
 
   // Fetch all student enrollments to find the CURRENT one (latest Regular by first_lesson_date)
@@ -1209,7 +1212,8 @@ export function ScheduleMakeupModal({
           {mode === "propose" ? (
             <Button
               onClick={submitProposal}
-              disabled={isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+              disabled={readOnly || isProposing || proposalSlots.length === 0 || !selectedProposerTutorId}
+              title={readOnly ? "Read-only access" : undefined}
             >
               {isProposing ? (
                 <>
@@ -1229,7 +1233,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)}>
+            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

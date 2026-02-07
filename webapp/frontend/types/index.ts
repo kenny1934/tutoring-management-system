@@ -1,5 +1,5 @@
 // Tutor types
-export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin';
+export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin' | 'Supervisor';
 
 export interface Tutor {
   id: number;
@@ -7,6 +7,7 @@ export interface Tutor {
   tutor_name: string;
   default_location?: string;
   role: TutorRole;
+  is_active_tutor?: boolean;
 }
 
 // Session Status constants

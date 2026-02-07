@@ -20,7 +20,7 @@ from schemas import (
     QuarterOption,
     StatDetailStudent
 )
-from auth.dependencies import require_admin
+from auth.dependencies import require_admin_write
 
 router = APIRouter()
 
@@ -248,7 +248,7 @@ async def get_terminated_students(
 async def update_termination_record(
     student_id: int,
     data: TerminationRecordUpdate,
-    admin: Tutor = Depends(require_admin),
+    admin: Tutor = Depends(require_admin_write),
     updated_by: str = Query(..., description="Email of user making the update"),
     db: Session = Depends(get_db)
 ):

@@ -43,7 +43,7 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, isAdmin, isSuperAdmin, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isSupervisor, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -59,8 +59,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     ? impersonatedTutor.id
     : user?.id;
 
-  // Check if user has admin privileges (uses effective role for impersonation)
-  const isAdminOrAbove = isAdmin;
+  // Check if user can view admin pages (Admin, Super Admin, or Supervisor)
+  const isAdminOrAbove = canViewAdminPages;
 
   // Fetch unread message count for Inbox badge
   const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
@@ -141,13 +141,22 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
     fetchStats();
   }, [mounted, isOnDashboard, selectedLocation]);
 
-  // Set user's default location on mount (for Admin and Tutor, not Super Admin)
+  // Set user's default location on mount
+  // - Super Admin: defaults to "All Locations"
+  // - Supervisor: defaults to "All Locations"
+  // - Admin/Tutor: defaults to their assigned location
   // Skip this when impersonating - location is set by RoleSwitcher
   useEffect(() => {
-    if (!isSuperAdmin && !isImpersonating && user?.default_location && mounted) {
-      setSelectedLocation(user.default_location);
+    if (!isImpersonating && mounted) {
+      if (isSuperAdmin || isSupervisor) {
+        // Super Admin and Supervisor default to All Locations
+        setSelectedLocation("All Locations");
+      } else if (user?.default_location) {
+        // Admin and Tutor default to their assigned location
+        setSelectedLocation(user.default_location);
+      }
     }
-  }, [isSuperAdmin, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
+  }, [isSuperAdmin, isSupervisor, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
 
   // Check scroll position for gradient indicators
   const checkScrollPosition = () => {
@@ -255,7 +264,10 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           )}
         />
         <nav className="space-y-2 px-3 py-4">
-        {navigation.map((item) => {
+        {navigation
+          // Filter out Inbox for Supervisor (read-only role)
+          .filter((item) => !(item.name === "Inbox" && isSupervisor))
+          .map((item) => {
           const isActive = pathname === item.href;
           const showExpanded = isMobile || !isCollapsed;
           return (

@@ -244,6 +244,7 @@ function ExamCalendarView({
                 onRefresh={onRefresh}
                 onEditEvent={onEditEvent}
                 canManageEvents={canManageEvents}
+                readOnly={isReadOnly}
               />
             ))
           )}
@@ -284,8 +285,8 @@ export default function ExamsPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
 
   // Edit event modal state
-  const { user } = useAuth();
-  const canManageEvents = !!user;
+  const { user, isReadOnly } = useAuth();
+  const canManageEvents = !!user && !isReadOnly;
   const [isEditEventModalOpen, setIsEditEventModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>(undefined);
 
@@ -794,6 +795,7 @@ export default function ExamsPage() {
                       canManageEvents={canManageEvents}
                       highlighted={isHighlighted}
                       defaultExpanded={isHighlighted}
+                      readOnly={isReadOnly}
                     />
                   </div>
                 );
@@ -815,6 +817,7 @@ export default function ExamsPage() {
             onCreated={handleSlotCreated}
             currentTutorId={currentTutorId}
             defaults={slotDefaults}
+            readOnly={isReadOnly}
           />
         )}
 
@@ -827,6 +830,7 @@ export default function ExamsPage() {
           }}
           onSuccess={handleEditEventSuccess}
           event={editingEvent}
+          readOnly={isReadOnly}
         />
 
         {/* Scroll to top button */}
