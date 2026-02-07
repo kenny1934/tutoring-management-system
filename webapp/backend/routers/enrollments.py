@@ -1647,7 +1647,7 @@ def format_fee_message(
                   'Monday': 'Monday', 'Tuesday': 'Tuesday', 'Wednesday': 'Wednesday',
                   'Thursday': 'Thursday', 'Friday': 'Friday', 'Saturday': 'Saturday', 'Sunday': 'Sunday'}
     location_map_zh = {'MSA': '華士古分校', 'MSB': '二龍喉分校'}
-    location_map_en = {'MSA': 'Vasco Branch', 'MSB': 'Flora Garden Branch'}
+    location_map_en = {'MSA': 'Vasco Center', 'MSB': 'Flora Garden Center'}
     bank_map = {'MSA': '185000380468369', 'MSB': '185000010473304'}
 
     base_fee = 400 * lessons_paid
@@ -1667,7 +1667,6 @@ def format_fee_message(
             fee_parts.append(f'含$100報名費')
 
         discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
-        closed_days = ' (星期二三公休)' if location == 'MSB' else ''
 
         return f"""家長您好，以下是 MathConcept中學教室 常規課程 之【繳費提示訊息】：
 
@@ -1680,13 +1679,13 @@ def format_fee_message(
 
 費用： ${total_fee:,}{discount_text}
 
-請於第一堂之前繳交學費。逾期繳費者，本中心將收取$200手續費，並保留權利拒絕學生上課。
-家長可親臨中學教室({location_map_zh.get(location, location)}){closed_days} 以現金方式繳交學費，或選擇把學費存入以下戶口：
-
+家長可選擇以下繳費方式：
+1. 自動轉賬（如已開通自動轉賬，將於7天內自動扣費，請家長留意並確保賬戶餘額充足）
+2. 交付現金 或
+3. 把學費存入以下戶口，請於備註註明學生姓名及其編號，並發收條至中心微信群。
 銀行：中國銀行
 名稱：弘教數學教育中心
 號碼：{bank_map.get(location, '')}
-請於備註註明學生姓名及其編號，並發收條至中心微信號確認，謝謝
 
 MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
 
@@ -1701,7 +1700,6 @@ MathConcept 中學教室 ({location_map_zh.get(location, location)})"""
             fee_parts.append(f'includes $100 registration fee')
 
         discount_text = f' ({", ".join(fee_parts)})' if fee_parts else ''
-        closed_days = ' (Closed Tue & Wed)' if location == 'MSB' else ''
 
         return f"""Dear Parent,
 
@@ -1716,17 +1714,14 @@ Lesson Dates:
 
 Fee: ${total_fee:,}{discount_text}
 
-Please pay before the first lesson. Late payment will incur a $200 administrative fee, and we reserve the right to refuse admission.
+Parents may choose one of the following payment methods:
+1. Auto-transfer (if auto-transfer is enabled, the fee will be deducted automatically within 7 days — please ensure sufficient balance)
+2. Cash payment, or
+3. Bank transfer to the following account. Please include the student name and ID in the remarks, and send the receipt to our center's WeChat group.
+Bank: Bank of China
+Account Name: 弘教數學教育中心
+Account Number: {bank_map.get(location, '')}
 
-Payment options:
-1. Cash payment at our center ({location_map_en.get(location, location)}){closed_days}
-2. Bank transfer:
-   Bank: Bank of China
-   Account Name: 弘教數學教育中心
-   Account Number: {bank_map.get(location, '')}
-   Please include student name and ID in the transfer remarks, and send the receipt to our WeChat for confirmation.
-
-Thank you!
 MathConcept Secondary Academy ({location_map_en.get(location, location)})"""
 
 
