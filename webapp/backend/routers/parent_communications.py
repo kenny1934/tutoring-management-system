@@ -4,10 +4,11 @@ Provides CRUD operations for tracking parent-tutor communications.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, and_, or_, desc
+from sqlalchemy import func, and_, or_, desc, case
 from typing import List, Optional
 from datetime import date, datetime, timedelta
 from collections import defaultdict
+import time
 from database import get_db
 from models import ParentCommunication, Student, Tutor, Enrollment, LocationSettings
 from routers.enrollments import calculate_effective_end_date_bulk, get_holidays_in_range, ACTIVE_GRACE_PERIOD_DAYS
@@ -27,6 +28,11 @@ router = APIRouter()
 DEFAULT_RECENT_DAYS = 28
 DEFAULT_WARNING_DAYS = 50
 NEVER_CONTACTED_DAYS = 999
+
+# TTL cache for get_active_student_ids() — avoids redundant computation
+# when multiple endpoints are called in parallel on page load.
+_active_ids_cache: dict[tuple, tuple[set[int], float]] = {}
+_ACTIVE_IDS_CACHE_TTL = 30  # seconds
 
 
 def get_location_thresholds(db: Session, location: Optional[str]) -> tuple[int, int]:
@@ -59,11 +65,18 @@ def get_active_student_ids(
 ) -> set[int]:
     """
     Get IDs of students with active enrollments.
-    Uses the same filtering logic as /enrollments/my-students:
-    - payment_status != "Cancelled", enrollment_type == "Regular"
-    - first_lesson_date within 60 weeks
-    - effective end date within ACTIVE_GRACE_PERIOD_DAYS grace period
+    Results are cached for 30 seconds to avoid redundant computation
+    when multiple endpoints call this in parallel on page load.
     """
+    cache_key = (tutor_id, location)
+    now = time.time()
+
+    # Check cache
+    if cache_key in _active_ids_cache:
+        cached_result, expiry = _active_ids_cache[cache_key]
+        if now < expiry:
+            return cached_result
+
     today = date.today()
     max_possible_weeks = 60
     cutoff_date = today - timedelta(weeks=max_possible_weeks)
@@ -103,6 +116,11 @@ def get_active_student_ids(
                 active_ids.add(student_id)
         else:
             active_ids.add(student_id)
+
+    # Store in cache and prune expired entries
+    _active_ids_cache[cache_key] = (active_ids, now + _ACTIVE_IDS_CACHE_TTL)
+    for k in [k for k, (_, exp) in _active_ids_cache.items() if now >= exp]:
+        del _active_ids_cache[k]
 
     return active_ids
 
@@ -558,28 +576,43 @@ async def get_communication_stats(
         ).distinct().scalar_subquery()
         base_filters.append(ParentCommunication.student_id.in_(location_student_ids))
 
-    # Type distribution (last 30 days)
+    # Combined query: type distribution (30d) + weekly activity (saves 2 round-trips)
     thirty_days_ago = today - timedelta(days=30)
-    type_counts = dict(
-        db.query(ParentCommunication.contact_type, func.count(ParentCommunication.id))
-        .filter(ParentCommunication.contact_date >= thirty_days_ago, *base_filters)
-        .group_by(ParentCommunication.contact_type)
-        .all()
-    )
-
-    # Weekly activity trend
     week_start = today - timedelta(days=today.weekday())  # Monday
     last_week_start = week_start - timedelta(days=7)
 
-    this_week_count = db.query(func.count(ParentCommunication.id)).filter(
-        ParentCommunication.contact_date >= week_start, *base_filters
-    ).scalar() or 0
-
-    last_week_count = db.query(func.count(ParentCommunication.id)).filter(
-        ParentCommunication.contact_date >= last_week_start,
-        ParentCommunication.contact_date < week_start,
+    combined = db.query(
+        func.count(case(
+            (and_(
+                ParentCommunication.contact_date >= thirty_days_ago,
+                ParentCommunication.contact_type == 'Progress Update'
+            ), ParentCommunication.id),
+        )).label('progress_count'),
+        func.count(case(
+            (and_(
+                ParentCommunication.contact_date >= thirty_days_ago,
+                ParentCommunication.contact_type == 'Concern'
+            ), ParentCommunication.id),
+        )).label('concern_count'),
+        func.count(case(
+            (and_(
+                ParentCommunication.contact_date >= thirty_days_ago,
+                ParentCommunication.contact_type == 'General'
+            ), ParentCommunication.id),
+        )).label('general_count'),
+        func.count(case(
+            (ParentCommunication.contact_date >= week_start, ParentCommunication.id),
+        )).label('this_week'),
+        func.count(case(
+            (and_(
+                ParentCommunication.contact_date >= last_week_start,
+                ParentCommunication.contact_date < week_start
+            ), ParentCommunication.id),
+        )).label('last_week'),
+    ).filter(
+        ParentCommunication.contact_date >= thirty_days_ago,
         *base_filters
-    ).scalar() or 0
+    ).first()
 
     # Average days since last contact (for contacted students only)
     last_contact_subq = db.query(
@@ -606,11 +639,11 @@ async def get_communication_stats(
         total_active_students=total_active,
         students_contacted_recently=students_contacted,
         contact_coverage_percent=coverage,
-        progress_update_count=type_counts.get('Progress Update', 0),
-        concern_count=type_counts.get('Concern', 0),
-        general_count=type_counts.get('General', 0),
-        contacts_this_week=this_week_count,
-        contacts_last_week=last_week_count,
+        progress_update_count=combined.progress_count if combined else 0,
+        concern_count=combined.concern_count if combined else 0,
+        general_count=combined.general_count if combined else 0,
+        contacts_this_week=combined.this_week if combined else 0,
+        contacts_last_week=combined.last_week if combined else 0,
         average_days_since_contact=avg_days,
         pending_followups_count=followup_count,
     )

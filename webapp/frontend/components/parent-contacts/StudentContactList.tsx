@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, memo, useCallback } from "react";
+import { useState, useMemo, memo, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ContactStatusBadge, ContactStatusDot } from "./ContactStatusBadge";
 import type { StudentContactStatus } from "@/lib/api";
@@ -62,6 +62,9 @@ export const StudentContactList = memo(function StudentContactList({
   const [withinGroupSort, setWithinGroupSort] = useState<WithinGroupSort>('student_id');
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [fullyExpandedGroups, setFullyExpandedGroups] = useState<Set<string>>(new Set());
+
+  const INITIAL_GROUP_LIMIT = 20;
 
   // Use controlled search if provided, otherwise local
   const searchQuery = controlledSearchQuery ?? localSearchQuery;
@@ -132,7 +135,8 @@ export const StudentContactList = memo(function StudentContactList({
   }, [filteredStudents, groupMode, withinGroupSort]);
 
   // Auto-expand groups with urgent contacts or when searching
-  useMemo(() => {
+  useEffect(() => {
+    setFullyExpandedGroups(new Set());
     if (searchQuery) {
       setExpandedGroups(new Set(groupedStudents.map(g => g.key)));
     } else if (groupMode === 'urgency') {
@@ -294,7 +298,10 @@ export const StudentContactList = memo(function StudentContactList({
               {/* Students */}
               {expandedGroups.has(group.key) && (
                 <div className="pb-1">
-                  {group.students.map(student => (
+                  {(fullyExpandedGroups.has(group.key)
+                    ? group.students
+                    : group.students.slice(0, INITIAL_GROUP_LIMIT)
+                  ).map(student => (
                     <div
                       key={student.student_id}
                       className={cn(
@@ -345,6 +352,14 @@ export const StudentContactList = memo(function StudentContactList({
                       </button>
                     </div>
                   ))}
+                  {!fullyExpandedGroups.has(group.key) && group.students.length > INITIAL_GROUP_LIMIT && (
+                    <button
+                      onClick={() => setFullyExpandedGroups(prev => new Set([...prev, group.key]))}
+                      className="w-full py-2 text-xs text-[#a0704b] hover:text-[#8b5d3b] dark:text-[#cd853f] dark:hover:text-[#deb887] hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    >
+                      Show all {group.students.length} students
+                    </button>
+                  )}
                 </div>
               )}
             </div>
