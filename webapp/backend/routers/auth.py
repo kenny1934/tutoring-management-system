@@ -36,6 +36,16 @@ def _get_redirect_base(state: Optional[str] = None) -> str:
     return FRONTEND_URL
 
 
+def _get_callback_uri(origin: Optional[str] = None) -> Optional[str]:
+    """Derive the OAuth callback URI from the caller's origin.
+
+    Returns None to use the default GOOGLE_REDIRECT_URI when origin is not a valid allowed origin.
+    """
+    if origin and origin in ALLOWED_ORIGINS:
+        return f"{origin}/api/auth/google/callback"
+    return None
+
+
 class UserResponse(BaseModel):
     """Response model for current user info"""
     id: int
@@ -62,7 +72,9 @@ async def google_login(
 
     # Pass the caller's origin through OAuth state so we can redirect back to the right domain
     state = redirect_origin if redirect_origin and redirect_origin in ALLOWED_ORIGINS else None
-    auth_url = get_google_auth_url(state=state)
+    # Use custom domain callback URI so the cookie is set as first-party
+    callback_uri = _get_callback_uri(redirect_origin)
+    auth_url = get_google_auth_url(state=state, redirect_uri=callback_uri)
     return RedirectResponse(url=auth_url)
 
 
@@ -85,10 +97,12 @@ async def google_callback(
 
     # Determine redirect base from state (validated against ALLOWED_ORIGINS)
     redirect_base = _get_redirect_base(state)
+    # Derive callback URI from state so token exchange uses the same redirect_uri as the auth request
+    callback_uri = _get_callback_uri(state)
 
     try:
-        # Exchange code for user info
-        user_info = await exchange_code_for_user_info(code)
+        # Exchange code for user info (redirect_uri must match what was sent to Google)
+        user_info = await exchange_code_for_user_info(code, redirect_uri=callback_uri)
         google_email = user_info.get("email")
         logger.info("OAuth callback for email: %s", google_email)
 
@@ -125,14 +139,13 @@ async def google_callback(
             status_code=status.HTTP_302_FOUND,
         )
 
-        # Set HTTP-only cookie
-        # Use samesite="none" for cross-origin (frontend/backend on different domains)
+        # Set HTTP-only cookie (same-origin via Cloudflare Worker proxy)
         response.set_cookie(
             key="access_token",
             value=token,
             httponly=True,
-            secure=True,  # Required when samesite="none"
-            samesite="none",  # Allow cross-origin cookie
+            secure=True,
+            samesite="lax",
             max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Match token expiry
         )
 
@@ -185,7 +198,7 @@ async def logout(response: Response):
     response.delete_cookie(
         key="access_token",
         httponly=True,
-        secure=ENVIRONMENT == "production",
+        secure=True,
         samesite="lax",
     )
     return {"message": "Logged out successfully"}
@@ -234,7 +247,7 @@ async def refresh_token(request: Request, response: Response):
         key="access_token",
         value=new_token,
         httponly=True,
-        secure=ENVIRONMENT == "production",
+        secure=True,
         samesite="lax",
         max_age=ACCESS_TOKEN_EXPIRE_HOURS * 3600,  # Cookie max age in seconds
     )
