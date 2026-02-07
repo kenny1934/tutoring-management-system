@@ -1,18 +1,18 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails } from "@/lib/hooks";
+import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails, useTerminationTrends } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { TutorSelector, type TutorValue, ALL_TUTORS } from "@/components/selectors/TutorSelector";
 import { terminationsAPI, enrollmentsAPI } from "@/lib/api";
-import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Info, LayoutList, Grid3X3, Search } from "lucide-react";
+import { UserMinus, Loader2, Users, TrendingDown, ChevronDown, ChevronRight, Check, Save, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, Info, LayoutList, Grid3X3, Search, X, Download } from "lucide-react";
 import { getGradeColor } from "@/lib/constants";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
 import { EnrollmentDetailPopover } from "@/components/enrollments/EnrollmentDetailPopover";
@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils";
 import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
+import { TerminationTrendChart } from "@/components/terminations/TerminationTrendChart";
+import { ReasonDistributionChart } from "@/components/terminations/ReasonDistributionChart";
 
 // Exited student with optional transfer destination
 type ExitedStudent = StatDetailStudent & { transferred_to_tutor: string | null };
@@ -32,9 +35,45 @@ type EnrolledStudent = StatDetailStudent & { transferred_from_tutor: string | nu
 interface PendingChange {
   countAsTerminated?: boolean;
   reason?: string;
+  reasonCategory?: string;
 }
 
 // --- Shared helpers ---
+
+function exportTerminatedStudentsCSV(
+  groups: Array<{ tutorName: string; students: TerminatedStudent[] }>,
+  quarter: number,
+  year: number,
+  getChecked: (s: TerminatedStudent) => boolean,
+  getReason: (s: TerminatedStudent) => string,
+  getCategory: (s: TerminatedStudent) => string,
+) {
+  const headers = ["Student ID", "Name", "Grade", "Instructor", "Schedule", "End Date", "Category", "Reason", "Count as Terminated"];
+  const rows = groups.flatMap(({ students }) =>
+    students.map(s => [
+      s.school_student_id || "",
+      s.student_name,
+      s.grade || "",
+      s.tutor_name || "",
+      formatSchedule(s.schedule),
+      new Date(s.termination_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      getCategory(s),
+      getReason(s),
+      getChecked(s) ? "Yes" : "No",
+    ])
+  );
+  const csvContent = [
+    headers.join(","),
+    ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+  ].join("\n");
+  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `terminated-students-Q${quarter}-${year}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function formatSchedule(schedule: string | undefined): string {
   if (!schedule) return "-";
@@ -95,6 +134,11 @@ export default function TerminatedStudentsPage() {
   const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
   const [sortConfig, handleSort] = useToggleSort<'id' | 'endDate'>('endDate');
   const [tutorStatsSortConfig, handleTutorStatsSort] = useToggleSort<'instructor' | 'opening' | 'enrollTransfer' | 'terminated' | 'closing' | 'termRate'>('instructor');
+
+  // Search, filter, and collapsible state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   // Pending changes state for batch save
   const [pendingChanges, setPendingChanges] = useState<Map<number, PendingChange>>(new Map());
@@ -172,6 +216,12 @@ export default function TerminatedStudentsPage() {
   const { data: stats, isLoading: loadingStats } = useTerminationStats(
     selectedQuarter,
     selectedYear,
+    effectiveLocation,
+    effectiveTutorId
+  );
+
+  // Fetch trends
+  const { data: trendData, isLoading: loadingTrends } = useTerminationTrends(
     effectiveLocation,
     effectiveTutorId
   );
@@ -338,6 +388,19 @@ export default function TerminatedStudentsPage() {
     });
   }, []);
 
+  // Handle reason category update
+  const handleCategoryUpdate = useCallback((student: TerminatedStudent, newCategory: string) => {
+    setPendingChanges(prev => {
+      const next = new Map(prev);
+      const existing = next.get(student.student_id) || {};
+      next.set(student.student_id, {
+        ...existing,
+        reasonCategory: newCategory || undefined,
+      });
+      return next;
+    });
+  }, []);
+
   // Handle checkbox toggle - updates pending changes (no API call)
   const handleCheckboxToggle = useCallback((student: TerminatedStudent) => {
     setPendingChanges(prev => {
@@ -388,6 +451,7 @@ export default function TerminatedStudentsPage() {
               quarter: selectedQuarter,
               year: selectedYear,
               reason: changes.reason ?? originalStudent?.reason ?? undefined,
+              reason_category: changes.reasonCategory ?? originalStudent?.reason_category ?? undefined,
               count_as_terminated: changes.countAsTerminated ?? originalStudent?.count_as_terminated ?? false,
             }, 'system'); // TODO: Replace with actual user email from auth context when OAuth is implemented
           })
@@ -428,6 +492,11 @@ export default function TerminatedStudentsPage() {
     return pending?.reason ?? student.reason ?? '';
   }, [pendingChanges]);
 
+  const getEffectiveCategory = useCallback((student: TerminatedStudent): string => {
+    const pending = pendingChanges.get(student.student_id);
+    return pending?.reasonCategory ?? student.reason_category ?? '';
+  }, [pendingChanges]);
+
   // Check if a student has pending changes
   const hasPendingChanges = useCallback((studentId: number) => {
     return pendingChanges.has(studentId);
@@ -461,9 +530,65 @@ export default function TerminatedStudentsPage() {
       });
   }, [studentsByTutor, sortConfig, getEffectiveChecked]);
 
+  // Filter tutor groups by search term and category
+  const filteredTutorGroups = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    const hasSearch = !!q;
+    const hasCategory = !!selectedCategory;
+    if (!hasSearch && !hasCategory) return sortedTutorGroups;
+    return sortedTutorGroups
+      .map(group => {
+        const students = group.students.filter(s => {
+          if (hasSearch) {
+            const matchesSearch = s.student_name.toLowerCase().includes(q) ||
+              (s.school_student_id && s.school_student_id.toLowerCase().includes(q));
+            if (!matchesSearch) return false;
+          }
+          if (hasCategory) {
+            const cat = getEffectiveCategory(s);
+            if (cat !== selectedCategory) return false;
+          }
+          return true;
+        });
+        return {
+          ...group,
+          students,
+          checkedCount: students.filter(s => getEffectiveChecked(s)).length,
+          totalCount: students.length,
+        };
+      })
+      .filter(group => group.students.length > 0);
+  }, [sortedTutorGroups, searchTerm, selectedCategory, getEffectiveChecked, getEffectiveCategory]);
+
   const totalCheckedCount = useMemo(() => {
-    return sortedTutorGroups.reduce((sum, g) => sum + g.checkedCount, 0);
-  }, [sortedTutorGroups]);
+    return filteredTutorGroups.reduce((sum, g) => sum + g.checkedCount, 0);
+  }, [filteredTutorGroups]);
+
+  const filteredStudentCount = useMemo(() => {
+    return filteredTutorGroups.reduce((sum, g) => sum + g.totalCount, 0);
+  }, [filteredTutorGroups]);
+
+  // Collapsible group helpers
+  const toggleGroup = useCallback((tutorName: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(tutorName)) next.delete(tutorName);
+      else next.add(tutorName);
+      return next;
+    });
+  }, []);
+
+  const toggleAllGroups = useCallback(() => {
+    setCollapsedGroups(prev => {
+      if (prev.size === 0) {
+        return new Set(filteredTutorGroups.map(g => g.tutorName));
+      }
+      return new Set();
+    });
+  }, [filteredTutorGroups]);
+
+  // When search is active, auto-expand all groups so results aren't hidden
+  const effectiveCollapsedGroups = searchTerm.trim() ? new Set<string>() : collapsedGroups;
 
   // Memoize tutor stats sorting
   const sortedTutorStats = useMemo(() => {
@@ -564,11 +689,66 @@ export default function TerminatedStudentsPage() {
                     showAllTutors
                   />
                 )}
+
+                {/* Search */}
+                <div className="relative min-w-[200px] max-w-sm">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search students..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={cn(
+                      "w-full pl-8 pr-8 py-1.5 text-sm rounded-full",
+                      "bg-white dark:bg-[#1a1a1a] border border-[#d4a574] dark:border-[#8b6f47]",
+                      "text-foreground placeholder:text-muted-foreground",
+                      "focus:outline-none focus:ring-1 focus:ring-[#a0704b] dark:focus:ring-[#cd853f]"
+                    )}
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Filter */}
+                <CategoryDropdown
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  placeholder="All Categories"
+                  showAllOption
+                />
               </div>
 
-              {/* Save Changes Button - hide for read-only users */}
-              {!isReadOnly && pendingChanges.size > 0 && (
-                <div className="flex items-center gap-2">
+              {/* Export + Save Buttons */}
+              <div className="flex items-center gap-2">
+                {/* CSV Export */}
+                <button
+                  onClick={() => selectedQuarter && selectedYear && exportTerminatedStudentsCSV(
+                    filteredTutorGroups, selectedQuarter, selectedYear,
+                    getEffectiveChecked, getEffectiveReason, getEffectiveCategory
+                  )}
+                  disabled={!selectedQuarter || !selectedYear || terminatedStudents.length === 0}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
+                    "border border-[#d4a574] dark:border-[#8b6f47]",
+                    "text-[#a0704b] dark:text-[#cd853f]",
+                    "hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]",
+                    "disabled:opacity-50"
+                  )}
+                  title="Export as CSV"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
+
+                {/* Save/Discard - hide for read-only users */}
+                {!isReadOnly && pendingChanges.size > 0 && (
+                <>
                   <button
                     onClick={handleDiscardChanges}
                     disabled={isSaving}
@@ -603,8 +783,9 @@ export default function TerminatedStudentsPage() {
                       {pendingChanges.size}
                     </span>
                   </button>
-                </div>
-              )}
+                </>
+                )}
+              </div>
             </div>
           </div>
           </div>
@@ -687,6 +868,25 @@ export default function TerminatedStudentsPage() {
               </div>
             )}
 
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <TerminationTrendChart
+                data={trendData}
+                isLoading={loadingTrends}
+                selectedQuarter={selectedQuarter}
+                selectedYear={selectedYear}
+                isMobile={isMobile}
+              />
+              {terminatedStudents.length > 0 && (
+                <ReasonDistributionChart
+                  students={terminatedStudents}
+                  getEffectiveChecked={getEffectiveChecked}
+                  getEffectiveCategory={getEffectiveCategory}
+                  isMobile={isMobile}
+                />
+              )}
+            </div>
+
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -707,11 +907,19 @@ export default function TerminatedStudentsPage() {
                   "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
                   !isMobile && "paper-texture"
                 )}>
-                  <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
+                  <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center justify-between">
                     <h2 className="font-medium flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Terminated Students ({totalCheckedCount}/{terminatedStudents.length})
+                      Terminated Students ({totalCheckedCount}/{searchTerm ? `${filteredStudentCount} of ${terminatedStudents.length}` : terminatedStudents.length})
                     </h2>
+                    {filteredTutorGroups.length > 1 && (
+                      <button
+                        onClick={toggleAllGroups}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {collapsedGroups.size === 0 ? "Collapse All" : "Expand All"}
+                      </button>
+                    )}
                   </div>
 
                   {/* Table */}
@@ -742,25 +950,38 @@ export default function TerminatedStudentsPage() {
                               <SortIcon active={sortConfig.column === 'endDate'} direction={sortConfig.direction} />
                             </button>
                           </th>
+                          <th className="px-4 py-3 text-left font-medium min-w-[140px]">Category</th>
                           <th className="px-4 py-3 text-left font-medium min-w-[200px]">Reason</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
-                        {sortedTutorGroups.map(({ tutorName, students, checkedCount, totalCount }) => (
+                        {filteredTutorGroups.map(({ tutorName, students, checkedCount, totalCount }) => (
                           <React.Fragment key={tutorName}>
-                            <tr className="bg-muted/30">
-                              <td colSpan={8} className="px-4 py-2 font-medium text-muted-foreground">
-                                {tutorName} ({checkedCount}/{totalCount})
+                            <tr
+                              className="bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                              onClick={() => toggleGroup(tutorName)}
+                            >
+                              <td colSpan={9} className="px-4 py-2 font-medium text-muted-foreground">
+                                <span className="flex items-center gap-1.5">
+                                  {effectiveCollapsedGroups.has(tutorName) ? (
+                                    <ChevronRight className="h-4 w-4 shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 shrink-0" />
+                                  )}
+                                  {tutorName} ({checkedCount}/{totalCount})
+                                </span>
                               </td>
                             </tr>
-                            {students.map((student) => (
+                            {!effectiveCollapsedGroups.has(tutorName) && students.map((student) => (
                               <TerminatedStudentRow
                                 key={student.student_id}
                                 student={student}
                                 onCheckboxToggle={handleCheckboxToggle}
                                 onReasonUpdate={handleReasonUpdate}
+                                onCategoryUpdate={handleCategoryUpdate}
                                 effectiveCountAsTerminated={getEffectiveChecked(student)}
                                 effectiveReason={getEffectiveReason(student)}
+                                effectiveCategory={getEffectiveCategory(student)}
                                 hasPendingChanges={hasPendingChanges(student.student_id)}
                                 showLocationPrefix={selectedLocation === "All Locations"}
                                 readOnly={isReadOnly}
@@ -1525,8 +1746,10 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
   student,
   onCheckboxToggle,
   onReasonUpdate,
+  onCategoryUpdate,
   effectiveCountAsTerminated,
   effectiveReason,
+  effectiveCategory,
   hasPendingChanges,
   showLocationPrefix,
   readOnly = false,
@@ -1534,19 +1757,35 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
   student: TerminatedStudent;
   onCheckboxToggle: (student: TerminatedStudent) => void;
   onReasonUpdate: (student: TerminatedStudent, reason: string) => void;
+  onCategoryUpdate: (student: TerminatedStudent, category: string) => void;
   effectiveCountAsTerminated: boolean;
   effectiveReason: string;
+  effectiveCategory: string;
   hasPendingChanges: boolean;
   showLocationPrefix: boolean;
   readOnly?: boolean;
 }) {
   const [localReason, setLocalReason] = useState(effectiveReason);
   const [isEditing, setIsEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }, []);
 
   // Sync local state when effective reason changes
   useEffect(() => {
     setLocalReason(effectiveReason);
   }, [effectiveReason]);
+
+  // Adjust height when content changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [localReason, adjustTextareaHeight]);
 
   const handleReasonBlur = () => {
     setIsEditing(false);
@@ -1604,10 +1843,20 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
       <td className="px-4 py-3 text-xs">
         {new Date(student.termination_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
       </td>
+      {/* Category */}
+      <td className="px-4 py-3">
+        <CategoryDropdown
+          value={effectiveCategory}
+          onChange={(val) => !readOnly && onCategoryUpdate(student, val)}
+          disabled={readOnly}
+          compact
+        />
+      </td>
       {/* Reason */}
       <td className="px-4 py-3">
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
+          rows={1}
           value={localReason}
           onChange={(e) => !readOnly && setLocalReason(e.target.value)}
           onFocus={() => !readOnly && setIsEditing(true)}
@@ -1615,7 +1864,7 @@ const TerminatedStudentRow = React.memo(function TerminatedStudentRow({
           placeholder={readOnly ? "-" : "Enter reason..."}
           disabled={readOnly}
           className={cn(
-            "w-full px-2 py-1 text-sm rounded border transition-colors",
+            "w-full px-2 py-1 text-sm rounded border transition-colors resize-none max-h-[120px] overflow-y-auto",
             readOnly && "opacity-60 cursor-not-allowed bg-transparent",
             !readOnly && isEditing
               ? "border-[#a0704b] dark:border-[#cd853f] ring-1 ring-[#a0704b]/20 dark:ring-[#cd853f]/20"

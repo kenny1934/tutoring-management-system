@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
 import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, api, type ParentCommunication } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, StatDetailStudent, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -470,6 +470,13 @@ export function useTerminationStats(
       ? ['termination-stats', quarter, year, location || 'all', tutorId || 'all']
       : null,
     () => terminationsAPI.getStats(quarter!, year!, location, tutorId)
+  );
+}
+
+export function useTerminationTrends(location?: string, tutorId?: number) {
+  return useSWR<QuarterTrendPoint[]>(
+    ['termination-trends', location || 'all', tutorId || 'all'],
+    () => terminationsAPI.getTrends(location, tutorId)
   );
 }
 
