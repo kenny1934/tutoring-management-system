@@ -19,7 +19,7 @@ import { TearOffCalendar } from "./TearOffCalendar";
 import { useCommandPalette } from "@/contexts/CommandPaletteContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActiveTutors } from "@/lib/hooks";
+import { useActiveTutors, useTerminationReviewCount } from "@/lib/hooks";
 import { getTutorSortName, getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 import type { DashboardStats } from "@/types";
 import { useDropdown } from "@/lib/ui-hooks";
@@ -83,6 +83,9 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
     ['contact-needed-count', currentTutorId, location],
     () => parentCommunicationsAPI.getContactNeededCount(currentTutorId, location)
   );
+
+  // Fetch termination review count for Terminated Students badge
+  const { data: reviewCount } = useTerminationReviewCount(location, currentTutorId);
 
   // Current user's leave record URL (for my-view mode)
   const currentUserLeaveUrl = getLeaveRecordUrl(CURRENT_USER_TUTOR);
@@ -463,6 +466,11 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
                 {link.id === 'parents' && contactNeeded?.count != null && contactNeeded.count > 0 && (
                   <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full">
                     {contactNeeded.count > 99 ? "99+" : contactNeeded.count}
+                  </span>
+                )}
+                {link.id === 'terminated' && reviewCount?.in_review_period && reviewCount.count > 0 && (
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-orange-500 rounded-full">
+                    {reviewCount.count > 99 ? "99+" : reviewCount.count}
                   </span>
                 )}
               </Link>

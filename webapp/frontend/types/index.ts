@@ -583,6 +583,13 @@ export interface QuarterOption {
   year: number;
 }
 
+export interface TerminationReviewCount {
+  count: number;
+  in_review_period: boolean;
+  review_quarter: number | null;
+  review_year: number | null;
+}
+
 export interface QuarterTrendPoint {
   quarter: number;
   year: number;

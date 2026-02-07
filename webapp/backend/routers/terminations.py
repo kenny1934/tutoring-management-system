@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from database import get_db
 from models import TerminationRecord, Student, Tutor, Enrollment
+import calendar
 from schemas import (
     TerminatedStudentResponse,
     TerminationRecordUpdate,
@@ -19,6 +20,7 @@ from schemas import (
     TerminationStatsResponse,
     QuarterOption,
     QuarterTrendPoint,
+    TerminationReviewCount,
     StatDetailStudent
 )
 from auth.dependencies import require_admin_write
@@ -837,6 +839,92 @@ def _compute_location_stats(
         "term_rate": term_rate,
         "reason_breakdown": reason_breakdown,
     }
+
+
+@router.get("/terminations/review-needed-count", response_model=TerminationReviewCount)
+async def get_review_needed_count(
+    location: Optional[str] = Query(None, description="Filter by location"),
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get count of terminated students needing reason review.
+    Only returns a non-zero count during the review period (quarter start to end of month).
+    Reviews the PREVIOUS quarter's terminated students.
+    """
+    today = date.today()
+    current_q, current_y = get_quarter_for_date(today)
+    opening_start, _, _ = get_quarter_dates(current_y, current_q)
+
+    # Review period: quarter start date to end of that starting month
+    _, last_day = calendar.monthrange(opening_start.year, opening_start.month)
+    review_end = date(opening_start.year, opening_start.month, last_day)
+
+    if today < opening_start or today > review_end:
+        return TerminationReviewCount()
+
+    # Determine previous quarter
+    if current_q == 1:
+        prev_q, prev_y = 4, current_y - 1
+    else:
+        prev_q, prev_y = current_q - 1, current_y
+
+    prev_opening_start, _, prev_closing_end = get_quarter_dates(prev_y, prev_q)
+
+    # Count terminated students from previous quarter missing both reason and category
+    query = text("""
+        WITH quarter_enrollments AS (
+            SELECT e.*,
+                   calculate_effective_end_date(
+                       e.first_lesson_date,
+                       e.lessons_paid,
+                       COALESCE(e.deadline_extension_weeks, 0)
+                   ) as eff_end_date,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY e.first_lesson_date DESC
+                   ) as rn
+            FROM enrollments e
+            WHERE e.payment_status IN ('Paid', 'Pending Payment')
+            AND e.enrollment_type = 'Regular'
+            AND e.first_lesson_date IS NOT NULL
+            AND e.first_lesson_date <= DATE_ADD(:closing_end, INTERVAL 30 DAY)
+        ),
+        termed AS (
+            SELECT qe.student_id, qe.tutor_id,
+                   qe.eff_end_date as termination_date
+            FROM quarter_enrollments qe
+            WHERE qe.rn = 1
+            AND qe.eff_end_date >= :opening_start
+            AND qe.eff_end_date <= :closing_end
+        )
+        SELECT COUNT(*) as cnt
+        FROM termed te
+        JOIN students s ON te.student_id = s.id
+        LEFT JOIN termination_records tr ON te.student_id = tr.student_id
+            AND tr.quarter = :quarter AND tr.year = :year
+        WHERE (:location IS NULL OR s.home_location = :location)
+        AND (:tutor_id IS NULL OR te.tutor_id = :tutor_id)
+        AND (tr.reason IS NULL OR tr.reason = '')
+        AND (tr.reason_category IS NULL OR tr.reason_category = '')
+    """)
+
+    result = db.execute(query, {
+        "quarter": prev_q,
+        "year": prev_y,
+        "opening_start": prev_opening_start,
+        "closing_end": prev_closing_end,
+        "location": location,
+        "tutor_id": tutor_id,
+    })
+    count = result.scalar() or 0
+
+    return TerminationReviewCount(
+        count=count,
+        in_review_period=True,
+        review_quarter=prev_q,
+        review_year=prev_y,
+    )
 
 
 @router.get("/terminations/stats/trends", response_model=List[QuarterTrendPoint])
