@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { CURRENT_USER_TUTOR } from "@/lib/constants";
 import { useEligibleStudents, useTutors, useFilteredList } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { examRevisionAPI } from "@/lib/api";
 import { StudentInfoBadges } from "@/components/ui/student-info-badges";
-import type { ExamRevisionSlot, EligibleStudent } from "@/types";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import type { ExamRevisionSlot, EligibleStudent, PendingSessionInfo } from "@/types";
 import {
   X,
   Loader2,
@@ -20,6 +22,7 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  AlertTriangle,
 } from "lucide-react";
 
 interface EnrollStudentModalProps {
@@ -38,6 +41,8 @@ export function EnrollStudentModal({
   showLocationPrefix,
 }: EnrollStudentModalProps) {
   const { showToast } = useToast();
+  const { effectiveRole } = useAuth();
+  const isSuperAdmin = effectiveRole === "Super Admin";
   const { data: eligibleStudents = [], isLoading } = useEligibleStudents(
     isOpen ? slot.id : null
   );
@@ -58,20 +63,24 @@ export function EnrollStudentModal({
   const [enrollingStudent, setEnrollingStudent] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [confirmData, setConfirmData] = useState<{
+    student: EligibleStudent;
+    sessionId: number;
+  } | null>(null);
 
   // Escape key handler
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !enrollingStudent) {
+      if (e.key === "Escape" && !enrollingStudent && !confirmData) {
         onClose();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, enrollingStudent, onClose]);
+  }, [isOpen, enrollingStudent, confirmData, onClose]);
 
   // Filter students by search
   const filteredStudents = useFilteredList<EligibleStudent>(
@@ -94,9 +103,25 @@ export function EnrollStudentModal({
     setSelectedSession({ studentId, sessionId });
   };
 
+  // Check if a session exceeds 60-day makeup window relative to the slot date
+  const is60DayExceeded = useCallback((session: PendingSessionInfo) => {
+    const rootDate = session.root_original_session_date || session.session_date;
+    const slotDate = new Date(slot.session_date + 'T00:00:00');
+    const originalDate = new Date(rootDate + 'T00:00:00');
+    const diffDays = Math.floor((slotDate.getTime() - originalDate.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays > 60;
+  }, [slot.session_date]);
+
+  // Show confirmation dialog before enrolling
+  const handleConfirmEnroll = (student: EligibleStudent, sessionId: number) => {
+    setError(null);
+    setConfirmData({ student, sessionId });
+  };
+
   const handleEnroll = async (student: EligibleStudent, sessionId: number) => {
     setError(null);
     setSuccessMessage(null);
+    setConfirmData(null);
     setEnrollingStudent(student.student_id);
 
     try {
@@ -136,6 +161,20 @@ export function EnrollStudentModal({
     }
     return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400";
   };
+
+  // Build confirmation message
+  const confirmMessage = useMemo(() => {
+    if (!confirmData) return "";
+    const session = confirmData.student.pending_sessions.find(s => s.id === confirmData.sessionId);
+    if (!session) return "";
+    const sessionDate = new Date(session.session_date + 'T00:00:00').toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric", year: "numeric"
+    });
+    const slotDate = new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric"
+    });
+    return `Consume ${sessionDate} (${session.session_status}) session to enroll ${confirmData.student.student_name} in the ${slotDate} ${slot.time_slot} revision slot?`;
+  }, [confirmData, slot]);
 
   if (!isOpen) return null;
 
@@ -253,6 +292,11 @@ export function EnrollStudentModal({
                   >
                     <StudentInfoBadges student={student} showLink showLocationPrefix={showLocationPrefix} />
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {student.is_past_deadline && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          Past deadline
+                        </span>
+                      )}
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {student.pending_sessions.length} session{student.pending_sessions.length !== 1 ? "s" : ""}
                       </span>
@@ -267,54 +311,84 @@ export function EnrollStudentModal({
                   {/* Expanded - session selection */}
                   {expandedStudentId === student.student_id && (
                     <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] p-4 bg-[#faf6f1]/30 dark:bg-[#2d2820]/30">
+                      {/* Deadline warning */}
+                      {student.is_past_deadline && (
+                        <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded text-xs">
+                          <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>Regular slot past enrollment deadline</span>
+                          </div>
+                        </div>
+                      )}
+
                       <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
                         Select a session to consume:
                       </p>
                       <div className="space-y-2">
-                        {student.pending_sessions.map((session) => (
-                          <button
-                            key={session.id}
-                            onClick={() => handleSelectSession(student.student_id, session.id)}
-                            className={cn(
-                              "w-full px-3 py-2 rounded-lg border text-left text-sm transition-all",
-                              selectedSession?.studentId === student.student_id &&
-                                selectedSession?.sessionId === session.id
-                                ? "border-[#a0704b] bg-[#a0704b]/10 ring-2 ring-[#a0704b]/30"
-                                : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-[#a0704b]/50"
-                            )}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                                <span className="text-gray-700 dark:text-gray-300">
-                                  {new Date(session.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
-                                </span>
-                                {session.time_slot && (
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    {session.time_slot}
+                        {student.pending_sessions.map((session) => {
+                          const exceeded = is60DayExceeded(session);
+                          const isBlocked = exceeded && !isSuperAdmin;
+
+                          return (
+                            <button
+                              key={session.id}
+                              onClick={() => !isBlocked && handleSelectSession(student.student_id, session.id)}
+                              disabled={isBlocked}
+                              className={cn(
+                                "w-full px-3 py-2 rounded-lg border text-left text-sm transition-all",
+                                isBlocked
+                                  ? "border-red-200 dark:border-red-800/50 bg-red-50/50 dark:bg-red-900/10 opacity-60 cursor-not-allowed"
+                                  : selectedSession?.studentId === student.student_id &&
+                                      selectedSession?.sessionId === session.id
+                                    ? "border-[#a0704b] bg-[#a0704b]/10 ring-2 ring-[#a0704b]/30"
+                                    : "border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] hover:border-[#a0704b]/50"
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                                  <span className="text-gray-700 dark:text-gray-300">
+                                    {new Date(session.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                                   </span>
-                                )}
+                                  {session.time_slot && (
+                                    <span className="text-gray-500 dark:text-gray-400">
+                                      {session.time_slot}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  {exceeded && (
+                                    <span className={cn(
+                                      "px-1.5 py-0.5 text-[10px] font-medium rounded",
+                                      isSuperAdmin
+                                        ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    )}>
+                                      {isSuperAdmin ? "Override: 60-day" : "Past 60-day limit"}
+                                    </span>
+                                  )}
+                                  <span className={cn(
+                                    "px-2 py-0.5 text-xs font-medium rounded-full",
+                                    getSessionStatusBadge(session.session_status)
+                                  )}>
+                                    {session.session_status}
+                                  </span>
+                                </div>
                               </div>
-                              <span className={cn(
-                                "px-2 py-0.5 text-xs font-medium rounded-full",
-                                getSessionStatusBadge(session.session_status)
-                              )}>
-                                {session.session_status}
-                              </span>
-                            </div>
-                            {session.tutor_name && (
-                              <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Tutor: {session.tutor_name}
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                              {session.tutor_name && (
+                                <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Tutor: {session.tutor_name}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
 
                       {/* Enroll button */}
                       {selectedSession?.studentId === student.student_id && (
                         <button
-                          onClick={() => handleEnroll(student, selectedSession.sessionId)}
+                          onClick={() => handleConfirmEnroll(student, selectedSession.sessionId)}
                           disabled={enrollingStudent === student.student_id}
                           className={cn(
                             "mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors",
@@ -340,6 +414,21 @@ export function EnrollStudentModal({
           )}
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!confirmData}
+        onConfirm={() => {
+          if (confirmData) {
+            handleEnroll(confirmData.student, confirmData.sessionId);
+          }
+        }}
+        onCancel={() => setConfirmData(null)}
+        title="Confirm Enrollment"
+        message={confirmMessage}
+        confirmText="Enroll"
+        loading={!!enrollingStudent}
+      />
     </div>
   );
 }

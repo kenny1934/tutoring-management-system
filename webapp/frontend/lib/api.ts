@@ -168,11 +168,11 @@ import type {
   RevertResponse,
 } from "@/types/debug";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-// Direct backend URL for iframe sources (bypasses Next.js proxy)
-// Iframes load URLs directly and don't go through Next.js rewrites
-const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000/api";
+// Direct backend URL for iframe sources
+// In production, goes through the same Cloudflare Worker proxy as API calls
+const BACKEND_DIRECT_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "/api";
 
 // Token refresh state to prevent concurrent refreshes
 let isRefreshing = false;

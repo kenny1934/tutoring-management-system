@@ -1429,6 +1429,7 @@ class PendingSessionInfo(BaseModel):
     session_status: str = Field(..., max_length=50)
     tutor_name: Optional[str] = Field(None, max_length=100)
     location: Optional[str] = Field(None, max_length=100)
+    root_original_session_date: Optional[date] = Field(None, description="Root original session date for 60-day rule")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1445,6 +1446,7 @@ class EligibleStudentResponse(BaseModel):
     home_location: Optional[str] = Field(None, max_length=200, description="Student's home location for display prefix")
     enrollment_tutor_name: Optional[str] = Field(None, description="Tutor from student's enrollment")
     pending_sessions: List[PendingSessionInfo] = Field(default_factory=list, description="Sessions available to consume")
+    is_past_deadline: bool = Field(False, description="True if revision slot is on student's regular slot past enrollment end date")
 
     model_config = ConfigDict(from_attributes=True)
 
