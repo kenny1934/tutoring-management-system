@@ -16,6 +16,7 @@ import { ContactCalendar } from "@/components/parent-contacts/ContactCalendar";
 import { ContactDetailPanel } from "@/components/parent-contacts/ContactDetailPanel";
 import { RecordContactModal } from "@/components/parent-contacts/RecordContactModal";
 import { PendingFollowupsSection } from "@/components/parent-contacts/PendingFollowupsSection";
+import { ContactStatsBar } from "@/components/parent-contacts/ContactStatsBar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ScrollToTopButton } from "@/components/ui/scroll-to-top-button";
 import { parentCommunicationsAPI, type ParentCommunication, type StudentContactStatus } from "@/lib/api";
@@ -67,6 +68,15 @@ export default function ParentContactsPage() {
   const [calendarDate, setCalendarDate] = useState(() => new Date());
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('month');
 
+  // Contact type filter state
+  const [activeContactTypes, setActiveContactTypes] = useState<Set<string>>(
+    new Set(['Progress Update', 'Concern', 'General'])
+  );
+
+  // Search state (debounced for backend notes search)
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   // Calculate date range for calendar
   const { startDate, endDate } = useMemo(() => {
     const start = new Date(calendarDate);
@@ -110,8 +120,8 @@ export default function ParentContactsPage() {
 
   // Fetch student statuses
   const { data: studentStatuses = [], isLoading: loadingStatuses, error: statusError } = useSWR(
-    ['parent-communications-students', effectiveTutorId, effectiveLocation],
-    () => parentCommunicationsAPI.getStudentStatuses(effectiveTutorId, effectiveLocation),
+    ['parent-communications-students', effectiveTutorId, effectiveLocation, debouncedSearch],
+    () => parentCommunicationsAPI.getStudentStatuses(effectiveTutorId, effectiveLocation, debouncedSearch || undefined),
     { revalidateOnFocus: false }
   );
 
@@ -129,6 +139,30 @@ export default function ParentContactsPage() {
     { revalidateOnFocus: false }
   );
 
+  // Fetch communication stats
+  const { data: communicationStats, isLoading: loadingStats } = useSWR(
+    ['parent-communications-stats', effectiveTutorId, effectiveLocation],
+    () => parentCommunicationsAPI.getStats(effectiveTutorId, effectiveLocation),
+    { revalidateOnFocus: false }
+  );
+
+  // Filter calendar events by active contact types
+  const filteredCalendarEvents = useMemo(() => {
+    return calendarEvents.filter(e => activeContactTypes.has(e.contact_type));
+  }, [calendarEvents, activeContactTypes]);
+
+  const toggleContactType = (type: string) => {
+    setActiveContactTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) {
+        if (next.size > 1) next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
   // Force tutor ID based on role
   useEffect(() => {
     if (!canViewAdminPages && currentTutorId) {
@@ -142,6 +176,12 @@ export default function ParentContactsPage() {
       setSelectedTutorId(ALL_TUTORS);
     }
   }, [canViewAdminPages, viewMode, currentTutorId]);
+
+  // Debounce search query for backend notes search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(studentSearchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [studentSearchQuery]);
 
   // Detect mobile
   useEffect(() => {
@@ -168,9 +208,10 @@ export default function ParentContactsPage() {
 
   // Refresh all data
   const refreshData = () => {
-    mutate(['parent-communications-students', effectiveTutorId, effectiveLocation]);
+    mutate(['parent-communications-students', effectiveTutorId, effectiveLocation, debouncedSearch]);
     mutate(['parent-communications-calendar', startDate, endDate, effectiveTutorId, effectiveLocation]);
     mutate(['parent-communications-followups', effectiveTutorId, effectiveLocation]);
+    mutate(['parent-communications-stats', effectiveTutorId, effectiveLocation]);
     if (selectedStudentId) {
       mutate(['student-contact-history', selectedStudentId]);
     }
@@ -190,6 +231,17 @@ export default function ParentContactsPage() {
   };
 
   // Handle delete contact - show confirmation dialog
+  // Handle mark follow-up as done
+  const handleMarkFollowUpDone = async (communicationId: number, studentName: string) => {
+    try {
+      await parentCommunicationsAPI.update(communicationId, { follow_up_needed: false });
+      showToast(`Follow-up marked done for ${studentName}`, 'success');
+      refreshData();
+    } catch {
+      showToast('Failed to mark follow-up as done', 'error');
+    }
+  };
+
   const handleDeleteContact = (id: number) => {
     setDeleteConfirmId(id);
   };
@@ -375,11 +427,15 @@ export default function ParentContactsPage() {
             </div>
           )}
 
+          {/* Stats Bar */}
+          <ContactStatsBar stats={communicationStats} loading={loadingStats} />
+
           {/* Pending Follow-ups */}
           {pendingFollowups.length > 0 && (!isMobile || mobileTab === 'list') && (
             <PendingFollowupsSection
               followups={pendingFollowups}
               onRecordContact={(studentId) => handleRecordContact(studentId)}
+              onMarkDone={handleMarkFollowUpDone}
               showLocationPrefix={showLocationPrefix}
               readOnly={isReadOnly}
             />
@@ -428,6 +484,8 @@ export default function ParentContactsPage() {
                     onRecordContact={handleRecordContact}
                     showLocationPrefix={showLocationPrefix}
                     readOnly={isReadOnly}
+                    searchQuery={studentSearchQuery}
+                    onSearchChange={setStudentSearchQuery}
                   />
                 </div>
               )}
@@ -439,7 +497,7 @@ export default function ParentContactsPage() {
                   isMobile ? "flex-1" : ""
                 )}>
                   <ContactCalendar
-                    events={calendarEvents}
+                    events={filteredCalendarEvents}
                     pendingFollowups={pendingFollowups}
                     selectedDate={calendarDate}
                     onDateChange={setCalendarDate}
@@ -449,6 +507,8 @@ export default function ParentContactsPage() {
                     onEventClick={handleCalendarEventClick}
                     loading={loadingCalendar}
                     showLocationPrefix={showLocationPrefix}
+                    activeContactTypes={activeContactTypes}
+                    onToggleContactType={toggleContactType}
                   />
                 </div>
               )}

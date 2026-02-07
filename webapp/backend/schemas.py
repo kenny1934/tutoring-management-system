@@ -893,7 +893,22 @@ class StudentContactStatus(BaseModel):
     contact_status: str = Field(..., max_length=50)  # "Never Contacted", "Recent", "Been a While", "Contact Needed"
     pending_follow_up: bool = Field(default=False)
     follow_up_date: Optional[date] = None
+    follow_up_communication_id: Optional[int] = None
     enrollment_count: int = Field(default=0, ge=0)
+
+
+class ParentCommunicationStats(BaseModel):
+    """Aggregated statistics for parent communications"""
+    total_active_students: int = Field(default=0, ge=0)
+    students_contacted_recently: int = Field(default=0, ge=0)
+    contact_coverage_percent: float = Field(default=0, ge=0, le=100)
+    progress_update_count: int = Field(default=0, ge=0)
+    concern_count: int = Field(default=0, ge=0)
+    general_count: int = Field(default=0, ge=0)
+    contacts_this_week: int = Field(default=0, ge=0)
+    contacts_last_week: int = Field(default=0, ge=0)
+    average_days_since_contact: Optional[float] = None
+    pending_followups_count: int = Field(default=0, ge=0)
 
 
 class LocationSettingsResponse(BaseModel):
@@ -930,6 +945,7 @@ class TerminatedStudentResponse(BaseModel):
     # Editable fields from termination_records
     record_id: Optional[int] = Field(None, gt=0)
     reason: Optional[str] = Field(None, max_length=1000)
+    reason_category: Optional[str] = Field(None, max_length=50)
     count_as_terminated: bool = False
 
 
@@ -938,6 +954,7 @@ class TerminationRecordUpdate(BaseModel):
     quarter: int = Field(..., ge=1, le=4)
     year: int = Field(..., ge=2020)
     reason: Optional[str] = Field(None, max_length=1000)
+    reason_category: Optional[str] = Field(None, max_length=50)
     count_as_terminated: bool = False
 
 
@@ -948,6 +965,7 @@ class TerminationRecordResponse(BaseModel):
     quarter: int = Field(..., ge=1, le=4)
     year: int = Field(..., ge=2020)
     reason: Optional[str] = None
+    reason_category: Optional[str] = None
     count_as_terminated: bool
     tutor_id: Optional[int] = None
     updated_by: Optional[str] = None
@@ -986,6 +1004,18 @@ class QuarterOption(BaseModel):
     """Available quarter option for dropdown"""
     quarter: int = Field(..., ge=1, le=4)
     year: int = Field(..., ge=2020)
+
+
+class QuarterTrendPoint(BaseModel):
+    """Single data point in the quarterly trend chart"""
+    quarter: int = Field(..., ge=1, le=4)
+    year: int = Field(..., ge=2020)
+    label: str  # e.g., "Q1 2025"
+    opening: int = Field(default=0, ge=0)
+    terminated: int = Field(default=0, ge=0)
+    closing: int = Field(default=0, ge=0)
+    term_rate: float = Field(default=0.0, ge=0)
+    reason_breakdown: dict = Field(default_factory=dict)  # category -> count
 
 
 class StatDetailStudent(BaseModel):

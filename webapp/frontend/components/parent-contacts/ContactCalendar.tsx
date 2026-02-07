@@ -22,6 +22,8 @@ interface ContactCalendarProps {
   onEventClick: (contact: ParentCommunication) => void;
   loading?: boolean;
   showLocationPrefix?: boolean;
+  activeContactTypes?: Set<string>;
+  onToggleContactType?: (type: string) => void;
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -41,6 +43,8 @@ export function ContactCalendar({
   onEventClick,
   loading = false,
   showLocationPrefix,
+  activeContactTypes,
+  onToggleContactType,
 }: ContactCalendarProps) {
   // Get follow-up dates as a Set for quick lookup
   const followupDates = useMemo(() => {
@@ -526,21 +530,36 @@ export function ContactCalendar({
         )}
       </div>
 
-      {/* Legend */}
+      {/* Legend / Filters */}
       <div className="px-3 py-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50">
-        <div className="flex items-center justify-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            Progress
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-orange-500" />
-            Concern
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-gray-500" />
-            General
-          </div>
+        <div className="flex items-center justify-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          {[
+            { type: 'Progress Update', label: 'Progress', color: 'bg-blue-500' },
+            { type: 'Concern', label: 'Concern', color: 'bg-orange-500' },
+            { type: 'General', label: 'General', color: 'bg-gray-500' },
+          ].map(({ type, label, color }) => {
+            const isActive = activeContactTypes?.has(type) ?? true;
+            return onToggleContactType ? (
+              <button
+                key={type}
+                onClick={() => onToggleContactType(type)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded-full transition-all cursor-pointer",
+                  "hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50",
+                  isActive ? "opacity-100" : "opacity-40 line-through"
+                )}
+                title={isActive ? `Hide ${label} contacts` : `Show ${label} contacts`}
+              >
+                <span className={cn("w-2 h-2 rounded-full", color)} />
+                {label}
+              </button>
+            ) : (
+              <div key={type} className="flex items-center gap-1">
+                <span className={cn("w-2 h-2 rounded-full", color)} />
+                {label}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

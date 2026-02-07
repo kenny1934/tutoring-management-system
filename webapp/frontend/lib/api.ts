@@ -27,6 +27,7 @@ import type {
   TerminationRecordResponse,
   TerminationStatsResponse,
   QuarterOption,
+  QuarterTrendPoint,
   StatDetailStudent,
   OverdueEnrollment,
   UncheckedAttendanceReminder,
@@ -112,6 +113,7 @@ import type {
   // Parent communications types
   ParentCommunication,
   StudentContactStatus,
+  ParentCommunicationStats,
   LocationSettings,
   ParentCommunicationCreate,
   // WeCom types
@@ -159,6 +161,7 @@ export type {
   DocumentProcessingStatus,
   ParentCommunication,
   StudentContactStatus,
+  ParentCommunicationStats,
   LocationSettings,
   ParentCommunicationCreate,
 } from "@/types";
@@ -980,10 +983,11 @@ export const parentCommunicationsAPI = {
   },
 
   // Get student contact statuses (for the student list with status indicators)
-  getStudentStatuses: (tutor_id?: number, location?: string) => {
+  getStudentStatuses: (tutor_id?: number, location?: string, search?: string) => {
     const params = new URLSearchParams();
     if (tutor_id) params.append('tutor_id', tutor_id.toString());
     if (location) params.append('location', location);
+    if (search) params.append('search', search);
     const queryString = params.toString();
     return fetchAPI<StudentContactStatus[]>(`/parent-communications/students${queryString ? `?${queryString}` : ''}`);
   },
@@ -1012,6 +1016,15 @@ export const parentCommunicationsAPI = {
     if (location) params.append('location', location);
     const queryString = params.toString();
     return fetchAPI<CountResponse>(`/parent-communications/contact-needed-count${queryString ? `?${queryString}` : ''}`);
+  },
+
+  // Get communication stats (for stats bar)
+  getStats: (tutor_id?: number, location?: string) => {
+    const params = new URLSearchParams();
+    if (tutor_id) params.append('tutor_id', tutor_id.toString());
+    if (location) params.append('location', location);
+    const queryString = params.toString();
+    return fetchAPI<ParentCommunicationStats>(`/parent-communications/stats${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get single communication
@@ -1123,6 +1136,19 @@ export const terminationsAPI = {
       params.append("tutor_id", tutorId.toString());
     }
     return fetchAPI<TerminationStatsResponse>(`/terminations/stats?${params}`);
+  },
+
+  // Get termination trends across quarters
+  getTrends: (location?: string, tutorId?: number) => {
+    const params = new URLSearchParams();
+    if (location && location !== "All Locations") {
+      params.append("location", location);
+    }
+    if (tutorId) {
+      params.append("tutor_id", tutorId.toString());
+    }
+    const queryString = params.toString();
+    return fetchAPI<QuarterTrendPoint[]>(`/terminations/stats/trends${queryString ? `?${queryString}` : ''}`);
   },
 
   // Get student list for a specific stat type (drill-down)

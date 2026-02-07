@@ -16,6 +16,7 @@ from schemas import (
     ParentCommunicationUpdate,
     ParentCommunicationResponse,
     StudentContactStatus,
+    ParentCommunicationStats,
     LocationSettingsResponse,
     LocationSettingsUpdate
 )
@@ -177,6 +178,7 @@ async def get_communications(
 async def get_student_contact_statuses(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (shows their students)"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    search: Optional[str] = Query(None, description="Search by student name, ID, grade, or contact notes"),
     db: Session = Depends(get_db)
 ):
     """
@@ -193,6 +195,29 @@ async def get_student_contact_statuses(
         return []
 
     students = db.query(Student).filter(Student.id.in_(active_ids)).all()
+
+    # If search is provided, filter by name/ID/grade and also search contact notes
+    if search and len(search.strip()) >= 2:
+        search_lower = search.lower().strip()
+
+        # Find student IDs with matching notes
+        notes_matching_ids = set(
+            row[0] for row in db.query(ParentCommunication.student_id)
+            .filter(
+                ParentCommunication.student_id.in_(active_ids),
+                func.lower(ParentCommunication.brief_notes).contains(search_lower)
+            )
+            .distinct()
+            .all()
+        )
+
+        students = [
+            s for s in students
+            if search_lower in (s.student_name or '').lower()
+            or search_lower in (s.school_student_id or '').lower()
+            or search_lower in (s.grade or '').lower()
+            or s.id in notes_matching_ids
+        ]
 
     # Get last contact for each student (from any tutor)
     last_contacts = {}
@@ -269,6 +294,7 @@ async def get_student_contact_statuses(
             contact_status=contact_status,
             pending_follow_up=pending_fu is not None,
             follow_up_date=pending_fu.follow_up_date if pending_fu else None,
+            follow_up_communication_id=pending_fu.id if pending_fu else None,
             enrollment_count=enrollment_counts.get(student.id, 0)
         ))
 
@@ -437,6 +463,7 @@ async def get_pending_followups(
             contact_status=contact_status,
             pending_follow_up=True,
             follow_up_date=fu.follow_up_date,
+            follow_up_communication_id=fu.id,
             enrollment_count=enrollment_counts.get(student.id, 0)
         ))
 
@@ -488,6 +515,105 @@ async def get_contact_needed_count(
     ).scalar()
 
     return {"count": count or 0}
+
+
+@router.get("/parent-communications/stats", response_model=ParentCommunicationStats)
+async def get_communication_stats(
+    tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    location: Optional[str] = Query(None, description="Filter by location"),
+    db: Session = Depends(get_db)
+):
+    """Get aggregated statistics for parent communications dashboard."""
+    recent_threshold, _ = get_location_thresholds(db, location)
+    today = date.today()
+
+    # Active students
+    active_ids = get_active_student_ids(db, tutor_id=tutor_id, location=location)
+    total_active = len(active_ids)
+
+    if total_active == 0:
+        return ParentCommunicationStats()
+
+    # Students contacted within recent threshold
+    recent_cutoff = today - timedelta(days=recent_threshold)
+    recently_contacted_ids = set(
+        row[0] for row in db.query(ParentCommunication.student_id)
+        .filter(
+            ParentCommunication.student_id.in_(active_ids),
+            ParentCommunication.contact_date >= recent_cutoff
+        )
+        .distinct()
+        .all()
+    )
+    students_contacted = len(recently_contacted_ids)
+    coverage = round(students_contacted / total_active * 100, 1) if total_active > 0 else 0
+
+    # Build base filters for tutor/location scoping
+    base_filters = []
+    if tutor_id:
+        base_filters.append(ParentCommunication.tutor_id == tutor_id)
+    if location:
+        location_student_ids = db.query(Enrollment.student_id).filter(
+            Enrollment.location == location
+        ).distinct().scalar_subquery()
+        base_filters.append(ParentCommunication.student_id.in_(location_student_ids))
+
+    # Type distribution (last 30 days)
+    thirty_days_ago = today - timedelta(days=30)
+    type_counts = dict(
+        db.query(ParentCommunication.contact_type, func.count(ParentCommunication.id))
+        .filter(ParentCommunication.contact_date >= thirty_days_ago, *base_filters)
+        .group_by(ParentCommunication.contact_type)
+        .all()
+    )
+
+    # Weekly activity trend
+    week_start = today - timedelta(days=today.weekday())  # Monday
+    last_week_start = week_start - timedelta(days=7)
+
+    this_week_count = db.query(func.count(ParentCommunication.id)).filter(
+        ParentCommunication.contact_date >= week_start, *base_filters
+    ).scalar() or 0
+
+    last_week_count = db.query(func.count(ParentCommunication.id)).filter(
+        ParentCommunication.contact_date >= last_week_start,
+        ParentCommunication.contact_date < week_start,
+        *base_filters
+    ).scalar() or 0
+
+    # Average days since last contact (for contacted students only)
+    last_contact_subq = db.query(
+        ParentCommunication.student_id,
+        func.max(ParentCommunication.contact_date).label('last_date')
+    ).filter(
+        ParentCommunication.student_id.in_(active_ids)
+    ).group_by(ParentCommunication.student_id).subquery()
+
+    avg_days_rows = db.query(last_contact_subq.c.last_date).all()
+    avg_days = None
+    if avg_days_rows:
+        contacted_rows = [r for r in avg_days_rows if r[0]]
+        if contacted_rows:
+            total_days = sum((today - row[0].date()).days for row in contacted_rows)
+            avg_days = round(total_days / len(contacted_rows), 1)
+
+    # Pending follow-ups count
+    followup_count = db.query(func.count(ParentCommunication.id)).filter(
+        ParentCommunication.follow_up_needed == True, *base_filters
+    ).scalar() or 0
+
+    return ParentCommunicationStats(
+        total_active_students=total_active,
+        students_contacted_recently=students_contacted,
+        contact_coverage_percent=coverage,
+        progress_update_count=type_counts.get('Progress Update', 0),
+        concern_count=type_counts.get('Concern', 0),
+        general_count=type_counts.get('General', 0),
+        contacts_this_week=this_week_count,
+        contacts_last_week=last_week_count,
+        average_days_since_contact=avg_days,
+        pending_followups_count=followup_count,
+    )
 
 
 @router.get("/parent-communications/{communication_id}", response_model=ParentCommunicationResponse)
