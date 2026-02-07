@@ -374,7 +374,7 @@ export function SessionDetailPopover({
   onProposalClick,
 }: SessionDetailPopoverProps) {
   const { showToast } = useToast();
-  const { user, effectiveRole } = useAuth();
+  const { user, effectiveRole, impersonatedTutor } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Modal state for keyboard shortcuts
@@ -414,7 +414,7 @@ export function SessionDetailPopover({
     if (!canBeMarked(s)) return false;
     // Tutors can only mark their own sessions
     if (effectiveRole === 'Tutor') {
-      return s.tutor_id === user?.id;
+      return s.tutor_id === (impersonatedTutor?.id ?? user?.id);
     }
     return true;
   }, [canBeMarked, effectiveRole, user?.id]);
