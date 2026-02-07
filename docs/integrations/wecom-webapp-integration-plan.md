@@ -6,8 +6,19 @@ This document outlines the WeCom messaging integration roadmap for the CSM Pro w
 
 **Phases:**
 - **Phase 1A** (Done): Send messages to internal WeCom groups via webhooks
-- **Phase 1B** (Next): Send messages to individual WeCom users (tutors)
-- **Phase 2** (Future): Send messages to parent customer groups (WeChat users)
+- **Phase 1B** (Blocked): Send messages to individual WeCom users (tutors)
+- **Phase 2** (Blocked): Send messages to parent customer groups (WeChat users)
+
+> **ICP Filing Blocker (Feb 2026):** Phases 1B and 2 require the WeCom official API, which
+> requires a trusted IP, which requires either a trusted domain or a receiving message server
+> URL. Both paths require **domain ICP filing** (备案) where the filing entity matches the
+> WeCom organization entity. Our domain (`mathconceptsecondary.academy`) has no ICP filing
+> because the company is a Macau entity — mainland China ICP filing is not available to
+> overseas companies. There is no technical workaround. Phases 1B and 2 are blocked until
+> either: (a) we acquire a domain with matching ICP filing via a mainland partner, or
+> (b) WeCom relaxes this requirement for overseas entities. A GCE VM proxy and setup guide
+> were prepared (`docs/integrations/wecom-vm-setup-guide.md`) and can be redeployed in
+> ~30 minutes if the blocker is resolved.
 
 ---
 
