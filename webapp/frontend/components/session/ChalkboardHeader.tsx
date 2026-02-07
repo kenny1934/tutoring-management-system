@@ -195,7 +195,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
   const [isLoadingExtensionView, setIsLoadingExtensionView] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
   const { showToast } = useToast();
-  const { user, effectiveRole, isReadOnly } = useAuth();
+  const { user, effectiveRole, isReadOnly, impersonatedTutor } = useAuth();
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
   // Get tutor name by email, fallback to username from email
@@ -242,7 +242,7 @@ export function ChalkboardHeader({ session, onEdit, onAction, loadingActionId }:
 
   // Get visible actions for this session (filtered by visibility and role)
   // Supervisors can see all admin actions but cannot execute them
-  const visibilityContext = { userId: user?.id, effectiveRole };
+  const visibilityContext = { userId: impersonatedTutor?.id ?? user?.id, effectiveRole };
   const visibleActions = sessionActions.filter((action) => {
     if (!action.isVisible(session, visibilityContext)) return false;
     // Allow Supervisor to see actions that Admin can see

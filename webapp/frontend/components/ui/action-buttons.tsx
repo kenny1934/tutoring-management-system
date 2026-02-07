@@ -152,13 +152,13 @@ export function SessionActionButtons({
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const { showToast } = useToast();
-  const { user, effectiveRole, isReadOnly } = useAuth();
+  const { user, effectiveRole, isReadOnly, impersonatedTutor } = useAuth();
 
   // Combine internal loadingAction with external loadingActionId
   const effectiveLoadingAction = loadingActionId || loadingAction;
 
   // Filter actions by visibility and role (uses effectiveRole from context, respects impersonation)
-  const visibilityContext = { userId: user?.id, effectiveRole: effectiveRole || userRole };
+  const visibilityContext = { userId: impersonatedTutor?.id ?? user?.id, effectiveRole: effectiveRole || userRole };
   const visibleActions = sessionActions.filter((action) => {
     if (!action.isVisible(session, visibilityContext)) return false;
     // Use effectiveRole from context, or fallback to userRole prop if provided
