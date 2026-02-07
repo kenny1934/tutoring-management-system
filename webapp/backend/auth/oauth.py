@@ -24,19 +24,20 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 
-def get_google_auth_url(state: Optional[str] = None) -> str:
+def get_google_auth_url(state: Optional[str] = None, redirect_uri: Optional[str] = None) -> str:
     """
     Generate the Google OAuth authorization URL.
 
     Args:
         state: Optional state parameter for CSRF protection
+        redirect_uri: Optional override for the redirect URI (for custom domain support)
 
     Returns:
         Full Google OAuth consent URL
     """
     params = {
         "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "redirect_uri": redirect_uri or GOOGLE_REDIRECT_URI,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
@@ -49,12 +50,13 @@ def get_google_auth_url(state: Optional[str] = None) -> str:
     return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 
 
-async def exchange_code_for_tokens(code: str) -> dict:
+async def exchange_code_for_tokens(code: str, redirect_uri: Optional[str] = None) -> dict:
     """
     Exchange authorization code for access and refresh tokens.
 
     Args:
         code: The authorization code from Google callback
+        redirect_uri: Optional override for the redirect URI (must match what was used in auth URL)
 
     Returns:
         Token response dict containing access_token, id_token, etc.
@@ -70,7 +72,7 @@ async def exchange_code_for_tokens(code: str) -> dict:
                 "client_secret": GOOGLE_CLIENT_SECRET,
                 "code": code,
                 "grant_type": "authorization_code",
-                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "redirect_uri": redirect_uri or GOOGLE_REDIRECT_URI,
             },
         )
 
@@ -102,16 +104,17 @@ async def get_user_info(access_token: str) -> dict:
         return response.json()
 
 
-async def exchange_code_for_user_info(code: str) -> dict:
+async def exchange_code_for_user_info(code: str, redirect_uri: Optional[str] = None) -> dict:
     """
     Exchange authorization code for user info in one step.
 
     Args:
         code: The authorization code from Google callback
+        redirect_uri: Optional override for the redirect URI (must match what was used in auth URL)
 
     Returns:
         User info dict with email, name, picture, sub (Google user ID)
     """
-    tokens = await exchange_code_for_tokens(code)
+    tokens = await exchange_code_for_tokens(code, redirect_uri=redirect_uri)
     user_info = await get_user_info(tokens["access_token"])
     return user_info
