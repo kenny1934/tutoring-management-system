@@ -3,12 +3,14 @@
 import { useState, memo } from "react";
 import { Check, XCircle, Copy, Loader2, ExternalLink, Printer } from "lucide-react";
 import { isFileSystemAccessSupported, openFileFromPathWithFallback, printFileFromPathWithFallback } from "@/lib/file-system";
+import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 
 interface RecapExerciseItemProps {
   pdfName: string;
   pageStart?: number;
   pageEnd?: number;
+  stamp?: PrintStampInfo;
 }
 
 /**
@@ -16,7 +18,7 @@ interface RecapExerciseItemProps {
  * Shows filename, page info, and copy/open/print buttons.
  * Memoized to prevent re-renders when parent state changes.
  */
-export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, pageStart, pageEnd }: RecapExerciseItemProps) {
+export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, pageStart, pageEnd, stamp }: RecapExerciseItemProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -65,7 +67,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
       pageStart,
       pageEnd,
       undefined,
-      undefined,
+      stamp,
       searchPaperlessByPath
     );
     if (error) {
