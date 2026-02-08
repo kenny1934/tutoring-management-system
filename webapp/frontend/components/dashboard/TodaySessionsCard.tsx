@@ -22,6 +22,8 @@ import { getGradeColor, CURRENT_USER_TUTOR } from "@/lib/constants";
 import { proposalSlotsToSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
+import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
+import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 
 // Format today's date as YYYY-MM-DD
 const getTodayString = (): string => {
@@ -135,6 +137,53 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     clearSelection,
     showToast,
   });
+
+  // Bulk exercise download/print
+  const [bulkExerciseProcessing, setBulkExerciseProcessing] = useState<'CW' | 'HW' | null>(null);
+  const selectedHaveCW = useMemo(() =>
+    selectedSessions.some(s => s.exercises?.some(e => e.exercise_type === 'CW')),
+    [selectedSessions]
+  );
+  const selectedHaveHW = useMemo(() =>
+    selectedSessions.some(s => s.exercises?.some(e => e.exercise_type === 'HW')),
+    [selectedSessions]
+  );
+
+  const handleBulkDownloadExercises = useCallback(async (type: 'CW' | 'HW') => {
+    const groups = groupExercisesByStudent(selectedSessions, type);
+    if (groups.length === 0) {
+      showToast(`No ${type} exercises found for selected sessions`, 'info');
+      return;
+    }
+    setBulkExerciseProcessing(type);
+    const result = await bulkDownloadByStudent(groups);
+    setBulkExerciseProcessing(null);
+
+    const parts: string[] = [];
+    if (result.succeeded > 0) parts.push(`${result.succeeded} downloaded`);
+    if (result.failed > 0) parts.push(`${result.failed} failed`);
+    if (result.skipped > 0) parts.push(`${result.skipped} had no exercises`);
+    showToast(`${type} download: ${parts.join(', ')}`, result.failed > 0 ? 'error' : 'success');
+  }, [selectedSessions, showToast]);
+
+  const handleBulkPrintExercises = useCallback(async (type: 'CW' | 'HW') => {
+    const groups = groupExercisesByStudent(selectedSessions, type);
+    if (groups.length === 0) {
+      showToast(`No ${type} exercises found for selected sessions`, 'info');
+      return;
+    }
+    setBulkExerciseProcessing(type);
+    const error = await bulkPrintAllStudents(groups);
+    setBulkExerciseProcessing(null);
+
+    if (error === 'not_supported') {
+      showToast('File System Access not supported. Use Chrome/Edge.', 'error');
+    } else if (error === 'no_valid_files') {
+      showToast(`No valid ${type} PDF files found`, 'error');
+    } else if (error === 'print_failed') {
+      showToast('Print failed. Check popup blocker settings.', 'error');
+    }
+  }, [selectedSessions, showToast]);
 
   if (isLoading) {
     return (
@@ -343,22 +392,24 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 </button>
               )}
               {/* Exercise actions - always visible */}
-              <button
-                onClick={() => setBulkExerciseType("CW")}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                title="Assign Classwork"
-              >
-                <PenTool className="h-3 w-3" />
-                <span className="hidden xs:inline">CW</span>
-              </button>
-              <button
-                onClick={() => setBulkExerciseType("HW")}
-                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                title="Assign Homework"
-              >
-                <Home className="h-3 w-3" />
-                <span className="hidden xs:inline">HW</span>
-              </button>
+              <ExerciseDropdownButton
+                exerciseType="CW"
+                onAssign={() => setBulkExerciseType("CW")}
+                onDownload={() => handleBulkDownloadExercises('CW')}
+                onPrint={() => handleBulkPrintExercises('CW')}
+                hasExercises={selectedHaveCW}
+                isProcessing={bulkExerciseProcessing === 'CW'}
+                dropUp
+              />
+              <ExerciseDropdownButton
+                exerciseType="HW"
+                onAssign={() => setBulkExerciseType("HW")}
+                onDownload={() => handleBulkDownloadExercises('HW')}
+                onPrint={() => handleBulkPrintExercises('HW')}
+                hasExercises={selectedHaveHW}
+                isProcessing={bulkExerciseProcessing === 'HW'}
+                dropUp
+              />
               {/* Clear button - always visible */}
               <button
                 onClick={clearSelection}
