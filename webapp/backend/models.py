@@ -196,6 +196,12 @@ class SessionLog(Base):
     rescheduled_to_id = Column(Integer, ForeignKey("session_log.id"), nullable=True)
     make_up_for_id = Column(Integer, ForeignKey("session_log.id"), nullable=True)
 
+    # DB-enforced duplicate prevention (computed by MySQL, read-only)
+    active_student_slot_guard = Column(Integer, nullable=True,
+                                        comment='Generated: student_id for active sessions, NULL for inactive. Used in unique index.')
+    active_makeup_for_guard = Column(Integer, nullable=True,
+                                      comment='Generated: make_up_for_id for active make-ups, NULL otherwise. Used in unique index.')
+
     # Exam revision slot link
     exam_revision_slot_id = Column(Integer, ForeignKey("exam_revision_slots.id"), nullable=True,
                                     comment='Links session to exam revision slot when enrolled via revision class feature')
