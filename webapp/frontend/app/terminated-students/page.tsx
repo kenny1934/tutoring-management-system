@@ -646,7 +646,7 @@ export default function TerminatedStudentsPage() {
                       ? `Q${selectedQuarter} ${selectedYear}`
                       : "Select Quarter"}
                     <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform",
+                      "h-3.5 w-3.5 transition-transform",
                       isQuarterDropdownOpen && "rotate-180"
                     )} />
                   </button>
@@ -690,6 +690,14 @@ export default function TerminatedStudentsPage() {
                   />
                 )}
 
+                {/* Category Filter */}
+                <CategoryDropdown
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  placeholder="All Categories"
+                  showAllOption
+                />
+
                 {/* Search */}
                 <div className="relative min-w-[200px] max-w-sm">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -714,14 +722,6 @@ export default function TerminatedStudentsPage() {
                     </button>
                   )}
                 </div>
-
-                {/* Category Filter */}
-                <CategoryDropdown
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  placeholder="All Categories"
-                  showAllOption
-                />
               </div>
 
               {/* Export + Save Buttons */}
@@ -801,7 +801,7 @@ export default function TerminatedStudentsPage() {
             {/* Main content */}
             <div className="space-y-6">
             {/* Location Stats Card */}
-            {stats && (
+            {stats ? (
               <div className={cn(
                 "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
                 !isMobile && "paper-texture"
@@ -866,6 +866,24 @@ export default function TerminatedStudentsPage() {
                   </div>
                 </div>
               </div>
+            ) : isLoading && (
+              <div className={cn(
+                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+                !isMobile && "paper-texture"
+              )}>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-5 w-5 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                  <div className="h-5 w-48 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div key={i} className="text-center p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="h-8 w-12 mx-auto rounded bg-gray-200 dark:bg-gray-700 animate-pulse mb-2" />
+                      <div className="h-4 w-16 mx-auto rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Charts */}
@@ -877,19 +895,101 @@ export default function TerminatedStudentsPage() {
                 selectedYear={selectedYear}
                 isMobile={isMobile}
               />
-              {terminatedStudents.length > 0 && (
+              {terminatedStudents.length > 0 ? (
                 <ReasonDistributionChart
                   students={terminatedStudents}
                   getEffectiveChecked={getEffectiveChecked}
                   getEffectiveCategory={getEffectiveCategory}
                   isMobile={isMobile}
                 />
-              )}
+              ) : isLoading ? (
+                <div className={cn(
+                  "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
+                  !isMobile && "paper-texture"
+                )}>
+                  {/* Header skeleton */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-5 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                      <div className="h-5 w-40 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="h-6 w-6 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                      <div className="h-6 w-6 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                    </div>
+                  </div>
+                  {/* Pie + legend skeleton */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-1/2 flex items-center justify-center py-4">
+                      <div className="w-[160px] h-[160px] rounded-full border-[16px] border-gray-200 dark:border-gray-700 animate-pulse" />
+                    </div>
+                    <div className="flex-1 space-y-2.5">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse shrink-0" />
+                          <div className={cn("h-3 rounded bg-gray-200 dark:bg-gray-700 animate-pulse", i % 2 === 0 ? "w-24" : "w-20")} />
+                          <div className="h-3 w-6 rounded bg-gray-200 dark:bg-gray-700 animate-pulse ml-auto" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {isLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className={cn(
+                "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-sm overflow-hidden",
+                !isMobile && "paper-texture"
+              )}>
+                {/* Skeleton header */}
+                <div className="px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3]/50 dark:bg-[#3d3628]/50 flex items-center gap-2">
+                  <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                  <div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                </div>
+                {/* Skeleton table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        {["w-12", "w-10", "w-20", "w-12", "w-24", "w-20", "w-20", "w-24", "w-32"].map((w, i) => (
+                          <th key={i} className="px-4 py-3 text-left">
+                            <div className={cn("h-3.5 rounded bg-gray-200 dark:bg-gray-700 animate-pulse", w)} />
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e8d4b8] dark:divide-[#6b5a4a]">
+                      {[0, 1].map((group) => (
+                        <React.Fragment key={group}>
+                          {/* Tutor group header skeleton */}
+                          <tr className="bg-muted/30">
+                            <td colSpan={9} className="px-4 py-2">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                <div className="h-4 w-36 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                              </div>
+                            </td>
+                          </tr>
+                          {/* Student row skeletons */}
+                          {Array.from({ length: group === 0 ? 3 : 2 }, (_, i) => (
+                            <tr key={i}>
+                              <td className="px-4 py-3"><div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-8 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-6 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-16 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                              <td className="px-4 py-3"><div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" /></td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : terminatedStudents.length === 0 ? (
               <StickyNote icon={UserMinus} color="blue">
