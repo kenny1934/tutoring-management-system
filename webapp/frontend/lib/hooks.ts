@@ -433,7 +433,8 @@ export function useHolidays(from_date?: string, to_date?: string) {
 export function useTerminationQuarters(location?: string) {
   return useSWR<QuarterOption[]>(
     ['termination-quarters', location || 'all'],
-    () => terminationsAPI.getQuarters(location)
+    () => terminationsAPI.getQuarters(location),
+    { revalidateOnFocus: false }
   );
 }
 
@@ -451,7 +452,8 @@ export function useTerminatedStudents(
     quarter && year
       ? ['terminated-students', quarter, year, location || 'all', tutorId || 'all']
       : null,
-    () => terminationsAPI.getTerminatedStudents(quarter!, year!, location, tutorId)
+    () => terminationsAPI.getTerminatedStudents(quarter!, year!, location, tutorId),
+    { revalidateOnFocus: false }
   );
 }
 
@@ -469,14 +471,16 @@ export function useTerminationStats(
     quarter && year
       ? ['termination-stats', quarter, year, location || 'all', tutorId || 'all']
       : null,
-    () => terminationsAPI.getStats(quarter!, year!, location, tutorId)
+    () => terminationsAPI.getStats(quarter!, year!, location, tutorId),
+    { revalidateOnFocus: false }
   );
 }
 
-export function useTerminationTrends(location?: string, tutorId?: number) {
+export function useTerminationTrends(location?: string, tutorId?: number, enabled = true) {
   return useSWR<QuarterTrendPoint[]>(
-    ['termination-trends', location || 'all', tutorId || 'all'],
-    () => terminationsAPI.getTrends(location, tutorId)
+    enabled ? ['termination-trends', location || 'all', tutorId || 'all'] : null,
+    () => terminationsAPI.getTrends(location, tutorId),
+    { revalidateOnFocus: false }
   );
 }
 
@@ -505,7 +509,8 @@ export function useStatDetails(
     statType && quarter && year
       ? ['stat-details', statType, quarter, year, location || 'all', tutorId || 'all']
       : null,
-    () => terminationsAPI.getStatDetails(statType!, quarter!, year!, location, tutorId)
+    () => terminationsAPI.getStatDetails(statType!, quarter!, year!, location, tutorId),
+    { revalidateOnFocus: false }
   );
 }
 

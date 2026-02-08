@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails, useTerminationTrends } from "@/lib/hooks";
+import { useTutors, usePageTitle, useTerminationQuarters, useTerminatedStudents, useTerminationStats, useStatDetails, useTerminationTrends, useDebouncedValue } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
@@ -24,8 +25,16 @@ import { mutate } from "swr";
 import type { TerminatedStudent, TutorTerminationStats, StatDetailStudent } from "@/types";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
 import { CategoryDropdown } from "@/components/terminations/CategoryDropdown";
-import { TerminationTrendChart } from "@/components/terminations/TerminationTrendChart";
-import { ReasonDistributionChart } from "@/components/terminations/ReasonDistributionChart";
+
+// Lazy load chart components to keep Recharts (~40KB) out of initial bundle
+const TerminationTrendChart = dynamic(
+  () => import("@/components/terminations/TerminationTrendChart").then(m => m.TerminationTrendChart),
+  { ssr: false }
+);
+const ReasonDistributionChart = dynamic(
+  () => import("@/components/terminations/ReasonDistributionChart").then(m => m.ReasonDistributionChart),
+  { ssr: false }
+);
 
 // Exited student with optional transfer destination
 type ExitedStudent = StatDetailStudent & { transferred_to_tutor: string | null };
@@ -94,6 +103,15 @@ function SortIcon({ active, direction }: { active: boolean; direction: 'asc' | '
   return direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
 }
 
+/** Compute the most recent completed quarter synchronously to avoid waterfall */
+function getDefaultCompletedQuarter(): { quarter: number; year: number } {
+  const now = new Date();
+  const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+  const currentY = now.getFullYear();
+  if (currentQ === 1) return { quarter: 4, year: currentY - 1 };
+  return { quarter: currentQ - 1, year: currentY };
+}
+
 function useToggleSort<T extends string>(defaultColumn: T, defaultDir: 'asc' | 'desc' = 'asc') {
   const [config, setConfig] = useState({ column: defaultColumn, direction: defaultDir });
   const toggle = useCallback((col: T) => {
@@ -122,12 +140,14 @@ export default function TerminatedStudentsPage() {
 
   const [selectedQuarter, setSelectedQuarter] = useState<number | null>(() => {
     const q = searchParams.get('quarter');
-    return q ? parseInt(q) : null;
+    if (q) return parseInt(q);
+    return getDefaultCompletedQuarter().quarter;
   });
 
   const [selectedYear, setSelectedYear] = useState<number | null>(() => {
     const y = searchParams.get('year');
-    return y ? parseInt(y) : null;
+    if (y) return parseInt(y);
+    return getDefaultCompletedQuarter().year;
   });
 
   const [isMobile, setIsMobile] = useState(false);
@@ -137,6 +157,7 @@ export default function TerminatedStudentsPage() {
 
   // Search, filter, and collapsible state
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 200);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -181,28 +202,30 @@ export default function TerminatedStudentsPage() {
   // Fetch available quarters
   const { data: quarters = [], isLoading: loadingQuarters } = useTerminationQuarters(effectiveLocation);
 
-  // Auto-select most recent COMPLETED quarter (skip current/in-progress quarter)
+  // Validate selected quarter against available quarters once loaded
   useEffect(() => {
-    if (!loadingQuarters && quarters.length > 0 && selectedQuarter === null) {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+    if (!loadingQuarters && quarters.length > 0) {
+      const isValid = quarters.some(q => q.quarter === selectedQuarter && q.year === selectedYear);
+      if (!isValid) {
+        // Default wasn't in the list — fall back to most recent completed quarter
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
 
-      // Find first quarter that is completed (before current quarter)
-      const completedQuarter = quarters.find(q =>
-        q.year < currentYear || (q.year === currentYear && q.quarter < currentQuarter)
-      );
+        const completedQuarter = quarters.find(q =>
+          q.year < currentYear || (q.year === currentYear && q.quarter < currentQuarter)
+        );
 
-      if (completedQuarter) {
-        setSelectedQuarter(completedQuarter.quarter);
-        setSelectedYear(completedQuarter.year);
-      } else if (quarters.length > 0) {
-        // Fallback to most recent if no completed quarters
-        setSelectedQuarter(quarters[0].quarter);
-        setSelectedYear(quarters[0].year);
+        if (completedQuarter) {
+          setSelectedQuarter(completedQuarter.quarter);
+          setSelectedYear(completedQuarter.year);
+        } else {
+          setSelectedQuarter(quarters[0].quarter);
+          setSelectedYear(quarters[0].year);
+        }
       }
     }
-  }, [quarters, loadingQuarters, selectedQuarter]);
+  }, [quarters, loadingQuarters, selectedQuarter, selectedYear]);
 
   // Fetch terminated students
   const { data: terminatedStudents = [], isLoading: loadingStudents, mutate: mutateStudents } = useTerminatedStudents(
@@ -220,10 +243,11 @@ export default function TerminatedStudentsPage() {
     effectiveTutorId
   );
 
-  // Fetch trends
+  // Fetch trends (deferred until stats load — chart is lazy-loaded and below the fold)
   const { data: trendData, isLoading: loadingTrends } = useTerminationTrends(
     effectiveLocation,
-    effectiveTutorId
+    effectiveTutorId,
+    !!stats
   );
 
   // Stat detail modal state
@@ -353,12 +377,14 @@ export default function TerminatedStudentsPage() {
     }
   }, [selectedTutorId, tutors, effectiveLocation, viewMode]);
 
-  // Detect mobile
+  // Detect mobile (debounced to avoid excessive re-renders during drag)
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    let timer: ReturnType<typeof setTimeout>;
+    const handleResize = () => { clearTimeout(timer); timer = setTimeout(checkMobile, 150); };
+    window.addEventListener('resize', handleResize);
+    return () => { window.removeEventListener('resize', handleResize); clearTimeout(timer); };
   }, []);
 
   // Sync state to URL
@@ -532,7 +558,7 @@ export default function TerminatedStudentsPage() {
 
   // Filter tutor groups by search term and category
   const filteredTutorGroups = useMemo(() => {
-    const q = searchTerm.toLowerCase().trim();
+    const q = debouncedSearchTerm.toLowerCase().trim();
     const hasSearch = !!q;
     const hasCategory = !!selectedCategory;
     if (!hasSearch && !hasCategory) return sortedTutorGroups;
@@ -558,7 +584,7 @@ export default function TerminatedStudentsPage() {
         };
       })
       .filter(group => group.students.length > 0);
-  }, [sortedTutorGroups, searchTerm, selectedCategory, getEffectiveChecked, getEffectiveCategory]);
+  }, [sortedTutorGroups, debouncedSearchTerm, selectedCategory, getEffectiveChecked, getEffectiveCategory]);
 
   const totalCheckedCount = useMemo(() => {
     return filteredTutorGroups.reduce((sum, g) => sum + g.checkedCount, 0);
@@ -890,7 +916,7 @@ export default function TerminatedStudentsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <TerminationTrendChart
                 data={trendData}
-                isLoading={loadingTrends}
+                isLoading={loadingTrends || (!trendData && !stats)}
                 selectedQuarter={selectedQuarter}
                 selectedYear={selectedYear}
                 isMobile={isMobile}
