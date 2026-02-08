@@ -10,21 +10,26 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import {
   Bold,
   Italic,
+  Strikethrough,
   Heading,
   Link as LinkIcon,
   TextQuote,
   Code,
+  List,
+  ListOrdered,
   Palette,
   Smile,
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// WeCom only supports these 3 named colors
-const WECOM_COLORS = [
-  { id: "info", label: "Green", color: "#00b050" },
-  { id: "comment", label: "Gray", color: "#888888" },
-  { id: "warning", label: "Orange", color: "#ff6600" },
+const EDITOR_COLORS = [
+  { label: "Red", color: "#dc2626" },
+  { label: "Orange", color: "#ea580c" },
+  { label: "Green", color: "#16a34a" },
+  { label: "Blue", color: "#2563eb" },
+  { label: "Purple", color: "#9333ea" },
+  { label: "Gray", color: "#6b7280" },
 ];
 
 interface ToolbarButtonProps {
@@ -52,7 +57,7 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
   );
 }
 
-interface WecomRichEditorProps {
+interface InboxRichEditorProps {
   /** Called with Tiptap editor instance once created */
   onEditorReady?: (editor: Editor) => void;
   /** Called on every content change with HTML string */
@@ -61,14 +66,20 @@ interface WecomRichEditorProps {
   onAttachImage?: () => void;
   /** Initial HTML content */
   initialContent?: string;
+  /** Placeholder text */
+  placeholder?: string;
+  /** Minimum height of editor area */
+  minHeight?: string;
 }
 
-export default function WecomRichEditor({
+export default function InboxRichEditor({
   onEditorReady,
   onUpdate,
   onAttachImage,
   initialContent = "",
-}: WecomRichEditorProps) {
+  placeholder = "Write your message...",
+  minHeight = "150px",
+}: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
@@ -78,11 +89,7 @@ export default function WecomRichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // Disable features WeCom doesn't support
-        strike: false,
-        bulletList: false,
-        orderedList: false,
-        listItem: false,
+        // Enable all features (unlike WeCom editor which disables lists/strike)
         codeBlock: false,
         horizontalRule: false,
       }),
@@ -93,7 +100,7 @@ export default function WecomRichEditor({
         },
       }),
       Placeholder.configure({
-        placeholder: "Type your message...",
+        placeholder,
       }),
       TextStyle,
       Color,
@@ -104,8 +111,7 @@ export default function WecomRichEditor({
     },
     editorProps: {
       attributes: {
-        class:
-          "prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[150px] focus:outline-none text-gray-900 dark:text-white",
+        class: `prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[${minHeight}] focus:outline-none text-gray-900 dark:text-white`,
       },
     },
   });
@@ -142,13 +148,12 @@ export default function WecomRichEditor({
     const previousUrl = editor.getAttributes("link").href;
     const url = window.prompt("Enter URL:", previousUrl || "https://");
 
-    if (url === null) return; // Cancelled
+    if (url === null) return;
     if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
 
-    // Basic URL validation
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
       window.alert("URL must start with http:// or https://");
       return;
@@ -160,7 +165,6 @@ export default function WecomRichEditor({
   const handleToggleHeading = useCallback(() => {
     if (!editor) return;
 
-    // Cycle: paragraph → h1 → h2 → h3 → paragraph
     if (editor.isActive("heading", { level: 3 })) {
       editor.chain().focus().setParagraph().run();
     } else if (editor.isActive("heading", { level: 2 })) {
@@ -228,6 +232,12 @@ export default function WecomRichEditor({
           onClick={() => editor.chain().focus().toggleItalic().run()}
         />
         <ToolbarButton
+          icon={Strikethrough}
+          label="Strikethrough"
+          isActive={editor.isActive("strike")}
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+        />
+        <ToolbarButton
           icon={Heading}
           label="Heading (cycles H1→H2→H3→text)"
           isActive={editor.isActive("heading")}
@@ -238,6 +248,22 @@ export default function WecomRichEditor({
           label="Link"
           isActive={editor.isActive("link")}
           onClick={handleSetLink}
+        />
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-0.5" />
+
+        <ToolbarButton
+          icon={List}
+          label="Bullet List"
+          isActive={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        />
+        <ToolbarButton
+          icon={ListOrdered}
+          label="Numbered List"
+          isActive={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
         />
         <ToolbarButton
           icon={TextQuote}
@@ -278,9 +304,9 @@ export default function WecomRichEditor({
           </button>
           {showColorPicker && (
             <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5 min-w-[140px]">
-              {WECOM_COLORS.map((c) => (
+              {EDITOR_COLORS.map((c) => (
                 <button
-                  key={c.id}
+                  key={c.color}
                   type="button"
                   onMouseDown={() => handleSetColor(c.color)}
                   className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"

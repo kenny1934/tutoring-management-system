@@ -14,11 +14,11 @@ import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session } from "@/types";
-import { EmojiPicker } from "@/components/ui/emoji-picker";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
+import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import {
   Inbox,
   Send,
@@ -38,7 +38,6 @@ import {
   Loader2,
   AlertCircle,
   Clock,
-  Smile,
   Pencil,
   Check,
   Search,
@@ -154,32 +153,13 @@ function ComposeModal({
   const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
   const [category, setCategory] = useState<MessageCategory | "">("");
   const [isSending, setIsSending] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
-
-  const insertEmoji = (emoji: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      setMessage((prev) => prev + emoji);
-      return;
-    }
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newMessage = message.slice(0, start) + emoji + message.slice(end);
-    setMessage(newMessage);
-    // Set cursor position after emoji
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
-    }, 0);
-  };
 
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -229,7 +209,9 @@ function ComposeModal({
   useClickOutside(priorityDropdownRef, () => setPriorityDropdownOpen(false), priorityDropdownOpen);
 
   // Check for unsaved changes
-  const hasUnsavedChanges = message.trim().length > 0 || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
+  // Tiptap returns "<p></p>" for empty content
+  const isMessageEmpty = !message || message === "<p></p>" || message.replace(/<[^>]*>/g, "").trim().length === 0;
+  const hasUnsavedChanges = !isMessageEmpty || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
@@ -253,14 +235,14 @@ function ComposeModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (isMessageEmpty) return;
 
     setIsSending(true);
     try {
       await onSend({
         to_tutor_id: toTutorId === "all" ? undefined : toTutorId,
         subject: subject || undefined,
-        message: message.trim(),
+        message,
         priority,
         category: category || undefined,
         reply_to_id: replyTo?.id,
@@ -415,7 +397,7 @@ function ComposeModal({
                 {replyTo.from_tutor_name} wrote:
               </div>
               <div className="text-gray-600 dark:text-gray-400 line-clamp-3">
-                {replyTo.message}
+                {replyTo.message.replace(/<[^>]*>/g, "")}
               </div>
             </div>
           )}
@@ -425,32 +407,10 @@ function ComposeModal({
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Message
             </label>
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write your message..."
-                rows={5}
-                required
-                className="w-full px-3 py-2 pr-10 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
-              />
-              <div className="absolute bottom-2 right-2">
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); setShowEmojiPicker(!showEmojiPicker); }}
-                  className="p-1.5 text-gray-500 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                  title="Add emoji"
-                >
-                  <Smile className="h-5 w-5" />
-                </button>
-                <EmojiPicker
-                  isOpen={showEmojiPicker}
-                  onClose={() => setShowEmojiPicker(false)}
-                  onSelect={insertEmoji}
-                />
-              </div>
-            </div>
+            <InboxRichEditor
+              onUpdate={setMessage}
+              onAttachImage={() => fileInputRef.current?.click()}
+            />
           </div>
 
           {/* Image Attachments */}
@@ -515,7 +475,7 @@ function ComposeModal({
             </button>
             <button
               type="submit"
-              disabled={isSending || isUploading || !message.trim()}
+              disabled={isSending || isUploading || isMessageEmpty}
               className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -598,8 +558,10 @@ const ThreadItem = React.memo(function ThreadItem({
 
           {/* Preview */}
           <div className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
-            {latestMessage.message.slice(0, 80)}
-            {latestMessage.message.length > 80 && "..."}
+            {(() => {
+              const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
+              return plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
+            })()}
           </div>
 
           {/* Meta row */}
@@ -852,25 +814,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const insertEditEmoji = (emoji: string) => {
-    const textarea = editTextareaRef.current;
-    if (!textarea) {
-      setEditText((prev) => prev + emoji);
-      return;
-    }
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newText = editText.slice(0, start) + emoji + editText.slice(end);
-    setEditText(newText);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + emoji.length, start + emoji.length);
-    }, 0);
-  };
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -896,17 +840,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const cancelEdit = () => {
     setEditingMessageId(null);
     setEditText("");
-    setShowEditEmojiPicker(false);
   };
 
   const saveEdit = async () => {
-    if (!editingMessageId || !editText.trim()) return;
+    if (!editingMessageId || !editText || editText === "<p></p>") return;
     setIsSaving(true);
     try {
-      await onEdit(editingMessageId, editText.trim());
+      await onEdit(editingMessageId, editText);
       setEditingMessageId(null);
       setEditText("");
-      setShowEditEmojiPicker(false);
     } finally {
       setIsSaving(false);
     }
@@ -1035,35 +977,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               {/* Message body - editable for own messages */}
               {isEditing ? (
                 <div className="space-y-2">
-                  <div className="relative">
-                    <textarea
-                      ref={editTextareaRef}
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="w-full px-3 py-2 pr-10 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white resize-none"
-                      rows={4}
-                      autoFocus
-                    />
-                    <div className="absolute bottom-2 right-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowEditEmojiPicker(!showEditEmojiPicker)}
-                        className="p-1.5 text-gray-500 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                        title="Add emoji"
-                      >
-                        <Smile className="h-5 w-5" />
-                      </button>
-                      <EmojiPicker
-                        isOpen={showEditEmojiPicker}
-                        onClose={() => setShowEditEmojiPicker(false)}
-                        onSelect={insertEditEmoji}
-                      />
-                    </div>
-                  </div>
+                  <InboxRichEditor
+                    onUpdate={setEditText}
+                    initialContent={editText}
+                    minHeight="100px"
+                  />
                   <div className="flex gap-2">
                     <button
                       onClick={saveEdit}
-                      disabled={isSaving || !editText.trim()}
+                      disabled={isSaving || !editText || editText === "<p></p>" || editText.replace(/<[^>]*>/g, "").trim().length === 0}
                       className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
                     >
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
@@ -1078,6 +1000,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     </button>
                   </div>
                 </div>
+              ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+                  dangerouslySetInnerHTML={{ __html: m.message }}
+                />
               ) : (
                 <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
                   {m.message}
