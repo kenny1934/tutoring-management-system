@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from database import get_db
 from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, Tutor, MakeupProposal
+from utils.html_sanitizer import sanitize_message_html
 from schemas import (
     MessageCreate,
     MessageUpdate,
@@ -321,13 +322,13 @@ async def get_message_threads(
     # Subquery for archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
         MessageArchive.tutor_id == tutor_id
-    ).subquery()
+    ).scalar_subquery()
 
     # Subquery: root message IDs that have replies from other tutors
     has_replies_subq = db.query(TutorMessage.reply_to_id).filter(
         TutorMessage.reply_to_id.isnot(None),
         TutorMessage.from_tutor_id != tutor_id
-    ).subquery()
+    ).scalar_subquery()
 
     # Base query for root messages (excluding archived)
     base_query = (
@@ -625,7 +626,7 @@ async def get_unread_count(
     # Exclude archived messages for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
         MessageArchive.tutor_id == tutor_id
-    ).subquery()
+    ).scalar_subquery()
 
     # Count visible messages that have no read receipt (excluding archived)
     unread_count = db.query(func.count(TutorMessage.id)).filter(
@@ -734,12 +735,12 @@ async def create_message(
         if not recipient:
             raise HTTPException(status_code=404, detail="Recipient tutor not found")
 
-    # Create message
+    # Create message (sanitize HTML to prevent XSS)
     new_message = TutorMessage(
         from_tutor_id=from_tutor_id,
         to_tutor_id=message_data.to_tutor_id,
         subject=message_data.subject,
-        message=message_data.message,
+        message=sanitize_message_html(message_data.message),
         priority=message_data.priority,
         category=message_data.category,
         reply_to_id=message_data.reply_to_id,
@@ -847,7 +848,7 @@ async def get_archived_messages(
     # Get archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
         MessageArchive.tutor_id == tutor_id
-    ).subquery()
+    ).scalar_subquery()
 
     # Base query for archived root messages
     base_query = (
@@ -1148,7 +1149,7 @@ async def update_message(
         raise HTTPException(status_code=403, detail="You can only edit your own messages")
 
     if update_data.message is not None:
-        message.message = update_data.message
+        message.message = sanitize_message_html(update_data.message)
         message.updated_at = datetime.now()
 
     db.commit()

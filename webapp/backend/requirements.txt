@@ -28,6 +28,10 @@ pydantic-settings==2.1.0
 # Utilities
 python-dateutil==2.8.2
 
+# HTML sanitization (for rich text messages)
+bleach>=6.0.0
+tinycss2>=1.2.1
+
 # Google Calendar API
 google-api-python-client==2.115.0
 
