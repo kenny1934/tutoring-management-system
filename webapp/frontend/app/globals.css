@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @variant dark (&:is(.dark *));
 
@@ -2048,4 +2049,11 @@ html {
 .dark .tiptap blockquote {
   border-color: #8b6f47;
   color: #9ca3af;
+}
+
+/* Ensure inline color on spans is inherited by child elements (overrides prose defaults) */
+.prose span[style*="color"] strong,
+.prose span[style*="color"] em,
+.prose span[style*="color"] code {
+  color: inherit !important;
 }
