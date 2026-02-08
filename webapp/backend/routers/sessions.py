@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
@@ -1093,8 +1093,9 @@ async def schedule_makeup(
     - Target date is not a holiday
     - Student doesn't have active session at that slot (unless it's also rescheduled)
     """
-    # Get the original session
-    original_session = db.query(SessionLog).options(
+    # Get the original session with row-level lock to prevent race conditions
+    # (two concurrent requests could both see rescheduled_to_id=NULL without this)
+    original_session = db.query(SessionLog).with_for_update().options(
         joinedload(SessionLog.student),
         joinedload(SessionLog.tutor),
         joinedload(SessionLog.exercises)
@@ -1192,7 +1193,16 @@ async def schedule_makeup(
     original_session.last_modified_by = current_user.user_email
     original_session.last_modified_time = datetime.now()
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        err = str(e)
+        if 'unique_active_student_slot' in err:
+            raise HTTPException(status_code=409, detail="Student already has an active session at this slot")
+        if 'unique_active_makeup_source' in err:
+            raise HTTPException(status_code=409, detail="A make-up session already exists for this original session")
+        raise
 
     # Refresh and load relationships for response
     db.refresh(makeup_session)

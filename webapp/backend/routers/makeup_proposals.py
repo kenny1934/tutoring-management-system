@@ -5,6 +5,7 @@ Allows tutors to propose make-up slots for confirmation by other tutors.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, text
+from sqlalchemy.exc import IntegrityError
 import logging
 from typing import List, Optional
 from datetime import datetime, date
@@ -772,7 +773,16 @@ View proposal: /proposals?id={proposal.id}"""
             db.add(other_message)
             notified_tutor_ids.add(other_tutor_id)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        err = str(e)
+        if 'unique_active_student_slot' in err:
+            raise HTTPException(status_code=409, detail="Student already has an active session at this slot")
+        if 'unique_active_makeup_source' in err:
+            raise HTTPException(status_code=409, detail="A make-up session already exists for this original session")
+        raise
 
     # Reload and return
     proposal = db.query(MakeupProposal).options(

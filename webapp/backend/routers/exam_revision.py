@@ -1063,8 +1063,13 @@ async def enroll_student(
 
         db.commit()
 
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
+        err = str(e)
+        if 'unique_active_student_slot' in err:
+            raise HTTPException(status_code=409, detail="Student already has an active session at this slot")
+        if 'unique_active_makeup_source' in err:
+            raise HTTPException(status_code=409, detail="A make-up session already exists for this original session")
         raise HTTPException(
             status_code=400,
             detail="Student is already enrolled in this revision slot"
