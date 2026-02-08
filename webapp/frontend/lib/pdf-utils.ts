@@ -246,6 +246,7 @@ export interface BulkPrintItem {
   pdfData: ArrayBuffer;
   pageNumbers: number[];
   label?: string;  // Optional label for the document
+  stamp?: PrintStampInfo;  // Per-item stamp override (used for multi-student bulk print)
 }
 
 /**
@@ -262,15 +263,20 @@ export async function extractBulkPagesForPrint(
 ): Promise<Blob> {
   const pdfjs = await getPdfJs();
   const scale = 4; // High resolution for print quality
-  const allPageImages: string[] = [];
+  const allPages: Array<{ src: string; stampHtml: string }> = [];
 
-  // Format stamp text if provided
-  const stampText = stamp ? formatStamp(stamp) : '';
-  const stampHtml = stampText
-    ? `<div class="stamp">${stampText}</div>`
+  // Format global stamp text (used as fallback when items don't have per-item stamps)
+  const globalStampText = stamp ? formatStamp(stamp) : '';
+  const globalStampHtml = globalStampText
+    ? `<div class="stamp">${globalStampText}</div>`
     : '';
 
   for (const item of items) {
+    // Use per-item stamp if available, otherwise fall back to global stamp
+    const itemStampHtml = item.stamp
+      ? `<div class="stamp">${formatStamp(item.stamp)}</div>`
+      : globalStampHtml;
+
     const pdf = await pdfjs.getDocument({ data: item.pdfData }).promise;
 
     try {
@@ -303,7 +309,7 @@ export async function extractBulkPagesForPrint(
 
         // Convert to data URL
         const imageData = canvas.toDataURL('image/png');
-        allPageImages.push(imageData);
+        allPages.push({ src: imageData, stampHtml: itemStampHtml });
       }
     } finally {
       await pdf.destroy();
@@ -319,7 +325,7 @@ html,body{margin:0;padding:0}
 .page+.page{page-break-before:always;break-before:page}
 .page img{max-width:100%;max-height:100vh;object-fit:contain}
 .stamp{position:absolute;top:25px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
-</style></head><body>${allPageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
+</style></head><body>${allPages.map(p => `<div class="page"><img src="${p.src}">${p.stampHtml}</div>`).join('')}</body></html>`;
 
   return new Blob([htmlContent], { type: 'text/html' });
 }
