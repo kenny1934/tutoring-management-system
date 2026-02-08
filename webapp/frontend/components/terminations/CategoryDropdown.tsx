@@ -79,7 +79,9 @@ export function CategoryDropdown({
             ? "opacity-60 cursor-not-allowed bg-transparent border-transparent"
             : value
               ? "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-              : "bg-white dark:bg-[#1a1a1a] border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a]"
+              : compact
+                ? "bg-white dark:bg-[#1a1a1a] border-transparent hover:border-[#d4a574] dark:hover:border-[#6b5a4a]"
+                : "bg-white dark:bg-[#1a1a1a] border-[#d4a574] dark:border-[#6b5a4a] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
         )}
       >
         {config && (
@@ -101,7 +103,7 @@ export function CategoryDropdown({
           {value || placeholder}
         </span>
         <ChevronDown className={cn(
-          "h-3 w-3 shrink-0 text-muted-foreground transition-transform",
+          "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
           isOpen && "rotate-180"
         )} />
       </button>

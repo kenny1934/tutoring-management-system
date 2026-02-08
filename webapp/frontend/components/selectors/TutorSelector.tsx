@@ -103,7 +103,7 @@ export function TutorSelector({
         ref={refs.setReference}
         {...getReferenceProps()}
         className={cn(
-          "flex items-center gap-1.5 px-2 py-1 text-sm",
+          "flex items-center gap-1.5 px-3 py-1.5 text-sm",
           "bg-white dark:bg-[#1a1a1a]",
           "border border-[#d4a574] dark:border-[#6b5a4a] rounded-md",
           "focus:outline-none focus:ring-1 focus:ring-[#a0704b]",

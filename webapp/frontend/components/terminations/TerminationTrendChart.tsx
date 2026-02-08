@@ -14,7 +14,7 @@ import {
   Legend,
   ReferenceDot,
 } from "recharts";
-import { TrendingDown, Loader2, LineChart as LineChartIcon, BarChart3 } from "lucide-react";
+import { TrendingDown, LineChart as LineChartIcon, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORY_CONFIG } from "@/lib/termination-constants";
 import type { QuarterTrendPoint } from "@/types";
@@ -137,8 +137,30 @@ export const TerminationTrendChart = memo(function TerminationTrendChart({
         "bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-4 shadow-sm",
         !isMobile && "paper-texture"
       )}>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+            <div className="h-5 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+            <div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          </div>
+        </div>
+        {/* Chart area skeleton */}
+        <div className="h-[280px] flex flex-col justify-between py-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="h-3 w-8 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+              <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            </div>
+          ))}
+          <div className="flex justify-between px-10 mt-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-3 w-12 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+            ))}
+          </div>
         </div>
       </div>
     );
