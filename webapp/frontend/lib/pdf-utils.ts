@@ -162,81 +162,61 @@ function formatStamp(stamp: PrintStampInfo): string {
 }
 
 /**
- * Extract specific pages from a PDF and return as a new Blob
- *
- * Note: PDF.js doesn't natively support creating new PDFs with only specific pages.
- * For true page extraction, we would need pdf-lib or similar.
- * This implementation returns the full PDF but can be used for page-aware display.
- *
- * For printing specific pages, we'll use a different approach - rendering to canvas.
+ * Add stamp overlay to all pages of a PDF using pdf-lib.
+ * Returns a new PDF blob (not HTML). Much faster and more reliable
+ * than canvas rendering — uses the browser's native PDF viewer for printing.
  *
  * @param pdfData - Original PDF data as ArrayBuffer
- * @param pageNumbers - Array of page numbers to extract (1-indexed)
+ * @param stamp - Stamp info to display on each page
+ * @returns Blob containing the stamped PDF
+ */
+export async function stampPdf(
+  pdfData: ArrayBuffer,
+  stamp: PrintStampInfo
+): Promise<Blob> {
+  const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+  const pdfDoc = await PDFDocument.load(pdfData, { ignoreEncryption: true });
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontSize = 8;
+  const baseStampText = formatStamp(stamp);
+  const pages = pdfDoc.getPages();
+  const totalPages = pages.length;
+
+  pages.forEach((page, idx) => {
+    const stampText = `${baseStampText} | p.${idx + 1}/${totalPages}`;
+    const { width, height } = page.getSize();
+    const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+    page.drawText(stampText, {
+      x: width - textWidth - 40,
+      y: height - 25,
+      size: fontSize,
+      font,
+      color: rgb(0.2, 0.2, 0.2),
+    });
+  });
+
+  const pdfBytes = await pdfDoc.save();
+  return new Blob([pdfBytes], { type: 'application/pdf' });
+}
+
+/**
+ * Extract specific pages from a PDF and return as a new PDF blob.
+ * Uses pdf-lib for reliable page extraction and optional stamp overlay.
+ *
+ * @param pdfData - Original PDF data as ArrayBuffer
+ * @param pageNumbers - Array of page numbers to extract (1-indexed). Empty = all pages.
  * @param stamp - Optional stamp info to display on each page
- * @returns Blob containing the extracted pages as images in a printable format
+ * @returns Blob containing the extracted pages as a PDF
  */
 export async function extractPagesForPrint(
   pdfData: ArrayBuffer,
   pageNumbers: number[],
   stamp?: PrintStampInfo
 ): Promise<Blob> {
-  const pdfjs = await getPdfJs();
-  const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-
-  try {
-    // Create a container for all pages as images
-    const pageImages: string[] = [];
-    const scale = 4; // High resolution for print quality (4x = ~300 DPI for typical PDF)
-
-    for (const pageNum of pageNumbers) {
-      if (pageNum < 1 || pageNum > pdf.numPages) continue;
-
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
-
-      // Create canvas for rendering
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const context = canvas.getContext('2d');
-
-      if (!context) {
-        throw new Error('Failed to get canvas context');
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (page.render as any)({
-        canvasContext: context,
-        viewport,
-      }).promise;
-
-      // Convert to data URL
-      const imageData = canvas.toDataURL('image/png');
-      pageImages.push(imageData);
-    }
-
-    // Format stamp text if provided
-    const stampText = stamp ? formatStamp(stamp) : '';
-    const stampHtml = stampText
-      ? `<div class="stamp">${stampText}</div>`
-      : '';
-
-    // Create an HTML document with all pages as images for printing
-    // Use page-break-before on pages after the first to avoid trailing blank page
-    const htmlContent = `<!DOCTYPE html><html><head><style>
-*{margin:0;padding:0;box-sizing:border-box}
-@page{margin:0}
-html,body{margin:0;padding:0}
-.page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
-.page+.page{page-break-before:always;break-before:page}
-.page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:25px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
-</style></head><body>${pageImages.map(src => `<div class="page"><img src="${src}">${stampHtml}</div>`).join('')}</body></html>`;
-
-    return new Blob([htmlContent], { type: 'text/html' });
-  } finally {
-    await pdf.destroy();
-  }
+  return extractBulkPagesForDownload(
+    [{ pdfData, pageNumbers, label: '' }],
+    stamp
+  );
 }
 
 /**
@@ -250,92 +230,26 @@ export interface BulkPrintItem {
 }
 
 /**
- * Extract pages from multiple PDFs and combine into a single printable HTML blob.
- * Each PDF's pages are rendered with the optional stamp.
+ * Extract pages from multiple PDFs and combine into a single printable PDF blob.
+ * Supports per-item stamps with global stamp fallback.
  *
  * @param items - Array of PDF items with their page selections
- * @param stamp - Optional stamp info to display on each page
- * @returns Blob containing all pages as images in a printable format
+ * @param stamp - Optional global stamp info (per-item stamp takes priority)
+ * @returns Blob containing combined pages as a PDF
  */
 export async function extractBulkPagesForPrint(
   items: BulkPrintItem[],
   stamp?: PrintStampInfo
 ): Promise<Blob> {
-  const pdfjs = await getPdfJs();
-  const scale = 4; // High resolution for print quality
-  const allPages: Array<{ src: string; stampHtml: string }> = [];
-
-  // Format global stamp text (used as fallback when items don't have per-item stamps)
-  const globalStampText = stamp ? formatStamp(stamp) : '';
-  const globalStampHtml = globalStampText
-    ? `<div class="stamp">${globalStampText}</div>`
-    : '';
-
-  for (const item of items) {
-    // Use per-item stamp if available, otherwise fall back to global stamp
-    const itemStampHtml = item.stamp
-      ? `<div class="stamp">${formatStamp(item.stamp)}</div>`
-      : globalStampHtml;
-
-    const pdf = await pdfjs.getDocument({ data: item.pdfData }).promise;
-
-    try {
-      // If pageNumbers is empty, use all pages
-      const pagesToRender = item.pageNumbers.length > 0
-        ? item.pageNumbers
-        : Array.from({ length: pdf.numPages }, (_, i) => i + 1);
-
-      for (const pageNum of pagesToRender) {
-        if (pageNum < 1 || pageNum > pdf.numPages) continue;
-
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale });
-
-        // Create canvas for rendering
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const context = canvas.getContext('2d');
-
-        if (!context) {
-          throw new Error('Failed to get canvas context');
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (page.render as any)({
-          canvasContext: context,
-          viewport,
-        }).promise;
-
-        // Convert to data URL
-        const imageData = canvas.toDataURL('image/png');
-        allPages.push({ src: imageData, stampHtml: itemStampHtml });
-      }
-    } finally {
-      await pdf.destroy();
-    }
-  }
-
-  // Create an HTML document with all pages as images for printing
-  const htmlContent = `<!DOCTYPE html><html><head><style>
-*{margin:0;padding:0;box-sizing:border-box}
-@page{margin:0}
-html,body{margin:0;padding:0}
-.page{height:100vh;display:flex;align-items:center;justify-content:center;position:relative}
-.page+.page{page-break-before:always;break-before:page}
-.page img{max-width:100%;max-height:100vh;object-fit:contain}
-.stamp{position:absolute;top:25px;right:40px;font-size:9px;font-family:Arial,sans-serif;color:#333;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:2px;white-space:nowrap}
-</style></head><body>${allPages.map(p => `<div class="page"><img src="${p.src}">${p.stampHtml}</div>`).join('')}</body></html>`;
-
-  return new Blob([htmlContent], { type: 'text/html' });
+  return extractBulkPagesForDownload(items, stamp);
 }
 
 /**
- * Extract and combine pages from multiple PDFs into a single PDF file for download.
- * Unlike extractBulkPagesForPrint which creates HTML, this creates an actual PDF.
+ * Extract and combine pages from multiple PDFs into a single PDF file.
+ * Used for both printing and downloading. Supports per-item stamps with global fallback.
  *
- * @param items - Array of PDFs with their page ranges
- * @param stamp - Optional stamp info (currently not implemented for PDF output)
+ * @param items - Array of PDFs with their page ranges and optional per-item stamps
+ * @param stamp - Optional global stamp (per-item stamp takes priority)
  * @returns Blob containing the combined PDF
  */
 export async function extractBulkPagesForDownload(
@@ -347,7 +261,11 @@ export async function extractBulkPagesForDownload(
 
   const pdfDoc = await PDFDocument.create();
 
+  // Track page ranges per item for per-item stamp support
+  const itemPageRanges: Array<{ startIdx: number; endIdx: number; itemStamp?: PrintStampInfo }> = [];
+
   for (const item of items) {
+    const startIdx = pdfDoc.getPageCount();
     try {
       // Load source PDF
       const srcDoc = await PDFDocument.load(item.pdfData, { ignoreEncryption: true });
@@ -365,27 +283,55 @@ export async function extractBulkPagesForDownload(
     } catch (err) {
       // Continue with other PDFs even if one fails
     }
+    itemPageRanges.push({ startIdx, endIdx: pdfDoc.getPageCount(), itemStamp: item.stamp });
   }
 
-  // Add stamp overlay to each page if provided
-  if (stamp) {
+  // Add stamp overlays — per-item stamp takes priority, then global stamp
+  // Page numbering is continuous across items sharing the same stamp
+  const hasAnyStamp = stamp || items.some(item => item.stamp);
+  if (hasAnyStamp) {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontSize = 8;
-    const stampText = formatStamp(stamp);
-    const pages = pdfDoc.getPages();
+    const allPages = pdfDoc.getPages();
 
-    for (const page of pages) {
-      const { width, height } = page.getSize();
-      const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+    // Group by stamp identity for continuous page numbering
+    const stampKey = (s: PrintStampInfo) => JSON.stringify(s);
 
-      // Draw stamp in top-right corner (with margin for print safety)
-      page.drawText(stampText, {
-        x: width - textWidth - 40,  // 40px from right
-        y: height - 25,              // 25px from top
-        size: fontSize,
-        font,
-        color: rgb(0.2, 0.2, 0.2),  // Dark gray
-      });
+    // Pre-compute total pages per stamp group
+    const stampGroupTotals = new Map<string, number>();
+    for (const range of itemPageRanges) {
+      const effectiveStamp = range.itemStamp || stamp;
+      if (!effectiveStamp) continue;
+      const key = stampKey(effectiveStamp);
+      stampGroupTotals.set(key, (stampGroupTotals.get(key) || 0) + (range.endIdx - range.startIdx));
+    }
+
+    // Running counter per stamp group
+    const stampGroupCounters = new Map<string, number>();
+
+    for (const range of itemPageRanges) {
+      const effectiveStamp = range.itemStamp || stamp;
+      if (!effectiveStamp) continue;
+
+      const key = stampKey(effectiveStamp);
+      const groupTotal = stampGroupTotals.get(key) || 0;
+      const baseStampText = formatStamp(effectiveStamp);
+
+      for (let i = range.startIdx; i < range.endIdx; i++) {
+        const counter = (stampGroupCounters.get(key) || 0) + 1;
+        stampGroupCounters.set(key, counter);
+        const stampText = `${baseStampText} | p.${counter}/${groupTotal}`;
+        const textWidth = font.widthOfTextAtSize(stampText, fontSize);
+        const page = allPages[i];
+        const { width, height } = page.getSize();
+        page.drawText(stampText, {
+          x: width - textWidth - 40,
+          y: height - 25,
+          size: fontSize,
+          font,
+          color: rgb(0.2, 0.2, 0.2),
+        });
+      }
     }
   }
 

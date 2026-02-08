@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -114,6 +114,9 @@ export function ExerciseModal({
       sessionTime: session.time_slot,
     };
   }, [session]);
+
+  // Stamp info for recap exercise items
+  const recapStamp = useMemo(() => buildStampInfo(), [buildStampInfo]);
 
   // File open/print actions (from ui-hooks)
   const { fileActionState, handleOpenFile, handlePrintFile } = useFileActions(buildStampInfo);
@@ -947,7 +950,7 @@ export function ExerciseModal({
                       <div className="mt-1 space-y-0.5">
                         <span className="text-gray-500 text-[10px]">Classwork:</span>
                         {prevClasswork.map((ex, i) => (
-                          <RecapExerciseItem key={i} pdfName={ex.pdf_name} pageStart={ex.page_start} pageEnd={ex.page_end} />
+                          <RecapExerciseItem key={i} pdfName={ex.pdf_name} pageStart={ex.page_start} pageEnd={ex.page_end} stamp={recapStamp} />
                         ))}
                       </div>
                     )}
@@ -968,7 +971,7 @@ export function ExerciseModal({
                           {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
                         </span>
                         {hw.pdf_name ? (
-                          <RecapExerciseItem pdfName={hw.pdf_name} />
+                          <RecapExerciseItem pdfName={hw.pdf_name} stamp={recapStamp} />
                         ) : (
                           <span className="text-gray-500 italic">No PDF</span>
                         )}

@@ -4,7 +4,7 @@
  * Only works in Chrome/Edge - check isFileSystemAccessSupported() before use.
  */
 
-import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, extractBulkPagesForDownload, PrintStampInfo, BulkPrintItem } from './pdf-utils';
+import { parsePageRange, extractPagesForPrint, extractBulkPagesForPrint, extractBulkPagesForDownload, stampPdf, PrintStampInfo, BulkPrintItem } from './pdf-utils';
 import { getPageNumbers, fetchPdfData, BulkPrintExercise, FileSystemUtils } from './bulk-pdf-helpers';
 import { searchAnswerFile } from './answer-file-utils';
 
@@ -566,9 +566,24 @@ export async function printFilePages(
   complexRange?: string,
   stamp?: PrintStampInfo
 ): Promise<boolean> {
-  // If no page specification, print entire file
+  // If no page specification, either print raw or stamp-and-print as PDF
   if (!pageStart && !pageEnd && !complexRange) {
-    return printFile(handle);
+    if (!stamp) return printFile(handle);
+
+    // Stamp the PDF directly using pdf-lib (produces a real PDF, not HTML)
+    try {
+      const file = await handle.getFile();
+      const arrayBuffer = await file.arrayBuffer();
+      const stampedBlob = await stampPdf(arrayBuffer, stamp);
+      const url = URL.createObjectURL(stampedBlob);
+      const printWindow = window.open(url, '_blank', 'width=800,height=600');
+      if (!printWindow) { URL.revokeObjectURL(url); return false; }
+      printWindow.onload = () => { setTimeout(() => printWindow.print(), 500); };
+      printWindow.onafterprint = () => { printWindow.close(); URL.revokeObjectURL(url); };
+      return true;
+    } catch {
+      return printFile(handle);
+    }
   }
 
   try {
@@ -579,10 +594,8 @@ export async function printFilePages(
     let pageNumbers: number[];
 
     if (complexRange) {
-      // Parse complex range (from pdf-utils)
       pageNumbers = parsePageRange(complexRange);
     } else if (pageStart !== undefined) {
-      // Simple range (pageEnd defaults to pageStart if not specified)
       const start = pageStart;
       const end = pageEnd !== undefined ? pageEnd : pageStart;
       pageNumbers = Array.from(
@@ -590,15 +603,14 @@ export async function printFilePages(
         (_, i) => start + i
       );
     } else {
-      // Shouldn't happen, but fallback
-      return printFile(handle);
+      pageNumbers = [];
     }
 
     if (pageNumbers.length === 0) {
       return printFile(handle);
     }
 
-    // Extract pages using pdf-utils (with optional stamp)
+    // Extract specific pages using pdf-utils (with optional stamp — renders to HTML)
     const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
 
     // Create URL and print
@@ -1002,9 +1014,11 @@ export async function printFileFromPathWithFallback(
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
 
-    // If no page range specified, print entire file
+    // If no page range, print raw or stamp-and-print as PDF
     if (!pageStart && !pageEnd && !complexRange) {
-      const printBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const printBlob = stamp
+        ? await stampPdf(arrayBuffer, stamp)
+        : new Blob([arrayBuffer], { type: 'application/pdf' });
       const url = URL.createObjectURL(printBlob);
       const printWindow = window.open(url, '_blank', 'width=800,height=600');
       if (!printWindow) {
@@ -1021,7 +1035,7 @@ export async function printFileFromPathWithFallback(
       return null;
     }
 
-    // Build page numbers array
+    // Build page numbers array for specific page ranges
     let pageNumbers: number[] = [];
     if (complexRange) {
       pageNumbers = parsePageRange(complexRange);
@@ -1036,7 +1050,7 @@ export async function printFileFromPathWithFallback(
       return 'invalid_page_range';
     }
 
-    // Extract pages and print (matching local print behavior)
+    // Extract specific pages and print (with optional stamp — renders to HTML)
     const extractedBlob = await extractPagesForPrint(arrayBuffer, pageNumbers, stamp);
     const url = URL.createObjectURL(extractedBlob);
     const printWindow = window.open(url, '_blank', 'width=800,height=600');

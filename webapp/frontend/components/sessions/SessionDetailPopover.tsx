@@ -37,6 +37,7 @@ import {
   printBulkFiles,
   downloadBulkFiles,
 } from "@/lib/file-system";
+import type { PrintStampInfo } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { getGradeColor } from "@/lib/constants";
 import { getDisplayName } from "@/lib/exercise-utils";
@@ -45,7 +46,7 @@ import { ExtensionRequestReviewModal } from "@/components/admin/ExtensionRequest
 import type { ExtensionRequestDetail } from "@/types";
 
 // Exercise item with copy, open, and print functionality - memoized to prevent re-renders
-const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_name: string; page_start?: number; page_end?: number } }) {
+const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise: { pdf_name: string; page_start?: number; page_end?: number }; stamp?: PrintStampInfo }) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -83,7 +84,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise }: { exercise: { pdf_
       exercise.page_start,
       exercise.page_end,
       undefined,
-      undefined,
+      stamp,
       searchPaperlessByPath
     );
     if (error) {
@@ -192,6 +193,15 @@ function ExercisesList({ exercises, session }: {
   const studentName = (session.student_name || 'Unknown').replace(/\s+/g, '_');
   const dateStr = session.session_date?.replace(/-/g, '') || '';
 
+  // Stamp for individual exercise printing
+  const printStamp = useMemo((): PrintStampInfo => ({
+    location: session.location,
+    schoolStudentId: session.school_student_id,
+    studentName: session.student_name,
+    sessionDate: session.session_date,
+    sessionTime: session.time_slot,
+  }), [session.location, session.school_student_id, session.student_name, session.session_date, session.time_slot]);
+
   const handlePrintAll = async (type: 'CW' | 'HW') => {
     const setLoading = type === 'CW' ? setCwPrintState : setHwPrintState;
     const exerciseList = type === 'CW' ? cwExercises : hwExercises;
@@ -296,7 +306,7 @@ function ExercisesList({ exercises, session }: {
           </div>
           <div className="space-y-0.5 pl-4">
             {cwExercises.map((ex) => (
-              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
+              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
             ))}
           </div>
         </div>
@@ -341,7 +351,7 @@ function ExercisesList({ exercises, session }: {
           </div>
           <div className="space-y-0.5 pl-4">
             {hwExercises.map((ex) => (
-              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
+              <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
             ))}
           </div>
         </div>
@@ -1061,7 +1071,7 @@ export function SessionDetailPopover({
                       {prevClasswork.length > 0 && (
                         <div className="mt-1 space-y-0.5">
                           {prevClasswork.map((ex) => (
-                            <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} />
+                            <ExerciseItem key={`${ex.pdf_name}-${ex.page_start ?? 0}`} exercise={ex} stamp={printStamp} />
                           ))}
                         </div>
                       )}
@@ -1082,7 +1092,7 @@ export function SessionDetailPopover({
                             {hw.completion_status === 'Completed' ? '✓' : hw.completion_status === 'Partially Completed' ? '~' : '○'}
                           </span>
                           {hw.pdf_name ? (
-                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name }} />
+                            <ExerciseItem exercise={{ pdf_name: hw.pdf_name }} stamp={printStamp} />
                           ) : (
                             <span className="text-gray-500 italic">No PDF</span>
                           )}
