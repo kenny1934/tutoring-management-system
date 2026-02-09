@@ -79,9 +79,10 @@ const DEFAULT_WEIGHTS: ScoringWeights = {
 function calculateScore(breakdown: MakeupScoreBreakdown, weights: ScoringWeights): number {
   let score = 0;
   if (breakdown.is_same_tutor) score += weights.sameTutor;
-  score += Math.min(breakdown.matching_grade_count * weights.sameGrade, 60);
-  score += Math.min(breakdown.matching_lang_count * weights.sameLang, 45);
-  score += Math.min(breakdown.matching_school_count * weights.sameSchool, 30);
+  // Caps scale proportionally: weight * 3 (e.g., default 20 * 3 = 60)
+  score += Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3);
+  score += Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3);
+  score += Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3);
   score += weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30);
   score += weights.moreCapacity * (8 - breakdown.current_students);
   return Math.round(score);
@@ -189,6 +190,7 @@ interface SuggestionCardProps {
   mode: "book" | "propose";
   canAddMore: boolean;
   weights: ScoringWeights;
+  originalStudent: { grade?: string; lang_stream?: string; school?: string };
   isSaving: boolean;
   isPastDeadline?: boolean;
   is60DayExceeded?: boolean;
@@ -205,6 +207,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
   mode,
   canAddMore,
   weights,
+  originalStudent,
   isSaving,
   isPastDeadline,
   is60DayExceeded,
@@ -212,6 +215,20 @@ const SuggestionCard = React.memo(function SuggestionCard({
   onRequestExtension,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
+
+  // Sort students by compatibility with original student (grade > lang > school)
+  const sortedStudents = useMemo(() =>
+    [...suggestion.students_in_slot].sort((a, b) => {
+      const scoreA = (a.grade === originalStudent.grade ? 4 : 0) +
+                     (a.lang_stream === originalStudent.lang_stream ? 2 : 0) +
+                     (a.school === originalStudent.school ? 1 : 0);
+      const scoreB = (b.grade === originalStudent.grade ? 4 : 0) +
+                     (b.lang_stream === originalStudent.lang_stream ? 2 : 0) +
+                     (b.school === originalStudent.school ? 1 : 0);
+      return scoreB - scoreA;
+    }),
+    [suggestion.students_in_slot, originalStudent]
+  );
 
   return (
     <div className="bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg overflow-hidden transition-all">
@@ -261,13 +278,13 @@ const SuggestionCard = React.memo(function SuggestionCard({
                 <span>Same tutor: +{weights.sameTutor}</span>
               )}
               {breakdown.matching_grade_count > 0 && (
-                <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, 60)}</span>
+                <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
               )}
               {breakdown.matching_lang_count > 0 && (
-                <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, 45)}</span>
+                <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3)}</span>
               )}
               {breakdown.matching_school_count > 0 && (
-                <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, 30)}</span>
+                <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3)}</span>
               )}
               <span>Sooner date ({breakdown.days_away}d): +{Math.round(weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30))}</span>
               <span>Capacity ({8 - breakdown.current_students} spots): +{weights.moreCapacity * (8 - breakdown.current_students)}</span>
@@ -278,11 +295,11 @@ const SuggestionCard = React.memo(function SuggestionCard({
           <div className="text-xs font-medium text-[#8b6f47] dark:text-[#cd853f] mb-1.5">
             Students in this slot:
           </div>
-          {suggestion.students_in_slot.length === 0 ? (
+          {sortedStudents.length === 0 ? (
             <div className="text-xs text-gray-500 italic">No students yet (empty slot)</div>
           ) : (
             <div className="space-y-1 mb-3">
-              {suggestion.students_in_slot.map((student, idx) => (
+              {sortedStudents.map((student, idx) => (
                 <StudentDisplay key={idx} student={student} />
               ))}
             </div>
@@ -584,6 +601,11 @@ export function ScheduleMakeupModal({
 
   // Scoring weights state
   const [weights, setWeights] = useState<ScoringWeights>(DEFAULT_WEIGHTS);
+  // Wrapper that also resets pagination so user sees new top results
+  const updateWeights: typeof setWeights = (v) => {
+    setWeights(v);
+    setVisibleSuggestionCount(5);
+  };
 
   // Selection state for day picker
   const [selectedDayPickerSlot, setSelectedDayPickerSlot] = useState<{
@@ -620,11 +642,14 @@ export function ScheduleMakeupModal({
   // Location is fixed to original session's location
   const location = session.location || "";
 
-  // Fetch suggestions (14 days ahead for faster loading)
+  // Days ahead for suggestion search range
+  const [daysAhead, setDaysAhead] = useState(14);
+
+  // Fetch suggestions
   const { data: suggestions = [], isLoading: suggestionsLoading } = useSWR(
-    isOpen ? [`makeup-suggestions`, session.id] : null,
+    isOpen ? [`makeup-suggestions`, session.id, daysAhead] : null,
     async () => {
-      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead: 14 });
+      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead });
     },
     { revalidateOnFocus: false }
   );
@@ -1254,6 +1279,9 @@ export function ScheduleMakeupModal({
         {/* Original Session Info - Compact sticky bar */}
         <div className="sticky -top-4 z-20 -mx-4 px-4 -mt-4 pt-4 pb-2 bg-[#fef9f3] dark:bg-[#2d2618] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex items-center gap-2 text-xs flex-wrap">
           <User className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+          {session.school_student_id && (
+            <span className="text-[9px] text-gray-400 font-mono">{session.school_student_id}</span>
+          )}
           <span className="font-medium text-[#5d4e37] dark:text-[#e8d4b8]">{session.student_name}</span>
           {session.grade && (
             <span
@@ -1261,6 +1289,11 @@ export function ScheduleMakeupModal({
               style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
             >
               {session.grade}{session.lang_stream || ""}
+            </span>
+          )}
+          {session.school && (
+            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+              {session.school}
             </span>
           )}
           <span className="text-gray-400">|</span>
@@ -1457,6 +1490,23 @@ export function ScheduleMakeupModal({
                     </button>
                   )
                 )}
+                {/* Days ahead selector */}
+                <div className="flex items-center rounded overflow-hidden border border-gray-200 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                  {[7, 14, 30].map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => { setDaysAhead(d); setVisibleSuggestionCount(5); }}
+                      className={cn(
+                        "px-1.5 py-1 text-[10px] transition-colors",
+                        daysAhead === d
+                          ? "bg-[#a0704b] text-white"
+                          : "bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      )}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1487,7 +1537,7 @@ export function ScheduleMakeupModal({
                   SCORING WEIGHTS
                 </span>
                 <button
-                  onClick={() => setWeights(DEFAULT_WEIGHTS)}
+                  onClick={() => updateWeights(DEFAULT_WEIGHTS)}
                   className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-[#a0704b] transition-colors"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -1496,17 +1546,17 @@ export function ScheduleMakeupModal({
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 <WeightSlider label="Same Tutor" value={weights.sameTutor} min={0} max={200} step={10}
-                  onChange={(v) => setWeights(w => ({ ...w, sameTutor: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, sameTutor: v }))} />
                 <WeightSlider label="Same Grade (per student)" value={weights.sameGrade} min={0} max={50} step={5}
-                  onChange={(v) => setWeights(w => ({ ...w, sameGrade: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, sameGrade: v }))} />
                 <WeightSlider label="Same Lang (per student)" value={weights.sameLang} min={0} max={50} step={5}
-                  onChange={(v) => setWeights(w => ({ ...w, sameLang: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, sameLang: v }))} />
                 <WeightSlider label="Same School (per student)" value={weights.sameSchool} min={0} max={50} step={5}
-                  onChange={(v) => setWeights(w => ({ ...w, sameSchool: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, sameSchool: v }))} />
                 <WeightSlider label="Sooner Date" value={weights.soonerDate} min={0} max={100} step={5}
-                  onChange={(v) => setWeights(w => ({ ...w, soonerDate: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, soonerDate: v }))} />
                 <WeightSlider label="More Capacity (per spot)" value={weights.moreCapacity} min={0} max={30} step={2}
-                  onChange={(v) => setWeights(w => ({ ...w, moreCapacity: v }))} />
+                  onChange={(v) => updateWeights(w => ({ ...w, moreCapacity: v }))} />
               </div>
               <div className="mt-2 pt-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a] text-[9px] text-gray-500 dark:text-gray-400">
                 Adjust weights to prioritize different factors. Suggestions re-sort instantly.
@@ -1560,6 +1610,7 @@ export function ScheduleMakeupModal({
                         mode={mode}
                         canAddMore={proposalSlots.length < 3}
                         weights={weights}
+                        originalStudent={{ grade: session.grade, lang_stream: session.lang_stream, school: session.school }}
                         isSaving={isSaving}
                         isPastDeadline={isSuggestionPastDeadline(suggestion)}
                         is60DayExceeded={isSuggestion60DayExceeded(suggestion)}

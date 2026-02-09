@@ -1024,17 +1024,6 @@ async def get_makeup_suggestions(
             slot_date, start_date  # start_date is today
         )
 
-        # Calculate a default score for initial sorting
-        # Frontend can re-sort with different weights
-        default_score = 0
-        if raw_data["is_same_tutor"]:
-            default_score += 100
-        default_score += min(raw_data["matching_grade_count"] * 20, 60)
-        default_score += min(raw_data["matching_school_count"] * 15, 45)
-        default_score += min(raw_data["matching_lang_count"] * 10, 30)
-        default_score += max(0, 30 * (30 - raw_data["days_away"]) / 30)  # Sooner date bonus
-        default_score += (8 - raw_data["current_students"]) * 10  # Capacity bonus
-
         suggestions.append(MakeupSlotSuggestion(
             session_date=slot_date,
             time_slot=time_slot,
@@ -1043,7 +1032,7 @@ async def get_makeup_suggestions(
             location=location,
             current_students=len(active_students),
             available_spots=8 - len(active_students),
-            compatibility_score=int(default_score),
+            compatibility_score=0,  # Frontend calculates score with user-adjustable weights
             score_breakdown=raw_data,
             students_in_slot=[
                 StudentInSlot(
