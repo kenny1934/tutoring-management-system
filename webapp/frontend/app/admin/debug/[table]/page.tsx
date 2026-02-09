@@ -66,6 +66,13 @@ const MAX_PREVIEW_FIELDS = 10; // Max fields to show in FK preview
 const TOP_VALUES_LIMIT = 5; // Max top values in column stats
 const COLUMN_STATS_DECIMAL_PLACES = 2; // Decimal places for stats averages
 
+// FK table → app detail page route (tables that have dedicated detail pages)
+const DETAIL_PAGE_ROUTES: Record<string, (id: number) => string> = {
+  enrollments: (id) => `/enrollments/${id}`,
+  session_log: (id) => `/sessions/${id}`,
+  students: (id) => `/students/${id}`,
+};
+
 // Table priority classifications for visual styling
 const TABLE_CLASSIFICATIONS = {
   priority: ["session_log", "enrollments", "students"],
@@ -1332,6 +1339,8 @@ export default function TableBrowserPage() {
     handleStartEdit,
     handleCloneRow,
     handleStartCreate,
+    handleSaveEdit,
+    handleSaveCreate,
     toggleRowSelection,
   });
   useEffect(() => {
@@ -1341,6 +1350,8 @@ export default function TableBrowserPage() {
       handleStartEdit,
       handleCloneRow,
       handleStartCreate,
+      handleSaveEdit,
+      handleSaveCreate,
       toggleRowSelection,
     };
   });
@@ -1365,6 +1376,17 @@ export default function TableBrowserPage() {
         else if (state.editingRow) callbacks.handleCancelEdit();
         else if (state.deleteConfirm) setDeleteConfirm(null);
         else setFocusedRowIndex(null);
+        return;
+      }
+
+      // Ctrl+S / Cmd+S to save (works even when focused in input fields)
+      if ((event.ctrlKey || event.metaKey) && event.key === "s") {
+        event.preventDefault();
+        if (state.editingRow) {
+          callbacks.handleSaveEdit();
+        } else if (state.isCreating) {
+          callbacks.handleSaveCreate();
+        }
         return;
       }
 
@@ -2988,14 +3010,27 @@ export default function TableBrowserPage() {
                   <p className="text-gray-500 text-center py-4">Failed to load record</p>
                 )}
               </div>
-              <div className="p-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0">
+              <div className="p-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] flex-shrink-0 flex gap-2">
                 <Link
                   href={`/admin/debug/${fkPreview.tableName}?filter=${fkPreview.columnName}__eq:${fkPreview.rowId}`}
-                  className="flex items-center justify-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                  className={`flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    DETAIL_PAGE_ROUTES[fkPreview.tableName]
+                      ? "flex-1 border border-[#a0704b] text-[#a0704b] hover:bg-[#a0704b]/10"
+                      : "w-full bg-[#a0704b] text-white hover:bg-[#8a5f3e]"
+                  }`}
                 >
-                  Go to {fkPreview.tableName}
+                  Debug table
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />
                 </Link>
+                {DETAIL_PAGE_ROUTES[fkPreview.tableName] && (
+                  <Link
+                    href={DETAIL_PAGE_ROUTES[fkPreview.tableName](fkPreview.rowId)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-[#a0704b] text-white hover:bg-[#8a5f3e] transition-colors"
+                  >
+                    Detail page
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -3052,6 +3087,9 @@ export default function TableBrowserPage() {
 
                   <span className="kbd-key">Space</span>
                   <span className="text-gray-600 dark:text-gray-400">Toggle row selection</span>
+
+                  <span className="kbd-key">⌘S</span>
+                  <span className="text-gray-600 dark:text-gray-400">Save (while editing)</span>
 
                   <span className="kbd-key">Esc</span>
                   <span className="text-gray-600 dark:text-gray-400">Close / Cancel</span>
