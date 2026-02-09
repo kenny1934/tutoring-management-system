@@ -6,7 +6,6 @@ Sends messages to WeCom groups via group robot webhooks.
 import base64
 import hashlib
 import logging
-from datetime import datetime
 from typing import Optional
 
 import httpx
@@ -14,6 +13,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user, require_admin_write, require_admin_view
+from constants import hk_now
 from database import get_db
 from models import Tutor, WecomWebhook, WecomMessageLog
 from schemas import (
@@ -191,8 +191,8 @@ async def send_message(
 
         if errcode == 0:
             log_entry.send_status = "sent"
-            log_entry.send_timestamp = datetime.utcnow()
-            webhook.last_used_at = datetime.utcnow()
+            log_entry.send_timestamp = hk_now()
+            webhook.last_used_at = hk_now()
             webhook.total_messages_sent = (webhook.total_messages_sent or 0) + 1
             db.commit()
 
@@ -211,7 +211,7 @@ async def send_message(
             )
         else:
             log_entry.send_status = "failed"
-            log_entry.send_timestamp = datetime.utcnow()
+            log_entry.send_timestamp = hk_now()
             log_entry.error_message = f"errcode={errcode}, errmsg={errmsg}"
             db.commit()
 
@@ -230,7 +230,7 @@ async def send_message(
 
     except httpx.TimeoutException:
         log_entry.send_status = "failed"
-        log_entry.send_timestamp = datetime.utcnow()
+        log_entry.send_timestamp = hk_now()
         log_entry.error_message = "Request timed out"
         db.commit()
 
@@ -243,7 +243,7 @@ async def send_message(
 
     except Exception as e:
         log_entry.send_status = "failed"
-        log_entry.send_timestamp = datetime.utcnow()
+        log_entry.send_timestamp = hk_now()
         log_entry.error_message = str(e)
         db.commit()
 
@@ -330,8 +330,8 @@ async def send_image(
 
         if errcode == 0:
             log_entry.send_status = "sent"
-            log_entry.send_timestamp = datetime.utcnow()
-            webhook.last_used_at = datetime.utcnow()
+            log_entry.send_timestamp = hk_now()
+            webhook.last_used_at = hk_now()
             webhook.total_messages_sent = (webhook.total_messages_sent or 0) + 1
             db.commit()
 
@@ -346,7 +346,7 @@ async def send_image(
             )
         else:
             log_entry.send_status = "failed"
-            log_entry.send_timestamp = datetime.utcnow()
+            log_entry.send_timestamp = hk_now()
             log_entry.error_message = f"errcode={errcode}, errmsg={errmsg}"
             db.commit()
 
@@ -360,7 +360,7 @@ async def send_image(
 
     except httpx.TimeoutException:
         log_entry.send_status = "failed"
-        log_entry.send_timestamp = datetime.utcnow()
+        log_entry.send_timestamp = hk_now()
         log_entry.error_message = "Request timed out"
         db.commit()
 
@@ -368,7 +368,7 @@ async def send_image(
 
     except Exception as e:
         log_entry.send_status = "failed"
-        log_entry.send_timestamp = datetime.utcnow()
+        log_entry.send_timestamp = hk_now()
         log_entry.error_message = str(e)
         db.commit()
 

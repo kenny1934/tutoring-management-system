@@ -208,7 +208,7 @@ export function RecordContactModal({
       if (editingContact) {
         await parentCommunicationsAPI.update(editingContact.id, data);
       } else {
-        await parentCommunicationsAPI.create(data, selectedTutorId, 'system');
+        await parentCommunicationsAPI.create(data, selectedTutorId, user?.email || 'system');
       }
 
       onClose(true);

@@ -252,8 +252,7 @@ export default function ParentContactsPage() {
     if (!deleteConfirmId) return;
     setIsDeleting(true);
     try {
-      // Pass 'system' as deleted_by until OAuth is implemented
-      await parentCommunicationsAPI.delete(deleteConfirmId, 'system');
+      await parentCommunicationsAPI.delete(deleteConfirmId, user?.email || 'system');
       setSelectedContactId(null);
       setDeleteConfirmId(null);
       refreshData();
