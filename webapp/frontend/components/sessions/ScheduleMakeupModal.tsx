@@ -1446,7 +1446,7 @@ export function ScheduleMakeupModal({
               )}
             </div>
             {showSuggestions && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {/* Quick Book / Quick Add Best Suggestion */}
                 {sortedSuggestions.length > 0 && (
                   mode === "propose" ? (
