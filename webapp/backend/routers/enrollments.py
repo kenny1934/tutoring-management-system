@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func, select
 from typing import List, Optional
 from datetime import date, datetime, timedelta
+from constants import hk_now
 from collections import defaultdict
 from database import get_db
 from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon
@@ -450,7 +451,7 @@ async def create_enrollment(
         discount_id=enrollment_data.discount_id,
         renewed_from_enrollment_id=enrollment_data.renewed_from_enrollment_id,
         is_new_student=is_new_student,
-        last_modified_time=datetime.now(),
+        last_modified_time=hk_now(),
         last_modified_by=admin.user_email
     )
     db.add(enrollment)
@@ -1761,7 +1762,7 @@ async def update_enrollment(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Paid'})
 
-    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = admin.user_email
 
     db.commit()
@@ -1811,7 +1812,7 @@ async def update_enrollment_extension(
         raise HTTPException(status_code=404, detail=f"Enrollment with ID {enrollment_id} not found")
 
     # Build audit entry
-    now = datetime.now()
+    now = hk_now()
     timestamp = now.strftime("%Y-%m-%d %H:%M")
     old_weeks = enrollment.deadline_extension_weeks or 0
     new_weeks = extension_update.deadline_extension_weeks
@@ -2099,7 +2100,7 @@ async def apply_schedule_change(
     enrollment.assigned_time = changes.assigned_time
     enrollment.location = changes.location
     enrollment.tutor_id = changes.tutor_id
-    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = current_user.user_email
 
     sessions_updated = 0
@@ -2149,7 +2150,7 @@ async def apply_schedule_change(
                 session.time_slot = changes.assigned_time
             session.location = changes.location
             session.tutor_id = changes.tutor_id
-            session.last_modified_time = datetime.now()
+            session.last_modified_time = hk_now()
 
             sessions_updated += 1
 
@@ -2207,7 +2208,7 @@ async def cancel_enrollment(
 
     # Update payment_status to Cancelled
     enrollment.payment_status = "Cancelled"
-    enrollment.last_modified_time = datetime.now()
+    enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = current_user.user_email
 
     # Cancel all remaining sessions
@@ -2243,7 +2244,7 @@ async def batch_mark_paid(
         if enrollment and enrollment.payment_status != 'Paid':
             enrollment.payment_status = 'Paid'
             enrollment.payment_date = date.today()
-            enrollment.last_modified_time = datetime.now()
+            enrollment.last_modified_time = hk_now()
             enrollment.last_modified_by = current_user.user_email
             # Also update sessions' financial_status
             db.query(SessionLog).filter(
@@ -2270,7 +2271,7 @@ async def batch_mark_sent(
         enrollment = db.query(Enrollment).filter(Enrollment.id == eid).first()
         if enrollment and not enrollment.fee_message_sent:
             enrollment.fee_message_sent = True
-            enrollment.last_modified_time = datetime.now()
+            enrollment.last_modified_time = hk_now()
             enrollment.last_modified_by = current_user.user_email
             updated.append(eid)
 
@@ -2596,7 +2597,7 @@ async def batch_renew(
             payment_status='Pending Payment',
             discount_id=enrollment.discount_id,
             renewed_from_enrollment_id=eid,
-            last_modified_time=datetime.now(),
+            last_modified_time=hk_now(),
             last_modified_by=admin.user_email
         )
         db.add(new_enrollment)

@@ -13,6 +13,7 @@ from database import get_db
 from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount
 from datetime import date, timedelta, datetime, timezone
+from constants import hk_now
 from utils.response_builders import build_session_response as _build_session_response, build_linked_session_info as _build_linked_session_info
 from utils.rate_limiter import check_user_rate_limit
 from utils.makeup_validators import find_root_original_session as _find_root_original_session, validate_makeup_constraints
@@ -482,11 +483,11 @@ async def mark_session_attended(
 
     # Set attendance tracking fields
     session.attendance_marked_by = current_user.user_email
-    session.attendance_mark_time = datetime.now()
+    session.attendance_mark_time = hk_now()
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -538,7 +539,7 @@ async def mark_session_no_show(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -590,7 +591,7 @@ async def mark_session_rescheduled(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -642,7 +643,7 @@ async def mark_session_sick_leave(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -694,7 +695,7 @@ async def mark_session_weather_cancelled(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -767,7 +768,7 @@ async def undo_session_status(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -814,11 +815,11 @@ async def redo_session_status(
     # Re-set attendance fields if restoring to Attended
     if status in ("Attended", "Attended (Make-up)"):
         session.attendance_marked_by = current_user.user_email
-        session.attendance_mark_time = datetime.now()
+        session.attendance_mark_time = hk_now()
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -1139,7 +1140,7 @@ async def schedule_makeup(
         make_up_for_id=original_session.id,
         notes=request.notes,  # Optional reason for scheduling
         last_modified_by=current_user.user_email,
-        last_modified_time=datetime.now()
+        last_modified_time=hk_now()
     )
 
     # Auto-link to matching exam revision slot if student matches criteria
@@ -1175,7 +1176,7 @@ async def schedule_makeup(
     )
     original_session.rescheduled_to_id = makeup_session.id
     original_session.last_modified_by = current_user.user_email
-    original_session.last_modified_time = datetime.now()
+    original_session.last_modified_time = hk_now()
 
     try:
         db.commit()
@@ -1273,7 +1274,7 @@ async def cancel_makeup(
     )
     original_session.rescheduled_to_id = None
     original_session.last_modified_by = current_user.user_email
-    original_session.last_modified_time = datetime.now()
+    original_session.last_modified_time = hk_now()
 
     # Delete the makeup session
     db.delete(makeup_session)
@@ -1337,13 +1338,13 @@ async def save_session_exercises(
             answer_page_end=ex.answer_page_end,
             answer_remarks=ex.answer_remarks,
             created_by=current_user.user_email,
-            created_at=datetime.now()
+            created_at=hk_now()
         )
         db.add(new_exercise)
 
     # Update audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -1411,7 +1412,7 @@ async def bulk_assign_exercises(
             page_end=request.page_end,
             remarks=request.remarks,
             created_by=current_user.user_email,
-            created_at=datetime.now()
+            created_at=hk_now()
         )
         db.add(new_exercise)
         created_count += 1
@@ -1462,7 +1463,7 @@ async def rate_session(
 
     # Update audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     db.commit()
     db.refresh(session)
@@ -1614,7 +1615,7 @@ async def update_session(
 
     # Set audit columns
     session.last_modified_by = current_user.user_email
-    session.last_modified_time = datetime.now()
+    session.last_modified_time = hk_now()
 
     # Handle revision slot linking when date/time/location changes
     if any([request.session_date, request.time_slot, request.location]):

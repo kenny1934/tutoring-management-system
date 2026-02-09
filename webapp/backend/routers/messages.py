@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
 from typing import List, Optional
 from datetime import datetime
+from constants import hk_now
 from database import get_db
 from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html
@@ -1150,7 +1151,7 @@ async def update_message(
 
     if update_data.message is not None:
         message.message = sanitize_message_html(update_data.message)
-        message.updated_at = datetime.now()
+        message.updated_at = hk_now()
 
     db.commit()
     db.refresh(message)

@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 import logging
 from typing import List, Optional
 from datetime import datetime, date
+from constants import hk_now
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
@@ -631,7 +632,7 @@ async def approve_slot(
         make_up_for_id=original_session.id,
         notes=f"Approved via proposal #{proposal.id}",
         last_modified_by=f"tutor_{tutor_id}@csmpro.app",
-        last_modified_time=datetime.now()
+        last_modified_time=hk_now()
     )
 
     # Auto-link to matching exam revision slot if student matches criteria
@@ -663,11 +664,11 @@ async def approve_slot(
     )
     original_session.rescheduled_to_id = makeup_session.id
     original_session.last_modified_by = f"tutor_{tutor_id}@csmpro.app"
-    original_session.last_modified_time = datetime.now()
+    original_session.last_modified_time = hk_now()
 
     # Approve this slot
     slot.slot_status = 'approved'
-    slot.resolved_at = datetime.now()
+    slot.resolved_at = hk_now()
     slot.resolved_by_tutor_id = tutor_id
 
     # Auto-reject sibling slots (query them directly to avoid stale data)
@@ -678,13 +679,13 @@ async def approve_slot(
     ).all()
     for sibling in sibling_slots:
         sibling.slot_status = 'rejected'
-        sibling.resolved_at = datetime.now()
+        sibling.resolved_at = hk_now()
         sibling.resolved_by_tutor_id = tutor_id
         sibling.rejection_reason = "Another slot was approved"
 
     # Update proposal status
     proposal.status = 'approved'
-    proposal.resolved_at = datetime.now()
+    proposal.resolved_at = hk_now()
     proposal.active_flag = None  # Clear flag to allow new proposals
 
     # --- Send approval notifications ---
@@ -845,7 +846,7 @@ async def reject_slot(
 
     # Reject the slot
     slot.slot_status = 'rejected'
-    slot.resolved_at = datetime.now()
+    slot.resolved_at = hk_now()
     slot.resolved_by_tutor_id = tutor_id
     slot.rejection_reason = request.rejection_reason
 
@@ -879,7 +880,7 @@ async def reject_slot(
 
     if all_rejected:
         proposal.status = 'rejected'
-        proposal.resolved_at = datetime.now()
+        proposal.resolved_at = hk_now()
         proposal.active_flag = None  # Clear flag to allow new proposals
 
         # --- Send full rejection notifications (proposer + FYI tutors) ---
@@ -1103,7 +1104,7 @@ async def reject_proposal(
         )
 
     proposal.status = 'rejected'
-    proposal.resolved_at = datetime.now()
+    proposal.resolved_at = hk_now()
     proposal.active_flag = None  # Clear flag to allow new proposals
     # Store rejection reason in notes
     if request.rejection_reason:
