@@ -479,7 +479,7 @@ export default function TerminatedStudentsPage() {
               reason: changes.reason ?? originalStudent?.reason ?? undefined,
               reason_category: changes.reasonCategory ?? originalStudent?.reason_category ?? undefined,
               count_as_terminated: changes.countAsTerminated ?? originalStudent?.count_as_terminated ?? false,
-            }, 'system'); // TODO: Replace with actual user email from auth context when OAuth is implemented
+            }, user?.email || 'system');
           })
         );
 
