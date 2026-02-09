@@ -2,7 +2,7 @@
 SQLAlchemy models for the tutoring management system database.
 These models map to the existing tables from database/init.sql
 """
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index, JSON
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Enum, ForeignKey, DECIMAL, Boolean, UniqueConstraint, Index, JSON, Computed
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -197,10 +197,21 @@ class SessionLog(Base):
     make_up_for_id = Column(Integer, ForeignKey("session_log.id"), nullable=True)
 
     # DB-enforced duplicate prevention (computed by MySQL, read-only)
-    active_student_slot_guard = Column(Integer, nullable=True,
-                                        comment='Generated: student_id for active sessions, NULL for inactive. Used in unique index.')
-    active_makeup_for_guard = Column(Integer, nullable=True,
-                                      comment='Generated: make_up_for_id for active make-ups, NULL otherwise. Used in unique index.')
+    active_student_slot_guard = Column(Integer, Computed(
+        "CASE WHEN session_status LIKE '%Pending Make-up%' THEN NULL "
+        "WHEN session_status LIKE '%Make-up Booked%' THEN NULL "
+        "WHEN session_status = 'Cancelled' THEN NULL "
+        "ELSE student_id END"
+    ), nullable=True,
+        comment='Generated: student_id for active sessions, NULL for inactive. Used in unique index.')
+    active_makeup_for_guard = Column(Integer, Computed(
+        "CASE WHEN make_up_for_id IS NULL THEN NULL "
+        "WHEN session_status LIKE '%Pending Make-up%' THEN NULL "
+        "WHEN session_status LIKE '%Make-up Booked%' THEN NULL "
+        "WHEN session_status = 'Cancelled' THEN NULL "
+        "ELSE make_up_for_id END"
+    ), nullable=True,
+        comment='Generated: make_up_for_id for active make-ups, NULL otherwise. Used in unique index.')
 
     # Exam revision slot link
     exam_revision_slot_id = Column(Integer, ForeignKey("exam_revision_slots.id"), nullable=True,
