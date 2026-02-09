@@ -504,18 +504,18 @@ export function ScheduleMakeupModal({
     showWeightTuner: false,
     showSuggestions: true,
     showManualForm: true,
-    showAllSuggestions: false,
+    visibleSuggestionCount: 5,
   });
   const showDayPicker = panels.showDayPicker;
   const showWeightTuner = panels.showWeightTuner;
   const showSuggestions = panels.showSuggestions;
   const showManualForm = panels.showManualForm;
-  const showAllSuggestions = panels.showAllSuggestions;
+  const visibleSuggestionCount = panels.visibleSuggestionCount;
   const setShowDayPicker = (v: boolean) => setPanels(prev => ({ ...prev, showDayPicker: v }));
   const setShowWeightTuner = (v: boolean) => setPanels(prev => ({ ...prev, showWeightTuner: v }));
   const setShowSuggestions = (v: boolean) => setPanels(prev => ({ ...prev, showSuggestions: v }));
   const setShowManualForm = (v: boolean) => setPanels(prev => ({ ...prev, showManualForm: v }));
-  const setShowAllSuggestions = (v: boolean) => setPanels(prev => ({ ...prev, showAllSuggestions: v }));
+  const setVisibleSuggestionCount = (v: number) => setPanels(prev => ({ ...prev, visibleSuggestionCount: v }));
 
   // Saving/validation state
   const [isSaving, setIsSaving] = useState(false);
@@ -624,7 +624,7 @@ export function ScheduleMakeupModal({
   const { data: suggestions = [], isLoading: suggestionsLoading } = useSWR(
     isOpen ? [`makeup-suggestions`, session.id] : null,
     async () => {
-      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead: 14, limit: 10 });
+      return sessionsAPI.getMakeupSuggestions(session.id, { daysAhead: 14 });
     },
     { revalidateOnFocus: false }
   );
@@ -1541,7 +1541,7 @@ export function ScheduleMakeupModal({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {(showAllSuggestions ? sortedSuggestions : sortedSuggestions.slice(0, 5)).map((suggestion) => {
+                  {sortedSuggestions.slice(0, visibleSuggestionCount).map((suggestion) => {
                     const suggestionKey = `${suggestion.session_date}-${suggestion.time_slot}-${suggestion.tutor_id}`;
                     return (
                       <SuggestionCard
@@ -1568,13 +1568,28 @@ export function ScheduleMakeupModal({
                       />
                     );
                   })}
-                  {sortedSuggestions.length > 5 && (
-                    <button
-                      onClick={() => setShowAllSuggestions(!showAllSuggestions)}
-                      className="w-full py-2 text-xs text-[#a0704b] hover:text-[#8b5d3b] hover:underline transition-colors"
-                    >
-                      {showAllSuggestions ? `Show less` : `Show ${sortedSuggestions.length - 5} more suggestions`}
-                    </button>
+                  {(sortedSuggestions.length > 5) && (
+                    <div className="flex items-center justify-center gap-3 py-2">
+                      {visibleSuggestionCount < sortedSuggestions.length && (
+                        <button
+                          onClick={() => setVisibleSuggestionCount(Math.min(visibleSuggestionCount + 10, sortedSuggestions.length))}
+                          className="text-xs text-[#a0704b] hover:text-[#8b5d3b] hover:underline transition-colors"
+                        >
+                          Show 10 more ({sortedSuggestions.length - visibleSuggestionCount} remaining)
+                        </button>
+                      )}
+                      {visibleSuggestionCount > 5 && (
+                        <>
+                          {visibleSuggestionCount < sortedSuggestions.length && <span className="text-gray-300">|</span>}
+                          <button
+                            onClick={() => setVisibleSuggestionCount(5)}
+                            className="text-xs text-gray-500 hover:text-gray-700 hover:underline transition-colors"
+                          >
+                            Show less
+                          </button>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
