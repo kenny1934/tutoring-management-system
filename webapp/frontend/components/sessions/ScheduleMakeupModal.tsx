@@ -274,18 +274,10 @@ const SuggestionCard = React.memo(function SuggestionCard({
           <div className="mt-2 mb-3 p-2 bg-white/50 dark:bg-black/20 rounded text-[10px] text-gray-600 dark:text-gray-400">
             <div className="font-medium mb-1">Score Breakdown (Total: {suggestion.calculatedScore}):</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-              {breakdown.is_same_tutor && (
-                <span>Same tutor: +{weights.sameTutor}</span>
-              )}
-              {breakdown.matching_grade_count > 0 && (
-                <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
-              )}
-              {breakdown.matching_lang_count > 0 && (
-                <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3)}</span>
-              )}
-              {breakdown.matching_school_count > 0 && (
-                <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3)}</span>
-              )}
+              <span>Same tutor: +{breakdown.is_same_tutor ? weights.sameTutor : 0}</span>
+              <span>Same grade ({breakdown.matching_grade_count}): +{Math.min(breakdown.matching_grade_count * weights.sameGrade, weights.sameGrade * 3)}</span>
+              <span>Same lang ({breakdown.matching_lang_count}): +{Math.min(breakdown.matching_lang_count * weights.sameLang, weights.sameLang * 3)}</span>
+              <span>Same school ({breakdown.matching_school_count}): +{Math.min(breakdown.matching_school_count * weights.sameSchool, weights.sameSchool * 3)}</span>
               <span>Sooner date ({breakdown.days_away}d): +{Math.round(weights.soonerDate * Math.max(0, (30 - breakdown.days_away) / 30))}</span>
               <span>Capacity ({8 - breakdown.current_students} spots): +{weights.moreCapacity * (8 - breakdown.current_students)}</span>
             </div>
