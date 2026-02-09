@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, func, case
 from typing import List, Optional
 from datetime import datetime, date
+from constants import hk_now
 from database import get_db
 from models import (
     ExtensionRequest, SessionLog, Enrollment, Student, Tutor
@@ -198,7 +199,7 @@ def _generate_admin_guidance(
         return 'REVIEW REQUIRED: Already 4+ weeks extended'
     if pending_makeups_count == 0:
         return 'QUESTION: No pending makeups - why extend?'
-    if request.requested_at and (datetime.now() - request.requested_at).days > 7:
+    if request.requested_at and (hk_now() - request.requested_at).days > 7:
         return 'URGENT: Request pending over 7 days'
     if request.requested_extension_weeks > 2:
         return 'REVIEW: Requesting >2 weeks extension'
@@ -429,7 +430,7 @@ async def approve_extension_request(
             detail=f"Request is already {extension_request.request_status}"
         )
 
-    now = datetime.now()
+    now = hk_now()
 
     # Update extension request
     extension_request.request_status = 'Approved'
@@ -499,7 +500,7 @@ async def reject_extension_request(
             detail=f"Request is already {extension_request.request_status}"
         )
 
-    now = datetime.now()
+    now = hk_now()
 
     # Update extension request
     extension_request.request_status = 'Rejected'

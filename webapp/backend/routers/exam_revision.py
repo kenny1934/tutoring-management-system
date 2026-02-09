@@ -34,7 +34,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from utils.response_builders import build_session_response as _build_session_response, _find_root_original_session_date
 from utils.makeup_validators import validate_makeup_constraints
-from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES
+from constants import ENROLLED_SESSION_STATUSES, PENDING_MAKEUP_STATUSES, SCHEDULABLE_STATUSES, hk_now
 from services.google_calendar_service import sync_calendar_events
 from auth.dependencies import get_current_user
 
@@ -360,6 +360,7 @@ async def get_revision_slots(
 @router.post("/exam-revision/slots", response_model=ExamRevisionSlotResponse)
 async def create_revision_slot(
     request: ExamRevisionSlotCreate,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -421,7 +422,7 @@ async def create_revision_slot(
         tutor_id=request.tutor_id,
         location=request.location,
         notes=request.notes,
-        created_by=request.created_by or "system@csmpro.app"
+        created_by=request.created_by or current_user.user_email
     )
     db.add(slot)
     db.commit()
@@ -1020,7 +1021,7 @@ async def enroll_student(
     ).first()
 
     # Create the revision session
-    modified_by = request.created_by or "system@csmpro.app"
+    modified_by = request.created_by or current_user.user_email
     revision_session = SessionLog(
         enrollment_id=enrollment.id if enrollment else consume_session.enrollment_id,
         student_id=request.student_id,
@@ -1034,7 +1035,7 @@ async def enroll_student(
         exam_revision_slot_id=slot.id,
         notes=request.notes,
         last_modified_by=modified_by,
-        last_modified_time=datetime.now()
+        last_modified_time=hk_now()
     )
     db.add(revision_session)
 
@@ -1059,7 +1060,7 @@ async def enroll_student(
             consume_session.rescheduled_to_id = revision_session.id
 
         consume_session.last_modified_by = modified_by
-        consume_session.last_modified_time = datetime.now()
+        consume_session.last_modified_time = hk_now()
 
         db.commit()
 
@@ -1105,6 +1106,7 @@ async def enroll_student(
 async def remove_enrollment(
     slot_id: int,
     session_id: int,
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -1143,8 +1145,8 @@ async def remove_enrollment(
                 "Make-up Booked", "Pending Make-up"
             )
             consumed_session.rescheduled_to_id = None
-            consumed_session.last_modified_by = "system@csmpro.app"
-            consumed_session.last_modified_time = datetime.now()
+            consumed_session.last_modified_by = current_user.user_email
+            consumed_session.last_modified_time = hk_now()
 
     # Delete the revision session
     db.delete(revision_session)

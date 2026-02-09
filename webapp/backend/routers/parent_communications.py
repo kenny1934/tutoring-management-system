@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 from typing import List, Optional
 from datetime import date, datetime, timedelta
+from constants import hk_now
 from collections import defaultdict
 import time
 from database import get_db
@@ -710,7 +711,7 @@ async def create_communication(
     comm = ParentCommunication(
         student_id=data.student_id,
         tutor_id=tutor_id,
-        contact_date=data.contact_date or datetime.now(),
+        contact_date=data.contact_date or hk_now(),
         contact_method=data.contact_method,
         contact_type=data.contact_type,
         brief_notes=data.brief_notes,

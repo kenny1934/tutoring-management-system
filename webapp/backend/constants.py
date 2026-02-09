@@ -3,7 +3,16 @@ Shared constants for the backend.
 
 Centralizes session status lists and other constants used across routers.
 """
+from datetime import datetime, timezone, timedelta
 from enum import Enum
+
+# Hong Kong timezone (UTC+8) — matches DB convention: CONVERT_TZ(NOW(), '+00:00', '+08:00')
+HK_TZ = timezone(timedelta(hours=8))
+
+
+def hk_now() -> datetime:
+    """Current time in Hong Kong (UTC+8) as naive datetime, matching DB convention."""
+    return datetime.now(HK_TZ).replace(tzinfo=None)
 
 
 class SessionStatus(str, Enum):
