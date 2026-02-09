@@ -880,7 +880,6 @@ async def get_makeup_suggestions(
     session_id: int,
     response: Response,
     days_ahead: int = Query(30, ge=1, le=60, description="Days ahead to search for slots"),
-    limit: int = Query(10, ge=1, le=20, description="Maximum suggestions to return"),
     db: Session = Depends(get_db)
 ):
     """
@@ -991,22 +990,18 @@ async def get_makeup_suggestions(
         key = (session.session_date, session.time_slot, session.tutor_id)
         slots[key].append(session)
 
-    # Get all tutors at this location
-    tutors = db.query(Tutor).filter(Tutor.default_location == location).all()
-    tutor_map = {t.id: t for t in tutors}
-
-    # Get common time slots from existing sessions
-    time_slots = set()
-    for session in sessions:
-        if session.time_slot:
-            time_slots.add(session.time_slot)
+    # Note: tutor info is already eagerly loaded via joinedload(SessionLog.tutor)
 
     # Generate scored suggestions
     # Note: Holidays and full slots already filtered at DB level
     suggestions = []
     for (slot_date, time_slot, tutor_id), slot_sessions in slots.items():
-        tutor = tutor_map.get(tutor_id)
+        tutor = slot_sessions[0].tutor
         if not tutor:
+            continue
+
+        # Skip slots where the student being rescheduled is already enrolled
+        if any(s.student_id == original_student.id for s in slot_sessions):
             continue
 
         # Build active students list
@@ -1067,10 +1062,10 @@ async def get_makeup_suggestions(
     # Also add empty slots for tutors (slots with no existing sessions but tutor is available)
     # For now, we'll just show slots that have existing sessions - can expand later
 
-    # Sort by score descending, then by date
-    suggestions.sort(key=lambda s: (-s.compatibility_score, s.session_date))
+    # Sort by date, then time slot (frontend re-sorts by user-adjusted weights)
+    suggestions.sort(key=lambda s: (s.session_date, s.time_slot))
 
-    return suggestions[:limit]
+    return suggestions
 
 
 @router.post("/sessions/{session_id}/schedule-makeup", response_model=ScheduleMakeupResponse)
