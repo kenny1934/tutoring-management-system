@@ -1681,9 +1681,8 @@ def format_fee_message(
 費用： ${total_fee:,}{discount_text}
 
 家長可選擇以下繳費方式：
-1. 自動轉賬（如已開通自動轉賬，將於7天內自動扣費，請家長留意並確保賬戶餘額充足）
-2. 交付現金 或
-3. 把學費存入以下戶口，請於備註註明學生姓名及其編號，並發收條至中心微信群。
+1. 交付現金 或
+2. 把學費存入以下戶口，請於備註註明學生姓名及其編號，並發收條至中心微信群。
 銀行：中國銀行
 名稱：弘教數學教育中心
 號碼：{bank_map.get(location, '')}
@@ -1716,9 +1715,8 @@ Lesson Dates:
 Fee: ${total_fee:,}{discount_text}
 
 Parents may choose one of the following payment methods:
-1. Auto-transfer (if auto-transfer is enabled, the fee will be deducted automatically within 7 days — please ensure sufficient balance)
-2. Cash payment, or
-3. Bank transfer to the following account. Please include the student name and ID in the remarks, and send the receipt to our center's WeChat group.
+1. Cash payment, or
+2. Bank transfer to the following account. Please include the student name and ID in the remarks, and send the receipt to our center's WeChat group.
 Bank: Bank of China
 Account Name: 弘教數學教育中心
 Account Number: {bank_map.get(location, '')}
