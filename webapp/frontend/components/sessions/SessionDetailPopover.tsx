@@ -729,8 +729,22 @@ export function SessionDetailPopover({
           {parsed && (
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Time:</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">
+              <span className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-1">
                 {parsed.start} - {parsed.end}
+                {session.session_date && (
+                  <Link
+                    href={`/sessions?date=${session.session_date}${session.tutor_id ? `&tutor=${session.tutor_id}` : ''}${session.time_slot ? `&slot=${encodeURIComponent(session.time_slot)}` : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNavigate?.();
+                      onClose();
+                    }}
+                    className="text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+                    title="View in schedule"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                )}
               </span>
             </div>
           )}

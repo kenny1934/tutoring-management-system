@@ -114,6 +114,8 @@ export default function SessionsPage() {
   const [tutorFilter, setTutorFilter] = useState(() => {
     return searchParams.get('tutor') || "";
   });
+  // Track if URL had an explicit ?tutor= param (consumed once on mount)
+  const urlTutorOverride = useRef(searchParams.get('tutor') || '');
 
   // Get the effective user ID (respects impersonation)
   const effectiveUserId = useMemo(() => {
@@ -125,6 +127,12 @@ export default function SessionsPage() {
 
   // Sync tutor filter with center/my view mode
   useEffect(() => {
+    // On mount, respect explicit ?tutor= param (e.g., navigated from session popover)
+    if (urlTutorOverride.current) {
+      setTutorFilter(urlTutorOverride.current);
+      urlTutorOverride.current = '';
+      return;
+    }
     if (roleViewMode === 'my-view') {
       // In my-view, default to own tutor
       setTutorFilter(effectiveUserId);
@@ -169,7 +177,14 @@ export default function SessionsPage() {
     if (urlStatus !== statusFilter) {
       setStatusFilter(urlStatus);
     }
-    // Note: tutorFilter is managed by roleViewMode effect, don't sync from URL here
+    // Apply tutor from URL (for client-side navigation, e.g., session popover link)
+    const urlTutor = searchParams.get('tutor');
+    if (urlTutor) {
+      urlTutorOverride.current = urlTutor;  // Protect from roleViewMode override
+      if (urlTutor !== tutorFilter) {
+        setTutorFilter(urlTutor);
+      }
+    }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build filters for SWR hook
@@ -207,6 +222,18 @@ export default function SessionsPage() {
   // SWR hooks for data fetching with caching
   const { data: sessions = [], error, isLoading: loading, mutate: mutateSessions } = useSessions(sessionFilters);
   const { data: tutors = [] } = useActiveTutors();
+
+  // Scroll to time slot specified in URL ?slot= param (once per navigation)
+  const lastScrolledSlot = useRef('');
+  useEffect(() => {
+    const slot = searchParams.get('slot');
+    if (!slot || slot === lastScrolledSlot.current || loading || sessions.length === 0) return;
+    lastScrolledSlot.current = slot;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`slot-${slot}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [searchParams, loading, sessions.length]);
 
   // Refresh state tracking
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1995,7 +2022,7 @@ export default function SessionsPage() {
                   <React.Fragment key={timeSlot}>
                     {/* Time Slot Header - Index Card Style (Clickable to collapse) */}
                     {/* Outer div is clean sticky container; inner div has visual effects */}
-                    <div className={cn("sticky mb-4", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
+                    <div id={`slot-${timeSlot}`} className={cn("sticky mb-4", slotDropdownOpen === timeSlot ? "z-50" : "z-20")} style={{ top: timeSlotStickyTop }}>
                       <div
                         onClick={() => toggleSlot(timeSlot)}
                         className={cn(
