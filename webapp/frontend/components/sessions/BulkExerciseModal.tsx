@@ -696,15 +696,8 @@ export function BulkExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+N</kbd>
-            <span>add</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+⌫</kbd>
-            <span>delete</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+↵/S</kbd>
-            <span>save</span>
+          <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 hidden sm:inline">
+            Alt+N add · Alt+⌫ del · Ctrl+↵ save
           </span>
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleCloseAttempt} disabled={isSaving}>
@@ -834,7 +827,7 @@ export function BulkExerciseModal({
           )}>
             Click &quot;Add {title}&quot; to add exercises for all selected sessions.
           </div>
-        ) : (
+        ) : (<>
           <div className="space-y-3">
             {exercises.map((exercise, index) => (
               <div
@@ -965,7 +958,21 @@ export function BulkExerciseModal({
               </div>
             ))}
           </div>
-        )}
+          {/* Bottom add row */}
+          <button
+            type="button"
+            onClick={addExercise}
+            className={cn(
+              "w-full flex items-center justify-center gap-1.5 py-2 text-sm rounded-lg border-2 border-dashed transition-colors",
+              isCW
+                ? "text-red-400 dark:text-red-500 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400"
+                : "text-blue-400 dark:text-blue-500 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 dark:hover:text-blue-400"
+            )}
+          >
+            <Plus className="h-4 w-4" />
+            Add {title}
+          </button>
+        </>)}
       </div>
 
       {/* Folder Tree Modal */}
