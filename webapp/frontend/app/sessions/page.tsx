@@ -557,9 +557,11 @@ export default function SessionsPage() {
           const priorityB = getPriority(b);
           if (priorityA !== priorityB) return priorityA - priorityB;
 
-          // Within same priority, sort by school then student_id
-          const schoolCompare = (a.school || '').localeCompare(b.school || '');
-          if (schoolCompare !== 0) return schoolCompare;
+          // Within same priority (especially main group), sort by school then student_id
+          if (priorityA <= 2) {
+            const schoolCompare = (a.school || '').localeCompare(b.school || '');
+            if (schoolCompare !== 0) return schoolCompare;
+          }
           return (a.school_student_id || '').localeCompare(b.school_student_id || '');
         });
 
