@@ -181,7 +181,7 @@ export function BulkExerciseModal({
 
       const results = await Promise.allSettled(
         batch.map(session =>
-          sessionsAPI.saveExercises(session.id, exerciseType, apiExercises)
+          sessionsAPI.saveExercises(session.id, exerciseType, apiExercises, { append: true })
             .then(updated => {
               updateSessionInCache(updated);
               return { sessionId: session.id, success: true };

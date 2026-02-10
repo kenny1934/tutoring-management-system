@@ -605,13 +605,15 @@ export const sessionsAPI = {
       page_start?: number | null;
       page_end?: number | null;
       remarks?: string | null;
-    }>
+    }>,
+    options?: { append?: boolean }
   ) => {
     return fetchAPI<Session>(`/sessions/${sessionId}/exercises`, {
       method: 'PUT',
       body: JSON.stringify({
         exercise_type: exerciseType,
         exercises,
+        ...(options?.append && { append: true }),
       }),
     });
   },
