@@ -650,6 +650,11 @@ export function BulkExerciseModal({
         handleCloseAttempt();
         return;
       }
+
+      // Block unmodified single-character keys from reaching parent page handlers
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1) {
+        e.stopPropagation();
+      }
     };
 
     // Use capture phase to intercept before modal's handlers
