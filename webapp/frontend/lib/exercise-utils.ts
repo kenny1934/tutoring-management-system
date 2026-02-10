@@ -328,3 +328,132 @@ export function getDisplayName(pdfName: string): string {
   const filename = pdfName.split(/[/\\]/).pop() || pdfName;
   return filename.replace(/\.[^.]+$/, '');
 }
+
+// ============================================================================
+// Clipboard Utilities
+// ============================================================================
+
+const CLIPBOARD_KEY = 'csm_exercise_clipboard';
+const CLIPBOARD_EVENT = 'exercise-clipboard-changed';
+
+export interface ExerciseClipboardItem {
+  pdf_name: string;
+  page_mode: 'simple' | 'custom';
+  page_start: string;
+  page_end: string;
+  complex_pages: string;
+  remarks: string;
+  answer_pdf_name: string;
+  answer_page_mode: 'simple' | 'custom';
+  answer_page_start: string;
+  answer_page_end: string;
+  answer_complex_pages: string;
+}
+
+export interface ExerciseClipboardData {
+  exercises: ExerciseClipboardItem[];
+  sourceSessionId: number;
+  sourceStudentName: string;
+  copiedAt: string;
+}
+
+function dispatchClipboardEvent() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(CLIPBOARD_EVENT));
+  }
+}
+
+/**
+ * Copy exercises to sessionStorage clipboard.
+ * Strips clientId, id, and exercise_type — those are regenerated on paste.
+ */
+export function copyExercisesToClipboard(
+  exercises: ExerciseFormItemBase[],
+  sourceSessionId: number,
+  sourceStudentName: string
+): number {
+  if (typeof window === 'undefined') return 0;
+
+  const items: ExerciseClipboardItem[] = exercises.map(ex => ({
+    pdf_name: ex.pdf_name,
+    page_mode: ex.page_mode,
+    page_start: ex.page_start,
+    page_end: ex.page_end,
+    complex_pages: ex.complex_pages,
+    remarks: ex.remarks,
+    answer_pdf_name: ex.answer_pdf_name,
+    answer_page_mode: ex.answer_page_mode,
+    answer_page_start: ex.answer_page_start,
+    answer_page_end: ex.answer_page_end,
+    answer_complex_pages: ex.answer_complex_pages,
+  }));
+
+  const data: ExerciseClipboardData = {
+    exercises: items,
+    sourceSessionId,
+    sourceStudentName,
+    copiedAt: new Date().toISOString(),
+  };
+
+  sessionStorage.setItem(CLIPBOARD_KEY, JSON.stringify(data));
+  dispatchClipboardEvent();
+  return items.length;
+}
+
+/**
+ * Read clipboard data from sessionStorage.
+ * Returns null if clipboard is empty or corrupted.
+ */
+export function getExerciseClipboard(): ExerciseClipboardData | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = sessionStorage.getItem(CLIPBOARD_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as ExerciseClipboardData;
+    if (!data.exercises || !Array.isArray(data.exercises) || data.exercises.length === 0) {
+      return null;
+    }
+    return data;
+  } catch {
+    try { sessionStorage.removeItem(CLIPBOARD_KEY); } catch { /* ignore */ }
+    return null;
+  }
+}
+
+/**
+ * Clear the exercise clipboard.
+ */
+export function clearExerciseClipboard(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(CLIPBOARD_KEY);
+  dispatchClipboardEvent();
+}
+
+/**
+ * Create ExerciseFormItemBase array from clipboard items.
+ * Generates fresh clientIds and sets the target exercise_type.
+ */
+export function createExercisesFromClipboard(
+  items: ExerciseClipboardItem[],
+  exerciseType: "CW" | "HW"
+): ExerciseFormItemBase[] {
+  return items.map(item => ({
+    clientId: generateClientId(),
+    exercise_type: exerciseType,
+    pdf_name: item.pdf_name,
+    page_mode: item.page_mode,
+    page_start: item.page_start,
+    page_end: item.page_end,
+    complex_pages: item.complex_pages,
+    remarks: item.remarks,
+    answer_pdf_name: item.answer_pdf_name,
+    answer_page_mode: item.answer_page_mode,
+    answer_page_start: item.answer_page_start,
+    answer_page_end: item.answer_page_end,
+    answer_complex_pages: item.answer_complex_pages,
+  }));
+}
+
+/** Event name for clipboard change listeners */
+export { CLIPBOARD_EVENT };

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -20,7 +22,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -28,6 +30,7 @@ import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { exerciseInputClass } from "./exercise-constants";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -42,6 +45,25 @@ interface ExerciseModalProps {
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
   /** When true, disables save action (Supervisor mode) */
   readOnly?: boolean;
+}
+
+/** Thin wrapper for Reorder.Item that provides drag controls via render prop */
+function ReorderableItem({ value, disabled, children }: {
+  value: string;
+  disabled?: boolean;
+  children: (controls: DragControls | null) => React.ReactNode;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={value}
+      dragListener={false}
+      dragControls={disabled ? undefined : controls}
+      style={{ listStyle: "none" }}
+    >
+      {children(disabled ? null : controls)}
+    </Reorder.Item>
+  );
 }
 
 export function ExerciseModal({
@@ -77,6 +99,11 @@ export function ExerciseModal({
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
 
+  // Copy/paste state
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [showPasteConfirm, setShowPasteConfirm] = useState(false);
+  const [clipboardData, setClipboardData] = useState<ExerciseClipboardData | null>(null);
+
   // Form dirty tracking and close confirmation (from ui-hooks)
   const {
     isDirty,
@@ -93,6 +120,8 @@ export function ExerciseModal({
     setExercises((prev) => prev.filter((_, i) => i !== index));
     setIsDirty(true);
     setFocusedRowIndex(null);
+    // Clear selections since indices shift after delete
+    setSelectedIndices(new Set());
   }, [setIsDirty]);
 
   const {
@@ -176,6 +205,14 @@ export function ExerciseModal({
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
 
+  // Keep clipboard data in sync when it changes externally
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = () => setClipboardData(getExerciseClipboard());
+    window.addEventListener(CLIPBOARD_EVENT, handler);
+    return () => window.removeEventListener(CLIPBOARD_EVENT, handler);
+  }, [isOpen]);
+
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -216,23 +253,38 @@ export function ExerciseModal({
       setExercises(filteredExercises);
       setIsDirty(false);
       setValidationErrors([]);
+      setSelectedIndices(new Set());
+      setClipboardData(getExerciseClipboard());
     }
     if (!isOpen) {
       initializedRef.current = false;
       setIsDirty(false);
       setValidationErrors([]);
       setShowCloseConfirm(false);
+      setShowPasteConfirm(false);
+      setSelectedIndices(new Set());
+      setBrowsingForAnswerClientId(null);
+      setAnswerFolderTreeOpen(false);
     }
   }, [isOpen, session, exerciseType]);
 
 
   const handleSave = useCallback(async () => {
+    // Filter out empty exercises (no PDF name)
+    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    if (validExercises.length < exercises.length) {
+      setExercises(validExercises);
+    }
+
+    if (validExercises.length === 0) {
+      onClose();
+      return;
+    }
+
     // Validate page ranges before saving
     const errors: ExerciseValidationError[] = [];
-    exercises.forEach((ex, idx) => {
-      if (ex.pdf_name.trim()) { // Only validate exercises with PDF names
-        errors.push(...validateExercisePageRange(ex, idx));
-      }
+    validExercises.forEach((ex, idx) => {
+      errors.push(...validateExercisePageRange(ex, idx));
     });
 
     if (errors.length > 0) {
@@ -245,7 +297,7 @@ export function ExerciseModal({
     setValidationErrors([]);
 
     const sessionId = session.id;
-    const currentExercises = [...exercises];
+    const currentExercises = [...validExercises];
     const originalSession = session; // Store for rollback on error
 
     // Build API format - only use the active mode's values
@@ -328,6 +380,62 @@ export function ExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
+  // Toggle checkbox selection for an exercise row
+  const toggleSelection = useCallback((index: number) => {
+    setSelectedIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  // Select all / deselect all
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIndices(prev => {
+      if (prev.size === exercises.length) return new Set();
+      return new Set(exercises.map((_, i) => i));
+    });
+  }, [exercises.length]);
+
+  // Copy selected exercises (or all if none selected) to clipboard
+  const handleCopyExercises = useCallback(() => {
+    if (exercises.length === 0) {
+      showToast('No exercises to copy', 'info');
+      return;
+    }
+    const toCopy = selectedIndices.size > 0
+      ? exercises.filter((_, i) => selectedIndices.has(i))
+      : exercises;
+    copyExercisesToClipboard(toCopy, session.id, session.student_name || '');
+    setClipboardData(getExerciseClipboard());
+  }, [exercises, selectedIndices, session.id, session.student_name]);
+
+  // Show paste confirmation dialog
+  const handlePasteRequest = useCallback(() => {
+    const clipboard = getExerciseClipboard();
+    if (!clipboard) {
+      showToast('Clipboard is empty', 'info');
+      return;
+    }
+    setClipboardData(clipboard);
+    setShowPasteConfirm(true);
+  }, [showToast]);
+
+  // Execute paste after confirmation
+  const handlePasteConfirm = useCallback(() => {
+    if (!clipboardData) return;
+    const newExercises = createExercisesFromClipboard(clipboardData.exercises, exerciseType);
+    setExercises(prev => [...prev, ...newExercises]);
+    setIsDirty(true);
+    shouldFocusNewRef.current = true;
+    setShowPasteConfirm(false);
+    showToast(
+      `Pasted ${newExercises.length} exercise${newExercises.length !== 1 ? 's' : ''}${clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}`,
+      'success'
+    );
+  }, [clipboardData, exerciseType, showToast, setIsDirty]);
+
   // Handle manual browse for answer file
   const handleBrowseAnswer = useCallback((clientId: string) => {
     setBrowsingForAnswerClientId(clientId);
@@ -401,6 +509,44 @@ export function ExerciseModal({
         }
       }
 
+      // Ctrl+C - Copy exercises (only when checkboxes are selected, to avoid blocking native copy)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && !e.shiftKey && !e.altKey) {
+        if (selectedIndices.size > 0) {
+          e.preventDefault();
+          handleCopyExercises();
+          return;
+        }
+        // If nothing selected, let native copy work
+      }
+
+      // Ctrl+V - Paste exercises (only when not focused on an input/textarea)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && !e.shiftKey && !e.altKey) {
+        const active = document.activeElement;
+        const isInputFocused = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+        if (!isInputFocused && getExerciseClipboard()) {
+          e.preventDefault();
+          handlePasteRequest();
+          return;
+        }
+        // If focused on input, let native paste work
+      }
+
+      // Handle paste confirm dialog keyboard
+      if (showPasteConfirm) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          handlePasteConfirm();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPasteConfirm(false);
+          return;
+        }
+      }
+
       // Cmd/Ctrl+Enter or Cmd/Ctrl+S - Save
       if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
         e.preventDefault();
@@ -436,12 +582,17 @@ export function ExerciseModal({
         handleCloseAttempt();
         return;
       }
+
+      // Block all keyboard events from reaching parent page handlers.
+      // Native input behavior (typing, Ctrl+A select, etc.) still works
+      // because stopPropagation only blocks JS handlers, not browser defaults.
+      e.stopPropagation();
     };
 
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
+  }, [isOpen, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -456,6 +607,15 @@ export function ExerciseModal({
     if (['page_start', 'page_end', 'complex_pages'].includes(field)) {
       setValidationErrors((prev) => prev.filter((e) => !(e.index === index && e.field === field)));
     }
+  };
+
+  // Apply page fields from a selection to an exercise row
+  const applyPageFields = (index: number, pageFields: ReturnType<typeof getPageFieldsFromSelection>) => {
+    if (!pageFields) return;
+    updateExercise(index, "page_mode", pageFields.page_mode);
+    updateExercise(index, "page_start", pageFields.page_start);
+    updateExercise(index, "page_end", pageFields.page_end);
+    updateExercise(index, "complex_pages", pageFields.complex_pages);
   };
 
   // Check if a field has validation error
@@ -568,15 +728,8 @@ export function ExerciseModal({
     if (browsingForIndex !== null) {
       updateExercise(browsingForIndex, "pdf_name", path);
 
-      // Apply page selection if provided
       if (pages) {
-        const pageFields = getPageFieldsFromSelection(parsePageInput(pages));
-        if (pageFields) {
-          updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
-          updateExercise(browsingForIndex, "page_start", pageFields.page_start);
-          updateExercise(browsingForIndex, "page_end", pageFields.page_end);
-          updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
-        }
+        applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(pages)));
       }
 
       setBrowsingForIndex(null);
@@ -592,14 +745,7 @@ export function ExerciseModal({
     if (browsingForIndex !== null && selections.length > 0) {
       const first = selections[0];
       updateExercise(browsingForIndex, "pdf_name", first.path);
-
-      const pageFields = getPageFieldsFromSelection(parsePageInput(first.pages));
-      if (pageFields) {
-        updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(browsingForIndex, "page_start", pageFields.page_start);
-        updateExercise(browsingForIndex, "page_end", pageFields.page_end);
-        updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(first.pages)));
 
       startIndex = 1;
     }
@@ -669,14 +815,7 @@ export function ExerciseModal({
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
 
-      // Auto-populate page fields if selection has page info
-      const pageFields = getPageFieldsFromSelection(pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(pageSelection));
 
       setSearchingForIndex(null);
     }
@@ -690,15 +829,7 @@ export function ExerciseModal({
       const first = selections[0];
       // First selection goes to the current row
       updateExercise(searchingForIndex, "pdf_name", first.path);
-
-      // Apply page selection for the first item
-      const pageFields = getPageFieldsFromSelection(first.pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(first.pageSelection));
 
       // Additional selections create new rows
       if (selections.length > 1) {
@@ -792,14 +923,7 @@ export function ExerciseModal({
   const title = isCW ? "Classwork" : "Homework";
   const Icon = isCW ? PenTool : Home;
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
+  const inputClass = exerciseInputClass;
 
   return (
     <Modal
@@ -822,15 +946,8 @@ export function ExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+N</kbd>
-            <span>add</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+⌫</kbd>
-            <span>delete</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+↵/S</kbd>
-            <span>save</span>
+          <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 hidden sm:inline">
+            Alt+N add · Alt+⌫ del · Ctrl+↵ save · Ctrl+C/V copy
           </span>
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleCloseAttempt}>
@@ -1189,16 +1306,16 @@ export function ExerciseModal({
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
           {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handlePrintAll}
                 disabled={printAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
                   printAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1210,14 +1327,14 @@ export function ExerciseModal({
                 ) : (
                   <Printer className="h-4 w-4" />
                 )}
-                Print All
+                <span className="hidden md:inline">Print All</span>
               </button>
               <button
                 type="button"
                 onClick={handleDownloadAll}
                 disabled={downloadAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
                   downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1229,14 +1346,15 @@ export function ExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                Download All
+                <span className="hidden md:inline">Download All</span>
+                <span className="md:hidden">All</span>
               </button>
               <button
                 type="button"
                 onClick={handleDownloadAllAnswers}
                 disabled={downloadAllAnswersState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50",
                   downloadAllAnswersState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1248,27 +1366,111 @@ export function ExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                Download Answers
+                <span className="hidden md:inline">Download Answers</span>
+                <span className="md:hidden">Ans</span>
               </button>
             </div>
           ) : (
             <div /> // Spacer
           )}
 
+          {/* Add button */}
           <button
             type="button"
             onClick={addExercise}
             className={cn(
-              "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+              "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
               isCW
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                 : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
             )}
           >
             <Plus className="h-4 w-4" />
-            Add {title}
+            <span className="hidden md:inline">Add {title}</span>
           </button>
         </div>
+
+        {/* Copy/Paste Controls Row */}
+        {((exercises.length > 0 && !readOnly) || (clipboardData && !readOnly)) && (
+          <div className="flex items-center gap-1.5">
+            {/* Select All toggle */}
+            {exercises.length > 0 && !readOnly && (
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1 px-1.5 py-1 text-xs rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                title={selectedIndices.size === exercises.length ? "Deselect all" : "Select all"}
+              >
+                {selectedIndices.size === exercises.length && exercises.length > 0 ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                <span>{selectedIndices.size === exercises.length && exercises.length > 0 ? "Deselect" : "Select all"}</span>
+              </button>
+            )}
+
+            {/* Copy button */}
+            {exercises.length > 0 && !readOnly && (
+              <button
+                type="button"
+                onClick={handleCopyExercises}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                title={selectedIndices.size > 0
+                  ? `Copy ${selectedIndices.size} selected exercise${selectedIndices.size !== 1 ? 's' : ''} (Ctrl+C)`
+                  : `Copy all ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} (Ctrl+C)`}
+              >
+                <Copy className="h-3 w-3" />
+                Copy{selectedIndices.size > 0 ? ` (${selectedIndices.size})` : ''}
+              </button>
+            )}
+
+            {/* Paste button */}
+            {clipboardData && !readOnly && (
+              <button
+                type="button"
+                onClick={handlePasteRequest}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
+                title={`Paste ${clipboardData.exercises.length} exercise${clipboardData.exercises.length !== 1 ? 's' : ''} from ${clipboardData.sourceStudentName || 'clipboard'} (Ctrl+V)`}
+              >
+                <Clipboard className="h-3 w-3" />
+                Paste
+                <span className="text-[10px] px-1 py-0.5 bg-teal-500 text-white rounded-full min-w-[16px] text-center leading-tight">
+                  {clipboardData.exercises.length}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Paste Confirmation Dialog */}
+        {showPasteConfirm && clipboardData && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clipboard className="h-4 w-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+              <span className="text-sm text-teal-700 dark:text-teal-300">
+                Paste {clipboardData.exercises.length} exercise{clipboardData.exercises.length !== 1 ? 's' : ''}
+                {clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}?
+              </span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPasteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePasteConfirm}
+                className="bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                Paste
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Exercises List */}
         {exercises.length === 0 ? (
@@ -1280,16 +1482,27 @@ export function ExerciseModal({
           )}>
             No {title.toLowerCase()} assigned yet. Click "Add {title}" to add one.
           </div>
-        ) : (
-          <div className="space-y-3">
+        ) : (<>
+          <Reorder.Group
+            axis="y"
+            values={exercises.map(ex => ex.clientId)}
+            onReorder={(newOrder) => {
+              const reordered = newOrder.map(id => exercises.find(ex => ex.clientId === id)!);
+              setExercises(reordered);
+              setIsDirty(true);
+              setSelectedIndices(new Set());
+            }}
+            className="space-y-3"
+          >
             {exercises.map((exercise, index) => (
+              <ReorderableItem key={exercise.clientId} value={exercise.clientId} disabled={readOnly}>
+                {(dragControls) => (
               <div
-                key={index}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "p-3 rounded-lg border transition-all",
+                  "p-3 rounded-lg border transition-all select-none",
                   isCW
                     ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
                     : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
@@ -1298,21 +1511,32 @@ export function ExerciseModal({
                 )}
               >
                 <div className="space-y-2">
-                  {/* Row 1: Type badge, PDF path, action buttons, delete */}
+                  {/* Row 1: Drag handle, Checkbox, Type badge, PDF path, action buttons, delete */}
                   <div className="flex items-center gap-2">
-                    {/* Fixed-width badge container for alignment */}
-                    <div className="w-12 shrink-0 flex justify-center">
-                      <div
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
-                          isCW
-                            ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
-                            : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
-                        )}
-                      >
-                        <Icon className="h-3 w-3" />
-                        {exerciseType}
-                      </div>
+                    {/* Handle + Checkbox: stack on mobile, row on desktop */}
+                    <div className="flex flex-col md:flex-row items-center gap-0.5 shrink-0">
+                      {dragControls && (
+                        <div
+                          className="cursor-grab active:cursor-grabbing touch-none p-0.5"
+                          onPointerDown={(e) => dragControls.start(e)}
+                        >
+                          <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                        </div>
+                      )}
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => toggleSelection(index)}
+                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
+                        >
+                          {selectedIndices.has(index) ? (
+                            <CheckSquare className="h-4 w-4 text-teal-500 dark:text-teal-400" />
+                          ) : (
+                            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     {/* PDF path input */}
@@ -1353,11 +1577,11 @@ export function ExerciseModal({
 
                   {/* Row 2: Page Range Mode Selection */}
                   <div className="flex gap-2 items-start">
-                    {/* Spacer matching row 1 badge container width */}
-                    <div className="w-12 shrink-0" />
+                    {/* Spacer matching row 1 handle+checkbox column */}
+                    <div className="w-5 md:w-10 shrink-0" />
 
                     {/* Page Range Section with Radio Toggle */}
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <ExercisePageRangeInput
                         radioName={`page-mode-${index}`}
                         pageMode={exercise.page_mode}
@@ -1409,9 +1633,27 @@ export function ExerciseModal({
                   </div>
                 </div>
               </div>
+                )}
+              </ReorderableItem>
             ))}
-          </div>
-        )}
+          </Reorder.Group>
+          {/* Bottom add row */}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={addExercise}
+              className={cn(
+                "w-full flex items-center justify-center gap-1.5 py-2 text-sm rounded-lg border-2 border-dashed transition-colors",
+                isCW
+                  ? "text-red-400 dark:text-red-500 border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400"
+                  : "text-blue-400 dark:text-blue-500 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-500 dark:hover:text-blue-400"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              Add {title}
+            </button>
+          )}
+        </>)}
       </div>
 
       {/* Folder Tree Browser Modal */}
