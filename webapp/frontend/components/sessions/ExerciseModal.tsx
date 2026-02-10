@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -20,7 +20,7 @@ import { CopyPathButton } from "@/components/ui/copy-path-button";
 import { useCoursewarePopularity, useCoursewareUsageDetail, useSession } from "@/lib/hooks";
 import { PdfPreviewModal } from "@/components/ui/pdf-preview-modal";
 import type { PaperlessDocument } from "@/lib/api";
-import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection } from "@/lib/exercise-utils";
+import { parseExerciseRemarks, detectPageMode, combineExerciseRemarks, validateExercisePageRange, parsePageInput, getPageFieldsFromSelection, insertExercisesAfterIndex, type ExerciseValidationError, type ExerciseFormItemBase, generateClientId, createExercise, createExerciseFromSelection, copyExercisesToClipboard, getExerciseClipboard, createExercisesFromClipboard, CLIPBOARD_EVENT, type ExerciseClipboardData } from "@/lib/exercise-utils";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { ExercisePageRangeInput } from "./ExercisePageRangeInput";
 import { ExerciseActionButtons } from "./ExerciseActionButtons";
@@ -77,6 +77,11 @@ export function ExerciseModal({
   const [batchSearchOpen, setBatchSearchOpen] = useState(false);
   const [searchFilenames, setSearchFilenames] = useState<string[]>([]);
 
+  // Copy/paste state
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [showPasteConfirm, setShowPasteConfirm] = useState(false);
+  const [clipboardData, setClipboardData] = useState<ExerciseClipboardData | null>(null);
+
   // Form dirty tracking and close confirmation (from ui-hooks)
   const {
     isDirty,
@@ -93,6 +98,8 @@ export function ExerciseModal({
     setExercises((prev) => prev.filter((_, i) => i !== index));
     setIsDirty(true);
     setFocusedRowIndex(null);
+    // Clear selections since indices shift after delete
+    setSelectedIndices(new Set());
   }, [setIsDirty]);
 
   const {
@@ -176,6 +183,14 @@ export function ExerciseModal({
     setCanBrowseFiles(isFileSystemAccessSupported());
   }, []);
 
+  // Keep clipboard data in sync when it changes externally
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = () => setClipboardData(getExerciseClipboard());
+    window.addEventListener(CLIPBOARD_EVENT, handler);
+    return () => window.removeEventListener(CLIPBOARD_EVENT, handler);
+  }, [isOpen]);
+
 
   // Track if form has been initialized for this modal open
   const initializedRef = useRef(false);
@@ -216,12 +231,16 @@ export function ExerciseModal({
       setExercises(filteredExercises);
       setIsDirty(false);
       setValidationErrors([]);
+      setSelectedIndices(new Set());
+      setClipboardData(getExerciseClipboard());
     }
     if (!isOpen) {
       initializedRef.current = false;
       setIsDirty(false);
       setValidationErrors([]);
       setShowCloseConfirm(false);
+      setShowPasteConfirm(false);
+      setSelectedIndices(new Set());
     }
   }, [isOpen, session, exerciseType]);
 
@@ -328,6 +347,62 @@ export function ExerciseModal({
     shouldFocusNewRef.current = true;
   }, [exerciseType]);
 
+  // Toggle checkbox selection for an exercise row
+  const toggleSelection = useCallback((index: number) => {
+    setSelectedIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  // Select all / deselect all
+  const toggleSelectAll = useCallback(() => {
+    setSelectedIndices(prev => {
+      if (prev.size === exercises.length) return new Set();
+      return new Set(exercises.map((_, i) => i));
+    });
+  }, [exercises.length]);
+
+  // Copy selected exercises (or all if none selected) to clipboard
+  const handleCopyExercises = useCallback(() => {
+    if (exercises.length === 0) {
+      showToast('No exercises to copy', 'info');
+      return;
+    }
+    const toCopy = selectedIndices.size > 0
+      ? exercises.filter((_, i) => selectedIndices.has(i))
+      : exercises;
+    copyExercisesToClipboard(toCopy, session.id, session.student_name || '');
+    setClipboardData(getExerciseClipboard());
+  }, [exercises, selectedIndices, session.id, session.student_name]);
+
+  // Show paste confirmation dialog
+  const handlePasteRequest = useCallback(() => {
+    const clipboard = getExerciseClipboard();
+    if (!clipboard) {
+      showToast('Clipboard is empty', 'info');
+      return;
+    }
+    setClipboardData(clipboard);
+    setShowPasteConfirm(true);
+  }, [showToast]);
+
+  // Execute paste after confirmation
+  const handlePasteConfirm = useCallback(() => {
+    if (!clipboardData) return;
+    const newExercises = createExercisesFromClipboard(clipboardData.exercises, exerciseType);
+    setExercises(prev => [...prev, ...newExercises]);
+    setIsDirty(true);
+    shouldFocusNewRef.current = true;
+    setShowPasteConfirm(false);
+    showToast(
+      `Pasted ${newExercises.length} exercise${newExercises.length !== 1 ? 's' : ''}${clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}`,
+      'success'
+    );
+  }, [clipboardData, exerciseType, showToast, setIsDirty]);
+
   // Handle manual browse for answer file
   const handleBrowseAnswer = useCallback((clientId: string) => {
     setBrowsingForAnswerClientId(clientId);
@@ -401,6 +476,44 @@ export function ExerciseModal({
         }
       }
 
+      // Ctrl+C - Copy exercises (only when checkboxes are selected, to avoid blocking native copy)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && !e.shiftKey && !e.altKey) {
+        if (selectedIndices.size > 0) {
+          e.preventDefault();
+          handleCopyExercises();
+          return;
+        }
+        // If nothing selected, let native copy work
+      }
+
+      // Ctrl+V - Paste exercises (only when not focused on an input/textarea)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && !e.shiftKey && !e.altKey) {
+        const active = document.activeElement;
+        const isInputFocused = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+        if (!isInputFocused && getExerciseClipboard()) {
+          e.preventDefault();
+          handlePasteRequest();
+          return;
+        }
+        // If focused on input, let native paste work
+      }
+
+      // Handle paste confirm dialog keyboard
+      if (showPasteConfirm) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          handlePasteConfirm();
+          return;
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setShowPasteConfirm(false);
+          return;
+        }
+      }
+
       // Cmd/Ctrl+Enter or Cmd/Ctrl+S - Save
       if ((e.metaKey || e.ctrlKey) && (e.key === 'Enter' || e.key === 's')) {
         e.preventDefault();
@@ -441,7 +554,7 @@ export function ExerciseModal({
     // Use capture phase to intercept before modal's handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
+  }, [isOpen, handleSave, addExercise, handleCopyExercises, handlePasteRequest, handlePasteConfirm, showPasteConfirm, selectedIndices, focusedRowIndex, pendingDeleteIndex, requestDelete, confirmDelete, cancelDelete, showCloseConfirm, cancelClose, handleCloseAttempt]);
 
   const updateExercise = (
     index: number,
@@ -822,15 +935,8 @@ export function ExerciseModal({
       size="lg"
       footer={
         <div className="flex justify-between items-center gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:flex items-center gap-2">
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+N</kbd>
-            <span>add</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Alt+⌫</kbd>
-            <span>delete</span>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600 font-mono text-[10px]">Ctrl+↵/S</kbd>
-            <span>save</span>
+          <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 hidden sm:inline">
+            Alt+N add · Alt+⌫ del · Ctrl+↵ save · Ctrl+C/V copy
           </span>
           <div className="flex gap-3">
             <Button variant="outline" onClick={handleCloseAttempt}>
@@ -1255,6 +1361,7 @@ export function ExerciseModal({
             <div /> // Spacer
           )}
 
+          {/* Add button */}
           <button
             type="button"
             onClick={addExercise}
@@ -1269,6 +1376,88 @@ export function ExerciseModal({
             Add {title}
           </button>
         </div>
+
+        {/* Copy/Paste Controls Row */}
+        {((exercises.length > 0 && !readOnly) || (clipboardData && !readOnly)) && (
+          <div className="flex items-center gap-1.5">
+            {/* Select All toggle */}
+            {exercises.length > 0 && !readOnly && (
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="flex items-center gap-1 px-1.5 py-1 text-xs rounded transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                title={selectedIndices.size === exercises.length ? "Deselect all" : "Select all"}
+              >
+                {selectedIndices.size === exercises.length && exercises.length > 0 ? (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                ) : (
+                  <Square className="h-3.5 w-3.5" />
+                )}
+                <span>{selectedIndices.size === exercises.length && exercises.length > 0 ? "Deselect" : "Select all"}</span>
+              </button>
+            )}
+
+            {/* Copy button */}
+            {exercises.length > 0 && !readOnly && (
+              <button
+                type="button"
+                onClick={handleCopyExercises}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                title={selectedIndices.size > 0
+                  ? `Copy ${selectedIndices.size} selected exercise${selectedIndices.size !== 1 ? 's' : ''} (Ctrl+C)`
+                  : `Copy all ${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} (Ctrl+C)`}
+              >
+                <Copy className="h-3 w-3" />
+                Copy{selectedIndices.size > 0 ? ` (${selectedIndices.size})` : ''}
+              </button>
+            )}
+
+            {/* Paste button */}
+            {clipboardData && !readOnly && (
+              <button
+                type="button"
+                onClick={handlePasteRequest}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded transition-colors bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 hover:bg-teal-200 dark:hover:bg-teal-900/50"
+                title={`Paste ${clipboardData.exercises.length} exercise${clipboardData.exercises.length !== 1 ? 's' : ''} from ${clipboardData.sourceStudentName || 'clipboard'} (Ctrl+V)`}
+              >
+                <Clipboard className="h-3 w-3" />
+                Paste
+                <span className="text-[10px] px-1 py-0.5 bg-teal-500 text-white rounded-full min-w-[16px] text-center leading-tight">
+                  {clipboardData.exercises.length}
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Paste Confirmation Dialog */}
+        {showPasteConfirm && clipboardData && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800">
+            <div className="flex items-center gap-2 min-w-0">
+              <Clipboard className="h-4 w-4 text-teal-600 dark:text-teal-400 flex-shrink-0" />
+              <span className="text-sm text-teal-700 dark:text-teal-300">
+                Paste {clipboardData.exercises.length} exercise{clipboardData.exercises.length !== 1 ? 's' : ''}
+                {clipboardData.sourceStudentName ? ` from ${clipboardData.sourceStudentName}` : ''}?
+              </span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPasteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePasteConfirm}
+                className="bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                Paste
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Exercises List */}
         {exercises.length === 0 ? (
@@ -1298,8 +1487,23 @@ export function ExerciseModal({
                 )}
               >
                 <div className="space-y-2">
-                  {/* Row 1: Type badge, PDF path, action buttons, delete */}
+                  {/* Row 1: Checkbox, Type badge, PDF path, action buttons, delete */}
                   <div className="flex items-center gap-2">
+                    {/* Selection checkbox */}
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => toggleSelection(index)}
+                        className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
+                      >
+                        {selectedIndices.has(index) ? (
+                          <CheckSquare className="h-4 w-4 text-teal-500 dark:text-teal-400" />
+                        ) : (
+                          <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                        )}
+                      </button>
+                    )}
                     {/* Fixed-width badge container for alignment */}
                     <div className="w-12 shrink-0 flex justify-center">
                       <div
