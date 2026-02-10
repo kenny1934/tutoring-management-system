@@ -282,7 +282,7 @@ export function SessionSelectorModal({
           };
         });
 
-        await sessionsAPI.saveExercises(selection.sessionId, "CW", exercises);
+        await sessionsAPI.saveExercises(selection.sessionId, "CW", exercises, { append: true });
         completed++;
         setSaveProgress({ current: completed, total: selections.size });
       }
@@ -300,7 +300,7 @@ export function SessionSelectorModal({
           };
         });
 
-        await sessionsAPI.saveExercises(selection.sessionId, "HW", exercises);
+        await sessionsAPI.saveExercises(selection.sessionId, "HW", exercises, { append: true });
         completed++;
         setSaveProgress({ current: completed, total: selections.size });
       }

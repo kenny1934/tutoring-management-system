@@ -1295,7 +1295,7 @@ async def save_session_exercises(
     """
     Save exercises (CW or HW) for a session.
 
-    Replaces all exercises of the specified type with the new list.
+    Replaces all exercises of the specified type with the new list, unless append=true.
     Requires authentication. Tutors can only modify their own sessions.
 
     - **session_id**: The session's database ID
@@ -1317,11 +1317,12 @@ async def save_session_exercises(
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own sessions")
 
-    # Delete existing exercises of this type
-    db.query(SessionExercise).filter(
-        SessionExercise.session_id == session_id,
-        SessionExercise.exercise_type == request.exercise_type
-    ).delete(synchronize_session=False)
+    # Delete existing exercises of this type (skip when appending)
+    if not request.append:
+        db.query(SessionExercise).filter(
+            SessionExercise.session_id == session_id,
+            SessionExercise.exercise_type == request.exercise_type
+        ).delete(synchronize_session=False)
 
     # Insert new exercises using short form (CW/HW)
     for ex in request.exercises:

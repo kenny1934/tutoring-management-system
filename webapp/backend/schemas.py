@@ -523,6 +523,7 @@ class ExerciseSaveRequest(BaseModel):
     """Request schema for saving all exercises of a type for a session"""
     exercise_type: str = Field(..., pattern="^(CW|HW)$")
     exercises: List[ExerciseCreateRequest] = []
+    append: bool = Field(False, description="If true, append exercises instead of replacing")
 
 
 class BulkExerciseAssignRequest(BaseModel):
