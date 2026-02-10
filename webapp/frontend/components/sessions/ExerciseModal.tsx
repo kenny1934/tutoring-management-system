@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare } from "lucide-react";
+import { Plus, PenTool, Home, ExternalLink, Printer, Loader2, XCircle, TrendingUp, Flame, User, ChevronDown, ChevronRight, Eye, EyeOff, Info, ChevronUp, History, Star, Check, Download, Copy, Clipboard, Square, CheckSquare, GripVertical } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI, api } from "@/lib/api";
@@ -42,6 +44,25 @@ interface ExerciseModalProps {
   onSave?: (sessionId: number, exercises: ExerciseFormItem[]) => void;
   /** When true, disables save action (Supervisor mode) */
   readOnly?: boolean;
+}
+
+/** Thin wrapper for Reorder.Item that provides drag controls via render prop */
+function ReorderableItem({ value, disabled, children }: {
+  value: string;
+  disabled?: boolean;
+  children: (controls: DragControls | null) => React.ReactNode;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={value}
+      dragListener={false}
+      dragControls={disabled ? undefined : controls}
+      style={{ listStyle: "none" }}
+    >
+      {children(disabled ? null : controls)}
+    </Reorder.Item>
+  );
 }
 
 export function ExerciseModal({
@@ -246,12 +267,23 @@ export function ExerciseModal({
 
 
   const handleSave = useCallback(async () => {
+    // Filter out empty exercises (no PDF name)
+    const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
+    const emptyCount = exercises.length - validExercises.length;
+
+    if (emptyCount > 0) {
+      setExercises(validExercises);
+    }
+
+    if (validExercises.length === 0) {
+      onClose();
+      return;
+    }
+
     // Validate page ranges before saving
     const errors: ExerciseValidationError[] = [];
-    exercises.forEach((ex, idx) => {
-      if (ex.pdf_name.trim()) { // Only validate exercises with PDF names
-        errors.push(...validateExercisePageRange(ex, idx));
-      }
+    validExercises.forEach((ex, idx) => {
+      errors.push(...validateExercisePageRange(ex, idx));
     });
 
     if (errors.length > 0) {
@@ -264,7 +296,7 @@ export function ExerciseModal({
     setValidationErrors([]);
 
     const sessionId = session.id;
-    const currentExercises = [...exercises];
+    const currentExercises = [...validExercises];
     const originalSession = session; // Store for rollback on error
 
     // Build API format - only use the active mode's values
@@ -550,11 +582,10 @@ export function ExerciseModal({
         return;
       }
 
-      // Block unmodified single-character keys from reaching parent page handlers
-      // (e.g. 'A' for Attended, 'N' for No Show on sessions page)
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1) {
-        e.stopPropagation();
-      }
+      // Block all keyboard events from reaching parent page handlers.
+      // Native input behavior (typing, Ctrl+A select, etc.) still works
+      // because stopPropagation only blocks JS handlers, not browser defaults.
+      e.stopPropagation();
     };
 
     // Use capture phase to intercept before modal's handlers
@@ -1476,15 +1507,26 @@ export function ExerciseModal({
             No {title.toLowerCase()} assigned yet. Click "Add {title}" to add one.
           </div>
         ) : (<>
-          <div className="space-y-3">
+          <Reorder.Group
+            axis="y"
+            values={exercises.map(ex => ex.clientId)}
+            onReorder={(newOrder) => {
+              const reordered = newOrder.map(id => exercises.find(ex => ex.clientId === id)!);
+              setExercises(reordered);
+              setIsDirty(true);
+              setSelectedIndices(new Set());
+            }}
+            className="space-y-3"
+          >
             {exercises.map((exercise, index) => (
+              <ReorderableItem key={exercise.clientId} value={exercise.clientId} disabled={readOnly}>
+                {(dragControls) => (
               <div
-                key={index}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "p-3 rounded-lg border transition-all",
+                  "p-3 rounded-lg border transition-all select-none",
                   isCW
                     ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
                     : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
@@ -1493,8 +1535,17 @@ export function ExerciseModal({
                 )}
               >
                 <div className="space-y-2">
-                  {/* Row 1: Checkbox, Type badge, PDF path, action buttons, delete */}
+                  {/* Row 1: Drag handle, Checkbox, Type badge, PDF path, action buttons, delete */}
                   <div className="flex items-center gap-2">
+                    {/* Drag handle for reordering */}
+                    {dragControls && (
+                      <div
+                        className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-0.5"
+                        onPointerDown={(e) => dragControls.start(e)}
+                      >
+                        <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      </div>
+                    )}
                     {/* Selection checkbox */}
                     {!readOnly && (
                       <button
@@ -1619,8 +1670,10 @@ export function ExerciseModal({
                   </div>
                 </div>
               </div>
+                )}
+              </ReorderableItem>
             ))}
-          </div>
+          </Reorder.Group>
           {/* Bottom add row */}
           {!readOnly && (
             <button

@@ -651,10 +651,8 @@ export function BulkExerciseModal({
         return;
       }
 
-      // Block unmodified single-character keys from reaching parent page handlers
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && e.key.length === 1) {
-        e.stopPropagation();
-      }
+      // Block all keyboard events from reaching parent page handlers.
+      e.stopPropagation();
     };
 
     // Use capture phase to intercept before modal's handlers
