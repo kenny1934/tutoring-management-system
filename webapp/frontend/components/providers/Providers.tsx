@@ -14,6 +14,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { ZenActivator } from "@/components/zen";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { ExerciseClipboardWidget } from "@/components/ui/ExerciseClipboardWidget";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -39,6 +40,7 @@ export function Providers({ children }: { children: ReactNode }) {
                       <CommandPalette />
                       <ZenActivator />
                       <OfflineBanner />
+                      <ExerciseClipboardWidget />
                     </ToastProvider>
                   </CommandPaletteProvider>
                 </ZenProvider>

@@ -123,6 +123,9 @@ export function RateSessionModal({
         textareaRef.current?.focus();
         return;
       }
+
+      // Block all keyboard events from reaching parent page handlers.
+      e.stopPropagation();
     };
 
     // Use capture phase to intercept before modal's handlers

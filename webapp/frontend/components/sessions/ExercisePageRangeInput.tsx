@@ -36,17 +36,11 @@ export function ExercisePageRangeInput({
   complexPagesError,
 }: ExercisePageRangeInputProps) {
   const isSimple = pageMode === "simple";
-  const isCustom = pageMode === "custom";
 
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1">
-      {/* Simple Range Mode */}
-      <label
-        className={cn(
-          "flex items-center gap-2 cursor-pointer transition-opacity",
-          !isSimple && "opacity-50"
-        )}
-      >
+    <div className="flex items-center gap-2 flex-wrap">
+      {/* Radio: Range */}
+      <label className="flex items-center gap-1 cursor-pointer">
         <input
           type="radio"
           name={radioName}
@@ -57,63 +51,15 @@ export function ExercisePageRangeInput({
           }}
           className="text-amber-500 focus:ring-amber-400"
         />
-        <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Range:</span>
-        <input
-          type="number"
-          value={pageStart}
-          onChange={(e) => {
-            if (!isSimple) {
-              onPageModeChange("simple");
-              onComplexPagesChange("");
-            }
-            onPageStartChange(e.target.value);
-          }}
-          onFocus={onFocus}
-          placeholder="From"
-          min="1"
-          disabled={!isSimple}
-          className={cn(
-            inputClass,
-            "text-xs py-1 w-16",
-            !isSimple && "opacity-50 cursor-not-allowed",
-            pageStartError && "border-red-500 ring-1 ring-red-500"
-          )}
-        />
-        <span className="text-xs text-gray-400">–</span>
-        <input
-          type="number"
-          value={pageEnd}
-          onChange={(e) => {
-            if (!isSimple) {
-              onPageModeChange("simple");
-              onComplexPagesChange("");
-            }
-            onPageEndChange(e.target.value);
-          }}
-          onFocus={onFocus}
-          placeholder="To"
-          min="1"
-          disabled={!isSimple}
-          className={cn(
-            inputClass,
-            "text-xs py-1 w-16",
-            !isSimple && "opacity-50 cursor-not-allowed",
-            pageEndError && "border-red-500 ring-1 ring-red-500"
-          )}
-        />
+        <span className="text-xs text-gray-600 dark:text-gray-400">Range</span>
       </label>
 
-      {/* Custom Range Mode */}
-      <label
-        className={cn(
-          "flex items-center gap-2 cursor-pointer transition-opacity flex-1 min-w-[180px]",
-          !isCustom && "opacity-50"
-        )}
-      >
+      {/* Radio: Custom */}
+      <label className="flex items-center gap-1 cursor-pointer">
         <input
           type="radio"
           name={radioName}
-          checked={isCustom}
+          checked={!isSimple}
           onChange={() => {
             onPageModeChange("custom");
             onPageStartChange("");
@@ -121,30 +67,55 @@ export function ExercisePageRangeInput({
           }}
           className="text-amber-500 focus:ring-amber-400"
         />
-        <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Custom:</span>
+        <span className="text-xs text-gray-600 dark:text-gray-400">Custom</span>
+      </label>
+
+      {/* Conditional input: only show the active mode's fields */}
+      {isSimple ? (
+        <>
+          <input
+            type="number"
+            value={pageStart}
+            onChange={(e) => onPageStartChange(e.target.value)}
+            onFocus={onFocus}
+            placeholder="From"
+            min="1"
+            className={cn(
+              inputClass,
+              "text-xs py-1 w-14 md:w-[4.5rem]",
+              pageStartError && "border-red-500 ring-1 ring-red-500"
+            )}
+          />
+          <span className="text-xs text-gray-400">–</span>
+          <input
+            type="number"
+            value={pageEnd}
+            onChange={(e) => onPageEndChange(e.target.value)}
+            onFocus={onFocus}
+            placeholder="To"
+            min="1"
+            className={cn(
+              inputClass,
+              "text-xs py-1 w-14 md:w-[4.5rem]",
+              pageEndError && "border-red-500 ring-1 ring-red-500"
+            )}
+          />
+        </>
+      ) : (
         <input
           type="text"
           value={complexPages}
-          onChange={(e) => {
-            if (!isCustom) {
-              onPageModeChange("custom");
-              onPageStartChange("");
-              onPageEndChange("");
-            }
-            onComplexPagesChange(e.target.value);
-          }}
+          onChange={(e) => onComplexPagesChange(e.target.value)}
           onFocus={onFocus}
           placeholder="e.g. 1,3,5-7"
-          disabled={!isCustom}
           className={cn(
             inputClass,
-            "text-xs py-1 flex-1",
-            !isCustom && "opacity-50 cursor-not-allowed",
+            "text-xs py-1 flex-1 min-w-[100px]",
             complexPagesError && "border-red-500 ring-1 ring-red-500"
           )}
           title="Custom page range (e.g., 1,3,5-7)"
         />
-      </label>
+      )}
     </div>
   );
 }
