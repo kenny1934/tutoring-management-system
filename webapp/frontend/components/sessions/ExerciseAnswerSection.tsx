@@ -143,7 +143,7 @@ export function ExerciseAnswerSection({
         {answerPdfName ? (
           <>
             {/* Answer is set - show filename + Open + Download */}
-            <span className="text-xs text-green-600 dark:text-green-400 truncate max-w-[200px]" title={answerPdfName}>
+            <span className="text-xs text-green-600 dark:text-green-400 truncate flex-1 min-w-0" title={answerPdfName}>
               {getDisplayName(answerPdfName)}
             </span>
             {!expanded && (
@@ -151,7 +151,7 @@ export function ExerciseAnswerSection({
                 <button
                   type="button"
                   onClick={handleOpen}
-                  className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
                   title="Open answer file"
                 >
                   <ExternalLink className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
@@ -159,7 +159,7 @@ export function ExerciseAnswerSection({
                 <button
                   type="button"
                   onClick={handleDownload}
-                  className="px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                  className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
                   title="Download answer file"
                 >
                   <Download className="h-3 w-3 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
@@ -176,7 +176,7 @@ export function ExerciseAnswerSection({
               onClick={handleSearch}
               disabled={searchState === 'searching' || !pdfName}
               className={cn(
-                "px-1.5 py-1 rounded-md border transition-colors shrink-0",
+                "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-1.5 py-1 rounded-md border transition-colors shrink-0 flex items-center justify-center",
                 searchState === 'searching'
                   ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30"
                   : searchState === 'not_found'
@@ -202,7 +202,7 @@ export function ExerciseAnswerSection({
       {expanded && (
         <div className="pl-5 space-y-1 mt-1">
           {/* Answer path input + buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={answerPdfName}
@@ -216,7 +216,7 @@ export function ExerciseAnswerSection({
               <button
                 type="button"
                 onClick={onBrowseAnswer}
-                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
                 title="Browse for answer file"
               >
                 <FolderOpen className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
@@ -227,7 +227,7 @@ export function ExerciseAnswerSection({
               <button
                 type="button"
                 onClick={handleOpen}
-                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
                 title="Open answer file"
               >
                 <ExternalLink className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-blue-500" />
@@ -238,7 +238,7 @@ export function ExerciseAnswerSection({
               <button
                 type="button"
                 onClick={handleDownload}
-                className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
+                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0 flex items-center justify-center"
                 title="Download answer file"
               >
                 <Download className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400 hover:text-purple-500" />
@@ -249,7 +249,7 @@ export function ExerciseAnswerSection({
               <button
                 type="button"
                 onClick={handleClear}
-                className="ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0"
+                className="min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 ml-auto px-2 py-1.5 rounded-md border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors shrink-0 flex items-center justify-center"
                 title="Clear answer"
               >
                 <X className="h-3.5 w-3.5 text-red-500" />

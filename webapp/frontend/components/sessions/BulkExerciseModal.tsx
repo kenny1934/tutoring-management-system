@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useFormDirtyTracking, useDeleteConfirmation, useFileActions } from "@/lib/ui-hooks";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check } from "lucide-react";
+import { Plus, PenTool, Home, Printer, Loader2, XCircle, Download, Check, GripVertical } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import type { DragControls } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
 import { sessionsAPI } from "@/lib/api";
@@ -22,9 +24,28 @@ import { ExerciseActionButtons } from "./ExerciseActionButtons";
 import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { exerciseInputClass } from "./exercise-constants";
 
 // Re-export type for external consumers
 export type ExerciseFormItem = ExerciseFormItemBase;
+
+/** Thin wrapper for Reorder.Item that provides drag controls via render prop */
+function ReorderableItem({ value, children }: {
+  value: string;
+  children: (controls: DragControls) => React.ReactNode;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      value={value}
+      dragListener={false}
+      dragControls={controls}
+      style={{ listStyle: "none" }}
+    >
+      {children(controls)}
+    </Reorder.Item>
+  );
+}
 
 interface BulkExerciseModalProps {
   sessions: Session[];
@@ -286,6 +307,15 @@ export function BulkExerciseModal({
     }
   };
 
+  // Apply page fields from a selection to an exercise row
+  const applyPageFields = (index: number, pageFields: ReturnType<typeof getPageFieldsFromSelection>) => {
+    if (!pageFields) return;
+    updateExercise(index, "page_mode", pageFields.page_mode);
+    updateExercise(index, "page_start", pageFields.page_start);
+    updateExercise(index, "page_end", pageFields.page_end);
+    updateExercise(index, "complex_pages", pageFields.complex_pages);
+  };
+
   // Check if a field has validation error
   const hasFieldError = useCallback(
     (index: number, field: ExerciseValidationError['field']) =>
@@ -324,21 +354,8 @@ export function BulkExerciseModal({
   const handleFileSelected = useCallback((path: string, pages?: string) => {
     if (browsingForIndex !== null) {
       updateExercise(browsingForIndex, "pdf_name", path);
-
-      // If pages provided from preview, parse and apply
       if (pages) {
-        const parsed = parsePageInput(pages);
-        if (parsed?.complexRange) {
-          updateExercise(browsingForIndex, "page_mode", "custom");
-          updateExercise(browsingForIndex, "page_start", "");
-          updateExercise(browsingForIndex, "page_end", "");
-          updateExercise(browsingForIndex, "complex_pages", parsed.complexRange);
-        } else if (parsed?.pageStart) {
-          updateExercise(browsingForIndex, "page_mode", "simple");
-          updateExercise(browsingForIndex, "page_start", String(parsed.pageStart));
-          updateExercise(browsingForIndex, "page_end", String(parsed.pageEnd || parsed.pageStart));
-          updateExercise(browsingForIndex, "complex_pages", "");
-        }
+        applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(pages)));
       }
 
       setBrowsingForIndex(null);
@@ -353,21 +370,8 @@ export function BulkExerciseModal({
       const first = selections[0];
       // First selection goes to the current row
       updateExercise(browsingForIndex, "pdf_name", first.path);
-
-      // Apply page selection for the first item
       if (first.pages) {
-        const parsed = parsePageInput(first.pages);
-        if (parsed?.complexRange) {
-          updateExercise(browsingForIndex, "page_mode", "custom");
-          updateExercise(browsingForIndex, "page_start", "");
-          updateExercise(browsingForIndex, "page_end", "");
-          updateExercise(browsingForIndex, "complex_pages", parsed.complexRange);
-        } else if (parsed?.pageStart) {
-          updateExercise(browsingForIndex, "page_mode", "simple");
-          updateExercise(browsingForIndex, "page_start", String(parsed.pageStart));
-          updateExercise(browsingForIndex, "page_end", String(parsed.pageEnd || parsed.pageStart));
-          updateExercise(browsingForIndex, "complex_pages", "");
-        }
+        applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(first.pages)));
       }
 
       // Additional selections create new rows
@@ -394,15 +398,7 @@ export function BulkExerciseModal({
   const handlePaperlessSelected = useCallback((path: string, pageSelection?: PageSelection) => {
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
-
-      // Auto-populate page fields if selection has page info
-      const pageFields = getPageFieldsFromSelection(pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(pageSelection));
 
       setSearchingForIndex(null);
     }
@@ -416,15 +412,7 @@ export function BulkExerciseModal({
       const first = selections[0];
       // First selection goes to the current row
       updateExercise(searchingForIndex, "pdf_name", first.path);
-
-      // Apply page selection for the first item
-      const pageFields = getPageFieldsFromSelection(first.pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(first.pageSelection));
 
       // Additional selections create new rows
       if (selections.length > 1) {
@@ -660,18 +648,18 @@ export function BulkExerciseModal({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, initiateSave, handleSave, addExercise, focusedRowIndex, pendingDeleteIndex, confirmDelete, cancelDelete, requestDelete, cancelClose, handleCloseAttempt, exercises.length, isSaving, showSaveConfirm, showCloseConfirm]);
 
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) =>
+      (a.school_student_id || '').localeCompare(b.school_student_id || '')
+    ),
+    [sessions]
+  );
+
   const isCW = exerciseType === "CW";
   const title = isCW ? "Classwork" : "Homework";
   const Icon = isCW ? PenTool : Home;
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
+  const inputClass = exerciseInputClass;
 
   return (
     <Modal
@@ -719,9 +707,7 @@ export function BulkExerciseModal({
             Assigning {title.toLowerCase()} to {sessions.length} session{sessions.length > 1 ? 's' : ''}:
           </div>
           <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto">
-            {[...sessions].sort((a, b) =>
-              (a.school_student_id || '').localeCompare(b.school_student_id || '')
-            ).map((s) => {
+            {sortedSessions.map((s) => {
               const status = sessionSaveStatus[s.id];
               return (
                 <div
@@ -753,16 +739,16 @@ export function BulkExerciseModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
           {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handlePrintAll}
                 disabled={printAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
                   printAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -774,14 +760,14 @@ export function BulkExerciseModal({
                 ) : (
                   <Printer className="h-4 w-4" />
                 )}
-                Print All
+                <span className="hidden md:inline">Print All</span>
               </button>
               <button
                 type="button"
                 onClick={handleDownloadAll}
                 disabled={downloadAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
                   downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -793,7 +779,8 @@ export function BulkExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                Download All
+                <span className="hidden md:inline">Download All</span>
+                <span className="md:hidden">All</span>
               </button>
             </div>
           ) : (
@@ -804,14 +791,14 @@ export function BulkExerciseModal({
             type="button"
             onClick={addExercise}
             className={cn(
-              "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+              "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
               isCW
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                 : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
             )}
           >
             <Plus className="h-4 w-4" />
-            Add {title}
+            <span className="hidden md:inline">Add {title}</span>
           </button>
         </div>
 
@@ -826,15 +813,25 @@ export function BulkExerciseModal({
             Click &quot;Add {title}&quot; to add exercises for all selected sessions.
           </div>
         ) : (<>
-          <div className="space-y-3">
+          <Reorder.Group
+            axis="y"
+            values={exercises.map(ex => ex.clientId)}
+            onReorder={(newOrder) => {
+              const reordered = newOrder.map(id => exercises.find(ex => ex.clientId === id)!);
+              setExercises(reordered);
+              setIsDirty(true);
+            }}
+            className="space-y-3"
+          >
             {exercises.map((exercise, index) => (
+              <ReorderableItem key={exercise.clientId} value={exercise.clientId}>
+                {(dragControls) => (
               <div
-                key={index}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "p-3 rounded-lg border transition-all",
+                  "p-3 rounded-lg border transition-all select-none",
                   isCW
                     ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
                     : "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
@@ -843,21 +840,14 @@ export function BulkExerciseModal({
                 )}
               >
                 <div className="space-y-2">
-                  {/* Row 1: Type badge, PDF path, action buttons, delete */}
+                  {/* Row 1: Drag handle, PDF path, action buttons, delete */}
                   <div className="flex items-center gap-2">
-                    {/* Fixed-width badge container for alignment */}
-                    <div className="w-12 shrink-0 flex justify-center">
-                      <div
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
-                          isCW
-                            ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
-                            : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
-                        )}
-                      >
-                        <Icon className="h-3 w-3" />
-                        {exerciseType}
-                      </div>
+                    {/* Drag handle for reordering */}
+                    <div
+                      className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-0.5"
+                      onPointerDown={(e) => dragControls.start(e)}
+                    >
+                      <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     </div>
 
                     {/* PDF path input */}
@@ -898,11 +888,11 @@ export function BulkExerciseModal({
 
                   {/* Row 2: Page Range Mode Selection */}
                   <div className="flex gap-2 items-start">
-                    {/* Spacer matching row 1 badge container width */}
-                    <div className="w-12 shrink-0" />
+                    {/* Spacer matching row 1 drag handle */}
+                    <div className="w-5 shrink-0" />
 
                     {/* Page Range Section with Radio Toggle */}
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <ExercisePageRangeInput
                         radioName={`page-mode-${index}`}
                         pageMode={exercise.page_mode}
@@ -954,8 +944,10 @@ export function BulkExerciseModal({
                   </div>
                 </div>
               </div>
+                )}
+              </ReorderableItem>
             ))}
-          </div>
+          </Reorder.Group>
           {/* Bottom add row */}
           <button
             type="button"
@@ -1050,9 +1042,7 @@ export function BulkExerciseModal({
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-h-32 overflow-y-auto">
               <div className="font-medium mb-1">Sessions:</div>
               <div className="flex flex-wrap gap-1">
-                {[...sessions].sort((a, b) =>
-                  (a.school_student_id || '').localeCompare(b.school_student_id || '')
-                ).map(s => (
+                {sortedSessions.map(s => (
                   <span key={s.id} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">
                     {s.school_student_id} {s.student_name}
                   </span>

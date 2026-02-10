@@ -30,6 +30,7 @@ import { ExerciseDeleteButton } from "./ExerciseDeleteButton";
 import { ExerciseAnswerSection } from "./ExerciseAnswerSection";
 import { RecapExerciseItem } from "./RecapExerciseItem";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
+import { exerciseInputClass } from "./exercise-constants";
 
 // Exercise form item extends base with optional id for existing exercises
 export interface ExerciseFormItem extends ExerciseFormItemBase {
@@ -262,6 +263,8 @@ export function ExerciseModal({
       setShowCloseConfirm(false);
       setShowPasteConfirm(false);
       setSelectedIndices(new Set());
+      setBrowsingForAnswerClientId(null);
+      setAnswerFolderTreeOpen(false);
     }
   }, [isOpen, session, exerciseType]);
 
@@ -269,9 +272,7 @@ export function ExerciseModal({
   const handleSave = useCallback(async () => {
     // Filter out empty exercises (no PDF name)
     const validExercises = exercises.filter(ex => ex.pdf_name && ex.pdf_name.trim());
-    const emptyCount = exercises.length - validExercises.length;
-
-    if (emptyCount > 0) {
+    if (validExercises.length < exercises.length) {
       setExercises(validExercises);
     }
 
@@ -608,6 +609,15 @@ export function ExerciseModal({
     }
   };
 
+  // Apply page fields from a selection to an exercise row
+  const applyPageFields = (index: number, pageFields: ReturnType<typeof getPageFieldsFromSelection>) => {
+    if (!pageFields) return;
+    updateExercise(index, "page_mode", pageFields.page_mode);
+    updateExercise(index, "page_start", pageFields.page_start);
+    updateExercise(index, "page_end", pageFields.page_end);
+    updateExercise(index, "complex_pages", pageFields.complex_pages);
+  };
+
   // Check if a field has validation error
   const hasFieldError = useCallback(
     (index: number, field: ExerciseValidationError['field']) =>
@@ -718,15 +728,8 @@ export function ExerciseModal({
     if (browsingForIndex !== null) {
       updateExercise(browsingForIndex, "pdf_name", path);
 
-      // Apply page selection if provided
       if (pages) {
-        const pageFields = getPageFieldsFromSelection(parsePageInput(pages));
-        if (pageFields) {
-          updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
-          updateExercise(browsingForIndex, "page_start", pageFields.page_start);
-          updateExercise(browsingForIndex, "page_end", pageFields.page_end);
-          updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
-        }
+        applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(pages)));
       }
 
       setBrowsingForIndex(null);
@@ -742,14 +745,7 @@ export function ExerciseModal({
     if (browsingForIndex !== null && selections.length > 0) {
       const first = selections[0];
       updateExercise(browsingForIndex, "pdf_name", first.path);
-
-      const pageFields = getPageFieldsFromSelection(parsePageInput(first.pages));
-      if (pageFields) {
-        updateExercise(browsingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(browsingForIndex, "page_start", pageFields.page_start);
-        updateExercise(browsingForIndex, "page_end", pageFields.page_end);
-        updateExercise(browsingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(browsingForIndex, getPageFieldsFromSelection(parsePageInput(first.pages)));
 
       startIndex = 1;
     }
@@ -819,14 +815,7 @@ export function ExerciseModal({
     if (searchingForIndex !== null) {
       updateExercise(searchingForIndex, "pdf_name", path);
 
-      // Auto-populate page fields if selection has page info
-      const pageFields = getPageFieldsFromSelection(pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(pageSelection));
 
       setSearchingForIndex(null);
     }
@@ -840,15 +829,7 @@ export function ExerciseModal({
       const first = selections[0];
       // First selection goes to the current row
       updateExercise(searchingForIndex, "pdf_name", first.path);
-
-      // Apply page selection for the first item
-      const pageFields = getPageFieldsFromSelection(first.pageSelection);
-      if (pageFields) {
-        updateExercise(searchingForIndex, "page_mode", pageFields.page_mode);
-        updateExercise(searchingForIndex, "page_start", pageFields.page_start);
-        updateExercise(searchingForIndex, "page_end", pageFields.page_end);
-        updateExercise(searchingForIndex, "complex_pages", pageFields.complex_pages);
-      }
+      applyPageFields(searchingForIndex, getPageFieldsFromSelection(first.pageSelection));
 
       // Additional selections create new rows
       if (selections.length > 1) {
@@ -942,14 +923,7 @@ export function ExerciseModal({
   const title = isCW ? "Classwork" : "Homework";
   const Icon = isCW ? PenTool : Home;
 
-  const inputClass = cn(
-    "w-full px-3 py-2 rounded-md border",
-    "bg-white dark:bg-gray-900",
-    "border-gray-300 dark:border-gray-600",
-    "text-gray-900 dark:text-gray-100",
-    "focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent",
-    "text-sm"
-  );
+  const inputClass = exerciseInputClass;
 
   return (
     <Modal
@@ -1332,16 +1306,16 @@ export function ExerciseModal({
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap justify-between items-center gap-2">
           {/* Print All + Download All Buttons - only show if there are exercises with PDFs */}
           {canBrowseFiles && exercises.some(ex => ex.pdf_name && ex.pdf_name.trim()) ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handlePrintAll}
                 disabled={printAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50",
                   printAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1353,14 +1327,14 @@ export function ExerciseModal({
                 ) : (
                   <Printer className="h-4 w-4" />
                 )}
-                Print All
+                <span className="hidden md:inline">Print All</span>
               </button>
               <button
                 type="button"
                 onClick={handleDownloadAll}
                 disabled={downloadAllState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50",
                   downloadAllState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1372,14 +1346,15 @@ export function ExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                Download All
+                <span className="hidden md:inline">Download All</span>
+                <span className="md:hidden">All</span>
               </button>
               <button
                 type="button"
                 onClick={handleDownloadAllAnswers}
                 disabled={downloadAllAnswersState === 'loading'}
                 className={cn(
-                  "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+                  "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
                   "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50",
                   downloadAllAnswersState === 'loading' && "opacity-50 cursor-not-allowed"
                 )}
@@ -1391,7 +1366,8 @@ export function ExerciseModal({
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                Download Answers
+                <span className="hidden md:inline">Download Answers</span>
+                <span className="md:hidden">Ans</span>
               </button>
             </div>
           ) : (
@@ -1403,14 +1379,14 @@ export function ExerciseModal({
             type="button"
             onClick={addExercise}
             className={cn(
-              "flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded transition-colors",
+              "flex items-center gap-1 px-2 md:px-3 py-1.5 text-sm font-medium rounded transition-colors",
               isCW
                 ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
                 : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50"
             )}
           >
             <Plus className="h-4 w-4" />
-            Add {title}
+            <span className="hidden md:inline">Add {title}</span>
           </button>
         </div>
 
@@ -1537,43 +1513,30 @@ export function ExerciseModal({
                 <div className="space-y-2">
                   {/* Row 1: Drag handle, Checkbox, Type badge, PDF path, action buttons, delete */}
                   <div className="flex items-center gap-2">
-                    {/* Drag handle for reordering */}
-                    {dragControls && (
-                      <div
-                        className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-0.5"
-                        onPointerDown={(e) => dragControls.start(e)}
-                      >
-                        <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                      </div>
-                    )}
-                    {/* Selection checkbox */}
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => toggleSelection(index)}
-                        className="flex-shrink-0 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                        title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
-                      >
-                        {selectedIndices.has(index) ? (
-                          <CheckSquare className="h-4 w-4 text-teal-500 dark:text-teal-400" />
-                        ) : (
-                          <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                        )}
-                      </button>
-                    )}
-                    {/* Fixed-width badge container for alignment */}
-                    <div className="w-12 shrink-0 flex justify-center">
-                      <div
-                        className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium",
-                          isCW
-                            ? "bg-red-200 dark:bg-red-800 text-red-700 dark:text-red-200"
-                            : "bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
-                        )}
-                      >
-                        <Icon className="h-3 w-3" />
-                        {exerciseType}
-                      </div>
+                    {/* Handle + Checkbox: stack on mobile, row on desktop */}
+                    <div className="flex flex-col md:flex-row items-center gap-0.5 shrink-0">
+                      {dragControls && (
+                        <div
+                          className="cursor-grab active:cursor-grabbing touch-none p-0.5"
+                          onPointerDown={(e) => dragControls.start(e)}
+                        >
+                          <GripVertical className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                        </div>
+                      )}
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => toggleSelection(index)}
+                          className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          title={selectedIndices.has(index) ? "Deselect" : "Select for copying"}
+                        >
+                          {selectedIndices.has(index) ? (
+                            <CheckSquare className="h-4 w-4 text-teal-500 dark:text-teal-400" />
+                          ) : (
+                            <Square className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     {/* PDF path input */}
@@ -1614,11 +1577,11 @@ export function ExerciseModal({
 
                   {/* Row 2: Page Range Mode Selection */}
                   <div className="flex gap-2 items-start">
-                    {/* Spacer matching row 1 badge container width */}
-                    <div className="w-12 shrink-0" />
+                    {/* Spacer matching row 1 handle+checkbox column */}
+                    <div className="w-5 md:w-10 shrink-0" />
 
                     {/* Page Range Section with Radio Toggle */}
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 min-w-0 space-y-1">
                       <ExercisePageRangeInput
                         radioName={`page-mode-${index}`}
                         pageMode={exercise.page_mode}
