@@ -210,16 +210,10 @@ export function AnnotationLayer({
   // Render current in-progress stroke
   const currentOutline =
     currentPoints.length >= 2
-      ? getStroke(currentPoints, {
-          size: penSize,
-          thinning: 0.5,
-          smoothing: 0.5,
-          streamline: 0.5,
-          simulatePressure: true,
-          start: { cap: true, taper: 0 },
-          end: { cap: true, taper: 0 },
-          last: false,
-        })
+      ? getStroke(
+          currentPoints,
+          getStrokeOptions({ points: currentPoints, color: penColor, size: penSize }, false)
+        )
       : null;
 
   const currentPath = currentOutline
