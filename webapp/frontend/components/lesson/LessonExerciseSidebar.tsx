@@ -163,18 +163,19 @@ function ExerciseSection({
           })}
         </div>
       ) : (
-        <div className="py-3 text-center">
-          <span className="text-xs text-[#b0a090] dark:text-[#706050] italic">
-            No {label.toLowerCase()} yet
-          </span>
-          {!isReadOnly && (
+        <div className="px-2 py-2">
+          {!isReadOnly ? (
             <button
               onClick={onEdit}
-              className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-[#a0704b] hover:text-[#8b6040] transition-colors"
+              className="w-full flex items-center justify-center gap-1 py-1.5 text-xs rounded-md border border-dashed border-[#d4c4a8] dark:border-[#5a4d3a] text-[#a0906e] dark:text-[#8a7a60] hover:bg-[#e8d4b8]/30 dark:hover:bg-[#3a3228]/50 hover:text-[#8b6040] dark:hover:text-[#a09080] transition-colors"
             >
-              <Plus className="h-3 w-3" />
-              Add
+              <Plus className="h-3.5 w-3.5" />
+              Add {label}
             </button>
+          ) : (
+            <p className="text-xs text-[#b0a090] dark:text-[#706050] italic text-center">
+              No {label.toLowerCase()} yet
+            </p>
           )}
         </div>
       )}
