@@ -12,7 +12,7 @@ import {
   useInteractions,
   FloatingPortal,
 } from "@floating-ui/react";
-import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock } from "lucide-react";
+import { ExternalLink, X, PenTool, Home, Copy, Check, XCircle, CheckCircle2, HandCoins, ArrowRight, Printer, Loader2, AlertTriangle, History, ChevronDown, ChevronRight, Star, Info, Download, Clock, Presentation } from "lucide-react";
 import useSWR from "swr";
 import { useSession } from "@/lib/hooks";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
@@ -671,6 +671,18 @@ export function SessionDetailPopover({
               {session.school_student_id || "N/A"}
             </p>
             <span className="text-[10px] text-gray-400 font-mono">#{session.id}</span>
+            <Link
+              href={`/sessions/${session.id}?lesson=true`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate?.();
+                onClose();
+              }}
+              className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+              title="Lesson Mode"
+            >
+              <Presentation className="h-2.5 w-2.5 text-gray-400 hover:text-green-600 dark:hover:text-green-400" />
+            </Link>
           </div>
           <Link
             href={`/students/${session.student_id}`}

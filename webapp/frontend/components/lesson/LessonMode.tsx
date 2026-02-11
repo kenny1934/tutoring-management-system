@@ -219,12 +219,14 @@ export function LessonMode({
   const [focusMode, setFocusMode] = useState(false);
   const [hoverHeader, setHoverHeader] = useState(false);
   const [hoverSidebar, setHoverSidebar] = useState(false);
+  const hoverHeaderTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Shortcut help panel
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
   // S2: Focus mode helpers
   const exitFocusMode = useCallback(() => {
+    clearTimeout(hoverHeaderTimerRef.current);
     setFocusMode(false);
     setHoverHeader(false);
     setHoverSidebar(false);
@@ -849,15 +851,16 @@ export function LessonMode({
 
   // Extracted header to avoid duplication between normal and overlay rendering
   const renderHeader = (isOverlay?: boolean) => (
-    <div className={cn("relative", isOverlay && "shadow-lg")}>
-      {/* Wood frame top border */}
-      <div className="h-1.5 bg-gradient-to-r from-[#8b6f47] via-[#a0826d] to-[#8b6f47]" />
-
+    <div className={cn(
+      "relative rounded-2xl bg-gradient-to-br from-[#b89968] via-[#a67c52] to-[#8b6f47] p-1",
+      isOverlay && "shadow-lg rounded-3xl"
+    )}>
       {/* Chalkboard surface */}
       <div className={cn(
         "flex items-center gap-3 px-3 py-2.5",
         "bg-[#2d4739] dark:bg-[#1a2821]",
-        "shadow-inner"
+        "shadow-inner rounded-[12px]",
+        isOverlay && "rounded-[20px]"
       )} style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}>
         {/* Exit button */}
         <button
@@ -970,8 +973,6 @@ export function LessonMode({
         </button>
       </div>
 
-      {/* Wood frame bottom border */}
-      <div className="h-1 bg-gradient-to-r from-[#6b5a3a] via-[#8b6f47] to-[#6b5a3a]" />
     </div>
   );
 
@@ -1145,12 +1146,17 @@ export function LessonMode({
       {/* Focus mode: hover overlays */}
       {focusMode && (
         <>
-          {/* Top edge → header overlay */}
+          {/* Top edge → header overlay (300ms debounce to avoid accidental triggers from toolbar) */}
           <div
             className="absolute top-0 left-0 right-0 z-50"
             style={{ height: hoverHeader ? 'auto' : 8 }}
-            onMouseEnter={() => setHoverHeader(true)}
-            onMouseLeave={() => setHoverHeader(false)}
+            onMouseEnter={() => {
+              hoverHeaderTimerRef.current = setTimeout(() => setHoverHeader(true), 300);
+            }}
+            onMouseLeave={() => {
+              clearTimeout(hoverHeaderTimerRef.current);
+              setHoverHeader(false);
+            }}
           >
             <AnimatePresence>
               {hoverHeader && (
