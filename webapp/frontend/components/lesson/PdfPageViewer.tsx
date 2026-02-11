@@ -235,7 +235,7 @@ export function PdfPageViewer({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
+    <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
       {/* Toolbar */}
       <div className={cn(
         "flex items-center justify-between gap-2 px-3 py-1.5",
