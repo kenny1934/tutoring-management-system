@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
   Maximize2, Minimize2, PencilLine,
-  AlertTriangle, Download, Loader2 as Loader2Icon,
+  AlertTriangle, Download, Loader2 as Loader2Icon, LayoutList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getGradeColor } from "@/lib/constants";
@@ -25,6 +25,8 @@ import {
   FloatingOverlay, FloatingFocusManager, FloatingPortal,
 } from "@floating-ui/react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
 import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
@@ -87,7 +89,7 @@ function ExitConfirmDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "w-full min-w-[320px] max-w-sm bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
+              "w-full min-w-[280px] max-w-[95vw] sm:max-w-sm bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
               "border-2 border-[#d4a574] dark:border-[#8b6f47]"
             )}
           >
@@ -192,6 +194,11 @@ export function LessonMode({
   // PDF cache: raw ArrayBuffer by pdf_name (avoids re-fetching on exercise switch)
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const MAX_PDF_CACHE_SIZE = 20;
+
+  // Mobile responsive
+  const isMobile = useIsMobile();
+  const [mobileExerciseListOpen, setMobileExerciseListOpen] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState<"exercise" | "answer">("exercise");
 
   // Exercise modal
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -515,7 +522,8 @@ export function LessonMode({
   // Handle exercise selection
   const handleExerciseSelect = useCallback((exercise: SessionExercise) => {
     setSelectedExercise(exercise);
-  }, []);
+    if (isMobile) setMobileExerciseListOpen(false);
+  }, [isMobile]);
 
   // Handle edit exercises
   const handleEditExercises = useCallback((s: Session, type: "CW" | "HW") => {
@@ -531,6 +539,7 @@ export function LessonMode({
         if (next) answerOpenSetRef.current.add(selectedExercise.id);
         else answerOpenSetRef.current.delete(selectedExercise.id);
       }
+      if (next) setMobileActiveTab("answer");
       return next;
     });
   }, [selectedExercise]);
@@ -725,7 +734,7 @@ export function LessonMode({
         break;
       case "f":
         e.preventDefault();
-        toggleFocusMode();
+        if (!isMobile) toggleFocusMode();
         break;
       case "j":
       case "ArrowDown": {
@@ -945,10 +954,10 @@ export function LessonMode({
           </button>
         )}
 
-        {/* Focus mode toggle */}
+        {/* Focus mode toggle (desktop only — mobile header is already compact) */}
         <button
           onClick={toggleFocusMode}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="hidden md:inline-flex p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           title={focusMode ? "Exit focus mode (F)" : "Focus mode (F)"}
         >
           {focusMode ? (
@@ -958,11 +967,11 @@ export function LessonMode({
           )}
         </button>
 
-        {/* Shortcut help toggle */}
+        {/* Shortcut help toggle (desktop only) */}
         <button
           onClick={() => setShowShortcutHelp(v => !v)}
           className={cn(
-            "p-1.5 rounded-lg transition-colors",
+            "hidden md:inline-flex p-1.5 rounded-lg transition-colors",
             showShortcutHelp
               ? "bg-white/20 text-white"
               : "hover:bg-white/10 text-white/40"
@@ -1039,8 +1048,8 @@ export function LessonMode({
 
       {/* Split pane: sidebar + PDF viewer */}
       <div className="flex flex-1 min-h-0">
-        {/* Sidebar + resize handle — hidden in focus mode */}
-        {!focusMode && (
+        {/* Sidebar + resize handle — hidden in focus mode and on mobile */}
+        {!focusMode && !isMobile && (
           <>
             <div
               className={cn(
@@ -1076,75 +1085,109 @@ export function LessonMode({
           </>
         )}
 
-        {/* PDF Viewer(s) — side-by-side when answer key is shown */}
-        <div className={cn("flex flex-1 min-h-0 min-w-0", showAnswerKey && answerPdfData && "gap-0")}>
-          <ErrorBoundary
-            onReset={handleRetry}
-            fallback={
-              <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-                <div className="flex flex-col items-center gap-3 max-w-sm text-center">
-                  <AlertTriangle className="h-10 w-10 text-amber-500" />
-                  <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
-                    Something went wrong rendering the PDF
-                  </p>
-                  <button
-                    onClick={handleRetry}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
-                  >
-                    Try again
-                  </button>
-                </div>
-              </div>
-            }
-          >
-            <PdfPageViewer
-              pdfData={pdfData}
-              pageNumbers={pageNumbers}
-              stamp={stamp}
-              exerciseId={selectedExercise?.id}
-              isLoading={pdfLoading}
-              error={pdfError}
-              exerciseLabel={exerciseLabel}
-              onRetry={handleRetry}
-              annotations={currentAnnotations}
-              onAnnotationsChange={handleAnnotationsChange}
-              drawingEnabled={drawingEnabled}
-              onDrawingToggle={handleDrawingToggle}
-              penColor={penColor}
-              onPenColorChange={setPenColor}
-              penSize={penSize}
-              onPenSizeChange={setPenSize}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              onClearAll={handleClearAllAnnotations}
-              hasAnnotations={exerciseHasAnnotations}
-              onSaveAnnotated={handleSaveAnnotated}
-              eraserActive={drawingEnabled && annotationTool === "eraser"}
-              onEraserToggle={handleEraserToggle}
-              onAnswerKeyToggle={handleAnswerKeyToggle}
-              showAnswerKey={showAnswerKey}
-              answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
-            />
-          </ErrorBoundary>
-
-          {/* Answer key viewer (read-only) */}
-          {showAnswerKey && (
-            <>
-              <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
-              <PdfPageViewer
-                pdfData={answerPdfData}
-                pageNumbers={answerPageNumbers}
-                isLoading={answerLoading}
-                error={answerError}
-                exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
-              />
-            </>
+        {/* PDF Viewer(s) */}
+        <div className="flex flex-col flex-1 min-h-0 min-w-0">
+          {/* Mobile: Tab bar when answer key is shown */}
+          {isMobile && showAnswerKey && answerPdfData && (
+            <div className="flex border-b border-[#d4c4a8] dark:border-[#3a3228] bg-[#f0e6d4] dark:bg-[#252018]">
+              <button
+                onClick={() => setMobileActiveTab("exercise")}
+                className={cn(
+                  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
+                  mobileActiveTab === "exercise"
+                    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
+                    : "text-[#8b7355] dark:text-[#a09080]"
+                )}
+              >
+                Exercise
+              </button>
+              <button
+                onClick={() => setMobileActiveTab("answer")}
+                className={cn(
+                  "flex-1 py-2.5 text-xs font-semibold text-center transition-colors",
+                  mobileActiveTab === "answer"
+                    ? "text-[#6b4c30] dark:text-[#d4a574] border-b-2 border-[#a0704b]"
+                    : "text-[#8b7355] dark:text-[#a09080]"
+                )}
+              >
+                Answer Key
+              </button>
+            </div>
           )}
+
+          {/* PDF viewers — side-by-side on desktop, tabbed on mobile */}
+          <div className={cn("flex flex-1 min-h-0 min-w-0", !isMobile && showAnswerKey && answerPdfData && "gap-0")}>
+            {/* Main exercise PDF — hidden on mobile when answer tab is active */}
+            {(!isMobile || !showAnswerKey || mobileActiveTab === "exercise") && (
+              <ErrorBoundary
+                onReset={handleRetry}
+                fallback={
+                  <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                    <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+                      <AlertTriangle className="h-10 w-10 text-amber-500" />
+                      <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                        Something went wrong rendering the PDF
+                      </p>
+                      <button
+                        onClick={handleRetry}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  </div>
+                }
+              >
+                <PdfPageViewer
+                  pdfData={pdfData}
+                  pageNumbers={pageNumbers}
+                  stamp={stamp}
+                  exerciseId={selectedExercise?.id}
+                  isLoading={pdfLoading}
+                  error={pdfError}
+                  exerciseLabel={exerciseLabel}
+                  onRetry={handleRetry}
+                  annotations={currentAnnotations}
+                  onAnnotationsChange={handleAnnotationsChange}
+                  drawingEnabled={drawingEnabled}
+                  onDrawingToggle={handleDrawingToggle}
+                  penColor={penColor}
+                  onPenColorChange={setPenColor}
+                  penSize={penSize}
+                  onPenSizeChange={setPenSize}
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  onClearAll={handleClearAllAnnotations}
+                  hasAnnotations={exerciseHasAnnotations}
+                  onSaveAnnotated={handleSaveAnnotated}
+                  eraserActive={drawingEnabled && annotationTool === "eraser"}
+                  onEraserToggle={handleEraserToggle}
+                  onAnswerKeyToggle={handleAnswerKeyToggle}
+                  showAnswerKey={showAnswerKey}
+                  answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+                />
+              </ErrorBoundary>
+            )}
+
+            {/* Answer key viewer (read-only) */}
+            {showAnswerKey && (!isMobile || mobileActiveTab === "answer") && (
+              <>
+                {!isMobile && <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />}
+                <PdfPageViewer
+                  pdfData={answerPdfData}
+                  pageNumbers={answerPageNumbers}
+                  isLoading={answerLoading}
+                  error={answerError}
+                  exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Focus mode: hover overlays */}
-      {focusMode && (
+      {/* Focus mode: hover overlays (desktop only) */}
+      {focusMode && !isMobile && (
         <>
           {/* Top edge → header overlay (300ms debounce to avoid accidental triggers from toolbar) */}
           <div
@@ -1236,6 +1279,36 @@ export function LessonMode({
           }}
         />
       )}
+
+      {/* Mobile: Floating exercise list button */}
+      {isMobile && (
+        <button
+          onClick={() => setMobileExerciseListOpen(true)}
+          className="fixed bottom-4 right-4 z-40 w-14 h-14 rounded-full shadow-lg flex items-center justify-center bg-gradient-to-br from-[#a0704b] to-[#8b6040] border-2 border-[#6b4c30] active:scale-95 transition-transform"
+          aria-label="Exercise list"
+        >
+          <LayoutList className="h-6 w-6 text-white" />
+        </button>
+      )}
+
+      {/* Mobile: Exercise list bottom sheet */}
+      <MobileBottomSheet
+        isOpen={mobileExerciseListOpen}
+        onClose={() => setMobileExerciseListOpen(false)}
+        title="Exercises"
+        className="bg-[#faf5ed] dark:bg-[#1e1a14]"
+      >
+        <LessonExerciseSidebar
+          currentSession={currentSession}
+          previousSession={previousSession}
+          selectedExerciseId={selectedExercise?.id ?? null}
+          onExerciseSelect={handleExerciseSelect}
+          onEditExercises={handleEditExercises}
+          isReadOnly={isReadOnly}
+          hasAnnotations={checkHasAnnotations}
+          homeworkCompletion={session.homework_completion}
+        />
+      </MobileBottomSheet>
     </motion.div>
   );
 }

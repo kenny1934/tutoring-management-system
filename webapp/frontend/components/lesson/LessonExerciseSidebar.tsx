@@ -55,7 +55,7 @@ function ExerciseItem({
       onClick={onClick}
       className={cn(
         "w-full text-left px-2.5 py-2 rounded-md transition-all text-sm group",
-        "border border-transparent",
+        "border border-transparent min-h-[44px] md:min-h-0",
         isSelected
           ? "bg-[#f5e6d0] dark:bg-[#3d3020] border-[#d4a574] dark:border-[#8b6f47] shadow-sm"
           : "hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50"
@@ -225,7 +225,7 @@ function SessionBlock({
       <button
         onClick={() => setExpanded(e => !e)}
         className={cn(
-          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors",
+          "w-full flex items-center gap-2 px-2 py-1.5 md:py-1.5 rounded-md text-left transition-colors min-h-[44px] md:min-h-0",
           "hover:bg-[#f0e6d4]/60 dark:hover:bg-[#252018]/60"
         )}
       >
