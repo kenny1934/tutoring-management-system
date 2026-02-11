@@ -29,6 +29,17 @@ import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
 import type { Session, SessionExercise } from "@/types";
 
+/** S5: Compute page numbers for an exercise. */
+function getExercisePageNumbers(exercise: SessionExercise): number[] {
+  const { complexPages } = parseExerciseRemarks(exercise.remarks);
+  return getPageNumbers({
+    pdf_name: exercise.pdf_name || "",
+    page_start: exercise.page_start,
+    page_end: exercise.page_end,
+    complex_pages: complexPages || undefined,
+  }, "[Lesson]");
+}
+
 /** Inline exit confirmation dialog — warns about unsaved annotations. */
 function ExitConfirmDialog({
   isOpen,
@@ -60,7 +71,7 @@ function ExitConfirmDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "w-full min-w-[320px] max-w-sm bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
+              "w-full min-w-[320px] max-w-md bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
               "border-2 border-[#d4a574] dark:border-[#8b6f47]"
             )}
           >
@@ -96,7 +107,7 @@ function ExitConfirmDialog({
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors bg-[#a0704b] text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {isSaving ? "Saving..." : "Save All & Exit"}
+                {isSaving ? "Downloading..." : "Download All & Exit"}
               </button>
               <button
                 type="button"
@@ -104,7 +115,7 @@ function ExitConfirmDialog({
                 disabled={isSaving}
                 className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exit Without Saving
+                Exit Without Downloading
               </button>
             </div>
           </div>
@@ -169,11 +180,22 @@ export function LessonMode({
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
 
-  // Sidebar width (resizable)
-  const [sidebarWidth, setSidebarWidth] = useState(320);
+  // F1: Sidebar width — persist to localStorage
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === "undefined") return 320;
+    try {
+      const saved = localStorage.getItem("lesson-sidebar-width");
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 220 && n <= 600) return n;
+      }
+    } catch {}
+    return 320;
+  });
   const isResizingRef = useRef(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
+  const currentWidthRef = useRef(sidebarWidth);
   const resizeCleanupRef = useRef<(() => void) | null>(null);
 
   // Focus mode (hides sidebar + header, hover to reveal)
@@ -181,16 +203,63 @@ export function LessonMode({
   const [hoverHeader, setHoverHeader] = useState(false);
   const [hoverSidebar, setHoverSidebar] = useState(false);
 
-  // Annotation state
+  // S2: Focus mode helpers
+  const exitFocusMode = useCallback(() => {
+    setFocusMode(false);
+    setHoverHeader(false);
+    setHoverSidebar(false);
+  }, []);
+
+  const toggleFocusMode = useCallback(() => {
+    setFocusMode(fm => !fm);
+    setHoverHeader(false);
+    setHoverSidebar(false);
+  }, []);
+
+  // F2: Annotation state with sessionStorage persistence
   const {
     getAnnotations, getAllAnnotations, setPageStrokes, undoLastStroke, redoLastStroke,
-    clearAnnotations, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
-  } = useAnnotations();
+    clearAnnotations, clearStorage, hasAnnotations: checkHasAnnotations, hasAnyAnnotations,
+  } = useAnnotations(`lesson-annotations-${session.id}`);
   const [drawingEnabled, setDrawingEnabled] = useState(false);
   const [annotationTool, setAnnotationTool] = useState<"pen" | "eraser">("pen");
   const [penColor, setPenColor] = useState("#dc2626");
   const [penSize, setPenSize] = useState(3);
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
+
+  // S4: Keyboard annotation tool toggle (d/e keys — exits draw mode when same tool pressed)
+  const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
+    if (!drawingEnabled) {
+      setDrawingEnabled(true);
+      setAnnotationTool(tool);
+    } else if (annotationTool !== tool) {
+      setAnnotationTool(tool);
+    } else {
+      setDrawingEnabled(false);
+      if (tool === "eraser") setAnnotationTool("pen");
+    }
+  }, [drawingEnabled, annotationTool]);
+
+  // S4: Button callbacks (different behavior from keyboard)
+  const handleDrawingToggle = useCallback(() => {
+    if (drawingEnabled && annotationTool !== "pen") {
+      setAnnotationTool("pen");
+    } else {
+      setDrawingEnabled(d => !d);
+      setAnnotationTool("pen");
+    }
+  }, [drawingEnabled, annotationTool]);
+
+  const handleEraserToggle = useCallback(() => {
+    if (!drawingEnabled) {
+      setDrawingEnabled(true);
+      setAnnotationTool("eraser");
+    } else if (annotationTool === "eraser") {
+      setAnnotationTool("pen");
+    } else {
+      setAnnotationTool("eraser");
+    }
+  }, [drawingEnabled, annotationTool]);
 
   // All exercises from both sessions (for auto-select, save-all ZIP)
   const allExercises = useMemo(() => {
@@ -221,7 +290,7 @@ export function LessonMode({
     }
   }, [allExercises, selectedExercise]);
 
-  // Load PDF when exercise changes (with caching)
+  // S5: Load PDF when exercise changes (with caching) — uses getExercisePageNumbers
   useEffect(() => {
     if (!selectedExercise || !selectedExercise.pdf_name) {
       setPdfData(null);
@@ -231,16 +300,7 @@ export function LessonMode({
     }
 
     const pdfName = selectedExercise.pdf_name;
-
-    // Compute page numbers for this exercise
-    const { complexPages } = parseExerciseRemarks(selectedExercise.remarks);
-    const exercise: BulkPrintExercise = {
-      pdf_name: pdfName,
-      page_start: selectedExercise.page_start,
-      page_end: selectedExercise.page_end,
-      complex_pages: complexPages || undefined,
-    };
-    const pages = getPageNumbers(exercise, "[Lesson]");
+    const pages = getExercisePageNumbers(selectedExercise);
     setPageNumbers(pages);
 
     // Check cache first
@@ -422,6 +482,7 @@ export function LessonMode({
     }
   }, [hasAnyAnnotations, onExit]);
 
+  // S5: handleSaveAllAndExit uses getExercisePageNumbers
   const handleSaveAllAndExit = useCallback(async () => {
     setIsSavingAll(true);
     try {
@@ -437,15 +498,7 @@ export function LessonMode({
         const cached = pdfCacheRef.current.get(exercise.pdf_name);
         if (!cached) continue;
 
-        const { complexPages } = parseExerciseRemarks(exercise.remarks);
-        const exData: BulkPrintExercise = {
-          pdf_name: exercise.pdf_name,
-          page_start: exercise.page_start,
-          page_end: exercise.page_end,
-          complex_pages: complexPages || undefined,
-        };
-        const pages = getPageNumbers(exData, "[Lesson]");
-
+        const pages = getExercisePageNumbers(exercise);
         const blob = await saveAnnotatedPdf(cached, pages, stamp, ann);
         zip.file(`annotated-${getDisplayName(exercise.pdf_name)}.pdf`, blob);
       }
@@ -469,135 +522,147 @@ export function LessonMode({
       setTimeout(() => URL.revokeObjectURL(url), 100);
       setIsSavingAll(false);
       setShowExitConfirm(false);
+      // F2: Clear sessionStorage on save & exit
+      clearStorage();
       onExit();
     } catch (err) {
       console.error("Failed to save annotated PDFs:", err);
       setIsSavingAll(false);
     }
-  }, [allExercises, getAllAnnotations, stamp, session, onExit]);
+  }, [allExercises, getAllAnnotations, stamp, session, onExit, clearStorage]);
 
-  // Keyboard shortcuts
+  // S6: Stabilize keyboard listener with ref pattern
+  const keyboardStateRef = useRef({
+    exerciseModalType, showExitConfirm, navigableExercises, selectedExercise,
+    currentSession, focusMode, drawingEnabled, annotationTool,
+  });
+  const keyboardCallbacksRef = useRef({
+    handleExitAttempt, toggleAnnotationTool, exitFocusMode, toggleFocusMode,
+    handleEditExercises, handlePrint, handleUndo, handleRedo,
+  });
+  // Sync on every render (cheap assignment)
+  keyboardStateRef.current = {
+    exerciseModalType, showExitConfirm, navigableExercises, selectedExercise,
+    currentSession, focusMode, drawingEnabled, annotationTool,
+  };
+  keyboardCallbacksRef.current = {
+    handleExitAttempt, toggleAnnotationTool, exitFocusMode, toggleFocusMode,
+    handleEditExercises, handlePrint, handleUndo, handleRedo,
+  };
+
   useEffect(() => {
-    if (exerciseModalType || showExitConfirm) return; // Don't capture when modal/dialog is open
-
     const handleKeyDown = (e: KeyboardEvent) => {
+      const state = keyboardStateRef.current;
+      const cb = keyboardCallbacksRef.current;
+
+      if (state.exerciseModalType || state.showExitConfirm) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       switch (e.key) {
         case "Escape":
           e.preventDefault();
-          if (focusMode) {
-            setFocusMode(false);
-            setHoverHeader(false);
-            setHoverSidebar(false);
+          if (state.focusMode) {
+            cb.exitFocusMode();
           } else {
-            handleExitAttempt();
+            cb.handleExitAttempt();
           }
           break;
         case "f":
           e.preventDefault();
-          setFocusMode(fm => {
-            if (fm) { setHoverHeader(false); setHoverSidebar(false); }
-            return !fm;
-          });
+          cb.toggleFocusMode();
           break;
         case "j":
         case "ArrowDown": {
           e.preventDefault();
-          const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
-          if (currentIdx < navigableExercises.length - 1) {
-            setSelectedExercise(navigableExercises[currentIdx + 1]);
+          const currentIdx = state.navigableExercises.findIndex(ex => ex.id === state.selectedExercise?.id);
+          if (currentIdx < state.navigableExercises.length - 1) {
+            setSelectedExercise(state.navigableExercises[currentIdx + 1]);
           }
           break;
         }
         case "k":
         case "ArrowUp": {
           e.preventDefault();
-          const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
+          const currentIdx = state.navigableExercises.findIndex(ex => ex.id === state.selectedExercise?.id);
           if (currentIdx > 0) {
-            setSelectedExercise(navigableExercises[currentIdx - 1]);
+            setSelectedExercise(state.navigableExercises[currentIdx - 1]);
           }
           break;
         }
         case "d":
           e.preventDefault();
-          if (!drawingEnabled) {
-            setDrawingEnabled(true);
-            setAnnotationTool("pen");
-          } else if (annotationTool !== "pen") {
-            setAnnotationTool("pen");
-          } else {
-            setDrawingEnabled(false);
-          }
+          cb.toggleAnnotationTool("pen");
           break;
         case "e":
           e.preventDefault();
-          if (!drawingEnabled) {
-            setDrawingEnabled(true);
-            setAnnotationTool("eraser");
-          } else if (annotationTool !== "eraser") {
-            setAnnotationTool("eraser");
-          } else {
-            setDrawingEnabled(false);
-            setAnnotationTool("pen");
-          }
+          cb.toggleAnnotationTool("eraser");
           break;
         case "z":
-          if (drawingEnabled) {
+          if (state.drawingEnabled) {
             e.preventDefault();
-            handleUndo();
+            cb.handleUndo();
           }
           break;
         case "Z":
-          if (drawingEnabled) {
+          if (state.drawingEnabled) {
             e.preventDefault();
-            handleRedo();
+            cb.handleRedo();
           }
           break;
         case "c":
-          if (currentSession) {
+          if (state.currentSession) {
             e.preventDefault();
-            handleEditExercises(currentSession, "CW");
+            cb.handleEditExercises(state.currentSession, "CW");
           }
           break;
         case "h":
-          if (currentSession) {
+          if (state.currentSession) {
             e.preventDefault();
-            handleEditExercises(currentSession, "HW");
+            cb.handleEditExercises(state.currentSession, "HW");
           }
           break;
         case "p":
           e.preventDefault();
-          handlePrint();
+          cb.handlePrint();
           break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [exerciseModalType, showExitConfirm, navigableExercises, selectedExercise, currentSession, handleExitAttempt, handleEditExercises, handlePrint, focusMode, drawingEnabled, annotationTool, handleUndo, handleRedo]);
+  }, []); // Register once — reads latest state via refs
 
-  // Resize handler
+  // P1: Resize handler with rAF throttle + F1: persist to localStorage on mouseup
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isResizingRef.current = true;
     startXRef.current = e.clientX;
     startWidthRef.current = sidebarWidth;
+    currentWidthRef.current = sidebarWidth;
+
+    let rafId: number | null = null;
 
     const handleMouseMove = (ev: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      const delta = ev.clientX - startXRef.current;
-      const newWidth = Math.max(220, Math.min(600, startWidthRef.current + delta));
-      setSidebarWidth(newWidth);
+      if (!isResizingRef.current || rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        const delta = ev.clientX - startXRef.current;
+        const newWidth = Math.max(220, Math.min(600, startWidthRef.current + delta));
+        currentWidthRef.current = newWidth;
+        setSidebarWidth(newWidth);
+        rafId = null;
+      });
     };
 
     const cleanup = () => {
       isResizingRef.current = false;
+      if (rafId !== null) cancelAnimationFrame(rafId);
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", cleanup);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       resizeCleanupRef.current = null;
+      // F1: Persist final width to localStorage
+      try { localStorage.setItem("lesson-sidebar-width", String(currentWidthRef.current)); } catch {}
     };
 
     resizeCleanupRef.current = cleanup;
@@ -616,6 +681,16 @@ export function LessonMode({
     ? getDisplayName(selectedExercise.pdf_name)
     : undefined;
 
+  // Header annotation toggle (different from toolbar — toggles entire annotation mode)
+  const handleHeaderAnnotationToggle = useCallback(() => {
+    if (drawingEnabled) {
+      setDrawingEnabled(false);
+      setAnnotationTool("pen");
+    } else {
+      setDrawingEnabled(true);
+    }
+  }, [drawingEnabled]);
+
   // Extracted header to avoid duplication between normal and overlay rendering
   const renderHeader = (isOverlay?: boolean) => (
     <div className={cn("relative", isOverlay && "shadow-lg")}>
@@ -630,7 +705,7 @@ export function LessonMode({
       )} style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}>
         {/* Exit button */}
         <button
-          onClick={focusMode ? () => { setFocusMode(false); setHoverHeader(false); setHoverSidebar(false); } : handleExitAttempt}
+          onClick={focusMode ? exitFocusMode : handleExitAttempt}
           className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           title={focusMode ? "Exit focus mode (Esc)" : "Exit Lesson Mode (Esc)"}
         >
@@ -687,14 +762,7 @@ export function LessonMode({
         {/* Annotation mode toggle */}
         {selectedExercise?.pdf_name && (
           <button
-            onClick={() => {
-              if (drawingEnabled) {
-                setDrawingEnabled(false);
-                setAnnotationTool("pen");
-              } else {
-                setDrawingEnabled(true);
-              }
-            }}
+            onClick={handleHeaderAnnotationToggle}
             className={cn(
               "p-1.5 rounded-lg transition-colors",
               drawingEnabled
@@ -720,11 +788,7 @@ export function LessonMode({
 
         {/* Focus mode toggle */}
         <button
-          onClick={() => {
-            setFocusMode(fm => !fm);
-            setHoverHeader(false);
-            setHoverSidebar(false);
-          }}
+          onClick={toggleFocusMode}
           className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           title={focusMode ? "Exit focus mode (F)" : "Focus mode (F)"}
         >
@@ -809,16 +873,7 @@ export function LessonMode({
           annotations={currentAnnotations}
           onAnnotationsChange={handleAnnotationsChange}
           drawingEnabled={drawingEnabled}
-          onDrawingToggle={() => {
-            if (drawingEnabled && annotationTool !== "pen") {
-              // Switch to pen tool
-              setAnnotationTool("pen");
-            } else {
-              // Toggle annotation mode
-              setDrawingEnabled((d) => !d);
-              setAnnotationTool("pen");
-            }
-          }}
+          onDrawingToggle={handleDrawingToggle}
           penColor={penColor}
           onPenColorChange={setPenColor}
           penSize={penSize}
@@ -829,17 +884,7 @@ export function LessonMode({
           hasAnnotations={exerciseHasAnnotations}
           onSaveAnnotated={handleSaveAnnotated}
           eraserActive={drawingEnabled && annotationTool === "eraser"}
-          onEraserToggle={() => {
-            if (!drawingEnabled) {
-              setDrawingEnabled(true);
-              setAnnotationTool("eraser");
-            } else if (annotationTool === "eraser") {
-              // Toggle off eraser → back to pen
-              setAnnotationTool("pen");
-            } else {
-              setAnnotationTool("eraser");
-            }
-          }}
+          onEraserToggle={handleEraserToggle}
         />
       </div>
 
@@ -922,7 +967,12 @@ export function LessonMode({
           isSaving={isSavingAll}
           onCancel={() => setShowExitConfirm(false)}
           onSaveAndExit={handleSaveAllAndExit}
-          onExit={() => { setShowExitConfirm(false); onExit(); }}
+          onExit={() => {
+            setShowExitConfirm(false);
+            // F2: Clear sessionStorage on exit without saving
+            clearStorage();
+            onExit();
+          }}
         />
       )}
     </motion.div>

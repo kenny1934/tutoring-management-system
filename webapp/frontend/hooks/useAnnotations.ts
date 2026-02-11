@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
 /** A single freehand stroke on a page. */
 export interface Stroke {
@@ -40,11 +40,54 @@ export function getStrokeOptions(stroke: Stroke, isComplete: boolean) {
  * In-memory annotation state manager for lesson mode.
  * Annotations are keyed by exercise ID and survive exercise switches.
  * All state is GC'd when the host component unmounts.
+ *
+ * When sessionKey is provided, annotations are auto-saved to sessionStorage
+ * (debounced 500ms) and restored on mount.
  */
-export function useAnnotations() {
+export function useAnnotations(sessionKey?: string) {
   const storeRef = useRef<Map<number, PageAnnotations>>(new Map());
   // Redo stack: exerciseId → pageIndex → array of undone strokes
   const redoRef = useRef<Map<number, Record<number, Stroke[]>>>(new Map());
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Debounced persist to sessionStorage
+  const persistToStorage = useCallback(() => {
+    if (!sessionKey) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          sessionKey,
+          JSON.stringify(Object.fromEntries(storeRef.current))
+        );
+      } catch {}
+    }, 500);
+  }, [sessionKey]);
+
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    if (!sessionKey) return;
+    try {
+      const saved = sessionStorage.getItem(sessionKey);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      const map = new Map<number, PageAnnotations>();
+      for (const [k, v] of Object.entries(parsed)) {
+        const id = Number(k);
+        if (!isNaN(id) && typeof v === "object" && v !== null) {
+          map.set(id, v as PageAnnotations);
+        }
+      }
+      storeRef.current = map;
+    } catch {}
+  }, [sessionKey]);
+
+  // Clear save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const getAnnotations = useCallback((exerciseId: number): PageAnnotations => {
     return storeRef.current.get(exerciseId) || {};
@@ -59,8 +102,9 @@ export function useAnnotations() {
       if (redo?.[pageIndex]) {
         delete redo[pageIndex];
       }
+      persistToStorage();
     },
-    []
+    [persistToStorage]
   );
 
   const undoLastStroke = useCallback(
@@ -77,9 +121,10 @@ export function useAnnotations() {
 
       const updated = pageStrokes.slice(0, -1);
       storeRef.current.set(exerciseId, { ...current, [pageIndex]: updated });
+      persistToStorage();
       return updated;
     },
-    []
+    [persistToStorage]
   );
 
   const redoLastStroke = useCallback(
@@ -93,9 +138,10 @@ export function useAnnotations() {
       const current = storeRef.current.get(exerciseId) || {};
       const pageStrokes = [...(current[pageIndex] || []), stroke];
       storeRef.current.set(exerciseId, { ...current, [pageIndex]: pageStrokes });
+      persistToStorage();
       return pageStrokes;
     },
-    []
+    [persistToStorage]
   );
 
   const clearPage = useCallback(
@@ -106,19 +152,29 @@ export function useAnnotations() {
       // Clear redo for this page
       const redo = redoRef.current.get(exerciseId);
       if (redo?.[pageIndex]) delete redo[pageIndex];
+      persistToStorage();
     },
-    []
+    [persistToStorage]
   );
 
   const clearAnnotations = useCallback((exerciseId: number) => {
     storeRef.current.delete(exerciseId);
     redoRef.current.delete(exerciseId);
-  }, []);
+    persistToStorage();
+  }, [persistToStorage]);
 
   const clearAll = useCallback(() => {
     storeRef.current.clear();
     redoRef.current.clear();
-  }, []);
+    persistToStorage();
+  }, [persistToStorage]);
+
+  /** Remove sessionStorage entry entirely. */
+  const clearStorage = useCallback(() => {
+    if (!sessionKey) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    try { sessionStorage.removeItem(sessionKey); } catch {}
+  }, [sessionKey]);
 
   const hasAnnotations = useCallback((exerciseId: number): boolean => {
     const data = storeRef.current.get(exerciseId);
@@ -148,6 +204,7 @@ export function useAnnotations() {
     clearPage,
     clearAnnotations,
     clearAll,
+    clearStorage,
     hasAnnotations,
     hasAnyAnnotations,
   };

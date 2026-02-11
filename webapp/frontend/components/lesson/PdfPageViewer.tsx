@@ -82,6 +82,14 @@ interface PdfPageViewerProps {
 const MIN_ZOOM = 50;
 const MAX_ZOOM = 200;
 const ZOOM_STEP = 25;
+const MAX_RENDER_CACHE_SIZE = 30;
+
+/** Compute fit-to-width zoom for a container and page width. */
+function computeFitZoom(container: HTMLElement, pageWidth: number): number {
+  const containerWidth = container.clientWidth - 32; // px-4 padding
+  const rawZoom = Math.floor((containerWidth / pageWidth) * 100);
+  return Math.min(Math.max(rawZoom, MIN_ZOOM), MAX_ZOOM);
+}
 
 export function PdfPageViewer({
   pdfData,
@@ -147,10 +155,7 @@ export function PdfPageViewer({
 
   const handleFitWidth = useCallback(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
-    const containerWidth = scrollContainerRef.current.clientWidth - 32; // px-4 padding
-    const pageWidth = pages[0].width;
-    const fitZoom = Math.floor((containerWidth / pageWidth) * 100);
-    setZoom(Math.min(Math.max(fitZoom, MIN_ZOOM), MAX_ZOOM));
+    setZoom(computeFitZoom(scrollContainerRef.current, pages[0].width));
   }, [pages]);
 
   // Process PDF: extract+stamp → render pages as images (parallel)
@@ -248,9 +253,16 @@ export function PdfPageViewer({
         pageUrlsRef.current = urls;
         setPages(rendered);
 
-        // Store in render cache
+        // Store in render cache (with LRU eviction)
         if (exerciseId != null) {
           renderCacheRef.current.set(exerciseId, rendered);
+          if (renderCacheRef.current.size > MAX_RENDER_CACHE_SIZE) {
+            const oldestKey = renderCacheRef.current.keys().next().value;
+            if (oldestKey !== undefined) {
+              renderCacheRef.current.get(oldestKey)?.forEach(p => URL.revokeObjectURL(p.url));
+              renderCacheRef.current.delete(oldestKey);
+            }
+          }
         }
       } catch {
         if (!cancelled) {
@@ -281,10 +293,7 @@ export function PdfPageViewer({
   useEffect(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
     userHasZoomed.current = false;
-    const containerWidth = scrollContainerRef.current.clientWidth - 32;
-    const pageWidth = pages[0].width;
-    const fitZoom = Math.floor((containerWidth / pageWidth) * 100);
-    setZoom(Math.min(Math.max(fitZoom, MIN_ZOOM), MAX_ZOOM));
+    setZoom(computeFitZoom(scrollContainerRef.current, pages[0].width));
   }, [pages]);
 
   // ResizeObserver: auto-refit on window resize (only if user hasn't manually zoomed)
@@ -294,10 +303,7 @@ export function PdfPageViewer({
 
     const observer = new ResizeObserver(() => {
       if (userHasZoomed.current) return;
-      const containerWidth = container.clientWidth - 32;
-      const pageWidth = pages[0].width;
-      const fitZoom = Math.floor((containerWidth / pageWidth) * 100);
-      setZoom(Math.min(Math.max(fitZoom, MIN_ZOOM), MAX_ZOOM));
+      setZoom(computeFitZoom(container, pages[0].width));
     });
     observer.observe(container);
     return () => observer.disconnect();
