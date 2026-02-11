@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
@@ -62,16 +62,12 @@ const refinedCardVariants = {
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionId = parseInt(params.id as string);
 
   // SWR hook for session data with caching
   const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
   const { isReadOnly } = useAuth();
-
-  // Dynamic page title
-  usePageTitle(
-    session ? `Session #${session.id} - ${session.student_name}` : "Loading..."
-  );
 
   const [curriculumSuggestion, setCurriculumSuggestion] = useState<CurriculumSuggestion | null>(null);
   const [upcomingTests, setUpcomingTests] = useState<UpcomingTestAlert[]>([]);
@@ -79,7 +75,12 @@ export default function SessionDetailPage() {
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
-  const [lessonMode, setLessonMode] = useState(false);
+  const [lessonMode, setLessonMode] = useState(() => searchParams.get('lesson') === 'true');
+
+  // Dynamic page title (skip when in lesson mode — LessonMode sets its own)
+  usePageTitle(
+    lessonMode ? undefined : (session ? `Session #${session.id} - ${session.student_name}` : "Loading...")
+  );
   const [memoViewOpen, setMemoViewOpen] = useState(false);
   const [memoImportOpen, setMemoImportOpen] = useState(false);
 

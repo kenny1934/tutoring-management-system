@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -2272,6 +2272,17 @@ export default function SessionsPage() {
                                       >
                                         <span className="hidden sm:inline">View</span>
                                         <ExternalLink className="h-3.5 w-3.5" />
+                                      </Link>
+                                      <Link
+                                        href={`/sessions/${session.id}?lesson=true`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          saveScrollPosition();
+                                        }}
+                                        className="flex items-center text-xs px-1.5 py-1 rounded bg-[#a0704b]/10 hover:bg-[#a0704b]/20 dark:bg-[#cd853f]/10 dark:hover:bg-[#cd853f]/20 text-[#a0704b] dark:text-[#cd853f] transition-colors flex-shrink-0"
+                                        title="Lesson Mode"
+                                      >
+                                        <Presentation className="h-3.5 w-3.5" />
                                       </Link>
                                     </div>
                                   </div>
