@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from models import SessionLog, Enrollment, Holiday
+from models import SessionLog, Enrollment, Holiday, ExtensionRequest
 
 logger = logging.getLogger(__name__)
 
@@ -61,22 +61,31 @@ def validate_makeup_constraints(
     3. Enrollment deadline for regular slot
     4. Student time conflict
     """
-    # 1. 60-day makeup restriction (Super Admin can override)
+    # 1. 60-day makeup restriction (Super Admin can override; approved extension bypasses)
     root_original = find_root_original_session(consume_session, db)
     days_since_original = (target_date - root_original.session_date).days
 
     if days_since_original > 60 and not is_super_admin:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "MAKEUP_60_DAY_EXCEEDED",
-                "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
-                "original_session_id": root_original.id,
-                "original_session_date": str(root_original.session_date),
-                "days_difference": days_since_original,
-                "max_allowed_days": 60
-            }
-        )
+        # Check if session has an approved extension request (bypasses 60-day rule)
+        has_approved_extension = db.query(ExtensionRequest).filter(
+            ExtensionRequest.session_id == consume_session.id,
+            ExtensionRequest.request_status == 'Approved'
+        ).first() is not None
+
+        if has_approved_extension:
+            logger.info(f"60-day rule bypassed for session #{consume_session.id} (approved extension exists)")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "MAKEUP_60_DAY_EXCEEDED",
+                    "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                    "original_session_id": root_original.id,
+                    "original_session_date": str(root_original.session_date),
+                    "days_difference": days_since_original,
+                    "max_allowed_days": 60
+                }
+            )
 
     # 2. Check for holiday
     holiday = db.query(Holiday).filter(

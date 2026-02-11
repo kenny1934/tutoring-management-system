@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from typing import List, Optional
 from datetime import date
 from database import get_db
-from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
+from models import SessionLog, Student, Tutor, SessionExercise, HomeworkCompletion, HomeworkToCheck, SessionCurriculumSuggestion, Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 from schemas import SessionResponse, DetailedSessionResponse, SessionExerciseResponse, HomeworkCompletionResponse, CurriculumSuggestionResponse, UpcomingTestAlert, CalendarEventResponse, LinkedSessionInfo, ExerciseSaveRequest, RateSessionRequest, SessionUpdate, BulkExerciseAssignRequest, BulkExerciseAssignResponse, MakeupSlotSuggestion, StudentInSlot, ScheduleMakeupRequest, ScheduleMakeupResponse, CalendarEventCreate, CalendarEventUpdate, UncheckedAttendanceReminder, UncheckedAttendanceCount
 from datetime import date, timedelta, datetime, timezone
 from constants import hk_now
@@ -1580,17 +1580,24 @@ async def update_session(
                     days_since_original = (request.session_date - root_original.session_date).days
 
                     if days_since_original > 60:
-                        raise HTTPException(
-                            status_code=400,
-                            detail={
-                                "error": "MAKEUP_60_DAY_EXCEEDED",
-                                "message": f"Makeup must be within 60 days of original session ({root_original.session_date}). This would be {days_since_original} days later.",
-                                "original_session_id": root_original.id,
-                                "original_session_date": str(root_original.session_date),
-                                "days_difference": days_since_original,
-                                "max_allowed_days": 60
-                            }
-                        )
+                        # Check if session has an approved extension (bypasses 60-day rule)
+                        has_approved_extension = db.query(ExtensionRequest).filter(
+                            ExtensionRequest.session_id == session.id,
+                            ExtensionRequest.request_status == 'Approved'
+                        ).first() is not None
+
+                        if not has_approved_extension:
+                            raise HTTPException(
+                                status_code=400,
+                                detail={
+                                    "error": "MAKEUP_60_DAY_EXCEEDED",
+                                    "message": f"Makeup must be within 60 days of original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                                    "original_session_id": root_original.id,
+                                    "original_session_date": str(root_original.session_date),
+                                    "days_difference": days_since_original,
+                                    "max_allowed_days": 60
+                                }
+                            )
 
         session.session_date = request.session_date
 
