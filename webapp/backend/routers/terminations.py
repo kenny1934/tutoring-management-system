@@ -2,7 +2,7 @@
 Terminations API endpoints.
 Provides endpoints for quarterly termination reporting.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, and_
 from typing import List, Optional
@@ -23,7 +23,7 @@ from schemas import (
     TerminationReviewCount,
     StatDetailStudent
 )
-from auth.dependencies import require_admin_write
+from auth.dependencies import require_admin_write, get_current_user, get_effective_role
 
 router = APIRouter()
 
@@ -107,7 +107,9 @@ def get_quarter_for_date(d: date) -> tuple:
 
 @router.get("/terminations/quarters", response_model=List[QuarterOption])
 async def get_available_quarters(
+    request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -117,6 +119,8 @@ async def get_available_quarters(
     Scans enrollments directly instead of using the terminated_students view,
     so that comeback students don't erase historical quarter data.
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
     query = text("""
         SELECT DISTINCT
             calculate_effective_end_date(
@@ -152,10 +156,12 @@ async def get_available_quarters(
 
 @router.get("/terminations", response_model=List[TerminatedStudentResponse])
 async def get_terminated_students(
+    request: Request,
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),
     year: int = Query(..., ge=2020, description="Year"),
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (for role-based filtering)"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -166,6 +172,9 @@ async def get_terminated_students(
     historical stability: comeback students don't erase past quarter data.
     Enrollments starting >30 days after quarter end are ignored (comebacks).
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
+
     opening_start, _, closing_end = get_quarter_dates(year, quarter)
 
     query = text("""
@@ -340,10 +349,12 @@ async def update_termination_record(
 
 @router.get("/terminations/stats", response_model=TerminationStatsResponse)
 async def get_termination_stats(
+    request: Request,
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),
     year: int = Query(..., ge=2020, description="Year"),
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (for role-based filtering)"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -355,6 +366,8 @@ async def get_termination_stats(
     - Closing: Students with enrollments having effective_end_date > quarter end
     - Term Rate: Terminated / Opening (0 if opening is 0)
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
     opening_start, opening_end, closing_end = get_quarter_dates(year, quarter)
     prev_closing_end = opening_start - timedelta(days=1)
 
@@ -843,8 +856,10 @@ def _compute_location_stats(
 
 @router.get("/terminations/review-needed-count", response_model=TerminationReviewCount)
 async def get_review_needed_count(
+    request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -852,6 +867,8 @@ async def get_review_needed_count(
     Only returns a non-zero count during the review period (quarter start to end of month).
     Reviews the PREVIOUS quarter's terminated students.
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
     today = date.today()
     current_q, current_y = get_quarter_for_date(today)
     opening_start, _, _ = get_quarter_dates(current_y, current_q)
@@ -929,8 +946,10 @@ async def get_review_needed_count(
 
 @router.get("/terminations/stats/trends", response_model=List[QuarterTrendPoint])
 async def get_termination_trends(
+    request: Request,
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -938,9 +957,11 @@ async def get_termination_trends(
     Returns data points ordered chronologically (oldest first).
     Capped at 8 most recent quarters.
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
     # Get available quarters (already in descending order)
     # Exclude current in-progress quarter — its data is incomplete
-    quarters_result = await get_available_quarters(location=location, db=db)
+    quarters_result = await get_available_quarters(request=request, location=location, current_user=current_user, db=db)
     current_q, current_y = get_quarter_for_date(date.today())
     quarters = [q for q in quarters_result
                 if not (q.quarter == current_q and q.year == current_y)][:8]
@@ -964,17 +985,21 @@ async def get_termination_trends(
 
 @router.get("/terminations/stats/details", response_model=List[StatDetailStudent])
 async def get_stat_details(
+    request: Request,
     stat_type: str = Query(..., description="Type of stat: opening, terminated, or closing"),
     quarter: int = Query(..., ge=1, le=4, description="Quarter (1-4)"),
     year: int = Query(..., ge=2020, description="Year"),
     location: Optional[str] = Query(None, description="Filter by location"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
+    current_user: Tutor = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Get the list of students counted in a specific stat (opening, terminated, closing).
     Used for drill-down when clicking stat numbers in the UI.
     """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for termination data")
     if stat_type not in ("opening", "terminated", "closing"):
         raise HTTPException(status_code=400, detail="stat_type must be opening, terminated, or closing")
 

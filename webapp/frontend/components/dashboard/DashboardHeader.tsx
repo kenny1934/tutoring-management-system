@@ -61,7 +61,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
   const [leaveOpen, setLeaveOpen] = useState(false);
   const { open: openCommandPalette } = useCommandPalette();
   const { viewMode } = useRole();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();
 
   // Daily emoji - deterministic based on date to avoid hydration mismatch
@@ -210,8 +210,8 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
       {/* Daily Puzzle */}
       <DailyPuzzle className="border-b border-[#e8d4b8] dark:border-[#6b5a4a]" />
 
-      {/* Bottom section: Quick Links */}
-      <div className="px-4 sm:px-6 py-3">
+      {/* Bottom section: Quick Links (hidden for Guest role) */}
+      {!isGuest && <div className="px-4 sm:px-6 py-3">
         {/* Quick Links */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {quickLinks.map((link) => {
@@ -477,7 +477,7 @@ export function DashboardHeader({ userName = "Kenny", location, isMobile = false
             );
           })}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

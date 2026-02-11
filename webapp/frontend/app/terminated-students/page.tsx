@@ -127,7 +127,7 @@ export default function TerminatedStudentsPage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { user, isAdmin, canViewAdminPages, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isAdmin, canViewAdminPages, isGuest, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
 
@@ -635,6 +635,17 @@ export default function TerminatedStudentsPage() {
   }, [stats?.tutor_stats, tutorStatsSortConfig]);
 
   const isLoading = loadingQuarters || loadingStudents || loadingStats;
+
+  if (isGuest) {
+    return (
+      <DeskSurface>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
+          <UserMinus className="h-12 w-12 text-red-500/50" />
+          <p>Access denied — Guest role cannot view termination data</p>
+        </div>
+      </DeskSurface>
+    );
+  }
 
   return (
     <DeskSurface>

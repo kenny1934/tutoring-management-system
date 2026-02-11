@@ -1,5 +1,5 @@
 // Tutor types
-export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin' | 'Supervisor';
+export type TutorRole = 'Tutor' | 'Admin' | 'Super Admin' | 'Supervisor' | 'Guest';
 
 export interface Tutor {
   id: number;
