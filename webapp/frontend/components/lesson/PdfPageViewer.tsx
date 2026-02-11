@@ -75,6 +75,8 @@ interface PdfPageViewerProps {
   eraserActive?: boolean;
   /** Called to toggle the eraser tool. */
   onEraserToggle?: () => void;
+  /** Exercise ID for render caching — skips re-render when switching back. */
+  exerciseId?: number;
 }
 
 const MIN_ZOOM = 50;
@@ -104,6 +106,7 @@ export function PdfPageViewer({
   onSaveAnnotated,
   eraserActive = false,
   onEraserToggle,
+  exerciseId,
 }: PdfPageViewerProps) {
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -112,6 +115,9 @@ export function PdfPageViewer({
   const pageUrlsRef = useRef<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
+
+  // Render cache: exerciseId → rendered pages (avoids re-rendering on exercise switch-back)
+  const renderCacheRef = useRef<Map<number, RenderedPage[]>>(new Map());
 
   // Clear all confirmation state (arm-then-confirm pattern)
   const [confirmingClearAll, setConfirmingClearAll] = useState(false);
@@ -148,13 +154,25 @@ export function PdfPageViewer({
   }, [pages]);
 
   // Process PDF: extract+stamp → render pages as images (parallel)
+  // Uses render cache to skip expensive pipeline when switching back to a previously viewed exercise.
   useEffect(() => {
     if (!pdfData) {
-      pageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
       pageUrlsRef.current = [];
       setPages([]);
       setProcessError(null);
       return;
+    }
+
+    // Cache hit — skip entire pipeline
+    if (exerciseId != null) {
+      const cached = renderCacheRef.current.get(exerciseId);
+      if (cached) {
+        pageUrlsRef.current = cached.map((r) => r.url);
+        setPages(cached);
+        setIsProcessing(false);
+        setProcessError(null);
+        return;
+      }
     }
 
     let cancelled = false;
@@ -227,10 +245,13 @@ export function PdfPageViewer({
         const rendered = results.filter((r): r is RenderedPage => r !== null);
         const urls = rendered.map((r) => r.url);
 
-        // Clean up old page URLs
-        pageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
         pageUrlsRef.current = urls;
         setPages(rendered);
+
+        // Store in render cache
+        if (exerciseId != null) {
+          renderCacheRef.current.set(exerciseId, rendered);
+        }
       } catch {
         if (!cancelled) {
           setProcessError("Failed to process PDF");
@@ -243,12 +264,16 @@ export function PdfPageViewer({
     return () => {
       cancelled = true;
     };
-  }, [pdfData, pageNumbers, stamp]);
+  }, [pdfData, pageNumbers, stamp, exerciseId]);
 
-  // Revoke all page URLs on unmount
+  // Revoke all cached page URLs on unmount
   useEffect(() => {
+    const cache = renderCacheRef.current;
     return () => {
-      pageUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+      for (const pages of cache.values()) {
+        pages.forEach((p) => URL.revokeObjectURL(p.url));
+      }
+      cache.clear();
     };
   }, []);
 

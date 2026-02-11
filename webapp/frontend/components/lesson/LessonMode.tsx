@@ -192,13 +192,27 @@ export function LessonMode({
   const [penSize, setPenSize] = useState(3);
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
 
-  // All exercises from both sessions (for keyboard navigation)
+  // All exercises from both sessions (for auto-select, save-all ZIP)
   const allExercises = useMemo(() => {
     const exercises: SessionExercise[] = [];
     if (currentSession?.exercises) exercises.push(...currentSession.exercises);
     if (previousSession?.exercises) exercises.push(...previousSession.exercises);
     return exercises;
   }, [currentSession, previousSession]);
+
+  // Navigable exercises for j/k: only include previous session if user is browsing it
+  const selectedIsFromPrevious = previousSession?.exercises?.some(
+    ex => ex.id === selectedExercise?.id
+  ) ?? false;
+
+  const navigableExercises = useMemo(() => {
+    const exercises: SessionExercise[] = [];
+    if (currentSession?.exercises) exercises.push(...currentSession.exercises);
+    if (selectedIsFromPrevious && previousSession?.exercises) {
+      exercises.push(...previousSession.exercises);
+    }
+    return exercises;
+  }, [currentSession, previousSession, selectedIsFromPrevious]);
 
   // Auto-select first exercise on mount / session change
   useEffect(() => {
@@ -490,18 +504,18 @@ export function LessonMode({
         case "j":
         case "ArrowDown": {
           e.preventDefault();
-          const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise?.id);
-          if (currentIdx < allExercises.length - 1) {
-            setSelectedExercise(allExercises[currentIdx + 1]);
+          const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
+          if (currentIdx < navigableExercises.length - 1) {
+            setSelectedExercise(navigableExercises[currentIdx + 1]);
           }
           break;
         }
         case "k":
         case "ArrowUp": {
           e.preventDefault();
-          const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise?.id);
+          const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
           if (currentIdx > 0) {
-            setSelectedExercise(allExercises[currentIdx - 1]);
+            setSelectedExercise(navigableExercises[currentIdx - 1]);
           }
           break;
         }
@@ -561,7 +575,7 @@ export function LessonMode({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [exerciseModalType, showExitConfirm, allExercises, selectedExercise, currentSession, handleExitAttempt, handleEditExercises, handlePrint, focusMode, drawingEnabled, handleUndo, handleRedo]);
+  }, [exerciseModalType, showExitConfirm, navigableExercises, selectedExercise, currentSession, handleExitAttempt, handleEditExercises, handlePrint, focusMode, drawingEnabled, annotationTool, handleUndo, handleRedo]);
 
   // Resize handler
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -787,6 +801,7 @@ export function LessonMode({
           pdfData={pdfData}
           pageNumbers={pageNumbers}
           stamp={stamp}
+          exerciseId={selectedExercise?.id}
           isLoading={pdfLoading}
           error={pdfError}
           exerciseLabel={exerciseLabel}
