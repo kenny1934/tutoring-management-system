@@ -241,7 +241,7 @@ def get_effective_role(request: Request, current_user: Tutor) -> str:
         current_user: The authenticated user from JWT
 
     Returns:
-        The effective role string ("Super Admin", "Admin", "Supervisor", or "Tutor")
+        The effective role string ("Super Admin", "Admin", "Supervisor", "Tutor", or "Guest")
     """
     # Only Super Admins can impersonate
     if current_user.role != "Super Admin":
@@ -251,14 +251,14 @@ def get_effective_role(request: Request, current_user: Tutor) -> str:
     impersonated_role = request.headers.get("X-Effective-Role")
 
     # Only allow valid role values
-    if impersonated_role in ("Admin", "Supervisor", "Tutor"):
+    if impersonated_role in ("Admin", "Supervisor", "Tutor", "Guest"):
         return impersonated_role
 
     return current_user.role
 
 
 # Valid roles in the system
-VALID_ROLES = ("Super Admin", "Admin", "Supervisor", "Tutor")
+VALID_ROLES = ("Super Admin", "Admin", "Supervisor", "Tutor", "Guest")
 
 # Roles that can view admin pages (all data, admin features)
 ADMIN_VIEW_ROLES = ("Super Admin", "Admin", "Supervisor")
@@ -267,7 +267,7 @@ ADMIN_VIEW_ROLES = ("Super Admin", "Admin", "Supervisor")
 ADMIN_WRITE_ROLES = ("Super Admin", "Admin")
 
 # Read-only roles that can view but not modify
-READ_ONLY_ROLES = ("Supervisor",)
+READ_ONLY_ROLES = ("Supervisor", "Guest")
 
 
 def is_read_only_role(role: str) -> bool:
@@ -305,10 +305,10 @@ def require_admin_write(
     effective_role = get_effective_role(request, current_user)
 
     if effective_role not in ADMIN_WRITE_ROLES:
-        if effective_role == "Supervisor":
+        if effective_role in READ_ONLY_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Supervisors have read-only access",
+                detail=f"{effective_role}s have read-only access",
             )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -335,6 +335,50 @@ def require_admin_view(
             ...
     """
     effective_role = get_effective_role(request, current_user)
+
+    if effective_role not in ADMIN_VIEW_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+def reject_guest(
+    request: Request,
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Block Guest role from accessing an endpoint. Allows all other roles.
+
+    Respects impersonation for Super Admins.
+    """
+    if get_effective_role(request, current_user) == "Guest":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Guest access not permitted for this resource",
+        )
+    return current_user
+
+
+def require_non_guest_view(
+    request: Request,
+    current_user: Tutor = Depends(get_current_user),
+) -> Tutor:
+    """
+    Require admin-level view access, excluding Guest role.
+
+    Allows Super Admin, Admin, and Supervisor but blocks Guest.
+    Used for sensitive data pages (revenue, terminations, parent contacts).
+    Respects impersonation for Super Admins.
+    """
+    effective_role = get_effective_role(request, current_user)
+
+    if effective_role == "Guest":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Guest access not permitted for this resource",
+        )
 
     if effective_role not in ADMIN_VIEW_ROLES:
         raise HTTPException(

@@ -25,7 +25,7 @@ export interface User {
 /**
  * Available roles for impersonation
  */
-export const AVAILABLE_ROLES = ["Super Admin", "Admin", "Supervisor", "Tutor"] as const;
+export const AVAILABLE_ROLES = ["Super Admin", "Admin", "Supervisor", "Tutor", "Guest"] as const;
 export type Role = (typeof AVAILABLE_ROLES)[number];
 
 /**
@@ -41,7 +41,7 @@ export const ADMIN_WRITE_ROLES = ["Super Admin", "Admin"] as const;
 /**
  * Read-only roles
  */
-export const READ_ONLY_ROLES = ["Supervisor"] as const;
+export const READ_ONLY_ROLES = ["Supervisor", "Guest"] as const;
 
 /**
  * Impersonated tutor info (for tutor-specific impersonation)
@@ -63,9 +63,11 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   /** Is Supervisor role (read-only admin access) */
   isSupervisor: boolean;
+  /** Is Guest role (limited read-only access) */
+  isGuest: boolean;
   /** Can view admin pages and data (Admin, Super Admin, Supervisor) */
   canViewAdminPages: boolean;
-  /** Is a read-only role (Supervisor) */
+  /** Is a read-only role (Supervisor, Guest) */
   isReadOnly: boolean;
   /** The effective role (impersonated or actual) */
   effectiveRole: string | null;
@@ -273,14 +275,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // isSupervisor check uses effective role
   const isSupervisor = effectiveRole === "Supervisor";
 
+  // isGuest check uses effective role
+  const isGuest = effectiveRole === "Guest";
+
   // isAdmin check uses effective role - only roles that can write
   const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
 
-  // canViewAdminPages - includes Supervisor for read-only admin access
+  // canViewAdminPages - includes Supervisor for read-only admin access, but NOT Guest
   const canViewAdminPages = effectiveRole === "Admin" || effectiveRole === "Super Admin" || effectiveRole === "Supervisor";
 
-  // isReadOnly - Supervisor is read-only
-  const isReadOnly = effectiveRole === "Supervisor";
+  // isReadOnly - Supervisor and Guest are read-only
+  const isReadOnly = effectiveRole === "Supervisor" || effectiveRole === "Guest";
 
   return (
     <AuthContext.Provider
@@ -291,6 +296,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAdmin,
         isSuperAdmin,
         isSupervisor,
+        isGuest,
         canViewAdminPages,
         isReadOnly,
         effectiveRole,
