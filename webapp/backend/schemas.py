@@ -1664,6 +1664,77 @@ class WecomMessageLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ============================================
+# Tutor Memo Schemas
+# ============================================
+
+class MemoExerciseItem(BaseModel):
+    """Single exercise entry within a tutor memo"""
+    exercise_type: str = Field(..., pattern="^(CW|HW)$")
+    pdf_name: str = Field(..., min_length=1, max_length=500)
+    page_start: Optional[int] = Field(None, gt=0)
+    page_end: Optional[int] = Field(None, gt=0)
+    remarks: Optional[str] = Field(None, max_length=1000)
+    answer_pdf_name: Optional[str] = Field(None, max_length=500)
+    answer_page_start: Optional[int] = Field(None, gt=0)
+    answer_page_end: Optional[int] = Field(None, gt=0)
+    answer_remarks: Optional[str] = Field(None, max_length=1000)
+
+
+class TutorMemoCreate(BaseModel):
+    """Request schema for creating a tutor memo"""
+    student_id: int = Field(..., gt=0)
+    memo_date: date
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = None
+    exercises: Optional[List[MemoExerciseItem]] = None
+    performance_rating: Optional[str] = Field(None, max_length=10)
+
+
+class TutorMemoUpdate(BaseModel):
+    """Request schema for updating a tutor memo"""
+    student_id: Optional[int] = None
+    memo_date: Optional[date] = None
+    time_slot: Optional[str] = Field(None, max_length=50)
+    location: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = None
+    exercises: Optional[List[MemoExerciseItem]] = None
+    performance_rating: Optional[str] = Field(None, max_length=10)
+
+
+class TutorMemoResponse(BaseModel):
+    """Response schema for a tutor memo"""
+    id: int
+    student_id: int
+    student_name: str
+    school_student_id: Optional[str] = None
+    grade: Optional[str] = None
+    school: Optional[str] = None
+    tutor_id: int
+    tutor_name: str
+    memo_date: date
+    time_slot: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    exercises: Optional[List[MemoExerciseItem]] = None
+    performance_rating: Optional[str] = None
+    linked_session_id: Optional[int] = None
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TutorMemoImportRequest(BaseModel):
+    """Request for importing memo data into a session"""
+    import_notes: bool = True
+    import_exercises: bool = True
+    import_rating: bool = True
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

@@ -858,7 +858,7 @@ export function BulkExerciseModal({
                       onChange={(e) => updateExercise(index, "pdf_name", e.target.value)}
                       onPaste={(e) => handlePasteConvert(e, index)}
                       onFocus={() => setFocusedRowIndex(index)}
-                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF name or path (drag & drop supported)"}
+                      placeholder={isDraggingOver === index ? "Drop PDF here to search..." : "PDF path (drag & drop supported)"}
                       className={cn(
                         inputClass,
                         "text-xs py-1.5 flex-1 min-w-0 transition-all",

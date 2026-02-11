@@ -873,7 +873,7 @@ export function EditSessionModal({
                         onChange={(e) =>
                           updateExercise(index, "pdf_name", e.target.value)
                         }
-                        placeholder="PDF name or path"
+                        placeholder="PDF path"
                         className={cn(inputClass, "text-xs py-1.5")}
                       />
 

@@ -124,6 +124,11 @@ import type {
   WecomSendRequest,
   WecomSendResponse,
   WecomMessageLog,
+  // Tutor memo types
+  TutorMemo,
+  TutorMemoCreate,
+  TutorMemoUpdate,
+  TutorMemoImportRequest,
 } from "@/types";
 
 // Re-export types for backward compatibility
@@ -1790,6 +1795,64 @@ const wecomAPI = {
   },
 };
 
+export const memosAPI = {
+  getAll: (params?: {
+    student_id?: number;
+    tutor_id?: number;
+    status?: 'pending' | 'linked';
+    from_date?: string;
+    to_date?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.student_id) searchParams.append("student_id", String(params.student_id));
+    if (params?.tutor_id) searchParams.append("tutor_id", String(params.tutor_id));
+    if (params?.status) searchParams.append("status", params.status);
+    if (params?.from_date) searchParams.append("from_date", params.from_date);
+    if (params?.to_date) searchParams.append("to_date", params.to_date);
+    if (params?.limit) searchParams.append("limit", String(params.limit));
+    if (params?.offset) searchParams.append("offset", String(params.offset));
+    const query = searchParams.toString();
+    return fetchAPI<TutorMemo[]>(`/tutor-memos${query ? `?${query}` : ""}`);
+  },
+
+  getById: (id: number) =>
+    fetchAPI<TutorMemo>(`/tutor-memos/${id}`),
+
+  getPendingCount: (tutorId?: number) => {
+    const query = tutorId ? `?tutor_id=${tutorId}` : "";
+    return fetchAPI<CountResponse>(`/tutor-memos/pending-count${query}`);
+  },
+
+  create: (data: TutorMemoCreate) =>
+    fetchAPI<TutorMemo>("/tutor-memos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: TutorMemoUpdate) =>
+    fetchAPI<TutorMemo>(`/tutor-memos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    fetchAPI<MessageResponse>(`/tutor-memos/${id}`, { method: "DELETE" }),
+
+  getForSession: (sessionId: number) =>
+    fetchAPI<TutorMemo | null>(`/sessions/${sessionId}/memo`),
+
+  linkToSession: (memoId: number, sessionId: number) =>
+    fetchAPI<TutorMemo>(`/tutor-memos/${memoId}/link/${sessionId}`, { method: "POST" }),
+
+  importToSession: (memoId: number, sessionId: number, request: TutorMemoImportRequest) =>
+    fetchAPI<MessageResponse>(`/tutor-memos/${memoId}/import/${sessionId}`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    }),
+};
+
 // Export all APIs as a single object
 export const api = {
   tutors: tutorsAPI,
@@ -1814,4 +1877,5 @@ export const api = {
   debug: debugAPI,
   discounts: discountsAPI,
   wecom: wecomAPI,
+  memos: memosAPI,
 };

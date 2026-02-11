@@ -232,6 +232,8 @@ class SessionLog(Base):
     exercises = relationship("SessionExercise", back_populates="session", cascade="all, delete-orphan")
     exam_revision_slot = relationship("ExamRevisionSlot", back_populates="sessions")
     extension_request = relationship("ExtensionRequest", back_populates="session", uselist=False)
+    tutor_memo = relationship("TutorMemo", back_populates="linked_session", uselist=False,
+                              foreign_keys="TutorMemo.linked_session_id")
 
 
 class Holiday(Base):
@@ -813,3 +815,40 @@ class WecomMessageLog(Base):
     send_timestamp = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class TutorMemo(Base):
+    """
+    Tutor session memos for sessions that don't yet exist in the system.
+    Created when a student shows up but their session hasn't been generated
+    (e.g., admin forgot to renew enrollment). Auto-matched to sessions when
+    enrollments are created.
+    """
+    __tablename__ = "tutor_memos"
+    __table_args__ = (
+        Index('idx_memo_student_date', 'student_id', 'memo_date'),
+        Index('idx_memo_status', 'status'),
+        Index('idx_memo_tutor', 'tutor_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    memo_date = Column(Date, nullable=False, comment='Date the lesson actually happened')
+    time_slot = Column(String(50), comment='e.g. 16:45 - 18:15')
+    location = Column(String(50), comment='MSA, MSB, etc.')
+    notes = Column(Text, comment='Free-form tutor observations')
+    exercises = Column(JSON, comment='Array of exercise objects matching ExerciseCreateRequest shape')
+    performance_rating = Column(String(10), comment='Star emoji rating like sessions')
+    linked_session_id = Column(Integer, ForeignKey("session_log.id", ondelete="SET NULL"), nullable=True,
+                               comment='Set when auto-matched or manually linked to a session')
+    status = Column(String(20), nullable=False, default='pending',
+                    comment='pending = awaiting session, linked = imported into session')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_by = Column(String(255), comment='Tutor email who created the memo')
+
+    # Relationships
+    student = relationship("Student", foreign_keys=[student_id])
+    tutor = relationship("Tutor", foreign_keys=[tutor_id])
+    linked_session = relationship("SessionLog", back_populates="tutor_memo", foreign_keys=[linked_session_id])
