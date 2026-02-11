@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 from constants import hk_now
 from collections import defaultdict
 from database import get_db
-from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon
+from models import Enrollment, Student, Tutor, Discount, Holiday, SessionLog, StudentCoupon, TutorMemo
 from schemas import (
     EnrollmentResponse, EnrollmentUpdate, EnrollmentExtensionUpdate, OverdueEnrollment,
     EnrollmentCreate, SessionPreview, StudentConflict, EnrollmentPreviewResponse,
@@ -476,6 +476,24 @@ async def create_enrollment(
         )
         db.add(session)
         sessions_created += 1
+
+    # Auto-match pending tutor memos to newly created sessions
+    db.flush()  # Ensure sessions have IDs
+    session_dates = [sp.session_date for sp in sessions if not sp.is_holiday]
+    if session_dates:
+        pending_memos = db.query(TutorMemo).filter(
+            TutorMemo.student_id == enrollment_data.student_id,
+            TutorMemo.status == "pending",
+            TutorMemo.linked_session_id.is_(None),
+            TutorMemo.memo_date.in_(session_dates),
+        ).all()
+        for memo in pending_memos:
+            matching_session = db.query(SessionLog).filter(
+                SessionLog.enrollment_id == enrollment.id,
+                SessionLog.session_date == memo.memo_date,
+            ).first()
+            if matching_session:
+                memo.linked_session_id = matching_session.id
 
     db.commit()
 

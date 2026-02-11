@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, RefObject, useMemo, useCallback } from 'react';
 import useSWR, { mutate } from 'swr';
-import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, api, type ParentCommunication } from './api';
-import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse } from '@/types';
+import { sessionsAPI, tutorsAPI, calendarAPI, studentsAPI, enrollmentsAPI, revenueAPI, coursewareAPI, holidaysAPI, terminationsAPI, messagesAPI, proposalsAPI, examRevisionAPI, parentCommunicationsAPI, extensionRequestsAPI, memosAPI, api, type ParentCommunication } from './api';
+import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFilters, Enrollment, DashboardStats, ActivityEvent, MonthlyRevenueSummary, SessionRevenueDetail, CoursewarePopularity, CoursewareUsageDetail, Holiday, TerminatedStudent, TerminationStatsResponse, QuarterOption, QuarterTrendPoint, StatDetailStudent, TerminationReviewCount, OverdueEnrollment, UncheckedAttendanceReminder, UncheckedAttendanceCount, MessageThread, Message, MessageCategory, MakeupProposal, ProposalStatus, PendingProposalCount, PendingExtensionRequestCount, ExamRevisionSlot, ExamRevisionSlotDetail, EligibleStudent, ExamWithRevisionSlots, PaginatedThreadsResponse, TutorMemo, CountResponse } from '@/types';
 
 // SWR configuration is now global in Providers.tsx
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
@@ -1255,4 +1255,39 @@ export function useCacheInvalidation() {
     invalidateAfterProposalAction,
     invalidateAfterMessageAction,
   };
+}
+
+
+/**
+ * Hook for fetching tutor memos with optional filters.
+ */
+export function useMemos(params?: {
+  student_id?: number;
+  tutor_id?: number;
+  status?: 'pending' | 'linked';
+  from_date?: string;
+  to_date?: string;
+}) {
+  const key = params ? ['tutor-memos', JSON.stringify(params)] : ['tutor-memos'];
+  return useSWR<TutorMemo[]>(key, () => memosAPI.getAll(params));
+}
+
+/**
+ * Hook for fetching memo associated with a specific session.
+ */
+export function useMemoForSession(sessionId: number | null | undefined) {
+  return useSWR<TutorMemo | null>(
+    sessionId ? ['session-memo', sessionId] : null,
+    () => memosAPI.getForSession(sessionId!)
+  );
+}
+
+/**
+ * Hook for fetching pending memo count (for notification badges).
+ */
+export function usePendingMemoCount(tutorId?: number) {
+  return useSWR<CountResponse>(
+    ['tutor-memos-pending-count', tutorId],
+    () => memosAPI.getPendingCount(tutorId)
+  );
 }

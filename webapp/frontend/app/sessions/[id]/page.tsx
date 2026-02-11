@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
-import { useSession, usePageTitle } from "@/lib/hooks";
+import { useSession, usePageTitle, useMemoForSession } from "@/lib/hooks";
 import { GlassCard, PageTransition, WorksheetCard, WorksheetProblem, IndexCard, GraphPaper, StickyNote } from "@/lib/design-system";
 import { StarRating } from "@/components/ui/star-rating";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +27,9 @@ import { BookmarkTab } from "@/components/session/BookmarkTab";
 import { CurriculumTab } from "@/components/session/CurriculumTab";
 import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
+import { MemoBanner } from "@/components/sessions/MemoBanner";
+import { MemoModal } from "@/components/sessions/MemoModal";
+import { MemoImportModal } from "@/components/sessions/MemoImportModal";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +80,11 @@ export default function SessionDetailPage() {
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [lessonMode, setLessonMode] = useState(false);
+  const [memoViewOpen, setMemoViewOpen] = useState(false);
+  const [memoImportOpen, setMemoImportOpen] = useState(false);
+
+  // Check if a memo exists for this session
+  const { data: sessionMemo } = useMemoForSession(sessionId);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -361,6 +369,17 @@ export default function SessionDetailPage() {
         <TestAlertBanner tests={upcomingTests} />
       </div>
 
+      {/* Memo Banner - shown when a tutor memo exists for this session */}
+      {sessionMemo && (
+        <div className="pl-0 sm:pl-8 lg:pl-14">
+          <MemoBanner
+            memo={sessionMemo}
+            onView={() => setMemoViewOpen(true)}
+            onImport={() => setMemoImportOpen(true)}
+          />
+        </div>
+      )}
+
       {/* Dynamic Courseware and Notes Section */}
       {(() => {
         // Calculate what content exists
@@ -588,6 +607,26 @@ export default function SessionDetailPage() {
           exerciseType={exerciseModalType}
           isOpen={true}
           onClose={() => setExerciseModalType(null)}
+        />
+      )}
+
+      {/* Memo View Modal */}
+      {memoViewOpen && sessionMemo && (
+        <MemoModal
+          isOpen={true}
+          onClose={() => setMemoViewOpen(false)}
+          memo={sessionMemo}
+        />
+      )}
+
+      {/* Memo Import Modal */}
+      {memoImportOpen && sessionMemo && (
+        <MemoImportModal
+          isOpen={true}
+          onClose={() => setMemoImportOpen(false)}
+          memo={sessionMemo}
+          sessionId={sessionId}
+          onImported={() => mutate()}
         />
       )}
 

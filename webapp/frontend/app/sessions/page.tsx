@@ -2,14 +2,14 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2 } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -63,6 +63,14 @@ const RateSessionModal = dynamic(
 );
 const EditSessionModal = dynamic(
   () => import("@/components/sessions/EditSessionModal").then(m => m.EditSessionModal),
+  { ssr: false }
+);
+const MemoModal = dynamic(
+  () => import("@/components/sessions/MemoModal").then(m => m.MemoModal),
+  { ssr: false }
+);
+const MemoListDrawer = dynamic(
+  () => import("@/components/sessions/MemoListDrawer").then(m => m.MemoListDrawer),
   { ssr: false }
 );
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
@@ -256,6 +264,9 @@ export default function SessionsPage() {
     return tutor?.id ?? 0;
   }, [tutors]);
 
+  const isAdminRole = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const { data: pendingMemoData } = usePendingMemoCount(isAdminRole ? undefined : currentTutorId || undefined);
+
   // Fetch proposals for the current date range (for showing proposed sessions)
   const proposalDateRange = useMemo(() => {
     if (specialFilter === "pending-makeups") {
@@ -318,6 +329,8 @@ export default function SessionsPage() {
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+  const [memoModalOpen, setMemoModalOpen] = useState(false);
+  const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
   const [showSelectDropdown, setShowSelectDropdown] = useState(false);
   const [slotDropdownOpen, setSlotDropdownOpen] = useState<string | null>(null);
 
@@ -1589,6 +1602,21 @@ export default function SessionsPage() {
         </>
       )}
 
+      {/* Record Memo button */}
+      <button
+        onClick={() => setMemoDrawerOpen(true)}
+        className="relative flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+        title="Record a session memo (for sessions not yet in system)"
+      >
+        <StickyNoteIcon className="h-3 w-3" />
+        <span className="hidden sm:inline">Memo</span>
+        {(pendingMemoData?.count ?? 0) > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
+            {pendingMemoData!.count}
+          </span>
+        )}
+      </button>
+
       <div className="flex-1" />
 
       {/* Select All checkbox with dropdown (only in list view) */}
@@ -1653,6 +1681,7 @@ export default function SessionsPage() {
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
         lastUpdated={lastUpdated}
+        iconOnly
       />
     </>
   );
@@ -2382,6 +2411,14 @@ export default function SessionsPage() {
           onClose={() => setSelectedProposal(null)}
         />
 
+        {/* Memo List Drawer */}
+        {memoDrawerOpen && (
+          <MemoListDrawer
+            isOpen={true}
+            onClose={() => setMemoDrawerOpen(false)}
+          />
+        )}
+
         {/* Keyboard shortcut hint button (shows when panel is hidden) */}
         {!showShortcutHints && (
           <button
@@ -2534,6 +2571,14 @@ export default function SessionsPage() {
         isOpen={!!selectedProposal}
         onClose={() => setSelectedProposal(null)}
       />
+
+      {/* Memo List Drawer */}
+      {memoDrawerOpen && (
+        <MemoListDrawer
+          isOpen={true}
+          onClose={() => setMemoDrawerOpen(false)}
+        />
+      )}
       </PageTransition>
     </DeskSurface>
   );

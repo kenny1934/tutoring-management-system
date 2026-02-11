@@ -2,14 +2,14 @@
 
 import { useMemo, useState, useCallback, useEffect, memo } from "react";
 import Link from "next/link";
-import { useSessions, useProposalsInDateRange, useTutors } from "@/lib/hooks";
+import { useSessions, useProposalsInDateRange, useTutors, usePendingMemoCount } from "@/lib/hooks";
 import { useBulkSelection, useBulkSessionActions, useGroupedSessions, type TimeSlotGroup } from "@/lib/hooks/index";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { canBeMarked } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -23,6 +23,8 @@ import { proposalSlotsToSessions } from "@/lib/proposal-utils";
 import type { ProposedSession } from "@/lib/proposal-utils";
 import { ProposalDetailModal } from "@/components/sessions/ProposalDetailModal";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
+import { MemoListDrawer } from "@/components/sessions/MemoListDrawer";
+import { useAuth } from "@/contexts/AuthContext";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 
 // Format today's date as YYYY-MM-DD
@@ -47,6 +49,8 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
   const [popoverSession, setPopoverSession] = useState<Session | null>(null);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [bulkExerciseType, setBulkExerciseType] = useState<"CW" | "HW" | null>(null);
+  const [memoDrawerOpen, setMemoDrawerOpen] = useState(false);
+  const { effectiveRole } = useAuth();
 
   // Fetch ALL sessions for today (single cache key, shared across view modes)
   // This enables instant view switching - no API call needed when toggling views
@@ -74,6 +78,9 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
     const tutor = tutors.find((t) => t.tutor_name === CURRENT_USER_TUTOR);
     return tutor?.id ?? 0;
   }, [tutors]);
+
+  const isAdmin = effectiveRole === "Admin" || effectiveRole === "Super Admin";
+  const { data: pendingMemoData } = usePendingMemoCount(isAdmin ? undefined : currentTutorId || undefined);
 
   // Convert proposals to proposed sessions
   const proposedSessions = useMemo(() => {
@@ -218,6 +225,20 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Today's Sessions</h3>
           </div>
           <div className="flex items-center gap-3">
+            {/* Record Memo button */}
+            <button
+              onClick={() => setMemoDrawerOpen(true)}
+              className="relative flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 transition-colors"
+              title="Record a session memo"
+            >
+              <StickyNote className="h-3 w-3" />
+              <span className="hidden sm:inline">Memo</span>
+              {(pendingMemoData?.count ?? 0) > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-bold rounded-full bg-amber-500 text-white">
+                  {pendingMemoData!.count}
+                </span>
+              )}
+            </button>
             {/* Progress Ring */}
             {stats.total > 0 && (
               <ProgressRing
@@ -474,6 +495,14 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
         isOpen={!!selectedProposal}
         onClose={() => setSelectedProposal(null)}
       />
+
+      {/* Memo List Drawer */}
+      {memoDrawerOpen && (
+        <MemoListDrawer
+          isOpen={true}
+          onClose={() => setMemoDrawerOpen(false)}
+        />
+      )}
     </div>
   );
 }

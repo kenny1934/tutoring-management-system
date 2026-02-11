@@ -1679,3 +1679,64 @@ export interface WecomMessageLog {
   error_message: string | null;
   created_at: string;
 }
+
+// Tutor Memo types
+export interface MemoExercise {
+  exercise_type: 'CW' | 'HW';
+  pdf_name: string;
+  page_start: number | null;
+  page_end: number | null;
+  remarks: string | null;
+  answer_pdf_name: string | null;
+  answer_page_start: number | null;
+  answer_page_end: number | null;
+  answer_remarks: string | null;
+}
+
+export interface TutorMemo {
+  id: number;
+  student_id: number;
+  student_name: string;
+  school_student_id: string | null;
+  grade: string | null;
+  school: string | null;
+  tutor_id: number;
+  tutor_name: string;
+  memo_date: string;
+  time_slot: string | null;
+  location: string | null;
+  notes: string | null;
+  exercises: MemoExercise[] | null;
+  performance_rating: string | null;
+  linked_session_id: number | null;
+  status: 'pending' | 'linked';
+  created_at: string;
+  updated_at: string | null;
+  created_by: string | null;
+}
+
+export interface TutorMemoCreate {
+  student_id: number;
+  memo_date: string;
+  time_slot?: string;
+  location?: string;
+  notes?: string;
+  exercises?: MemoExercise[];
+  performance_rating?: string;
+}
+
+export interface TutorMemoUpdate {
+  student_id?: number;
+  memo_date?: string;
+  time_slot?: string;
+  location?: string;
+  notes?: string;
+  exercises?: MemoExercise[];
+  performance_rating?: string;
+}
+
+export interface TutorMemoImportRequest {
+  import_notes: boolean;
+  import_exercises: boolean;
+  import_rating: boolean;
+}
