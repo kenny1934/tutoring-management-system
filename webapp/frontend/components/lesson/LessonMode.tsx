@@ -71,7 +71,7 @@ function ExitConfirmDialog({
             ref={refs.setFloating}
             {...getFloatingProps()}
             className={cn(
-              "w-full min-w-[320px] max-w-md bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
+              "w-full min-w-[320px] max-w-sm bg-[#fef9f3] dark:bg-[#2d2618] rounded-lg shadow-xl paper-texture",
               "border-2 border-[#d4a574] dark:border-[#8b6f47]"
             )}
           >
@@ -91,20 +91,12 @@ function ExitConfirmDialog({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg">
-              <button
-                type="button"
-                onClick={onCancel}
-                disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 dark:text-gray-300 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] disabled:opacity-50"
-              >
-                Cancel
-              </button>
+            <div className="flex flex-col gap-2 px-4 py-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ebe0] dark:bg-[#251f15] rounded-b-lg">
               <button
                 type="button"
                 onClick={onSaveAndExit}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors bg-[#a0704b] text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-[#a0704b] text-white hover:bg-[#8b5d3b] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? <Loader2Icon className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 {isSaving ? "Downloading..." : "Download All & Exit"}
@@ -113,9 +105,17 @@ function ExitConfirmDialog({
                 type="button"
                 onClick={onExit}
                 disabled={isSaving}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Exit Without Downloading
+              </button>
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isSaving}
+                className="w-full px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 dark:text-gray-300 hover:bg-[#e8d4b8] dark:hover:bg-[#3d3018] disabled:opacity-50"
+              >
+                Cancel
               </button>
             </div>
           </div>
