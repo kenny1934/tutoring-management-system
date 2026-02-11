@@ -40,7 +40,6 @@ function ExerciseItem({
 }) {
   const displayName = getDisplayName(exercise.pdf_name);
   const pageLabel = getPageLabel(exercise);
-  const isCW = exercise.exercise_type === "CW" || exercise.exercise_type === "Classwork";
 
   return (
     <button
@@ -53,35 +52,23 @@ function ExerciseItem({
           : "hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50"
       )}
     >
-      <div className="flex items-start gap-2">
-        {/* Type badge */}
-        <span className={cn(
-          "shrink-0 mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded",
-          isCW
-            ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+      <div className="min-w-0">
+        {/* File name */}
+        <div className={cn(
+          "truncate font-medium",
+          isSelected
+            ? "text-[#6b4c30] dark:text-[#d4a574]"
+            : "text-gray-700 dark:text-gray-300"
         )}>
-          {isCW ? "CW" : "HW"}
-        </span>
-
-        <div className="min-w-0 flex-1">
-          {/* File name */}
-          <div className={cn(
-            "truncate font-medium",
-            isSelected
-              ? "text-[#6b4c30] dark:text-[#d4a574]"
-              : "text-gray-700 dark:text-gray-300"
-          )}>
-            {exercise.pdf_name ? displayName : "(no file)"}
-          </div>
-
-          {/* Page range */}
-          {pageLabel && (
-            <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
-              {pageLabel}
-            </span>
-          )}
+          {exercise.pdf_name ? displayName : "(no file)"}
         </div>
+
+        {/* Page range */}
+        {pageLabel && (
+          <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
+            {pageLabel}
+          </span>
+        )}
       </div>
     </button>
   );
@@ -90,6 +77,7 @@ function ExerciseItem({
 function ExerciseSection({
   label,
   icon: Icon,
+  iconColor,
   exercises,
   selectedExerciseId,
   onExerciseSelect,
@@ -99,6 +87,7 @@ function ExerciseSection({
 }: {
   label: string;
   icon: typeof PenTool;
+  iconColor: string;
   exercises: SessionExercise[];
   selectedExerciseId: number | null;
   onExerciseSelect: (exercise: SessionExercise) => void;
@@ -110,7 +99,7 @@ function ExerciseSection({
     <div>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
-          <Icon className="h-3.5 w-3.5 text-[#a0906e] dark:text-[#8a7a60]" />
+          <Icon className={cn("h-3.5 w-3.5", iconColor)} />
           <span className="text-xs font-semibold text-[#8b7355] dark:text-[#a09080] uppercase tracking-wider">
             {label}
           </span>
@@ -236,6 +225,7 @@ function SessionBlock({
               <ExerciseSection
                 label="Classwork"
                 icon={PenTool}
+                iconColor="text-rose-500 dark:text-rose-400"
                 exercises={cwExercises}
                 selectedExerciseId={selectedExerciseId}
                 onExerciseSelect={onExerciseSelect}
@@ -246,6 +236,7 @@ function SessionBlock({
               <ExerciseSection
                 label="Homework"
                 icon={BookOpen}
+                iconColor="text-blue-500 dark:text-blue-400"
                 exercises={hwExercises}
                 selectedExerciseId={selectedExerciseId}
                 onExerciseSelect={onExerciseSelect}

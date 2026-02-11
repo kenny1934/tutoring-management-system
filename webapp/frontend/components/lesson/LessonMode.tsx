@@ -13,10 +13,12 @@ import { loadExercisePdf } from "@/lib/lesson-pdf-loader";
 import { printFileFromPathWithFallback } from "@/lib/file-system";
 import { searchPaperlessByPath } from "@/lib/paperless-utils";
 import { formatShortDate } from "@/lib/formatters";
+import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
 import { motion, AnimatePresence } from "framer-motion";
+import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { Session, SessionExercise } from "@/types";
 
 interface LessonModeProps {
@@ -34,6 +36,23 @@ export function LessonMode({
 }: LessonModeProps) {
   const currentSession = session;
   const previousSession = session.previous_session ?? null;
+  const { selectedLocation } = useLocation();
+
+  // Location-prefixed student ID (same pattern as TodaySessionsCard)
+  const studentIdDisplay = session.school_student_id
+    ? (selectedLocation === "All Locations" && session.location
+        ? `${session.location}-${session.school_student_id}`
+        : session.school_student_id)
+    : null;
+
+  // Stamp for PDF pages (same info as printing)
+  const stamp = useMemo<PrintStampInfo>(() => ({
+    location: session.location,
+    schoolStudentId: session.school_student_id,
+    studentName: session.student_name,
+    sessionDate: session.session_date,
+    sessionTime: session.time_slot,
+  }), [session.location, session.school_student_id, session.student_name, session.session_date, session.time_slot]);
 
   // Exercise state
   const [selectedExercise, setSelectedExercise] = useState<SessionExercise | null>(null);
@@ -43,6 +62,9 @@ export function LessonMode({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pageNumbers, setPageNumbers] = useState<number[]>([]);
+
+  // PDF cache: raw ArrayBuffer by pdf_name (avoids re-fetching on exercise switch)
+  const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
 
   // Exercise modal
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -75,7 +97,7 @@ export function LessonMode({
     }
   }, [allExercises, selectedExercise]);
 
-  // Load PDF when exercise changes
+  // Load PDF when exercise changes (with caching)
   useEffect(() => {
     if (!selectedExercise || !selectedExercise.pdf_name) {
       setPdfData(null);
@@ -84,30 +106,43 @@ export function LessonMode({
       return;
     }
 
+    const pdfName = selectedExercise.pdf_name;
+
+    // Compute page numbers for this exercise
+    const { complexPages } = parseExerciseRemarks(selectedExercise.remarks);
+    const exercise: BulkPrintExercise = {
+      pdf_name: pdfName,
+      page_start: selectedExercise.page_start,
+      page_end: selectedExercise.page_end,
+      complex_pages: complexPages || undefined,
+    };
+    const pages = getPageNumbers(exercise, "[Lesson]");
+    setPageNumbers(pages);
+
+    // Check cache first
+    const cached = pdfCacheRef.current.get(pdfName);
+    if (cached) {
+      setPdfData(cached);
+      setPdfError(null);
+      return;
+    }
+
+    // Not cached — fetch
     let cancelled = false;
 
     async function load() {
       setPdfLoading(true);
       setPdfError(null);
 
-      const result = await loadExercisePdf(selectedExercise!.pdf_name);
+      const result = await loadExercisePdf(pdfName);
 
       if (cancelled) return;
 
       if ("data" in result) {
+        pdfCacheRef.current.set(pdfName, result.data);
         setPdfData(result.data);
-        // Compute page numbers
-        const { complexPages } = parseExerciseRemarks(selectedExercise!.remarks);
-        const exercise: BulkPrintExercise = {
-          pdf_name: selectedExercise!.pdf_name,
-          page_start: selectedExercise!.page_start,
-          page_end: selectedExercise!.page_end,
-          complex_pages: complexPages || undefined,
-        };
-        setPageNumbers(getPageNumbers(exercise, "[Lesson]"));
       } else {
         setPdfData(null);
-        setPageNumbers([]);
         setPdfError(
           result.error === "no_file"
             ? "No file assigned"
@@ -161,10 +196,10 @@ export function LessonMode({
       selectedExercise.page_start,
       selectedExercise.page_end,
       complexPages || undefined,
-      undefined,
+      stamp,
       searchPaperlessByPath
     );
-  }, [selectedExercise]);
+  }, [selectedExercise, stamp]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -209,10 +244,6 @@ export function LessonMode({
           }
           break;
         }
-        case "=":
-        case "+":
-          // Zoom handled by PdfPageViewer via its own controls
-          break;
         case "c":
           if (currentSession) {
             e.preventDefault();
@@ -298,6 +329,9 @@ export function LessonMode({
 
         {/* Student info */}
         <div className="flex items-center gap-2 min-w-0">
+          {studentIdDisplay && (
+            <span className="text-xs text-white/60 font-mono">{studentIdDisplay}</span>
+          )}
           <span className="text-sm font-bold text-white/90 truncate">
             {session.student_name}
           </span>
@@ -456,6 +490,7 @@ export function LessonMode({
         <PdfPageViewer
           pdfData={pdfData}
           pageNumbers={pageNumbers}
+          stamp={stamp}
           isLoading={pdfLoading}
           error={pdfError}
           exerciseLabel={exerciseLabel}
