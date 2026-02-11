@@ -13,7 +13,7 @@ from constants import hk_now
 from database import get_db
 from models import (
     MakeupProposal, MakeupProposalSlot, SessionLog, Tutor, TutorMessage,
-    Holiday, ExamRevisionSlot, CalendarEvent, Enrollment
+    Holiday, ExamRevisionSlot, CalendarEvent, Enrollment, ExtensionRequest
 )
 from auth.dependencies import get_current_user
 
@@ -593,17 +593,24 @@ async def approve_slot(
         days_since_original = (slot.proposed_date - root_original.session_date).days
 
         if days_since_original > 60:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "MAKEUP_60_DAY_EXCEEDED",
-                    "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
-                    "original_session_id": root_original.id,
-                    "original_session_date": str(root_original.session_date),
-                    "days_difference": days_since_original,
-                    "max_allowed_days": 60
-                }
-            )
+            # Check if session has an approved extension (bypasses 60-day rule)
+            has_approved_extension = db.query(ExtensionRequest).filter(
+                ExtensionRequest.session_id == original_session.id,
+                ExtensionRequest.request_status == 'Approved'
+            ).first() is not None
+
+            if not has_approved_extension:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "MAKEUP_60_DAY_EXCEEDED",
+                        "message": f"Makeup must be scheduled within 60 days of the original session ({root_original.session_date}). This would be {days_since_original} days later.",
+                        "original_session_id": root_original.id,
+                        "original_session_date": str(root_original.session_date),
+                        "days_difference": days_since_original,
+                        "max_allowed_days": 60
+                    }
+                )
 
     # Validate: student doesn't have conflicting session
     existing_session = db.query(SessionLog).filter(
