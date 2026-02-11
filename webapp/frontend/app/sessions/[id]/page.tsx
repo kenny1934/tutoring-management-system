@@ -181,6 +181,13 @@ export default function SessionDetailPage() {
         setIsEditModalOpen(true);
         return;
       }
+
+      // L - Enter Lesson Mode
+      if (key === 'l') {
+        e.preventDefault();
+        setLessonMode(true);
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -632,6 +639,10 @@ export default function SessionDetailPage() {
               <div className="flex justify-between gap-4">
                 <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">E</kbd>
                 <span>Edit session</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <kbd className="px-1.5 py-0.5 bg-white dark:bg-[#1a1a1a] rounded border text-xs font-mono">L</kbd>
+                <span>Lesson Mode</span>
               </div>
             </div>
             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">

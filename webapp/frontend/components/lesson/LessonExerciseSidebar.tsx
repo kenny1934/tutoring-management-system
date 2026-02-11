@@ -17,6 +17,8 @@ interface LessonExerciseSidebarProps {
   onExerciseSelect: (exercise: SessionExercise) => void;
   onEditExercises: (session: Session, type: "CW" | "HW") => void;
   isReadOnly?: boolean;
+  /** Check if an exercise has annotation strokes. */
+  hasAnnotations?: (exerciseId: number) => boolean;
 }
 
 function getPageLabel(exercise: SessionExercise): string | null {
@@ -33,10 +35,12 @@ function ExerciseItem({
   exercise,
   isSelected,
   onClick,
+  hasAnnotations,
 }: {
   exercise: SessionExercise;
   isSelected: boolean;
   onClick: () => void;
+  hasAnnotations?: boolean;
 }) {
   const displayName = getDisplayName(exercise.pdf_name);
   const pageLabel = getPageLabel(exercise);
@@ -52,22 +56,29 @@ function ExerciseItem({
           : "hover:bg-[#faf3e8] dark:hover:bg-[#2a2318] hover:border-[#e8d4b8]/50 dark:hover:border-[#5a4d3a]/50"
       )}
     >
-      <div className="min-w-0">
-        {/* File name */}
-        <div className={cn(
-          "truncate font-medium",
-          isSelected
-            ? "text-[#6b4c30] dark:text-[#d4a574]"
-            : "text-gray-700 dark:text-gray-300"
-        )}>
-          {exercise.pdf_name ? displayName : "(no file)"}
+      <div className="flex items-start gap-1.5 min-w-0">
+        <div className="flex-1 min-w-0">
+          {/* File name */}
+          <div className={cn(
+            "truncate font-medium",
+            isSelected
+              ? "text-[#6b4c30] dark:text-[#d4a574]"
+              : "text-gray-700 dark:text-gray-300"
+          )}>
+            {exercise.pdf_name ? displayName : "(no file)"}
+          </div>
+
+          {/* Page range */}
+          {pageLabel && (
+            <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
+              {pageLabel}
+            </span>
+          )}
         </div>
 
-        {/* Page range */}
-        {pageLabel && (
-          <span className="text-[10px] text-[#a0906e] dark:text-[#8a7a60]">
-            {pageLabel}
-          </span>
+        {/* Annotation indicator */}
+        {hasAnnotations && (
+          <span className="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
         )}
       </div>
     </button>
@@ -84,6 +95,7 @@ function ExerciseSection({
   onEdit,
   isReadOnly,
   session,
+  hasAnnotations,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -94,6 +106,7 @@ function ExerciseSection({
   onEdit: () => void;
   isReadOnly?: boolean;
   session: Session;
+  hasAnnotations?: (exerciseId: number) => boolean;
 }) {
   return (
     <div>
@@ -126,6 +139,7 @@ function ExerciseSection({
               exercise={ex}
               isSelected={ex.id === selectedExerciseId}
               onClick={() => onExerciseSelect(ex)}
+              hasAnnotations={hasAnnotations?.(ex.id)}
             />
           ))}
         </div>
@@ -157,6 +171,7 @@ function SessionBlock({
   onEditExercises,
   isReadOnly,
   defaultExpanded,
+  hasAnnotations,
 }: {
   session: Session;
   label: string;
@@ -165,6 +180,7 @@ function SessionBlock({
   onEditExercises: (session: Session, type: "CW" | "HW") => void;
   isReadOnly?: boolean;
   defaultExpanded: boolean;
+  hasAnnotations?: (exerciseId: number) => boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -232,6 +248,7 @@ function SessionBlock({
                 onEdit={() => onEditExercises(session, "CW")}
                 isReadOnly={isReadOnly}
                 session={session}
+                hasAnnotations={hasAnnotations}
               />
               <ExerciseSection
                 label="Homework"
@@ -243,6 +260,7 @@ function SessionBlock({
                 onEdit={() => onEditExercises(session, "HW")}
                 isReadOnly={isReadOnly}
                 session={session}
+                hasAnnotations={hasAnnotations}
               />
             </div>
           </motion.div>
@@ -259,6 +277,7 @@ export function LessonExerciseSidebar({
   onExerciseSelect,
   onEditExercises,
   isReadOnly,
+  hasAnnotations,
 }: LessonExerciseSidebarProps) {
   const hasAnySessions = currentSession || previousSession;
 
@@ -288,6 +307,7 @@ export function LessonExerciseSidebar({
           onEditExercises={onEditExercises}
           isReadOnly={isReadOnly}
           defaultExpanded
+          hasAnnotations={hasAnnotations}
         />
       )}
 
@@ -303,6 +323,7 @@ export function LessonExerciseSidebar({
             onEditExercises={onEditExercises}
             isReadOnly={isReadOnly}
             defaultExpanded={false}
+            hasAnnotations={hasAnnotations}
           />
         </>
       )}
