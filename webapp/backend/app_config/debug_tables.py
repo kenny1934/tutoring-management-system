@@ -121,6 +121,16 @@ DEBUG_TABLE_CONFIG = {
         "default_sort": ("created_at", "desc"),
         "allow_hard_delete": True,
     },
+    "tutor_memos": {
+        "display_name": "Tutor Memos",
+        "primary_key": "id",
+        "priority": 25,
+        "readonly_columns": ["id", "created_at", "updated_at"],
+        "hidden_columns": [],
+        "search_columns": ["notes", "status", "created_by"],
+        "default_sort": ("memo_date", "desc"),
+        "allow_hard_delete": True,
+    },
 
     # Priority 4: Messaging tables
     "tutor_messages": {
