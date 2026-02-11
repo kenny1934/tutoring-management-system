@@ -256,6 +256,7 @@ export function LessonMode({
   const [answerSearchResult, setAnswerSearchResult] = useState<AnswerSearchResult | null>(null);
   const [answerSearchDone, setAnswerSearchDone] = useState(false);
   const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
+  const answerOpenSetRef = useRef<Set<number>>(new Set());
 
   // S4: Keyboard annotation tool toggle (d/e keys — exits draw mode when same tool pressed)
   const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
@@ -426,7 +427,8 @@ export function LessonMode({
     }
 
     const pdfName = selectedExercise.pdf_name;
-    setShowAnswerKey(false);
+    const wasOpen = answerOpenSetRef.current.has(selectedExercise.id);
+    setShowAnswerKey(wasOpen);
     setAnswerPdfData(null);
 
     // Check explicit answer path on the exercise first
@@ -519,10 +521,17 @@ export function LessonMode({
     setExerciseModalType(type);
   }, []);
 
-  // Toggle answer key view
+  // Toggle answer key view (persists per exercise via answerOpenSetRef)
   const handleAnswerKeyToggle = useCallback(() => {
-    setShowAnswerKey(v => !v);
-  }, []);
+    setShowAnswerKey(prev => {
+      const next = !prev;
+      if (selectedExercise?.id != null) {
+        if (next) answerOpenSetRef.current.add(selectedExercise.id);
+        else answerOpenSetRef.current.delete(selectedExercise.id);
+      }
+      return next;
+    });
+  }, [selectedExercise]);
 
   // Handle exercise modal close
   const handleExerciseModalClose = useCallback(() => {
