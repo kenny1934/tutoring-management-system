@@ -3,11 +3,12 @@
 import { useState, useMemo } from "react";
 import {
   PenTool, BookOpen, ChevronDown, ChevronRight, Plus, Pencil, FileX, Calendar,
+  Check, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getDisplayName, parseExerciseRemarks } from "@/lib/exercise-utils";
 import { formatShortDate } from "@/lib/formatters";
-import type { Session, SessionExercise } from "@/types";
+import type { Session, SessionExercise, HomeworkCompletion } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LessonExerciseSidebarProps {
@@ -19,6 +20,8 @@ interface LessonExerciseSidebarProps {
   isReadOnly?: boolean;
   /** Check if an exercise has annotation strokes. */
   hasAnnotations?: (exerciseId: number) => boolean;
+  /** Homework completion data for previous session's HW exercises. */
+  homeworkCompletion?: HomeworkCompletion[];
 }
 
 function getPageLabel(exercise: SessionExercise): string | null {
@@ -36,11 +39,13 @@ function ExerciseItem({
   isSelected,
   onClick,
   hasAnnotations,
+  completionStatus,
 }: {
   exercise: SessionExercise;
   isSelected: boolean;
   onClick: () => void;
   hasAnnotations?: boolean;
+  completionStatus?: "submitted" | "not_submitted";
 }) {
   const displayName = getDisplayName(exercise.pdf_name);
   const pageLabel = getPageLabel(exercise);
@@ -76,10 +81,18 @@ function ExerciseItem({
           )}
         </div>
 
-        {/* Annotation indicator */}
-        {hasAnnotations && (
-          <span className="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
-        )}
+        {/* Status indicators */}
+        <div className="flex items-center gap-1 flex-shrink-0 mt-1">
+          {completionStatus === "submitted" && (
+            <span title="Submitted"><Check className="h-3 w-3 text-green-500" /></span>
+          )}
+          {completionStatus === "not_submitted" && (
+            <span title="Not submitted"><X className="h-3 w-3 text-red-400" /></span>
+          )}
+          {hasAnnotations && (
+            <span className="w-2 h-2 rounded-full bg-[#a0704b]" title="Has annotations" />
+          )}
+        </div>
       </div>
     </button>
   );
@@ -96,6 +109,7 @@ function ExerciseSection({
   isReadOnly,
   session,
   hasAnnotations,
+  homeworkCompletion,
 }: {
   label: string;
   icon: typeof PenTool;
@@ -107,6 +121,7 @@ function ExerciseSection({
   isReadOnly?: boolean;
   session: Session;
   hasAnnotations?: (exerciseId: number) => boolean;
+  homeworkCompletion?: HomeworkCompletion[];
 }) {
   return (
     <div>
@@ -133,15 +148,19 @@ function ExerciseSection({
 
       {exercises.length > 0 ? (
         <div className="flex flex-col gap-0.5">
-          {exercises.map((ex) => (
-            <ExerciseItem
-              key={ex.id}
-              exercise={ex}
-              isSelected={ex.id === selectedExerciseId}
-              onClick={() => onExerciseSelect(ex)}
-              hasAnnotations={hasAnnotations?.(ex.id)}
-            />
-          ))}
+          {exercises.map((ex) => {
+            const hwc = homeworkCompletion?.find(c => c.session_exercise_id === ex.id);
+            return (
+              <ExerciseItem
+                key={ex.id}
+                exercise={ex}
+                isSelected={ex.id === selectedExerciseId}
+                onClick={() => onExerciseSelect(ex)}
+                hasAnnotations={hasAnnotations?.(ex.id)}
+                completionStatus={hwc ? (hwc.submitted ? "submitted" : "not_submitted") : undefined}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="py-3 text-center">
@@ -172,6 +191,7 @@ function SessionBlock({
   isReadOnly,
   defaultExpanded,
   hasAnnotations,
+  homeworkCompletion,
 }: {
   session: Session;
   label: string;
@@ -181,6 +201,7 @@ function SessionBlock({
   isReadOnly?: boolean;
   defaultExpanded: boolean;
   hasAnnotations?: (exerciseId: number) => boolean;
+  homeworkCompletion?: HomeworkCompletion[];
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -261,6 +282,7 @@ function SessionBlock({
                 isReadOnly={isReadOnly}
                 session={session}
                 hasAnnotations={hasAnnotations}
+                homeworkCompletion={homeworkCompletion}
               />
             </div>
           </motion.div>
@@ -278,6 +300,7 @@ export function LessonExerciseSidebar({
   onEditExercises,
   isReadOnly,
   hasAnnotations,
+  homeworkCompletion,
 }: LessonExerciseSidebarProps) {
   const hasAnySessions = currentSession || previousSession;
 
@@ -324,6 +347,7 @@ export function LessonExerciseSidebar({
             isReadOnly={isReadOnly}
             defaultExpanded={false}
             hasAnnotations={hasAnnotations}
+            homeworkCompletion={homeworkCompletion}
           />
         </>
       )}

@@ -22,6 +22,8 @@ interface AnnotationLayerProps {
   penSize: number;
   /** Called when strokes change (new stroke added or stroke removed) */
   onStrokesChange: (strokes: Stroke[]) => void;
+  /** Hide strokes visually (drawing still works) */
+  hidden?: boolean;
 }
 
 /** Convert perfect-freehand outline points to an SVG path string. */
@@ -121,6 +123,7 @@ export function AnnotationLayer({
   penColor,
   penSize,
   onStrokesChange,
+  hidden = false,
 }: AnnotationLayerProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [currentPoints, setCurrentPoints] = useState<[number, number, number][]>([]);
@@ -231,6 +234,8 @@ export function AnnotationLayer({
         pointerEvents: active ? "auto" : "none",
         cursor: isErasing ? "pointer" : isDrawing ? "crosshair" : "default",
         touchAction: active ? "none" : "auto",
+        opacity: hidden ? 0 : undefined,
+        transition: "opacity 0.15s ease",
       }}
       onPointerDown={isErasing ? undefined : handlePointerDown}
       onPointerMove={isErasing ? undefined : handlePointerMove}

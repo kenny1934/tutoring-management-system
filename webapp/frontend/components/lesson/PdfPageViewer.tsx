@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
-  ZoomIn, ZoomOut, Maximize2,
+  ZoomIn, ZoomOut, Maximize2, Eye, EyeOff, BookCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
@@ -77,6 +77,12 @@ interface PdfPageViewerProps {
   onEraserToggle?: () => void;
   /** Exercise ID for render caching — skips re-render when switching back. */
   exerciseId?: number;
+  /** Called to toggle answer key view. */
+  onAnswerKeyToggle?: () => void;
+  /** Whether answer key is currently shown. */
+  showAnswerKey?: boolean;
+  /** Whether an answer key file was found for this exercise. */
+  answerKeyAvailable?: boolean;
 }
 
 const MIN_ZOOM = 50;
@@ -115,17 +121,30 @@ export function PdfPageViewer({
   eraserActive = false,
   onEraserToggle,
   exerciseId,
+  onAnswerKeyToggle,
+  showAnswerKey = false,
+  answerKeyAvailable = false,
 }: PdfPageViewerProps) {
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [currentVisiblePage, setCurrentVisiblePage] = useState(1);
   const pageUrlsRef = useRef<string[]>([]);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
 
   // Render cache: exerciseId → rendered pages (avoids re-rendering on exercise switch-back)
   const renderCacheRef = useRef<Map<number, RenderedPage[]>>(new Map());
+
+  // Hi-res re-render state
+  const pdfBytesRef = useRef<ArrayBuffer | null>(null);
+  const renderScaleRef = useRef(RENDER_SCALE);
+  const hiResRerenderRef = useRef(false);
+
+  // Annotation visibility toggle
+  const [annotationsVisible, setAnnotationsVisible] = useState(true);
 
   // Clear all confirmation state (arm-then-confirm pattern)
   const [confirmingClearAll, setConfirmingClearAll] = useState(false);
@@ -163,6 +182,7 @@ export function PdfPageViewer({
   useEffect(() => {
     if (!pdfData) {
       pageUrlsRef.current = [];
+      pdfBytesRef.current = null;
       setPages([]);
       setProcessError(null);
       return;
@@ -192,10 +212,14 @@ export function PdfPageViewer({
           const blob = await extractPagesForPrint(pdfData, pageNumbers, stamp);
           pdfBytes = await blob.arrayBuffer();
         } else {
-          pdfBytes = pdfData;
+          // Clone to prevent pdfjs from detaching the cached ArrayBuffer
+          pdfBytes = pdfData.slice(0);
         }
 
         if (cancelled) return;
+
+        // Store extracted bytes for potential hi-res re-render (clone so pdfjs can consume the original)
+        pdfBytesRef.current = pdfBytes.slice(0);
 
         // Step 2: Render pages in parallel with pdfjs-dist
         const pdfjs = await getPdfJs();
@@ -252,6 +276,7 @@ export function PdfPageViewer({
 
         pageUrlsRef.current = urls;
         setPages(rendered);
+        renderScaleRef.current = RENDER_SCALE;
 
         // Store in render cache (with LRU eviction)
         if (exerciseId != null) {
@@ -289,9 +314,13 @@ export function PdfPageViewer({
     };
   }, []);
 
-  // Auto fit-to-width when pages load
+  // Auto fit-to-width when pages load (skip for hi-res re-renders)
   useEffect(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
+    if (hiResRerenderRef.current) {
+      hiResRerenderRef.current = false;
+      return;
+    }
     userHasZoomed.current = false;
     setZoom(computeFitZoom(scrollContainerRef.current, pages[0].width));
   }, [pages]);
@@ -308,6 +337,92 @@ export function PdfPageViewer({
     observer.observe(container);
     return () => observer.disconnect();
   }, [pages]);
+
+  // IntersectionObserver: track which page is most visible
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || pages.length <= 1) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let maxRatio = 0;
+        let maxPage = currentVisiblePage;
+        for (const entry of entries) {
+          if (entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            const idx = pageRefs.current.indexOf(entry.target as HTMLDivElement);
+            if (idx >= 0) maxPage = idx + 1;
+          }
+        }
+        if (maxRatio > 0) setCurrentVisiblePage(maxPage);
+      },
+      { root: container, threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+
+    for (const el of pageRefs.current) {
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [pages]);
+
+  // Debounced hi-res re-render when zoom exceeds current render resolution
+  useEffect(() => {
+    if (pages.length === 0 || !pdfBytesRef.current) return;
+
+    const neededScale = (zoom / 100) * RENDER_SCALE;
+    // Only re-render if zoom demands more than 10% beyond current resolution
+    if (neededScale <= renderScaleRef.current * 1.1) return;
+
+    const pdfBytes = pdfBytesRef.current;
+    const timer = setTimeout(async () => {
+      try {
+        const pdfjs = await getPdfJs();
+        const doc = await pdfjs.getDocument({ data: pdfBytes.slice(0) }).promise;
+        const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+        const scale = neededScale * dpr;
+
+        const renderPage = async (pageNum: number): Promise<RenderedPage | null> => {
+          const page = await doc.getPage(pageNum);
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          await (page.render({ canvasContext: ctx, viewport }) as any).promise;
+          const blob = await new Promise<Blob>((resolve) =>
+            canvas.toBlob((b) => resolve(b!), "image/png")
+          );
+          // CSS dimensions stay at base RENDER_SCALE so zoom CSS transform isn't double-counted
+          const nativeWidth = viewport.width / scale;
+          const nativeHeight = viewport.height / scale;
+          return { url: URL.createObjectURL(blob), width: nativeWidth * RENDER_SCALE, height: nativeHeight * RENDER_SCALE };
+        };
+
+        const pageNums = Array.from({ length: doc.numPages }, (_, i) => i + 1);
+        const results = await Promise.all(pageNums.map(renderPage));
+        doc.destroy();
+
+        const rendered = results.filter((r): r is RenderedPage => r !== null);
+
+        // Revoke old page URLs
+        pageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+        pageUrlsRef.current = rendered.map((r) => r.url);
+        hiResRerenderRef.current = true;
+        setPages(rendered);
+        renderScaleRef.current = neededScale;
+
+        // Update render cache
+        if (exerciseId != null) {
+          renderCacheRef.current.set(exerciseId, rendered);
+        }
+      } catch (err) {
+        console.error("Hi-res re-render failed:", err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [zoom, pages, exerciseId]);
 
   // Keyboard shortcuts for zoom (+/- keys)
   useEffect(() => {
@@ -418,6 +533,11 @@ export function PdfPageViewer({
               : `${pageNumbers[0]}-${pageNumbers[pageNumbers.length - 1]}`}
           </span>
         )}
+        {pages.length > 1 && (
+          <span className="text-[10px] text-[#b0a090] dark:text-[#706050]">
+            Page {currentVisiblePage} of {pages.length}
+          </span>
+        )}
 
         {/* Zoom controls */}
         <div className="flex items-center gap-0.5 ml-auto">
@@ -448,6 +568,28 @@ export function PdfPageViewer({
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {/* Answer key toggle */}
+        {onAnswerKeyToggle && (
+          <>
+            <div className="h-4 w-px bg-[#d4c4a8] dark:bg-[#3a3228]" />
+            <button
+              onClick={onAnswerKeyToggle}
+              disabled={!answerKeyAvailable}
+              className={cn(
+                "p-1 rounded transition-colors text-[10px] font-bold",
+                !answerKeyAvailable
+                  ? "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed"
+                  : showAnswerKey
+                  ? "bg-[#a0704b] text-white"
+                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+              )}
+              title={!answerKeyAvailable ? "No answer key found" : showAnswerKey ? "Hide answer key" : "Show answer key"}
+            >
+              <BookCheck className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
 
         {/* Annotation toolbar */}
         {onDrawingToggle && (
@@ -481,6 +623,20 @@ export function PdfPageViewer({
               title={eraserActive ? "Exit eraser mode (E)" : "Eraser tool (E)"}
             >
               <Eraser className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Annotation visibility toggle */}
+            <button
+              onClick={() => setAnnotationsVisible(v => !v)}
+              className={cn(
+                "p-1 rounded transition-colors",
+                !annotationsVisible
+                  ? "bg-[#a0704b] text-white"
+                  : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+              )}
+              title={annotationsVisible ? "Hide annotations" : "Show annotations"}
+            >
+              {annotationsVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
             </button>
 
             {/* Pen-specific controls: colors and sizes */}
@@ -604,6 +760,7 @@ export function PdfPageViewer({
           {pages.map((page, i) => (
             <div
               key={i}
+              ref={(el) => { pageRefs.current[i] = el; }}
               className="relative bg-white rounded shadow-lg ring-1 ring-black/5 dark:ring-white/5"
               style={{ width: page.width, height: page.height }}
             >
@@ -622,6 +779,7 @@ export function PdfPageViewer({
                 penColor={penColor}
                 penSize={penSize}
                 onStrokesChange={(strokes) => handlePageStrokesChange(i, strokes)}
+                hidden={!annotationsVisible}
               />
             </div>
           ))}

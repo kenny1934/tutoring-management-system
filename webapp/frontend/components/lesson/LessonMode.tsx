@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ArrowLeft, Calendar, Clock, MapPin, Printer, Keyboard,
+  ArrowLeft, Calendar, Clock, MapPin, Printer, HelpCircle,
   Maximize2, Minimize2, PencilLine,
   AlertTriangle, Download, Loader2 as Loader2Icon,
 } from "lucide-react";
@@ -18,12 +18,15 @@ import { useLocation } from "@/contexts/LocationContext";
 import { LessonExerciseSidebar } from "./LessonExerciseSidebar";
 import { PdfPageViewer } from "./PdfPageViewer";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useFloating, useDismiss, useInteractions,
   FloatingOverlay, FloatingFocusManager, FloatingPortal,
 } from "@floating-ui/react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { searchAnswerFile, type AnswerSearchResult } from "@/lib/answer-file-utils";
+import { useStableKeyboardHandler } from "@/hooks/useStableKeyboardHandler";
 import { saveAnnotatedPdf } from "@/lib/pdf-annotation-save";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations } from "@/hooks/useAnnotations";
@@ -38,6 +41,19 @@ function getExercisePageNumbers(exercise: SessionExercise): number[] {
     page_end: exercise.page_end,
     complex_pages: complexPages || undefined,
   }, "[Lesson]");
+}
+
+/** Compute answer page numbers from exercise metadata. */
+function getAnswerPageNumbers(exercise: SessionExercise): number[] {
+  if (exercise.answer_page_start && exercise.answer_page_end) {
+    const pages: number[] = [];
+    for (let i = exercise.answer_page_start; i <= exercise.answer_page_end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+  if (exercise.answer_page_start) return [exercise.answer_page_start];
+  return []; // Empty = all pages
 }
 
 /** Inline exit confirmation dialog — warns about unsaved annotations. */
@@ -175,6 +191,7 @@ export function LessonMode({
 
   // PDF cache: raw ArrayBuffer by pdf_name (avoids re-fetching on exercise switch)
   const pdfCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
+  const MAX_PDF_CACHE_SIZE = 20;
 
   // Exercise modal
   const [exerciseModalSession, setExerciseModalSession] = useState<Session | null>(null);
@@ -203,6 +220,9 @@ export function LessonMode({
   const [hoverHeader, setHoverHeader] = useState(false);
   const [hoverSidebar, setHoverSidebar] = useState(false);
 
+  // Shortcut help panel
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+
   // S2: Focus mode helpers
   const exitFocusMode = useCallback(() => {
     setFocusMode(false);
@@ -226,6 +246,16 @@ export function LessonMode({
   const [penColor, setPenColor] = useState("#dc2626");
   const [penSize, setPenSize] = useState(3);
   const [currentAnnotations, setCurrentAnnotations] = useState<PageAnnotations>({});
+
+  // Answer key state
+  const [showAnswerKey, setShowAnswerKey] = useState(false);
+  const [answerPdfData, setAnswerPdfData] = useState<ArrayBuffer | null>(null);
+  const [answerPageNumbers, setAnswerPageNumbers] = useState<number[]>([]);
+  const [answerLoading, setAnswerLoading] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
+  const [answerSearchResult, setAnswerSearchResult] = useState<AnswerSearchResult | null>(null);
+  const [answerSearchDone, setAnswerSearchDone] = useState(false);
+  const answerCacheRef = useRef<Map<string, AnswerSearchResult | null>>(new Map());
 
   // S4: Keyboard annotation tool toggle (d/e keys — exits draw mode when same tool pressed)
   const toggleAnnotationTool = useCallback((tool: "pen" | "eraser") => {
@@ -311,7 +341,8 @@ export function LessonMode({
       return;
     }
 
-    // Not cached — fetch
+    // Not cached — clear stale data and fetch
+    setPdfData(null);
     let cancelled = false;
 
     async function load() {
@@ -324,6 +355,11 @@ export function LessonMode({
 
       if ("data" in result) {
         pdfCacheRef.current.set(pdfName, result.data);
+        // LRU eviction: drop oldest entry when cache exceeds limit
+        if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
+          const oldest = pdfCacheRef.current.keys().next().value;
+          if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
+        }
         setPdfData(result.data);
       } else {
         setPdfData(null);
@@ -343,6 +379,34 @@ export function LessonMode({
     return () => { cancelled = true; };
   }, [selectedExercise]);
 
+  // Prefetch adjacent exercise PDFs into cache
+  useEffect(() => {
+    if (!selectedExercise || !pdfData) return;
+
+    let cancelled = false;
+    const currentIdx = allExercises.findIndex(ex => ex.id === selectedExercise.id);
+    const adjacent = [allExercises[currentIdx - 1], allExercises[currentIdx + 1]].filter(
+      (ex): ex is SessionExercise => !!ex?.pdf_name && !pdfCacheRef.current.has(ex.pdf_name)
+    );
+
+    (async () => {
+      for (const ex of adjacent) {
+        if (cancelled) break;
+        const result = await loadExercisePdf(ex.pdf_name!);
+        if (cancelled) break;
+        if ("data" in result) {
+          pdfCacheRef.current.set(ex.pdf_name!, result.data);
+          if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
+            const oldest = pdfCacheRef.current.keys().next().value;
+            if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
+          }
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedExercise, pdfData, allExercises]);
+
   // Sync annotations when exercise changes
   useEffect(() => {
     if (selectedExercise) {
@@ -351,6 +415,98 @@ export function LessonMode({
       setCurrentAnnotations({});
     }
   }, [selectedExercise, getAnnotations]);
+
+  // Auto-search for answer file when exercise changes
+  useEffect(() => {
+    if (!selectedExercise?.pdf_name) {
+      setAnswerSearchResult(null);
+      setAnswerSearchDone(false);
+      setShowAnswerKey(false);
+      return;
+    }
+
+    const pdfName = selectedExercise.pdf_name;
+    setShowAnswerKey(false);
+    setAnswerPdfData(null);
+
+    // Check explicit answer path on the exercise first
+    if (selectedExercise.answer_pdf_name) {
+      const result: AnswerSearchResult = {
+        path: selectedExercise.answer_pdf_name,
+        source: 'local',
+      };
+      answerCacheRef.current.set(pdfName, result);
+      setAnswerSearchResult(result);
+      setAnswerSearchDone(true);
+      return;
+    }
+
+    // Check cache
+    if (answerCacheRef.current.has(pdfName)) {
+      const cached = answerCacheRef.current.get(pdfName) ?? null;
+      setAnswerSearchResult(cached);
+      setAnswerSearchDone(true);
+      return;
+    }
+
+    // Fall back to heuristic search
+    let cancelled = false;
+    setAnswerSearchDone(false);
+
+    (async () => {
+      const result = await searchAnswerFile(pdfName);
+      if (cancelled) return;
+      answerCacheRef.current.set(pdfName, result);
+      setAnswerSearchResult(result);
+      setAnswerSearchDone(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedExercise]);
+
+  // Load answer PDF when showAnswerKey is toggled on
+  useEffect(() => {
+    if (!showAnswerKey || !answerSearchResult || !selectedExercise) return;
+
+    const answerPath = answerSearchResult.path;
+
+    // Check PDF cache
+    const cached = pdfCacheRef.current.get(answerPath);
+    if (cached) {
+      setAnswerPdfData(cached);
+      setAnswerError(null);
+      // Compute answer page numbers from exercise metadata
+      const pages = getAnswerPageNumbers(selectedExercise);
+      setAnswerPageNumbers(pages);
+      return;
+    }
+
+    let cancelled = false;
+    setAnswerLoading(true);
+    setAnswerError(null);
+
+    (async () => {
+      const result = await loadExercisePdf(answerPath);
+      if (cancelled) return;
+
+      if ("data" in result) {
+        pdfCacheRef.current.set(answerPath, result.data);
+        if (pdfCacheRef.current.size > MAX_PDF_CACHE_SIZE) {
+          const oldest = pdfCacheRef.current.keys().next().value;
+          if (oldest !== undefined) pdfCacheRef.current.delete(oldest);
+        }
+        setAnswerPdfData(result.data);
+        const pages = getAnswerPageNumbers(selectedExercise);
+        setAnswerPageNumbers(pages);
+      } else {
+        setAnswerPdfData(null);
+        setAnswerError("Failed to load answer key");
+      }
+      setAnswerLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [showAnswerKey, answerSearchResult, selectedExercise]);
 
   // Handle exercise selection
   const handleExerciseSelect = useCallback((exercise: SessionExercise) => {
@@ -361,6 +517,11 @@ export function LessonMode({
   const handleEditExercises = useCallback((s: Session, type: "CW" | "HW") => {
     setExerciseModalSession(s);
     setExerciseModalType(type);
+  }, []);
+
+  // Toggle answer key view
+  const handleAnswerKeyToggle = useCallback(() => {
+    setShowAnswerKey(v => !v);
   }, []);
 
   // Handle exercise modal close
@@ -531,106 +692,92 @@ export function LessonMode({
     }
   }, [allExercises, getAllAnnotations, stamp, session, onExit, clearStorage]);
 
-  // S6: Stabilize keyboard listener with ref pattern
-  const keyboardStateRef = useRef({
-    exerciseModalType, showExitConfirm, navigableExercises, selectedExercise,
-    currentSession, focusMode, drawingEnabled, annotationTool,
-  });
-  const keyboardCallbacksRef = useRef({
-    handleExitAttempt, toggleAnnotationTool, exitFocusMode, toggleFocusMode,
-    handleEditExercises, handlePrint, handleUndo, handleRedo,
-  });
-  // Sync on every render (cheap assignment)
-  keyboardStateRef.current = {
-    exerciseModalType, showExitConfirm, navigableExercises, selectedExercise,
-    currentSession, focusMode, drawingEnabled, annotationTool,
-  };
-  keyboardCallbacksRef.current = {
-    handleExitAttempt, toggleAnnotationTool, exitFocusMode, toggleFocusMode,
-    handleEditExercises, handlePrint, handleUndo, handleRedo,
-  };
+  // Keyboard shortcuts — useStableKeyboardHandler reads latest closure on every keydown
+  useStableKeyboardHandler((e: KeyboardEvent) => {
+    if (exerciseModalType || showExitConfirm) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const state = keyboardStateRef.current;
-      const cb = keyboardCallbacksRef.current;
-
-      if (state.exerciseModalType || state.showExitConfirm) return;
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      switch (e.key) {
-        case "Escape":
-          e.preventDefault();
-          if (state.focusMode) {
-            cb.exitFocusMode();
-          } else {
-            cb.handleExitAttempt();
-          }
-          break;
-        case "f":
-          e.preventDefault();
-          cb.toggleFocusMode();
-          break;
-        case "j":
-        case "ArrowDown": {
-          e.preventDefault();
-          const currentIdx = state.navigableExercises.findIndex(ex => ex.id === state.selectedExercise?.id);
-          if (currentIdx < state.navigableExercises.length - 1) {
-            setSelectedExercise(state.navigableExercises[currentIdx + 1]);
-          }
-          break;
+    switch (e.key) {
+      case "Escape":
+        e.preventDefault();
+        if (showShortcutHelp) {
+          setShowShortcutHelp(false);
+        } else if (focusMode) {
+          exitFocusMode();
+        } else {
+          handleExitAttempt();
         }
-        case "k":
-        case "ArrowUp": {
-          e.preventDefault();
-          const currentIdx = state.navigableExercises.findIndex(ex => ex.id === state.selectedExercise?.id);
-          if (currentIdx > 0) {
-            setSelectedExercise(state.navigableExercises[currentIdx - 1]);
-          }
-          break;
+        break;
+      case "?":
+        e.preventDefault();
+        setShowShortcutHelp(v => !v);
+        break;
+      case "f":
+        e.preventDefault();
+        toggleFocusMode();
+        break;
+      case "j":
+      case "ArrowDown": {
+        e.preventDefault();
+        const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
+        if (currentIdx < navigableExercises.length - 1) {
+          setSelectedExercise(navigableExercises[currentIdx + 1]);
         }
-        case "d":
-          e.preventDefault();
-          cb.toggleAnnotationTool("pen");
-          break;
-        case "e":
-          e.preventDefault();
-          cb.toggleAnnotationTool("eraser");
-          break;
-        case "z":
-          if (state.drawingEnabled) {
-            e.preventDefault();
-            cb.handleUndo();
-          }
-          break;
-        case "Z":
-          if (state.drawingEnabled) {
-            e.preventDefault();
-            cb.handleRedo();
-          }
-          break;
-        case "c":
-          if (state.currentSession) {
-            e.preventDefault();
-            cb.handleEditExercises(state.currentSession, "CW");
-          }
-          break;
-        case "h":
-          if (state.currentSession) {
-            e.preventDefault();
-            cb.handleEditExercises(state.currentSession, "HW");
-          }
-          break;
-        case "p":
-          e.preventDefault();
-          cb.handlePrint();
-          break;
+        break;
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []); // Register once — reads latest state via refs
+      case "k":
+      case "ArrowUp": {
+        e.preventDefault();
+        const currentIdx = navigableExercises.findIndex(ex => ex.id === selectedExercise?.id);
+        if (currentIdx > 0) {
+          setSelectedExercise(navigableExercises[currentIdx - 1]);
+        }
+        break;
+      }
+      case "d":
+        e.preventDefault();
+        toggleAnnotationTool("pen");
+        break;
+      case "e":
+        e.preventDefault();
+        toggleAnnotationTool("eraser");
+        break;
+      case "z":
+        if (drawingEnabled) {
+          e.preventDefault();
+          handleUndo();
+        }
+        break;
+      case "Z":
+        if (drawingEnabled) {
+          e.preventDefault();
+          handleRedo();
+        }
+        break;
+      case "c":
+        if (currentSession) {
+          e.preventDefault();
+          handleEditExercises(currentSession, "CW");
+        }
+        break;
+      case "h":
+        if (currentSession) {
+          e.preventDefault();
+          handleEditExercises(currentSession, "HW");
+        }
+        break;
+      case "p":
+        e.preventDefault();
+        handlePrint();
+        break;
+      case "a":
+        if (answerSearchResult) {
+          e.preventDefault();
+          handleAnswerKeyToggle();
+        }
+        break;
+    }
+  });
 
   // P1: Resize handler with rAF throttle + F1: persist to localStorage on mouseup
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -799,11 +946,19 @@ export function LessonMode({
           )}
         </button>
 
-        {/* Shortcut hints */}
-        <div className="hidden md:flex items-center gap-1 text-[10px] text-white/30">
-          <Keyboard className="h-3 w-3" />
-          <span>j/k nav · +/- zoom · d draw · e eraser · z undo · Z redo · c/h CW/HW · p print · f focus</span>
-        </div>
+        {/* Shortcut help toggle */}
+        <button
+          onClick={() => setShowShortcutHelp(v => !v)}
+          className={cn(
+            "p-1.5 rounded-lg transition-colors",
+            showShortcutHelp
+              ? "bg-white/20 text-white"
+              : "hover:bg-white/10 text-white/40"
+          )}
+          title="Keyboard shortcuts (?)"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
       </div>
 
       {/* Wood frame bottom border */}
@@ -821,6 +976,56 @@ export function LessonMode({
     >
       {/* Header bar — hidden in focus mode */}
       {!focusMode && renderHeader()}
+
+      {/* Shortcut help panel */}
+      <AnimatePresence>
+        {showShortcutHelp && (
+          <>
+            {/* Click-outside overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60]"
+              onClick={() => setShowShortcutHelp(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15 }}
+              className={cn(
+                "absolute right-2 z-[61]",
+                "bg-[#2d4739] text-white rounded-lg shadow-xl border border-white/10",
+                "px-4 py-3 w-56"
+              )}
+              style={{ top: 52, textShadow: '1px 1px 3px rgba(0,0,0,0.4)' }}
+            >
+              <h4 className="text-xs font-bold text-white/80 mb-2 uppercase tracking-wider">Keyboard Shortcuts</h4>
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
+                {[
+                  ["j / k", "Navigate exercises"],
+                  ["+  / -", "Zoom in / out"],
+                  ["d", "Pen tool"],
+                  ["e", "Eraser tool"],
+                  ["z / Z", "Undo / Redo"],
+                  ["c / h", "Edit CW / HW"],
+                  ["p", "Print"],
+                  ["a", "Answer key"],
+                  ["f", "Focus mode"],
+                  ["?", "This help"],
+                  ["Esc", "Exit / Back"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="contents">
+                    <kbd className="text-white/90 font-mono bg-white/10 px-1.5 py-0.5 rounded text-[10px] text-center">{key}</kbd>
+                    <span className="text-white/60 py-0.5">{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Split pane: sidebar + PDF viewer */}
       <div className="flex flex-1 min-h-0">
@@ -843,6 +1048,7 @@ export function LessonMode({
                 onEditExercises={handleEditExercises}
                 isReadOnly={isReadOnly}
                 hasAnnotations={checkHasAnnotations}
+                homeworkCompletion={session.homework_completion}
               />
             </div>
 
@@ -860,32 +1066,71 @@ export function LessonMode({
           </>
         )}
 
-        {/* PDF Viewer */}
-        <PdfPageViewer
-          pdfData={pdfData}
-          pageNumbers={pageNumbers}
-          stamp={stamp}
-          exerciseId={selectedExercise?.id}
-          isLoading={pdfLoading}
-          error={pdfError}
-          exerciseLabel={exerciseLabel}
-          onRetry={handleRetry}
-          annotations={currentAnnotations}
-          onAnnotationsChange={handleAnnotationsChange}
-          drawingEnabled={drawingEnabled}
-          onDrawingToggle={handleDrawingToggle}
-          penColor={penColor}
-          onPenColorChange={setPenColor}
-          penSize={penSize}
-          onPenSizeChange={setPenSize}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onClearAll={handleClearAllAnnotations}
-          hasAnnotations={exerciseHasAnnotations}
-          onSaveAnnotated={handleSaveAnnotated}
-          eraserActive={drawingEnabled && annotationTool === "eraser"}
-          onEraserToggle={handleEraserToggle}
-        />
+        {/* PDF Viewer(s) — side-by-side when answer key is shown */}
+        <div className={cn("flex flex-1 min-h-0 min-w-0", showAnswerKey && answerPdfData && "gap-0")}>
+          <ErrorBoundary
+            onReset={handleRetry}
+            fallback={
+              <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
+                <div className="flex flex-col items-center gap-3 max-w-sm text-center">
+                  <AlertTriangle className="h-10 w-10 text-amber-500" />
+                  <p className="text-sm text-[#8b7355] dark:text-[#a09080]">
+                    Something went wrong rendering the PDF
+                  </p>
+                  <button
+                    onClick={handleRetry}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-[#a0704b] text-white hover:bg-[#8b6040] transition-colors"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            }
+          >
+            <PdfPageViewer
+              pdfData={pdfData}
+              pageNumbers={pageNumbers}
+              stamp={stamp}
+              exerciseId={selectedExercise?.id}
+              isLoading={pdfLoading}
+              error={pdfError}
+              exerciseLabel={exerciseLabel}
+              onRetry={handleRetry}
+              annotations={currentAnnotations}
+              onAnnotationsChange={handleAnnotationsChange}
+              drawingEnabled={drawingEnabled}
+              onDrawingToggle={handleDrawingToggle}
+              penColor={penColor}
+              onPenColorChange={setPenColor}
+              penSize={penSize}
+              onPenSizeChange={setPenSize}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onClearAll={handleClearAllAnnotations}
+              hasAnnotations={exerciseHasAnnotations}
+              onSaveAnnotated={handleSaveAnnotated}
+              eraserActive={drawingEnabled && annotationTool === "eraser"}
+              onEraserToggle={handleEraserToggle}
+              onAnswerKeyToggle={handleAnswerKeyToggle}
+              showAnswerKey={showAnswerKey}
+              answerKeyAvailable={answerSearchDone && answerSearchResult !== null}
+            />
+          </ErrorBoundary>
+
+          {/* Answer key viewer (read-only) */}
+          {showAnswerKey && (
+            <>
+              <div className="w-px bg-[#d4c4a8] dark:bg-[#3a3228] flex-shrink-0" />
+              <PdfPageViewer
+                pdfData={answerPdfData}
+                pageNumbers={answerPageNumbers}
+                isLoading={answerLoading}
+                error={answerError}
+                exerciseLabel={exerciseLabel ? `ANS: ${exerciseLabel}` : "Answer Key"}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Focus mode: hover overlays */}
@@ -941,6 +1186,7 @@ export function LessonMode({
                     onEditExercises={handleEditExercises}
                     isReadOnly={isReadOnly}
                     hasAnnotations={checkHasAnnotations}
+                    homeworkCompletion={session.homework_completion}
                   />
                 </motion.div>
               )}
