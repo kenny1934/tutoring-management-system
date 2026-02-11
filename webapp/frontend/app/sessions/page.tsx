@@ -18,7 +18,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ViewSwitcher, type ViewMode } from "@/components/sessions/ViewSwitcher";
 import { StatusFilterDropdown } from "@/components/sessions/StatusFilterDropdown";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 import { ExerciseDropdownButton } from "@/components/sessions/ExerciseDropdownButton";
 import { groupExercisesByStudent, bulkDownloadByStudent, bulkPrintAllStudents } from "@/lib/bulk-exercise-download";
 
@@ -243,20 +242,6 @@ export default function SessionsPage() {
     });
   }, [searchParams, loading, sessions.length]);
 
-  // Refresh state tracking
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  // Handle manual refresh
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await mutateSessions();
-      setLastUpdated(new Date());
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [mutateSessions]);
 
   // Get current user's tutor ID for proposal actions
   const currentTutorId = useMemo(() => {
@@ -1676,13 +1661,6 @@ export default function SessionsPage() {
         {sessions.filter(isCountableSession).length} sessions
       </span>
 
-      {/* Refresh button */}
-      <RefreshButton
-        onRefresh={handleRefresh}
-        isRefreshing={isRefreshing}
-        lastUpdated={lastUpdated}
-        iconOnly
-      />
     </>
   );
 
