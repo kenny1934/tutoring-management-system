@@ -135,8 +135,12 @@ export function PdfPageViewer({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
 
-  // Render cache: exerciseId → rendered pages (avoids re-rendering on exercise switch-back)
-  const renderCacheRef = useRef<Map<number, RenderedPage[]>>(new Map());
+  // Render cache: exerciseId → rendered pages + state needed for restoration
+  const renderCacheRef = useRef<Map<number, {
+    pages: RenderedPage[];
+    pdfBytes: ArrayBuffer;
+    renderScale: number;
+  }>>(new Map());
 
   // Hi-res re-render state
   const pdfBytesRef = useRef<ArrayBuffer | null>(null);
@@ -188,12 +192,14 @@ export function PdfPageViewer({
       return;
     }
 
-    // Cache hit — skip entire pipeline
+    // Cache hit — restore complete snapshot
     if (exerciseId != null) {
       const cached = renderCacheRef.current.get(exerciseId);
       if (cached) {
-        pageUrlsRef.current = cached.map((r) => r.url);
-        setPages(cached);
+        pageUrlsRef.current = cached.pages.map((r) => r.url);
+        pdfBytesRef.current = cached.pdfBytes;
+        renderScaleRef.current = cached.renderScale;
+        setPages(cached.pages);
         setIsProcessing(false);
         setProcessError(null);
         return;
@@ -280,11 +286,15 @@ export function PdfPageViewer({
 
         // Store in render cache (with LRU eviction)
         if (exerciseId != null) {
-          renderCacheRef.current.set(exerciseId, rendered);
+          renderCacheRef.current.set(exerciseId, {
+            pages: rendered,
+            pdfBytes: pdfBytesRef.current!,
+            renderScale: RENDER_SCALE,
+          });
           if (renderCacheRef.current.size > MAX_RENDER_CACHE_SIZE) {
             const oldestKey = renderCacheRef.current.keys().next().value;
             if (oldestKey !== undefined) {
-              renderCacheRef.current.get(oldestKey)?.forEach(p => URL.revokeObjectURL(p.url));
+              renderCacheRef.current.get(oldestKey)?.pages.forEach(p => URL.revokeObjectURL(p.url));
               renderCacheRef.current.delete(oldestKey);
             }
           }
@@ -307,8 +317,8 @@ export function PdfPageViewer({
   useEffect(() => {
     const cache = renderCacheRef.current;
     return () => {
-      for (const pages of cache.values()) {
-        pages.forEach((p) => URL.revokeObjectURL(p.url));
+      for (const entry of cache.values()) {
+        entry.pages.forEach((p) => URL.revokeObjectURL(p.url));
       }
       cache.clear();
     };
@@ -405,17 +415,25 @@ export function PdfPageViewer({
 
         const rendered = results.filter((r): r is RenderedPage => r !== null);
 
-        // Revoke old page URLs
-        pageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+        // Snapshot old URLs before replacing — revoke AFTER cache is updated
+        const oldUrls = [...pageUrlsRef.current];
+
         pageUrlsRef.current = rendered.map((r) => r.url);
         hiResRerenderRef.current = true;
         setPages(rendered);
         renderScaleRef.current = neededScale;
 
-        // Update render cache
+        // Update render cache so cached URLs stay valid on switch-back
         if (exerciseId != null) {
-          renderCacheRef.current.set(exerciseId, rendered);
+          renderCacheRef.current.set(exerciseId, {
+            pages: rendered,
+            pdfBytes: pdfBytesRef.current!,
+            renderScale: neededScale,
+          });
         }
+
+        // Revoke old URLs after everything is updated
+        oldUrls.forEach((url) => URL.revokeObjectURL(url));
       } catch (err) {
         console.error("Hi-res re-render failed:", err);
       }
