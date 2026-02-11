@@ -62,6 +62,10 @@ export function RoleSwitcher({ className = "" }: RoleSwitcherProps) {
 
   const handleRoleSelect = (role: Role | null) => {
     setImpersonatedRole(role);
+    // Guest role: lock location to the Super Admin's default_location
+    if (role === "Guest" && user?.default_location) {
+      setSelectedLocation(user.default_location);
+    }
     // Don't close if selecting Tutor - let user pick specific tutor
     if (role !== "Tutor") {
       setIsOpen(false);

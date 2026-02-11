@@ -2,7 +2,7 @@
 Parent Communications API endpoints.
 Provides CRUD operations for tracking parent-tutor communications.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_, desc, case
 from typing import List, Optional
@@ -22,6 +22,8 @@ from schemas import (
     LocationSettingsResponse,
     LocationSettingsUpdate
 )
+
+from auth.dependencies import reject_guest
 
 router = APIRouter()
 
@@ -135,6 +137,7 @@ async def get_communications(
     to_date: Optional[date] = Query(None, description="Filter contacts up to this date"),
     limit: int = Query(100, ge=1, le=500, description="Maximum results"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -198,6 +201,7 @@ async def get_student_contact_statuses(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID (shows their students)"),
     location: Optional[str] = Query(None, description="Filter by location"),
     search: Optional[str] = Query(None, description="Search by student name, ID, grade, or contact notes"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -330,6 +334,7 @@ async def get_calendar_events(
     end_date: date = Query(..., description="End date for calendar range"),
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -384,6 +389,7 @@ async def get_calendar_events(
 async def get_pending_followups(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -496,6 +502,7 @@ async def get_pending_followups(
 async def get_contact_needed_count(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -540,6 +547,7 @@ async def get_contact_needed_count(
 async def get_communication_stats(
     tutor_id: Optional[int] = Query(None, description="Filter by tutor ID"),
     location: Optional[str] = Query(None, description="Filter by location"),
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """Get aggregated statistics for parent communications dashboard."""
@@ -653,6 +661,7 @@ async def get_communication_stats(
 @router.get("/parent-communications/{communication_id}", response_model=ParentCommunicationResponse)
 async def get_communication(
     communication_id: int,
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """
@@ -851,6 +860,7 @@ async def delete_communication(
 @router.get("/location-settings/{location}", response_model=LocationSettingsResponse)
 async def get_location_settings(
     location: str,
+    _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db)
 ):
     """

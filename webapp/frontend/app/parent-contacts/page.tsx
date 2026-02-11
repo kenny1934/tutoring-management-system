@@ -33,7 +33,7 @@ export default function ParentContactsPage() {
   const { viewMode } = useRole();
   const { data: tutors = [] } = useTutors();
   const { showToast } = useToast();
-  const { user, isAdmin, canViewAdminPages, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, isAdmin, canViewAdminPages, isGuest, isReadOnly, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
 
   // Calculate current tutor ID (respects impersonation)
   const currentTutorId = useMemo(() => {
@@ -333,6 +333,17 @@ export default function ParentContactsPage() {
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
+
+  if (isGuest) {
+    return (
+      <DeskSurface fullHeight>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
+          <Phone className="h-12 w-12 text-red-500/50" />
+          <p>Access denied — Guest role cannot view parent contacts</p>
+        </div>
+      </DeskSurface>
+    );
+  }
 
   return (
     <DeskSurface fullHeight>

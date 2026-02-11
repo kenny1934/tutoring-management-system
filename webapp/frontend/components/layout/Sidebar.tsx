@@ -43,7 +43,7 @@ interface SidebarProps {
 
 export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, isAdmin, isSuperAdmin, isSupervisor, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isSupervisor, isGuest, canViewAdminPages, isReadOnly, effectiveRole, isImpersonating, impersonatedTutor, logout } = useAuth();
   const { selectedLocation, setSelectedLocation, locations, setLocations, mounted } = useLocation();
   const { viewMode, setViewMode } = useRole();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -144,19 +144,19 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // Set user's default location on mount
   // - Super Admin: defaults to "All Locations"
   // - Supervisor: defaults to "All Locations"
-  // - Admin/Tutor: defaults to their assigned location
+  // - Admin/Tutor/Guest: defaults to their assigned location
   // Skip this when impersonating - location is set by RoleSwitcher
   useEffect(() => {
     if (!isImpersonating && mounted) {
-      if (isSuperAdmin || isSupervisor) {
+      if ((isSuperAdmin || isSupervisor) && !isGuest) {
         // Super Admin and Supervisor default to All Locations
         setSelectedLocation("All Locations");
       } else if (user?.default_location) {
-        // Admin and Tutor default to their assigned location
+        // Admin, Tutor, and Guest default to their assigned location
         setSelectedLocation(user.default_location);
       }
     }
-  }, [isSuperAdmin, isSupervisor, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
+  }, [isSuperAdmin, isSupervisor, isGuest, isImpersonating, user?.default_location, mounted, setSelectedLocation]);
 
   // Check scroll position for gradient indicators
   const checkScrollPosition = () => {
@@ -266,7 +266,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
         <nav className="space-y-2 px-3 py-4">
         {navigation
           // Filter out Inbox for Supervisor (read-only role)
-          .filter((item) => !(item.name === "Inbox" && isSupervisor))
+          .filter((item) => !(item.name === "Inbox" && (isSupervisor || isGuest)))
           .map((item) => {
           const isActive = pathname === item.href;
           const showExpanded = isMobile || !isCollapsed;

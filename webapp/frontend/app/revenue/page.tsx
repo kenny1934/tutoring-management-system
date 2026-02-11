@@ -57,7 +57,7 @@ export default function RevenuePage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
-  const { user, canViewAdminPages, isLoading: authLoading, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const { user, canViewAdminPages, isGuest, isLoading: authLoading, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
   const { data: tutors = [] } = useTutors();
 
   // State from URL params - admins can select any tutor, non-admins use their own ID
@@ -177,6 +177,17 @@ export default function RevenuePage() {
     "rounded-lg px-3 sm:px-4 py-2",
     !isMobile && "paper-texture"
   );
+
+  if (isGuest) {
+    return (
+      <DeskSurface fullHeight>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
+          <DollarSign className="h-12 w-12 text-red-500/50" />
+          <p>Access denied — Guest role cannot view revenue data</p>
+        </div>
+      </DeskSurface>
+    );
+  }
 
   return (
     <DeskSurface fullHeight>
