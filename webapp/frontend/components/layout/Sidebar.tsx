@@ -62,8 +62,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
   // Check if user can view admin pages (Admin, Super Admin, or Supervisor)
   const isAdminOrAbove = canViewAdminPages;
 
-  // Fetch unread message count for Inbox badge
-  const { data: unreadCount } = useUnreadMessageCount(currentTutorId);
+  // Fetch unread message count for Inbox badge (skip for Guest/Supervisor who can't access Inbox)
+  const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
 
   // Fetch admin badge counts (renewal, extension)
   const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);

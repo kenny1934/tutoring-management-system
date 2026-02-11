@@ -1099,7 +1099,7 @@ export default function InboxPage() {
 
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
-  const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin } = useAuth();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
   const { showToast } = useToast();
 
@@ -1495,6 +1495,17 @@ export default function InboxPage() {
       throw error;
     }
   }, [tutorId, showToast]);
+
+  if (isSupervisor || isGuest) {
+    return (
+      <DeskSurface fullHeight>
+        <div className="min-h-[50vh] flex flex-col items-center justify-center gap-4 text-foreground/60">
+          <Inbox className="h-12 w-12 text-red-500/50" />
+          <p>Access denied — {effectiveRole} role cannot access the Inbox</p>
+        </div>
+      </DeskSurface>
+    );
+  }
 
   return (
     <DeskSurface fullHeight>
