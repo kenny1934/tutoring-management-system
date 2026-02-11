@@ -7,7 +7,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 // Lazy-loaded PDF.js library (only loaded when needed, client-side only)
 let pdfjsLib: typeof import('pdfjs-dist') | null = null;
 
-async function getPdfJs() {
+export async function getPdfJs() {
   if (typeof window === 'undefined') {
     throw new Error('PDF.js can only be used in the browser');
   }

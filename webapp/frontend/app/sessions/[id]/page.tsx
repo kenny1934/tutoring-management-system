@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { api, sessionsAPI } from "@/lib/api";
 import { updateSessionInCache } from "@/lib/session-cache";
@@ -19,6 +20,7 @@ import {
   Home,
   Calendar,
   PenTool,
+  Play,
   X,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
@@ -28,8 +30,14 @@ import { CoursewareBanner } from "@/components/session/CoursewareBanner";
 import { TestAlertBanner } from "@/components/session/TestAlertBanner";
 import { EditSessionModal } from "@/components/sessions/EditSessionModal";
 import { ExerciseModal } from "@/components/sessions/ExerciseModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
+
+const LessonMode = dynamic(() =>
+  import("@/components/lesson/LessonMode").then(mod => ({ default: mod.LessonMode })),
+  { ssr: false }
+);
 
 // Refined card animation variant (less dramatic)
 const refinedCardVariants = {
@@ -55,7 +63,8 @@ export default function SessionDetailPage() {
   const sessionId = parseInt(params.id as string);
 
   // SWR hook for session data with caching
-  const { data: session, error, isLoading: loading } = useSession(sessionId);
+  const { data: session, error, isLoading: loading, mutate } = useSession(sessionId);
+  const { isReadOnly } = useAuth();
 
   // Dynamic page title
   usePageTitle(
@@ -68,6 +77,7 @@ export default function SessionDetailPage() {
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [exerciseModalType, setExerciseModalType] = useState<"CW" | "HW" | null>(null);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
+  const [lessonMode, setLessonMode] = useState(false);
 
   useEffect(() => {
     async function fetchCurriculumSuggestion() {
@@ -106,9 +116,9 @@ export default function SessionDetailPage() {
     if (!session) return;
 
     const handleKeyDown = async (e: KeyboardEvent) => {
-      // Skip if typing in input or modal open
+      // Skip if typing in input, modal open, or lesson mode active
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (isEditModalOpen || exerciseModalType) return;
+      if (isEditModalOpen || exerciseModalType || lessonMode) return;
 
       // ? - Toggle shortcut hints
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
@@ -176,7 +186,7 @@ export default function SessionDetailPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [session, isEditModalOpen, exerciseModalType]);
+  }, [session, isEditModalOpen, exerciseModalType, lessonMode]);
 
   if (loading) {
     return (
@@ -276,6 +286,19 @@ export default function SessionDetailPage() {
   // Count emoji stars in performance rating
   const starCount = (session.performance_rating || "").split("⭐").length - 1;
 
+  if (lessonMode) {
+    return (
+      <DeskSurface>
+        <LessonMode
+          session={session}
+          onExit={() => setLessonMode(false)}
+          onSessionDataChange={() => mutate()}
+          isReadOnly={isReadOnly}
+        />
+      </DeskSurface>
+    );
+  }
+
   return (
     <DeskSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
@@ -319,6 +342,16 @@ export default function SessionDetailPage() {
           <div className="flex-1 min-w-0">
             <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} loadingActionId={loadingActionId} />
           </div>
+          <button
+            onClick={() => setLessonMode(true)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+              "bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] shadow-sm"
+            )}
+          >
+            <Play className="h-3 w-3" />
+            Lesson
+          </button>
         </div>
 
         {/* Mobile: Full-width chalkboard */}
