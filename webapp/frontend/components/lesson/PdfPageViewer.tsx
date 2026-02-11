@@ -178,18 +178,12 @@ export function PdfPageViewer({
   const handleZoomIn = () => setScale(s => Math.min(s + SCALE_STEP, MAX_SCALE));
   const handleZoomOut = () => setScale(s => Math.max(s - SCALE_STEP, MIN_SCALE));
   const handleFitWidth = () => {
-    if (!scrollContainerRef.current || !pdfDoc) return;
-    // Reset to default which roughly fits width on most screens
-    setScale(DEFAULT_SCALE);
+    if (!scrollContainerRef.current) return;
+    const containerWidth = scrollContainerRef.current.clientWidth - 32; // account for px-4 padding
+    const pdfPageWidth = 595; // standard A4 width in PDF units
+    const fitScale = containerWidth / pdfPageWidth;
+    setScale(Math.min(Math.max(fitScale, MIN_SCALE), MAX_SCALE));
   };
-
-  // Estimate page dimensions for placeholders (before rendering)
-  const getPlaceholderStyle = useCallback((pageNum: number): { width: number; height: number } => {
-    // Use a standard A4 aspect ratio as default
-    const width = 595 * scale;
-    const height = 842 * scale;
-    return { width, height };
-  }, [scale]);
 
   // Loading state
   if (isLoading) {
@@ -292,17 +286,15 @@ export function PdfPageViewer({
       {/* Scrollable page container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-4 py-4"
+        className="flex-1 overflow-auto px-4 py-4 min-h-0"
       >
         <div className="flex flex-col items-center gap-4">
-          {pagesToDisplay.map((pageNum) => {
-            const placeholder = getPlaceholderStyle(pageNum);
-            return (
+          {pagesToDisplay.map((pageNum) => (
               <div
                 key={pageNum}
                 data-page={pageNum}
-                className="relative"
-                style={{ minHeight: placeholder.height, minWidth: placeholder.width }}
+                className="relative inline-block"
+                style={{ minWidth: 595 * scale, minHeight: 842 * scale }}
               >
                 {/* Paper sheet effect */}
                 <div className={cn(
@@ -318,7 +310,6 @@ export function PdfPageViewer({
                       }
                     }}
                     className="block rounded"
-                    style={{ width: placeholder.width, height: placeholder.height }}
                   />
                 </div>
                 {/* Page number label */}
@@ -326,8 +317,7 @@ export function PdfPageViewer({
                   p. {pageNum}
                 </div>
               </div>
-            );
-          })}
+          ))}
         </div>
       </div>
     </div>

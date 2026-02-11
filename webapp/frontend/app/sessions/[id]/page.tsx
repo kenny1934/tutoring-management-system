@@ -20,7 +20,6 @@ import {
   Home,
   Calendar,
   PenTool,
-  Play,
   X,
 } from "lucide-react";
 import { ChalkboardHeader } from "@/components/session/ChalkboardHeader";
@@ -288,7 +287,7 @@ export default function SessionDetailPage() {
 
   if (lessonMode) {
     return (
-      <DeskSurface>
+      <DeskSurface fullHeight>
         <LessonMode
           session={session}
           onExit={() => setLessonMode(false)}
@@ -340,23 +339,13 @@ export default function SessionDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
-            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} loadingActionId={loadingActionId} />
+            <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
           </div>
-          <button
-            onClick={() => setLessonMode(true)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-              "bg-[#5a8a5a] text-white hover:bg-[#4a7a4a] shadow-sm"
-            )}
-          >
-            <Play className="h-3 w-3" />
-            Lesson
-          </button>
         </div>
 
         {/* Mobile: Full-width chalkboard */}
         <div className="sm:hidden">
-          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} loadingActionId={loadingActionId} />
+          <ChalkboardHeader session={session} onEdit={() => setIsEditModalOpen(true)} onLesson={() => setLessonMode(true)} loadingActionId={loadingActionId} />
         </div>
       </div>
 
