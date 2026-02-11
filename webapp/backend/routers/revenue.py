@@ -2,7 +2,7 @@
 Revenue API endpoints.
 Provides monthly revenue and salary data for tutors.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
@@ -10,7 +10,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 from database import get_db
 from models import Tutor
-from auth.dependencies import get_current_user, can_view_admin_data
+from auth.dependencies import get_current_user, get_effective_role, can_view_admin_data
 
 router = APIRouter()
 
@@ -87,6 +87,7 @@ def calculate_monthly_bonus(total_revenue: Decimal) -> Decimal:
 
 @router.get("/revenue/monthly-summary", response_model=MonthlySummaryResponse)
 async def get_monthly_revenue_summary(
+    request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
     current_user: Tutor = Depends(get_current_user),
@@ -99,8 +100,13 @@ async def get_monthly_revenue_summary(
 
     Non-admins can only view their own revenue (tutor_id is ignored).
     Admins can view any tutor's revenue.
+    Guests are blocked entirely.
     """
-    is_admin = can_view_admin_data(current_user.role)
+    effective_role = get_effective_role(request, current_user)
+    if effective_role == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
+
+    is_admin = can_view_admin_data(effective_role)
 
     # Non-admins can only see their own revenue
     if not is_admin:
@@ -154,6 +160,7 @@ async def get_monthly_revenue_summary(
 
 @router.get("/revenue/session-details", response_model=List[SessionRevenueDetail])
 async def get_session_revenue_details(
+    request: Request,
     tutor_id: Optional[int] = Query(None, gt=0, description="Tutor ID (admins only, defaults to current user)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
     current_user: Tutor = Depends(get_current_user),
@@ -166,8 +173,13 @@ async def get_session_revenue_details(
 
     Non-admins can only view their own revenue details (tutor_id is ignored).
     Admins can view any tutor's details.
+    Guests are blocked entirely.
     """
-    is_admin = can_view_admin_data(current_user.role)
+    effective_role = get_effective_role(request, current_user)
+    if effective_role == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
+
+    is_admin = can_view_admin_data(effective_role)
 
     # Non-admins can only see their own revenue
     if not is_admin:
@@ -208,6 +220,7 @@ async def get_session_revenue_details(
 
 @router.get("/revenue/location-monthly-summary", response_model=LocationSummaryResponse)
 async def get_location_monthly_summary(
+    request: Request,
     location: Optional[str] = Query(None, description="Location to aggregate (None for all locations)"),
     period: str = Query(..., pattern=r"^\d{4}-\d{2}$", description="Period in YYYY-MM format"),
     current_user: Tutor = Depends(get_current_user),
@@ -222,14 +235,18 @@ async def get_location_monthly_summary(
     - **period**: Period in YYYY-MM format
 
     Returns total revenue, session count, and average revenue per session.
-    Only accessible by admins.
+    Only accessible by admins. Guests are blocked.
     """
+    effective_role = get_effective_role(request, current_user)
+    if effective_role == "Guest":
+        raise HTTPException(status_code=403, detail="Guest access not permitted for revenue data")
+
     # Add cache header - revenue data is stable within a day
     if response:
         response.headers["Cache-Control"] = "private, max-age=3600"  # 1 hour
 
     # Only admins can view location-wide revenue
-    is_admin = can_view_admin_data(current_user.role)
+    is_admin = can_view_admin_data(effective_role)
     if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required for location-wide revenue")
 
