@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils";
 import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import {
+  useFloating, offset, flip, shift, useClick, useDismiss, useInteractions,
+  FloatingPortal,
+} from "@floating-ui/react";
 import type { PrintStampInfo } from "@/lib/pdf-utils";
 import type { PageAnnotations, Stroke } from "@/hooks/useAnnotations";
 
@@ -27,6 +32,145 @@ const PEN_SIZES = [
   { size: 6, label: "M" },
   { size: 12, label: "L" },
 ];
+
+/** Mobile color popover — larger tap targets for touch devices. */
+function MobileColorPopover({
+  currentColor,
+  onColorChange,
+}: {
+  currentColor: string;
+  onColorChange: (color: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    placement: "bottom",
+  });
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+
+  return (
+    <>
+      <button
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded"
+        title="Pen color"
+      >
+        <div
+          className="w-6 h-6 rounded-full border-2 border-[#6b5a42] dark:border-[#c4a882]"
+          style={{ backgroundColor: currentColor }}
+        />
+      </button>
+      {isOpen && (
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={floatingStyles}
+            {...getFloatingProps()}
+            className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
+          >
+            <div className="flex gap-2">
+              {PEN_COLORS.map(({ color, label }) => (
+                <button
+                  key={color}
+                  onClick={() => { onColorChange(color); setIsOpen(false); }}
+                  className={cn(
+                    "w-11 h-11 rounded-full border-[3px] transition-all",
+                    currentColor === color
+                      ? "border-[#6b5a42] dark:border-[#c4a882] scale-110"
+                      : "border-transparent"
+                  )}
+                  style={{ backgroundColor: color }}
+                  title={label}
+                />
+              ))}
+            </div>
+          </div>
+        </FloatingPortal>
+      )}
+    </>
+  );
+}
+
+/** Mobile size popover — larger tap targets for touch devices. */
+function MobileSizePopover({
+  currentSize,
+  onSizeChange,
+}: {
+  currentSize: number;
+  onSizeChange: (size: number) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { refs, floatingStyles, context } = useFloating({
+    open: isOpen,
+    onOpenChange: setIsOpen,
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    placement: "bottom",
+  });
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([click, dismiss]);
+
+  return (
+    <>
+      <button
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        className={cn(
+          "min-w-[44px] min-h-[44px] flex items-center justify-center rounded",
+          "text-[#8b7355] dark:text-[#a09080]"
+        )}
+        title="Pen size"
+      >
+        <Circle
+          className="fill-current"
+          style={{
+            width: currentSize === 3 ? 6 : currentSize === 6 ? 10 : 14,
+            height: currentSize === 3 ? 6 : currentSize === 6 ? 10 : 14,
+          }}
+        />
+      </button>
+      {isOpen && (
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={floatingStyles}
+            {...getFloatingProps()}
+            className="z-[200] bg-[#f0e6d4] dark:bg-[#252018] rounded-lg shadow-xl border border-[#d4c4a8] dark:border-[#3a3228] p-3"
+          >
+            <div className="flex gap-2">
+              {PEN_SIZES.map(({ size, label }) => (
+                <button
+                  key={size}
+                  onClick={() => { onSizeChange(size); setIsOpen(false); }}
+                  className={cn(
+                    "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
+                    currentSize === size
+                      ? "bg-[#a0704b] text-white"
+                      : "text-[#8b7355] dark:text-[#a09080] hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228]"
+                  )}
+                  title={`Size: ${label}`}
+                >
+                  <Circle
+                    className="fill-current"
+                    style={{
+                      width: size === 3 ? 6 : size === 6 ? 10 : 14,
+                      height: size === 3 ? 6 : size === 6 ? 10 : 14,
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        </FloatingPortal>
+      )}
+    </>
+  );
+}
 
 /** A rendered page image with its dimensions. */
 interface RenderedPage {
@@ -125,6 +269,7 @@ export function PdfPageViewer({
   showAnswerKey = false,
   answerKeyAvailable = false,
 }: PdfPageViewerProps) {
+  const isMobile = useIsMobile();
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
@@ -526,8 +671,9 @@ export function PdfPageViewer({
   }
 
   const zoomScale = zoom / 100;
-  const tbBtnClass = "p-1 rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors";
-  const tbBtnDisabled = "p-1 rounded text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed";
+  const tbBtn = isMobile ? "p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center" : "p-1";
+  const tbBtnClass = cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
+  const tbBtnDisabled = cn(tbBtn, "rounded text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#e8dcc8] dark:bg-[#1e1a14]">
@@ -595,7 +741,7 @@ export function PdfPageViewer({
               onClick={onAnswerKeyToggle}
               disabled={!answerKeyAvailable}
               className={cn(
-                "p-1 rounded transition-colors text-[10px] font-bold",
+                tbBtn, "rounded transition-colors text-[10px] font-bold",
                 !answerKeyAvailable
                   ? "text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed"
                   : showAnswerKey
@@ -619,7 +765,7 @@ export function PdfPageViewer({
             <button
               onClick={onDrawingToggle}
               className={cn(
-                "p-1 rounded transition-colors",
+                tbBtn, "rounded transition-colors",
                 drawingEnabled && !eraserActive
                   ? "bg-[#a0704b] text-white"
                   : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
@@ -633,7 +779,7 @@ export function PdfPageViewer({
             <button
               onClick={onEraserToggle}
               className={cn(
-                "p-1 rounded transition-colors",
+                tbBtn, "rounded transition-colors",
                 eraserActive
                   ? "bg-[#a0704b] text-white"
                   : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
@@ -647,7 +793,7 @@ export function PdfPageViewer({
             <button
               onClick={() => setAnnotationsVisible(v => !v)}
               className={cn(
-                "p-1 rounded transition-colors",
+                tbBtn, "rounded transition-colors",
                 !annotationsVisible
                   ? "bg-[#a0704b] text-white"
                   : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
@@ -660,48 +806,63 @@ export function PdfPageViewer({
             {/* Pen-specific controls: colors and sizes */}
             {drawingEnabled && !eraserActive && (
               <>
-                {/* Color picker */}
-                <div className="flex items-center gap-0.5">
-                  {PEN_COLORS.map(({ color, label }) => (
-                    <button
-                      key={color}
-                      onClick={() => onPenColorChange?.(color)}
-                      className={cn(
-                        "w-4 h-4 rounded-full border-2 transition-all",
-                        penColor === color
-                          ? "border-[#6b5a42] dark:border-[#c4a882] scale-110"
-                          : "border-transparent hover:border-[#d4c4a8] dark:hover:border-[#5a4d3a]"
-                      )}
-                      style={{ backgroundColor: color }}
-                      title={label}
+                {isMobile ? (
+                  <>
+                    <MobileColorPopover
+                      currentColor={penColor}
+                      onColorChange={(c) => onPenColorChange?.(c)}
                     />
-                  ))}
-                </div>
+                    <MobileSizePopover
+                      currentSize={penSize}
+                      onSizeChange={(s) => onPenSizeChange?.(s)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {/* Desktop: inline color picker */}
+                    <div className="flex items-center gap-0.5">
+                      {PEN_COLORS.map(({ color, label }) => (
+                        <button
+                          key={color}
+                          onClick={() => onPenColorChange?.(color)}
+                          className={cn(
+                            "w-4 h-4 rounded-full border-2 transition-all",
+                            penColor === color
+                              ? "border-[#6b5a42] dark:border-[#c4a882] scale-110"
+                              : "border-transparent hover:border-[#d4c4a8] dark:hover:border-[#5a4d3a]"
+                          )}
+                          style={{ backgroundColor: color }}
+                          title={label}
+                        />
+                      ))}
+                    </div>
 
-                {/* Size selector */}
-                <div className="flex items-center gap-0.5">
-                  {PEN_SIZES.map(({ size, label }) => (
-                    <button
-                      key={size}
-                      onClick={() => onPenSizeChange?.(size)}
-                      className={cn(
-                        "flex items-center justify-center w-5 h-5 rounded transition-colors",
-                        penSize === size
-                          ? "bg-[#a0704b] text-white"
-                          : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
-                      )}
-                      title={`Size: ${label}`}
-                    >
-                      <Circle
-                        className="fill-current"
-                        style={{
-                          width: size === 3 ? 4 : size === 6 ? 7 : 10,
-                          height: size === 3 ? 4 : size === 6 ? 7 : 10,
-                        }}
-                      />
-                    </button>
-                  ))}
-                </div>
+                    {/* Desktop: inline size selector */}
+                    <div className="flex items-center gap-0.5">
+                      {PEN_SIZES.map(({ size, label }) => (
+                        <button
+                          key={size}
+                          onClick={() => onPenSizeChange?.(size)}
+                          className={cn(
+                            "flex items-center justify-center w-5 h-5 rounded transition-colors",
+                            penSize === size
+                              ? "bg-[#a0704b] text-white"
+                              : "hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080]"
+                          )}
+                          title={`Size: ${label}`}
+                        >
+                          <Circle
+                            className="fill-current"
+                            style={{
+                              width: size === 3 ? 4 : size === 6 ? 7 : 10,
+                              height: size === 3 ? 4 : size === 6 ? 7 : 10,
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -734,7 +895,7 @@ export function PdfPageViewer({
                 <button
                   onClick={handleClearAllClick}
                   className={cn(
-                    "p-1 rounded transition-colors",
+                    tbBtn, "rounded transition-colors",
                     confirmingClearAll
                       ? "bg-red-500 text-white"
                       : tbBtnClass
@@ -752,7 +913,7 @@ export function PdfPageViewer({
             {hasAnnotations && onSaveAnnotated && (
               <button
                 onClick={onSaveAnnotated}
-                className="p-1 rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#a0704b] transition-colors"
+                className={cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#a0704b] transition-colors")}
                 title="Save annotated PDF"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -765,7 +926,7 @@ export function PdfPageViewer({
       {/* Scrollable page container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-4 py-4 min-h-0"
+        className="flex-1 overflow-auto px-2 py-2 md:px-4 md:py-4 min-h-0"
       >
         <div
           className="flex flex-col items-center gap-4"
