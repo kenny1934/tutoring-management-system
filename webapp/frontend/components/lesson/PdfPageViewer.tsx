@@ -625,8 +625,65 @@ export function PdfPageViewer({
   if (isLoading || isProcessing) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-10 w-10 text-[#a0704b] animate-spin" />
+        <div className="flex flex-col items-center gap-5">
+          {/* Page-turning book animation */}
+          <div className="relative" style={{ perspective: '800px', width: '56px', height: '72px' }}>
+            {/* Book spine */}
+            <div
+              className="absolute top-0 bottom-0 left-0 w-[3px] rounded-l-sm"
+              style={{ background: 'linear-gradient(to bottom, #a0704b, #8b6040)' }}
+            />
+            {/* Base page (static) */}
+            <div
+              className="absolute inset-0 rounded-r-md ml-[3px]"
+              style={{
+                background: 'linear-gradient(135deg, #e8dcc8 0%, #ddd0b8 100%)',
+                boxShadow: 'inset 0 0 8px rgba(139, 96, 64, 0.15)',
+              }}
+            />
+            {/* Flipping pages */}
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className="absolute inset-0 rounded-r-md ml-[3px]"
+                style={{
+                  transformOrigin: 'left center',
+                  backfaceVisibility: 'hidden',
+                  background: `linear-gradient(135deg, ${
+                    ['#faf3e6', '#f5eed8', '#f0e8d0'][i]
+                  } 0%, ${
+                    ['#f0e4cc', '#ebe0c6', '#e6dbc0'][i]
+                  } 100%)`,
+                  boxShadow: '2px 2px 6px rgba(139, 96, 64, 0.2)',
+                  animation: `pageFlip 2.4s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.8}s infinite`,
+                  zIndex: 3 - i,
+                }}
+              >
+                {/* Page lines (simulating text) */}
+                <div className="absolute top-3 left-2 right-2 flex flex-col gap-1.5">
+                  {[0, 1, 2, 3].map(j => (
+                    <div
+                      key={j}
+                      className="rounded-full"
+                      style={{
+                        height: '2px',
+                        width: `${70 - j * 12}%`,
+                        background: `rgba(160, 112, 75, ${0.15 - j * 0.02})`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+            <style>{`
+              @keyframes pageFlip {
+                0%, 8% { transform: rotateY(0deg); opacity: 1; }
+                35%, 45% { transform: rotateY(-180deg); opacity: 0; }
+                46% { transform: rotateY(0deg); opacity: 0; }
+                100% { transform: rotateY(0deg); opacity: 0; }
+              }
+            `}</style>
+          </div>
           <span className="text-sm text-[#8b7355] dark:text-[#a09080]">
             {isLoading ? (loadingMessage || "Loading PDF...") : "Rendering pages..."}
           </span>
