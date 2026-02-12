@@ -9,7 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { getSessionStatusConfig, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { canBeMarked } from "@/components/zen/utils/sessionSorting";
 import { cn } from "@/lib/utils";
-import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote } from "lucide-react";
+import { Calendar, Clock, ChevronRight, CheckSquare, PenTool, Home, HandCoins, Square, CheckCheck, X, UserX, CalendarClock, Ambulance, CloudRain, GraduationCap, StickyNote, ClipboardCheck } from "lucide-react";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { SessionStatusTag } from "@/components/ui/session-status-tag";
 import { NoSessionsToday } from "@/components/illustrations/EmptyStates";
@@ -225,6 +225,17 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
             <h3 className="font-semibold text-gray-900 dark:text-gray-100">Today's Sessions</h3>
           </div>
           <div className="flex items-center gap-3">
+            {/* Quick Attend shortcut - only when there are markable sessions */}
+            {markableIds.length > 0 && (
+              <Link
+                href="/quick-attend"
+                className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-medium rounded bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 border border-emerald-300 dark:border-emerald-700 transition-colors"
+                title="Quick attendance marking"
+              >
+                <ClipboardCheck className="h-3 w-3" />
+                <span className="hidden sm:inline">Quick Attend</span>
+              </Link>
+            )}
             {/* Record Memo button */}
             <button
               onClick={() => setMemoDrawerOpen(true)}

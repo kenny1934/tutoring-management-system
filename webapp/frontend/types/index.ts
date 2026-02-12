@@ -645,6 +645,7 @@ export interface UncheckedAttendanceReminder {
   student_name: string;
   school_student_id?: string;
   grade?: string;
+  lang_stream?: string;
   school?: string;
   days_overdue: number;
   urgency_level: 'Critical' | 'High' | 'Medium' | 'Low';

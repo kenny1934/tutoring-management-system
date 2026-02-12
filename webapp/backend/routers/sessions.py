@@ -153,21 +153,23 @@ async def get_unchecked_attendance(
     # Build dynamic query based on provided filters
     base_query = """
         SELECT
-            session_id,
-            session_date,
-            time_slot,
-            location,
-            session_status,
-            tutor_id,
-            tutor_name,
-            student_id,
-            student_name,
-            school_student_id,
-            SUBSTRING_INDEX(grade_stream, ' ', 1) as grade,
-            school,
-            days_overdue,
-            urgency_level
-        FROM unchecked_attendance_reminders
+            uar.session_id,
+            uar.session_date,
+            uar.time_slot,
+            uar.location,
+            uar.session_status,
+            uar.tutor_id,
+            uar.tutor_name,
+            uar.student_id,
+            uar.student_name,
+            uar.school_student_id,
+            SUBSTRING_INDEX(uar.grade_stream, ' ', 1) as grade,
+            s2.lang_stream,
+            uar.school,
+            uar.days_overdue,
+            uar.urgency_level
+        FROM unchecked_attendance_reminders uar
+        LEFT JOIN students s2 ON uar.student_id = s2.id
         WHERE 1=1
     """
     params = {}
@@ -204,6 +206,7 @@ async def get_unchecked_attendance(
             student_name=row.student_name,
             school_student_id=row.school_student_id,
             grade=row.grade,
+            lang_stream=row.lang_stream,
             school=row.school,
             days_overdue=row.days_overdue,
             urgency_level=row.urgency_level
