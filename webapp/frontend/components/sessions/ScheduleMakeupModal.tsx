@@ -195,6 +195,7 @@ interface SuggestionCardProps {
   isPastDeadline?: boolean;
   is60DayExceeded?: boolean;
   isSuperAdmin?: boolean;
+  hasApprovedExtension?: boolean;
   onRequestExtension?: () => void;
 }
 
@@ -212,6 +213,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
   isPastDeadline,
   is60DayExceeded,
   isSuperAdmin,
+  hasApprovedExtension,
   onRequestExtension,
 }: SuggestionCardProps) {
   const breakdown = suggestion.score_breakdown;
@@ -322,11 +324,11 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onAddToProposal?.();
                 }}
-                disabled={!canAddMore || (is60DayExceeded && !isSuperAdmin) || isPastDeadline}
+                disabled={!canAddMore || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) || isPastDeadline}
                 className="w-full h-8 text-xs"
-                variant={canAddMore && !(is60DayExceeded && !isSuperAdmin) && !isPastDeadline ? "default" : "outline"}
+                variant={canAddMore && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !isPastDeadline ? "default" : "outline"}
               >
-                {is60DayExceeded && !isSuperAdmin ? (
+                {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
                   "Past 60-day limit"
                 ) : isPastDeadline ? (
                   "Past deadline"
@@ -342,7 +344,15 @@ const SuggestionCard = React.memo(function SuggestionCard({
             </>
           ) : (
             <>
-              {is60DayExceeded && (
+              {is60DayExceeded && hasApprovedExtension && !isPastDeadline && (
+                <div className="mb-2 p-2 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/50 border rounded text-xs">
+                  <div className="flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                    <Check className="h-3 w-3 flex-shrink-0" />
+                    <span>Extension approved — 60-day limit waived</span>
+                  </div>
+                </div>
+              )}
+              {is60DayExceeded && !hasApprovedExtension && (
                 <div className={`mb-2 p-2 ${isSuperAdmin ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/50' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50'} border rounded text-xs`}>
                   <div className={`flex items-center gap-1.5 ${isSuperAdmin ? 'text-orange-700 dark:text-orange-400' : 'text-red-700 dark:text-red-400'}`}>
                     <AlertTriangle className="h-3 w-3 flex-shrink-0" />
@@ -380,7 +390,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                   e.stopPropagation();
                   onBook();
                 }}
-                disabled={isSaving || isPastDeadline || (is60DayExceeded && !isSuperAdmin)}
+                disabled={isSaving || isPastDeadline || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension)}
                 className="w-full h-8 text-xs"
               >
                 {isSaving ? (
@@ -481,6 +491,9 @@ export function ScheduleMakeupModal({
     return d.toISOString().split('T')[0];
   }, [rootOriginalDate]);
 
+  // Approved extension bypasses the 60-day rule (matches backend logic)
+  const hasApprovedExtension = session.extension_request_status === 'Approved';
+
   // Form selection state
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
@@ -571,18 +584,18 @@ export function ScheduleMakeupModal({
 
   // Check if a suggestion would violate the 60-day rule
   const isSuggestion60DayExceeded = useCallback((suggestion: MakeupSlotSuggestion) => {
-    if (!lastAllowedDate60Day) return false;
+    if (!lastAllowedDate60Day || hasApprovedExtension) return false;
     return suggestion.session_date > lastAllowedDate60Day;
-  }, [lastAllowedDate60Day]);
+  }, [lastAllowedDate60Day, hasApprovedExtension]);
 
   // Check if a date/slot would be blocked (for day picker panel)
   const isSlotBlocked = useCallback((date: string, slotTimeSlot: string) => {
-    const exceeds60Day = !!(lastAllowedDate60Day && date > lastAllowedDate60Day);
+    const exceeds60Day = !!(lastAllowedDate60Day && !hasApprovedExtension && date > lastAllowedDate60Day);
     const dayName = getDayName(date);
     const pastDeadline = !!(effectiveEndDate && date > effectiveEndDate &&
       dayName === currentEnrollment?.assigned_day && slotTimeSlot === currentEnrollment?.assigned_time);
     return { exceeds60Day, pastDeadline };
-  }, [lastAllowedDate60Day, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
+  }, [lastAllowedDate60Day, hasApprovedExtension, effectiveEndDate, currentEnrollment?.assigned_day, currentEnrollment?.assigned_time]);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
 
@@ -809,7 +822,7 @@ export function ScheduleMakeupModal({
       const isPastDeadline = effectiveEndDate && isRegularDay ? dateString > effectiveEndDate : false;
 
       // 60-day rule: check if date is more than 60 days from root original session
-      const isPast60Days = lastAllowedDate60Day ? dateString > lastAllowedDate60Day : false;
+      const isPast60Days = lastAllowedDate60Day && !hasApprovedExtension ? dateString > lastAllowedDate60Day : false;
 
       return {
         date,
@@ -1250,7 +1263,7 @@ export function ScheduleMakeupModal({
               )}
             </Button>
           ) : (
-            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin)} title={readOnly ? "Read-only access" : undefined}>
+            <Button onClick={handleSchedule} disabled={readOnly || isSaving || !selectedDate || !effectiveTimeSlot || !selectedTutorId || !isCustomTimeValid || earlyDeadlineWarning || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension)} title={readOnly ? "Read-only access" : undefined}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1607,6 +1620,7 @@ export function ScheduleMakeupModal({
                         isPastDeadline={isSuggestionPastDeadline(suggestion)}
                         is60DayExceeded={isSuggestion60DayExceeded(suggestion)}
                         isSuperAdmin={isSuperAdmin}
+                        hasApprovedExtension={hasApprovedExtension}
                         onRequestExtension={() => setShowExtensionModal(true)}
                       />
                     );
@@ -1834,8 +1848,18 @@ export function ScheduleMakeupModal({
               )}
             </div>
 
-            {/* 60-day makeup limit warning - Super Admin can override */}
-            {is60DayExceeded && (
+            {/* 60-day makeup limit — approved extension shows green confirmation, super admin orange, others red block */}
+            {is60DayExceeded && hasApprovedExtension && !earlyDeadlineWarning && (
+              <div id="makeup-60day-warning" className="p-3 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    Extension approved — 60-day limit waived
+                  </p>
+                </div>
+              </div>
+            )}
+            {is60DayExceeded && !hasApprovedExtension && (
               <div id="makeup-60day-warning" role="alert" className={cn(
                 "p-3 border rounded-lg",
                 isSuperAdmin
@@ -2065,11 +2089,11 @@ export function ScheduleMakeupModal({
                     location,
                   });
                 }}
-                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (is60DayExceeded && !isSuperAdmin) || earlyDeadlineWarning}
+                disabled={proposalSlots.length >= 3 || studentsInSlot.length >= 8 || (is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) || earlyDeadlineWarning}
                 className="w-full"
-                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(is60DayExceeded && !isSuperAdmin) && !earlyDeadlineWarning ? "default" : "outline"}
+                variant={proposalSlots.length < 3 && studentsInSlot.length < 8 && !(is60DayExceeded && !isSuperAdmin && !hasApprovedExtension) && !earlyDeadlineWarning ? "default" : "outline"}
               >
-                {is60DayExceeded && !isSuperAdmin ? (
+                {is60DayExceeded && !isSuperAdmin && !hasApprovedExtension ? (
                   "Past 60-day limit"
                 ) : earlyDeadlineWarning ? (
                   "Past deadline"
