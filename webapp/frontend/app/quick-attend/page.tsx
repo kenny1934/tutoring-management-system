@@ -552,7 +552,7 @@ export default function QuickAttendPage() {
                         );
                       }
                       return (
-                        <React.Fragment key={card.sessionId}>
+                        <motion.div key={card.sessionId}>
                           {isNewTutor && (
                             <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
                           )}
@@ -569,7 +569,7 @@ export default function QuickAttendPage() {
                             onCardClick={handleCardClick}
                             onPeek={() => { peekDone.current = true; }}
                           />
-                        </React.Fragment>
+                        </motion.div>
                       );
                     })}
                   </AnimatePresence>
