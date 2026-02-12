@@ -10,7 +10,6 @@ import { studentsAPI, StudentCreate } from "@/lib/api";
 import type { Student } from "@/types";
 
 const GRADES = ["F1", "F2", "F3", "F4", "F5", "F6"];
-const LOCATIONS = ["MSA", "CWB", "ONL"];
 const ACADEMIC_STREAMS = ["Arts", "Science", "Commerce"];
 const SENIOR_GRADES = ["F4", "F5", "F6"];
 
@@ -35,7 +34,10 @@ export function AddStudentModal({
   onSuccess,
 }: AddStudentModalProps) {
   const { showToast } = useToast();
-  const { selectedLocation: appLocation } = useLocation();
+  const { selectedLocation: appLocation, locations: allLocations } = useLocation();
+
+  // Get real locations (exclude "All Locations")
+  const availableLocations = allLocations.filter((l) => l !== "All Locations");
 
   // Determine if location should be locked to app's selection
   const isLocationLocked = appLocation !== "All Locations";
@@ -45,7 +47,7 @@ export function AddStudentModal({
   const [grade, setGrade] = useState("");
   const [school, setSchool] = useState("");
   const [phone, setPhone] = useState("");
-  const [homeLocation, setHomeLocation] = useState("MSA");
+  const [homeLocation, setHomeLocation] = useState(availableLocations[0] || "MSA");
   const [langStream, setLangStream] = useState("");
   const [academicStream, setAcademicStream] = useState("");
 
@@ -80,7 +82,7 @@ export function AddStudentModal({
       setGrade("");
       setSchool("");
       setPhone("");
-      setHomeLocation(isLocationLocked ? appLocation : "MSA");
+      setHomeLocation(isLocationLocked ? appLocation : availableLocations[0] || "MSA");
       setLangStream("");
       setAcademicStream("");
       setLangStreamManuallySet(false);
@@ -270,7 +272,7 @@ export function AddStudentModal({
                 isLocationLocked && "opacity-60 cursor-not-allowed"
               )}
             >
-              {LOCATIONS.map((loc) => (
+              {availableLocations.map((loc) => (
                 <option key={loc} value={loc}>{loc}</option>
               ))}
             </select>
