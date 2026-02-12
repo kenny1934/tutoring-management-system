@@ -137,12 +137,13 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
       const dayProposedSessions = proposedByDate.get(dateString) || [];
       const dayOfWeek = date.getDay();
 
-      // Calculate tutor workloads, status counts, and unpaid count
+      // Calculate tutor workloads, status counts, and unpaid count (exclude rescheduled/cancelled)
+      const countableSessions = daySessions.filter(isCountableSession);
       const tutorSessionCounts = new Map<number, number>();
       const statusCounts = new Map<string, number>();
       let unpaidCount = 0;
 
-      daySessions.forEach((session) => {
+      countableSessions.forEach((session) => {
         // Tutor counts
         if (session.tutor_id) {
           tutorSessionCounts.set(
@@ -176,7 +177,7 @@ export const MonthlyCalendarView = memo(function MonthlyCalendarView({
         sessions: daySessions,
         proposedSessions: dayProposedSessions,
         tutorWorkloads,
-        totalSessions: daySessions.length,
+        totalSessions: countableSessions.length,
         proposedCount: dayProposedSessions.length,
         statusCounts,
         unpaidCount,
