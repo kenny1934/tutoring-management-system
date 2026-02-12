@@ -186,6 +186,7 @@ interface PdfPageViewerProps {
   /** Stamp info to overlay on each page (same as printing). */
   stamp?: PrintStampInfo;
   isLoading: boolean;
+  loadingMessage?: string | null;
   error: string | null;
   exerciseLabel?: string;
   onRetry?: () => void;
@@ -246,6 +247,7 @@ export function PdfPageViewer({
   pageNumbers,
   stamp,
   isLoading,
+  loadingMessage,
   error,
   exerciseLabel,
   onRetry,
@@ -626,7 +628,7 @@ export function PdfPageViewer({
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-10 w-10 text-[#a0704b] animate-spin" />
           <span className="text-sm text-[#8b7355] dark:text-[#a09080]">
-            {isLoading ? "Loading PDF..." : "Rendering pages..."}
+            {isLoading ? (loadingMessage || "Loading PDF...") : "Rendering pages..."}
           </span>
         </div>
       </div>

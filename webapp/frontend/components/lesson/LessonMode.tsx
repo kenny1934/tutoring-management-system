@@ -188,6 +188,7 @@ export function LessonMode({
   // PDF state
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfLoadingMessage, setPdfLoadingMessage] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pageNumbers, setPageNumbers] = useState<number[]>([]);
 
@@ -357,9 +358,12 @@ export function LessonMode({
 
     async function load() {
       setPdfLoading(true);
+      setPdfLoadingMessage(null);
       setPdfError(null);
 
-      const result = await loadExercisePdf(pdfName);
+      const result = await loadExercisePdf(pdfName, (msg) => {
+        if (!cancelled) setPdfLoadingMessage(msg);
+      });
 
       if (cancelled) return;
 
@@ -383,6 +387,7 @@ export function LessonMode({
       }
 
       setPdfLoading(false);
+      setPdfLoadingMessage(null);
     }
 
     load();
@@ -1144,6 +1149,7 @@ export function LessonMode({
                   stamp={stamp}
                   exerciseId={selectedExercise?.id}
                   isLoading={pdfLoading}
+                  loadingMessage={pdfLoadingMessage}
                   error={pdfError}
                   exerciseLabel={exerciseLabel}
                   onRetry={handleRetry}

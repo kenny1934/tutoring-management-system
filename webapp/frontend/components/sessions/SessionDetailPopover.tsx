@@ -50,6 +50,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   const handleCopy = async () => {
@@ -67,7 +68,11 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   const handleOpen = async () => {
     if (openState === 'loading') return;
     setOpenState('loading');
-    const error = await openFileFromPathWithFallback(exercise.pdf_name, searchPaperlessByPath);
+    setProgressMessage(null);
+    const error = await openFileFromPathWithFallback(exercise.pdf_name, (p) =>
+      searchPaperlessByPath(p, setProgressMessage)
+    );
+    setProgressMessage(null);
     if (error) {
       setOpenState('error');
       setTimeout(() => setOpenState('idle'), 2000);
@@ -79,14 +84,16 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
   const handlePrint = async () => {
     if (printState === 'loading') return;
     setPrintState('loading');
+    setProgressMessage(null);
     const error = await printFileFromPathWithFallback(
       exercise.pdf_name,
       exercise.page_start,
       exercise.page_end,
       undefined,
       stamp,
-      searchPaperlessByPath
+      (p) => searchPaperlessByPath(p, setProgressMessage)
     );
+    setProgressMessage(null);
     if (error) {
       setPrintState('error');
       setTimeout(() => setPrintState('idle'), 2000);
@@ -131,7 +138,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
             onClick={handleOpen}
             disabled={openState === 'loading'}
             className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
-            title="Open PDF in new tab"
+            title={openState === 'loading' && progressMessage ? progressMessage : "Open PDF in new tab"}
           >
             {openState === 'loading' ? (
               <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
@@ -145,7 +152,7 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
             onClick={handlePrint}
             disabled={printState === 'loading'}
             className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
-            title="Print PDF"
+            title={printState === 'loading' && progressMessage ? progressMessage : "Print PDF"}
           >
             {printState === 'loading' ? (
               <Loader2 className="h-3 w-3 text-gray-400 animate-spin" />
