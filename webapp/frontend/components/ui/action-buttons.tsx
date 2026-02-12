@@ -19,12 +19,12 @@ import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 // Size configurations for buttons
 const sizeClasses = {
   sm: "px-1 py-0.5 text-[8px]",
-  md: "px-1.5 py-0.5 text-[10px]",
+  md: "px-2 py-2 text-xs sm:px-1.5 sm:py-0.5 sm:text-[10px]",
 } as const;
 
 const iconSizeClasses = {
   sm: "h-2.5 w-2.5",
-  md: "h-3 w-3",
+  md: "h-4 w-4 sm:h-3 sm:w-3",
 } as const;
 
 /**
@@ -108,7 +108,7 @@ export function ActionButtons<T>({
             title={isEnabled ? action.label : "Coming soon"}
           >
             <Icon className={iconSizeClasses[size]} />
-            {label && <span>{label}</span>}
+            {label && <span className="hidden sm:inline">{label}</span>}
           </button>
         );
       })}
@@ -441,7 +441,7 @@ export function SessionActionButtons({
               title={isDisabledByReadOnly ? "Read-only access" : isLoading ? "Processing..." : isEnabled ? action.label : "Coming soon"}
             >
               <Icon className={cn(iconSizeClasses[size], isLoading && "animate-pulse", action.iconColorClass)} />
-              {label && <span>{isLoading ? "..." : label}</span>}
+              {label && <span className="hidden sm:inline">{isLoading ? "..." : label}</span>}
             </button>
           );
         })}
