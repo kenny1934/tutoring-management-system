@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { createPortal } from "react-dom";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
 import { useToast } from "@/contexts/ToastContext";
 import { sessionsAPI } from "@/lib/api";
@@ -750,9 +751,11 @@ function SessionDayPicker({
   onClearAll,
   onClose,
 }: SessionDayPickerProps) {
+  const { user, impersonatedTutor } = useAuth();
   const { selectedLocation } = useLocation();
   const [defaultType, setDefaultType] = useState<"CW" | "HW">("CW");
-  const [filterTutorId, setFilterTutorId] = useState<number | "all">("all");
+  const defaultTutorId: number | "all" = impersonatedTutor?.id ?? user?.id ?? "all";
+  const [filterTutorId, setFilterTutorId] = useState<number | "all">(defaultTutorId);
   const [showTutorDropdown, setShowTutorDropdown] = useState(false);
 
   // Popover state for session details
@@ -840,7 +843,10 @@ function SessionDayPicker({
 
   const selectedTutorName = filterTutorId === "all"
     ? "All Tutors"
-    : tutors.find((t) => t.id === filterTutorId)?.name || "Unknown";
+    : tutors.find((t) => t.id === filterTutorId)?.name
+      ?? impersonatedTutor?.name
+      ?? user?.name
+      ?? "Unknown";
 
   return createPortal(
     <div
@@ -918,8 +924,18 @@ function SessionDayPicker({
         {/* Session list */}
         <div className="flex-1 overflow-y-auto p-2">
           {filteredSessions.length === 0 ? (
-            <div className="text-center text-gray-500 dark:text-gray-400 py-4 text-sm">
-              No sessions {filterTutorId !== "all" ? "for this tutor " : ""}on this day
+            <div className="text-center py-4">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">
+                No sessions {filterTutorId !== "all" ? "for this tutor " : ""}on this day
+              </p>
+              {filterTutorId !== "all" && sessions.length > 0 && (
+                <button
+                  onClick={() => setFilterTutorId("all")}
+                  className="mt-2 px-3 py-1 text-xs text-[#a0704b] hover:text-[#8b5d3b] dark:text-[#d4a574] dark:hover:text-[#e0b88a] underline underline-offset-2"
+                >
+                  Show all tutors ({sessions.length} session{sessions.length !== 1 ? "s" : ""})
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
