@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import {
   Loader2, AlertTriangle, RefreshCw, FileX,
   PencilLine, Undo2, Redo2, Trash2, Eraser, Download, Circle,
@@ -231,16 +231,18 @@ interface PdfPageViewerProps {
   answerKeyAvailable?: boolean;
 }
 
-const MIN_ZOOM = 50;
+const MIN_ZOOM = 25;
 const MAX_ZOOM = 200;
 const ZOOM_STEP = 25;
 const MAX_RENDER_CACHE_SIZE = 30;
 
 /** Compute fit-to-width zoom for a container and page width. */
 function computeFitZoom(container: HTMLElement, pageWidth: number): number {
-  const containerWidth = container.clientWidth - 32; // px-4 padding
+  const style = getComputedStyle(container);
+  const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const containerWidth = container.clientWidth - paddingX;
   const rawZoom = Math.floor((containerWidth / pageWidth) * 100);
-  return Math.min(Math.max(rawZoom, MIN_ZOOM), MAX_ZOOM);
+  return Math.min(rawZoom, MAX_ZOOM);
 }
 
 export function PdfPageViewer({
@@ -284,6 +286,7 @@ export function PdfPageViewer({
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userHasZoomed = useRef(false);
+  const fitZoomRef = useRef(100);
 
   // Render cache: exerciseId → rendered pages + state needed for restoration
   const renderCacheRef = useRef<Map<number, {
@@ -328,7 +331,9 @@ export function PdfPageViewer({
 
   const handleFitWidth = useCallback(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
-    setZoom(computeFitZoom(scrollContainerRef.current, pages[0].width));
+    const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
+    fitZoomRef.current = fit;
+    setZoom(fit);
   }, [pages]);
 
   // Process PDF: extract+stamp → render pages as images (parallel)
@@ -475,15 +480,26 @@ export function PdfPageViewer({
   }, []);
 
   // Auto fit-to-width when pages load (skip for hi-res re-renders)
-  useEffect(() => {
+  // useLayoutEffect prevents flash of full-size page before zoom correction
+  useLayoutEffect(() => {
     if (pages.length === 0 || !scrollContainerRef.current) return;
     if (hiResRerenderRef.current) {
       hiResRerenderRef.current = false;
       return;
     }
     userHasZoomed.current = false;
-    setZoom(computeFitZoom(scrollContainerRef.current, pages[0].width));
+    const fit = computeFitZoom(scrollContainerRef.current, pages[0].width);
+    fitZoomRef.current = fit;
+    setZoom(fit);
   }, [pages]);
+
+  // Reset horizontal scroll when content fits (prevents stuck scroll after zoom-out)
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container && zoom <= fitZoomRef.current) {
+      container.scrollLeft = 0;
+    }
+  }, [zoom]);
 
   // ResizeObserver: auto-refit on window resize (only if user hasn't manually zoomed)
   useEffect(() => {
@@ -492,7 +508,9 @@ export function PdfPageViewer({
 
     const observer = new ResizeObserver(() => {
       if (userHasZoomed.current) return;
-      setZoom(computeFitZoom(container, pages[0].width));
+      const fit = computeFitZoom(container, pages[0].width);
+      fitZoomRef.current = fit;
+      setZoom(fit);
     });
     observer.observe(container);
     return () => observer.disconnect();
@@ -1008,10 +1026,13 @@ export function PdfPageViewer({
       {/* Scrollable page container */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-auto px-2 py-2 md:px-4 md:py-4 min-h-0"
+        className={cn(
+          "flex-1 overflow-y-auto px-2 py-2 md:px-4 md:py-4 min-h-0",
+          zoom > fitZoomRef.current ? "overflow-x-auto" : "overflow-x-hidden"
+        )}
       >
         <div
-          className="flex flex-col items-center gap-4"
+          className={cn("flex flex-col gap-4", zoom > fitZoomRef.current ? "items-start" : "items-center")}
           style={{
             transform: `scale(${zoomScale})`,
             transformOrigin: "top left",
