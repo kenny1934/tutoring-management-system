@@ -166,7 +166,7 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
             {examDate.toLocaleDateString("en-US", { month: "short" })}
           </span>
           <span className={cn(
-            "text-xl font-bold",
+            "text-xl font-bold leading-none",
             isPast
               ? "text-gray-600"
               : daysUntil <= 7
@@ -174,6 +174,16 @@ export const ExamCard = React.memo(function ExamCard({ exam, currentTutorId, loc
               : "text-amber-700 dark:text-amber-300"
           )}>
             {examDate.getDate()}
+          </span>
+          <span className={cn(
+            "text-[10px] font-medium",
+            isPast
+              ? "text-gray-500"
+              : daysUntil <= 7
+              ? "text-red-600 dark:text-red-400"
+              : "text-amber-600 dark:text-amber-400"
+          )}>
+            {examDate.getFullYear()}
           </span>
         </div>
 

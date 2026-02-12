@@ -118,7 +118,7 @@ export default function StudentDetailPage() {
   // New Enrollment modal state (for header button)
   const [newEnrollmentModalOpen, setNewEnrollmentModalOpen] = useState(false);
 
-  const { data: enrollments = [] } = useStudentEnrollments(studentId);
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentEnrollments(studentId);
 
   // Fetch student coupon info
   const { data: couponInfo } = useSWR<StudentCouponResponse>(
@@ -531,6 +531,7 @@ export default function StudentDetailPage() {
                 <ProfileTab
                   student={student}
                   enrollments={enrollments}
+                  enrollmentsLoading={enrollmentsLoading}
                   isMobile={isMobile}
                   onEnrollmentClick={(enrollment, e) => {
                     setEnrollmentClickPosition({ x: e.clientX, y: e.clientY });
@@ -726,6 +727,7 @@ const ACADEMIC_STREAM_OPTIONS = [
 function ProfileTab({
   student,
   enrollments,
+  enrollmentsLoading,
   isMobile,
   onEnrollmentClick,
   selectedEnrollmentId,
@@ -749,6 +751,7 @@ function ProfileTab({
 }: {
   student: Student;
   enrollments: Enrollment[];
+  enrollmentsLoading: boolean;
   isMobile: boolean;
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
@@ -1107,7 +1110,21 @@ function ProfileTab({
       )}
 
       {/* Active Enrollments Card */}
-      {enrollments.length > 0 ? (
+      {enrollmentsLoading ? (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          !isMobile && "paper-texture"
+        )}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+            <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-12 rounded-lg bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
+            <div className="h-12 rounded-lg bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
+          </div>
+        </div>
+      ) : enrollments.length > 0 ? (
         <div className={cn(
           "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
           !isMobile && "paper-texture"
@@ -2048,7 +2065,7 @@ function TestsTab({ tests, student, isMobile }: { tests: CalendarEvent[]; studen
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                {testDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                {testDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
               </p>
               {test.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
