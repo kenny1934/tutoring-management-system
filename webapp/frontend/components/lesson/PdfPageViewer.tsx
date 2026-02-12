@@ -11,6 +11,7 @@ import { extractPagesForPrint, getPdfJs } from "@/lib/pdf-utils";
 import { AnnotationLayer } from "./AnnotationLayer";
 import { RENDER_SCALE } from "@/hooks/useAnnotations";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTheme } from "next-themes";
 import {
   useFloating, offset, flip, shift, useClick, useDismiss, useInteractions,
   FloatingPortal,
@@ -272,6 +273,8 @@ export function PdfPageViewer({
   answerKeyAvailable = false,
 }: PdfPageViewerProps) {
   const isMobile = useIsMobile();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [pages, setPages] = useState<RenderedPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
@@ -623,23 +626,38 @@ export function PdfPageViewer({
 
   // Loading state
   if (isLoading || isProcessing) {
+    // Theme-aware colors for the page-flip animation
+    const spine = isDark
+      ? 'linear-gradient(to bottom, #a0704b, #7a5535)'
+      : 'linear-gradient(to bottom, #a0704b, #8b6040)';
+    const basePage = isDark
+      ? 'linear-gradient(135deg, #3d3530 0%, #453c34 100%)'
+      : 'linear-gradient(135deg, #e8dcc8 0%, #ddd0b8 100%)';
+    const baseInset = isDark
+      ? 'inset 0 0 8px rgba(160, 112, 75, 0.15)'
+      : 'inset 0 0 8px rgba(139, 96, 64, 0.15)';
+    const pageColors = isDark
+      ? { from: ['#554a40', '#4e4438', '#473e32'], to: ['#4a4036', '#443a30', '#3e352c'] }
+      : { from: ['#faf3e6', '#f5eed8', '#f0e8d0'], to: ['#f0e4cc', '#ebe0c6', '#e6dbc0'] };
+    const pageShadow = isDark
+      ? '2px 2px 6px rgba(0, 0, 0, 0.4)'
+      : '2px 2px 6px rgba(139, 96, 64, 0.2)';
+    const lineColor = isDark ? 'rgba(180, 140, 100, 0.2)' : 'rgba(160, 112, 75, 0.15)';
+
     return (
       <div className="flex-1 flex items-center justify-center bg-[#e8dcc8] dark:bg-[#1e1a14]">
         <div className="flex flex-col items-center gap-5">
-          {/* Page-turning book animation */}
+          {/* Page-turning book animation (falls back to simple pulse for reduced-motion) */}
           <div className="relative" style={{ perspective: '800px', width: '56px', height: '72px' }}>
             {/* Book spine */}
             <div
               className="absolute top-0 bottom-0 left-0 w-[3px] rounded-l-sm"
-              style={{ background: 'linear-gradient(to bottom, #a0704b, #8b6040)' }}
+              style={{ background: spine }}
             />
             {/* Base page (static) */}
             <div
               className="absolute inset-0 rounded-r-md ml-[3px]"
-              style={{
-                background: 'linear-gradient(135deg, #e8dcc8 0%, #ddd0b8 100%)',
-                boxShadow: 'inset 0 0 8px rgba(139, 96, 64, 0.15)',
-              }}
+              style={{ background: basePage, boxShadow: baseInset }}
             />
             {/* Flipping pages */}
             {[0, 1, 2].map(i => (
@@ -649,12 +667,8 @@ export function PdfPageViewer({
                 style={{
                   transformOrigin: 'left center',
                   backfaceVisibility: 'hidden',
-                  background: `linear-gradient(135deg, ${
-                    ['#faf3e6', '#f5eed8', '#f0e8d0'][i]
-                  } 0%, ${
-                    ['#f0e4cc', '#ebe0c6', '#e6dbc0'][i]
-                  } 100%)`,
-                  boxShadow: '2px 2px 6px rgba(139, 96, 64, 0.2)',
+                  background: `linear-gradient(135deg, ${pageColors.from[i]} 0%, ${pageColors.to[i]} 100%)`,
+                  boxShadow: pageShadow,
                   animation: `pageFlip 2.4s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.8}s infinite`,
                   zIndex: 3 - i,
                 }}
@@ -668,7 +682,8 @@ export function PdfPageViewer({
                       style={{
                         height: '2px',
                         width: `${70 - j * 12}%`,
-                        background: `rgba(160, 112, 75, ${0.15 - j * 0.02})`,
+                        opacity: 1 - j * 0.15,
+                        background: lineColor,
                       }}
                     />
                   ))}
@@ -681,6 +696,12 @@ export function PdfPageViewer({
                 35%, 45% { transform: rotateY(-180deg); opacity: 0; }
                 46% { transform: rotateY(0deg); opacity: 0; }
                 100% { transform: rotateY(0deg); opacity: 0; }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                @keyframes pageFlip {
+                  0%, 50% { opacity: 1; transform: none; }
+                  51%, 100% { opacity: 0; transform: none; }
+                }
               }
             `}</style>
           </div>
