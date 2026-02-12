@@ -8,7 +8,7 @@ import type { Session } from '@/types';
  * Use this after any session status change (Attended, No Show, etc.) to
  * instantly update all views without causing page flicker or refetch delays.
  */
-export function updateSessionInCache(updatedSession: Session) {
+export function updateSessionInCache(updatedSession: Session, options?: { quiet?: boolean }) {
   const sessionId = updatedSession.id;
 
   // Update single session cache (for /sessions/[id] pages)
@@ -36,18 +36,21 @@ export function updateSessionInCache(updatedSession: Session) {
 
   // Also revalidate related caches that depend on session status
   // Unchecked attendance count may have changed
-  mutate(
-    (key) => {
-      if (!Array.isArray(key)) return false;
-      const [type] = key;
-      return type === 'unchecked-attendance' ||
-             type === 'unchecked-attendance-count' ||
-             type === 'dashboard-stats' ||
-             type === 'activity-feed';
-    },
-    undefined,
-    { revalidate: true }
-  );
+  // Skip in quiet mode (used by Quick Attend to prevent mid-session re-renders)
+  if (!options?.quiet) {
+    mutate(
+      (key) => {
+        if (!Array.isArray(key)) return false;
+        const [type] = key;
+        return type === 'unchecked-attendance' ||
+               type === 'unchecked-attendance-count' ||
+               type === 'dashboard-stats' ||
+               type === 'activity-feed';
+      },
+      undefined,
+      { revalidate: true }
+    );
+  }
 }
 
 /**

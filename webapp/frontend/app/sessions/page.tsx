@@ -2,14 +2,14 @@
 
 import React, { useEffect, useLayoutEffect, useState, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount } from "@/lib/hooks";
+import { useSessions, useActiveTutors, usePageTitle, useProposalsInDateRange, useProposalsForOriginalSessions, usePendingMemoCount, useUncheckedAttendanceCount } from "@/lib/hooks";
 import { useLocation } from "@/contexts/LocationContext";
 import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session, Tutor, MakeupProposal } from "@/types";
 import Link from "next/link";
-import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation } from "lucide-react";
+import { Calendar, Clock, ChevronRight, ChevronDown, ExternalLink, HandCoins, CheckSquare, Square, MinusSquare, CheckCheck, X, UserX, CalendarClock, CalendarPlus, Ambulance, CloudRain, PenTool, Home, RefreshCw, GraduationCap, Loader2, StickyNote as StickyNoteIcon, Presentation, ClipboardCheck } from "lucide-react";
 import { getSessionStatusConfig, getStatusSortOrder, getDisplayStatus, isCountableSession } from "@/lib/session-status";
 import { SessionActionButtons } from "@/components/ui/action-buttons";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -1675,6 +1675,7 @@ export default function SessionsPage() {
   // For other views: Use PageTransition with animations
   if (viewMode === "list") {
     return (
+      <>
       <DeskSurface fullHeight>
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
@@ -2488,11 +2489,14 @@ export default function SessionsPage() {
           )}
         </AnimatePresence>
       </DeskSurface>
+      <QuickAttendFAB />
+      </>
     );
   }
 
   // Non-list views (weekly, daily, monthly)
   return (
+    <>
     <DeskSurface fullHeight={viewMode === "weekly" || viewMode === "daily" || viewMode === "monthly"}>
       <PageTransition className={cn(
         "flex flex-col gap-2 sm:gap-3 p-2 sm:p-4",
@@ -2568,7 +2572,59 @@ export default function SessionsPage() {
           onClose={() => setMemoDrawerOpen(false)}
         />
       )}
+
       </PageTransition>
     </DeskSurface>
+
+    {/* Quick Attend FAB - mobile only, outside DeskSurface to avoid overflow-hidden clipping */}
+    <QuickAttendFAB />
+    </>
+  );
+}
+
+// --- Quick Attend Floating Action Button (mobile only) ---
+function QuickAttendFAB() {
+  const { selectedLocation } = useLocation();
+  const { viewMode } = useRole();
+  const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
+  const [isMobile, setIsMobile] = useState(false);
+
+  const effectiveTutorId = useMemo(() => {
+    if (isImpersonating && effectiveRole === "Tutor" && impersonatedTutor?.id) return impersonatedTutor.id;
+    if (viewMode === "my-view" && user?.id) return user.id;
+    return undefined;
+  }, [viewMode, user?.id, isImpersonating, effectiveRole, impersonatedTutor?.id]);
+
+  const location = selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
+  const { data: unchecked } = useUncheckedAttendanceCount(location, effectiveTutorId);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  if (!isMobile || !unchecked?.total) return null;
+
+  return (
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25, delay: 0.3 }}
+      className="fixed bottom-6 right-6 z-50"
+    >
+      <Link
+        href="/quick-attend"
+        className="flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 active:scale-95 transition-transform"
+      >
+        <ClipboardCheck className="h-6 w-6" />
+        {unchecked.total > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 flex items-center justify-center text-[11px] font-bold rounded-full bg-red-500 text-white">
+            {unchecked.total > 99 ? "99+" : unchecked.total}
+          </span>
+        )}
+      </Link>
+    </motion.div>
   );
 }

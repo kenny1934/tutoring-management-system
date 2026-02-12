@@ -218,6 +218,7 @@ class UncheckedAttendanceReminder(BaseModel):
     student_name: str = Field(..., max_length=200)
     school_student_id: Optional[str] = Field(None, max_length=100)
     grade: Optional[str] = Field(None, max_length=20)
+    lang_stream: Optional[str] = Field(None, max_length=20)
     school: Optional[str] = Field(None, max_length=200)
     days_overdue: int = Field(..., ge=0)
     urgency_level: str = Field(..., description="Critical, High, Medium, or Low")

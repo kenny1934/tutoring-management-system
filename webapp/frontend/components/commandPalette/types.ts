@@ -16,6 +16,7 @@ import {
   Clock,
   Database,
   Grid3x3,
+  ClipboardCheck,
 } from "lucide-react";
 
 // localStorage keys
@@ -97,6 +98,7 @@ export const SUPER_ADMIN_PAGES: PageItem[] = [
 
 // Quick actions (session-focused)
 export const QUICK_ACTIONS: PageItem[] = [
+  { id: "action-quick-attend", title: "Quick Attend", href: "/quick-attend", icon: ClipboardCheck },
   { id: "action-today", title: "Today's Sessions", href: "/sessions", icon: Calendar },
   { id: "action-week", title: "This Week's Sessions", href: "/sessions?view=week", icon: Grid3x3 },
   { id: "action-makeups", title: "Pending Make-ups", href: "/sessions?filter=pending-makeups", icon: RefreshCw },
