@@ -671,6 +671,8 @@ export function PdfPageViewer({
   }
 
   const zoomScale = zoom / 100;
+  // Natural content height for scroll correction when zoomed out (gap-4 = 16px)
+  const naturalContentHeight = pages.reduce((sum, p) => sum + p.height, 0) + Math.max(0, pages.length - 1) * 16;
   const tbBtn = isMobile ? "p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center" : "p-1";
   const tbBtnClass = cn(tbBtn, "rounded hover:bg-[#d4c4a8] dark:hover:bg-[#3a3228] text-[#8b7355] dark:text-[#a09080] transition-colors");
   const tbBtnDisabled = cn(tbBtn, "rounded text-[#d4c4a8] dark:text-[#3a3228] cursor-not-allowed");
@@ -934,6 +936,7 @@ export function PdfPageViewer({
             transform: `scale(${zoomScale})`,
             transformOrigin: "top left",
             width: `${(100 / zoom) * 100}%`,
+            marginBottom: zoomScale < 1 ? naturalContentHeight * (zoomScale - 1) : undefined,
           }}
         >
           {pages.map((page, i) => (
