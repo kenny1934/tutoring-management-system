@@ -74,6 +74,7 @@ import type {
   ActiveStudent,
   ToggleLikeResponse,
   ArchiveResponse,
+  PinResponse,
   BulkDeleteResponse,
   DebugBulkUpdateResponse,
   // Enrollment preview & renewal types
@@ -1239,6 +1240,17 @@ export const messagesAPI = {
     });
   },
 
+  // Mark all visible messages as read (batch)
+  markAllRead: (tutorId: number, category?: string) => {
+    return fetchAPI<{ success: boolean; count: number }>(
+      `/messages/mark-all-read?tutor_id=${tutorId}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ category: category || null }),
+      }
+    );
+  },
+
   // Mark message as read
   markRead: (messageId: number, tutorId: number) => {
     return fetchAPI<SuccessResponse>(`/messages/${messageId}/read?tutor_id=${tutorId}`, { method: "POST" });
@@ -1291,6 +1303,30 @@ export const messagesAPI = {
     if (limit) params.append("limit", limit.toString());
     if (offset) params.append("offset", offset.toString());
     return fetchAPI<PaginatedThreadsResponse>(`/messages/archived?${params}`);
+  },
+
+  // Pin/star messages (bulk)
+  pin: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<PinResponse>(`/messages/pin?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
+  // Unpin/unstar messages (bulk)
+  unpin: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<PinResponse>(`/messages/pin?tutor_id=${tutorId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
+  // Get pinned/starred threads
+  getPinned: (tutorId: number, limit?: number, offset?: number) => {
+    const params = new URLSearchParams({ tutor_id: tutorId.toString() });
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+    return fetchAPI<PaginatedThreadsResponse>(`/messages/pinned?${params}`);
   },
 
   // Upload an image for message attachment

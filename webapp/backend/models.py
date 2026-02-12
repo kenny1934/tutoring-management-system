@@ -604,6 +604,7 @@ class TutorMessage(Base):
     read_receipts = relationship("MessageReadReceipt", back_populates="message", cascade="all, delete-orphan")
     likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
     archives = relationship("MessageArchive", back_populates="message", cascade="all, delete-orphan")
+    pins = relationship("MessagePin", back_populates="message", cascade="all, delete-orphan")
 
 
 class MessageReadReceipt(Base):
@@ -654,6 +655,23 @@ class MessageArchive(Base):
 
     # Relationships
     message = relationship("TutorMessage", back_populates="archives")
+    tutor = relationship("Tutor")
+
+
+class MessagePin(Base):
+    """
+    Tracks pinned/starred messages per tutor.
+    Same pattern as MessageArchive for per-user pinning.
+    """
+    __tablename__ = "message_pins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    pinned_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="pins")
     tutor = relationship("Tutor")
 
 

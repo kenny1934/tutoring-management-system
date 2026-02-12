@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages } from "@/lib/hooks";
+import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
 import { useSwipeGesture } from "@/lib/hooks/useSwipeGesture";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -49,6 +49,7 @@ import {
   ArchiveRestore,
   Image as ImageIcon,
   MessageSquareShare,
+  Star,
 } from "lucide-react";
 
 // Category definition
@@ -59,18 +60,39 @@ interface Category {
   filter?: MessageCategory;
 }
 
-const CATEGORIES: Category[] = [
-  { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
-  { id: "reminder", label: "Reminder", icon: <Bell className="h-4 w-4" />, filter: "Reminder" },
-  { id: "question", label: "Question", icon: <HelpCircle className="h-4 w-4" />, filter: "Question" },
-  { id: "announcement", label: "Announcement", icon: <Megaphone className="h-4 w-4" />, filter: "Announcement" },
-  { id: "schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" />, filter: "Schedule" },
-  { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
-  { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
-  { id: "makeup-confirmation", label: "Make-up", icon: <CalendarClock className="h-4 w-4" />, filter: "MakeupConfirmation" },
-  { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
-  { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
+interface CategorySection {
+  id: string;
+  label?: string;
+  items: Category[];
+}
+
+const CATEGORY_SECTIONS: CategorySection[] = [
+  {
+    id: "mailboxes",
+    items: [
+      { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
+      { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
+      { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
+      { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
+    ],
+  },
+  {
+    id: "categories",
+    label: "Categories",
+    items: [
+      { id: "reminder", label: "Reminder", icon: <Bell className="h-4 w-4" />, filter: "Reminder" },
+      { id: "question", label: "Question", icon: <HelpCircle className="h-4 w-4" />, filter: "Question" },
+      { id: "announcement", label: "Announcement", icon: <Megaphone className="h-4 w-4" />, filter: "Announcement" },
+      { id: "schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" />, filter: "Schedule" },
+      { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
+      { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
+      { id: "makeup-confirmation", label: "Make-up", icon: <CalendarClock className="h-4 w-4" />, filter: "MakeupConfirmation" },
+    ],
+  },
 ];
+
+// Flat list for consumers (unread counts, category filter lookups, etc.)
+const CATEGORIES: Category[] = CATEGORY_SECTIONS.flatMap(s => s.items);
 
 // Priority configuration - single source of truth
 type PriorityLevel = "Normal" | "High" | "Urgent";
@@ -121,6 +143,7 @@ const EMPTY_MESSAGES: Record<string, string> = {
   chat: "No chat messages",
   courseware: "No courseware messages",
   "makeup-confirmation": "No pending make-up confirmations",
+  starred: "No starred messages",
   archived: "No archived messages",
   inbox: "No messages in your inbox",
 };
@@ -130,6 +153,46 @@ const isThreadsKey = (key: unknown) => Array.isArray(key) && (key[0] === "messag
 const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
 const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
 const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
+
+// Draft auto-save helpers
+interface DraftData {
+  toTutorId: number | "all";
+  subject: string;
+  message: string;
+  priority: "Normal" | "High" | "Urgent";
+  category: string;
+  uploadedImages: string[];
+  savedAt: number;
+}
+
+const DRAFT_COMPOSE_KEY = "inbox-draft-compose";
+const DRAFT_REPLY_PREFIX = "inbox-draft-reply-";
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getDraftKey(replyToId?: number): string {
+  return replyToId ? `${DRAFT_REPLY_PREFIX}${replyToId}` : DRAFT_COMPOSE_KEY;
+}
+
+function saveDraft(key: string, draft: DraftData): void {
+  try { localStorage.setItem(key, JSON.stringify(draft)); } catch {}
+}
+
+function loadDraft(key: string): DraftData | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DraftData;
+    if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return draft;
+  } catch { return null; }
+}
+
+function clearDraft(key: string): void {
+  try { localStorage.removeItem(key); } catch {}
+}
 
 // Compose Modal Component
 function ComposeModal({
@@ -186,11 +249,22 @@ function ComposeModal({
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Reset form when opening/closing
+  // Reset form when opening — check for saved draft
   useEffect(() => {
     if (isOpen) {
-      if (replyTo) {
-        // If replying to own message, target the original recipient; otherwise target the sender
+      const draftKey = getDraftKey(replyTo?.id);
+      const draft = loadDraft(draftKey);
+
+      if (draft && !replyTo) {
+        // Compose mode: restore full draft
+        setToTutorId(draft.toTutorId);
+        setSubject(draft.subject);
+        setMessage(draft.message);
+        setPriority(draft.priority);
+        setCategory(draft.category as MessageCategory | "");
+        setUploadedImages(draft.uploadedImages);
+      } else if (draft && replyTo) {
+        // Reply mode: keep auto-filled to/subject/category, restore message content
         if (replyTo.from_tutor_id === fromTutorId) {
           setToTutorId(replyTo.to_tutor_id ?? "all");
         } else {
@@ -198,16 +272,47 @@ function ComposeModal({
         }
         setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
         setCategory(replyTo.category || "");
+        setMessage(draft.message);
+        setPriority(draft.priority);
+        setUploadedImages(draft.uploadedImages);
+      } else if (replyTo) {
+        // Reply mode, no draft
+        if (replyTo.from_tutor_id === fromTutorId) {
+          setToTutorId(replyTo.to_tutor_id ?? "all");
+        } else {
+          setToTutorId(replyTo.from_tutor_id);
+        }
+        setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
+        setCategory(replyTo.category || "");
+        setMessage("");
+        setPriority("Normal");
+        setUploadedImages([]);
       } else {
+        // Compose mode, no draft
         setToTutorId("all");
         setSubject("");
         setCategory("");
+        setMessage("");
+        setPriority("Normal");
+        setUploadedImages([]);
       }
-      setMessage("");
-      setPriority("Normal");
-      setUploadedImages([]);
     }
   }, [isOpen, replyTo]);
+
+  // Auto-save draft (debounced 1s)
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      const draftKey = getDraftKey(replyTo?.id);
+      const hasContent = (message && message !== "<p></p>" && message.replace(/<[^>]*>/g, "").trim().length > 0)
+        || (subject.trim().length > 0 && !replyTo)
+        || uploadedImages.length > 0;
+      if (hasContent) {
+        saveDraft(draftKey, { toTutorId, subject, message, priority, category, uploadedImages, savedAt: Date.now() });
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isOpen, toTutorId, subject, message, priority, category, uploadedImages, replyTo?.id]);
 
   // Close dropdowns on click outside
   useClickOutside(categoryDropdownRef, () => setCategoryDropdownOpen(false), categoryDropdownOpen);
@@ -221,6 +326,7 @@ function ComposeModal({
   const handleClose = () => {
     if (hasUnsavedChanges) {
       if (confirm("You have unsaved changes. Discard draft?")) {
+        clearDraft(getDraftKey(replyTo?.id));
         onClose();
       }
     } else {
@@ -253,6 +359,7 @@ function ComposeModal({
         reply_to_id: replyTo?.id,
         image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
       });
+      clearDraft(getDraftKey(replyTo?.id));
       onClose();
     } finally {
       setIsSending(false);
@@ -536,6 +643,9 @@ const ThreadItem = React.memo(function ThreadItem({
             )}>
               {msg.from_tutor_name || "Unknown"}
             </span>
+            {msg.is_pinned && (
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+            )}
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
                 Broadcast
@@ -792,6 +902,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onDelete,
   onArchive,
   onUnarchive,
+  onPin,
+  onUnpin,
   isArchived = false,
   isMobile = false,
 }: {
@@ -806,6 +918,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onDelete: (msgId: number) => Promise<void>;
   onArchive: (msgId: number) => Promise<void>;
   onUnarchive: (msgId: number) => Promise<void>;
+  onPin: (msgId: number) => Promise<void>;
+  onUnpin: (msgId: number) => Promise<void>;
   isArchived?: boolean;
   isMobile?: boolean;
 }) {
@@ -932,6 +1046,18 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           title={msg.is_read ? "Mark as unread" : "Mark as read"}
         >
           {msg.is_read ? <Circle className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => msg.is_pinned ? onUnpin(msg.id) : onPin(msg.id)}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
+            msg.is_pinned
+              ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+          )}
+          title={msg.is_pinned ? "Unstar" : "Star"}
+        >
+          <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400")} />
         </button>
         {isArchived ? (
           <button
@@ -1230,7 +1356,7 @@ export default function InboxPage() {
     totalCount,
     loadMore
   } = useMessageThreadsPaginated({
-    tutorId: (selectedCategory === "sent" || selectedCategory === "archived") ? null : tutorId,
+    tutorId: (selectedCategory === "sent" || selectedCategory === "archived" || selectedCategory === "starred") ? null : tutorId,
     category: categoryFilter,
     search: debouncedSearch || undefined,
     pageSize: 20,
@@ -1245,6 +1371,10 @@ export default function InboxPage() {
 
   const { data: archivedThreads = [], isLoading: loadingArchived } = useArchivedMessages(
     selectedCategory === "archived" ? tutorId : null
+  );
+
+  const { data: pinnedThreads = [], isLoading: loadingPinned } = usePinnedMessages(
+    selectedCategory === "starred" ? tutorId : null
   );
 
   const { data: unreadCount } = useUnreadMessageCount(tutorId);
@@ -1297,9 +1427,22 @@ export default function InboxPage() {
         );
       });
     }
+    if (selectedCategory === "starred") {
+      // Client-side filtering for pinned/starred messages
+      if (!debouncedSearch.trim()) return pinnedThreads;
+      const query = debouncedSearch.toLowerCase();
+      return pinnedThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.from_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
     // For inbox/other categories, threads already filtered server-side
     return threads;
-  }, [selectedCategory, sentAsThreads, archivedThreads, threads, debouncedSearch]);
+  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
 
   // Filter MakeupConfirmation threads for makeup-confirmation category
   const makeupThreads = useMemo(() => {
@@ -1345,6 +1488,8 @@ export default function InboxPage() {
     ? loadingProposals
     : selectedCategory === "archived"
     ? loadingArchived
+    : selectedCategory === "starred"
+    ? loadingPinned
     : loadingThreads;
 
   // Sync selectedThread with latest data from SWR
@@ -1573,6 +1718,39 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast]);
 
+  const handlePin = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+
+    try {
+      await messagesAPI.pin([messageId], tutorId);
+      showToast("Message starred!", "success");
+      mutate(isAnyMessageKey);
+      mutate(['pinned-messages', tutorId]);
+    } catch (error) {
+      showToast("Failed to star message", "error");
+      throw error;
+    }
+  }, [tutorId, showToast]);
+
+  const handleUnpin = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+
+    // If in starred view, close thread panel (thread will disappear)
+    if (selectedCategory === "starred") {
+      setSelectedThread(null);
+    }
+
+    try {
+      await messagesAPI.unpin([messageId], tutorId);
+      showToast("Message unstarred!", "success");
+      mutate(isAnyMessageKey);
+      mutate(['pinned-messages', tutorId]);
+    } catch (error) {
+      showToast("Failed to unstar message", "error");
+      throw error;
+    }
+  }, [tutorId, showToast, selectedCategory]);
+
   if (isSupervisor || isGuest) {
     return (
       <DeskSurface fullHeight>
@@ -1646,39 +1824,56 @@ export default function InboxPage() {
                 >
                   {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
-                <nav className="space-y-1">
-                  {CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors min-h-[44px]",
-                        categoryCollapsed && "justify-center px-2",
-                        selectedCategory === cat.id
-                          ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
-                      )}
-                      title={categoryCollapsed ? cat.label : undefined}
-                    >
-                      <span className="relative">
-                        {cat.icon}
-                        {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
-                            {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
-                          </span>
-                        )}
-                      </span>
-                      {!categoryCollapsed && (
-                        <>
-                          <span className="flex-1">{cat.label}</span>
-                          {categoryUnreadCounts[cat.id] > 0 && (
-                            <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1">
-                              {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                <nav>
+                  {CATEGORY_SECTIONS.map((section, sectionIdx) => (
+                    <div key={section.id}>
+                      {sectionIdx > 0 && (
+                        categoryCollapsed ? (
+                          <div className="my-2 mx-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                        ) : (
+                          <div className="mt-3 mb-1 px-3">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                              {section.label}
                             </span>
-                          )}
-                        </>
+                          </div>
+                        )
                       )}
-                    </button>
+                      <div className="space-y-1">
+                        {section.items.map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedCategory(cat.id)}
+                            className={cn(
+                              "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors min-h-[44px]",
+                              categoryCollapsed && "justify-center px-2",
+                              selectedCategory === cat.id
+                                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                                : "text-gray-700 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                            )}
+                            title={categoryCollapsed ? cat.label : undefined}
+                          >
+                            <span className="relative">
+                              {cat.icon}
+                              {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
+                                  {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                                </span>
+                              )}
+                            </span>
+                            {!categoryCollapsed && (
+                              <>
+                                <span className="flex-1">{cat.label}</span>
+                                {categoryUnreadCounts[cat.id] > 0 && (
+                                  <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1">
+                                    {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </nav>
               </div>
@@ -1702,17 +1897,15 @@ export default function InboxPage() {
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400"
                     />
                   </div>
-                  {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && (
+                  {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && (
                     <button
                       onClick={async () => {
-                        const unreadThreads = displayThreads.filter(t => t.total_unread > 0);
-                        for (const thread of unreadThreads) {
-                          const allMsgs = [thread.root_message, ...thread.replies];
-                          for (const m of allMsgs) {
-                            if (!m.is_read && hasTutor && m.from_tutor_id !== effectiveTutorId) {
-                              await handleMarkRead(m.id);
-                            }
-                          }
+                        if (!hasTutor || tutorId === null) return;
+                        try {
+                          await messagesAPI.markAllRead(tutorId, categoryFilter || undefined);
+                          mutate((key) => isThreadsKey(key) || isUnreadKey(key));
+                        } catch {
+                          showToast("Failed to mark all as read", "error");
                         }
                       }}
                       className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -1814,7 +2007,7 @@ export default function InboxPage() {
                     />
                   ))}
                   {/* Load More button for paginated threads (not for sent or archived) */}
-                  {selectedCategory !== "sent" && selectedCategory !== "archived" && hasMore && displayThreads.length > 0 && (
+                  {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && hasMore && displayThreads.length > 0 && (
                     <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
                       <button
                         onClick={loadMore}
@@ -1854,6 +2047,8 @@ export default function InboxPage() {
                   onDelete={handleDelete}
                   onArchive={handleArchive}
                   onUnarchive={handleUnarchive}
+                  onPin={handlePin}
+                  onUnpin={handleUnpin}
                   isArchived={selectedCategory === "archived"}
                   isMobile={isMobile}
                 />

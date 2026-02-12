@@ -686,6 +686,7 @@ export interface Message {
   updated_at?: string;
   reply_to_id?: number;
   is_read: boolean;
+  is_pinned: boolean;
   like_count: number;
   is_liked_by_me: boolean;
   like_details?: LikeDetail[];
@@ -1164,6 +1165,12 @@ export interface ToggleLikeResponse {
 
 /** Archive operation response */
 export interface ArchiveResponse {
+  success: boolean;
+  count: number;
+}
+
+/** Pin/star operation response */
+export interface PinResponse {
   success: boolean;
   count: number;
 }
