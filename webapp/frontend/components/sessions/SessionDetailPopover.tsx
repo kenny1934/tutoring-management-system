@@ -412,6 +412,15 @@ export function SessionDetailPopover({
   // Fetch detailed session with SWR caching (for previous_session and homework_completion)
   const { data: detailedSession, isLoading: isLoadingDetails } = useSession(isOpen ? session?.id : null);
 
+  // Stamp for individual exercise printing in recap section
+  const printStamp = useMemo((): PrintStampInfo => ({
+    location: session.location,
+    schoolStudentId: session.school_student_id,
+    studentName: session.student_name,
+    sessionDate: session.session_date,
+    sessionTime: session.time_slot,
+  }), [session.location, session.school_student_id, session.student_name, session.session_date, session.time_slot]);
+
   // Check if session can be marked (not already attended/completed)
   const canBeMarked = useCallback((s: Session | null) => {
     if (!s) return false;
