@@ -171,7 +171,7 @@ export function EnrollStudentModal({
       weekday: "short", month: "short", day: "numeric", year: "numeric"
     });
     const slotDate = new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", {
-      weekday: "short", month: "short", day: "numeric"
+      weekday: "short", month: "short", day: "numeric", year: "numeric"
     });
     return `Consume ${sessionDate} (${session.session_status}) session to enroll ${confirmData.student.student_name} in the ${slotDate} ${slot.time_slot} revision slot?`;
   }, [confirmData, slot]);
@@ -201,7 +201,7 @@ export function EnrollStudentModal({
             <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 mt-0.5">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="h-3.5 w-3.5" />
-                {new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                {new Date(slot.session_date + 'T00:00:00').toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
               </span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />

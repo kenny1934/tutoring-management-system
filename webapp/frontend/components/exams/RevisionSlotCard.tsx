@@ -121,7 +121,7 @@ export const RevisionSlotCard = React.memo(function RevisionSlotCard({ slot, onE
           <div className="flex items-center gap-4 text-sm">
             <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
               <Calendar className="h-4 w-4 text-gray-400" />
-              {slotDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              {slotDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
             </span>
             <span className="inline-flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
               <Clock className="h-4 w-4 text-gray-400" />
