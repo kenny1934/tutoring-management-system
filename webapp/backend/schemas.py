@@ -1098,6 +1098,7 @@ class MessageResponse(MessageBase):
     like_details: Optional[List[LikeDetail]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
+    is_pinned: bool = False
     # Read receipt fields for sender's messages (WhatsApp-style seen status)
     read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
     total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)
@@ -1145,6 +1146,28 @@ class ArchiveResponse(BaseModel):
     """Response for archive operations"""
     success: bool = True
     count: int = Field(default=0, ge=0, description="Number of messages archived/unarchived")
+
+
+class PinRequest(BaseModel):
+    """Request to pin/unpin messages (bulk operation)"""
+    message_ids: List[int] = Field(..., min_length=1, max_length=100)
+
+
+class PinResponse(BaseModel):
+    """Response for pin operations"""
+    success: bool = True
+    count: int = Field(default=0, ge=0, description="Number of messages pinned/unpinned")
+
+
+class MarkAllReadRequest(BaseModel):
+    """Request to mark all visible messages as read"""
+    category: Optional[str] = Field(None, description="Optional category filter")
+
+
+class MarkAllReadResponse(BaseModel):
+    """Response for mark-all-read operation"""
+    success: bool = True
+    count: int = Field(default=0, ge=0, description="Number of messages marked as read")
 
 
 class BatchEnrollmentRequest(BaseModel):

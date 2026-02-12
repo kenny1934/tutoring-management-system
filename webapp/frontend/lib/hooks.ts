@@ -736,6 +736,22 @@ export function useArchivedMessages(tutorId: number | null | undefined) {
   };
 }
 
+/**
+ * Hook for fetching pinned/starred message threads for a tutor
+ */
+export function usePinnedMessages(tutorId: number | null | undefined) {
+  const result = useSWR<PaginatedThreadsResponse>(
+    tutorId ? ['pinned-messages', tutorId] : null,
+    () => messagesAPI.getPinned(tutorId!, 50),
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    ...result,
+    data: result.data?.threads ?? []
+  };
+}
+
 // ============================================
 // Make-up Proposal Hooks
 // ============================================

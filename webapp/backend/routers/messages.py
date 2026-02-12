@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
 from database import get_db
-from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, Tutor, MakeupProposal
+from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html
 from schemas import (
     MessageCreate,
@@ -21,6 +21,10 @@ from schemas import (
     PaginatedMessagesResponse,
     ArchiveRequest,
     ArchiveResponse,
+    PinRequest,
+    PinResponse,
+    MarkAllReadRequest,
+    MarkAllReadResponse,
     ReadReceiptDetail,
     LikeDetail
 )
@@ -58,6 +62,12 @@ def build_message_response(
         MessageLike.tutor_id == current_tutor_id
     ).order_by(MessageLike.liked_at.desc()).first()
     is_liked_by_me = current_like is not None and current_like.action_type == "LIKE"
+
+    # Check if pinned by current tutor
+    is_pinned = db.query(MessagePin).filter(
+        MessagePin.message_id == message.id,
+        MessagePin.tutor_id == current_tutor_id
+    ).first() is not None
 
     # Count replies
     reply_count = db.query(TutorMessage).filter(
@@ -105,6 +115,7 @@ def build_message_response(
         updated_at=message.updated_at,
         reply_to_id=message.reply_to_id,
         is_read=is_read,
+        is_pinned=is_pinned,
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
         like_details=like_details,
@@ -137,7 +148,14 @@ def batch_build_message_responses(
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
 
-    # 2. Batch fetch like counts (GROUP BY)
+    # 2. Batch fetch pinned status
+    pinned_receipts = db.query(MessagePin.message_id).filter(
+        MessagePin.message_id.in_(message_ids),
+        MessagePin.tutor_id == current_tutor_id
+    ).all()
+    pinned_ids = set(r.message_id for r in pinned_receipts)
+
+    # 3. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
         MessageLike.message_id,
         func.count(MessageLike.id).label('count')
@@ -294,6 +312,7 @@ def batch_build_message_responses(
                 updated_at=msg.updated_at,
                 reply_to_id=msg.reply_to_id,
                 is_read=msg.id in read_ids,
+                is_pinned=msg.id in pinned_ids,
                 like_count=like_count_map.get(msg.id, 0),
                 is_liked_by_me=msg.id in liked_by_me,
                 like_details=like_details_map.get(msg.id, []),
@@ -409,6 +428,13 @@ async def get_message_threads(
         MessageReadReceipt.tutor_id == tutor_id
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
+
+    # Batch fetch pinned status
+    pinned_receipts = db.query(MessagePin.message_id).filter(
+        MessagePin.message_id.in_(all_message_ids),
+        MessagePin.tutor_id == tutor_id
+    ).all()
+    pinned_ids = set(r.message_id for r in pinned_receipts)
 
     # 4. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -561,6 +587,7 @@ async def get_message_threads(
             updated_at=msg.updated_at,
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
+            is_pinned=msg.id in pinned_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
             like_details=like_details_map.get(msg.id, []),
@@ -794,6 +821,75 @@ async def upload_message_image(
 
 
 # ============================================
+# Batch Read Endpoint (must be before {message_id} routes)
+# ============================================
+
+@router.post("/messages/mark-all-read", response_model=MarkAllReadResponse)
+async def mark_all_read(
+    request: MarkAllReadRequest,
+    tutor_id: int = Query(..., description="Tutor marking messages as read"),
+    db: Session = Depends(get_db)
+):
+    """Mark all visible unread messages as read in one operation."""
+    from sqlalchemy.dialects.mysql import insert as mysql_insert
+
+    check_user_rate_limit(tutor_id, "message_read")
+
+    # Subquery for archived message IDs
+    archived_ids_subq = db.query(MessageArchive.message_id).filter(
+        MessageArchive.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    # Subquery for already-read message IDs
+    already_read_subq = db.query(MessageReadReceipt.message_id).filter(
+        MessageReadReceipt.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    # Find all unread, non-archived messages visible to this tutor
+    unread_query = db.query(TutorMessage.id).filter(
+        or_(
+            TutorMessage.to_tutor_id == tutor_id,
+            TutorMessage.to_tutor_id.is_(None),  # Broadcasts
+        ),
+        ~TutorMessage.id.in_(archived_ids_subq),
+        ~TutorMessage.id.in_(already_read_subq),
+        TutorMessage.from_tutor_id != tutor_id,  # Don't mark own messages
+    )
+
+    # Apply category filter if specified
+    if request.category:
+        root_ids_subq = db.query(TutorMessage.id).filter(
+            TutorMessage.reply_to_id.is_(None),
+            TutorMessage.category == request.category,
+        ).scalar_subquery()
+
+        unread_query = unread_query.filter(
+            or_(
+                and_(TutorMessage.reply_to_id.is_(None), TutorMessage.category == request.category),
+                TutorMessage.reply_to_id.in_(root_ids_subq),
+            )
+        )
+
+    unread_ids = [row[0] for row in unread_query.all()]
+
+    if not unread_ids:
+        return MarkAllReadResponse(success=True, count=0)
+
+    # Bulk insert read receipts
+    count = 0
+    for msg_id in unread_ids:
+        stmt = mysql_insert(MessageReadReceipt).values(
+            message_id=msg_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
+    return MarkAllReadResponse(success=True, count=count)
+
+
+# ============================================
 # Archive Endpoints (must be before {message_id} routes)
 # ============================================
 
@@ -1000,6 +1096,13 @@ async def get_archived_messages(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
+    # Batch fetch pinned status
+    pinned_receipts = db.query(MessagePin.message_id).filter(
+        MessagePin.message_id.in_(all_message_ids),
+        MessagePin.tutor_id == tutor_id
+    ).all()
+    pinned_ids = set(r.message_id for r in pinned_receipts)
+
     # Helper to build MessageResponse
     def build_response(msg: TutorMessage) -> MessageResponse:
         return MessageResponse(
@@ -1016,6 +1119,7 @@ async def get_archived_messages(
             updated_at=msg.updated_at,
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
+            is_pinned=msg.id in pinned_ids,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
             like_details=like_details_map.get(msg.id, []),
@@ -1045,7 +1149,147 @@ async def get_archived_messages(
 
 
 # ============================================
-# Message ID Routes (must be after /archive routes)
+# Pin/Star Endpoints (must be before {message_id} routes)
+# ============================================
+
+@router.post("/messages/pin", response_model=PinResponse)
+async def pin_messages(
+    request: PinRequest,
+    tutor_id: int = Query(..., description="Tutor pinning messages"),
+    db: Session = Depends(get_db)
+):
+    """Pin/star multiple messages for the current tutor (bulk operation)."""
+    from sqlalchemy.dialects.mysql import insert
+
+    count = 0
+    for message_id in request.message_ids:
+        stmt = insert(MessagePin).values(
+            message_id=message_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
+    return PinResponse(success=True, count=count)
+
+
+@router.delete("/messages/pin", response_model=PinResponse)
+async def unpin_messages(
+    request: PinRequest,
+    tutor_id: int = Query(..., description="Tutor unpinning messages"),
+    db: Session = Depends(get_db)
+):
+    """Unpin/unstar multiple messages for the current tutor."""
+    count = db.query(MessagePin).filter(
+        MessagePin.message_id.in_(request.message_ids),
+        MessagePin.tutor_id == tutor_id
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    return PinResponse(success=True, count=count)
+
+
+@router.get("/messages/pinned", response_model=PaginatedThreadsResponse)
+async def get_pinned_messages(
+    tutor_id: int = Query(..., description="Current tutor ID"),
+    limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    db: Session = Depends(get_db)
+):
+    """Get pinned/starred message threads for the current tutor."""
+    from sqlalchemy import desc
+
+    # Get pinned message IDs for this tutor
+    pinned_ids_subq = db.query(MessagePin.message_id).filter(
+        MessagePin.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    # Base query for pinned root messages
+    base_query = (
+        db.query(TutorMessage)
+        .filter(
+            TutorMessage.reply_to_id.is_(None),
+            TutorMessage.id.in_(pinned_ids_subq),
+            or_(
+                TutorMessage.to_tutor_id == tutor_id,
+                TutorMessage.to_tutor_id.is_(None),
+                TutorMessage.from_tutor_id == tutor_id,
+            )
+        )
+    )
+
+    total_count = base_query.count()
+
+    root_messages = (
+        base_query
+        .options(
+            joinedload(TutorMessage.from_tutor),
+            joinedload(TutorMessage.to_tutor)
+        )
+        .order_by(desc(TutorMessage.created_at))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    if not root_messages:
+        return PaginatedThreadsResponse(
+            threads=[],
+            total_count=total_count,
+            has_more=False,
+            limit=limit,
+            offset=offset
+        )
+
+    root_ids = [m.id for m in root_messages]
+
+    # Batch fetch ALL replies for these roots
+    all_replies = (
+        db.query(TutorMessage)
+        .options(
+            joinedload(TutorMessage.from_tutor),
+            joinedload(TutorMessage.to_tutor)
+        )
+        .filter(TutorMessage.reply_to_id.in_(root_ids))
+        .order_by(TutorMessage.created_at.asc())
+        .all()
+    )
+
+    replies_by_root = {}
+    for reply in all_replies:
+        replies_by_root.setdefault(reply.reply_to_id, []).append(reply)
+
+    # Build responses using batch function
+    all_messages = root_messages + all_replies
+    all_responses = batch_build_message_responses(all_messages, tutor_id, db)
+    response_map = {r.id: r for r in all_responses}
+
+    threads = []
+    for root in root_messages:
+        root_resp = response_map[root.id]
+        reply_resps = [response_map[r.id] for r in replies_by_root.get(root.id, [])]
+
+        # Calculate unread count
+        unread = sum(1 for r in [root_resp] + reply_resps if not r.is_read and r.from_tutor_id != tutor_id)
+
+        threads.append(ThreadResponse(
+            root_message=root_resp,
+            replies=reply_resps,
+            total_unread=unread
+        ))
+
+    return PaginatedThreadsResponse(
+        threads=threads,
+        total_count=total_count,
+        has_more=(offset + limit) < total_count,
+        limit=limit,
+        offset=offset
+    )
+
+
+# ============================================
+# Message ID Routes (must be after /archive and /pin routes)
 # ============================================
 
 @router.post("/messages/{message_id}/read")
