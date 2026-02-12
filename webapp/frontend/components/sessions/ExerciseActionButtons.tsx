@@ -110,11 +110,16 @@ export function ExerciseActionButtons({
             type="button"
             onClick={action.onClick}
             disabled={action.disabled}
-            className={`p-2.5 rounded-md border transition-colors shrink-0 flex items-center justify-center ${action.btnClass}`}
+            className={`p-2.5 rounded-md border transition-colors shrink-0 flex items-center ${action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" ? "gap-1.5" : "justify-center"} ${action.btnClass}`}
             title={action.label}
             aria-label={action.label}
           >
             {action.icon}
+            {action.disabled && action.label !== "Open PDF" && action.label !== "Print PDF" && (
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 italic whitespace-nowrap max-w-[140px] truncate">
+                {action.label}
+              </span>
+            )}
           </button>
         ))}
       </div>

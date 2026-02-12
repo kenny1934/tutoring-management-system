@@ -111,13 +111,21 @@ const ExerciseItem = memo(function ExerciseItem({ exercise, stamp }: { exercise:
 
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0 overflow-hidden flex-1">
-      <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
-        {displayName}
-      </span>
-      {pageInfo && (
-        <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">
-          {pageInfo}
+      {(openState === 'loading' || printState === 'loading') && progressMessage ? (
+        <span className="truncate min-w-0 text-amber-600 dark:text-amber-400 italic" title={exercise.pdf_name}>
+          {progressMessage}
         </span>
+      ) : (
+        <>
+          <span className="truncate min-w-0 text-gray-700 dark:text-gray-300" title={exercise.pdf_name}>
+            {displayName}
+          </span>
+          {pageInfo && (
+            <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">
+              {pageInfo}
+            </span>
+          )}
+        </>
       )}
       <button
         onClick={handleCopy}
