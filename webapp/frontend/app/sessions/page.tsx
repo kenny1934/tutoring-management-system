@@ -2489,7 +2489,7 @@ export default function SessionsPage() {
           )}
         </AnimatePresence>
       </DeskSurface>
-      <QuickAttendFAB />
+      <QuickAttendFAB selectedDate={selectedDate} />
       </>
     );
   }
@@ -2577,13 +2577,13 @@ export default function SessionsPage() {
     </DeskSurface>
 
     {/* Quick Attend FAB - mobile only, outside DeskSurface to avoid overflow-hidden clipping */}
-    <QuickAttendFAB />
+    <QuickAttendFAB selectedDate={selectedDate} />
     </>
   );
 }
 
-// --- Quick Attend Floating Action Button (mobile only) ---
-function QuickAttendFAB() {
+// --- Quick Attend Floating Action Button (mobile only, today only) ---
+function QuickAttendFAB({ selectedDate }: { selectedDate: Date }) {
   const { selectedLocation } = useLocation();
   const { viewMode } = useRole();
   const { user, isImpersonating, impersonatedTutor, effectiveRole } = useAuth();
@@ -2598,6 +2598,13 @@ function QuickAttendFAB() {
   const location = selectedLocation && selectedLocation !== "All Locations" ? selectedLocation : undefined;
   const { data: unchecked } = useUncheckedAttendanceCount(location, effectiveTutorId);
 
+  const isToday = useMemo(() => {
+    const now = new Date();
+    return selectedDate.getFullYear() === now.getFullYear()
+      && selectedDate.getMonth() === now.getMonth()
+      && selectedDate.getDate() === now.getDate();
+  }, [selectedDate]);
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -2605,7 +2612,7 @@ function QuickAttendFAB() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  if (!isMobile || !unchecked?.total) return null;
+  if (!isMobile || !isToday || !unchecked?.total) return null;
 
   return (
     <motion.div
