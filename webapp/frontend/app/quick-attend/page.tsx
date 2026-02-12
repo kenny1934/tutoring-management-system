@@ -42,8 +42,37 @@ const URGENCY_CONFIG: Record<string, { label: string; color: string; border: str
 
 const URGENCY_ORDER = ["Critical", "High", "Medium", "Low"];
 
+// Strip honorific prefixes for tutor name sorting
+const getTutorSortName = (name: string): string =>
+  name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '');
+
 // Sort sessions within a time group using DailyGridView priority logic
-function sortSessionsInGroup(sessions: SessionCardData[]): SessionCardData[] {
+// When groupByTutor is true, groups by tutor first (like TodaySessionsCard)
+function sortSessionsInGroup(sessions: SessionCardData[], groupByTutor = false): SessionCardData[] {
+  if (!groupByTutor) {
+    return sortByPriority(sessions);
+  }
+
+  // Group by tutor first, then sort within each tutor
+  const byTutor = new Map<string, SessionCardData[]>();
+  for (const s of sessions) {
+    const tutor = s.tutorName || "";
+    if (!byTutor.has(tutor)) byTutor.set(tutor, []);
+    byTutor.get(tutor)!.push(s);
+  }
+
+  const tutorNames = [...byTutor.keys()].sort((a, b) =>
+    getTutorSortName(a).localeCompare(getTutorSortName(b))
+  );
+
+  const sorted: SessionCardData[] = [];
+  for (const tutor of tutorNames) {
+    sorted.push(...sortByPriority(byTutor.get(tutor)!));
+  }
+  return sorted;
+}
+
+function sortByPriority(sessions: SessionCardData[]): SessionCardData[] {
   const scheduledSessions = sessions.filter(s => s.sessionStatus === "Scheduled");
   const gradeCounts = new Map<string, number>();
   scheduledSessions.forEach(s => {
@@ -218,6 +247,9 @@ export default function QuickAttendPage() {
     }
   }, [isLoading, todaySessions, overdueSessions, today]);
 
+  const isCenterView = viewMode === "center-view" && !(isImpersonating && effectiveRole === "Tutor");
+  const isAllTutors = isCenterView && selectedTutorId === ALL_TUTORS;
+
   const todayGrouped = useMemo(() => {
     const visible = todaySnapshot.filter((s) => cardStates[s.id]?.state !== "done");
     const cardDataList = visible.map(sessionToCardData);
@@ -229,8 +261,8 @@ export default function QuickAttendPage() {
     }
     return [...groups.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([slot, sessions]) => ({ timeSlot: slot, sessions: sortSessionsInGroup(sessions) }));
-  }, [todaySnapshot, cardStates]);
+      .map(([slot, sessions]) => ({ timeSlot: slot, sessions: sortSessionsInGroup(sessions, isAllTutors) }));
+  }, [todaySnapshot, cardStates, isAllTutors]);
 
   const visibleTodayCount = useMemo(() => {
     return todayGrouped.reduce((sum, g) => sum + g.sessions.length, 0);
@@ -284,8 +316,6 @@ export default function QuickAttendPage() {
       rescheduled: states.filter(s => s.state === "done" && s.action === "rescheduled").length,
     };
   }, [cardStates]);
-
-  const isCenterView = viewMode === "center-view" && !(isImpersonating && effectiveRole === "Tutor");
 
   const progressFraction = Math.min(completedCount / progressTotal, 1);
 
@@ -508,6 +538,8 @@ export default function QuickAttendPage() {
                   <AnimatePresence mode="popLayout">
                     {sessions.map((card, cardIdx) => {
                       const status = cardStates[card.sessionId];
+                      const prevCard = cardIdx > 0 ? sessions[cardIdx - 1] : null;
+                      const isNewTutor = isAllTutors && prevCard && prevCard.tutorName !== card.tutorName;
                       if (status?.state === "rating") {
                         return (
                           <RatingStrip
@@ -520,20 +552,24 @@ export default function QuickAttendPage() {
                         );
                       }
                       return (
-                        <SessionCard
-                          key={card.sessionId}
-                          data={card}
-                          showTutor={isCenterView}
-                          showLocation={!effectiveLocation}
-                          cardStatus={status}
-                          isMarking={markingIds.has(card.sessionId)}
-                          isFirst={groupIdx === 0 && cardIdx === 0 && !peekDone.current}
-                          onAttended={handleAttended}
-                          onNoShow={handleNoShow}
-                          onReschedule={handleReschedule}
-                          onCardClick={handleCardClick}
-                          onPeek={() => { peekDone.current = true; }}
-                        />
+                        <motion.div key={card.sessionId}>
+                          {isNewTutor && (
+                            <div className="border-t-2 border-dashed border-[#d4a574] dark:border-[#8b6f47] my-1" />
+                          )}
+                          <SessionCard
+                            data={card}
+                            showTutor={isCenterView}
+                            showLocation={!effectiveLocation}
+                            cardStatus={status}
+                            isMarking={markingIds.has(card.sessionId)}
+                            isFirst={groupIdx === 0 && cardIdx === 0 && !peekDone.current}
+                            onAttended={handleAttended}
+                            onNoShow={handleNoShow}
+                            onReschedule={handleReschedule}
+                            onCardClick={handleCardClick}
+                            onPeek={() => { peekDone.current = true; }}
+                          />
+                        </motion.div>
                       );
                     })}
                   </AnimatePresence>
