@@ -97,10 +97,14 @@ function buildNormalizedQuery(searchPath: string): string {
  *   4. Normalized path (brackets/backslashes stripped), full-text search
  * Stops at the first match. Callers cache the result in localStorage.
  */
-export async function searchPaperlessByPath(searchPath: string): Promise<number | null> {
+export async function searchPaperlessByPath(
+  searchPath: string,
+  onProgress?: (message: string) => void
+): Promise<number | null> {
   const { filename, filenameWithoutExt, directoryParts } = parsePdfPath(searchPath);
 
   // Step 1: Full path as-is (current behavior)
+  onProgress?.("Searching by full path\u2026");
   try {
     const response = await api.paperless.search(searchPath, 1, 'all');
     if (response.results.length > 0) {
@@ -111,6 +115,7 @@ export async function searchPaperlessByPath(searchPath: string): Promise<number 
   }
 
   // Step 2: Filename with extension, full-text search
+  onProgress?.(`Searching by filename: ${filename}\u2026`);
   try {
     const response = await api.paperless.search(filename, 5, 'all');
     if (response.results.length > 0) {
@@ -132,6 +137,7 @@ export async function searchPaperlessByPath(searchPath: string): Promise<number 
   }
 
   // Step 3: Filename without extension (broader — strict validation)
+  onProgress?.(`Searching by name: ${filenameWithoutExt}\u2026`);
   if (filenameWithoutExt !== filename) {
     try {
       const response = await api.paperless.search(filenameWithoutExt, 10, 'all');
@@ -147,6 +153,7 @@ export async function searchPaperlessByPath(searchPath: string): Promise<number 
   }
 
   // Step 4: Normalized path as full-text query (last resort)
+  onProgress?.("Searching with normalized query\u2026");
   const normalizedQuery = buildNormalizedQuery(searchPath);
   if (normalizedQuery && normalizedQuery !== searchPath) {
     try {

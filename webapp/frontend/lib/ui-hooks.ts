@@ -121,7 +121,7 @@ import { searchPaperlessByPath } from "./paperless-utils";
 /**
  * State for file open/print operations per exercise (keyed by clientId).
  */
-export type FileActionState = Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error' }>;
+export type FileActionState = Record<string, { open?: 'loading' | 'error'; print?: 'loading' | 'error'; message?: string }>;
 
 /**
  * Minimal interface for exercise with page info needed for printing.
@@ -150,16 +150,20 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
     if (!path || loadingRef.current.has(loadingKey)) return;
 
     loadingRef.current.add(loadingKey);
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading' } }));
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'loading', message: undefined } }));
 
     try {
-      const error = await openFileFromPathWithFallback(path, searchPaperlessByPath);
+      const error = await openFileFromPathWithFallback(path, (p) =>
+        searchPaperlessByPath(p, (msg) => {
+          setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], message: msg } }));
+        })
+      );
 
       if (error) {
-        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error' } }));
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: 'error', message: undefined } }));
         setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } })), 2000);
       } else {
-        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined } }));
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], open: undefined, message: undefined } }));
       }
     } finally {
       loadingRef.current.delete(loadingKey);
@@ -177,16 +181,20 @@ export function useFileActions(buildStampInfo?: () => PrintStampInfo) {
     const complexRange = exercise.complex_pages?.trim() || undefined;
     const stamp = buildStampInfo?.();
 
-    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading' } }));
+    setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'loading', message: undefined } }));
 
     try {
-      const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, searchPaperlessByPath);
+      const error = await printFileFromPathWithFallback(path, pageStart, pageEnd, complexRange, stamp, (p) =>
+        searchPaperlessByPath(p, (msg) => {
+          setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], message: msg } }));
+        })
+      );
 
       if (error) {
-        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error' } }));
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: 'error', message: undefined } }));
         setTimeout(() => setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } })), 2000);
       } else {
-        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined } }));
+        setFileActionState(prev => ({ ...prev, [clientId]: { ...prev[clientId], print: undefined, message: undefined } }));
       }
     } finally {
       loadingRef.current.delete(loadingKey);

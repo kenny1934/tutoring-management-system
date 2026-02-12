@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
 import { Search, FolderOpen, ExternalLink, Printer, Loader2, XCircle, Ellipsis } from "lucide-react";
 
-type FileActionState = { open?: 'loading' | 'error'; print?: 'loading' | 'error' };
+type FileActionState = { open?: 'loading' | 'error'; print?: 'loading' | 'error'; message?: string };
 
 interface ExerciseActionButtonsProps {
   hasPdfName: boolean;
@@ -74,7 +74,8 @@ export function ExerciseActionButtons({
 
     if (hasPdfName) {
       actions.push({
-        label: "Open PDF",
+        label: fileActionState?.open === 'loading' && fileActionState?.message
+          ? fileActionState.message : "Open PDF",
         icon: fileActionState?.open === 'loading'
           ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
           : fileActionState?.open === 'error'
@@ -85,7 +86,8 @@ export function ExerciseActionButtons({
         btnClass: "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800",
       });
       actions.push({
-        label: "Print PDF",
+        label: fileActionState?.print === 'loading' && fileActionState?.message
+          ? fileActionState.message : "Print PDF",
         icon: fileActionState?.print === 'loading'
           ? <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
           : fileActionState?.print === 'error'

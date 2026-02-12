@@ -26,13 +26,15 @@ export interface PdfLoadError {
  * Tries local File System Access API first, falls back to Paperless.
  */
 export async function loadExercisePdf(
-  pdfName: string
+  pdfName: string,
+  onProgress?: (message: string) => void
 ): Promise<PdfLoadResult | PdfLoadError> {
   if (!pdfName || !pdfName.trim()) {
     return { error: 'no_file' };
   }
 
   // 1. Try local file access
+  onProgress?.("Trying local file access\u2026");
   if (isFileSystemAccessSupported()) {
     const result = await getFileHandleFromPath(pdfName);
     if (result.success) {
@@ -47,17 +49,19 @@ export async function loadExercisePdf(
   }
 
   // 2. Try Paperless: check cache first
+  onProgress?.("Checking Paperless cache\u2026");
   let documentId = getCachedPaperlessDocumentId(pdfName);
 
   // 3. Cache miss — search Paperless
   if (!documentId) {
-    documentId = await searchPaperlessByPath(pdfName);
+    documentId = await searchPaperlessByPath(pdfName, onProgress);
     if (documentId) {
       setPaperlessPathCache(pdfName, documentId);
     }
   }
 
   // 4. Fetch from Paperless proxy
+  onProgress?.("Downloading PDF\u2026");
   if (documentId) {
     try {
       const response = await fetch(`/api/paperless/preview/${documentId}`);

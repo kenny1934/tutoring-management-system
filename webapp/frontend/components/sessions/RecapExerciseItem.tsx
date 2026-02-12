@@ -22,6 +22,7 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [openState, setOpenState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [printState, setPrintState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const canBrowseFiles = typeof window !== 'undefined' && isFileSystemAccessSupported();
 
   // Parse display name from full path
@@ -49,7 +50,11 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
     e.stopPropagation();
     if (openState === 'loading') return;
     setOpenState('loading');
-    const error = await openFileFromPathWithFallback(pdfName, searchPaperlessByPath);
+    setProgressMessage(null);
+    const error = await openFileFromPathWithFallback(pdfName, (p) =>
+      searchPaperlessByPath(p, setProgressMessage)
+    );
+    setProgressMessage(null);
     if (error) {
       setOpenState('error');
       setTimeout(() => setOpenState('idle'), 2000);
@@ -62,14 +67,16 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
     e.stopPropagation();
     if (printState === 'loading') return;
     setPrintState('loading');
+    setProgressMessage(null);
     const error = await printFileFromPathWithFallback(
       pdfName,
       pageStart,
       pageEnd,
       undefined,
       stamp,
-      searchPaperlessByPath
+      (p) => searchPaperlessByPath(p, setProgressMessage)
     );
+    setProgressMessage(null);
     if (error) {
       setPrintState('error');
       setTimeout(() => setPrintState('idle'), 2000);
@@ -95,12 +102,12 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
       {/* Open/Print buttons - only if file system supported */}
       {canBrowseFiles && (
         <>
-          <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Open file">
+          <button type="button" onClick={handleOpen} disabled={openState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={openState === 'loading' && progressMessage ? progressMessage : "Open file"}>
             {openState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
              openState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
              <ExternalLink className="h-3 w-3 text-gray-400" />}
           </button>
-          <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Print file">
+          <button type="button" onClick={handlePrint} disabled={printState === 'loading'} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title={printState === 'loading' && progressMessage ? progressMessage : "Print file"}>
             {printState === 'loading' ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> :
              printState === 'error' ? <XCircle className="h-3 w-3 text-red-500" /> :
              <Printer className="h-3 w-3 text-gray-400" />}
