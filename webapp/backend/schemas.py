@@ -1079,6 +1079,7 @@ class MessageCreate(MessageBase):
 class MessageUpdate(BaseModel):
     """Schema for updating an existing message"""
     message: Optional[str] = Field(None, min_length=1)
+    image_attachments: Optional[List[str]] = None
 
 
 class MessageResponse(MessageBase):
