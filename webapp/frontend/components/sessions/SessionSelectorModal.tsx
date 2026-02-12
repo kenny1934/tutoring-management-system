@@ -37,6 +37,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getGradeColor, DAY_NAMES } from "@/lib/constants";
 import { getTutorSortName } from "@/components/zen/utils/sessionSorting";
+import { SessionStatusTag } from "@/components/ui/session-status-tag";
+import { isCountableSession, getDisplayStatus, getSessionStatusConfig } from "@/lib/session-status";
 import type { Session } from "@/types";
 import type { FileSelection } from "@/components/ui/folder-tree-modal";
 import { SessionDetailPopover } from "./SessionDetailPopover";
@@ -138,7 +140,7 @@ export function SessionSelectorModal({
         isToday: isSameDay(date, today),
         isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
         sessions: daySessions,
-        sessionCount: daySessions.length,
+        sessionCount: daySessions.filter(isCountableSession).length,
         // Count how many are selected
         selectedCount: daySessions.filter((s) => selections.has(s.id)).length,
       };
@@ -865,7 +867,7 @@ function SessionDayPicker({
                 {dayName}
               </div>
               <div className="text-xs text-[#8b6f47] dark:text-[#cd853f]">
-                {monthDay} · {filteredSessions.length} sessions
+                {monthDay} · {filteredSessions.filter(isCountableSession).length} sessions
               </div>
             </div>
           </div>
@@ -928,12 +930,12 @@ function SessionDayPicker({
               <p className="text-gray-500 dark:text-gray-400 text-sm">
                 No sessions {filterTutorId !== "all" ? "for this tutor " : ""}on this day
               </p>
-              {filterTutorId !== "all" && sessions.length > 0 && (
+              {filterTutorId !== "all" && sessions.filter(isCountableSession).length > 0 && (
                 <button
                   onClick={() => setFilterTutorId("all")}
                   className="mt-2 px-3 py-1 text-xs text-[#a0704b] hover:text-[#8b5d3b] dark:text-[#d4a574] dark:hover:text-[#e0b88a] underline underline-offset-2"
                 >
-                  Show all tutors ({sessions.length} session{sessions.length !== 1 ? "s" : ""})
+                  Show all tutors ({sessions.filter(isCountableSession).length} session{sessions.filter(isCountableSession).length !== 1 ? "s" : ""})
                 </button>
               )}
             </div>
@@ -955,6 +957,7 @@ function SessionDayPicker({
                       const isSelected = selections.has(session.id);
                       const selection = selections.get(session.id);
                       const exerciseType = selection?.exerciseType || defaultType;
+                      const statusConfig = getSessionStatusConfig(getDisplayStatus(session));
 
                       return (
                         <div key={session.id}>
@@ -1004,7 +1007,10 @@ function SessionDayPicker({
 
                               {/* Middle row: student name + grade badge + school badge */}
                               <div className="flex items-center gap-1 flex-wrap">
-                                <span className="font-semibold text-xs text-[#5d4e37] dark:text-[#e8d4b8] truncate">
+                                <span className={cn(
+                                  "font-semibold text-xs text-[#5d4e37] dark:text-[#e8d4b8] truncate",
+                                  statusConfig.strikethrough && "line-through opacity-60"
+                                )}>
                                   {session.student_name || "Unknown"}
                                 </span>
                                 {session.grade && (
@@ -1027,6 +1033,9 @@ function SessionDayPicker({
                                 {session.tutor_name || "No tutor"}
                               </div>
                             </div>
+
+                            {/* Status badge */}
+                            <SessionStatusTag status={getDisplayStatus(session)} iconOnly size="sm" />
 
                             {/* Exercise type toggle */}
                             {isSelected && (
