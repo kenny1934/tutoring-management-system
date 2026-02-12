@@ -1129,7 +1129,9 @@ export default function InboxPage() {
   const [showWecom, setShowWecom] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
   const [isMobile, setIsMobile] = useState(false);
-  const [categoryCollapsed, setCategoryCollapsed] = useState(false);
+  const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 1024
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
 
