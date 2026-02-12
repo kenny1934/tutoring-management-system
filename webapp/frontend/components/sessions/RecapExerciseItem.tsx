@@ -87,10 +87,18 @@ export const RecapExerciseItem = memo(function RecapExerciseItem({ pdfName, page
 
   return (
     <div className="flex items-center gap-1.5 text-xs min-w-0">
-      <span className="truncate text-gray-700 dark:text-gray-300 min-w-0" title={pdfName}>
-        {displayName}
-      </span>
-      {pageInfo && <span className="text-gray-500 flex-shrink-0">{pageInfo}</span>}
+      {(openState === 'loading' || printState === 'loading') && progressMessage ? (
+        <span className="truncate text-amber-600 dark:text-amber-400 italic min-w-0" title={pdfName}>
+          {progressMessage}
+        </span>
+      ) : (
+        <>
+          <span className="truncate text-gray-700 dark:text-gray-300 min-w-0" title={pdfName}>
+            {displayName}
+          </span>
+          {pageInfo && <span className="text-gray-500 flex-shrink-0">{pageInfo}</span>}
+        </>
+      )}
 
       {/* Copy button */}
       <button type="button" onClick={handleCopy} className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0" title="Copy path">
