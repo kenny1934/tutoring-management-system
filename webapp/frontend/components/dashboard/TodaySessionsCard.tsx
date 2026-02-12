@@ -233,7 +233,7 @@ export function TodaySessionsCard({ className, isMobile = false, tutorId }: Toda
                 title="Quick attendance marking"
               >
                 <ClipboardCheck className="h-3 w-3" />
-                <span className="hidden sm:inline">Quick Attend</span>
+                <span className="hidden sm:inline">Quick</span>
               </Link>
             )}
             {/* Record Memo button */}

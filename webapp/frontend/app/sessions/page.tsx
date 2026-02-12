@@ -2193,9 +2193,9 @@ export default function SessionsPage() {
                                 <div className="flex items-start justify-between gap-2">
                                   {/* Left side - Session info */}
                                   <div className="space-y-1.5 flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <p className={cn(
-                                        "flex items-center gap-1.5 min-w-0",
+                                        "flex items-center gap-1.5 min-w-0 w-full sm:w-auto",
                                         statusConfig.strikethrough && "line-through decoration-gray-500 dark:decoration-gray-400"
                                       )}>
                                         <span className={cn(
@@ -2218,12 +2218,12 @@ export default function SessionsPage() {
                                       </p>
                                       {session.grade && (
                                         <span
-                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap hidden sm:inline"
+                                          className="text-[11px] px-1.5 py-0.5 rounded text-gray-800 whitespace-nowrap"
                                           style={{ backgroundColor: getGradeColor(session.grade, session.lang_stream) }}
                                         >{session.grade}{session.lang_stream || ''}</span>
                                       )}
                                       {session.school && (
-                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap hidden sm:inline">{session.school}</span>
+                                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 whitespace-nowrap">{session.school}</span>
                                       )}
                                       {session.exam_revision_slot_id && (
                                         <span title="Exam Revision"><GraduationCap className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 hidden sm:inline" /></span>
@@ -2414,10 +2414,10 @@ export default function SessionsPage() {
           <button
             onClick={() => setShowShortcutHints(true)}
             className={cn(
-              "fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
+              "hidden md:flex fixed right-4 z-40 w-8 h-8 rounded-full transition-all duration-200",
               "bg-[#fef9f3] dark:bg-[#2d2618] border border-[#d4a574] dark:border-[#8b6f47]",
               "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
-              "shadow-md flex items-center justify-center",
+              "shadow-md items-center justify-center",
               isScrolledPastThreshold ? "bottom-20" : "bottom-4"
             )}
             title="Keyboard shortcuts (?)"
