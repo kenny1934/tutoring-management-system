@@ -1153,6 +1153,10 @@ async def update_message(
         message.message = sanitize_message_html(update_data.message)
         message.updated_at = hk_now()
 
+    if update_data.image_attachments is not None:
+        message.image_attachments = update_data.image_attachments
+        message.updated_at = hk_now()
+
     db.commit()
     db.refresh(message)
 

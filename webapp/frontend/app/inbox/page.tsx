@@ -190,7 +190,12 @@ function ComposeModal({
   useEffect(() => {
     if (isOpen) {
       if (replyTo) {
-        setToTutorId(replyTo.from_tutor_id);
+        // If replying to own message, target the original recipient; otherwise target the sender
+        if (replyTo.from_tutor_id === fromTutorId) {
+          setToTutorId(replyTo.to_tutor_id ?? "all");
+        } else {
+          setToTutorId(replyTo.from_tutor_id);
+        }
         setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
         setCategory(replyTo.category || "");
       } else {
@@ -280,7 +285,11 @@ function ComposeModal({
             <select
               value={toTutorId}
               onChange={(e) => setToTutorId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+              disabled={!!replyTo}
+              className={cn(
+                "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white",
+                replyTo && "opacity-60 cursor-not-allowed"
+              )}
             >
               <option value="all">All Tutors (Broadcast)</option>
               {tutors
@@ -409,7 +418,6 @@ function ComposeModal({
             </label>
             <InboxRichEditor
               onUpdate={setMessage}
-              onAttachImage={() => fileInputRef.current?.click()}
             />
           </div>
 
@@ -794,7 +802,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onLike: (msgId: number) => void;
   onMarkRead: (msgId: number) => void;
   onMarkUnread: (msgId: number) => void;
-  onEdit: (msgId: number, newText: string) => Promise<void>;
+  onEdit: (msgId: number, newText: string, imageAttachments?: string[]) => Promise<void>;
   onDelete: (msgId: number) => Promise<void>;
   onArchive: (msgId: number) => Promise<void>;
   onUnarchive: (msgId: number) => Promise<void>;
@@ -813,6 +821,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Edit state
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isEditUploading, setIsEditUploading] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -835,22 +846,42 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const startEdit = (m: Message) => {
     setEditingMessageId(m.id);
     setEditText(m.message);
+    setEditImages(m.image_attachments || []);
   };
 
   const cancelEdit = () => {
     setEditingMessageId(null);
     setEditText("");
+    setEditImages([]);
   };
 
   const saveEdit = async () => {
     if (!editingMessageId || !editText || editText === "<p></p>") return;
     setIsSaving(true);
     try {
-      await onEdit(editingMessageId, editText);
+      await onEdit(editingMessageId, editText, editImages);
       setEditingMessageId(null);
       setEditText("");
+      setEditImages([]);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleEditImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsEditUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, currentTutorId);
+        setEditImages(prev => [...prev, result.url]);
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setIsEditUploading(false);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
     }
   };
 
@@ -982,6 +1013,50 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     initialContent={editText}
                     minHeight="100px"
                   />
+                  {/* Image attachments for edit mode */}
+                  <div>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleEditImageUpload(e.target.files)}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isEditUploading}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {isEditUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                      {isEditUploading ? 'Uploading...' : 'Add Images'}
+                    </button>
+                    {editImages.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {editImages.map((url, index) => (
+                          <div key={url} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Attachment ${index + 1}`}
+                              className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
+                              className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={saveEdit}
@@ -1430,11 +1505,11 @@ export default function InboxPage() {
     setShowCompose(true);
   }, []);
 
-  const handleEdit = useCallback(async (messageId: number, newText: string) => {
+  const handleEdit = useCallback(async (messageId: number, newText: string, imageAttachments?: string[]) => {
     if (tutorId === null) return;
 
     try {
-      await messagesAPI.update(messageId, newText, tutorId);
+      await messagesAPI.update(messageId, newText, tutorId, imageAttachments);
       showToast("Message updated!", "success");
       mutate(isThreadsKey);
     } catch (error) {

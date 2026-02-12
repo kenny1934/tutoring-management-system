@@ -1257,10 +1257,10 @@ export const messagesAPI = {
   },
 
   // Update a message (only by sender)
-  update: (messageId: number, message: string, tutorId: number) => {
+  update: (messageId: number, message: string, tutorId: number, imageAttachments?: string[]) => {
     return fetchAPI<Message>(`/messages/${messageId}?tutor_id=${tutorId}`, {
       method: "PATCH",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, image_attachments: imageAttachments }),
     });
   },
 
