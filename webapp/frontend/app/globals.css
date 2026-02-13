@@ -256,6 +256,31 @@
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
+/* Typing indicator dots (iMessage-style) */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Shimmer wave for loading skeletons */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(160,112,75,0.08) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Unread badge pulse glow */
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(160,112,75,0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(160,112,75,0); }
+}
+
+/* Date separator line grow */
+@keyframes line-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 /* ===== UTILITY CLASSES ===== */
 .glass {
   background: var(--glass-bg);
