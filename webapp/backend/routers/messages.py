@@ -4,7 +4,7 @@ Provides messaging system for tutor-to-tutor communication.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, desc
 from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
@@ -60,6 +60,121 @@ def visible_to_tutor_filter(tutor_id: int, db: Session):
     )
 
 
+# ============================================
+# Shared query helpers (avoid duplication)
+# ============================================
+
+def _fetch_like_details(db: Session, message_ids: list[int]) -> dict[int, list[LikeDetail]]:
+    """Batch fetch like details (emoji reactions) for a set of messages.
+    Returns {message_id: [LikeDetail, ...]}."""
+    if not message_ids:
+        return {}
+
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.emoji,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.emoji,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    result: dict[int, list[LikeDetail]] = {}
+    for liker in current_likers:
+        result.setdefault(liker.message_id, []).append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at,
+                emoji=liker.emoji or "❤️"
+            )
+        )
+    return result
+
+
+def _fetch_read_receipts(
+    db: Session, message_ids: list[int], current_tutor_id: int
+) -> dict[int, list[ReadReceiptDetail]]:
+    """Batch fetch read receipts for messages sent by current tutor.
+    Returns {message_id: [ReadReceiptDetail, ...]}."""
+    if not message_ids:
+        return {}
+    sender_receipts = (
+        db.query(
+            MessageReadReceipt.message_id,
+            MessageReadReceipt.tutor_id,
+            MessageReadReceipt.read_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
+        .filter(MessageReadReceipt.message_id.in_(message_ids))
+        .filter(MessageReadReceipt.tutor_id != current_tutor_id)
+        .order_by(MessageReadReceipt.read_at.asc())
+        .all()
+    )
+    result: dict[int, list[ReadReceiptDetail]] = {}
+    for receipt in sender_receipts:
+        result.setdefault(receipt.message_id, []).append(
+            ReadReceiptDetail(
+                tutor_id=receipt.tutor_id,
+                tutor_name=receipt.tutor_name or "Unknown",
+                read_at=receipt.read_at
+            )
+        )
+    return result
+
+
+def _fetch_group_recipients(
+    db: Session, message_ids: list[int]
+) -> tuple[dict[int, list[int]], dict[int, list[str]], dict[int, int]]:
+    """Batch fetch group message recipients.
+    Returns (ids_map, names_map, count_map) where:
+      ids_map:   {message_id: [tutor_id, ...]}
+      names_map: {message_id: [tutor_name, ...]}
+      count_map: {message_id: int}
+    """
+    ids_map: dict[int, list[int]] = {}
+    names_map: dict[int, list[str]] = {}
+    count_map: dict[int, int] = {}
+    if not message_ids:
+        return ids_map, names_map, count_map
+    rows = (
+        db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+        .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+        .filter(MessageRecipient.message_id.in_(message_ids))
+        .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+        .all()
+    )
+    for r in rows:
+        ids_map.setdefault(r.message_id, []).append(r.tutor_id)
+        names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+    for mid in message_ids:
+        count_map[mid] = len(ids_map.get(mid, []))
+    return ids_map, names_map, count_map
+
+
 def build_message_response(
     message: TutorMessage,
     current_tutor_id: int,
@@ -100,33 +215,9 @@ def build_message_response(
         TutorMessage.reply_to_id == message.id
     ).count()
 
-    # Fetch like details (who reacted to this message)
-    from sqlalchemy import desc
-    like_details_subq = (
-        db.query(
-            MessageLike.tutor_id,
-            MessageLike.action_type,
-            MessageLike.emoji,
-            MessageLike.liked_at,
-            func.row_number().over(
-                partition_by=[MessageLike.tutor_id, MessageLike.emoji],
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id == message.id)
-        .subquery()
-    )
-    current_likers = (
-        db.query(like_details_subq.c.tutor_id, like_details_subq.c.liked_at, like_details_subq.c.emoji, Tutor.tutor_name)
-        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
-        .filter(like_details_subq.c.rn == 1, like_details_subq.c.action_type == "LIKE")
-        .order_by(like_details_subq.c.liked_at.asc())
-        .all()
-    )
-    like_details = [
-        LikeDetail(tutor_id=l.tutor_id, tutor_name=l.tutor_name or "Unknown", liked_at=l.liked_at, emoji=l.emoji or "❤️")
-        for l in current_likers
-    ]
+    # Fetch like details via shared helper
+    like_details_map = _fetch_like_details(db, [message.id])
+    like_details = like_details_map.get(message.id, [])
     # Build reaction summary from like_details
     reaction_map: dict = {}
     for ld in like_details:
@@ -145,19 +236,14 @@ def build_message_response(
     _to_tutor_names = None
     _to_tutor_name = message.to_tutor.tutor_name if message.to_tutor else "All"
     if is_group:
-        _recips = (
-            db.query(MessageRecipient.tutor_id, Tutor.tutor_name)
-            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
-            .filter(MessageRecipient.message_id == message.id)
-            .order_by(Tutor.tutor_name)
-            .all()
-        )
-        _to_tutor_ids = [r.tutor_id for r in _recips]
-        _to_tutor_names = [r.tutor_name or "Unknown" for r in _recips]
-        if len(_to_tutor_names) <= 3:
-            _to_tutor_name = ", ".join(_to_tutor_names)
-        else:
-            _to_tutor_name = f"{', '.join(_to_tutor_names[:2])} +{len(_to_tutor_names) - 2}"
+        ids_map, names_map, _ = _fetch_group_recipients(db, [message.id])
+        _to_tutor_ids = ids_map.get(message.id)
+        _to_tutor_names = names_map.get(message.id)
+        if _to_tutor_names:
+            if len(_to_tutor_names) <= 3:
+                _to_tutor_name = ", ".join(_to_tutor_names)
+            else:
+                _to_tutor_name = f"{', '.join(_to_tutor_names[:2])} +{len(_to_tutor_names) - 2}"
 
     return MessageResponse(
         id=message.id,
@@ -197,7 +283,7 @@ def batch_build_message_responses(
     This function runs ~6 queries total regardless of message count,
     compared to 4 queries per message with build_message_response().
     """
-    from sqlalchemy import desc
+
 
     if not messages:
         return []
@@ -250,49 +336,7 @@ def batch_build_message_responses(
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
     # 4. Batch fetch like details (who reacted to each message)
-    like_details_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.tutor_id,
-            MessageLike.action_type,
-            MessageLike.emoji,
-            MessageLike.liked_at,
-            func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id.in_(message_ids))
-        .subquery()
-    )
-    current_likers = (
-        db.query(
-            like_details_subq.c.message_id,
-            like_details_subq.c.tutor_id,
-            like_details_subq.c.emoji,
-            like_details_subq.c.liked_at,
-            Tutor.tutor_name
-        )
-        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
-        .filter(
-            like_details_subq.c.rn == 1,
-            like_details_subq.c.action_type == "LIKE"
-        )
-        .order_by(like_details_subq.c.liked_at.asc())
-        .all()
-    )
-    like_details_map: dict = {}
-    for liker in current_likers:
-        if liker.message_id not in like_details_map:
-            like_details_map[liker.message_id] = []
-        like_details_map[liker.message_id].append(
-            LikeDetail(
-                tutor_id=liker.tutor_id,
-                tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at,
-                emoji=liker.emoji or "❤️"
-            )
-        )
+    like_details_map = _fetch_like_details(db, message_ids)
 
     # 5. Batch fetch reply counts
     reply_counts = db.query(
@@ -303,36 +347,11 @@ def batch_build_message_responses(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 6. Fetch read receipts with tutor names for messages sent by current tutor (WhatsApp-style seen)
+    # 6. Fetch read receipts for messages sent by current tutor (WhatsApp-style seen)
     my_sent_ids = [m.id for m in messages if m.from_tutor_id == current_tutor_id]
-    sender_read_receipts_map: dict = {}  # message_id -> list of ReadReceiptDetail
-    if my_sent_ids:
-        sender_receipts = (
-            db.query(
-                MessageReadReceipt.message_id,
-                MessageReadReceipt.tutor_id,
-                MessageReadReceipt.read_at,
-                Tutor.tutor_name
-            )
-            .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
-            .filter(MessageReadReceipt.message_id.in_(my_sent_ids))
-            .filter(MessageReadReceipt.tutor_id != current_tutor_id)
-            .order_by(MessageReadReceipt.read_at.asc())
-            .all()
-        )
-        for receipt in sender_receipts:
-            if receipt.message_id not in sender_read_receipts_map:
-                sender_read_receipts_map[receipt.message_id] = []
-            sender_read_receipts_map[receipt.message_id].append(
-                ReadReceiptDetail(
-                    tutor_id=receipt.tutor_id,
-                    tutor_name=receipt.tutor_name or "Unknown",
-                    read_at=receipt.read_at
-                )
-            )
+    sender_read_receipts_map = _fetch_read_receipts(db, my_sent_ids, current_tutor_id)
 
-    # 6. Get total active tutor count for broadcast messages (excluding sender)
-    # Only query once if there are broadcast messages sent by current tutor
+    # 7. Get total active tutor count for broadcast messages (excluding sender)
     has_broadcast = any(m.from_tutor_id == current_tutor_id and m.to_tutor_id is None for m in messages)
     total_active_tutors = 0
     if has_broadcast:
@@ -340,24 +359,9 @@ def batch_build_message_responses(
             Tutor.id != current_tutor_id
         ).scalar() or 0
 
-    # 7. Batch fetch group recipient info
+    # 8. Batch fetch group recipient info
     _batch_group_ids = [m.id for m in messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
-    _batch_group_recipients_map = {}
-    _batch_group_names_map = {}
-    _batch_group_count_map = {}
-    if _batch_group_ids:
-        _batch_recips = (
-            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
-            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
-            .filter(MessageRecipient.message_id.in_(_batch_group_ids))
-            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
-            .all()
-        )
-        for r in _batch_recips:
-            _batch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
-            _batch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
-        for mid in _batch_group_ids:
-            _batch_group_count_map[mid] = len(_batch_group_recipients_map.get(mid, []))
+    _batch_group_recipients_map, _batch_group_names_map, _batch_group_count_map = _fetch_group_recipients(db, _batch_group_ids)
 
     # Build responses using pre-fetched data
     responses = []
@@ -436,7 +440,7 @@ async def get_message_threads(
     db: Session = Depends(get_db)
 ):
     """Get message threads with batched queries for performance."""
-    from sqlalchemy import desc
+
 
     # Subquery for archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
@@ -552,22 +556,7 @@ async def get_message_threads(
                 (msg.to_tutor_id == GROUP_MESSAGE_SENTINEL and msg.id in group_visible_ids))
 
     # Batch fetch group recipient info for response building
-    group_recipients_map = {}  # message_id -> [tutor_ids]
-    group_recipient_names_map = {}  # message_id -> [tutor_names]
-    group_recipient_count_map = {}  # message_id -> count
-    if _group_msg_ids:
-        _recipients = (
-            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
-            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
-            .filter(MessageRecipient.message_id.in_(_group_msg_ids))
-            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
-            .all()
-        )
-        for r in _recipients:
-            group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
-            group_recipient_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
-        for mid in _group_msg_ids:
-            group_recipient_count_map[mid] = len(group_recipients_map.get(mid, []))
+    group_recipients_map, group_recipient_names_map, group_recipient_count_map = _fetch_group_recipients(db, _group_msg_ids)
 
     # 4. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -601,49 +590,7 @@ async def get_message_threads(
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
     # 6. Batch fetch like details (who reacted to each message)
-    like_details_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.tutor_id,
-            MessageLike.action_type,
-            MessageLike.emoji,
-            MessageLike.liked_at,
-            func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id.in_(all_message_ids))
-        .subquery()
-    )
-    current_likers = (
-        db.query(
-            like_details_subq.c.message_id,
-            like_details_subq.c.tutor_id,
-            like_details_subq.c.emoji,
-            like_details_subq.c.liked_at,
-            Tutor.tutor_name
-        )
-        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
-        .filter(
-            like_details_subq.c.rn == 1,
-            like_details_subq.c.action_type == "LIKE"
-        )
-        .order_by(like_details_subq.c.liked_at.asc())
-        .all()
-    )
-    like_details_map: dict = {}
-    for liker in current_likers:
-        if liker.message_id not in like_details_map:
-            like_details_map[liker.message_id] = []
-        like_details_map[liker.message_id].append(
-            LikeDetail(
-                tutor_id=liker.tutor_id,
-                tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at,
-                emoji=liker.emoji or "❤️"
-            )
-        )
+    like_details_map = _fetch_like_details(db, all_message_ids)
 
     # 7. Batch fetch reply counts
     reply_counts = db.query(
@@ -654,35 +601,11 @@ async def get_message_threads(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 8. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
+    # 8. Fetch read receipts for messages sent by current tutor (seen badges)
     my_sent_ids = [m.id for m in all_messages if m.from_tutor_id == tutor_id]
-    sender_read_receipts_map: dict = {}
-    if my_sent_ids:
-        sender_receipts = (
-            db.query(
-                MessageReadReceipt.message_id,
-                MessageReadReceipt.tutor_id,
-                MessageReadReceipt.read_at,
-                Tutor.tutor_name
-            )
-            .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
-            .filter(MessageReadReceipt.message_id.in_(my_sent_ids))
-            .filter(MessageReadReceipt.tutor_id != tutor_id)
-            .order_by(MessageReadReceipt.read_at.asc())
-            .all()
-        )
-        for receipt in sender_receipts:
-            if receipt.message_id not in sender_read_receipts_map:
-                sender_read_receipts_map[receipt.message_id] = []
-            sender_read_receipts_map[receipt.message_id].append(
-                ReadReceiptDetail(
-                    tutor_id=receipt.tutor_id,
-                    tutor_name=receipt.tutor_name or "Unknown",
-                    read_at=receipt.read_at
-                )
-            )
+    sender_read_receipts_map = _fetch_read_receipts(db, my_sent_ids, tutor_id)
 
-    # 8. Get total tutor count for broadcast messages (excluding sender)
+    # 9. Get total tutor count for broadcast messages (excluding sender)
     has_broadcast = any(m.from_tutor_id == tutor_id and m.to_tutor_id is None for m in all_messages)
     total_active_tutors = 0
     if has_broadcast:
@@ -1142,7 +1065,7 @@ async def get_archived_messages(
     db: Session = Depends(get_db)
 ):
     """Get archived message threads for the current tutor."""
-    from sqlalchemy import desc
+
 
     # Get archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
@@ -1245,49 +1168,7 @@ async def get_archived_messages(
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
     # Batch fetch like details (who reacted to each message)
-    like_details_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.tutor_id,
-            MessageLike.action_type,
-            MessageLike.emoji,
-            MessageLike.liked_at,
-            func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id.in_(all_message_ids))
-        .subquery()
-    )
-    current_likers = (
-        db.query(
-            like_details_subq.c.message_id,
-            like_details_subq.c.tutor_id,
-            like_details_subq.c.emoji,
-            like_details_subq.c.liked_at,
-            Tutor.tutor_name
-        )
-        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
-        .filter(
-            like_details_subq.c.rn == 1,
-            like_details_subq.c.action_type == "LIKE"
-        )
-        .order_by(like_details_subq.c.liked_at.asc())
-        .all()
-    )
-    like_details_map: dict = {}
-    for liker in current_likers:
-        if liker.message_id not in like_details_map:
-            like_details_map[liker.message_id] = []
-        like_details_map[liker.message_id].append(
-            LikeDetail(
-                tutor_id=liker.tutor_id,
-                tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at,
-                emoji=liker.emoji or "❤️"
-            )
-        )
+    like_details_map = _fetch_like_details(db, all_message_ids)
 
     # Batch fetch reply counts
     reply_counts = db.query(
@@ -1309,28 +1190,13 @@ async def get_archived_messages(
     _all_archived_messages = root_messages + all_replies
     _arch_group_ids = [m.id for m in _all_archived_messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
     _arch_group_visible_ids = set()
-    _arch_group_recipients_map = {}
-    _arch_group_names_map = {}
-    _arch_group_count_map = {}
     if _arch_group_ids:
         _vis_rows = db.query(MessageRecipient.message_id).filter(
             MessageRecipient.message_id.in_(_arch_group_ids),
             MessageRecipient.tutor_id == tutor_id
         ).all()
         _arch_group_visible_ids = set(r.message_id for r in _vis_rows)
-
-        _recips = (
-            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
-            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
-            .filter(MessageRecipient.message_id.in_(_arch_group_ids))
-            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
-            .all()
-        )
-        for r in _recips:
-            _arch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
-            _arch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
-        for mid in _arch_group_ids:
-            _arch_group_count_map[mid] = len(_arch_group_recipients_map.get(mid, []))
+    _arch_group_recipients_map, _arch_group_names_map, _arch_group_count_map = _fetch_group_recipients(db, _arch_group_ids)
 
     def _arch_is_visible(msg):
         return (msg.to_tutor_id == tutor_id or msg.to_tutor_id is None or
@@ -1441,7 +1307,7 @@ async def get_pinned_messages(
     db: Session = Depends(get_db)
 ):
     """Get pinned/starred message threads for the current tutor."""
-    from sqlalchemy import desc
+
 
     # Get pinned message IDs for this tutor
     pinned_ids_subq = db.query(MessagePin.message_id).filter(

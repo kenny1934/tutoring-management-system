@@ -24,18 +24,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const AVATAR_COLORS = [
-  "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500",
-  "bg-purple-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
-];
-
-function getInitials(name: string): string {
-  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '').trim();
-  const parts = cleaned.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return (cleaned[0] || "?").toUpperCase();
-}
+import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
