@@ -1610,7 +1610,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   return (
     <div
-      className="h-full flex flex-col bg-white/90 dark:bg-[#1a1a1a]/90"
+      className={cn("h-full flex flex-col", isMobile ? "bg-white dark:bg-[#1a1a1a]" : "bg-white/90 dark:bg-[#1a1a1a]/90")}
       {...(isMobile ? swipeHandlers : {})}
     >
       {/* Header */}
