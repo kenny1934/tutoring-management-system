@@ -2051,6 +2051,30 @@ html {
   color: #9ca3af;
 }
 
+/* Blockquote styles in rendered chat messages */
+.prose blockquote {
+  border-left: 3px solid #d4a574;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.dark .prose blockquote {
+  border-color: #8b6f47;
+  color: #9ca3af;
+}
+
+/* Clickable quoted messages */
+.prose blockquote[data-msg-id] {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.prose blockquote[data-msg-id]:hover {
+  opacity: 0.7;
+}
+
 /* Ensure inline color on spans is inherited by child elements (overrides prose defaults) */
 .prose span[style*="color"] strong,
 .prose span[style*="color"] em,

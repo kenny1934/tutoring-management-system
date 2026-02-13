@@ -243,6 +243,7 @@ function ComposeModal({
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isComposeDragging, setIsComposeDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
@@ -678,13 +679,49 @@ function ComposeModal({
           )}
 
           {/* Message */}
-          <div>
+          <div
+            className={cn(
+              "relative",
+              isComposeDragging && "ring-2 ring-inset ring-blue-400 rounded-lg"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsComposeDragging(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setIsComposeDragging(false);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsComposeDragging(false);
+              const files = e.dataTransfer?.files;
+              if (files && files.length > 0) {
+                handleImageUpload(files);
+              }
+            }}
+          >
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Message
             </label>
             <InboxRichEditor
               onUpdate={setMessage}
+              onPasteFiles={(files) => {
+                const dt = new DataTransfer();
+                files.forEach(f => dt.items.add(f));
+                handleImageUpload(dt.files);
+              }}
             />
+            {isComposeDragging && (
+              <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
+                <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop images here</span>
+              </div>
+            )}
           </div>
 
           {/* Image Attachments */}
@@ -762,17 +799,39 @@ function ComposeModal({
   );
 }
 
+// Highlight search matches in text
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query || query.length < 2) return text;
+  try {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(${escaped})`, "gi");
+    const parts = text.split(regex);
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded-sm px-0.5">{part}</mark>
+      ) : (
+        part
+      )
+    );
+  } catch {
+    return text;
+  }
+}
+
 // Thread Item Component - memoized to prevent unnecessary re-renders
 const ThreadItem = React.memo(function ThreadItem({
   thread,
   isSelected,
   onClick,
   isSentView = false,
+  searchQuery,
 }: {
   thread: MessageThread;
   isSelected: boolean;
   onClick: () => void;
   isSentView?: boolean;
+  searchQuery?: string;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -798,15 +857,20 @@ const ThreadItem = React.memo(function ThreadItem({
         <div className="flex-1 min-w-0">
           {/* Sender & Time */}
           <div className="flex items-center gap-2 mb-0.5">
-            <span className={cn(
-              "text-sm truncate",
-              hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
-            )}>
+            <span
+              className={cn(
+                "text-sm truncate",
+                hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+              )}
+              title={isSentView && msg.is_group_message && msg.to_tutor_names?.length ? msg.to_tutor_names.join(", ") : undefined}
+            >
               {isSentView
                 ? msg.to_tutor_id === null
                   ? "To: All Tutors"
                   : msg.is_group_message && msg.to_tutor_names?.length
-                  ? `To: ${msg.to_tutor_names.join(", ")}`
+                  ? msg.to_tutor_names.length <= 2
+                    ? `To: ${msg.to_tutor_names.join(", ")}`
+                    : `To: ${msg.to_tutor_names.slice(0, 2).join(", ")} +${msg.to_tutor_names.length - 2} more`
                   : msg.to_tutor_name
                   ? `To: ${msg.to_tutor_name}`
                   : "To: Unknown"
@@ -846,14 +910,15 @@ const ThreadItem = React.memo(function ThreadItem({
                 {CATEGORIES.find(c => c.filter === msg.category)?.icon}
               </span>
             )}
-            <span className="truncate">{msg.subject || "(no subject)"}</span>
+            <span className="truncate">{searchQuery ? highlightMatch(msg.subject || "(no subject)", searchQuery) : (msg.subject || "(no subject)")}</span>
           </div>
 
           {/* Preview */}
           <div className="text-xs text-gray-600 dark:text-gray-500 truncate mt-0.5">
             {(() => {
               const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
-              return plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
+              const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
+              return searchQuery ? highlightMatch(preview, searchQuery) : preview;
             })()}
           </div>
 
@@ -1118,14 +1183,25 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Capture first unread message ID before auto-mark-read (runs during render, before effects)
+  const firstUnreadIdRef = useRef<number | null>(null);
+  const prevThreadIdRef = useRef<number | null>(null);
+  if (thread.root_message.id !== prevThreadIdRef.current) {
+    prevThreadIdRef.current = thread.root_message.id;
+    const firstUnread = allMessages.find(m => !m.is_read && m.from_tutor_id !== currentTutorId);
+    firstUnreadIdRef.current = firstUnread?.id ?? null;
+  }
+
   // Reply bar state
   const [replyText, setReplyText] = useState("");
   const [replyImages, setReplyImages] = useState<string[]>([]);
   const [isReplySending, setIsReplySending] = useState(false);
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [replyEditorKey, setReplyEditorKey] = useState(0);
+  const [isReplyDragging, setIsReplyDragging] = useState(false);
+  const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[] } | null>(null);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
-  const replyEditorRef = useRef<{ focus: () => void } | null>(null);
+  const replyEditorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -1212,6 +1288,42 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   const isReplyEmpty = !replyText || replyText === "<p></p>" || replyText.replace(/<[^>]*>/g, "").trim().length === 0;
 
+  // Quote a message into the reply editor
+  const handleQuote = useCallback((m: Message) => {
+    const senderName = m.from_tutor_name || "Unknown";
+    const plainText = m.message.replace(/<[^>]*>/g, "").trim();
+    const truncated = plainText.length > 150 ? plainText.slice(0, 150) + "..." : plainText;
+    const quoteHtml = `<blockquote data-msg-id="${m.id}"><strong>${senderName}</strong><br>${truncated}</blockquote><p></p>`;
+    replyEditorRef.current?.insertContent(quoteHtml);
+  }, []);
+
+  // Scroll-to-bottom button
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollBottom(distanceFromBottom > 150);
+    };
+    el.addEventListener('scroll', handleScroll);
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [thread]);
+
+  // Click-to-scroll for embedded quotes
+  const handleQuoteClick = useCallback((e: React.MouseEvent) => {
+    const blockquote = (e.target as HTMLElement).closest('blockquote[data-msg-id]');
+    if (!blockquote) return;
+    const msgId = blockquote.getAttribute('data-msg-id');
+    const target = document.getElementById(`msg-${msgId}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('ring-2', 'ring-blue-400');
+      setTimeout(() => target.classList.remove('ring-2', 'ring-blue-400'), 1500);
+    }
+  }, []);
+
   const handleSendReply = async () => {
     if (isReplyEmpty && replyImages.length === 0) return;
 
@@ -1249,17 +1361,31 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         data.to_tutor_id = msg.from_tutor_id;
       }
 
-      await onSendMessage(data);
+      // Show optimistic bubble immediately
+      setOptimisticMessage({ text: replyText, images: [...replyImages] });
 
-      // Clear editor
+      // Clear editor immediately for snappy feel
       setReplyText("");
       setReplyImages([]);
       setReplyEditorKey(prev => prev + 1);
+
+      // Scroll to bottom to show optimistic message
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      }, 50);
+
+      await onSendMessage(data);
+
+      // Clear optimistic bubble (real message will appear from SWR refresh)
+      setOptimisticMessage(null);
 
       // Scroll to bottom after data refreshes
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }, 500);
+    } catch {
+      // On error, clear optimistic and restore won't work easily, so just clear
+      setOptimisticMessage(null);
     } finally {
       setIsReplySending(false);
     }
@@ -1345,7 +1471,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4" onClick={handleQuoteClick}>
         {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
           const isEditing = editingMessageId === m.id;
@@ -1353,10 +1479,19 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const isGroup = m.is_group_message;
 
           return (
+            <React.Fragment key={m.id}>
+              {/* "New messages" divider */}
+              {m.id === firstUnreadIdRef.current && (
+                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
+                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" />
+                  <span className="font-medium">New messages</span>
+                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" />
+                </div>
+              )}
             <div
-              key={m.id}
+              id={`msg-${m.id}`}
               className={cn(
-                "p-3 rounded-2xl",
+                "p-3 rounded-2xl transition-shadow",
                 isOwn
                   ? "bg-[#f5ede3] dark:bg-[#3d3628] ml-12 sm:ml-20"
                   : isBroadcast
@@ -1387,6 +1522,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     onUpdate={setEditText}
                     initialContent={editText}
                     minHeight="100px"
+                    onPasteFiles={(files) => {
+                      const dt = new DataTransfer();
+                      files.forEach(f => dt.items.add(f));
+                      handleEditImageUpload(dt.files);
+                    }}
                   />
                   {/* Image attachments for edit mode */}
                   <div>
@@ -1504,6 +1644,14 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   </button>
                   <LikesBadge message={m} />
                 </div>
+                <button
+                  onClick={() => handleQuote(m)}
+                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                  title="Quote this message"
+                >
+                  <MessageSquareShare className="h-4 w-4" />
+                  <span className="hidden sm:inline">Quote</span>
+                </button>
                 {isOwn && !isEditing && (
                   <>
                     <button
@@ -1539,27 +1687,106 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               )}
             </div>
+            </React.Fragment>
           );
         })}
+
+        {/* Optimistic send bubble */}
+        {optimisticMessage && (
+          <div className="ml-12 sm:ml-20 p-3 rounded-2xl bg-[#f5ede3]/60 dark:bg-[#3d3628]/60 opacity-70">
+            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Sending...</span>
+            </div>
+            {optimisticMessage.text && optimisticMessage.text !== "<p></p>" && (
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+                dangerouslySetInnerHTML={{ __html: optimisticMessage.text }}
+              />
+            )}
+            {optimisticMessage.images.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {optimisticMessage.images.map((url, idx) => (
+                  <img
+                    key={url}
+                    src={url}
+                    alt={`Attachment ${idx + 1}`}
+                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Scroll to bottom button — sticky stays pinned to bottom of scroll viewport */}
+        {showScrollBottom && (
+          <div className="sticky bottom-2 h-0 flex justify-end pr-2 z-10 overflow-visible">
+            <button
+              onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-[#a0704b] transition-all -translate-y-full"
+              title="Scroll to bottom"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Inline reply bar */}
       <div
-        className="flex-shrink-0 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 p-3"
+        className={cn(
+          "flex-shrink-0 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 p-3 relative",
+          isReplyDragging && "ring-2 ring-inset ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10"
+        )}
         onKeyDown={(e) => {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
             handleSendReply();
           }
         }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsReplyDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsReplyDragging(false);
+          }
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsReplyDragging(false);
+          const files = e.dataTransfer?.files;
+          if (files && files.length > 0) {
+            handleReplyImageUpload(files);
+          }
+        }}
       >
+        {isReplyDragging && (
+          <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
+            <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop images here</span>
+          </div>
+        )}
         <InboxRichEditor
           key={replyEditorKey}
           onEditorReady={(editor) => {
-            replyEditorRef.current = { focus: () => editor.commands.focus() };
+            replyEditorRef.current = {
+              focus: () => editor.commands.focus(),
+              insertContent: (html: string) => { editor.commands.focus(); editor.commands.insertContent(html); },
+            };
           }}
           onUpdate={setReplyText}
           onAttachImage={() => replyFileInputRef.current?.click()}
+          onPasteFiles={(files) => {
+            const dt = new DataTransfer();
+            files.forEach(f => dt.items.add(f));
+            handleReplyImageUpload(dt.files);
+          }}
           placeholder="Type a reply..."
           minHeight="40px"
         />
@@ -2278,6 +2505,16 @@ export default function InboxPage() {
                         ? "No messages match your search"
                         : EMPTY_MESSAGES[selectedCategory] || "No messages in your inbox"}
                     </p>
+                    {!searchQuery && ["inbox", "sent", "starred", "archived"].includes(selectedCategory) && (
+                      <button
+                        onClick={handleCompose}
+                        disabled={!hasTutor}
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        <PenSquare className="h-4 w-4" />
+                        Compose
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : selectedCategory === "makeup-confirmation" ? (
@@ -2333,6 +2570,7 @@ export default function InboxPage() {
                       isSelected={selectedThread?.root_message.id === thread.root_message.id}
                       onClick={() => setSelectedThread(thread)}
                       isSentView={selectedCategory === "sent"}
+                      searchQuery={debouncedSearch}
                     />
                   ))}
                   {/* Load More button for paginated threads (not for sent or archived) */}
