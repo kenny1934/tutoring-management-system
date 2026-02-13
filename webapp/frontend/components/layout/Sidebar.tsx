@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -16,6 +16,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
+import { FeedbackPanel } from "@/components/layout/FeedbackPanel";
 import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates } from "@/lib/hooks";
 
 const navigation = [
@@ -817,6 +818,19 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               )}
             </Link>
 
+            {/* Send Feedback Link */}
+            <button
+              onClick={() => {
+                setIsUserMenuOpen(false);
+                if (onMobileClose) onMobileClose();
+                window.dispatchEvent(new CustomEvent("open-feedback"));
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1 w-full"
+            >
+              <MessageSquarePlus className="h-4 w-4 text-foreground/60" />
+              Send Feedback
+            </button>
+
             {/* Logout Button */}
             {user && (
               <button
@@ -882,6 +896,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       >
         {sidebarContent(true)}
       </div>
+
+      {/* Feedback Panel (manages own open/close state) */}
+      <FeedbackPanel />
     </>
   );
 }

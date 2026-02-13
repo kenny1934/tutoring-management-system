@@ -1066,7 +1066,7 @@ class MessageBase(BaseModel):
     subject: Optional[str] = Field(None, max_length=200)
     message: str = Field(..., min_length=1)
     priority: str = Field("Normal", pattern="^(Normal|High|Urgent)$")
-    category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware|MakeupConfirmation)$")
+    category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware|MakeupConfirmation|Feedback)$")
 
 
 class MessageCreate(MessageBase):

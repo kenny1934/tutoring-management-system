@@ -658,7 +658,7 @@ export interface UncheckedAttendanceCount {
 
 // Message types
 export type MessagePriority = 'Normal' | 'High' | 'Urgent';
-export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation';
+export type MessageCategory = 'Reminder' | 'Question' | 'Announcement' | 'Schedule' | 'Chat' | 'Courseware' | 'MakeupConfirmation' | 'Feedback';
 
 export interface ReadReceiptDetail {
   tutor_id: number;
