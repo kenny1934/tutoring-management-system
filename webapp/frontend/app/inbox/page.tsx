@@ -97,6 +97,21 @@ const CATEGORY_SECTIONS: CategorySection[] = [
 // Flat list for consumers (unread counts, category filter lookups, etc.)
 const CATEGORIES: Category[] = CATEGORY_SECTIONS.flatMap(s => s.items);
 
+// Format message timestamp: time-only for today, short date for this year, full for older
+function formatMessageTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } else if (isThisYear) {
+    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 // Priority configuration - single source of truth
 type PriorityLevel = "Normal" | "High" | "Urgent";
 const PRIORITIES: Record<PriorityLevel, { label: string; textClass: string; badgeClass: string; borderClass: string }> = {
@@ -1246,42 +1261,29 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <div
               key={m.id}
               className={cn(
-                "p-4 rounded-lg border",
+                "p-3 rounded-2xl",
                 isOwn
-                  ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a] ml-8"
+                  ? "bg-[#f5ede3] dark:bg-[#3d3628] ml-12 sm:ml-20"
                   : isBroadcast
-                  ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/30"
+                  ? "bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 mr-12 sm:mr-20"
                   : isGroup
-                  ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30"
-                  : "bg-white dark:bg-[#2a2a2a] border-[#e8d4b8] dark:border-[#6b5a4a]"
+                  ? "bg-green-50/50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 mr-12 sm:mr-20"
+                  : "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] mr-12 sm:mr-20"
               )}
             >
-              {/* Message header */}
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
-                <div className="flex items-center gap-1 min-w-0 flex-1">
-                  <span className="font-medium text-gray-900 dark:text-white truncate">
+              {/* Sender name + time (others only) */}
+              {!isOwn && (
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {m.from_tutor_name || "Unknown"}
                   </span>
-                  <span className="text-gray-500 dark:text-gray-500 flex-shrink-0">→</span>
-                  <span className="text-gray-600 dark:text-gray-400 truncate">
-                    {m.to_tutor_id === null ? "All" : m.to_tutor_name || "Unknown"}
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                    {formatMessageTime(m.created_at)}
+                    {m.updated_at && <span className="italic">(edited)</span>}
+                    <SeenBadge message={m} currentTutorId={currentTutorId} />
                   </span>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 flex items-center gap-1">
-                  {new Date(m.created_at).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
-                  {m.updated_at && (
-                    <span className="text-gray-400 dark:text-gray-500 italic">(edited)</span>
-                  )}
-                  <SeenBadge message={m} currentTutorId={currentTutorId} />
-                </span>
-              </div>
+              )}
 
               {/* Message body - editable for own messages */}
               {isEditing ? (
@@ -1392,7 +1394,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
 
               {/* Message footer */}
-              <div className="flex items-center gap-2 sm:gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex items-center gap-2 sm:gap-3 mt-2">
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => onLike(m.id)}
@@ -1439,6 +1441,17 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   </button>
                 )}
               </div>
+
+              {/* Own message: timestamp + seen badge at bottom-right */}
+              {isOwn && (
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                    {formatMessageTime(m.created_at)}
+                    {m.updated_at && <span className="italic ml-1">(edited)</span>}
+                  </span>
+                  <SeenBadge message={m} currentTutorId={currentTutorId} />
+                </div>
+              )}
             </div>
           );
         })}
