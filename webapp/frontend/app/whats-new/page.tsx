@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Sparkles, Tag, Bug, Zap, Wrench } from "lucide-react";
+import { Megaphone, Tag, Bug, Zap, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
@@ -25,8 +25,8 @@ interface ChangelogRelease {
 
 const releases = changelogData as ChangelogRelease[];
 
-const sectionIcons: Record<string, typeof Sparkles> = {
-  "New Features": Sparkles,
+const sectionIcons: Record<string, typeof Megaphone> = {
+  "New Features": Megaphone,
   "Bug Fixes": Bug,
   "Performance": Zap,
   "Improvements": Wrench,
@@ -64,9 +64,9 @@ export default function WhatsNewPage() {
     <DeskSurface>
       <PageTransition className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8 max-w-[48rem] mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 rounded-2xl p-4 sm:p-5 backdrop-blur-sm bg-[rgba(245,240,232,0.6)] dark:bg-[rgba(42,42,42,0.3)] border border-white/20 dark:border-white/10">
           <div className="p-3 rounded-xl bg-[#f5f0e8] dark:bg-[#2d2618]">
-            <Sparkles className="h-6 w-6 text-foreground/60" />
+            <Megaphone className="h-6 w-6 text-foreground/60" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">What&apos;s New</h1>
@@ -77,7 +77,7 @@ export default function WhatsNewPage() {
         {/* Release list */}
         {releases.length === 0 ? (
           <div className="text-center py-12 text-foreground/50">
-            <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <Megaphone className="h-10 w-10 mx-auto mb-3 opacity-30" />
             <p>No releases yet. Check back soon!</p>
           </div>
         ) : (
@@ -113,7 +113,7 @@ export default function WhatsNewPage() {
                 {/* Sections */}
                 <div className="space-y-4">
                   {release.sections.map((section) => {
-                    const Icon = sectionIcons[section.title] || Sparkles;
+                    const Icon = sectionIcons[section.title] || Megaphone;
                     const colorClass = sectionColors[section.title] || "text-foreground/60 bg-foreground/5";
 
                     return (

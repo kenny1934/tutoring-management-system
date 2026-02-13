@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Sparkles } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -91,6 +91,24 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       prevUnreadRef.current = unreadCount.count;
     }
   }, [unreadCount?.count, currentTutorId, showToast, router, pathname]);
+
+  // App update toast — show once per version on first visit
+  useEffect(() => {
+    if (!mounted) return;
+    const version = process.env.NEXT_PUBLIC_APP_VERSION;
+    if (!version || version === 'dev') return;
+    const lastSeen = localStorage.getItem('last-seen-version');
+    const toastKey = `update-toast-shown-${version}`;
+    if (lastSeen !== version && !localStorage.getItem(toastKey)) {
+      localStorage.setItem(toastKey, '1');
+      showToast(
+        `New in ${version} — see what's changed`,
+        "info",
+        { label: "What's New", onClick: () => router.push('/whats-new') },
+        { persistent: true }
+      );
+    }
+  }, [mounted, showToast, router]);
 
   // Check if on dashboard page
   const isOnDashboard = pathname === "/";
@@ -792,7 +810,7 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               }}
               className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
             >
-              <Sparkles className="h-4 w-4 text-foreground/60" />
+              <Megaphone className="h-4 w-4 text-foreground/60" />
               <span className="flex-1">What&apos;s New</span>
               {hasUnseenUpdates && (
                 <span className="h-2 w-2 rounded-full bg-blue-500" />
