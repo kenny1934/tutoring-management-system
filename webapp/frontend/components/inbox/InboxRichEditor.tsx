@@ -64,6 +64,8 @@ interface InboxRichEditorProps {
   onUpdate: (html: string) => void;
   /** Trigger file input for image attachment */
   onAttachImage?: () => void;
+  /** Called when images are pasted from clipboard */
+  onPasteFiles?: (files: File[]) => void;
   /** Initial HTML content */
   initialContent?: string;
   /** Placeholder text */
@@ -76,6 +78,7 @@ export default function InboxRichEditor({
   onEditorReady,
   onUpdate,
   onAttachImage,
+  onPasteFiles,
   initialContent = "",
   placeholder = "Write your message...",
   minHeight = "150px",
@@ -112,6 +115,18 @@ export default function InboxRichEditor({
     editorProps: {
       attributes: {
         class: `prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[${minHeight}] focus:outline-none text-gray-900 dark:text-white`,
+      },
+      handlePaste: (_view, event) => {
+        const files = event.clipboardData?.files;
+        if (files && files.length > 0) {
+          const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+          if (imageFiles.length > 0 && onPasteFiles) {
+            event.preventDefault();
+            onPasteFiles(imageFiles);
+            return true;
+          }
+        }
+        return false;
       },
     },
   });
