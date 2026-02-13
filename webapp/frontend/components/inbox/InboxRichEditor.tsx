@@ -174,7 +174,13 @@ export default function InboxRichEditor({
       return;
     }
 
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    if (editor.state.selection.empty) {
+      // No text selected — insert URL as clickable link text
+      editor.chain().focus().insertContent(`<a href="${url}">${url}</a>`).run();
+    } else {
+      // Text selected — apply link to selection
+      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    }
   }, [editor]);
 
   const handleToggleHeading = useCallback(() => {
