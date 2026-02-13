@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -16,7 +16,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { RoleSwitcher } from "@/components/auth";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { WeeklyMiniCalendar } from "@/components/layout/WeeklyMiniCalendar";
-import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount } from "@/lib/hooks";
+import { useUnreadMessageCount, useRenewalCounts, usePendingExtensionCount, useUnseenUpdates } from "@/lib/hooks";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, color: "bg-blue-500" },
@@ -64,6 +64,9 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
   // Fetch unread message count for Inbox badge (skip for Guest/Supervisor who can't access Inbox)
   const { data: unreadCount } = useUnreadMessageCount(isGuest || isSupervisor ? undefined : currentTutorId);
+
+  // Check for unseen app updates
+  const hasUnseenUpdates = useUnseenUpdates();
 
   // Fetch admin badge counts (renewal, extension)
   const { data: renewalCounts } = useRenewalCounts(isAdminOrAbove, selectedLocation);
@@ -605,70 +608,82 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
 
           return !isMobile && isCollapsed ? (
             /* Collapsed state: Avatar only */
-            <button
-              onClick={() => setIsUserMenuOpen(true)}
-              className={cn(
-                "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                isImpersonating
-                  ? "border-amber-400 dark:border-amber-600"
-                  : "border-white/10 dark:border-white/5"
+            <div className="relative">
+              <button
+                onClick={() => setIsUserMenuOpen(true)}
+                className={cn(
+                  "w-full flex items-center justify-center backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99] p-3",
+                  "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                  isImpersonating
+                    ? "border-amber-400 dark:border-amber-600"
+                    : "border-white/10 dark:border-white/5"
+                )}
+                style={{
+                  transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+                }}
+                title="User settings"
+              >
+                {user?.picture ? (
+                  <Image
+                    src={user.picture}
+                    alt={displayName}
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-cover shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                    <span className="text-sm font-bold text-primary-foreground">{initials}</span>
+                  </div>
+                )}
+              </button>
+              {hasUnseenUpdates && (
+                <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-blue-500 border-2 border-[rgba(245,240,232,0.5)] dark:border-[rgba(42,42,42,0.3)]" />
               )}
-              style={{
-                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-              }}
-              title="User settings"
-            >
-              {user?.picture ? (
-                <Image
-                  src={user.picture}
-                  alt={displayName}
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full object-cover shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-sm">
-                  <span className="text-sm font-bold text-primary-foreground">{initials}</span>
-                </div>
-              )}
-            </button>
+            </div>
           ) : (
             /* Expanded state: Avatar with name */
-            <button
-              onClick={() => setIsUserMenuOpen(true)}
-              className={cn(
-                "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
-                "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
-                isImpersonating
-                  ? "border-amber-400 dark:border-amber-600"
-                  : "border-white/10 dark:border-white/5"
-              )}
-              style={{
-                transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
-              }}
-            >
-              {user?.picture ? (
-                <Image
-                  src={user.picture}
-                  alt={displayName}
-                  width={44}
-                  height={44}
-                  className="h-11 w-11 rounded-full object-cover shadow-sm flex-shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
-                  <span className="text-base font-bold text-primary-foreground">{initials}</span>
+            <div className="relative">
+              <button
+                onClick={() => setIsUserMenuOpen(true)}
+                className={cn(
+                  "w-full flex items-center gap-3 p-4 backdrop-blur-sm rounded-3xl shadow-md border hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]",
+                  "bg-[rgba(245,240,232,0.5)] dark:bg-[rgba(42,42,42,0.3)]",
+                  isImpersonating
+                    ? "border-amber-400 dark:border-amber-600"
+                    : "border-white/10 dark:border-white/5"
+                )}
+                style={{
+                  transition: 'all 250ms cubic-bezier(0.38, 1.21, 0.22, 1.00)',
+                }}
+              >
+                <div className="relative flex-shrink-0">
+                  {user?.picture ? (
+                    <Image
+                      src={user.picture}
+                      alt={displayName}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 rounded-full object-cover shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                      <span className="text-base font-bold text-primary-foreground">{initials}</span>
+                    </div>
+                  )}
+                  {hasUnseenUpdates && (
+                    <span className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-blue-500 border-2 border-[rgba(245,240,232,0.5)] dark:border-[rgba(42,42,42,0.3)]" />
+                  )}
                 </div>
-              )}
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
-                <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
-              </div>
-              <Settings className="h-4 w-4 text-foreground/50" />
-            </button>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                  <p className="text-xs font-medium text-foreground/60">{displayRole}</p>
+                </div>
+                <Settings className="h-4 w-4 text-foreground/50" />
+              </button>
+            </div>
           );
         })()}
       </div>
@@ -768,6 +783,22 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               Settings
             </Link>
 
+            {/* What's New Link */}
+            <Link
+              href="/whats-new"
+              onClick={() => {
+                setIsUserMenuOpen(false);
+                if (onMobileClose) onMobileClose();
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-foreground/10 transition-colors rounded-lg -mx-1"
+            >
+              <Sparkles className="h-4 w-4 text-foreground/60" />
+              <span className="flex-1">What&apos;s New</span>
+              {hasUnseenUpdates && (
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+              )}
+            </Link>
+
             {/* Logout Button */}
             {user && (
               <button
@@ -780,6 +811,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 <LogOut className="h-4 w-4" />
                 Sign out
               </button>
+            )}
+
+            {/* Version */}
+            {process.env.NEXT_PUBLIC_APP_VERSION && process.env.NEXT_PUBLIC_APP_VERSION !== 'dev' && (
+              <p className="text-[10px] text-foreground/30 text-center mt-3 pt-2 border-t border-white/5">
+                {process.env.NEXT_PUBLIC_APP_VERSION}
+              </p>
             )}
           </div>
         </>,
