@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
+import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -20,6 +21,7 @@ import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
+import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import {
   Inbox,
   Send,
@@ -32,8 +34,10 @@ import {
   PenSquare,
   X,
   ChevronDown,
+  ChevronUp,
   ChevronLeft,
   ChevronRight,
+  RotateCcw,
   Heart,
   Reply,
   Loader2,
@@ -55,6 +59,13 @@ import {
   MessageSquarePlus,
   FileText,
   Download,
+  Volume2,
+  VolumeX,
+  Forward,
+  CheckSquare,
+  Square,
+  ListChecks,
+  Smile,
 } from "lucide-react";
 
 // Category definition
@@ -174,6 +185,8 @@ const EMPTY_MESSAGES: Record<string, string> = {
 const isThreadsKey = (key: unknown) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "message-threads-paginated");
 const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
 const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
+const isArchivedKey = (key: unknown) => Array.isArray(key) && key[0] === "archived-messages";
+const isPinnedKey = (key: unknown) => Array.isArray(key) && key[0] === "pinned-messages";
 const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
 
 // Draft auto-save helpers
@@ -258,6 +271,8 @@ function ComposeModal({
   fromTutorId,
   replyTo,
   onSend,
+  forwardFrom,
+  pictureMap,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -265,6 +280,8 @@ function ComposeModal({
   fromTutorId: number;
   replyTo?: Message;
   onSend: (data: MessageCreate) => Promise<void>;
+  forwardFrom?: { subject: string; body: string; category?: string };
+  pictureMap?: Map<number, string>;
 }) {
   const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
   const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
@@ -274,6 +291,7 @@ function ComposeModal({
   const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
   const [category, setCategory] = useState<MessageCategory | "">("");
   const [isSending, setIsSending] = useState(false);
+  const [composeEditorKey, setComposeEditorKey] = useState(0);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -284,6 +302,13 @@ function ComposeModal({
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
   const recipientDropdownRef = useRef<HTMLDivElement>(null);
+
+  const mentionUsers: MentionUser[] = useMemo(() => {
+    const allUsers = tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: pictureMap?.get(t.id) || (t as any).profile_picture }));
+    if (recipientMode === "all") return allUsers;
+    const recipientSet = new Set([...selectedTutorIds, fromTutorId]);
+    return allUsers.filter(u => recipientSet.has(u.id));
+  }, [tutors, recipientMode, selectedTutorIds, fromTutorId, pictureMap]);
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -374,6 +399,16 @@ function ComposeModal({
         setPriority("Normal");
         setUploadedImages([]);
         setUploadedFiles([]);
+      } else if (forwardFrom) {
+        // Forward mode: pre-fill subject and body
+        setRecipientMode("all");
+        setSelectedTutorIds([]);
+        setSubject(forwardFrom.subject);
+        setCategory(forwardFrom.category as MessageCategory | "" || "");
+        setMessage(forwardFrom.body);
+        setPriority("Normal");
+        setUploadedImages([]);
+        setUploadedFiles([]);
       } else {
         // Compose mode, no draft
         setRecipientMode("all");
@@ -385,8 +420,10 @@ function ComposeModal({
         setUploadedImages([]);
         setUploadedFiles([]);
       }
+      // Increment editor key so InboxRichEditor remounts with fresh initialContent
+      setComposeEditorKey(prev => prev + 1);
     }
-  }, [isOpen, replyTo]);
+  }, [isOpen, replyTo, forwardFrom]);
 
   // Auto-save draft (debounced 1s)
   useEffect(() => {
@@ -472,7 +509,7 @@ function ComposeModal({
       <div className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-[#e8d4b8] dark:border-[#6b5a4a]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <h2 className="font-semibold text-gray-900 dark:text-white">
-            {replyTo ? "Reply" : "New Message"}
+            {replyTo ? "Reply" : forwardFrom ? "Forward" : "New Message"}
           </h2>
           <button
             onClick={handleClose}
@@ -755,12 +792,15 @@ function ComposeModal({
               Message
             </label>
             <InboxRichEditor
+              key={composeEditorKey}
+              initialContent={message}
               onUpdate={setMessage}
               onPasteFiles={(files) => {
                 const dt = new DataTransfer();
                 files.forEach(f => dt.items.add(f));
                 handleFileUpload(dt.files);
               }}
+              mentionUsers={mentionUsers}
             />
             {isComposeDragging && (
               <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
@@ -980,6 +1020,9 @@ const ThreadItem = React.memo(function ThreadItem({
   searchQuery,
   pictureMap,
   draftPreview,
+  bulkMode = false,
+  bulkSelected = false,
+  onBulkToggle,
 }: {
   thread: MessageThread;
   isSelected: boolean;
@@ -988,6 +1031,9 @@ const ThreadItem = React.memo(function ThreadItem({
   searchQuery?: string;
   pictureMap?: Map<number, string>;
   draftPreview?: string | null;
+  bulkMode?: boolean;
+  bulkSelected?: boolean;
+  onBulkToggle?: () => void;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -998,20 +1044,29 @@ const ThreadItem = React.memo(function ThreadItem({
 
   return (
     <button
-      onClick={onClick}
+      onClick={bulkMode ? (onBulkToggle || onClick) : onClick}
       className={cn(
         "w-full text-left p-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
-        isSelected
+        isSelected && !bulkMode
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
           : "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50",
         hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
+        bulkSelected && "bg-[#f5ede3]/80 dark:bg-[#3d3628]/60",
         priorityConfig.borderClass
       )}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
     >
       <div className="flex items-start gap-2.5">
+        {/* Bulk selection checkbox */}
+        {bulkMode && (
+          <div className="mt-1 flex-shrink-0">
+            {bulkSelected
+              ? <CheckSquare className="h-4 w-4 text-[#a0704b]" />
+              : <Square className="h-4 w-4 text-gray-400" />}
+          </div>
+        )}
         {/* Avatar */}
-        {!isSentView && (
+        {!isSentView && !bulkMode && (
           <div className="mt-0.5">
             <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} />
           </div>
@@ -1405,39 +1460,101 @@ const SeenBadge = React.memo(function SeenBadge({
 });
 
 // Likes Badge Component - shows who liked a message in a popover
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+
+function ReactionPicker({ messageId, onReact, isMobile }: { messageId: number; onReact: (emoji: string) => void; isMobile?: boolean }) {
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showPicker]);
+
+  return (
+    <div className="relative" ref={pickerRef}>
+      <button
+        onClick={() => setShowPicker(!showPicker)}
+        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+        title="React"
+      >
+        <Smile className="h-3.5 w-3.5" />
+      </button>
+      {showPicker && (
+        <div className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}>
+          {REACTION_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => { onReact(emoji); setShowPicker(false); }}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-base"
+              title={emoji}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LikesBadge = React.memo(function LikesBadge({
   message,
 }: {
   message: Message;
 }) {
   const [showPopover, setShowPopover] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const likeDetails = message.like_details || [];
   if (likeDetails.length === 0) return null;
 
+  // Group reactions by emoji
+  const grouped = useMemo(() => {
+    const map = new Map<string, { emoji: string; count: number; tutors: string[] }>();
+    for (const d of likeDetails) {
+      const emoji = d.emoji || "❤️";
+      const existing = map.get(emoji);
+      if (existing) {
+        existing.count++;
+        existing.tutors.push(d.tutor_name);
+      } else {
+        map.set(emoji, { emoji, count: 1, tutors: [d.tutor_name] });
+      }
+    }
+    return Array.from(map.values());
+  }, [likeDetails]);
+
   return (
-    <div className="relative inline-flex items-center">
-      <button
-        ref={buttonRef}
-        onClick={() => {
-          if (!showPopover && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            setPopoverPos({
-              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
-              left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
-            });
-          }
-          setShowPopover(!showPopover);
-        }}
-        className="flex items-center gap-1 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs text-red-500 hover:shadow-md transition-shadow"
-        title={`Liked by ${likeDetails.length}`}
-      >
-        <Heart className="h-3 w-3 fill-current" />
-        <span>{likeDetails.length}</span>
-      </button>
+    <div ref={buttonRef} className="inline-flex items-center gap-0.5">
+      {grouped.map((g) => (
+        <button
+          key={g.emoji}
+          onClick={() => {
+            if (!showPopover && buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setPopoverPos({
+                top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+                left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
+              });
+            }
+            setShowPopover(!showPopover);
+          }}
+          className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs hover:shadow-md transition-shadow"
+          title={g.tutors.join(", ")}
+        >
+          <span className="text-sm leading-none">{g.emoji}</span>
+          {g.count > 1 && <span className="text-gray-600 dark:text-gray-400">{g.count}</span>}
+        </button>
+      ))}
 
       {/* Popover — portaled to body to escape transform/overflow */}
       {showPopover && createPortal(
@@ -1451,16 +1568,16 @@ const LikesBadge = React.memo(function LikesBadge({
             style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
           >
             <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              Liked by {likeDetails.length}
+              Reactions ({likeDetails.length})
             </div>
             <div className="max-h-[200px] overflow-y-auto">
-              {likeDetails.map((detail) => (
+              {likeDetails.map((detail, i) => (
                 <div
-                  key={detail.tutor_id}
+                  key={`${detail.tutor_id}-${detail.emoji}-${i}`}
                   className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Heart className="h-3 w-3 text-red-500 fill-current flex-shrink-0" />
+                    <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
                       {detail.tutor_name}
                     </span>
@@ -1501,17 +1618,19 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive,
   onPin,
   onUnpin,
+  onForward,
   isArchived = false,
   isMobile = false,
   pictureMap,
   onDraftChange,
+  mentionUsers,
 }: {
   thread: MessageThread;
   currentTutorId: number;
   onClose: () => void;
   onReply: (msg: Message) => void;
   onSendMessage: (data: MessageCreate) => Promise<void>;
-  onLike: (msgId: number) => void;
+  onLike: (msgId: number, emoji?: string) => void;
   onMarkRead: (msgId: number) => void;
   onMarkUnread: (msgId: number) => void;
   onEdit: (msgId: number, newText: string, imageAttachments?: string[]) => Promise<void>;
@@ -1520,17 +1639,56 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive: (msgId: number) => Promise<void>;
   onPin: (msgId: number) => Promise<void>;
   onUnpin: (msgId: number) => Promise<void>;
+  onForward: (msg: Message) => void;
   isArchived?: boolean;
   isMobile?: boolean;
   pictureMap?: Map<number, string>;
   onDraftChange?: () => void;
+  mentionUsers?: MentionUser[];
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
 
+  // Scope @mentions to thread participants (senders + recipients)
+  const threadMentionUsers = useMemo(() => {
+    if (!mentionUsers) return [];
+    const participantIds = new Set<number>();
+    for (const m of allMessages) {
+      participantIds.add(m.from_tutor_id);
+      if (m.to_tutor_ids) m.to_tutor_ids.forEach(id => participantIds.add(id));
+      else if (m.to_tutor_id) participantIds.add(m.to_tutor_id);
+    }
+    return mentionUsers.filter(u => participantIds.has(u.id));
+  }, [allMessages, mentionUsers]);
+
   // Edge-only swipe right to close with peeking animation (mobile)
   const panelRef = useRef<HTMLDivElement>(null);
   const panelSwipe = useRef({ x: 0, y: 0, active: false });
+
+  // Thread search state
+  const [threadSearch, setThreadSearch] = useState("");
+  const [showThreadSearch, setShowThreadSearch] = useState(false);
+  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
+  const threadSearchRef = useRef<HTMLInputElement>(null);
+  const allMessagesRef = useRef(allMessages);
+  useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
+
+  // Auto-scroll to first search match when search term changes
+  useEffect(() => {
+    if (!threadSearch || !scrollRef.current) return;
+    const timer = setTimeout(() => {
+      const lc = threadSearch.toLowerCase();
+      const msgs = allMessagesRef.current;
+      const firstIdx = msgs.findIndex(m =>
+        m.message.replace(/<[^>]*>/g, "").toLowerCase().includes(lc)
+      );
+      if (firstIdx !== -1) {
+        const el = scrollRef.current?.querySelector(`[data-msg-idx="${firstIdx}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [threadSearch]);
 
   // Edit state
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -1559,7 +1717,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [replyEditorKey, setReplyEditorKey] = useState(0);
   const [isReplyDragging, setIsReplyDragging] = useState(false);
-  const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[] } | null>(null);
+  const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[]; failed?: boolean } | null>(null);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
   const replyEditorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
 
@@ -1758,8 +1916,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }, 500);
     } catch {
-      // On error, clear optimistic and restore won't work easily, so just clear
-      setOptimisticMessage(null);
+      // Mark optimistic message as failed — show retry button
+      setOptimisticMessage(prev => prev ? { ...prev, failed: true } : null);
     } finally {
       setIsReplySending(false);
     }
@@ -1858,6 +2016,22 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         >
           <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400")} />
         </button>
+        <button
+          onClick={() => {
+            setShowThreadSearch(!showThreadSearch);
+            if (!showThreadSearch) setTimeout(() => threadSearchRef.current?.focus(), 50);
+            else setThreadSearch("");
+          }}
+          className={cn(
+            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
+            showThreadSearch
+              ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+              : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+          )}
+          title="Search in thread"
+        >
+          <Search className="h-4 w-4" />
+        </button>
         {isArchived ? (
           <button
             onClick={() => onUnarchive(msg.id)}
@@ -1877,8 +2051,80 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         )}
       </div>
 
+      {/* Thread search bar */}
+      {showThreadSearch && (() => {
+        const matchedIds = threadSearch
+          ? allMessages
+              .map((m, i) => m.message.replace(/<[^>]*>/g, "").toLowerCase().includes(threadSearch.toLowerCase()) ? i : -1)
+              .filter(i => i !== -1)
+          : [];
+        const matchCount = matchedIds.length;
+        const clampedIdx = matchCount > 0 ? Math.min(searchMatchIdx, matchCount - 1) : 0;
+
+        const scrollToMatch = (idx: number) => {
+          const msgIdx = matchedIds[idx];
+          if (msgIdx == null || !scrollRef.current) return;
+          const msgEl = scrollRef.current.querySelector(`[data-msg-idx="${msgIdx}"]`);
+          if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        };
+
+        return (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+            <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+            <input
+              ref={threadSearchRef}
+              type="text"
+              value={threadSearch}
+              onChange={(e) => { setThreadSearch(e.target.value); setSearchMatchIdx(0); }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { setShowThreadSearch(false); setThreadSearch(""); }
+                if (e.key === "Enter" && matchCount > 0) {
+                  e.preventDefault();
+                  const next = e.shiftKey
+                    ? (clampedIdx - 1 + matchCount) % matchCount
+                    : (clampedIdx + 1) % matchCount;
+                  setSearchMatchIdx(next);
+                  scrollToMatch(next);
+                }
+              }}
+              placeholder="Search messages..."
+              className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
+            />
+            {threadSearch && (
+              <span className="text-xs text-gray-400 whitespace-nowrap">
+                {matchCount > 0 ? `${clampedIdx + 1}/${matchCount}` : "0 found"}
+              </span>
+            )}
+            {matchCount > 1 && (
+              <div className="flex items-center">
+                <button
+                  onClick={() => { const prev = (clampedIdx - 1 + matchCount) % matchCount; setSearchMatchIdx(prev); scrollToMatch(prev); }}
+                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  title="Previous match (Shift+Enter)"
+                >
+                  <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+                <button
+                  onClick={() => { const next = (clampedIdx + 1) % matchCount; setSearchMatchIdx(next); scrollToMatch(next); }}
+                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                  title="Next match (Enter)"
+                >
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => { setShowThreadSearch(false); setThreadSearch(""); }}
+              className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              <X className="h-3.5 w-3.5 text-gray-400" />
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4" onClick={handleQuoteClick}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" onClick={handleQuoteClick}>
         {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
           const isEditing = editingMessageId === m.id;
@@ -1891,16 +2137,22 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
           const isNewDay = idx === 0 || dateStr !== prevDateStr;
 
-          // Bubble tail: show on last message in consecutive group from same sender
+          // Message grouping: consecutive messages from same sender
+          const prevMsg = idx > 0 ? allMessages[idx - 1] : null;
           const nextMsg = allMessages[idx + 1];
+          const isFirstInGroup = !prevMsg || prevMsg.from_tutor_id !== m.from_tutor_id || isNewDay;
           const isLastInGroup = !nextMsg || nextMsg.from_tutor_id !== m.from_tutor_id;
 
           // Message bubble content (extracted for optional SwipeableMessage wrapping)
           const messageBubble = (
-            <div className={cn(!isOwn && "flex gap-2 mr-12 sm:mr-20")}>
+            <div data-msg-idx={idx} className={cn(
+              !isOwn && "flex gap-2 mr-12 sm:mr-20",
+              isFirstInGroup ? "mt-3" : "mt-1",
+              idx === 0 && "mt-0"
+            )}>
               {!isOwn && (
-                <div className="mt-1">
-                  <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureMap?.get(m.from_tutor_id)} />
+                <div className="mt-1" style={{ visibility: isFirstInGroup ? 'visible' : 'hidden', width: 32, flexShrink: 0 }}>
+                  {isFirstInGroup && <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureMap?.get(m.from_tutor_id)} />}
                 </div>
               )}
             <div
@@ -1917,16 +2169,19 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]"
               )}
             >
-              {/* Sender name + time (others only) */}
-              {!isOwn && (
+              {/* Sender name + time (others only, first in group) */}
+              {!isOwn && isFirstInGroup && (
                 <div className="flex items-baseline justify-between mb-1">
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {m.from_tutor_name || "Unknown"}
                   </span>
-                  <span className={cn(
-                    "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
-                    !isMobile && "opacity-0 group-hover/msg:opacity-100"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
+                      !isMobile && "opacity-0 group-hover/msg:opacity-100"
+                    )}
+                    title={new Date(m.created_at).toLocaleString()}
+                  >
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic">(edited)</span>}
                     <SeenBadge message={m} currentTutorId={currentTutorId} />
@@ -1946,6 +2201,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                       files.forEach(f => dt.items.add(f));
                       handleEditImageUpload(dt.files);
                     }}
+                    mentionUsers={threadMentionUsers}
                   />
                   {/* Image attachments for edit mode */}
                   <div>
@@ -2012,11 +2268,17 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
                 <div
                   className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
-                  dangerouslySetInnerHTML={{ __html: m.message }}
+                  dangerouslySetInnerHTML={{ __html: threadSearch
+                    ? m.message.replace(
+                        new RegExp(`(<[^>]+>)|(${threadSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
+                        (_match: string, tag: string | undefined, text: string | undefined) => tag ? tag : `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded-sm px-0.5">${text}</mark>`
+                      )
+                    : m.message
+                  }}
                 />
               ) : (
                 <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                  {m.message}
+                  {threadSearch ? highlightMatch(m.message, threadSearch) : m.message}
                 </div>
               )}
 
@@ -2086,24 +2348,20 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     ? "mt-2 gap-2"
                     : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
                 )}>
-                  <button
-                    onClick={() => onLike(m.id)}
-                    className={cn(
-                      "p-1 rounded-full transition-colors",
-                      m.is_liked_by_me
-                        ? "text-red-500"
-                        : "text-gray-400 hover:text-red-500"
-                    )}
-                    title="Like"
-                  >
-                    <Heart className={cn("h-3.5 w-3.5", m.is_liked_by_me && "fill-current")} />
-                  </button>
+                  <ReactionPicker messageId={m.id} onReact={(emoji) => onLike(m.id, emoji)} isMobile={isMobile} />
                   <button
                     onClick={() => handleQuote(m)}
                     className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
                     title="Quote"
                   >
                     <Reply className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => onForward(m)}
+                    className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
+                    title="Forward"
+                  >
+                    <Forward className="h-3.5 w-3.5" />
                   </button>
                   {isOwn && (
                     <>
@@ -2142,7 +2400,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   "flex items-center justify-end gap-1 mt-1 transition-opacity",
                   !isMobile && "opacity-0 group-hover/msg:opacity-100"
                 )}>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-400">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic ml-1">(edited)</span>}
                   </span>
@@ -2183,13 +2441,20 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
         {/* Optimistic send bubble */}
         {optimisticMessage && (
-          <div className="ml-12 sm:ml-20 p-3 rounded-2xl bg-[#ede0cf]/60 dark:bg-[#3d3628]/60 opacity-70" style={{ animation: 'message-in 0.2s ease-out both' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              {[0, 1, 2].map(i => (
-                <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#a0704b]"
-                  style={{ animation: `typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />
-              ))}
-            </div>
+          <div className={cn(
+            "ml-12 sm:ml-20 p-3 rounded-2xl mt-1",
+            optimisticMessage.failed
+              ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40"
+              : "bg-[#ede0cf]/60 dark:bg-[#3d3628]/60 opacity-70"
+          )} style={{ animation: 'message-in 0.2s ease-out both' }}>
+            {!optimisticMessage.failed && (
+              <div className="flex items-center gap-1.5 mb-1">
+                {[0, 1, 2].map(i => (
+                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#a0704b]"
+                    style={{ animation: `typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />
+                ))}
+              </div>
+            )}
             {optimisticMessage.text && optimisticMessage.text !== "<p></p>" && (
               <div
                 className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
@@ -2206,6 +2471,34 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
                   />
                 ))}
+              </div>
+            )}
+            {optimisticMessage.failed && (
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-800/40">
+                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                <span className="text-xs text-red-600 dark:text-red-400">Failed to send</span>
+                <div className="flex-1" />
+                <button
+                  onClick={() => {
+                    // Restore content to editor for retry
+                    initialDraft.current = { message: optimisticMessage.text, images: optimisticMessage.images, savedAt: Date.now() };
+                    setReplyText(optimisticMessage.text);
+                    setReplyImages([...optimisticMessage.images]);
+                    setReplyEditorKey(prev => prev + 1);
+                    setOptimisticMessage(null);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Retry
+                </button>
+                <button
+                  onClick={() => setOptimisticMessage(null)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Discard
+                </button>
               </div>
             )}
           </div>
@@ -2282,6 +2575,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           }}
           placeholder="Type a reply..."
           minHeight="40px"
+          mentionUsers={threadMentionUsers}
         />
         <input
           ref={replyFileInputRef}
@@ -2384,6 +2678,7 @@ export default function InboxPage() {
   const [showCompose, setShowCompose] = useState(false);
   const [showWecom, setShowWecom] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
+  const [forwardFrom, setForwardFrom] = useState<{ subject: string; body: string; category?: string } | undefined>();
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024
@@ -2394,6 +2689,38 @@ export default function InboxPage() {
   const [shortcutsPos, setShortcutsPos] = useState<{ top: number; left: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Notification sound preference (persisted in localStorage)
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("inbox_sound_muted") !== "1";
+  });
+  const notifAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    localStorage.setItem("inbox_sound_muted", soundEnabled ? "0" : "1");
+  }, [soundEnabled]);
+  const playNotifSound = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      if (!notifAudioRef.current) {
+        // Short, subtle notification chime (Web Audio API fallback)
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+        return;
+      }
+      notifAudioRef.current.currentTime = 0;
+      notifAudioRef.current.play().catch(() => {});
+    } catch {}
+  }, [soundEnabled]);
 
   // Track button position with rAF loop when popover is open (handles sidebar toggle animation, resize)
   useEffect(() => {
@@ -2525,6 +2852,14 @@ export default function InboxPage() {
     return threads;
   }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
 
+  // Bulk selection mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const allThreadIds = useMemo(() => displayThreads.map(t => t.root_message.id), [displayThreads]);
+  const { selectedIds: bulkSelectedIds, toggleSelect: bulkToggle, toggleSelectAll: bulkToggleAll, clearSelection: bulkClear, hasSelection: bulkHasSelection, isAllSelected: bulkAllSelected } = useBulkSelection(allThreadIds);
+
+  // Exit bulk mode when category changes
+  useEffect(() => { setBulkMode(false); bulkClear(); }, [selectedCategory, bulkClear]);
+
   // Draft tracking for thread list preview
   const [draftVersion, setDraftVersion] = useState(0);
   const handleDraftChange = useCallback(() => setDraftVersion(v => v + 1), []);
@@ -2637,10 +2972,12 @@ export default function InboxPage() {
           body: `You have ${newCount} new message${newCount > 1 ? 's' : ''} in your inbox`,
           icon: '/favicon.ico'
         });
+        // Play notification sound
+        playNotifSound();
       }
       prevUnreadRef.current = unreadCount.count;
     }
-  }, [unreadCount?.count, sendNotification]);
+  }, [unreadCount?.count, sendNotification, playNotifSound]);
 
   // Page title badge with unread count
   useEffect(() => {
@@ -2664,14 +3001,14 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast]);
 
-  const handleLike = useCallback(async (messageId: number) => {
+  const handleLike = useCallback(async (messageId: number, emoji: string = "❤️") => {
     if (tutorId === null) return;
 
     try {
-      await messagesAPI.toggleLike(messageId, tutorId);
+      await messagesAPI.toggleLike(messageId, tutorId, emoji);
       mutate(isThreadsKey);
-    } catch (error) {
-      showToast("Failed to toggle like", "error");
+    } catch {
+      showToast("Failed to toggle reaction", "error");
     }
   }, [tutorId, showToast]);
 
@@ -2948,6 +3285,18 @@ export default function InboxPage() {
                   </span>
                 )}
                 <button
+                  onClick={() => setSoundEnabled(prev => !prev)}
+                  className={cn(
+                    "w-6 h-6 inline-flex items-center justify-center rounded-full transition-colors border",
+                    soundEnabled
+                      ? "text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-300 dark:border-gray-600"
+                      : "text-gray-300 dark:text-gray-600 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-200 dark:border-gray-700"
+                  )}
+                  title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
+                >
+                  {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+                </button>
+                <button
                   ref={shortcutsButtonRef}
                   onClick={() => setShowShortcuts(prev => !prev)}
                   className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border border-gray-300 dark:border-gray-600 transition-colors"
@@ -3091,7 +3440,89 @@ export default function InboxPage() {
                       <span className="hidden sm:inline">Mark all read</span>
                     </button>
                   )}
+                  {displayThreads.length > 0 && selectedCategory !== "sent" && (
+                    <button
+                      onClick={() => { setBulkMode(prev => !prev); bulkClear(); }}
+                      className={cn(
+                        "flex-shrink-0 p-2 rounded-lg transition-colors",
+                        bulkMode
+                          ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                          : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      )}
+                      title={bulkMode ? "Exit select mode" : "Select threads"}
+                    >
+                      <ListChecks className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
+                {/* Bulk action bar */}
+                {bulkMode && (
+                  <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                    <button
+                      onClick={bulkToggleAll}
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                    >
+                      {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                      {bulkAllSelected ? "Deselect all" : "Select all"}
+                    </button>
+                    {bulkHasSelection && (
+                      <>
+                        <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{bulkSelectedIds.size} selected</span>
+                        <div className="flex-1" />
+                        {selectedCategory !== "archived" && (
+                          <button
+                            onClick={async () => {
+                              if (!hasTutor || tutorId === null) return;
+                              try {
+                                await messagesAPI.archive(Array.from(bulkSelectedIds), tutorId);
+                                mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
+                                bulkClear();
+                                showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
+                              } catch { showToast("Failed to archive", "error"); }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                            Archive
+                          </button>
+                        )}
+                        {selectedCategory === "archived" && (
+                          <button
+                            onClick={async () => {
+                              if (!hasTutor || tutorId === null) return;
+                              try {
+                                await messagesAPI.unarchive(Array.from(bulkSelectedIds), tutorId);
+                                mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
+                                bulkClear();
+                                showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
+                              } catch { showToast("Failed to unarchive", "error"); }
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                          >
+                            <ArchiveRestore className="h-3.5 w-3.5" />
+                            Unarchive
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            if (!hasTutor || tutorId === null) return;
+                            try {
+                              await messagesAPI.pin(Array.from(bulkSelectedIds), tutorId);
+                              mutate((key) => isThreadsKey(key) || isPinnedKey(key));
+                              bulkClear();
+                              showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
+                            } catch { showToast("Failed to star", "error"); }
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        >
+                          <Star className="h-3.5 w-3.5" />
+                          Star
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               {isLoading ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -3200,6 +3631,9 @@ export default function InboxPage() {
                           searchQuery={showSearch ? debouncedSearch : undefined}
                           pictureMap={tutorPictureMap}
                           draftPreview={draftsMap.get(thread.root_message.id)}
+                          bulkMode={bulkMode}
+                          bulkSelected={bulkSelectedIds.has(thread.root_message.id)}
+                          onBulkToggle={() => bulkToggle(thread.root_message.id)}
                         />
                       );
                       if (!isMobile || selectedCategory === "sent") return item;
@@ -3274,10 +3708,23 @@ export default function InboxPage() {
                   onUnarchive={handleUnarchive}
                   onPin={handlePin}
                   onUnpin={handleUnpin}
+                  onForward={(m: Message) => {
+                    const senderName = m.from_tutor_name || "Unknown";
+                    const date = new Date(m.created_at).toLocaleString();
+                    const fwdBody = `<blockquote><p><strong>Forwarded from ${senderName}</strong> <em>(${date})</em></p>${m.message}</blockquote><p></p>`;
+                    setForwardFrom({
+                      subject: `Fwd: ${m.subject || "(no subject)"}`,
+                      body: fwdBody,
+                      category: m.category || undefined,
+                    });
+                    setReplyTo(undefined);
+                    setShowCompose(true);
+                  }}
                   isArchived={selectedCategory === "archived"}
                   isMobile={isMobile}
                   pictureMap={tutorPictureMap}
                   onDraftChange={handleDraftChange}
+                  mentionUsers={tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture }))}
                 />
               </div>
             ) : !isMobile && (
@@ -3296,11 +3743,13 @@ export default function InboxPage() {
       {/* Compose Modal */}
       <ComposeModal
         isOpen={showCompose}
-        onClose={() => setShowCompose(false)}
+        onClose={() => { setShowCompose(false); setForwardFrom(undefined); }}
         tutors={tutors}
         fromTutorId={tutorId ?? 0}
         replyTo={replyTo}
         onSend={handleSendMessage}
+        forwardFrom={forwardFrom}
+        pictureMap={tutorPictureMap}
       />
 
       {/* WeCom Send Modal */}

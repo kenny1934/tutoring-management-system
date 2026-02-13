@@ -1263,9 +1263,9 @@ export const messagesAPI = {
     });
   },
 
-  // Toggle like on a message
-  toggleLike: (messageId: number, tutorId: number) => {
-    return fetchAPI<ToggleLikeResponse>(`/messages/${messageId}/like?tutor_id=${tutorId}`, { method: "POST" });
+  // Toggle reaction (emoji) on a message
+  toggleLike: (messageId: number, tutorId: number, emoji: string = "❤️") => {
+    return fetchAPI<ToggleLikeResponse>(`/messages/${messageId}/like?tutor_id=${tutorId}&emoji=${encodeURIComponent(emoji)}`, { method: "POST" });
   },
 
   // Update a message (only by sender)

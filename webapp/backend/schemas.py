@@ -1056,10 +1056,18 @@ class ReadReceiptDetail(BaseModel):
 
 
 class LikeDetail(BaseModel):
-    """Detail of who liked a message and when"""
+    """Detail of who liked/reacted to a message and when"""
     tutor_id: int
     tutor_name: str
     liked_at: datetime
+    emoji: str = "❤️"
+
+
+class ReactionSummary(BaseModel):
+    """Summary of emoji reactions on a message"""
+    emoji: str
+    count: int
+    tutor_ids: List[int] = []
 
 
 class MessageBase(BaseModel):
@@ -1103,6 +1111,7 @@ class MessageResponse(MessageBase):
     like_count: int = Field(default=0, ge=0)
     is_liked_by_me: bool = False
     like_details: Optional[List[LikeDetail]] = None
+    reaction_summary: Optional[List[ReactionSummary]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
     file_attachments: List[dict] = Field(default_factory=list)  # [{url, filename, content_type}]

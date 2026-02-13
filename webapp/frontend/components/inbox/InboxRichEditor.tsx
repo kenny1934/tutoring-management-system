@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useEditor, EditorContent, Editor } from "@tiptap/react";
+import { useEditor, EditorContent, Editor, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
+import Mention from "@tiptap/extension-mention";
+import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import {
   Bold,
@@ -22,6 +24,18 @@ import {
   Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500",
+  "bg-purple-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
+];
+
+function getInitials(name: string): string {
+  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '').trim();
+  const parts = cleaned.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (cleaned[0] || "?").toUpperCase();
+}
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -57,6 +71,94 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
   );
 }
 
+// --- Mention suggestion list component ---
+export interface MentionUser {
+  id: number;
+  label: string;
+  pictureUrl?: string;
+}
+
+interface MentionListProps {
+  items: MentionUser[];
+  command: (item: MentionUser) => void;
+}
+
+interface MentionListRef {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
+}
+
+import React from "react";
+
+function MentionAvatar({ item }: { item: MentionUser }) {
+  const [imgError, setImgError] = useState(false);
+  if (item.pictureUrl && !imgError) {
+    return (
+      <img
+        src={item.pictureUrl}
+        alt={item.label}
+        className="w-5 h-5 rounded-full object-cover flex-shrink-0"
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+  return (
+    <span className={cn("w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0", AVATAR_COLORS[item.id % AVATAR_COLORS.length])}>
+      {getInitials(item.label)}
+    </span>
+  );
+}
+
+const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
+  ({ items, command }, ref) => {
+    const [selectedIndex, setSelectedIndex] = useState(0);
+
+    useEffect(() => setSelectedIndex(0), [items]);
+
+    React.useImperativeHandle(ref, () => ({
+      onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+        if (event.key === "ArrowUp") {
+          setSelectedIndex((prev) => (prev + items.length - 1) % items.length);
+          return true;
+        }
+        if (event.key === "ArrowDown") {
+          setSelectedIndex((prev) => (prev + 1) % items.length);
+          return true;
+        }
+        if (event.key === "Enter") {
+          if (items[selectedIndex]) command(items[selectedIndex]);
+          return true;
+        }
+        return false;
+      },
+    }));
+
+    if (items.length === 0) return null;
+
+    return (
+      <div className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
+        {items.map((item, index) => (
+          <button
+            key={item.id}
+            type="button"
+            className={cn(
+              "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors text-left",
+              index === selectedIndex
+                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b]"
+                : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+            )}
+            onClick={() => command(item)}
+          >
+            <MentionAvatar item={item} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+);
+MentionList.displayName = "MentionList";
+
 interface InboxRichEditorProps {
   /** Called with Tiptap editor instance once created */
   onEditorReady?: (editor: Editor) => void;
@@ -72,6 +174,8 @@ interface InboxRichEditorProps {
   placeholder?: string;
   /** Minimum height of editor area */
   minHeight?: string;
+  /** List of mentionable users (for @mentions) */
+  mentionUsers?: MentionUser[];
 }
 
 export default function InboxRichEditor({
@@ -82,11 +186,16 @@ export default function InboxRichEditor({
   initialContent = "",
   placeholder = "Write your message...",
   minHeight = "150px",
+  mentionUsers,
 }: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
+
+  // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
+  const mentionUsersRef = useRef(mentionUsers);
+  useEffect(() => { mentionUsersRef.current = mentionUsers; }, [mentionUsers]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -107,6 +216,80 @@ export default function InboxRichEditor({
       }),
       TextStyle,
       Color,
+      Mention.configure({
+        HTMLAttributes: {
+          class: "mention",
+        },
+        suggestion: {
+          items: ({ query }: { query: string }) => {
+            const users = mentionUsersRef.current || [];
+            const getFirstName = (name: string) => {
+              const parts = name.split(' ');
+              return parts.length > 1 ? parts[1] : parts[0];
+            };
+            return users
+              .filter((u) => u.label.toLowerCase().includes(query.toLowerCase()))
+              .sort((a, b) => getFirstName(a.label).localeCompare(getFirstName(b.label)));
+          },
+          render: () => {
+            let component: ReactRenderer<MentionListRef> | null = null;
+            let popup: HTMLDivElement | null = null;
+
+            const positionPopup = (rect: DOMRect, el: HTMLDivElement) => {
+              const popupHeight = el.offsetHeight || 200;
+              const spaceBelow = window.innerHeight - rect.bottom;
+              const goAbove = spaceBelow < popupHeight + 8;
+              el.style.left = `${rect.left}px`;
+              el.style.top = goAbove
+                ? `${rect.top + window.scrollY - popupHeight - 4}px`
+                : `${rect.bottom + window.scrollY + 4}px`;
+            };
+
+            return {
+              onStart: (props: SuggestionProps) => {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
+                });
+
+                popup = document.createElement("div");
+                popup.style.position = "absolute";
+                popup.style.zIndex = "9999";
+                document.body.appendChild(popup);
+                popup.appendChild(component.element);
+
+                const rect = props.clientRect?.();
+                if (rect && popup) {
+                  positionPopup(rect, popup);
+                }
+              },
+              onUpdate: (props: SuggestionProps) => {
+                component?.updateProps(props);
+                const rect = props.clientRect?.();
+                if (rect && popup) {
+                  positionPopup(rect, popup);
+                }
+              },
+              onKeyDown: (props: SuggestionKeyDownProps) => {
+                if (props.event.key === "Escape") {
+                  popup?.remove();
+                  component?.destroy();
+                  popup = null;
+                  component = null;
+                  return true;
+                }
+                return component?.ref?.onKeyDown(props) ?? false;
+              },
+              onExit: () => {
+                popup?.remove();
+                component?.destroy();
+                popup = null;
+                component = null;
+              },
+            };
+          },
+        },
+      }),
     ],
     content: initialContent,
     onUpdate: ({ editor }) => {
@@ -388,6 +571,22 @@ export default function InboxRichEditor({
 
       {/* Editor content */}
       <EditorContent editor={editor} />
+
+      {/* Mention styling */}
+      <style jsx global>{`
+        .mention {
+          background-color: #f5ede3;
+          border-radius: 4px;
+          padding: 1px 4px;
+          color: #a0704b;
+          font-weight: 600;
+          font-size: 0.875em;
+        }
+        .dark .mention {
+          background-color: #3d3628;
+          color: #c49a6c;
+        }
+      `}</style>
     </div>
   );
 }
