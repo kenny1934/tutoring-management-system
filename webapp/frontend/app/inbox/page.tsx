@@ -264,9 +264,13 @@ function ComposeModal({
       const setReplyRecipients = () => {
         if (!replyTo) return;
         if (replyTo.is_group_message && replyTo.to_tutor_ids) {
-          // Reply to group: inherit recipients
+          // Reply-all: remove self, add original sender
+          const replyRecipients = replyTo.to_tutor_ids.filter(id => id !== fromTutorId);
+          if (!replyRecipients.includes(replyTo.from_tutor_id)) {
+            replyRecipients.push(replyTo.from_tutor_id);
+          }
           setRecipientMode("select");
-          setSelectedTutorIds(replyTo.to_tutor_ids);
+          setSelectedTutorIds(replyRecipients);
         } else if (replyTo.from_tutor_id === fromTutorId) {
           // Replying to own message: send to original recipient(s)
           if (replyTo.to_tutor_id == null) {
@@ -1147,7 +1151,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       {...(isMobile ? swipeHandlers : {})}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         <button
           onClick={onClose}
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -1220,10 +1224,10 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         )}
         <button
           onClick={() => onReply(msg)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
         >
           <Reply className="h-4 w-4" />
-          Reply
+          <span className="hidden sm:inline">Reply</span>
         </button>
       </div>
 
@@ -1250,7 +1254,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
             >
               {/* Message header */}
-              <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
                 <div className="flex items-center gap-1 min-w-0 flex-1">
                   <span className="font-medium text-gray-900 dark:text-white truncate">
                     {m.from_tutor_name || "Unknown"}
@@ -1260,7 +1264,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     {m.to_tutor_id === null ? "All" : m.to_tutor_name || "Unknown"}
                   </span>
                 </div>
-                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 whitespace-nowrap flex items-center gap-1">
+                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 flex items-center gap-1">
                   {new Date(m.created_at).toLocaleString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -1385,7 +1389,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
 
               {/* Message footer */}
-              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex items-center gap-2 sm:gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => onLike(m.id)}
@@ -1407,7 +1411,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                       className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
                     >
                       <Pencil className="h-4 w-4" />
-                      Edit
+                      <span className="hidden sm:inline">Edit</span>
                     </button>
                     <button
                       onClick={() => {
@@ -1418,7 +1422,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                       className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
-                      Delete
+                      <span className="hidden sm:inline">Delete</span>
                     </button>
                   </>
                 )}
@@ -1428,7 +1432,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
                   >
                     <Reply className="h-4 w-4" />
-                    Reply
+                    <span className="hidden sm:inline">Reply</span>
                   </button>
                 )}
               </div>
