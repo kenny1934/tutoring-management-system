@@ -1297,10 +1297,11 @@ const LikesBadge = React.memo(function LikesBadge({
     <div className="relative inline-flex items-center">
       <button
         onClick={() => setShowPopover(!showPopover)}
-        className="text-sm text-red-500 hover:opacity-80 transition-opacity"
+        className="flex items-center gap-1 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs text-red-500 hover:shadow-md transition-shadow"
         title={`Liked by ${likeDetails.length}`}
       >
-        {likeDetails.length}
+        <Heart className="h-3 w-3 fill-current" />
+        <span>{likeDetails.length}</span>
       </button>
 
       {showPopover && (
@@ -1701,6 +1702,10 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
           const isNewDay = idx === 0 || dateStr !== prevDateStr;
 
+          // Bubble tail: show on last message in consecutive group from same sender
+          const nextMsg = allMessages[idx + 1];
+          const isLastInGroup = !nextMsg || nextMsg.from_tutor_id !== m.from_tutor_id;
+
           return (
             <React.Fragment key={m.id}>
               {/* Date separator */}
@@ -1728,10 +1733,12 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               )}
             <div
               id={`msg-${m.id}`}
+              style={{ animation: 'message-in 0.2s ease-out both' }}
               className={cn(
-                "p-3 rounded-2xl transition-shadow",
+                "group/msg relative p-3 rounded-2xl transition-shadow",
+                m.like_count > 0 && "mb-2",
                 isOwn
-                  ? "bg-[#f5ede3] dark:bg-[#3d3628] ml-12 sm:ml-20"
+                  ? cn("bg-[#f5ede3] dark:bg-[#3d3628] ml-12 sm:ml-20", isLastInGroup && "bubble-tail-right")
                   : "flex-1 min-w-0",
                 !isOwn && isBroadcast && "bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
                 !isOwn && isGroup && !isBroadcast && "bg-green-50/50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
@@ -1744,7 +1751,10 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {m.from_tutor_name || "Unknown"}
                   </span>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1">
+                  <span className={cn(
+                    "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
+                    !isMobile && "opacity-0 group-hover/msg:opacity-100"
+                  )}>
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic">(edited)</span>}
                     <SeenBadge message={m} currentTutorId={currentTutorId} />
@@ -1896,57 +1906,70 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
               )}
 
-              {/* Message footer */}
-              <div className="flex items-center gap-2 sm:gap-3 mt-2">
-                <div className="flex items-center gap-1">
+              {/* Message actions — floating pill on hover (desktop), inline on mobile */}
+              {!isEditing && (
+                <div className={cn(
+                  "flex items-center gap-0.5",
+                  isMobile
+                    ? "mt-2 gap-2"
+                    : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
+                )}>
                   <button
                     onClick={() => onLike(m.id)}
                     className={cn(
-                      "flex items-center text-sm transition-colors",
+                      "p-1 rounded-full transition-colors",
                       m.is_liked_by_me
                         ? "text-red-500"
-                        : "text-gray-500 hover:text-red-500"
+                        : "text-gray-400 hover:text-red-500"
                     )}
+                    title="Like"
                   >
-                    <Heart className={cn("h-4 w-4", m.is_liked_by_me && "fill-current")} />
+                    <Heart className={cn("h-3.5 w-3.5", m.is_liked_by_me && "fill-current")} />
                   </button>
+                  <button
+                    onClick={() => handleQuote(m)}
+                    className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
+                    title="Quote"
+                  >
+                    <MessageSquareShare className="h-3.5 w-3.5" />
+                  </button>
+                  {isOwn && (
+                    <>
+                      <button
+                        onClick={() => startEdit(m)}
+                        className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this message?")) {
+                            onDelete(m.id);
+                          }
+                        }}
+                        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* Like count badge — floating reaction pill */}
+              {m.like_count > 0 && (
+                <div className="absolute -bottom-2.5 left-3">
                   <LikesBadge message={m} />
                 </div>
-                <button
-                  onClick={() => handleQuote(m)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
-                  title="Quote this message"
-                >
-                  <MessageSquareShare className="h-4 w-4" />
-                  <span className="hidden sm:inline">Quote</span>
-                </button>
-                {isOwn && !isEditing && (
-                  <>
-                    <button
-                      onClick={() => startEdit(m)}
-                      className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      <span className="hidden sm:inline">Edit</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to delete this message?")) {
-                          onDelete(m.id);
-                        }
-                      }}
-                      className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Delete</span>
-                    </button>
-                  </>
-                )}
-              </div>
+              )}
 
               {/* Own message: timestamp + seen badge at bottom-right */}
               {isOwn && (
-                <div className="flex items-center justify-end gap-1 mt-1">
+                <div className={cn(
+                  "flex items-center justify-end gap-1 mt-1 transition-opacity",
+                  !isMobile && "opacity-0 group-hover/msg:opacity-100"
+                )}>
                   <span className="text-[11px] text-gray-400 dark:text-gray-400">
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic ml-1">(edited)</span>}
@@ -2005,7 +2028,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       {/* Inline reply bar */}
       <div
         className={cn(
-          "flex-shrink-0 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 p-3 relative",
+          "flex-shrink-0 p-3 relative",
           isReplyDragging && "ring-2 ring-inset ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10"
         )}
         onKeyDown={(e) => {
@@ -2103,7 +2126,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <button
               onClick={handleSendReply}
               disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-full shadow-sm transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
             >
               {isReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="hidden sm:inline">Send</span>
@@ -3006,7 +3029,7 @@ export default function InboxPage() {
             </div>
 
             {/* Right panel - Thread detail */}
-            {selectedThread && hasTutor && (
+            {selectedThread && hasTutor ? (
               <div className={cn(
                 "h-full rounded-lg overflow-hidden",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
@@ -3030,6 +3053,14 @@ export default function InboxPage() {
                   isMobile={isMobile}
                   pictureMap={tutorPictureMap}
                 />
+              </div>
+            ) : !isMobile && (
+              <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg">
+                <div className="text-center text-gray-400 dark:text-gray-500">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Select a conversation</p>
+                  <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-mono">c</kbd> to compose</p>
+                </div>
               </div>
             )}
           </div>
