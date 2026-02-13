@@ -596,6 +596,7 @@ class TutorMessage(Base):
     reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
     image_attachment = Column(String(500))  # KEEP for AppSheet compatibility (single URL)
     image_attachments = Column(JSON, default=list)  # NEW for webapp (multiple URLs)
+    file_attachments = Column(JSON, default=list)  # Document attachments [{url, filename, content_type}]
 
     # Relationships
     from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")
