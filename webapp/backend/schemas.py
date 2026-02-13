@@ -83,6 +83,7 @@ class TutorBase(BaseModel):
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
+    profile_picture: Optional[str] = Field(None, max_length=500)
 
 
 class TutorResponse(TutorBase):
@@ -1075,12 +1076,14 @@ class MessageCreate(MessageBase):
     to_tutor_ids: Optional[List[int]] = Field(None, min_length=2, max_length=50)  # Group message recipients
     reply_to_id: Optional[int] = Field(None, gt=0)
     image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
+    file_attachments: Optional[List[dict]] = Field(default_factory=list)  # [{url, filename, content_type}]
 
 
 class MessageUpdate(BaseModel):
     """Schema for updating an existing message"""
     message: Optional[str] = Field(None, min_length=1)
     image_attachments: Optional[List[str]] = None
+    file_attachments: Optional[List[dict]] = None
 
 
 class MessageResponse(MessageBase):
@@ -1102,6 +1105,7 @@ class MessageResponse(MessageBase):
     like_details: Optional[List[LikeDetail]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
+    file_attachments: List[dict] = Field(default_factory=list)  # [{url, filename, content_type}]
     is_pinned: bool = False
     # Read receipt fields for sender's messages (WhatsApp-style seen status)
     read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages

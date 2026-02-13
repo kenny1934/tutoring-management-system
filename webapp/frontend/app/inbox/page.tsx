@@ -47,11 +47,13 @@ import {
   CircleDot,
   Archive,
   ArchiveRestore,
-  Image as ImageIcon,
+  Paperclip,
   MessageSquareShare,
   Star,
   Users,
   MessageSquarePlus,
+  FileText,
+  Download,
 } from "lucide-react";
 
 // Category definition
@@ -242,6 +244,7 @@ function ComposeModal({
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isComposeDragging, setIsComposeDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -249,21 +252,23 @@ function ComposeModal({
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
   const recipientDropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleImageUpload = async (files: FileList | null) => {
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
     try {
-      const newUrls: string[] = [];
       for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
-        const result = await messagesAPI.uploadImage(file, fromTutorId);
-        newUrls.push(result.url);
+        if (file.type.startsWith('image/')) {
+          const result = await messagesAPI.uploadImage(file, fromTutorId);
+          setUploadedImages(prev => [...prev, result.url]);
+        } else {
+          const result = await messagesAPI.uploadFile(file, fromTutorId);
+          setUploadedFiles(prev => [...prev, result]);
+        }
       }
-      setUploadedImages(prev => [...prev, ...newUrls]);
     } catch (error) {
-      console.error('Image upload failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to upload image');
+      console.error('File upload failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to upload file');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -272,6 +277,10 @@ function ComposeModal({
 
   const removeImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // Reset form when opening — check for saved draft
@@ -331,6 +340,7 @@ function ComposeModal({
         setMessage("");
         setPriority("Normal");
         setUploadedImages([]);
+        setUploadedFiles([]);
       } else {
         // Compose mode, no draft
         setRecipientMode("all");
@@ -340,6 +350,7 @@ function ComposeModal({
         setMessage("");
         setPriority("Normal");
         setUploadedImages([]);
+        setUploadedFiles([]);
       }
     }
   }, [isOpen, replyTo]);
@@ -403,6 +414,7 @@ function ComposeModal({
         category: category || undefined,
         reply_to_id: replyTo?.id,
         image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
+        file_attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
       };
       if (recipientMode === "select") {
         if (selectedTutorIds.length === 1) {
@@ -702,7 +714,7 @@ function ComposeModal({
               setIsComposeDragging(false);
               const files = e.dataTransfer?.files;
               if (files && files.length > 0) {
-                handleImageUpload(files);
+                handleFileUpload(files);
               }
             }}
           >
@@ -714,7 +726,7 @@ function ComposeModal({
               onPasteFiles={(files) => {
                 const dt = new DataTransfer();
                 files.forEach(f => dt.items.add(f));
-                handleImageUpload(dt.files);
+                handleFileUpload(dt.files);
               }}
             />
             {isComposeDragging && (
@@ -729,9 +741,9 @@ function ComposeModal({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
               multiple
-              onChange={(e) => handleImageUpload(e.target.files)}
+              onChange={(e) => handleFileUpload(e.target.files)}
               className="hidden"
             />
             <div className="flex items-center gap-2">
@@ -744,12 +756,12 @@ function ComposeModal({
                 {isUploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <ImageIcon className="h-4 w-4" />
+                  <Paperclip className="h-4 w-4" />
                 )}
-                {isUploading ? 'Uploading...' : 'Add Images'}
+                {isUploading ? 'Uploading...' : 'Attach'}
               </button>
-              {uploadedImages.length > 0 && (
-                <span className="text-xs text-gray-500">{uploadedImages.length} image(s) attached</span>
+              {(uploadedImages.length > 0 || uploadedFiles.length > 0) && (
+                <span className="text-xs text-gray-500">{uploadedImages.length + uploadedFiles.length} file(s)</span>
               )}
             </div>
             {/* Image Previews */}
@@ -766,6 +778,24 @@ function ComposeModal({
                       type="button"
                       onClick={() => removeImage(index)}
                       className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* File Previews */}
+            {uploadedFiles.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {uploadedFiles.map((file, index) => (
+                  <div key={file.url} className="flex items-center gap-2 p-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+                    <FileText className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -819,6 +849,95 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   }
 }
 
+// Avatar helpers — Google profile picture with initials fallback
+const AVATAR_COLORS = [
+  "bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500",
+  "bg-purple-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
+];
+
+function getInitials(name: string): string {
+  // Strip Mr/Ms/Mrs prefix before computing initials
+  const cleaned = name.replace(/^(Mr\.?|Ms\.?|Mrs\.?)\s*/i, '').trim();
+  const parts = cleaned.split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (cleaned[0] || "?").toUpperCase();
+}
+
+function getAvatarColor(id: number): string {
+  return AVATAR_COLORS[id % AVATAR_COLORS.length];
+}
+
+function TutorAvatar({ name, id, pictureUrl, size = "md" }: {
+  name: string;
+  id: number;
+  pictureUrl?: string;
+  size?: "sm" | "md";
+}) {
+  const [imgError, setImgError] = useState(false);
+  const sizeClass = size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
+  if (pictureUrl && !imgError) {
+    return (
+      <img
+        src={pictureUrl}
+        alt={name}
+        className={cn(sizeClass, "rounded-full object-cover flex-shrink-0")}
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+  return (
+    <div className={cn(sizeClass, "rounded-full flex items-center justify-center text-white font-bold flex-shrink-0", getAvatarColor(id))}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+// Date separator helpers — "Today", "Yesterday", or formatted date
+function formatDateLabel(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (msgDay.getTime() === today.getTime()) return "Today";
+  if (msgDay.getTime() === yesterday.getTime()) return "Yesterday";
+
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+// Thread grouping helper — group threads into temporal buckets
+function groupThreadsByDate(threads: MessageThread[]): { label: string; threads: MessageThread[] }[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 7);
+
+  const groups: { label: string; threads: MessageThread[] }[] = [
+    { label: "Today", threads: [] },
+    { label: "Yesterday", threads: [] },
+    { label: "This Week", threads: [] },
+    { label: "Earlier", threads: [] },
+  ];
+
+  for (const t of threads) {
+    const latest = t.replies.length > 0 ? t.replies[t.replies.length - 1] : t.root_message;
+    const d = new Date(latest.created_at);
+    const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    if (dDay.getTime() >= today.getTime()) groups[0].threads.push(t);
+    else if (dDay.getTime() >= yesterday.getTime()) groups[1].threads.push(t);
+    else if (dDay.getTime() >= weekAgo.getTime()) groups[2].threads.push(t);
+    else groups[3].threads.push(t);
+  }
+
+  return groups.filter(g => g.threads.length > 0);
+}
+
 // Thread Item Component - memoized to prevent unnecessary re-renders
 const ThreadItem = React.memo(function ThreadItem({
   thread,
@@ -826,12 +945,14 @@ const ThreadItem = React.memo(function ThreadItem({
   onClick,
   isSentView = false,
   searchQuery,
+  pictureMap,
 }: {
   thread: MessageThread;
   isSelected: boolean;
   onClick: () => void;
   isSentView?: boolean;
   searchQuery?: string;
+  pictureMap?: Map<number, string>;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -853,7 +974,13 @@ const ThreadItem = React.memo(function ThreadItem({
       )}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
+        {/* Avatar */}
+        {!isSentView && (
+          <div className="mt-0.5">
+            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           {/* Sender & Time */}
           <div className="flex items-center gap-2 mb-0.5">
@@ -953,6 +1080,93 @@ const ThreadItem = React.memo(function ThreadItem({
     </button>
   );
 });
+
+// Swipeable wrapper for ThreadItem — reveals archive (left) / star (right) on mobile
+function SwipeableThreadItem({
+  children,
+  onSwipeLeftAction,
+  onSwipeRightAction,
+  leftLabel,
+  rightLabel,
+}: {
+  children: React.ReactNode;
+  onSwipeLeftAction?: () => void;
+  onSwipeRightAction?: () => void;
+  leftLabel?: string;
+  rightLabel?: string;
+}) {
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const currentX = useRef(0);
+  const isSwiping = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    currentX.current = 0;
+    isSwiping.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+    if (!isSwiping.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+      isSwiping.current = true;
+    }
+    if (!isSwiping.current) return;
+    // Clamp between -80 and 80
+    currentX.current = Math.max(-80, Math.min(80, dx));
+    if (containerRef.current) {
+      containerRef.current.style.transform = `translateX(${currentX.current}px)`;
+      containerRef.current.style.transition = 'none';
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!containerRef.current) return;
+    containerRef.current.style.transition = 'transform 0.2s ease-out';
+    containerRef.current.style.transform = 'translateX(0)';
+
+    if (isSwiping.current) {
+      if (currentX.current < -60 && onSwipeLeftAction) {
+        onSwipeLeftAction();
+      } else if (currentX.current > 60 && onSwipeRightAction) {
+        onSwipeRightAction();
+      }
+    }
+    isSwiping.current = false;
+    currentX.current = 0;
+  }, [onSwipeLeftAction, onSwipeRightAction]);
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Left action bg (archive) — revealed on swipe left */}
+      {onSwipeLeftAction && (
+        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500 text-white text-xs font-medium">
+          <Archive className="h-4 w-4 mr-1" />
+          {leftLabel || "Archive"}
+        </div>
+      )}
+      {/* Right action bg (star) — revealed on swipe right */}
+      {onSwipeRightAction && (
+        <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-amber-500 text-white text-xs font-medium">
+          <Star className="h-4 w-4 mr-1" />
+          {rightLabel || "Star"}
+        </div>
+      )}
+      <div
+        ref={containerRef}
+        className="relative bg-white dark:bg-[#1a1a1a]"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 // Seen Badge Component - WhatsApp-style read receipts
 const SeenBadge = React.memo(function SeenBadge({
@@ -1147,6 +1361,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnpin,
   isArchived = false,
   isMobile = false,
+  pictureMap,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -1164,6 +1379,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnpin: (msgId: number) => Promise<void>;
   isArchived?: boolean;
   isMobile?: boolean;
+  pictureMap?: Map<number, string>;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
@@ -1478,8 +1694,22 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const isBroadcast = m.to_tutor_id === null;
           const isGroup = m.is_group_message;
 
+          // Date separator logic
+          const msgDate = new Date(m.created_at);
+          const dateStr = msgDate.toDateString();
+          const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
+          const isNewDay = idx === 0 || dateStr !== prevDateStr;
+
           return (
             <React.Fragment key={m.id}>
+              {/* Date separator */}
+              {isNewDay && (
+                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="font-medium px-2">{formatDateLabel(msgDate)}</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                </div>
+              )}
               {/* "New messages" divider */}
               {m.id === firstUnreadIdRef.current && (
                 <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
@@ -1488,17 +1718,23 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" />
                 </div>
               )}
+            {/* Message bubble — others get avatar wrapper, own messages stay right-aligned */}
+            <div className={cn(!isOwn && "flex gap-2 mr-12 sm:mr-20")}>
+              {!isOwn && (
+                <div className="mt-1">
+                  <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureMap?.get(m.from_tutor_id)} />
+                </div>
+              )}
             <div
               id={`msg-${m.id}`}
               className={cn(
                 "p-3 rounded-2xl transition-shadow",
                 isOwn
                   ? "bg-[#f5ede3] dark:bg-[#3d3628] ml-12 sm:ml-20"
-                  : isBroadcast
-                  ? "bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30 mr-12 sm:mr-20"
-                  : isGroup
-                  ? "bg-green-50/50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 mr-12 sm:mr-20"
-                  : "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] mr-12 sm:mr-20"
+                  : "flex-1 min-w-0",
+                !isOwn && isBroadcast && "bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
+                !isOwn && isGroup && !isBroadcast && "bg-green-50/50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
+                !isOwn && !isBroadcast && !isGroup && "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a]"
               )}
             >
               {/* Sender name + time (others only) */}
@@ -1533,7 +1769,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     <input
                       ref={editFileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
                       multiple
                       onChange={(e) => handleEditImageUpload(e.target.files)}
                       className="hidden"
@@ -1547,9 +1783,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                       {isEditUploading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <ImageIcon className="h-4 w-4" />
+                        <Paperclip className="h-4 w-4" />
                       )}
-                      {isEditUploading ? 'Uploading...' : 'Add Images'}
+                      {isEditUploading ? 'Uploading...' : 'Attach'}
                     </button>
                     {editImages.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -1623,6 +1859,34 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               )}
 
+              {/* File/document attachments */}
+              {m.file_attachments && m.file_attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {m.file_attachments.map((file, idx) => (
+                    <a
+                      key={file.url}
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                    >
+                      <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                          {file.filename}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {file.content_type.split('/').pop()?.toUpperCase()}
+                        </div>
+                      </div>
+                      <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              )}
+
               {/* Proposal embed for MakeupConfirmation messages */}
               {m.category === "MakeupConfirmation" && (
                 <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
@@ -1687,6 +1951,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               )}
             </div>
+            </div>{/* end avatar wrapper */}
             </React.Fragment>
           );
         })}
@@ -1793,7 +2058,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         <input
           ref={replyFileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
           multiple
           onChange={(e) => handleReplyImageUpload(e.target.files)}
           className="hidden"
@@ -1853,6 +2118,17 @@ export default function InboxPage() {
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
+
+  // Build tutor profile picture lookup map (id → picture URL)
+  const tutorPictureMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const t of tutors) {
+      if (t.profile_picture) map.set(t.id, t.profile_picture);
+    }
+    // Also include the current user's picture from auth context
+    if (user?.id && user.picture) map.set(user.id, user.picture);
+    return map;
+  }, [tutors, user?.id, user?.picture]);
   const { showToast } = useToast();
 
   // Get initial category from URL param
@@ -1886,6 +2162,32 @@ export default function InboxPage() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [shortcutsPos, setShortcutsPos] = useState<{ top: number; left: number } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Track button position with rAF loop when popover is open (handles sidebar toggle animation, resize)
+  useEffect(() => {
+    if (!showShortcuts || !shortcutsButtonRef.current) {
+      setShortcutsPos(null);
+      return;
+    }
+    let rafId: number;
+    const track = () => {
+      if (shortcutsButtonRef.current) {
+        const rect = shortcutsButtonRef.current.getBoundingClientRect();
+        setShortcutsPos(prev =>
+          prev && Math.abs(prev.top - (rect.bottom + 8)) < 0.5 && Math.abs(prev.left - rect.left) < 0.5
+            ? prev
+            : { top: rect.bottom + 8, left: rect.left }
+        );
+      }
+      rafId = requestAnimationFrame(track);
+    };
+    rafId = requestAnimationFrame(track);
+    return () => cancelAnimationFrame(rafId);
+  }, [showShortcuts]);
 
   // Derived value for tutor selection check
   const hasTutor = typeof effectiveTutorId === "number";
@@ -2306,6 +2608,68 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast, selectedCategory]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Skip if typing in an input/editor
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).closest(".tiptap")) return;
+
+      switch (e.key) {
+        case "?":
+          e.preventDefault();
+          setShowShortcuts(prev => !prev);
+          break;
+        case "j":
+        case "ArrowDown": {
+          if (!displayThreads.length) break;
+          e.preventDefault();
+          const currentIdx = selectedThread
+            ? displayThreads.findIndex(t => t.root_message.id === selectedThread.root_message.id)
+            : -1;
+          const nextIdx = Math.min(currentIdx + 1, displayThreads.length - 1);
+          setSelectedThread(displayThreads[nextIdx]);
+          break;
+        }
+        case "k":
+        case "ArrowUp": {
+          if (!displayThreads.length || !selectedThread) break;
+          e.preventDefault();
+          const curIdx = displayThreads.findIndex(t => t.root_message.id === selectedThread.root_message.id);
+          const prevIdx = Math.max(curIdx - 1, 0);
+          setSelectedThread(displayThreads[prevIdx]);
+          break;
+        }
+        case "Enter":
+          if (!selectedThread && displayThreads.length > 0) {
+            e.preventDefault();
+            setSelectedThread(displayThreads[0]);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          if (showShortcuts) {
+            setShowShortcuts(false);
+          } else if (selectedThread) {
+            setSelectedThread(null);
+          } else if (searchQuery) {
+            setSearchQuery("");
+          }
+          break;
+        case "c":
+          e.preventDefault();
+          handleCompose();
+          break;
+        case "/":
+          e.preventDefault();
+          searchInputRef.current?.focus();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedThread, displayThreads, showShortcuts, searchQuery, handleCompose]);
+
   if (isSupervisor || isGuest) {
     return (
       <DeskSurface fullHeight>
@@ -2339,6 +2703,14 @@ export default function InboxPage() {
                     {unreadCount.count}
                   </span>
                 )}
+                <button
+                  ref={shortcutsButtonRef}
+                  onClick={() => setShowShortcuts(prev => !prev)}
+                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border border-gray-300 dark:border-gray-600 transition-colors"
+                  title="Keyboard shortcuts (?)"
+                >
+                  ?
+                </button>
               </div>
               <div className="flex items-center gap-3">
                 {isAdmin && (
@@ -2445,6 +2817,7 @@ export default function InboxPage() {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
+                      ref={searchInputRef}
                       type="text"
                       placeholder="Search messages..."
                       value={searchQuery}
@@ -2556,6 +2929,7 @@ export default function InboxPage() {
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
                           onClick={() => setSelectedThread(thread)}
+                          pictureMap={tutorPictureMap}
                         />
                       ))}
                     </>
@@ -2563,16 +2937,47 @@ export default function InboxPage() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  {displayThreads.map((thread) => (
-                    <ThreadItem
-                      key={thread.root_message.id}
-                      thread={thread}
-                      isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                      onClick={() => setSelectedThread(thread)}
-                      isSentView={selectedCategory === "sent"}
-                      searchQuery={debouncedSearch}
-                    />
-                  ))}
+                  {(() => {
+                    const renderThread = (thread: MessageThread, showSearch?: boolean) => {
+                      const item = (
+                        <ThreadItem
+                          key={thread.root_message.id}
+                          thread={thread}
+                          isSelected={selectedThread?.root_message.id === thread.root_message.id}
+                          onClick={() => setSelectedThread(thread)}
+                          isSentView={selectedCategory === "sent"}
+                          searchQuery={showSearch ? debouncedSearch : undefined}
+                          pictureMap={tutorPictureMap}
+                        />
+                      );
+                      if (!isMobile || selectedCategory === "sent") return item;
+                      return (
+                        <SwipeableThreadItem
+                          key={thread.root_message.id}
+                          onSwipeLeftAction={selectedCategory !== "archived" ? () => handleArchive(thread.root_message.id) : undefined}
+                          onSwipeRightAction={() => thread.root_message.is_pinned ? handleUnpin(thread.root_message.id) : handlePin(thread.root_message.id)}
+                          rightLabel={thread.root_message.is_pinned ? "Unstar" : "Star"}
+                        >
+                          {item}
+                        </SwipeableThreadItem>
+                      );
+                    };
+
+                    return debouncedSearch.trim() ? (
+                      // Flat list when searching
+                      displayThreads.map((thread) => renderThread(thread, true))
+                    ) : (
+                      // Grouped by date when not searching
+                      groupThreadsByDate(displayThreads).map((group) => (
+                        <div key={group.label}>
+                          <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                            {group.label}
+                          </div>
+                          {group.threads.map((thread) => renderThread(thread))}
+                        </div>
+                      ))
+                    );
+                  })()}
                   {/* Load More button for paginated threads (not for sent or archived) */}
                   {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && hasMore && displayThreads.length > 0 && (
                     <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
@@ -2619,6 +3024,7 @@ export default function InboxPage() {
                   onUnpin={handleUnpin}
                   isArchived={selectedCategory === "archived"}
                   isMobile={isMobile}
+                  pictureMap={tutorPictureMap}
                 />
               </div>
             )}
@@ -2649,6 +3055,34 @@ export default function InboxPage() {
           isOpen={!!makeupModalSession}
           onClose={() => setMakeupModalSession(null)}
         />
+      )}
+
+      {/* Keyboard Shortcuts Help Panel — subtle dropdown anchored to ? button */}
+      {showShortcuts && shortcutsPos && (
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setShowShortcuts(false)} />
+            <div
+              className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3 w-56"
+              style={{ top: shortcutsPos.top, left: shortcutsPos.left }}
+            >
+              <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Keyboard Shortcuts</h4>
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
+                {[
+                  ["j / k", "Navigate threads"],
+                  ["Enter", "Open first thread"],
+                  ["Esc", "Close / clear"],
+                  ["c", "Compose message"],
+                  ["/", "Focus search"],
+                  ["?", "This help"],
+                ].map(([key, desc]) => (
+                  <div key={key} className="contents">
+                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[10px] text-center">{key}</kbd>
+                    <span className="text-gray-500 dark:text-gray-400 py-0.5">{desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
       )}
     </DeskSurface>
   );

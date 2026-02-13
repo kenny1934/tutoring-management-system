@@ -19,7 +19,7 @@ import {
   ListOrdered,
   Palette,
   Smile,
-  Image as ImageIcon,
+  Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -367,9 +367,9 @@ export default function InboxRichEditor({
               type="button"
               onClick={onAttachImage}
               className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
-              title="Attach image"
+              title="Attach file"
             >
-              <ImageIcon className="w-4 h-4" />
+              <Paperclip className="w-4 h-4" />
             </button>
           )}
           <EmojiPicker

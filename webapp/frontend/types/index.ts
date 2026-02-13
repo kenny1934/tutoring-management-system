@@ -8,6 +8,7 @@ export interface Tutor {
   default_location?: string;
   role: TutorRole;
   is_active_tutor?: boolean;
+  profile_picture?: string;
 }
 
 // Session Status constants
@@ -695,6 +696,7 @@ export interface Message {
   like_details?: LikeDetail[];
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
+  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
   // Read receipt fields for sender's messages (WhatsApp-style seen status)
   read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
   total_recipients?: number;  // Total recipients for broadcasts/groups
@@ -732,6 +734,7 @@ export interface MessageCreate {
   priority?: MessagePriority;
   category?: MessageCategory;
   image_attachments?: string[];  // List of uploaded image URLs
+  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
 }
 
 // Make-up scheduling types

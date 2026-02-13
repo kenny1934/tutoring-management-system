@@ -168,7 +168,8 @@ def build_message_response(
         is_liked_by_me=is_liked_by_me,
         like_details=like_details,
         reply_count=reply_count,
-        image_attachments=message.image_attachments or []
+        image_attachments=message.image_attachments or [],
+        file_attachments=message.file_attachments or []
     )
 
 
@@ -398,6 +399,7 @@ def batch_build_message_responses(
                 like_details=like_details_map.get(msg.id, []),
                 reply_count=reply_count_map.get(msg.id, 0),
                 image_attachments=msg.image_attachments or [],
+                file_attachments=msg.file_attachments or [],
                 read_receipts=read_receipts_list,
                 total_recipients=total_recipients,
                 read_by_all=read_by_all
@@ -724,6 +726,7 @@ async def get_message_threads(
             like_details=like_details_map.get(msg.id, []),
             reply_count=reply_count_map.get(msg.id, 0),
             image_attachments=msg.image_attachments or [],
+            file_attachments=msg.file_attachments or [],
             read_receipts=read_receipts_list,
             total_recipients=total_recipients,
             read_by_all=read_by_all
@@ -919,7 +922,8 @@ async def create_message(
         priority=message_data.priority,
         category=message_data.category,
         reply_to_id=message_data.reply_to_id,
-        image_attachments=message_data.image_attachments or []
+        image_attachments=message_data.image_attachments or [],
+        file_attachments=message_data.file_attachments or []
     )
 
     db.add(new_message)
@@ -968,6 +972,33 @@ async def upload_message_image(
     try:
         url = upload_image(contents, file.filename)
         return {"url": url, "filename": file.filename}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.post("/messages/upload-file")
+async def upload_message_file(
+    file: UploadFile = File(...),
+    tutor_id: int = Query(..., description="Tutor ID for authentication")
+):
+    """
+    Upload a file (image or document) for message attachment.
+    Images are resized/compressed; documents are stored as-is.
+    Returns URL, filename, and content_type.
+    """
+    content_type = file.content_type or ""
+    contents = await file.read()
+
+    try:
+        if content_type.startswith('image/'):
+            url = upload_image(contents, file.filename)
+            return {"url": url, "filename": file.filename, "content_type": content_type}
+        else:
+            from services.image_storage import upload_document
+            url = upload_document(contents, file.filename or "file", content_type)
+            return {"url": url, "filename": file.filename, "content_type": content_type}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1587,6 +1618,10 @@ async def update_message(
 
     if update_data.image_attachments is not None:
         message.image_attachments = update_data.image_attachments
+        message.updated_at = hk_now()
+
+    if update_data.file_attachments is not None:
+        message.file_attachments = update_data.file_attachments
         message.updated_at = hk_now()
 
     db.commit()
