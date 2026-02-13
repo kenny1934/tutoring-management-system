@@ -11,6 +11,20 @@ Do NOT include Claude Code Footer in commit message.
   - Backend: https://tutoring-backend-284725664511.asia-east2.run.app
   - Frontend: https://csm.mathconceptsecondary.academy
 
+## Versioning & Releases
+
+- **Versioning**: Semantic versioning via `release-please` (Google's GitHub Action)
+- **Current version**: Tracked in `.release-please-manifest.json`
+- **Changelog**: `CHANGELOG.md` at repo root, parsed into `webapp/frontend/lib/changelog-data.json` at build time
+- **Commit convention**: Use conventional commits (`feat:`, `fix:`, `perf:`, `refactor:`) — release-please uses these to generate changelog entries and determine version bumps
+- **Release flow**:
+  1. Merge PRs to `main` as normal (auto-deploys continue as before)
+  2. `release.yml` automatically creates/updates a Release PR accumulating changes
+  3. When ready to cut a release, merge the Release PR → creates git tag + GitHub Release + updates CHANGELOG.md
+  4. Next deploy picks up the new version tag and bakes it into the frontend as `NEXT_PUBLIC_APP_VERSION`
+- **Frontend version**: Passed via `NEXT_PUBLIC_APP_VERSION` build arg (Dockerfile → cloudbuild.yaml → deploy.yml)
+- **What's New page**: `/whats-new` — reads `changelog-data.json`, marks version as seen in localStorage
+
 ## Branch Workflow
 
 - Create feature branches: `git checkout -b feature/description`
