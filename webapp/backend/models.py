@@ -636,6 +636,7 @@ class MessageLike(Base):
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     action_type = Column(String(10), default="LIKE")  # LIKE or UNLIKE
+    emoji = Column(String(10), default="❤️")  # Reaction emoji
     liked_at = Column(DateTime, server_default=func.now())
 
     # Relationships

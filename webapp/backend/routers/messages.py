@@ -26,7 +26,8 @@ from schemas import (
     MarkAllReadRequest,
     MarkAllReadResponse,
     ReadReceiptDetail,
-    LikeDetail
+    LikeDetail,
+    ReactionSummary
 )
 from utils.rate_limiter import check_user_rate_limit
 from services.image_storage import upload_image
@@ -99,15 +100,16 @@ def build_message_response(
         TutorMessage.reply_to_id == message.id
     ).count()
 
-    # Fetch like details (who liked this message)
+    # Fetch like details (who reacted to this message)
     from sqlalchemy import desc
     like_details_subq = (
         db.query(
             MessageLike.tutor_id,
             MessageLike.action_type,
+            MessageLike.emoji,
             MessageLike.liked_at,
             func.row_number().over(
-                partition_by=MessageLike.tutor_id,
+                partition_by=[MessageLike.tutor_id, MessageLike.emoji],
                 order_by=desc(MessageLike.liked_at)
             ).label('rn')
         )
@@ -115,15 +117,26 @@ def build_message_response(
         .subquery()
     )
     current_likers = (
-        db.query(like_details_subq.c.tutor_id, like_details_subq.c.liked_at, Tutor.tutor_name)
+        db.query(like_details_subq.c.tutor_id, like_details_subq.c.liked_at, like_details_subq.c.emoji, Tutor.tutor_name)
         .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
         .filter(like_details_subq.c.rn == 1, like_details_subq.c.action_type == "LIKE")
         .order_by(like_details_subq.c.liked_at.asc())
         .all()
     )
     like_details = [
-        LikeDetail(tutor_id=l.tutor_id, tutor_name=l.tutor_name or "Unknown", liked_at=l.liked_at)
+        LikeDetail(tutor_id=l.tutor_id, tutor_name=l.tutor_name or "Unknown", liked_at=l.liked_at, emoji=l.emoji or "❤️")
         for l in current_likers
+    ]
+    # Build reaction summary from like_details
+    reaction_map: dict = {}
+    for ld in like_details:
+        if ld.emoji not in reaction_map:
+            reaction_map[ld.emoji] = {"count": 0, "tutor_ids": []}
+        reaction_map[ld.emoji]["count"] += 1
+        reaction_map[ld.emoji]["tutor_ids"].append(ld.tutor_id)
+    reaction_summary = [
+        ReactionSummary(emoji=e, count=r["count"], tutor_ids=r["tutor_ids"])
+        for e, r in reaction_map.items()
     ]
 
     # Group message fields
@@ -167,6 +180,7 @@ def build_message_response(
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
         like_details=like_details,
+        reaction_summary=reaction_summary,
         reply_count=reply_count,
         image_attachments=message.image_attachments or [],
         file_attachments=message.file_attachments or []
@@ -235,15 +249,16 @@ def batch_build_message_responses(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 4. Batch fetch like details (who liked each message)
+    # 4. Batch fetch like details (who reacted to each message)
     like_details_subq = (
         db.query(
             MessageLike.message_id,
             MessageLike.tutor_id,
             MessageLike.action_type,
+            MessageLike.emoji,
             MessageLike.liked_at,
             func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
                 order_by=desc(MessageLike.liked_at)
             ).label('rn')
         )
@@ -254,6 +269,7 @@ def batch_build_message_responses(
         db.query(
             like_details_subq.c.message_id,
             like_details_subq.c.tutor_id,
+            like_details_subq.c.emoji,
             like_details_subq.c.liked_at,
             Tutor.tutor_name
         )
@@ -273,7 +289,8 @@ def batch_build_message_responses(
             LikeDetail(
                 tutor_id=liker.tutor_id,
                 tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at
+                liked_at=liker.liked_at,
+                emoji=liker.emoji or "❤️"
             )
         )
 
@@ -583,15 +600,16 @@ async def get_message_threads(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 6. Batch fetch like details (who liked each message)
+    # 6. Batch fetch like details (who reacted to each message)
     like_details_subq = (
         db.query(
             MessageLike.message_id,
             MessageLike.tutor_id,
             MessageLike.action_type,
+            MessageLike.emoji,
             MessageLike.liked_at,
             func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
                 order_by=desc(MessageLike.liked_at)
             ).label('rn')
         )
@@ -602,6 +620,7 @@ async def get_message_threads(
         db.query(
             like_details_subq.c.message_id,
             like_details_subq.c.tutor_id,
+            like_details_subq.c.emoji,
             like_details_subq.c.liked_at,
             Tutor.tutor_name
         )
@@ -621,7 +640,8 @@ async def get_message_threads(
             LikeDetail(
                 tutor_id=liker.tutor_id,
                 tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at
+                liked_at=liker.liked_at,
+                emoji=liker.emoji or "❤️"
             )
         )
 
@@ -1224,15 +1244,16 @@ async def get_archived_messages(
     ).all()
     liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # Batch fetch like details (who liked each message)
+    # Batch fetch like details (who reacted to each message)
     like_details_subq = (
         db.query(
             MessageLike.message_id,
             MessageLike.tutor_id,
             MessageLike.action_type,
+            MessageLike.emoji,
             MessageLike.liked_at,
             func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
                 order_by=desc(MessageLike.liked_at)
             ).label('rn')
         )
@@ -1243,6 +1264,7 @@ async def get_archived_messages(
         db.query(
             like_details_subq.c.message_id,
             like_details_subq.c.tutor_id,
+            like_details_subq.c.emoji,
             like_details_subq.c.liked_at,
             Tutor.tutor_name
         )
@@ -1262,7 +1284,8 @@ async def get_archived_messages(
             LikeDetail(
                 tutor_id=liker.tutor_id,
                 tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at
+                liked_at=liker.liked_at,
+                emoji=liker.emoji or "❤️"
             )
         )
 
@@ -1555,25 +1578,28 @@ async def mark_as_unread(
 async def toggle_like(
     message_id: int,
     tutor_id: int = Query(..., description="Tutor toggling like"),
+    emoji: str = Query("❤️", description="Reaction emoji"),
     db: Session = Depends(get_db)
 ):
-    """Toggle like on a message."""
+    """Toggle a reaction (emoji) on a message."""
     check_user_rate_limit(tutor_id, "message_like")
 
-    # Get current like status (skip message existence check - FK will catch it)
+    # Get current like status for this specific emoji
     current_like = db.query(MessageLike.action_type).filter(
         MessageLike.message_id == message_id,
-        MessageLike.tutor_id == tutor_id
+        MessageLike.tutor_id == tutor_id,
+        MessageLike.emoji == emoji
     ).order_by(MessageLike.liked_at.desc()).first()
 
-    # Toggle: if currently liked -> unlike, else -> like
+    # Toggle: if currently liked with this emoji -> unlike, else -> like
     new_action = "UNLIKE" if (current_like and current_like.action_type == "LIKE") else "LIKE"
 
     try:
         new_like = MessageLike(
             message_id=message_id,
             tutor_id=tutor_id,
-            action_type=new_action
+            action_type=new_action,
+            emoji=emoji
         )
         db.add(new_like)
         db.commit()
@@ -1581,16 +1607,20 @@ async def toggle_like(
         db.rollback()
         raise HTTPException(status_code=404, detail="Message not found")
 
-    # Return new like count (more efficient: count distinct LIKE actions)
+    # Return total like count and per-emoji breakdown
     like_count = db.query(func.count(MessageLike.id)).filter(
         MessageLike.message_id == message_id,
         MessageLike.action_type == "LIKE"
     ).scalar() or 0
 
+    # Check if user currently has this emoji active
+    is_liked = new_action == "LIKE"
+
     return {
         "success": True,
-        "is_liked": new_action == "LIKE",
-        "like_count": like_count
+        "is_liked": is_liked,
+        "like_count": like_count,
+        "emoji": emoji
     }
 
 

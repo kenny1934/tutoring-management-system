@@ -671,6 +671,13 @@ export interface LikeDetail {
   tutor_id: number;
   tutor_name: string;
   liked_at: string;
+  emoji: string;
+}
+
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  tutor_ids: number[];
 }
 
 export interface Message {
@@ -694,6 +701,7 @@ export interface Message {
   like_count: number;
   is_liked_by_me: boolean;
   like_details?: LikeDetail[];
+  reaction_summary?: ReactionSummary[];
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
   file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
