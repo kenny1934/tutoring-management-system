@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle } from "@/lib/hooks";
-import changelogData from "@/lib/changelog-data.json";
+import changelogData from "@/lib/changelog-data";
 
 interface ChangelogItem {
   description: string;
