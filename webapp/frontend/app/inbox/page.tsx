@@ -440,7 +440,7 @@ function ComposeModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* To */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
               To
             </label>
             {replyTo ? (
@@ -579,7 +579,7 @@ function ComposeModal({
 
           {/* Subject */}
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
               Subject
             </label>
             <input
@@ -594,7 +594,7 @@ function ComposeModal({
           {/* Category & Priority row */}
           <div className="grid grid-cols-5 gap-4">
             <div className="col-span-3">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
                 Category
               </label>
               <div ref={categoryDropdownRef} className="relative">
@@ -630,7 +630,7 @@ function ComposeModal({
               </div>
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
                 Priority
               </label>
               <div ref={priorityDropdownRef} className="relative">
@@ -706,7 +706,7 @@ function ComposeModal({
               }
             }}
           >
-            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-200">
               Message
             </label>
             <InboxRichEditor
@@ -765,7 +765,7 @@ function ComposeModal({
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
-                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -787,9 +787,9 @@ function ComposeModal({
             <button
               type="submit"
               disabled={isSending || isUploading || isMessageEmpty}
-              className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               Send
             </button>
           </div>
@@ -844,10 +844,10 @@ const ThreadItem = React.memo(function ThreadItem({
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left p-3 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 transition-colors min-h-[64px] lg:min-h-0",
+        "w-full text-left p-3 border-b border-[#e8d4b8]/70 dark:border-[#6b5a4a]/70 transition-colors min-h-[64px] lg:min-h-0",
         isSelected
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
-          : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
+          : "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50",
         hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
         priorityConfig.borderClass
       )}
@@ -906,7 +906,7 @@ const ThreadItem = React.memo(function ThreadItem({
             hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-700 dark:text-gray-400"
           )}>
             {msg.category && (
-              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
+              <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">
                 {CATEGORIES.find(c => c.filter === msg.category)?.icon}
               </span>
             )}
@@ -914,7 +914,7 @@ const ThreadItem = React.memo(function ThreadItem({
           </div>
 
           {/* Preview */}
-          <div className="text-xs text-gray-600 dark:text-gray-500 truncate mt-0.5">
+          <div className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
             {(() => {
               const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
               const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
@@ -923,20 +923,20 @@ const ThreadItem = React.memo(function ThreadItem({
           </div>
 
           {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+              <Clock className="h-3.5 w-3.5" />
               {formatTimeAgo(latestMessage.created_at)}
             </span>
             {replyCount > 0 && (
               <span className="flex items-center gap-1">
-                <Reply className="h-3 w-3" />
+                <Reply className="h-3.5 w-3.5" />
                 {replyCount}
               </span>
             )}
             {msg.like_count > 0 && (
               <span className="flex items-center gap-1">
-                <Heart className="h-3 w-3" />
+                <Heart className="h-3.5 w-3.5" />
                 {msg.like_count}
               </span>
             )}
@@ -945,7 +945,7 @@ const ThreadItem = React.memo(function ThreadItem({
 
         {/* Unread badge */}
         {hasUnread && (
-          <span className="flex-shrink-0 min-w-[20px] h-5 flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1.5">
+          <span className="flex-shrink-0 min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold text-white bg-[#a0704b] rounded-full px-1.5">
             {total_unread}
           </span>
         )}
@@ -1031,9 +1031,9 @@ const SeenBadge = React.memo(function SeenBadge({
           {/* Popover content */}
           <div
             ref={popoverRef}
-            className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+            className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
           >
-            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+            <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
               Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
             </div>
             <div className="max-h-[200px] overflow-y-auto">
@@ -1507,7 +1507,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                     {m.from_tutor_name || "Unknown"}
                   </span>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1">
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic">(edited)</span>}
                     <SeenBadge message={m} currentTutorId={currentTutorId} />
@@ -1563,7 +1563,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                             <button
                               type="button"
                               onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
-                              className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -1576,7 +1576,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     <button
                       onClick={saveEdit}
                       disabled={isSaving || !editText || editText === "<p></p>" || editText.replace(/<[^>]*>/g, "").trim().length === 0}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                     >
                       {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                       Save
@@ -1646,7 +1646,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
                 <button
                   onClick={() => handleQuote(m)}
-                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
                   title="Quote this message"
                 >
                   <MessageSquareShare className="h-4 w-4" />
@@ -1656,7 +1656,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   <>
                     <button
                       onClick={() => startEdit(m)}
-                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                      className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded transition-colors"
                     >
                       <Pencil className="h-4 w-4" />
                       <span className="hidden sm:inline">Edit</span>
@@ -1667,7 +1667,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                           onDelete(m.id);
                         }
                       }}
-                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                      className="flex items-center gap-1 px-1.5 py-0.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                       <span className="hidden sm:inline">Delete</span>
@@ -1679,7 +1679,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               {/* Own message: timestamp + seen badge at bottom-right */}
               {isOwn && (
                 <div className="flex items-center justify-end gap-1 mt-1">
-                  <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-400">
                     {formatMessageTime(m.created_at)}
                     {m.updated_at && <span className="italic ml-1">(edited)</span>}
                   </span>
@@ -1811,7 +1811,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <button
                   type="button"
                   onClick={() => setReplyImages(prev => prev.filter((_, i) => i !== idx))}
-                  className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -1834,7 +1834,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <button
               onClick={handleSendReply}
               disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
             >
               {isReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               <span className="hidden sm:inline">Send</span>
@@ -2354,7 +2354,7 @@ export default function InboxPage() {
                 <button
                   onClick={handleCompose}
                   disabled={!hasTutor}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                 >
                   <PenSquare className="h-4 w-4" />
                   Compose
@@ -2387,7 +2387,7 @@ export default function InboxPage() {
                           <div className="my-2 mx-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50" />
                         ) : (
                           <div className="mt-3 mb-1 px-3">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                               {section.label}
                             </span>
                           </div>
@@ -2410,7 +2410,7 @@ export default function InboxPage() {
                             <span className="relative">
                               {cat.icon}
                               {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
-                                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
+                                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
                                   {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
                                 </span>
                               )}
@@ -2509,7 +2509,7 @@ export default function InboxPage() {
                       <button
                         onClick={handleCompose}
                         disabled={!hasTutor}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                       >
                         <PenSquare className="h-4 w-4" />
                         Compose
