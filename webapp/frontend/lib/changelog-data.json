@@ -1,5 +1,45 @@
 [
   {
+    "version": "2.0.1",
+    "date": "2026-02-13",
+    "sections": [
+      {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "Group messaging — send messages to multiple specific tutors (not just one or all)"
+          },
+          {
+            "description": "Multi-select recipient picker with tutor checkboxes and chip display"
+          },
+          {
+            "description": "Group messages show \"Group (N)\" badge in thread list and green highlight in thread detail"
+          },
+          {
+            "description": "Reply to group message inherits original recipients"
+          }
+        ]
+      },
+      {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "Message pinning/starring across all inbox views (inbox, archived, categories)"
+          },
+          {
+            "description": "Inbox sidebar reorganized into Mailboxes and Categories sections"
+          },
+          {
+            "description": "Draft auto-save for compose and reply forms"
+          },
+          {
+            "description": "Batch \"Mark All Read\" for current category or entire inbox"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.0.0",
     "date": "2025-02-13",
     "sections": [

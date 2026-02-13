@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.1](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.1) (2026-02-13)
+
+### New Features
+
+* Group messaging — send messages to multiple specific tutors (not just one or all)
+* Multi-select recipient picker with tutor checkboxes and chip display
+* Group messages show "Group (N)" badge in thread list and green highlight in thread detail
+* Reply to group message inherits original recipients
+
+### Improvements
+
+* Message pinning/starring across all inbox views (inbox, archived, categories)
+* Inbox sidebar reorganized into Mailboxes and Categories sections
+* Draft auto-save for compose and reply forms
+* Batch "Mark All Read" for current category or entire inbox
+
 ## [2.0.0](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.0) (2025-02-13)
 
 ### New Features
