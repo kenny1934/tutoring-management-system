@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
-import { useSwipeGesture } from "@/lib/hooks/useSwipeGesture";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
@@ -1172,6 +1172,73 @@ function SwipeableThreadItem({
   );
 }
 
+// Swipeable message wrapper — swipe right to quote (mobile only)
+function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; onQuote: () => void }) {
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const currentX = useRef(0);
+  const isSwiping = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    startY.current = e.touches[0].clientY;
+    currentX.current = 0;
+    isSwiping.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - startX.current;
+    const dy = e.touches[0].clientY - startY.current;
+    if (!isSwiping.current && Math.abs(dx) > Math.abs(dy) && dx > 10) {
+      isSwiping.current = true;
+    }
+    if (!isSwiping.current) return;
+    // Only rightward, clamped to 0..60
+    currentX.current = Math.max(0, Math.min(60, dx));
+    if (containerRef.current) {
+      containerRef.current.style.transform = `translateX(${currentX.current}px)`;
+      containerRef.current.style.transition = 'none';
+    }
+    if (iconRef.current) {
+      iconRef.current.style.opacity = String(Math.min(1, currentX.current / 50));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!containerRef.current) return;
+    containerRef.current.style.transition = 'transform 0.2s ease-out';
+    containerRef.current.style.transform = 'translateX(0)';
+    if (iconRef.current) {
+      iconRef.current.style.opacity = '0';
+    }
+
+    if (isSwiping.current && currentX.current >= 50) {
+      onQuote();
+    }
+    isSwiping.current = false;
+    currentX.current = 0;
+  }, [onQuote]);
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Reply icon revealed on swipe right */}
+      <div ref={iconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-[#a0704b]" style={{ opacity: 0 }}>
+        <Reply className="h-4 w-4" />
+      </div>
+      <div
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // Seen Badge Component - WhatsApp-style read receipts
 const SeenBadge = React.memo(function SeenBadge({
   message,
@@ -1182,6 +1249,8 @@ const SeenBadge = React.memo(function SeenBadge({
 }) {
   const [showPopover, setShowPopover] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   // Only show for sender's own messages
   if (message.from_tutor_id !== currentTutorId) {
@@ -1204,7 +1273,18 @@ const SeenBadge = React.memo(function SeenBadge({
   return (
     <div className="relative inline-flex items-center">
       <button
-        onClick={() => setShowPopover(!showPopover)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!showPopover && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            setPopoverPos({
+              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+              left: Math.max(8, Math.min(rect.right - 250, window.innerWidth - 260)),
+            });
+          }
+          setShowPopover(!showPopover);
+        }}
         className={cn(
           "flex items-center gap-0.5 text-xs transition-colors hover:opacity-80",
           checkColor
@@ -1238,18 +1318,17 @@ const SeenBadge = React.memo(function SeenBadge({
         )}
       </button>
 
-      {/* Popover showing who read the message */}
-      {showPopover && hasBeenRead && (
+      {/* Popover showing who read the message — portaled to body to escape transform/overflow */}
+      {showPopover && hasBeenRead && createPortal(
         <>
-          {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[60]"
             onClick={() => setShowPopover(false)}
           />
-          {/* Popover content */}
           <div
             ref={popoverRef}
-            className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
+            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
           >
             <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
               Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
@@ -1279,7 +1358,8 @@ const SeenBadge = React.memo(function SeenBadge({
               ))}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
@@ -1292,6 +1372,8 @@ const LikesBadge = React.memo(function LikesBadge({
   message: Message;
 }) {
   const [showPopover, setShowPopover] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const likeDetails = message.like_details || [];
   if (likeDetails.length === 0) return null;
@@ -1299,7 +1381,18 @@ const LikesBadge = React.memo(function LikesBadge({
   return (
     <div className="relative inline-flex items-center">
       <button
-        onClick={() => setShowPopover(!showPopover)}
+        ref={buttonRef}
+        onClick={() => {
+          if (!showPopover && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            setPopoverPos({
+              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+              left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
+            });
+          }
+          setShowPopover(!showPopover);
+        }}
         className="flex items-center gap-1 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs text-red-500 hover:shadow-md transition-shadow"
         title={`Liked by ${likeDetails.length}`}
       >
@@ -1307,13 +1400,17 @@ const LikesBadge = React.memo(function LikesBadge({
         <span>{likeDetails.length}</span>
       </button>
 
-      {showPopover && (
+      {/* Popover — portaled to body to escape transform/overflow */}
+      {showPopover && createPortal(
         <>
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[60]"
             onClick={() => setShowPopover(false)}
           />
-          <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]">
+          <div
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
+          >
             <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
               Liked by {likeDetails.length}
             </div>
@@ -1342,7 +1439,8 @@ const LikesBadge = React.memo(function LikesBadge({
               ))}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
@@ -1389,11 +1487,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
 
-  // Swipe gesture for mobile - swipe right to close
-  const swipeHandlers = useSwipeGesture({
-    onSwipeRight: isMobile ? onClose : undefined,
-    threshold: 80,
-  });
+  // Edge-only swipe right to close with peeking animation (mobile)
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelSwipe = useRef({ x: 0, y: 0, active: false });
 
   // Edit state
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -1614,8 +1710,41 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   return (
     <div
+      ref={panelRef}
       className={cn("h-full flex flex-col", isMobile ? "bg-white dark:bg-[#1a1a1a]" : "bg-white/90 dark:bg-[#1a1a1a]/90")}
-      {...(isMobile ? swipeHandlers : {})}
+      onTouchStart={isMobile ? (e) => {
+        const x = e.touches[0].clientX;
+        if (x > 30) return; // Edge-only: must start within 30px of left edge
+        panelSwipe.current = { x, y: e.touches[0].clientY, active: false };
+      } : undefined}
+      onTouchMove={isMobile ? (e) => {
+        if (panelSwipe.current.x === 0) return; // Not started from edge
+        const dx = e.touches[0].clientX - panelSwipe.current.x;
+        const dy = e.touches[0].clientY - panelSwipe.current.y;
+        if (!panelSwipe.current.active && Math.abs(dx) > Math.abs(dy) && dx > 10) {
+          panelSwipe.current.active = true;
+        }
+        if (!panelSwipe.current.active || !panelRef.current) return;
+        const clamped = Math.max(0, dx);
+        panelRef.current.style.transform = `translateX(${clamped}px)`;
+        panelRef.current.style.transition = 'none';
+      } : undefined}
+      onTouchEnd={isMobile ? (e) => {
+        if (!panelSwipe.current.active || !panelRef.current) {
+          panelSwipe.current = { x: 0, y: 0, active: false };
+          return;
+        }
+        const dx = e.changedTouches[0].clientX - panelSwipe.current.x;
+        if (dx > 120) {
+          panelRef.current.style.transition = 'transform 0.25s ease-out';
+          panelRef.current.style.transform = 'translateX(100%)';
+          setTimeout(onClose, 250);
+        } else {
+          panelRef.current.style.transition = 'transform 0.2s ease-out';
+          panelRef.current.style.transform = 'translateX(0)';
+        }
+        panelSwipe.current = { x: 0, y: 0, active: false };
+      } : undefined}
     >
       {/* Header */}
       <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] z-[1] relative">
@@ -1709,25 +1838,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const nextMsg = allMessages[idx + 1];
           const isLastInGroup = !nextMsg || nextMsg.from_tutor_id !== m.from_tutor_id;
 
-          return (
-            <React.Fragment key={m.id}>
-              {/* Date separator */}
-              {isNewDay && (
-                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
-                  <span className="font-medium px-2">{formatDateLabel(msgDate)}</span>
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
-                </div>
-              )}
-              {/* "New messages" divider */}
-              {m.id === firstUnreadIdRef.current && (
-                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
-                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
-                  <span className="font-medium">New messages</span>
-                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
-                </div>
-              )}
-            {/* Message bubble — others get avatar wrapper, own messages stay right-aligned */}
+          // Message bubble content (extracted for optional SwipeableMessage wrapping)
+          const messageBubble = (
             <div className={cn(!isOwn && "flex gap-2 mr-12 sm:mr-20")}>
               {!isOwn && (
                 <div className="mt-1">
@@ -1981,7 +2093,33 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               )}
             </div>
-            </div>{/* end avatar wrapper */}
+            </div>
+          );
+
+          return (
+            <React.Fragment key={m.id}>
+              {/* Date separator */}
+              {isNewDay && (
+                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
+                  <span className="font-medium px-2">{formatDateLabel(msgDate)}</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
+                </div>
+              )}
+              {/* "New messages" divider */}
+              {m.id === firstUnreadIdRef.current && (
+                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
+                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
+                  <span className="font-medium">New messages</span>
+                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
+                </div>
+              )}
+              {/* Wrap with SwipeableMessage on mobile for swipe-to-quote */}
+              {isMobile ? (
+                <SwipeableMessage onQuote={() => handleQuote(m)}>
+                  {messageBubble}
+                </SwipeableMessage>
+              ) : messageBubble}
             </React.Fragment>
           );
         })}
@@ -2772,8 +2910,7 @@ export default function InboxPage() {
             {/* Left panel - Categories */}
             <div className={cn(
               "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-y-auto",
-              categoryCollapsed ? "w-12" : "w-48",
-              isMobile && selectedThread && "hidden"
+              categoryCollapsed ? "w-12" : "w-48"
             )}>
               <div className="p-2">
                 <button
@@ -2846,8 +2983,7 @@ export default function InboxPage() {
 
             {/* Middle panel - Thread list */}
             <div className={cn(
-              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col",
-              isMobile && selectedThread && "hidden"
+              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col"
             )}>
               {/* Search bar */}
               <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
