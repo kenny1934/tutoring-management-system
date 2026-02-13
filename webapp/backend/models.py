@@ -586,7 +586,7 @@ class TutorMessage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     from_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
-    to_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=True)  # NULL = broadcast to all
+    to_tutor_id = Column(Integer, nullable=True)  # NULL = broadcast, -1 = group (recipients in message_recipients)
     subject = Column(String(200))
     message = Column(Text, nullable=False)
     priority = Column(String(20), default="Normal")  # Normal, High, Urgent
@@ -599,12 +599,13 @@ class TutorMessage(Base):
 
     # Relationships
     from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")
-    to_tutor = relationship("Tutor", foreign_keys=[to_tutor_id], backref="received_messages")
+    to_tutor = relationship("Tutor", primaryjoin="and_(TutorMessage.to_tutor_id == Tutor.id, TutorMessage.to_tutor_id > 0)", foreign_keys=[to_tutor_id], viewonly=True)
     replies = relationship("TutorMessage", backref="parent", remote_side=[id], foreign_keys=[reply_to_id])
     read_receipts = relationship("MessageReadReceipt", back_populates="message", cascade="all, delete-orphan")
     likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
     archives = relationship("MessageArchive", back_populates="message", cascade="all, delete-orphan")
     pins = relationship("MessagePin", back_populates="message", cascade="all, delete-orphan")
+    recipients = relationship("MessageRecipient", back_populates="message", cascade="all, delete-orphan")
 
 
 class MessageReadReceipt(Base):
@@ -672,6 +673,22 @@ class MessagePin(Base):
 
     # Relationships
     message = relationship("TutorMessage", back_populates="pins")
+    tutor = relationship("Tutor")
+
+
+class MessageRecipient(Base):
+    """
+    Junction table for group message recipients.
+    Only populated when to_tutor_id = -1 (group message sentinel).
+    """
+    __tablename__ = "message_recipients"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="recipients")
     tutor = relationship("Tutor")
 
 

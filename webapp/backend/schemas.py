@@ -1071,7 +1071,8 @@ class MessageBase(BaseModel):
 
 class MessageCreate(MessageBase):
     """Schema for creating a new message"""
-    to_tutor_id: Optional[int] = Field(None, gt=0)  # NULL = broadcast
+    to_tutor_id: Optional[int] = Field(None, gt=0)  # NULL = broadcast (single recipient)
+    to_tutor_ids: Optional[List[int]] = Field(None, min_length=2, max_length=50)  # Group message recipients
     reply_to_id: Optional[int] = Field(None, gt=0)
     image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
 
@@ -1087,8 +1088,11 @@ class MessageResponse(MessageBase):
     id: int = Field(..., gt=0)
     from_tutor_id: int = Field(..., gt=0)
     from_tutor_name: Optional[str] = Field(None, max_length=255)
-    to_tutor_id: Optional[int] = Field(None, gt=0)
-    to_tutor_name: Optional[str] = Field(None, max_length=255)  # "All" for broadcasts
+    to_tutor_id: Optional[int] = Field(None)  # NULL=broadcast, -1=group, positive=direct
+    to_tutor_name: Optional[str] = Field(None, max_length=255)  # "All" for broadcasts, comma-joined for groups
+    to_tutor_ids: Optional[List[int]] = None  # Group recipient IDs (only for group messages)
+    to_tutor_names: Optional[List[str]] = None  # Group recipient names (only for group messages)
+    is_group_message: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
     reply_to_id: Optional[int] = Field(None, gt=0)

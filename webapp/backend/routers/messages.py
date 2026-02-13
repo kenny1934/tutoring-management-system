@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
 from database import get_db
-from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, Tutor, MakeupProposal
+from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, MessageRecipient, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html
 from schemas import (
     MessageCreate,
@@ -32,6 +32,31 @@ from utils.rate_limiter import check_user_rate_limit
 from services.image_storage import upload_image
 
 router = APIRouter()
+
+# Group message sentinel value
+GROUP_MESSAGE_SENTINEL = -1
+
+
+def visible_to_tutor_filter(tutor_id: int, db: Session):
+    """Reusable SQLAlchemy filter for messages visible to a specific tutor.
+
+    A message is visible if:
+    1. to_tutor_id == tutor_id (direct message), OR
+    2. to_tutor_id IS NULL (broadcast), OR
+    3. to_tutor_id == -1 AND tutor is in message_recipients (group message)
+    """
+    group_msg_subq = db.query(MessageRecipient.message_id).filter(
+        MessageRecipient.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    return or_(
+        TutorMessage.to_tutor_id == tutor_id,
+        TutorMessage.to_tutor_id.is_(None),
+        and_(
+            TutorMessage.to_tutor_id == GROUP_MESSAGE_SENTINEL,
+            TutorMessage.id.in_(group_msg_subq)
+        )
+    )
 
 
 def build_message_response(
@@ -101,12 +126,32 @@ def build_message_response(
         for l in current_likers
     ]
 
+    # Group message fields
+    is_group = message.to_tutor_id == GROUP_MESSAGE_SENTINEL
+    _to_tutor_ids = None
+    _to_tutor_names = None
+    _to_tutor_name = message.to_tutor.tutor_name if message.to_tutor else "All"
+    if is_group:
+        _recips = (
+            db.query(MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id == message.id)
+            .order_by(Tutor.tutor_name)
+            .all()
+        )
+        _to_tutor_ids = [r.tutor_id for r in _recips]
+        _to_tutor_names = [r.tutor_name or "Unknown" for r in _recips]
+        if len(_to_tutor_names) <= 3:
+            _to_tutor_name = ", ".join(_to_tutor_names)
+        else:
+            _to_tutor_name = f"{', '.join(_to_tutor_names[:2])} +{len(_to_tutor_names) - 2}"
+
     return MessageResponse(
         id=message.id,
         from_tutor_id=message.from_tutor_id,
         from_tutor_name=message.from_tutor.tutor_name if message.from_tutor else None,
         to_tutor_id=message.to_tutor_id,
-        to_tutor_name=message.to_tutor.tutor_name if message.to_tutor else "All",
+        to_tutor_name=_to_tutor_name,
         subject=message.subject,
         message=message.message,
         priority=message.priority or "Normal",
@@ -116,6 +161,9 @@ def build_message_response(
         reply_to_id=message.reply_to_id,
         is_read=is_read,
         is_pinned=is_pinned,
+        is_group_message=is_group,
+        to_tutor_ids=_to_tutor_ids,
+        to_tutor_names=_to_tutor_names,
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
         like_details=like_details,
@@ -273,11 +321,31 @@ def batch_build_message_responses(
             Tutor.id != current_tutor_id
         ).scalar() or 0
 
+    # 7. Batch fetch group recipient info
+    _batch_group_ids = [m.id for m in messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
+    _batch_group_recipients_map = {}
+    _batch_group_names_map = {}
+    _batch_group_count_map = {}
+    if _batch_group_ids:
+        _batch_recips = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_batch_group_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _batch_recips:
+            _batch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            _batch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _batch_group_ids:
+            _batch_group_count_map[mid] = len(_batch_group_recipients_map.get(mid, []))
+
     # Build responses using pre-fetched data
     responses = []
     for msg in messages:
         is_own_message = msg.from_tutor_id == current_tutor_id
         is_broadcast = msg.to_tutor_id is None
+        is_group = msg.to_tutor_id == GROUP_MESSAGE_SENTINEL
 
         # Determine read receipt data for sender's messages
         read_receipts_list = None
@@ -289,13 +357,21 @@ def batch_build_message_responses(
             read_count = len(read_receipts_list)
 
             if is_broadcast:
-                # Broadcast: total recipients = all active tutors except sender
                 total_recipients = total_active_tutors
                 read_by_all = read_count >= total_recipients if total_recipients > 0 else True
+            elif is_group:
+                total_recipients = _batch_group_count_map.get(msg.id, 0)
+                read_by_all = read_count >= total_recipients if total_recipients > 0 else True
             else:
-                # Direct message: only one recipient
                 total_recipients = 1
                 read_by_all = read_count >= 1
+
+        # Group message display name
+        if is_group:
+            names = _batch_group_names_map.get(msg.id, [])
+            to_tutor_name = ", ".join(names) if len(names) <= 3 else f"{', '.join(names[:2])} +{len(names) - 2}"
+        else:
+            to_tutor_name = msg.to_tutor.tutor_name if msg.to_tutor else "All"
 
         responses.append(
             MessageResponse(
@@ -303,7 +379,7 @@ def batch_build_message_responses(
                 from_tutor_id=msg.from_tutor_id,
                 from_tutor_name=msg.from_tutor.tutor_name if msg.from_tutor else None,
                 to_tutor_id=msg.to_tutor_id,
-                to_tutor_name=msg.to_tutor.tutor_name if msg.to_tutor else "All",
+                to_tutor_name=to_tutor_name,
                 subject=msg.subject,
                 message=msg.message,
                 priority=msg.priority or "Normal",
@@ -313,6 +389,9 @@ def batch_build_message_responses(
                 reply_to_id=msg.reply_to_id,
                 is_read=msg.id in read_ids,
                 is_pinned=msg.id in pinned_ids,
+                is_group_message=is_group,
+                to_tutor_ids=_batch_group_recipients_map.get(msg.id) if is_group else None,
+                to_tutor_names=_batch_group_names_map.get(msg.id) if is_group else None,
                 like_count=like_count_map.get(msg.id, 0),
                 is_liked_by_me=msg.id in liked_by_me,
                 like_details=like_details_map.get(msg.id, []),
@@ -358,8 +437,7 @@ async def get_message_threads(
             TutorMessage.reply_to_id.is_(None),
             ~TutorMessage.id.in_(archived_ids_subq),  # Exclude archived
             or_(
-                TutorMessage.to_tutor_id == tutor_id,      # Direct messages to me
-                TutorMessage.to_tutor_id.is_(None),        # Broadcasts
+                visible_to_tutor_filter(tutor_id, db),
                 TutorMessage.id.in_(has_replies_subq),     # Threads I started with replies
             )
         )
@@ -435,6 +513,41 @@ async def get_message_threads(
         MessagePin.tutor_id == tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
+
+    # Combine all messages for in-memory lookups
+    all_messages = root_messages + all_replies
+
+    # Batch fetch group message visibility (for in-memory unread checks)
+    _group_msg_ids = [m.id for m in all_messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
+    group_visible_ids = set()
+    if _group_msg_ids:
+        _rows = db.query(MessageRecipient.message_id).filter(
+            MessageRecipient.message_id.in_(_group_msg_ids),
+            MessageRecipient.tutor_id == tutor_id
+        ).all()
+        group_visible_ids = set(r.message_id for r in _rows)
+
+    def _is_visible_to_me(msg):
+        return (msg.to_tutor_id == tutor_id or msg.to_tutor_id is None or
+                (msg.to_tutor_id == GROUP_MESSAGE_SENTINEL and msg.id in group_visible_ids))
+
+    # Batch fetch group recipient info for response building
+    group_recipients_map = {}  # message_id -> [tutor_ids]
+    group_recipient_names_map = {}  # message_id -> [tutor_names]
+    group_recipient_count_map = {}  # message_id -> count
+    if _group_msg_ids:
+        _recipients = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_group_msg_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _recipients:
+            group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            group_recipient_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _group_msg_ids:
+            group_recipient_count_map[mid] = len(group_recipients_map.get(mid, []))
 
     # 4. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -519,7 +632,6 @@ async def get_message_threads(
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
     # 8. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
-    all_messages = list(root_messages) + list(all_replies)
     my_sent_ids = [m.id for m in all_messages if m.from_tutor_id == tutor_id]
     sender_read_receipts_map: dict = {}
     if my_sent_ids:
@@ -558,6 +670,7 @@ async def get_message_threads(
     def build_response(msg: TutorMessage) -> MessageResponse:
         is_own_message = msg.from_tutor_id == tutor_id
         is_broadcast = msg.to_tutor_id is None
+        is_group = msg.to_tutor_id == GROUP_MESSAGE_SENTINEL
 
         read_receipts_list = None
         total_recipients = None
@@ -569,16 +682,29 @@ async def get_message_threads(
             if is_broadcast:
                 total_recipients = total_active_tutors
                 read_by_all = read_count >= total_recipients if total_recipients > 0 else True
+            elif is_group:
+                total_recipients = group_recipient_count_map.get(msg.id, 0)
+                read_by_all = read_count >= total_recipients if total_recipients > 0 else True
             else:
                 total_recipients = 1
                 read_by_all = read_count >= 1
+
+        # Group message display name
+        if is_group:
+            names = group_recipient_names_map.get(msg.id, [])
+            if len(names) <= 3:
+                to_tutor_name = ", ".join(names)
+            else:
+                to_tutor_name = f"{', '.join(names[:2])} +{len(names) - 2}"
+        else:
+            to_tutor_name = msg.to_tutor.tutor_name if msg.to_tutor else "All"
 
         return MessageResponse(
             id=msg.id,
             from_tutor_id=msg.from_tutor_id,
             from_tutor_name=msg.from_tutor.tutor_name if msg.from_tutor else None,
             to_tutor_id=msg.to_tutor_id,
-            to_tutor_name=msg.to_tutor.tutor_name if msg.to_tutor else "All",
+            to_tutor_name=to_tutor_name,
             subject=msg.subject,
             message=msg.message,
             priority=msg.priority or "Normal",
@@ -588,6 +714,9 @@ async def get_message_threads(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
+            is_group_message=is_group,
+            to_tutor_ids=group_recipients_map.get(msg.id) if is_group else None,
+            to_tutor_names=group_recipient_names_map.get(msg.id) if is_group else None,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
             like_details=like_details_map.get(msg.id, []),
@@ -603,7 +732,7 @@ async def get_message_threads(
     for root in root_messages:
         replies = replies_by_root.get(root.id, [])
         all_msgs_in_thread = [root] + replies
-        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and (m.to_tutor_id == tutor_id or m.to_tutor_id is None))
+        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and _is_visible_to_me(m))
 
         threads.append(ThreadResponse(
             root_message=build_response(root),
@@ -658,10 +787,7 @@ async def get_unread_count(
 
     # Count visible messages that have no read receipt (excluding archived)
     unread_count = db.query(func.count(TutorMessage.id)).filter(
-        or_(
-            TutorMessage.to_tutor_id == tutor_id,
-            TutorMessage.to_tutor_id.is_(None)  # Broadcasts
-        ),
+        visible_to_tutor_filter(tutor_id, db),
         ~TutorMessage.id.in_(archived_ids_subq),
         ~db.query(MessageReadReceipt.id).filter(
             MessageReadReceipt.message_id == TutorMessage.id,
@@ -724,8 +850,11 @@ async def get_thread(
     root_response = all_responses[0]
     reply_responses = all_responses[1:]
 
-    # Count unread: only messages addressed to current tutor (matching unread-count endpoint logic)
-    total_unread = sum(1 for r in all_responses if not r.is_read and (r.to_tutor_id == tutor_id or r.to_tutor_id is None))
+    # Count unread: only messages visible to current tutor (direct, broadcast, or group recipient)
+    total_unread = sum(1 for r in all_responses if not r.is_read and (
+        r.to_tutor_id == tutor_id or r.to_tutor_id is None or
+        (r.is_group_message and r.to_tutor_ids and tutor_id in r.to_tutor_ids)
+    ))
 
     return ThreadResponse(
         root_message=root_response,
@@ -749,6 +878,10 @@ async def create_message(
     if not sender:
         raise HTTPException(status_code=404, detail="Sender tutor not found")
 
+    # Validate mutual exclusivity of to_tutor_id and to_tutor_ids
+    if message_data.to_tutor_id and message_data.to_tutor_ids:
+        raise HTTPException(status_code=400, detail="Cannot specify both to_tutor_id and to_tutor_ids")
+
     # If replying, verify parent exists
     if message_data.reply_to_id:
         parent = db.query(TutorMessage).filter(
@@ -757,8 +890,20 @@ async def create_message(
         if not parent:
             raise HTTPException(status_code=404, detail="Parent message not found")
 
-    # If sending to specific tutor, verify they exist
-    if message_data.to_tutor_id:
+    # Determine the effective to_tutor_id
+    effective_to_tutor_id = message_data.to_tutor_id
+    if message_data.to_tutor_ids:
+        # Group message: validate all recipient tutors exist
+        recipient_tutors = db.query(Tutor.id).filter(
+            Tutor.id.in_(message_data.to_tutor_ids)
+        ).all()
+        found_ids = set(r.id for r in recipient_tutors)
+        missing = set(message_data.to_tutor_ids) - found_ids
+        if missing:
+            raise HTTPException(status_code=404, detail=f"Recipient tutors not found: {sorted(missing)}")
+        effective_to_tutor_id = GROUP_MESSAGE_SENTINEL
+    elif message_data.to_tutor_id:
+        # Direct message: verify recipient exists
         recipient = db.query(Tutor).filter(Tutor.id == message_data.to_tutor_id).first()
         if not recipient:
             raise HTTPException(status_code=404, detail="Recipient tutor not found")
@@ -766,7 +911,7 @@ async def create_message(
     # Create message (sanitize HTML to prevent XSS)
     new_message = TutorMessage(
         from_tutor_id=from_tutor_id,
-        to_tutor_id=message_data.to_tutor_id,
+        to_tutor_id=effective_to_tutor_id,
         subject=message_data.subject,
         message=sanitize_message_html(message_data.message),
         priority=message_data.priority,
@@ -778,6 +923,12 @@ async def create_message(
     db.add(new_message)
     db.commit()
     db.refresh(new_message)
+
+    # Insert group message recipients
+    if message_data.to_tutor_ids:
+        for tid in message_data.to_tutor_ids:
+            db.add(MessageRecipient(message_id=new_message.id, tutor_id=tid))
+        db.commit()
 
     # Load relationships
     new_message = (
@@ -847,10 +998,7 @@ async def mark_all_read(
 
     # Find all unread, non-archived messages visible to this tutor
     unread_query = db.query(TutorMessage.id).filter(
-        or_(
-            TutorMessage.to_tutor_id == tutor_id,
-            TutorMessage.to_tutor_id.is_(None),  # Broadcasts
-        ),
+        visible_to_tutor_filter(tutor_id, db),
         ~TutorMessage.id.in_(archived_ids_subq),
         ~TutorMessage.id.in_(already_read_subq),
         TutorMessage.from_tutor_id != tutor_id,  # Don't mark own messages
@@ -953,10 +1101,7 @@ async def get_archived_messages(
         .filter(
             TutorMessage.reply_to_id.is_(None),
             TutorMessage.id.in_(archived_ids_subq),
-            or_(
-                TutorMessage.to_tutor_id == tutor_id,
-                TutorMessage.to_tutor_id.is_(None),
-            )
+            visible_to_tutor_filter(tutor_id, db),
         )
     )
 
@@ -1103,14 +1248,52 @@ async def get_archived_messages(
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
 
+    # Batch fetch group message visibility and recipients
+    _all_archived_messages = root_messages + all_replies
+    _arch_group_ids = [m.id for m in _all_archived_messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
+    _arch_group_visible_ids = set()
+    _arch_group_recipients_map = {}
+    _arch_group_names_map = {}
+    _arch_group_count_map = {}
+    if _arch_group_ids:
+        _vis_rows = db.query(MessageRecipient.message_id).filter(
+            MessageRecipient.message_id.in_(_arch_group_ids),
+            MessageRecipient.tutor_id == tutor_id
+        ).all()
+        _arch_group_visible_ids = set(r.message_id for r in _vis_rows)
+
+        _recips = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_arch_group_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _recips:
+            _arch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            _arch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _arch_group_ids:
+            _arch_group_count_map[mid] = len(_arch_group_recipients_map.get(mid, []))
+
+    def _arch_is_visible(msg):
+        return (msg.to_tutor_id == tutor_id or msg.to_tutor_id is None or
+                (msg.to_tutor_id == GROUP_MESSAGE_SENTINEL and msg.id in _arch_group_visible_ids))
+
     # Helper to build MessageResponse
     def build_response(msg: TutorMessage) -> MessageResponse:
+        is_group = msg.to_tutor_id == GROUP_MESSAGE_SENTINEL
+        if is_group:
+            names = _arch_group_names_map.get(msg.id, [])
+            to_name = ", ".join(names) if len(names) <= 3 else f"{', '.join(names[:2])} +{len(names) - 2}"
+        else:
+            to_name = msg.to_tutor.tutor_name if msg.to_tutor else "All"
+
         return MessageResponse(
             id=msg.id,
             from_tutor_id=msg.from_tutor_id,
             from_tutor_name=msg.from_tutor.tutor_name if msg.from_tutor else None,
             to_tutor_id=msg.to_tutor_id,
-            to_tutor_name=msg.to_tutor.tutor_name if msg.to_tutor else "All",
+            to_tutor_name=to_name,
             subject=msg.subject,
             message=msg.message,
             priority=msg.priority or "Normal",
@@ -1120,6 +1303,9 @@ async def get_archived_messages(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
+            is_group_message=is_group,
+            to_tutor_ids=_arch_group_recipients_map.get(msg.id) if is_group else None,
+            to_tutor_names=_arch_group_names_map.get(msg.id) if is_group else None,
             like_count=like_count_map.get(msg.id, 0),
             is_liked_by_me=msg.id in liked_by_me,
             like_details=like_details_map.get(msg.id, []),
@@ -1131,7 +1317,7 @@ async def get_archived_messages(
     for root in root_messages:
         replies = replies_by_root.get(root.id, [])
         all_msgs_in_thread = [root] + replies
-        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and (m.to_tutor_id == tutor_id or m.to_tutor_id is None))
+        unread_count = sum(1 for m in all_msgs_in_thread if m.id not in read_ids and _arch_is_visible(m))
 
         threads.append(ThreadResponse(
             root_message=build_response(root),
@@ -1212,8 +1398,7 @@ async def get_pinned_messages(
             TutorMessage.reply_to_id.is_(None),
             TutorMessage.id.in_(pinned_ids_subq),
             or_(
-                TutorMessage.to_tutor_id == tutor_id,
-                TutorMessage.to_tutor_id.is_(None),
+                visible_to_tutor_filter(tutor_id, db),
                 TutorMessage.from_tutor_id == tutor_id,
             )
         )
