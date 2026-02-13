@@ -7,6 +7,35 @@ import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFil
 // Hooks inherit: revalidateOnFocus, revalidateOnReconnect, dedupingInterval, keepPreviousData
 
 /**
+ * Hook to detect unseen app updates.
+ * Compares NEXT_PUBLIC_APP_VERSION against localStorage 'last-seen-version'.
+ * Returns true when there's a new version the user hasn't viewed yet.
+ */
+export function useUnseenUpdates(): boolean {
+  const [hasUnseen, setHasUnseen] = useState(false);
+
+  useEffect(() => {
+    const checkVersion = () => {
+      const version = process.env.NEXT_PUBLIC_APP_VERSION;
+      if (!version || version === 'dev') {
+        setHasUnseen(false);
+        return;
+      }
+      const lastSeen = localStorage.getItem('last-seen-version');
+      setHasUnseen(lastSeen !== version);
+    };
+
+    checkVersion();
+
+    // Listen for storage changes from other tabs (e.g. user opened What's New in another tab)
+    window.addEventListener('storage', checkVersion);
+    return () => window.removeEventListener('storage', checkVersion);
+  }, []);
+
+  return hasUnseen;
+}
+
+/**
  * Hook for visibility-aware polling intervals.
  * Returns 0 (disabled) when the browser tab is hidden to save API calls.
  * Resumes polling when the tab becomes visible again.

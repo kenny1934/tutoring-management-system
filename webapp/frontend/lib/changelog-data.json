@@ -1,0 +1,46 @@
+[
+  {
+    "version": "2.0.0",
+    "date": "2025-02-13",
+    "sections": [
+      {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "Launch of CSM Pro web application — a complete rebuild from the original AppSheet v1.x"
+          },
+          {
+            "description": "Dashboard with real-time stats, activity feed, and notification system"
+          },
+          {
+            "description": "Session management with attendance tracking and make-up proposals"
+          },
+          {
+            "description": "Student enrollment lifecycle with fee calculation and renewal tracking"
+          },
+          {
+            "description": "Inbox messaging system with threads, search, and categories"
+          },
+          {
+            "description": "Courseware library with usage analytics"
+          },
+          {
+            "description": "Revenue reporting and overdue payment tracking"
+          },
+          {
+            "description": "Exam revision slot management"
+          },
+          {
+            "description": "Role-based access control (Super Admin, Admin, Supervisor, Tutor, Guest)"
+          },
+          {
+            "description": "Command palette (Ctrl+K) for quick navigation"
+          },
+          {
+            "description": "Dark mode support"
+          }
+        ]
+      }
+    ]
+  }
+]

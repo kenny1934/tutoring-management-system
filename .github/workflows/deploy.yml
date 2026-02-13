@@ -96,16 +96,23 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/284725664511/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: '284725664511-compute@developer.gserviceaccount.com'
           project_id: 'csm-database-project'
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Get app version from git tag
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/.*-v/v/' || echo "dev")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       - name: Build and Deploy Frontend
         run: |
           cd webapp/frontend
-          gcloud builds submit --config cloudbuild.yaml --region asia-east2 --project csm-database-project
+          gcloud builds submit --config cloudbuild.yaml --region asia-east2 --project csm-database-project --substitutions=_APP_VERSION=${{ steps.version.outputs.version }}
           gcloud run deploy tutoring-frontend \
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest \
             --region asia-east2 \
