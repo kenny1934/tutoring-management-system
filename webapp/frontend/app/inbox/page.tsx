@@ -13,7 +13,7 @@ import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
-import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session } from "@/types";
+import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
@@ -51,6 +51,7 @@ import {
   MessageSquareShare,
   Star,
   Users,
+  MessageSquarePlus,
 } from "lucide-react";
 
 // Category definition
@@ -88,6 +89,7 @@ const CATEGORY_SECTIONS: CategorySection[] = [
       { id: "chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" />, filter: "Chat" },
       { id: "courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" />, filter: "Courseware" },
       { id: "makeup-confirmation", label: "Make-up", icon: <CalendarClock className="h-4 w-4" />, filter: "MakeupConfirmation" },
+      { id: "feedback", label: "Feedback", icon: <MessageSquarePlus className="h-4 w-4" />, filter: "Feedback" },
     ],
   },
 ];
@@ -127,6 +129,7 @@ const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon
   { value: "Schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" /> },
   { value: "Chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" /> },
   { value: "Courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" /> },
+  { value: "Feedback", label: "Feedback", icon: <MessageSquarePlus className="h-4 w-4" /> },
 ];
 
 // Priority options for dropdown (derived from PRIORITIES)
@@ -1816,7 +1819,11 @@ export default function InboxPage() {
     if (tutorId === null) return;
 
     // Optimistic update - remove thread from SWR cache immediately
-    mutate(isThreadsKey, (data: MessageThread[] | undefined) => data?.filter(t => t.root_message.id !== messageId), { revalidate: false });
+    mutate(isThreadsKey, (data: MessageThread[] | PaginatedThreadsResponse | undefined) => {
+      if (Array.isArray(data)) return data.filter(t => t.root_message.id !== messageId);
+      if (data && 'threads' in data) return { ...data, threads: data.threads.filter(t => t.root_message.id !== messageId), total_count: data.total_count - 1 };
+      return data;
+    }, { revalidate: false });
     mutate(isSentKey, (data: Message[] | undefined) => data?.filter(m => m.id !== messageId), { revalidate: false });
     setSelectedThread(null);
 

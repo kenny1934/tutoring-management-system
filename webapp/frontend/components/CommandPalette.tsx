@@ -35,6 +35,7 @@ import {
   CheckCircle,
   ChevronRight,
   HelpCircle,
+  MessageSquarePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api, SearchResults, studentsAPI, sessionsAPI, enrollmentsAPI } from "@/lib/api";
@@ -110,6 +111,13 @@ export function CommandPalette() {
       subtitle: viewMode === 'my-view' ? "Currently active" : undefined,
       icon: Eye,
       execute: () => { setViewMode('my-view'); close(); },
+    },
+    {
+      id: "action-feedback",
+      type: "action",
+      title: "Send Feedback",
+      icon: MessageSquarePlus,
+      execute: () => { close(); window.dispatchEvent(new CustomEvent("open-feedback")); },
     },
   ], [theme, setTheme, viewMode, setViewMode, close]);
 
