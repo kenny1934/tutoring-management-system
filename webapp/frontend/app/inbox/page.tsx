@@ -218,6 +218,38 @@ function clearDraft(key: string): void {
   try { localStorage.removeItem(key); } catch {}
 }
 
+// Reply draft helpers (separate from compose drafts)
+interface ReplyDraftData {
+  message: string;
+  images: string[];
+  savedAt: number;
+}
+
+function saveReplyDraft(threadId: number, data: ReplyDraftData): void {
+  try { localStorage.setItem(`${DRAFT_REPLY_PREFIX}${threadId}`, JSON.stringify(data)); } catch {}
+}
+
+function loadReplyDraft(threadId: number): ReplyDraftData | null {
+  try {
+    const raw = localStorage.getItem(`${DRAFT_REPLY_PREFIX}${threadId}`);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as ReplyDraftData;
+    if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+      localStorage.removeItem(`${DRAFT_REPLY_PREFIX}${threadId}`);
+      return null;
+    }
+    return draft;
+  } catch { return null; }
+}
+
+function clearReplyDraft(threadId: number): void {
+  try { localStorage.removeItem(`${DRAFT_REPLY_PREFIX}${threadId}`); } catch {}
+}
+
+function isReplyDraftEmpty(html: string): boolean {
+  return !html || html === "<p></p>" || html.replace(/<[^>]*>/g, "").trim().length === 0;
+}
+
 // Compose Modal Component
 function ComposeModal({
   isOpen,
@@ -947,6 +979,7 @@ const ThreadItem = React.memo(function ThreadItem({
   isSentView = false,
   searchQuery,
   pictureMap,
+  draftPreview,
 }: {
   thread: MessageThread;
   isSelected: boolean;
@@ -954,6 +987,7 @@ const ThreadItem = React.memo(function ThreadItem({
   isSentView?: boolean;
   searchQuery?: string;
   pictureMap?: Map<number, string>;
+  draftPreview?: string | null;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -1041,9 +1075,14 @@ const ThreadItem = React.memo(function ThreadItem({
             <span className="truncate">{searchQuery ? highlightMatch(msg.subject || "(no subject)", searchQuery) : (msg.subject || "(no subject)")}</span>
           </div>
 
-          {/* Preview */}
+          {/* Preview — show draft if exists, otherwise latest message */}
           <div className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-            {(() => {
+            {draftPreview ? (
+              <>
+                <span className="text-[#a0704b] dark:text-[#c49a6c] font-medium">Draft: </span>
+                <span>{draftPreview.replace(/<[^>]*>/g, "").trim().slice(0, 60)}</span>
+              </>
+            ) : (() => {
               const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
               const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
               return searchQuery ? highlightMatch(preview, searchQuery) : preview;
@@ -1465,6 +1504,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   isArchived = false,
   isMobile = false,
   pictureMap,
+  onDraftChange,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -1483,6 +1523,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   isArchived?: boolean;
   isMobile?: boolean;
   pictureMap?: Map<number, string>;
+  onDraftChange?: () => void;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
@@ -1509,9 +1550,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     firstUnreadIdRef.current = firstUnread?.id ?? null;
   }
 
-  // Reply bar state
-  const [replyText, setReplyText] = useState("");
-  const [replyImages, setReplyImages] = useState<string[]>([]);
+  // Reply bar state — initialize from draft if available
+  const threadId = thread.root_message.id;
+  const initialDraft = useRef(loadReplyDraft(threadId));
+  const [replyText, setReplyText] = useState(initialDraft.current?.message || "");
+  const [replyImages, setReplyImages] = useState<string[]>(initialDraft.current?.images || []);
   const [isReplySending, setIsReplySending] = useState(false);
   const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [replyEditorKey, setReplyEditorKey] = useState(0);
@@ -1527,12 +1570,25 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }, 100);
   }, [thread]);
 
-  // Clear reply bar when switching threads
+  // Load draft and reset editor when switching threads
   useEffect(() => {
-    setReplyText("");
-    setReplyImages([]);
+    const draft = loadReplyDraft(threadId);
+    initialDraft.current = draft;
+    setReplyText(draft?.message || "");
+    setReplyImages(draft?.images || []);
     setReplyEditorKey(prev => prev + 1);
-  }, [thread.root_message.id]);
+  }, [threadId]);
+
+  // Auto-save reply draft on content change
+  useEffect(() => {
+    if (isReplyDraftEmpty(replyText) && replyImages.length === 0) {
+      clearReplyDraft(threadId);
+      onDraftChange?.();
+    } else if (!isReplyDraftEmpty(replyText) || replyImages.length > 0) {
+      saveReplyDraft(threadId, { message: replyText, images: replyImages, savedAt: Date.now() });
+      onDraftChange?.();
+    }
+  }, [replyText, replyImages, threadId, onDraftChange]);
 
   // Mark messages as read when viewing
   useEffect(() => {
@@ -1681,10 +1737,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       // Show optimistic bubble immediately
       setOptimisticMessage({ text: replyText, images: [...replyImages] });
 
-      // Clear editor immediately for snappy feel
+      // Clear editor and draft immediately for snappy feel
       setReplyText("");
       setReplyImages([]);
       setReplyEditorKey(prev => prev + 1);
+      clearReplyDraft(threadId);
 
       // Scroll to bottom to show optimistic message
       setTimeout(() => {
@@ -2216,6 +2273,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             };
           }}
           onUpdate={setReplyText}
+          initialContent={initialDraft.current?.message || ""}
           onAttachImage={() => replyFileInputRef.current?.click()}
           onPasteFiles={(files) => {
             const dt = new DataTransfer();
@@ -2466,6 +2524,22 @@ export default function InboxPage() {
     // For inbox/other categories, threads already filtered server-side
     return threads;
   }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
+
+  // Draft tracking for thread list preview
+  const [draftVersion, setDraftVersion] = useState(0);
+  const handleDraftChange = useCallback(() => setDraftVersion(v => v + 1), []);
+  const draftsMap = useMemo(() => {
+    // draftVersion used for invalidation
+    void draftVersion;
+    const map = new Map<number, string>();
+    for (const t of displayThreads) {
+      const draft = loadReplyDraft(t.root_message.id);
+      if (draft && !isReplyDraftEmpty(draft.message)) {
+        map.set(t.root_message.id, draft.message);
+      }
+    }
+    return map;
+  }, [displayThreads, draftVersion]);
 
   // Filter MakeupConfirmation threads for makeup-confirmation category
   const makeupThreads = useMemo(() => {
@@ -3106,6 +3180,7 @@ export default function InboxPage() {
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
                           onClick={() => setSelectedThread(thread)}
                           pictureMap={tutorPictureMap}
+                          draftPreview={draftsMap.get(thread.root_message.id)}
                         />
                       ))}
                     </>
@@ -3124,6 +3199,7 @@ export default function InboxPage() {
                           isSentView={selectedCategory === "sent"}
                           searchQuery={showSearch ? debouncedSearch : undefined}
                           pictureMap={tutorPictureMap}
+                          draftPreview={draftsMap.get(thread.root_message.id)}
                         />
                       );
                       if (!isMobile || selectedCategory === "sent") return item;
@@ -3201,6 +3277,7 @@ export default function InboxPage() {
                   isArchived={selectedCategory === "archived"}
                   isMobile={isMobile}
                   pictureMap={tutorPictureMap}
+                  onDraftChange={handleDraftChange}
                 />
               </div>
             ) : !isMobile && (
