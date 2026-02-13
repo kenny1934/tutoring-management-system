@@ -1627,7 +1627,7 @@ function SessionsTab({
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }) {
   // View mode and sort order state
-  const [viewMode, setViewMode] = useState<SessionViewMode>('by-enrollment');
+  const [viewMode, setViewMode] = useState<SessionViewMode>('by-date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // Enrollment popover state
@@ -1824,17 +1824,6 @@ function SessionsTab({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 p-1 bg-[#f5ede3] dark:bg-[#2d2820] rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
           <button
-            onClick={() => setViewMode('by-enrollment')}
-            className={cn(
-              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-              viewMode === 'by-enrollment'
-                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            )}
-          >
-            By Enrollment
-          </button>
-          <button
             onClick={() => setViewMode('by-date')}
             className={cn(
               "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
@@ -1844,6 +1833,17 @@ function SessionsTab({
             )}
           >
             By Date
+          </button>
+          <button
+            onClick={() => setViewMode('by-enrollment')}
+            className={cn(
+              "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+              viewMode === 'by-enrollment'
+                ? "bg-white dark:bg-[#3a342a] text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            )}
+          >
+            By Enrollment
           </button>
         </div>
 
