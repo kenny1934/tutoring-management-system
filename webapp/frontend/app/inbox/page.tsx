@@ -282,9 +282,9 @@ function ComposeModal({
       const setReplyRecipients = () => {
         if (!replyTo) return;
         if (replyTo.is_group_message && replyTo.to_tutor_ids) {
-          // Reply-all: remove self, add original sender
+          // Reply-all: remove self, add original sender (only if not self)
           const replyRecipients = replyTo.to_tutor_ids.filter(id => id !== fromTutorId);
-          if (!replyRecipients.includes(replyTo.from_tutor_id)) {
+          if (replyTo.from_tutor_id !== fromTutorId && !replyRecipients.includes(replyTo.from_tutor_id)) {
             replyRecipients.push(replyTo.from_tutor_id);
           }
           setRecipientMode("select");
@@ -767,10 +767,12 @@ const ThreadItem = React.memo(function ThreadItem({
   thread,
   isSelected,
   onClick,
+  isSentView = false,
 }: {
   thread: MessageThread;
   isSelected: boolean;
   onClick: () => void;
+  isSentView?: boolean;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -800,7 +802,16 @@ const ThreadItem = React.memo(function ThreadItem({
               "text-sm truncate",
               hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
             )}>
-              {msg.from_tutor_name || "Unknown"}
+              {isSentView
+                ? msg.to_tutor_id === null
+                  ? "To: All Tutors"
+                  : msg.is_group_message && msg.to_tutor_names?.length
+                  ? `To: ${msg.to_tutor_names.join(", ")}`
+                  : msg.to_tutor_name
+                  ? `To: ${msg.to_tutor_name}`
+                  : "To: Unknown"
+                : msg.from_tutor_name || "Unknown"
+              }
             </span>
             {msg.is_pinned && (
               <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
@@ -1059,6 +1070,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   currentTutorId,
   onClose,
   onReply,
+  onSendMessage,
   onLike,
   onMarkRead,
   onMarkUnread,
@@ -1075,6 +1087,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   currentTutorId: number;
   onClose: () => void;
   onReply: (msg: Message) => void;
+  onSendMessage: (data: MessageCreate) => Promise<void>;
   onLike: (msgId: number) => void;
   onMarkRead: (msgId: number) => void;
   onMarkUnread: (msgId: number) => void;
@@ -1105,12 +1118,28 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Reply bar state
+  const [replyText, setReplyText] = useState("");
+  const [replyImages, setReplyImages] = useState<string[]>([]);
+  const [isReplySending, setIsReplySending] = useState(false);
+  const [isReplyUploading, setIsReplyUploading] = useState(false);
+  const [replyEditorKey, setReplyEditorKey] = useState(0);
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
+  const replyEditorRef = useRef<{ focus: () => void } | null>(null);
+
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }, 100);
   }, [thread]);
+
+  // Clear reply bar when switching threads
+  useEffect(() => {
+    setReplyText("");
+    setReplyImages([]);
+    setReplyEditorKey(prev => prev + 1);
+  }, [thread.root_message.id]);
 
   // Mark messages as read when viewing
   useEffect(() => {
@@ -1160,6 +1189,79 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     } finally {
       setIsEditUploading(false);
       if (editFileInputRef.current) editFileInputRef.current.value = '';
+    }
+  };
+
+  // Reply bar handlers
+  const handleReplyImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsReplyUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, currentTutorId);
+        setReplyImages(prev => [...prev, result.url]);
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setIsReplyUploading(false);
+      if (replyFileInputRef.current) replyFileInputRef.current.value = '';
+    }
+  };
+
+  const isReplyEmpty = !replyText || replyText === "<p></p>" || replyText.replace(/<[^>]*>/g, "").trim().length === 0;
+
+  const handleSendReply = async () => {
+    if (isReplyEmpty && replyImages.length === 0) return;
+
+    setIsReplySending(true);
+    try {
+      // Build MessageCreate with auto-computed recipients
+      const data: MessageCreate = {
+        subject: `Re: ${msg.subject || "(no subject)"}`,
+        message: replyText,
+        priority: "Normal",
+        category: msg.category || undefined,
+        reply_to_id: msg.id,
+        image_attachments: replyImages.length > 0 ? replyImages : undefined,
+      };
+
+      // Compute recipients (same logic as ComposeModal)
+      if (msg.is_group_message && msg.to_tutor_ids) {
+        const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
+        if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id)) {
+          replyRecipients.push(msg.from_tutor_id);
+        }
+        if (replyRecipients.length === 1) {
+          data.to_tutor_id = replyRecipients[0];
+        } else if (replyRecipients.length >= 2) {
+          data.to_tutor_ids = replyRecipients;
+        }
+      } else if (msg.from_tutor_id === currentTutorId) {
+        // Replying to own message: send to original recipient(s)
+        if (msg.to_tutor_id != null) {
+          data.to_tutor_id = msg.to_tutor_id;
+        }
+        // else broadcast — no to_tutor_id
+      } else {
+        // Replying to someone else: send to them
+        data.to_tutor_id = msg.from_tutor_id;
+      }
+
+      await onSendMessage(data);
+
+      // Clear editor
+      setReplyText("");
+      setReplyImages([]);
+      setReplyEditorKey(prev => prev + 1);
+
+      // Scroll to bottom after data refreshes
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      }, 500);
+    } finally {
+      setIsReplySending(false);
     }
   };
 
@@ -1240,13 +1342,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             <Archive className="h-4 w-4" />
           </button>
         )}
-        <button
-          onClick={() => onReply(msg)}
-          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
-        >
-          <Reply className="h-4 w-4" />
-          <span className="hidden sm:inline">Reply</span>
-        </button>
       </div>
 
       {/* Messages */}
@@ -1431,15 +1526,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                     </button>
                   </>
                 )}
-                {idx === allMessages.length - 1 && (
-                  <button
-                    onClick={() => onReply(msg)}
-                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
-                  >
-                    <Reply className="h-4 w-4" />
-                    <span className="hidden sm:inline">Reply</span>
-                  </button>
-                )}
               </div>
 
               {/* Own message: timestamp + seen badge at bottom-right */}
@@ -1455,6 +1541,79 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             </div>
           );
         })}
+      </div>
+
+      {/* Inline reply bar */}
+      <div
+        className="flex-shrink-0 border-t border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 p-3"
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleSendReply();
+          }
+        }}
+      >
+        <InboxRichEditor
+          key={replyEditorKey}
+          onEditorReady={(editor) => {
+            replyEditorRef.current = { focus: () => editor.commands.focus() };
+          }}
+          onUpdate={setReplyText}
+          onAttachImage={() => replyFileInputRef.current?.click()}
+          placeholder="Type a reply..."
+          minHeight="40px"
+        />
+        <input
+          ref={replyFileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => handleReplyImageUpload(e.target.files)}
+          className="hidden"
+        />
+        {/* Image previews + send row */}
+        <div className="flex items-end justify-between mt-2">
+          <div className="flex flex-wrap gap-2 flex-1 min-w-0">
+            {replyImages.map((url, idx) => (
+              <div key={url} className="relative group">
+                <img
+                  src={url}
+                  alt={`Attachment ${idx + 1}`}
+                  className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setReplyImages(prev => prev.filter((_, i) => i !== idx))}
+                  className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {isReplyUploading && (
+              <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={() => onReply(msg)}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
+              title="Open full editor"
+            >
+              <PenSquare className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleSendReply}
+              disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <span className="hidden sm:inline">Send</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2173,6 +2332,7 @@ export default function InboxPage() {
                       thread={thread}
                       isSelected={selectedThread?.root_message.id === thread.root_message.id}
                       onClick={() => setSelectedThread(thread)}
+                      isSentView={selectedCategory === "sent"}
                     />
                   ))}
                   {/* Load More button for paginated threads (not for sent or archived) */}
@@ -2209,6 +2369,7 @@ export default function InboxPage() {
                   currentTutorId={effectiveTutorId}
                   onClose={() => setSelectedThread(null)}
                   onReply={handleReply}
+                  onSendMessage={handleSendMessage}
                   onLike={handleLike}
                   onMarkRead={handleMarkRead}
                   onMarkUnread={handleMarkUnread}
