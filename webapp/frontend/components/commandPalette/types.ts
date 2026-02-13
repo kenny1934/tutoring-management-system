@@ -17,6 +17,7 @@ import {
   Database,
   Grid3x3,
   ClipboardCheck,
+  Sparkles,
 } from "lucide-react";
 
 // localStorage keys
@@ -76,6 +77,7 @@ export const PAGES: PageItem[] = [
   { id: "page-inbox", title: "Inbox", href: "/inbox", icon: Inbox },
   { id: "page-proposals", title: "Make-up Proposals", href: "/proposals", icon: RefreshCw },
   { id: "page-settings", title: "Settings", href: "/settings", icon: Settings },
+  { id: "page-whats-new", title: "What's New", href: "/whats-new", icon: Sparkles },
   // Business pages
   { id: "page-exams", title: "Exam Schedules", href: "/exams", icon: GraduationCap },
   { id: "page-revenue", title: "Revenue Reports", href: "/revenue", icon: DollarSign },
