@@ -924,10 +924,11 @@ async def create_message(
     db.commit()
     db.refresh(new_message)
 
-    # Insert group message recipients
+    # Insert group message recipients (exclude sender from own recipients)
     if message_data.to_tutor_ids:
         for tid in message_data.to_tutor_ids:
-            db.add(MessageRecipient(message_id=new_message.id, tutor_id=tid))
+            if tid != from_tutor_id:
+                db.add(MessageRecipient(message_id=new_message.id, tutor_id=tid))
         db.commit()
 
     # Load relationships
