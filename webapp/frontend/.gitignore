@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Changelog (copied from repo root during CI build)
+CHANGELOG.md
+
 # Playwright test artifacts
 /tests/visual/screenshots/*.png
 tests/visual/screenshots/
