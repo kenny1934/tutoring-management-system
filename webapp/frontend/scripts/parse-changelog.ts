@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -18,8 +18,12 @@ interface ChangelogRelease {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const changelogPath = resolve(__dirname, "../../../CHANGELOG.md");
 const outputPath = resolve(__dirname, "../lib/changelog-data.json");
+
+// Look for CHANGELOG.md: local copy first (Docker build), then repo root (local dev)
+const localPath = resolve(__dirname, "../CHANGELOG.md");
+const repoRootPath = resolve(__dirname, "../../../CHANGELOG.md");
+const changelogPath = existsSync(localPath) ? localPath : repoRootPath;
 
 function parseChangelog(markdown: string): ChangelogRelease[] {
   const releases: ChangelogRelease[] = [];
