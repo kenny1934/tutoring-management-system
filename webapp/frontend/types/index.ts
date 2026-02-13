@@ -677,7 +677,7 @@ export interface Message {
   from_tutor_id: number;
   from_tutor_name?: string;
   to_tutor_id?: number;
-  to_tutor_name?: string;  // "All" for broadcasts
+  to_tutor_name?: string;  // "All" for broadcasts, comma-joined for groups
   subject?: string;
   message: string;
   priority: MessagePriority;
@@ -687,6 +687,9 @@ export interface Message {
   reply_to_id?: number;
   is_read: boolean;
   is_pinned: boolean;
+  is_group_message?: boolean;
+  to_tutor_ids?: number[];    // Group message recipient IDs
+  to_tutor_names?: string[];  // Group message recipient names
   like_count: number;
   is_liked_by_me: boolean;
   like_details?: LikeDetail[];
@@ -694,7 +697,7 @@ export interface Message {
   image_attachments?: string[];  // List of image URLs
   // Read receipt fields for sender's messages (WhatsApp-style seen status)
   read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
-  total_recipients?: number;  // Total recipients for broadcasts
+  total_recipients?: number;  // Total recipients for broadcasts/groups
   read_by_all?: boolean;  // True when all recipients have read
 }
 
@@ -721,7 +724,8 @@ export interface PaginatedMessagesResponse {
 }
 
 export interface MessageCreate {
-  to_tutor_id?: number;  // NULL = broadcast
+  to_tutor_id?: number;    // NULL = broadcast, specific ID = direct
+  to_tutor_ids?: number[]; // 2+ recipients = group message
   reply_to_id?: number;
   subject?: string;
   message: string;

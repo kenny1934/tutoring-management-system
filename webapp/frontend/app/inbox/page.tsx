@@ -50,6 +50,7 @@ import {
   Image as ImageIcon,
   MessageSquareShare,
   Star,
+  Users,
 } from "lucide-react";
 
 // Category definition
@@ -156,7 +157,9 @@ const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) ||
 
 // Draft auto-save helpers
 interface DraftData {
-  toTutorId: number | "all";
+  toTutorId?: number | "all"; // Legacy compat
+  recipientMode: "all" | "select";
+  selectedTutorIds: number[];
   subject: string;
   message: string;
   priority: "Normal" | "High" | "Urgent";
@@ -210,7 +213,9 @@ function ComposeModal({
   replyTo?: Message;
   onSend: (data: MessageCreate) => Promise<void>;
 }) {
-  const [toTutorId, setToTutorId] = useState<number | "all">("all");
+  const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
+  const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
+  const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
@@ -223,6 +228,7 @@ function ComposeModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
+  const recipientDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleImageUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -255,9 +261,32 @@ function ComposeModal({
       const draftKey = getDraftKey(replyTo?.id);
       const draft = loadDraft(draftKey);
 
+      const setReplyRecipients = () => {
+        if (!replyTo) return;
+        if (replyTo.is_group_message && replyTo.to_tutor_ids) {
+          // Reply to group: inherit recipients
+          setRecipientMode("select");
+          setSelectedTutorIds(replyTo.to_tutor_ids);
+        } else if (replyTo.from_tutor_id === fromTutorId) {
+          // Replying to own message: send to original recipient(s)
+          if (replyTo.to_tutor_id == null) {
+            setRecipientMode("all");
+            setSelectedTutorIds([]);
+          } else {
+            setRecipientMode("select");
+            setSelectedTutorIds([replyTo.to_tutor_id]);
+          }
+        } else {
+          // Replying to someone else: send to them
+          setRecipientMode("select");
+          setSelectedTutorIds([replyTo.from_tutor_id]);
+        }
+      };
+
       if (draft && !replyTo) {
         // Compose mode: restore full draft
-        setToTutorId(draft.toTutorId);
+        setRecipientMode(draft.recipientMode || "all");
+        setSelectedTutorIds(draft.selectedTutorIds || []);
         setSubject(draft.subject);
         setMessage(draft.message);
         setPriority(draft.priority);
@@ -265,11 +294,7 @@ function ComposeModal({
         setUploadedImages(draft.uploadedImages);
       } else if (draft && replyTo) {
         // Reply mode: keep auto-filled to/subject/category, restore message content
-        if (replyTo.from_tutor_id === fromTutorId) {
-          setToTutorId(replyTo.to_tutor_id ?? "all");
-        } else {
-          setToTutorId(replyTo.from_tutor_id);
-        }
+        setReplyRecipients();
         setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
         setCategory(replyTo.category || "");
         setMessage(draft.message);
@@ -277,11 +302,7 @@ function ComposeModal({
         setUploadedImages(draft.uploadedImages);
       } else if (replyTo) {
         // Reply mode, no draft
-        if (replyTo.from_tutor_id === fromTutorId) {
-          setToTutorId(replyTo.to_tutor_id ?? "all");
-        } else {
-          setToTutorId(replyTo.from_tutor_id);
-        }
+        setReplyRecipients();
         setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
         setCategory(replyTo.category || "");
         setMessage("");
@@ -289,7 +310,8 @@ function ComposeModal({
         setUploadedImages([]);
       } else {
         // Compose mode, no draft
-        setToTutorId("all");
+        setRecipientMode("all");
+        setSelectedTutorIds([]);
         setSubject("");
         setCategory("");
         setMessage("");
@@ -308,15 +330,16 @@ function ComposeModal({
         || (subject.trim().length > 0 && !replyTo)
         || uploadedImages.length > 0;
       if (hasContent) {
-        saveDraft(draftKey, { toTutorId, subject, message, priority, category, uploadedImages, savedAt: Date.now() });
+        saveDraft(draftKey, { recipientMode, selectedTutorIds, subject, message, priority, category, uploadedImages, savedAt: Date.now() });
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [isOpen, toTutorId, subject, message, priority, category, uploadedImages, replyTo?.id]);
+  }, [isOpen, recipientMode, selectedTutorIds, subject, message, priority, category, uploadedImages, replyTo?.id]);
 
   // Close dropdowns on click outside
   useClickOutside(categoryDropdownRef, () => setCategoryDropdownOpen(false), categoryDropdownOpen);
   useClickOutside(priorityDropdownRef, () => setPriorityDropdownOpen(false), priorityDropdownOpen);
+  useClickOutside(recipientDropdownRef, () => setRecipientDropdownOpen(false), recipientDropdownOpen);
 
   // Check for unsaved changes
   // Tiptap returns "<p></p>" for empty content
@@ -350,15 +373,23 @@ function ComposeModal({
 
     setIsSending(true);
     try {
-      await onSend({
-        to_tutor_id: toTutorId === "all" ? undefined : toTutorId,
+      const sendData: MessageCreate = {
         subject: subject || undefined,
         message,
         priority,
         category: category || undefined,
         reply_to_id: replyTo?.id,
         image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
-      });
+      };
+      if (recipientMode === "select") {
+        if (selectedTutorIds.length === 1) {
+          sendData.to_tutor_id = selectedTutorIds[0];
+        } else if (selectedTutorIds.length >= 2) {
+          sendData.to_tutor_ids = selectedTutorIds;
+        }
+        // 0 selected = broadcast (no to_tutor_id or to_tutor_ids)
+      }
+      await onSend(sendData);
       clearDraft(getDraftKey(replyTo?.id));
       onClose();
     } finally {
@@ -389,32 +420,138 @@ function ComposeModal({
             <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               To
             </label>
-            <select
-              value={toTutorId}
-              onChange={(e) => setToTutorId(e.target.value === "all" ? "all" : parseInt(e.target.value))}
-              disabled={!!replyTo}
-              className={cn(
-                "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white",
-                replyTo && "opacity-60 cursor-not-allowed"
-              )}
-            >
-              <option value="all">All Tutors (Broadcast)</option>
-              {tutors
-                .filter(t => t.id !== fromTutorId)
-                .sort((a, b) => {
-                  // Extract first name (skip title like Mr/Ms/Mrs)
-                  const getFirstName = (name: string) => {
-                    const parts = name.split(' ');
-                    return parts.length > 1 ? parts[1] : parts[0];
-                  };
-                  return getFirstName(a.tutor_name).localeCompare(getFirstName(b.tutor_name));
-                })
-                .map((tutor) => (
-                <option key={tutor.id} value={tutor.id}>
-                  {tutor.tutor_name}
-                </option>
-              ))}
-            </select>
+            {replyTo ? (
+              /* Reply mode: read-only display */
+              <div className={cn(
+                "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white opacity-60 cursor-not-allowed"
+              )}>
+                {recipientMode === "all"
+                  ? "All Tutors (Broadcast)"
+                  : selectedTutorIds.map(id => tutors.find(t => t.id === id)?.tutor_name || "Unknown").join(", ")
+                }
+              </div>
+            ) : (
+              /* Compose mode: interactive recipient picker */
+              <div ref={recipientDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setRecipientDropdownOpen(!recipientDropdownOpen)}
+                  className={cn(
+                    "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white text-left flex items-center gap-2"
+                  )}
+                >
+                  {recipientMode === "all" ? (
+                    <span className="flex items-center gap-2 flex-1">
+                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      All Tutors (Broadcast)
+                    </span>
+                  ) : selectedTutorIds.length === 0 ? (
+                    <span className="text-gray-400 flex-1">Select recipients...</span>
+                  ) : (
+                    <span className="flex items-center gap-1 flex-1 flex-wrap">
+                      <Users className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      {selectedTutorIds.length === 1
+                        ? tutors.find(t => t.id === selectedTutorIds[0])?.tutor_name || "Unknown"
+                        : `${selectedTutorIds.length} recipients`
+                      }
+                    </span>
+                  )}
+                  <ChevronDown className={cn("h-4 w-4 transition-transform flex-shrink-0", recipientDropdownOpen && "rotate-180")} />
+                </button>
+
+                {/* Selected tutor chips (shown above dropdown when 2+ selected) */}
+                {recipientMode === "select" && selectedTutorIds.length >= 2 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {selectedTutorIds.map(id => {
+                      const tutor = tutors.find(t => t.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-[#f5ede3] dark:bg-[#3d3628] text-gray-700 dark:text-gray-300 border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        >
+                          {tutor?.tutor_name || "Unknown"}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTutorIds(prev => prev.filter(tid => tid !== id));
+                            }}
+                            className="hover:text-red-500"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Dropdown */}
+                {recipientDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {/* Broadcast option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecipientMode("all");
+                        setSelectedTutorIds([]);
+                        setRecipientDropdownOpen(false);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
+                        recipientMode === "all" && "bg-blue-50 dark:bg-blue-900/20"
+                      )}
+                    >
+                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <span>All Tutors (Broadcast)</span>
+                      {recipientMode === "all" && <Check className="h-4 w-4 text-blue-500 ml-auto" />}
+                    </button>
+
+                    {/* Individual tutors */}
+                    {tutors
+                      .filter(t => t.id !== fromTutorId)
+                      .sort((a, b) => {
+                        const getFirstName = (name: string) => {
+                          const parts = name.split(' ');
+                          return parts.length > 1 ? parts[1] : parts[0];
+                        };
+                        return getFirstName(a.tutor_name).localeCompare(getFirstName(b.tutor_name));
+                      })
+                      .map((tutor) => {
+                        const isSelected = selectedTutorIds.includes(tutor.id);
+                        return (
+                          <button
+                            key={tutor.id}
+                            type="button"
+                            onClick={() => {
+                              setRecipientMode("select");
+                              setSelectedTutorIds(prev =>
+                                isSelected
+                                  ? prev.filter(id => id !== tutor.id)
+                                  : [...prev, tutor.id]
+                              );
+                            }}
+                            className={cn(
+                              "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800",
+                              isSelected && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                            )}
+                          >
+                            <div className={cn(
+                              "h-4 w-4 rounded border flex items-center justify-center flex-shrink-0",
+                              isSelected
+                                ? "bg-[#c9a96e] border-[#c9a96e] text-white"
+                                : "border-gray-300 dark:border-gray-600"
+                            )}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <span>{tutor.tutor_name}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Subject */}
@@ -649,6 +786,11 @@ const ThreadItem = React.memo(function ThreadItem({
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
                 Broadcast
+              </span>
+            )}
+            {msg.is_group_message && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
+                Group ({msg.to_tutor_ids?.length || 0})
               </span>
             )}
             {msg.priority !== "Normal" && (
@@ -1091,6 +1233,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const isOwn = m.from_tutor_id === currentTutorId;
           const isEditing = editingMessageId === m.id;
           const isBroadcast = m.to_tutor_id === null;
+          const isGroup = m.is_group_message;
 
           return (
             <div
@@ -1101,6 +1244,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a] ml-8"
                   : isBroadcast
                   ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/30"
+                  : isGroup
+                  ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30"
                   : "bg-white dark:bg-[#2a2a2a] border-[#e8d4b8] dark:border-[#6b5a4a]"
               )}
             >
