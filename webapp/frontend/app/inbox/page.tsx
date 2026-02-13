@@ -16,6 +16,7 @@ import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
+import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
 import SendToWecomModal from "@/components/wecom/SendToWecomModal";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
@@ -1828,14 +1829,17 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </div>
               ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
                 <div
-                  className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+                  className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
                   dangerouslySetInnerHTML={{ __html: m.message }}
                 />
               ) : (
-                <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
                   {m.message}
                 </div>
               )}
+
+              {/* Link previews */}
+              {!editingMessageId && m.message && <LinkPreview messageHtml={m.message} />}
 
               {/* Image attachments */}
               {m.image_attachments && m.image_attachments.length > 0 && (
@@ -1965,7 +1969,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             </div>
             {optimisticMessage.text && optimisticMessage.text !== "<p></p>" && (
               <div
-                className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+                className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
                 dangerouslySetInnerHTML={{ __html: optimisticMessage.text }}
               />
             )}
