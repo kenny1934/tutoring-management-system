@@ -783,7 +783,7 @@ const ThreadItem = React.memo(function ThreadItem({
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors min-h-[64px] lg:min-h-0",
+        "w-full text-left p-3 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 transition-colors min-h-[64px] lg:min-h-0",
         isSelected
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
           : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
@@ -828,7 +828,7 @@ const ThreadItem = React.memo(function ThreadItem({
           {/* Subject */}
           <div className={cn(
             "text-sm truncate flex items-center gap-1",
-            hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"
+            hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-700 dark:text-gray-400"
           )}>
             {msg.category && (
               <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
@@ -839,7 +839,7 @@ const ThreadItem = React.memo(function ThreadItem({
           </div>
 
           {/* Preview */}
-          <div className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
+          <div className="text-xs text-gray-600 dark:text-gray-500 truncate mt-0.5">
             {(() => {
               const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
               return plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
@@ -1165,11 +1165,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   return (
     <div
-      className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]"
+      className="h-full flex flex-col bg-white/90 dark:bg-[#1a1a1a]/90"
       {...(isMobile ? swipeHandlers : {})}
     >
       {/* Header */}
-      <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+      <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
         <button
           onClick={onClose}
           className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -1934,9 +1934,9 @@ export default function InboxPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="h-full">
-        <div className="h-full flex flex-col overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden gap-1">
           {/* Header */}
-          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3">
+          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-b-lg mx-1 px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Inbox className="h-6 w-6 text-[#a0704b]" />
@@ -1978,10 +1978,10 @@ export default function InboxPage() {
           </div>
 
           {/* Main content - 3 panel layout */}
-          <div className="flex-1 flex overflow-hidden min-h-0">
+          <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
             {/* Left panel - Categories */}
             <div className={cn(
-              "h-full flex-shrink-0 border-r border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#1a1a1a]/50 transition-all duration-200 overflow-y-auto",
+              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-y-auto",
               categoryCollapsed ? "w-12" : "w-48",
               isMobile && selectedThread && "hidden"
             )}>
@@ -1998,10 +1998,10 @@ export default function InboxPage() {
                     <div key={section.id}>
                       {sectionIdx > 0 && (
                         categoryCollapsed ? (
-                          <div className="my-2 mx-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                          <div className="my-2 mx-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50" />
                         ) : (
                           <div className="mt-3 mb-1 px-3">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">
                               {section.label}
                             </span>
                           </div>
@@ -2017,7 +2017,7 @@ export default function InboxPage() {
                               categoryCollapsed && "justify-center px-2",
                               selectedCategory === cat.id
                                 ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                                : "text-gray-700 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                                : "text-gray-800 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
                             )}
                             title={categoryCollapsed ? cat.label : undefined}
                           >
@@ -2050,11 +2050,11 @@ export default function InboxPage() {
 
             {/* Middle panel - Thread list */}
             <div className={cn(
-              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/30 flex flex-col",
+              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col",
               isMobile && selectedThread && "hidden"
             )}>
               {/* Search bar */}
-              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -2201,7 +2201,7 @@ export default function InboxPage() {
             {/* Right panel - Thread detail */}
             {selectedThread && hasTutor && (
               <div className={cn(
-                "h-full border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
+                "h-full rounded-lg overflow-hidden",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
                 <ThreadDetailPanel
