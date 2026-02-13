@@ -16,7 +16,7 @@
 * Draft auto-save for compose and reply forms
 * Batch "Mark All Read" for current category or entire inbox
 
-## [2.0.0](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.0) (2025-02-13)
+## [2.0.0](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.0) (2026-02-13)
 
 ### New Features
 
