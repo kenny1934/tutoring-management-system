@@ -11,6 +11,15 @@ import type { Session, SessionFilters, Tutor, CalendarEvent, Student, StudentFil
  * Compares NEXT_PUBLIC_APP_VERSION against localStorage 'last-seen-version'.
  * Returns true when there's a new version the user hasn't viewed yet.
  */
+/** Dispatch this event after marking version as seen to notify same-tab listeners. */
+export function markVersionSeen(): void {
+  const version = process.env.NEXT_PUBLIC_APP_VERSION;
+  if (version && version !== 'dev') {
+    localStorage.setItem('last-seen-version', version);
+    window.dispatchEvent(new Event('version-seen'));
+  }
+}
+
 export function useUnseenUpdates(): boolean {
   const [hasUnseen, setHasUnseen] = useState(false);
 
@@ -27,9 +36,14 @@ export function useUnseenUpdates(): boolean {
 
     checkVersion();
 
-    // Listen for storage changes from other tabs (e.g. user opened What's New in another tab)
+    // Listen for storage changes from other tabs
     window.addEventListener('storage', checkVersion);
-    return () => window.removeEventListener('storage', checkVersion);
+    // Listen for same-tab version-seen events (fired by markVersionSeen)
+    window.addEventListener('version-seen', checkVersion);
+    return () => {
+      window.removeEventListener('storage', checkVersion);
+      window.removeEventListener('version-seen', checkVersion);
+    };
   }, []);
 
   return hasUnseen;
