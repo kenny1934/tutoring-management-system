@@ -5,7 +5,7 @@ import { Megaphone, Tag, Bug, Zap, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
-import { usePageTitle } from "@/lib/hooks";
+import { usePageTitle, markVersionSeen } from "@/lib/hooks";
 import changelogData from "@/lib/changelog-data";
 
 interface ChangelogItem {
@@ -52,12 +52,9 @@ function formatDate(dateStr: string): string {
 export default function WhatsNewPage() {
   usePageTitle("What's New");
 
-  // Mark current version as seen
+  // Mark current version as seen (clears blue dot in Sidebar immediately)
   useEffect(() => {
-    const version = process.env.NEXT_PUBLIC_APP_VERSION;
-    if (version && version !== "dev") {
-      localStorage.setItem("last-seen-version", version);
-    }
+    markVersionSeen();
   }, []);
 
   return (
