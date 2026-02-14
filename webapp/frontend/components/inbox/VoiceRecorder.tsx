@@ -1,15 +1,17 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
-import { Mic, Square, Send, X, Loader2 } from "lucide-react";
+import { Mic, Square, Send, Check, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VoiceRecorderProps {
   onSend: (file: File, durationSec: number) => Promise<void>;
+  /** Use "attach" mode to show a check icon instead of send (for adding to attachments) */
+  mode?: "send" | "attach";
   className?: string;
 }
 
-export default function VoiceRecorder({ onSend, className }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onSend, mode = "send", className }: VoiceRecorderProps) {
   const [state, setState] = useState<"idle" | "recording" | "uploading">("idle");
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -106,12 +108,12 @@ export default function VoiceRecorder({ onSend, className }: VoiceRecorderProps)
         type="button"
         onClick={startRecording}
         className={cn(
-          "p-2 rounded-lg text-gray-500 hover:text-[#a0704b] hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors",
+          "p-2 rounded-lg text-gray-500 hover:text-[#a0704b] bg-[#f5ede3]/50 dark:bg-[#3d3628]/30 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]/60 transition-colors",
           className
         )}
         title="Record voice message"
       >
-        <Mic className="h-4 w-4" />
+        <Mic className="h-[18px] w-[18px]" />
       </button>
     );
   }
@@ -147,9 +149,9 @@ export default function VoiceRecorder({ onSend, className }: VoiceRecorderProps)
         type="button"
         onClick={stopAndSend}
         className="p-1.5 rounded-full text-white bg-[#a0704b] hover:bg-[#8b5f3c] transition-colors"
-        title="Send voice message"
+        title={mode === "attach" ? "Add voice recording" : "Send voice message"}
       >
-        <Send className="h-3.5 w-3.5" />
+        {mode === "attach" ? <Check className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
       </button>
     </div>
   );

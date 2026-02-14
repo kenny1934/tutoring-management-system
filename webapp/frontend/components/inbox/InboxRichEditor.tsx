@@ -9,6 +9,8 @@ import { Color, TextStyle } from "@tiptap/extension-text-style";
 import Mention from "@tiptap/extension-mention";
 import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
+import TemplatePicker from "@/components/inbox/TemplatePicker";
+import type { MessageTemplate } from "@/types";
 import {
   Bold,
   Italic,
@@ -21,7 +23,7 @@ import {
   ListOrdered,
   Palette,
   Smile,
-  Paperclip,
+  Expand,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
@@ -153,8 +155,6 @@ interface InboxRichEditorProps {
   onEditorReady?: (editor: Editor) => void;
   /** Called on every content change with HTML string */
   onUpdate: (html: string) => void;
-  /** Trigger file input for image attachment */
-  onAttachImage?: () => void;
   /** Called when images are pasted from clipboard */
   onPasteFiles?: (files: File[]) => void;
   /** Initial HTML content */
@@ -165,17 +165,26 @@ interface InboxRichEditorProps {
   minHeight?: string;
   /** List of mentionable users (for @mentions) */
   mentionUsers?: MentionUser[];
+  /** Message templates (shown in toolbar) */
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (title: string, content: string) => void;
+  onDeleteTemplate?: (templateId: number) => void;
+  /** Open full editor callback (shown in toolbar) */
+  onOpenFullEditor?: () => void;
 }
 
 export default function InboxRichEditor({
   onEditorReady,
   onUpdate,
-  onAttachImage,
   onPasteFiles,
   initialContent = "",
   placeholder = "Write your message...",
   minHeight = "150px",
   mentionUsers,
+  templates,
+  onCreateTemplate,
+  onDeleteTemplate,
+  onOpenFullEditor,
 }: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -537,8 +546,16 @@ export default function InboxRichEditor({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Emoji + Image buttons */}
+        {/* Right-side toolbar buttons */}
         <div className="relative flex items-center gap-0.5">
+          {templates && templates.length > 0 && (
+            <TemplatePicker
+              templates={templates}
+              onSelect={(content) => editor?.commands.insertContent(content)}
+              onCreate={onCreateTemplate}
+              onDelete={onDeleteTemplate}
+            />
+          )}
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -547,16 +564,6 @@ export default function InboxRichEditor({
           >
             <Smile className="w-4 h-4" />
           </button>
-          {onAttachImage && (
-            <button
-              type="button"
-              onClick={onAttachImage}
-              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
-              title="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-          )}
           <EmojiPicker
             isOpen={showEmojiPicker}
             onClose={() => setShowEmojiPicker(false)}
@@ -585,7 +592,19 @@ export default function InboxRichEditor({
       )}
 
       {/* Editor content */}
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {onOpenFullEditor && (
+          <button
+            type="button"
+            onClick={onOpenFullEditor}
+            className="absolute bottom-1 right-1 p-1 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:text-gray-500 dark:hover:text-[#c9a96e] dark:hover:bg-[#3d2e1e] transition-colors"
+            title="Open full editor"
+          >
+            <Expand className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
 
       {/* Mention styling */}
       <style jsx global>{`

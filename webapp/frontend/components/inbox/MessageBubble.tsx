@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
-  X, Pencil, Check, Trash2, Loader2, Paperclip, Reply, Forward,
+  X, Pencil, Check, Trash2, Loader2, Reply, Forward,
   Smile, FileText, Download, Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import AudioPlayer from "@/components/inbox/AudioPlayer";
+import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { Message } from "@/types";
 
 // Module-level constants
@@ -465,7 +466,7 @@ const MessageBubble = React.memo(function MessageBubble({
   const [editText, setEditText] = useState(m.message);
   const [editImages, setEditImages] = useState<string[]>(m.image_attachments || []);
   const [isSaving, setIsSaving] = useState(false);
-  const { uploadFiles: handleEditUpload, isUploading: isEditUploading, fileInputRef: editFileInputRef } = useFileUpload({ tutorId: currentTutorId });
+  const { uploadFiles: handleEditUpload, isUploading: isEditUploading } = useFileUpload({ tutorId: currentTutorId });
 
   // Internal delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -553,23 +554,13 @@ const MessageBubble = React.memo(function MessageBubble({
               mentionUsers={mentionUsers}
             />
             <div>
-              <input
-                ref={editFileInputRef}
-                type="file"
-                accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-                multiple
-                onChange={(e) => handleEditImageUpload(e.target.files)}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => editFileInputRef.current?.click()}
-                disabled={isEditUploading}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {isEditUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-                {isEditUploading ? 'Uploading...' : 'Attach'}
-              </button>
+              <div className="flex items-center gap-2">
+                <AttachmentMenu
+                  onFiles={(files) => handleEditImageUpload(files)}
+                  isUploading={isEditUploading}
+                />
+                <span className="text-sm text-gray-500 dark:text-gray-400">Attach</span>
+              </div>
               {editImages.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {editImages.map((url, index) => (
