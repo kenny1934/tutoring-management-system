@@ -51,7 +51,7 @@ export interface ComposeModalProps {
   fromTutorId: number;
   replyTo?: Message;
   onSend: (data: MessageCreate) => Promise<void>;
-  forwardFrom?: { subject: string; body: string; category?: string };
+  forwardFrom?: { subject: string; body: string; category?: string; imageAttachments?: string[]; fileAttachments?: { url: string; filename: string; content_type: string; duration?: number }[] };
   pictureMap?: Map<number, string>;
 }
 
@@ -181,8 +181,8 @@ export default function ComposeModal({
         setCategory(forwardFrom.category as MessageCategory | "" || "");
         setMessage(forwardFrom.body);
         setPriority("Normal");
-        setUploadedImages([]);
-        setUploadedFiles([]);
+        setUploadedImages(forwardFrom.imageAttachments || []);
+        setUploadedFiles(forwardFrom.fileAttachments || []);
       } else {
         // Compose mode, no draft
         setRecipientMode("all");
