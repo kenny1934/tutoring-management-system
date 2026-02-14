@@ -244,7 +244,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
       <input
         ref={replyFileInputRef}
         type="file"
-        accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+        accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
         multiple
         onChange={(e) => handleReplyImageUpload(e.target.files)}
         className="hidden"

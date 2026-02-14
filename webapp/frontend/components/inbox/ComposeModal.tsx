@@ -685,7 +685,7 @@ export default function ComposeModal({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+              accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
               multiple
               onChange={(e) => handleFileUpload(e.target.files)}
               className="hidden"

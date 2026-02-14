@@ -29,10 +29,10 @@ export function useFileUpload({ tutorId, acceptFiles = false, onError }: UseFile
     setIsUploading(true);
     try {
       const results = await Promise.all(Array.from(files).map(async (file) => {
-        if (file.type.startsWith("image/")) {
+        if (file.type.startsWith("image/") && file.type !== "image/gif") {
           const result = await messagesAPI.uploadImage(file, tutorId);
           return { type: "image" as const, url: result.url };
-        } else if (acceptFiles) {
+        } else if (acceptFiles || file.type === "image/gif" || file.type.startsWith("video/")) {
           const result = await messagesAPI.uploadFile(file, tutorId);
           return { type: "file" as const, file: result };
         }
