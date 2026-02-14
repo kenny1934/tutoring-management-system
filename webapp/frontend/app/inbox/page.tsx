@@ -2002,6 +2002,8 @@ export default function InboxPage() {
       // Skip if typing in an input/editor
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).closest(".tiptap")) return;
+      // Skip if any modifier key is held (Ctrl+C, Cmd+V, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const threads = displayThreadsRef.current;
       const selected = selectedThreadRef.current;

@@ -6,6 +6,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import Mention from "@tiptap/extension-mention";
+import { Mathematics } from "@tiptap/extension-mathematics";
+import { Extension, InputRule } from "@tiptap/core";
+import type { Node as PmNode } from "@tiptap/pm/model";
+import "katex/dist/katex.min.css";
 import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import TemplatePicker from "@/components/inbox/TemplatePicker";
@@ -24,6 +28,7 @@ import {
   Palette,
   Smile,
   Expand,
+  Sigma,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
@@ -196,6 +201,62 @@ export default function InboxRichEditor({
   const mentionUsersRef = useRef(mentionUsers);
   useEffect(() => { mentionUsersRef.current = mentionUsers; }, [mentionUsers]);
 
+  // Ref for editor instance — used by onClick closures that are created before editor exists
+  const editorInstanceRef = useRef<Editor | null>(null);
+
+  // Custom input rules for standard LaTeX delimiters ($...$ and $$...$$)
+  // The official extension uses $$...$$ for inline and $$$...$$$  for block, which is non-standard
+  const MathInputRules = useCallback(() => Extension.create({
+    name: 'mathInputRules',
+    addInputRules() {
+      const inlineMathType = this.editor.schema.nodes.inlineMath;
+      const blockMathType = this.editor.schema.nodes.blockMath;
+      return [
+        // $...$ for inline math (single dollar signs)
+        new InputRule({
+          find: /(^|[^$])(\$([^$\n]+?)\$)(?!\$)/,
+          handler: ({ state, range, match }) => {
+            const latex = match[3];
+            const { tr } = state;
+            const start = range.from + match[1].length;
+            tr.replaceWith(start, range.to, inlineMathType.create({ latex }));
+          },
+        }),
+        // $$...$$ for block math (at start of line)
+        new InputRule({
+          find: /^\$\$([^$]+)\$\$$/,
+          handler: ({ state, range, match }) => {
+            const latex = match[1];
+            const { tr } = state;
+            tr.replaceWith(range.from, range.to, blockMathType.create({ latex }));
+          },
+        }),
+      ];
+    },
+  }), []);
+
+  // Click handler for math nodes — uses editorInstanceRef
+  const handleMathClick = useCallback((node: PmNode, pos: number, type: 'inline' | 'block') => {
+    const ed = editorInstanceRef.current;
+    if (!ed) return;
+    const latex = node.attrs.latex || '';
+    const newLatex = prompt('Edit equation (LaTeX):', latex);
+    if (newLatex === null) return; // cancelled
+    if (newLatex === '') {
+      if (type === 'inline') {
+        ed.chain().focus().deleteInlineMath({ pos }).run();
+      } else {
+        ed.chain().focus().deleteBlockMath({ pos }).run();
+      }
+    } else if (newLatex !== latex) {
+      if (type === 'inline') {
+        ed.chain().focus().updateInlineMath({ latex: newLatex, pos }).run();
+      } else {
+        ed.chain().focus().updateBlockMath({ latex: newLatex, pos }).run();
+      }
+    }
+  }, []);
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -215,6 +276,18 @@ export default function InboxRichEditor({
       }),
       TextStyle,
       Color,
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+        },
+        inlineOptions: {
+          onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, 'inline'),
+        },
+        blockOptions: {
+          onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, 'block'),
+        },
+      }),
+      MathInputRules(),
       Mention.configure({
         HTMLAttributes: {
           class: "mention",
@@ -313,10 +386,11 @@ export default function InboxRichEditor({
     },
   });
 
-  // Expose editor to parent
+  // Expose editor to parent + store ref for onClick handlers
   useEffect(() => {
-    if (editor && onEditorReady) {
-      onEditorReady(editor);
+    if (editor) {
+      editorInstanceRef.current = editor;
+      if (onEditorReady) onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
 
@@ -476,6 +550,21 @@ export default function InboxRichEditor({
           isActive={editor.isActive("code")}
           onClick={() => editor.chain().focus().toggleCode().run()}
         />
+        <ToolbarButton
+          icon={Sigma}
+          label="Math equation ($...$)"
+          isActive={editor.isActive('inlineMath') || editor.isActive('blockMath')}
+          onClick={() => {
+            const { from, to } = editor.state.selection;
+            const selectedText = from !== to ? editor.state.doc.textBetween(from, to) : '';
+            const latex = selectedText || 'x^2';
+            editor.chain().focus().command(({ tr }) => {
+              const mathNode = editor.schema.nodes.inlineMath.create({ latex });
+              tr.replaceWith(from, to, mathNode);
+              return true;
+            }).run();
+          }}
+        />
 
         {/* Separator */}
         <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5" />
@@ -616,6 +705,10 @@ export default function InboxRichEditor({
         .dark .mention {
           background-color: #3d3628;
           color: #c49a6c;
+        }
+        .tiptap [data-type="inline-math"],
+        .tiptap [data-type="block-math"] {
+          cursor: pointer;
         }
       `}</style>
     </div>

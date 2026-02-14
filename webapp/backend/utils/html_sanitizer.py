@@ -6,13 +6,14 @@ from bleach.css_sanitizer import CSSSanitizer
 ALLOWED_TAGS = [
     "p", "br", "strong", "em", "s", "code", "pre",
     "blockquote", "h1", "h2", "h3",
-    "a", "span",
+    "a", "span", "div",
     "ul", "ol", "li",
 ]
 
 ALLOWED_ATTRIBUTES = {
     "a": ["href", "title", "target", "rel"],
-    "span": ["style"],
+    "span": ["style", "data-type", "data-latex"],
+    "div": ["data-type", "data-latex"],
 }
 
 ALLOWED_CSS_PROPERTIES = ["color"]

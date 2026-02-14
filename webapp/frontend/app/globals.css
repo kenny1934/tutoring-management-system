@@ -2129,3 +2129,29 @@ html {
 .prose span[style*="color"] code {
   color: inherit !important;
 }
+
+/* KaTeX math equation styles */
+.dark .katex {
+  color: inherit;
+}
+
+/* Block math in messages — centered with spacing */
+.prose [data-type="block-math"],
+[data-type="block-math"] {
+  text-align: center;
+  padding: 8px 0;
+  margin: 4px 0;
+}
+
+/* Inline math — align with text baseline */
+[data-type="inline-math"] {
+  display: inline;
+}
+
+/* Math node selection highlight in editor */
+.tiptap [data-type="inline-math"].ProseMirror-selectednode,
+.tiptap [data-type="block-math"].ProseMirror-selectednode {
+  outline: 2px solid #a0704b;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
