@@ -405,8 +405,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 "grid transition-[grid-template-rows] duration-200",
                 adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               )}>
-                <div className="overflow-hidden">
-                <div className="mt-1 ml-3 space-y-1">
+                <div className="overflow-hidden pl-3">
+                <div className="mt-1 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     // Get badge count for each admin item
@@ -472,8 +472,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 "grid transition-[grid-template-rows] duration-200",
                 adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               )}>
-                <div className="overflow-hidden">
-                <div className="mt-1 space-y-1">
+                <div className="overflow-hidden px-1">
+                <div className="mt-1 pt-0.5 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     // Get badge count for each admin item
