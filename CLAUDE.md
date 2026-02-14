@@ -15,7 +15,7 @@ Do NOT include Claude Code Footer in commit message.
 
 - **Versioning**: Semantic versioning via `release-please` (Google's GitHub Action)
 - **Current version**: Tracked in `.release-please-manifest.json`
-- **Changelog**: `CHANGELOG.md` at repo root, parsed into `webapp/frontend/lib/changelog-data.json` at build time
+- **Changelog**: `CHANGELOG.md` at repo root, parsed into `webapp/frontend/lib/changelog-data.ts` at build time. **When manually updating CHANGELOG.md, always regenerate by running `cd webapp/frontend && npx tsx scripts/parse-changelog.ts` and commit both files together.**
 - **Commit convention**: Use conventional commits (`feat:`, `fix:`, `perf:`, `refactor:`) — release-please uses these to generate changelog entries and determine version bumps
 - **Release flow**:
   1. Merge PRs to `main` as normal (auto-deploys continue as before)
