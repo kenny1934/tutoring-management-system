@@ -56,6 +56,24 @@ const changelogData = [
           },
           {
             "description": "Performance: memoized components, stale-while-revalidate for category navigation"
+          },
+          {
+            "description": "**Video & GIF attachments** — send and preview video/GIF files inline in messages"
+          },
+          {
+            "description": "**Message forwarding with attachments** — forwarded messages now include all original attachments (images, files, voice recordings)"
+          },
+          {
+            "description": "**Categorized attachment menu** — attachment button opens a popover with Photos & Videos / Document sections"
+          },
+          {
+            "description": "**File attachments in replies** — attach files when replying, with thumbnail previews and remove button"
+          },
+          {
+            "description": "**Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode"
+          },
+          {
+            "description": "Smooth slide animation on search filters panel (matches bulk action bar)"
           }
         ]
       },
@@ -76,6 +94,18 @@ const changelogData = [
           },
           {
             "description": "Added unique constraint on thread pins to prevent duplicates"
+          },
+          {
+            "description": "Fixed voice message emoji rendering — replaced with Lucide Mic SVG icon"
+          },
+          {
+            "description": "Fixed voice message duration not persisting in file_attachments metadata"
+          },
+          {
+            "description": "Fixed duplicate tiptap Link extension warning in rich editors"
+          },
+          {
+            "description": "Fixed changelog markdown rendering on What's New page"
           }
         ]
       }
