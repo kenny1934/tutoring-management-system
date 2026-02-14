@@ -124,11 +124,15 @@ async def google_callback(
                 status_code=status.HTTP_302_FOUND,
             )
 
-        # Persist Google profile picture on the tutor record
+        # Persist Google profile picture on the tutor record (non-blocking)
         google_picture = user_info.get("picture")
         if google_picture and tutor.profile_picture != google_picture:
-            tutor.profile_picture = google_picture
-            db.commit()
+            try:
+                tutor.profile_picture = google_picture
+                db.commit()
+            except Exception as pic_err:
+                logger.warning("Failed to update profile picture for %s: %s", google_email, pic_err)
+                db.rollback()
 
         # Create JWT token (sub must be a string per JWT spec)
         token = create_access_token({
