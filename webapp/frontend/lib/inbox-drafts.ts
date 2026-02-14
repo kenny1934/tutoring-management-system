@@ -1,3 +1,5 @@
+import { isHtmlEmpty } from "./html-utils";
+
 // Draft auto-save helpers for Inbox compose and reply
 
 export interface DraftData {
@@ -69,5 +71,5 @@ export function clearReplyDraft(threadId: number): void {
 }
 
 export function isReplyDraftEmpty(html: string): boolean {
-  return !html || html === "<p></p>" || html.replace(/<[^>]*>/g, "").trim().length === 0;
+  return isHtmlEmpty(html);
 }

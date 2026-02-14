@@ -1,0 +1,640 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
+import {
+  X, Pencil, Check, Trash2, Loader2, Paperclip, Reply, Forward,
+  Smile, FileText, Download,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TutorAvatar } from "@/lib/avatar-utils";
+import { isHtmlEmpty } from "@/lib/html-utils";
+import { messagesAPI } from "@/lib/api";
+import InboxRichEditor from "@/components/inbox/InboxRichEditor";
+import type { MentionUser } from "@/components/inbox/InboxRichEditor";
+import { LinkPreview } from "@/components/inbox/LinkPreview";
+import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
+import type { Message } from "@/types";
+
+// --- Utility functions ---
+
+export function formatMessageTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } else if (isThisYear) {
+    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+export function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query || query.length < 2) return text;
+  try {
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`(${escaped})`, "gi");
+    const parts = text.split(regex);
+    if (parts.length === 1) return text;
+    return parts.map((part, i) =>
+      regex.test(part) ? (
+        <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded-sm px-0.5">{part}</mark>
+      ) : (
+        <React.Fragment key={i}>{part}</React.Fragment>
+      )
+    );
+  } catch {
+    return text;
+  }
+}
+
+// --- SeenBadge ---
+
+const SeenBadge = React.memo(function SeenBadge({
+  message,
+  currentTutorId,
+}: {
+  message: Message;
+  currentTutorId: number;
+}) {
+  const [showPopover, setShowPopover] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+
+  if (message.from_tutor_id !== currentTutorId) return null;
+
+  const readReceipts = message.read_receipts || [];
+  const readCount = readReceipts.length;
+  const totalRecipients = message.total_recipients || 0;
+  const readByAll = message.read_by_all || false;
+  const hasBeenRead = readCount > 0;
+  const isBlue = readByAll;
+  const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-400";
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        ref={buttonRef}
+        onClick={() => {
+          if (!showPopover && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const spaceBelow = window.innerHeight - rect.bottom;
+            setPopoverPos({
+              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+              left: Math.max(8, Math.min(rect.right - 250, window.innerWidth - 260)),
+            });
+          }
+          setShowPopover(!showPopover);
+        }}
+        className={cn("flex items-center gap-0.5 text-xs transition-colors hover:opacity-80", checkColor)}
+        title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
+      >
+        {hasBeenRead ? (
+          <svg viewBox="0 0 16 11" width="16" height="11" className={checkColor} fill="currentColor">
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+            <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 12 11" width="12" height="11" className={checkColor} fill="currentColor">
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+          </svg>
+        )}
+      </button>
+      {showPopover && hasBeenRead && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setShowPopover(false)} />
+          <div
+            ref={popoverRef}
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
+            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
+          >
+            <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {readReceipts.map((receipt) => (
+                <div key={receipt.tutor_id} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Check className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{receipt.tutor_name}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(receipt.read_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+    </div>
+  );
+});
+
+// --- ReactionPicker ---
+
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
+const EMOJI_LABELS: Record<string, string> = { "👍": "thumbs up", "❤️": "heart", "😂": "laugh", "😮": "surprised", "😢": "sad", "🙏": "pray" };
+
+const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, isMobile }: { messageId: number; onReact: (emoji: string) => void; isMobile?: boolean }) {
+  const [showPicker, setShowPicker] = useState(false);
+  const [focusIdx, setFocusIdx] = useState(0);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const emojiRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showPicker]);
+
+  useEffect(() => {
+    if (showPicker) {
+      setFocusIdx(0);
+      requestAnimationFrame(() => emojiRefs.current[0]?.focus());
+    }
+  }, [showPicker]);
+
+  const handlePickerKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setShowPicker(false); return; }
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = (focusIdx + 1) % REACTION_EMOJIS.length;
+      setFocusIdx(next);
+      emojiRefs.current[next]?.focus();
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev = (focusIdx - 1 + REACTION_EMOJIS.length) % REACTION_EMOJIS.length;
+      setFocusIdx(prev);
+      emojiRefs.current[prev]?.focus();
+    }
+  }, [focusIdx]);
+
+  return (
+    <div className="relative" ref={pickerRef}>
+      <button
+        onClick={() => setShowPicker(!showPicker)}
+        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
+        title="React"
+        aria-haspopup="true"
+        aria-expanded={showPicker}
+      >
+        <Smile className="h-3.5 w-3.5" />
+      </button>
+      {showPicker && (
+        <div
+          className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}
+          role="menu"
+          aria-label="Emoji reactions"
+          onKeyDown={handlePickerKeyDown}
+        >
+          {REACTION_EMOJIS.map((emoji, i) => (
+            <button
+              key={emoji}
+              ref={(el) => { emojiRefs.current[i] = el; }}
+              role="menuitem"
+              aria-label={`React with ${EMOJI_LABELS[emoji] || emoji}`}
+              onClick={() => { onReact(emoji); setShowPicker(false); }}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-base"
+              tabIndex={i === focusIdx ? 0 : -1}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// --- LikesBadge ---
+
+const LikesBadge = React.memo(function LikesBadge({ message }: { message: Message }) {
+  const [showPopover, setShowPopover] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+
+  const likeDetails = message.like_details || [];
+  if (likeDetails.length === 0) return null;
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, { emoji: string; count: number; tutors: string[] }>();
+    for (const d of likeDetails) {
+      const emoji = d.emoji || "❤️";
+      const existing = map.get(emoji);
+      if (existing) {
+        existing.count++;
+        existing.tutors.push(d.tutor_name);
+      } else {
+        map.set(emoji, { emoji, count: 1, tutors: [d.tutor_name] });
+      }
+    }
+    return Array.from(map.values());
+  }, [likeDetails]);
+
+  return (
+    <div ref={buttonRef} className="inline-flex items-center gap-0.5">
+      {grouped.map((g) => (
+        <button
+          key={g.emoji}
+          onClick={() => {
+            if (!showPopover && buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setPopoverPos({
+                top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+                left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
+              });
+            }
+            setShowPopover(!showPopover);
+          }}
+          className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs hover:shadow-md transition-shadow"
+          title={g.tutors.join(", ")}
+        >
+          <span className="text-sm leading-none">{g.emoji}</span>
+          {g.count > 1 && <span className="text-gray-600 dark:text-gray-400">{g.count}</span>}
+        </button>
+      ))}
+      {showPopover && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setShowPopover(false)} />
+          <div
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
+          >
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Reactions ({likeDetails.length})
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {likeDetails.map((detail, i) => (
+                <div key={`${detail.tutor_id}-${detail.emoji}-${i}`} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{detail.tutor_name}</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(detail.liked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+    </div>
+  );
+});
+
+// --- MessageBubble ---
+
+export interface MessageBubbleProps {
+  message: Message;
+  idx: number;
+  isOwn: boolean;
+  isFirstInGroup: boolean;
+  isLastInGroup: boolean;
+  isMobile: boolean;
+  isEditing: boolean;
+  currentTutorId: number;
+  pictureUrl?: string;
+  highlightRegex: RegExp | null;
+  threadSearch: string;
+  mentionUsers: MentionUser[];
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (msgId: number, text: string, images?: string[]) => Promise<void>;
+  onReact: (emoji: string) => void;
+  onQuote: () => void;
+  onForward: () => void;
+  onDelete: (msgId: number) => Promise<void>;
+}
+
+const MessageBubble = React.memo(function MessageBubble({
+  message: m,
+  idx,
+  isOwn,
+  isFirstInGroup,
+  isLastInGroup,
+  isMobile,
+  isEditing,
+  currentTutorId,
+  pictureUrl,
+  highlightRegex,
+  threadSearch,
+  mentionUsers,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onReact,
+  onQuote,
+  onForward,
+  onDelete,
+}: MessageBubbleProps) {
+  const isBroadcast = m.to_tutor_id === null;
+  const isGroup = m.is_group_message;
+
+  // Internal edit state
+  const [editText, setEditText] = useState(m.message);
+  const [editImages, setEditImages] = useState<string[]>(m.image_attachments || []);
+  const [isEditUploading, setIsEditUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Internal delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Reset edit state when editing starts
+  useEffect(() => {
+    if (isEditing) {
+      setEditText(m.message);
+      setEditImages(m.image_attachments || []);
+    }
+  }, [isEditing, m.message, m.image_attachments]);
+
+  const handleEditImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsEditUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, currentTutorId);
+        setEditImages(prev => [...prev, result.url]);
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setIsEditUploading(false);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editText || editText === "<p></p>") return;
+    setIsSaving(true);
+    try {
+      await onSaveEdit(m.id, editText, editImages);
+      onCancelEdit();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div data-msg-idx={idx} className={cn(
+      !isOwn && "flex gap-2 mr-12 sm:mr-20",
+      isFirstInGroup ? "mt-3" : "mt-1",
+      idx === 0 && "mt-0"
+    )}>
+      {!isOwn && (
+        <div className="mt-1" style={{ visibility: isFirstInGroup ? 'visible' : 'hidden', width: 32, flexShrink: 0 }}>
+          {isFirstInGroup && <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureUrl} />}
+        </div>
+      )}
+      <div
+        id={`msg-${m.id}`}
+        style={{ animation: 'message-in 0.2s ease-out both' }}
+        className={cn(
+          "group/msg relative p-3 rounded-2xl transition-shadow",
+          m.like_count > 0 && "mb-2",
+          isOwn
+            ? cn("bg-[#ede0cf] dark:bg-[#3d3628] ml-12 sm:ml-20", isLastInGroup && "bubble-tail-right")
+            : "flex-1 min-w-0",
+          !isOwn && isBroadcast && "bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
+          !isOwn && isGroup && !isBroadcast && "bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
+          !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]"
+        )}
+      >
+        {/* Sender name + time (others only, first in group) */}
+        {!isOwn && isFirstInGroup && (
+          <div className="flex items-baseline justify-between mb-1">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+              {m.from_tutor_name || "Unknown"}
+            </span>
+            <span
+              className={cn(
+                "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
+                !isMobile && "opacity-0 group-hover/msg:opacity-100"
+              )}
+              title={new Date(m.created_at).toLocaleString()}
+            >
+              {formatMessageTime(m.created_at)}
+              {m.updated_at && <span className="italic">(edited)</span>}
+              <SeenBadge message={m} currentTutorId={currentTutorId} />
+            </span>
+          </div>
+        )}
+
+        {/* Message body - editable for own messages */}
+        {isEditing ? (
+          <div className="space-y-2">
+            <InboxRichEditor
+              onUpdate={setEditText}
+              initialContent={editText}
+              minHeight="100px"
+              onPasteFiles={(files) => {
+                const dt = new DataTransfer();
+                files.forEach(f => dt.items.add(f));
+                handleEditImageUpload(dt.files);
+              }}
+              mentionUsers={mentionUsers}
+            />
+            <div>
+              <input
+                ref={editFileInputRef}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+                multiple
+                onChange={(e) => handleEditImageUpload(e.target.files)}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => editFileInputRef.current?.click()}
+                disabled={isEditUploading}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isEditUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                {isEditUploading ? 'Uploading...' : 'Attach'}
+              </button>
+              {editImages.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {editImages.map((url, index) => (
+                    <div key={url} className="relative group">
+                      <img src={url} alt={`Attachment ${index + 1}`} className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                      <button
+                        type="button"
+                        onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSaving || isHtmlEmpty(editText)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+              >
+                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                Save
+              </button>
+              <button
+                onClick={onCancelEdit}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
+            dangerouslySetInnerHTML={{ __html: highlightRegex
+              ? m.message.replace(
+                  highlightRegex,
+                  (_match: string, tag: string | undefined, text: string | undefined) => tag ? tag : `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded-sm px-0.5">${text}</mark>`
+                )
+              : m.message
+            }}
+          />
+        ) : (
+          <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+            {threadSearch ? highlightMatch(m.message, threadSearch) : m.message}
+          </div>
+        )}
+
+        {/* Link previews */}
+        {!isEditing && m.message && <LinkPreview messageHtml={m.message} />}
+
+        {/* Image attachments */}
+        {m.image_attachments && m.image_attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {m.image_attachments.map((url, i) => (
+              <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                <img
+                  src={url}
+                  alt={`Attachment ${i + 1}`}
+                  className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* File/document attachments */}
+        {m.file_attachments && m.file_attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {m.file_attachments.map((file) => (
+              <a
+                key={file.url}
+                href={file.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+              >
+                <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{file.content_type.split('/').pop()?.toUpperCase()}</div>
+                </div>
+                <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Proposal embed for MakeupConfirmation messages */}
+        {m.category === "MakeupConfirmation" && (
+          <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
+        )}
+
+        {/* Message actions — floating pill on hover (desktop), inline on mobile */}
+        {!isEditing && (
+          <div className={cn(
+            "flex items-center gap-0.5",
+            isMobile
+              ? "mt-2 gap-2"
+              : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
+          )}>
+            <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
+            <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Quote">
+              <Reply className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onForward} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Forward">
+              <Forward className="h-3.5 w-3.5" />
+            </button>
+            {isOwn && (
+              <>
+                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Edit">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                {showDeleteConfirm ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { onDelete(m.id); setShowDeleteConfirm(false); }}
+                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Like count badge */}
+        {m.like_count > 0 && (
+          <div className="absolute -bottom-2.5 left-3">
+            <LikesBadge message={m} />
+          </div>
+        )}
+
+        {/* Own message: timestamp + seen badge */}
+        {isOwn && (
+          <div className={cn(
+            "flex items-center justify-end gap-1 mt-1 transition-opacity",
+            !isMobile && "opacity-0 group-hover/msg:opacity-100"
+          )}>
+            <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
+              {formatMessageTime(m.created_at)}
+              {m.updated_at && <span className="italic ml-1">(edited)</span>}
+            </span>
+            <SeenBadge message={m} currentTutorId={currentTutorId} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export default MessageBubble;

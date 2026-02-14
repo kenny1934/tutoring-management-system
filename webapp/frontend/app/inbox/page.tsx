@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
-import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,18 +12,21 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
+import { stripHtml } from "@/lib/html-utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
-import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
-import { LinkPreview } from "@/components/inbox/LinkPreview";
 const ScheduleMakeupModal = lazy(() => import("@/components/sessions/ScheduleMakeupModal").then(m => ({ default: m.ScheduleMakeupModal })));
 const SendToWecomModal = lazy(() => import("@/components/wecom/SendToWecomModal"));
-import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import ComposeModal from "@/components/inbox/ComposeModal";
-import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
+import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
+import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
+import MessageBubble from "@/components/inbox/MessageBubble";
+import { formatMessageTime, highlightMatch } from "@/components/inbox/MessageBubble";
+import ReplyComposer from "@/components/inbox/ReplyComposer";
+import type { ReplyComposerHandle } from "@/components/inbox/ReplyComposer";
 import {
   Inbox,
   Send,
@@ -37,7 +39,6 @@ import {
   PenSquare,
   X,
   ChevronDown,
-  ChevronUp,
   ChevronLeft,
   ChevronRight,
   RotateCcw,
@@ -46,7 +47,6 @@ import {
   Loader2,
   AlertCircle,
   Clock,
-  Pencil,
   Check,
   Search,
   Trash2,
@@ -55,20 +55,14 @@ import {
   CircleDot,
   Archive,
   ArchiveRestore,
-  Paperclip,
   MessageSquareShare,
   Star,
-  Users,
   MessageSquarePlus,
-  FileText,
-  Download,
   Volume2,
   VolumeX,
-  Forward,
   CheckSquare,
   Square,
   ListChecks,
-  Smile,
   Pin,
   MoreVertical,
 } from "lucide-react";
@@ -115,21 +109,6 @@ const CATEGORY_SECTIONS: CategorySection[] = [
 
 // Flat list for consumers (unread counts, category filter lookups, etc.)
 const CATEGORIES: Category[] = CATEGORY_SECTIONS.flatMap(s => s.items);
-
-// Format message timestamp: time-only for today, short date for this year, full for older
-function formatMessageTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const isThisYear = date.getFullYear() === now.getFullYear();
-
-  if (isToday) {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-  } else if (isThisYear) {
-    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-  }
-  return date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-}
 
 // Priority configuration - single source of truth
 type PriorityLevel = "Normal" | "High" | "Urgent";
@@ -178,27 +157,6 @@ const isArchivedKey = (key: unknown) => Array.isArray(key) && key[0] === "archiv
 const isPinnedKey = (key: unknown) => Array.isArray(key) && key[0] === "pinned-messages";
 const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
 
-
-
-// Highlight search matches in text
-function highlightMatch(text: string, query: string): React.ReactNode {
-  if (!query || query.length < 2) return text;
-  try {
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "gi");
-    const parts = text.split(regex);
-    if (parts.length === 1) return text;
-    return parts.map((part, i) =>
-      regex.test(part) ? (
-        <mark key={i} className="bg-yellow-200 dark:bg-yellow-700/50 text-inherit rounded-sm px-0.5">{part}</mark>
-      ) : (
-        part
-      )
-    );
-  } catch {
-    return text;
-  }
-}
 
 
 // Date separator helpers — "Today", "Yesterday", or formatted date
@@ -373,10 +331,10 @@ const ThreadItem = React.memo(function ThreadItem({
             {draftPreview ? (
               <>
                 <span className="text-[#a0704b] dark:text-[#c49a6c] font-medium">Draft: </span>
-                <span>{draftPreview.replace(/<[^>]*>/g, "").trim().slice(0, 60)}</span>
+                <span>{stripHtml(draftPreview).slice(0, 60)}</span>
               </>
             ) : (() => {
-              const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
+              const plain = stripHtml(latestMessage.message);
               const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
               return searchQuery ? highlightMatch(preview, searchQuery) : preview;
             })()}
@@ -407,7 +365,7 @@ const ThreadItem = React.memo(function ThreadItem({
         {hasUnread && (
           <span className={cn(
             "flex-shrink-0 min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold text-white bg-[#a0704b] rounded-full px-1.5",
-            total_unread > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite]"
+            total_unread > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
           )}>
             {total_unread}
           </span>
@@ -444,6 +402,9 @@ function SwipeableThreadItem({
     isSwiping.current = false;
   }, []);
 
+  const leftIconRef = useRef<HTMLDivElement>(null);
+  const rightIconRef = useRef<HTMLDivElement>(null);
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - startX.current;
     const dy = e.touches[0].clientY - startY.current;
@@ -457,12 +418,18 @@ function SwipeableThreadItem({
       containerRef.current.style.transform = `translateX(${currentX.current}px)`;
       containerRef.current.style.transition = 'none';
     }
+    // Fade action icons based on swipe distance
+    const opacity = Math.min(1, Math.abs(currentX.current) / 60);
+    if (currentX.current < 0 && leftIconRef.current) leftIconRef.current.style.opacity = String(opacity);
+    if (currentX.current > 0 && rightIconRef.current) rightIconRef.current.style.opacity = String(opacity);
   }, []);
 
   const handleTouchEnd = useCallback(() => {
     if (!containerRef.current) return;
-    containerRef.current.style.transition = 'transform 0.2s ease-out';
+    containerRef.current.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
     containerRef.current.style.transform = 'translateX(0)';
+    if (leftIconRef.current) leftIconRef.current.style.opacity = '0';
+    if (rightIconRef.current) rightIconRef.current.style.opacity = '0';
 
     if (isSwiping.current) {
       if (currentX.current < -60 && onSwipeLeftAction) {
@@ -479,14 +446,14 @@ function SwipeableThreadItem({
     <div className="relative overflow-hidden">
       {/* Left action bg (archive) — revealed on swipe left */}
       {onSwipeLeftAction && (
-        <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500 text-white text-xs font-medium">
+        <div ref={leftIconRef} className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
           <Archive className="h-4 w-4 mr-1" />
           {leftLabel || "Archive"}
         </div>
       )}
       {/* Right action bg (pin) — revealed on swipe right */}
       {onSwipeRightAction && (
-        <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-blue-500 text-white text-xs font-medium">
+        <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-blue-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
           <Pin className="h-4 w-4 mr-1" />
           {rightLabel || "Pin"}
         </div>
@@ -571,275 +538,6 @@ function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; on
   );
 }
 
-// Seen Badge Component - WhatsApp-style read receipts
-const SeenBadge = React.memo(function SeenBadge({
-  message,
-  currentTutorId,
-}: {
-  message: Message;
-  currentTutorId: number;
-}) {
-  const [showPopover, setShowPopover] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
-
-  // Only show for sender's own messages
-  if (message.from_tutor_id !== currentTutorId) {
-    return null;
-  }
-
-  const readReceipts = message.read_receipts || [];
-  const readCount = readReceipts.length;
-  const totalRecipients = message.total_recipients || 0;
-  const readByAll = message.read_by_all || false;
-  const hasBeenRead = readCount > 0;
-
-  // Determine checkmark color and style
-  // Gray single check = sent (no one read)
-  // Gray double check = read by some (for broadcasts)
-  // Blue double check = read by all / read by recipient
-  const isBlue = readByAll;
-  const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-500";
-
-  return (
-    <div className="relative inline-flex items-center">
-      <button
-        ref={buttonRef}
-        onClick={() => {
-          if (!showPopover && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            setPopoverPos({
-              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
-              left: Math.max(8, Math.min(rect.right - 250, window.innerWidth - 260)),
-            });
-          }
-          setShowPopover(!showPopover);
-        }}
-        className={cn(
-          "flex items-center gap-0.5 text-xs transition-colors hover:opacity-80",
-          checkColor
-        )}
-        title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
-      >
-        {/* Double checkmark SVG for read, single for sent */}
-        {hasBeenRead ? (
-          <svg
-            viewBox="0 0 16 11"
-            width="16"
-            height="11"
-            className={checkColor}
-            fill="currentColor"
-          >
-            {/* Double checkmark */}
-            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
-            <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 12 11"
-            width="12"
-            height="11"
-            className={checkColor}
-            fill="currentColor"
-          >
-            {/* Single checkmark */}
-            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
-          </svg>
-        )}
-      </button>
-
-      {/* Popover showing who read the message — portaled to body to escape transform/overflow */}
-      {showPopover && hasBeenRead && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[60]"
-            onClick={() => setShowPopover(false)}
-          />
-          <div
-            ref={popoverRef}
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
-            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
-          >
-            <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
-            </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              {readReceipts.map((receipt) => (
-                <div
-                  key={receipt.tutor_id}
-                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Check className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {receipt.tutor_name}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                    {new Date(receipt.read_at).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
-    </div>
-  );
-});
-
-// Likes Badge Component - shows who liked a message in a popover
-const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
-
-const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, isMobile }: { messageId: number; onReact: (emoji: string) => void; isMobile?: boolean }) {
-  const [showPicker, setShowPicker] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showPicker) return;
-    const handleClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowPicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPicker]);
-
-  return (
-    <div className="relative" ref={pickerRef}>
-      <button
-        onClick={() => setShowPicker(!showPicker)}
-        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
-        title="React"
-      >
-        <Smile className="h-3.5 w-3.5" />
-      </button>
-      {showPicker && (
-        <div className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}>
-          {REACTION_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => { onReact(emoji); setShowPicker(false); }}
-              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-base"
-              title={emoji}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
-
-const LikesBadge = React.memo(function LikesBadge({
-  message,
-}: {
-  message: Message;
-}) {
-  const [showPopover, setShowPopover] = useState(false);
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
-
-  const likeDetails = message.like_details || [];
-  if (likeDetails.length === 0) return null;
-
-  // Group reactions by emoji
-  const grouped = useMemo(() => {
-    const map = new Map<string, { emoji: string; count: number; tutors: string[] }>();
-    for (const d of likeDetails) {
-      const emoji = d.emoji || "❤️";
-      const existing = map.get(emoji);
-      if (existing) {
-        existing.count++;
-        existing.tutors.push(d.tutor_name);
-      } else {
-        map.set(emoji, { emoji, count: 1, tutors: [d.tutor_name] });
-      }
-    }
-    return Array.from(map.values());
-  }, [likeDetails]);
-
-  return (
-    <div ref={buttonRef} className="inline-flex items-center gap-0.5">
-      {grouped.map((g) => (
-        <button
-          key={g.emoji}
-          onClick={() => {
-            if (!showPopover && buttonRef.current) {
-              const rect = buttonRef.current.getBoundingClientRect();
-              const spaceBelow = window.innerHeight - rect.bottom;
-              setPopoverPos({
-                top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
-                left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
-              });
-            }
-            setShowPopover(!showPopover);
-          }}
-          className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs hover:shadow-md transition-shadow"
-          title={g.tutors.join(", ")}
-        >
-          <span className="text-sm leading-none">{g.emoji}</span>
-          {g.count > 1 && <span className="text-gray-600 dark:text-gray-400">{g.count}</span>}
-        </button>
-      ))}
-
-      {/* Popover — portaled to body to escape transform/overflow */}
-      {showPopover && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-[60]"
-            onClick={() => setShowPopover(false)}
-          />
-          <div
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
-            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
-          >
-            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              Reactions ({likeDetails.length})
-            </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              {likeDetails.map((detail, i) => (
-                <div
-                  key={`${detail.tutor_id}-${detail.emoji}-${i}`}
-                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {detail.tutor_name}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                    {new Date(detail.liked_at).toLocaleString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true
-                    })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>,
-        document.body
-      )}
-    </div>
-  );
-});
-
 // Thread Detail Panel Component - memoized to prevent unnecessary re-renders
 const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   thread,
@@ -910,10 +608,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Thread search state
   const [threadSearch, setThreadSearch] = useState("");
   const [showThreadSearch, setShowThreadSearch] = useState(false);
-  const [searchMatchIdx, setSearchMatchIdx] = useState(0);
-  const threadSearchRef = useRef<HTMLInputElement>(null);
-  const allMessagesRef = useRef(allMessages);
-  useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
 
   // More actions dropdown state
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -927,30 +621,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     return new RegExp(`(<[^>]+>)|(${escaped})`, "gi");
   }, [threadSearch]);
 
-  // Auto-scroll to first search match when search term changes
-  useEffect(() => {
-    if (!threadSearch || !scrollRef.current) return;
-    const timer = setTimeout(() => {
-      const lc = threadSearch.toLowerCase();
-      const msgs = allMessagesRef.current;
-      const firstIdx = msgs.findIndex(m =>
-        m.message.replace(/<[^>]*>/g, "").toLowerCase().includes(lc)
-      );
-      if (firstIdx !== -1) {
-        const el = scrollRef.current?.querySelector(`[data-msg-idx="${firstIdx}"]`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [threadSearch]);
-
-  // Edit state
+  // Edit state — only editingMessageId is tracked here; actual edit state is in MessageBubble
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
-  const [editText, setEditText] = useState("");
-  const [editImages, setEditImages] = useState<string[]>([]);
-  const [isEditUploading, setIsEditUploading] = useState(false);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
-  const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Capture first unread message ID before auto-mark-read (runs during render, before effects)
@@ -962,18 +634,10 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     firstUnreadIdRef.current = firstUnread?.id ?? null;
   }
 
-  // Reply bar state — initialize from draft if available
+  // Reply composer ref for imperative actions (quoting, retry)
   const threadId = thread.root_message.id;
-  const initialDraft = useRef(loadReplyDraft(threadId));
-  const [replyText, setReplyText] = useState(initialDraft.current?.message || "");
-  const [replyImages, setReplyImages] = useState<string[]>(initialDraft.current?.images || []);
-  const [isReplySending, setIsReplySending] = useState(false);
-  const [isReplyUploading, setIsReplyUploading] = useState(false);
-  const [replyEditorKey, setReplyEditorKey] = useState(0);
-  const [isReplyDragging, setIsReplyDragging] = useState(false);
+  const replyComposerRef = useRef<ReplyComposerHandle>(null);
   const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[]; failed?: boolean } | null>(null);
-  const replyFileInputRef = useRef<HTMLInputElement>(null);
-  const replyEditorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -981,26 +645,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }, 100);
   }, [thread]);
-
-  // Load draft and reset editor when switching threads
-  useEffect(() => {
-    const draft = loadReplyDraft(threadId);
-    initialDraft.current = draft;
-    setReplyText(draft?.message || "");
-    setReplyImages(draft?.images || []);
-    setReplyEditorKey(prev => prev + 1);
-  }, [threadId]);
-
-  // Auto-save reply draft on content change
-  useEffect(() => {
-    if (isReplyDraftEmpty(replyText) && replyImages.length === 0) {
-      clearReplyDraft(threadId);
-      onDraftChange?.();
-    } else if (!isReplyDraftEmpty(replyText) || replyImages.length > 0) {
-      saveReplyDraft(threadId, { message: replyText, images: replyImages, savedAt: Date.now() });
-      onDraftChange?.();
-    }
-  }, [replyText, replyImages, threadId, onDraftChange]);
 
   // Mark messages as read when viewing
   useEffect(() => {
@@ -1011,75 +655,13 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     });
   }, [allMessages, onMarkRead]);
 
-  const startEdit = (m: Message) => {
-    setEditingMessageId(m.id);
-    setEditText(m.message);
-    setEditImages(m.image_attachments || []);
-  };
-
-  const cancelEdit = () => {
-    setEditingMessageId(null);
-    setEditText("");
-    setEditImages([]);
-  };
-
-  const saveEdit = async () => {
-    if (!editingMessageId || !editText || editText === "<p></p>") return;
-    setIsSaving(true);
-    try {
-      await onEdit(editingMessageId, editText, editImages);
-      setEditingMessageId(null);
-      setEditText("");
-      setEditImages([]);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEditImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsEditUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
-        const result = await messagesAPI.uploadImage(file, currentTutorId);
-        setEditImages(prev => [...prev, result.url]);
-      }
-    } catch (error) {
-      console.error('Image upload failed:', error);
-    } finally {
-      setIsEditUploading(false);
-      if (editFileInputRef.current) editFileInputRef.current.value = '';
-    }
-  };
-
-  // Reply bar handlers
-  const handleReplyImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsReplyUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
-        const result = await messagesAPI.uploadImage(file, currentTutorId);
-        setReplyImages(prev => [...prev, result.url]);
-      }
-    } catch (error) {
-      console.error('Image upload failed:', error);
-    } finally {
-      setIsReplyUploading(false);
-      if (replyFileInputRef.current) replyFileInputRef.current.value = '';
-    }
-  };
-
-  const isReplyEmpty = !replyText || replyText === "<p></p>" || replyText.replace(/<[^>]*>/g, "").trim().length === 0;
-
   // Quote a message into the reply editor
   const handleQuote = useCallback((m: Message) => {
     const senderName = m.from_tutor_name || "Unknown";
-    const plainText = m.message.replace(/<[^>]*>/g, "").trim();
+    const plainText = stripHtml(m.message);
     const truncated = plainText.length > 150 ? plainText.slice(0, 150) + "..." : plainText;
     const quoteHtml = `<blockquote data-msg-id="${m.id}"><strong>${senderName}</strong><br>${truncated}</blockquote><p></p>`;
-    replyEditorRef.current?.insertContent(quoteHtml);
+    replyComposerRef.current?.insertContent(quoteHtml);
   }, []);
 
   // Scroll-to-bottom button
@@ -1109,73 +691,56 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }
   }, []);
 
-  const handleSendReply = async () => {
-    if (isReplyEmpty && replyImages.length === 0) return;
+  // Called by ReplyComposer when user sends a reply
+  const handleSendReply = useCallback(async (text: string, images: string[]) => {
+    // Build MessageCreate with auto-computed recipients
+    const data: MessageCreate = {
+      subject: `Re: ${msg.subject || "(no subject)"}`,
+      message: text,
+      priority: "Normal",
+      category: msg.category || undefined,
+      reply_to_id: msg.id,
+      image_attachments: images.length > 0 ? images : undefined,
+    };
 
-    setIsReplySending(true);
-    try {
-      // Build MessageCreate with auto-computed recipients
-      const data: MessageCreate = {
-        subject: `Re: ${msg.subject || "(no subject)"}`,
-        message: replyText,
-        priority: "Normal",
-        category: msg.category || undefined,
-        reply_to_id: msg.id,
-        image_attachments: replyImages.length > 0 ? replyImages : undefined,
-      };
-
-      // Compute recipients (same logic as ComposeModal)
-      if (msg.is_group_message && msg.to_tutor_ids) {
-        const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
-        if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id)) {
-          replyRecipients.push(msg.from_tutor_id);
-        }
-        if (replyRecipients.length === 1) {
-          data.to_tutor_id = replyRecipients[0];
-        } else if (replyRecipients.length >= 2) {
-          data.to_tutor_ids = replyRecipients;
-        }
-      } else if (msg.from_tutor_id === currentTutorId) {
-        // Replying to own message: send to original recipient(s)
-        if (msg.to_tutor_id != null) {
-          data.to_tutor_id = msg.to_tutor_id;
-        }
-        // else broadcast — no to_tutor_id
-      } else {
-        // Replying to someone else: send to them
-        data.to_tutor_id = msg.from_tutor_id;
+    // Compute recipients
+    if (msg.is_group_message && msg.to_tutor_ids) {
+      const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
+      if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id)) {
+        replyRecipients.push(msg.from_tutor_id);
       }
+      if (replyRecipients.length === 1) {
+        data.to_tutor_id = replyRecipients[0];
+      } else if (replyRecipients.length >= 2) {
+        data.to_tutor_ids = replyRecipients;
+      }
+    } else if (msg.from_tutor_id === currentTutorId) {
+      if (msg.to_tutor_id != null) {
+        data.to_tutor_id = msg.to_tutor_id;
+      }
+    } else {
+      data.to_tutor_id = msg.from_tutor_id;
+    }
 
-      // Show optimistic bubble immediately
-      setOptimisticMessage({ text: replyText, images: [...replyImages] });
+    // Show optimistic bubble
+    setOptimisticMessage({ text, images: [...images] });
 
-      // Clear editor and draft immediately for snappy feel
-      setReplyText("");
-      setReplyImages([]);
-      setReplyEditorKey(prev => prev + 1);
-      clearReplyDraft(threadId);
+    // Scroll to bottom
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, 50);
 
-      // Scroll to bottom to show optimistic message
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-      }, 50);
-
+    try {
       await onSendMessage(data);
-
-      // Clear optimistic bubble (real message will appear from SWR refresh)
       setOptimisticMessage(null);
-
-      // Scroll to bottom after data refreshes
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }, 500);
-    } catch {
-      // Mark optimistic message as failed — show retry button
+    } catch (err) {
       setOptimisticMessage(prev => prev ? { ...prev, failed: true } : null);
-    } finally {
-      setIsReplySending(false);
+      throw err; // Re-throw so ReplyComposer knows it failed
     }
-  };
+  }, [msg, currentTutorId, onSendMessage]);
 
   return (
     <div
@@ -1260,9 +825,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         </button>
         <button
           onClick={() => {
+            if (showThreadSearch) setThreadSearch("");
             setShowThreadSearch(!showThreadSearch);
-            if (!showThreadSearch) setTimeout(() => threadSearchRef.current?.focus(), 50);
-            else setThreadSearch("");
           }}
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
@@ -1329,84 +893,20 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       </div>
 
       {/* Thread search bar */}
-      {showThreadSearch && (() => {
-        const matchedIds = threadSearch
-          ? allMessages
-              .map((m, i) => m.message.replace(/<[^>]*>/g, "").toLowerCase().includes(threadSearch.toLowerCase()) ? i : -1)
-              .filter(i => i !== -1)
-          : [];
-        const matchCount = matchedIds.length;
-        const clampedIdx = matchCount > 0 ? Math.min(searchMatchIdx, matchCount - 1) : 0;
-
-        const scrollToMatch = (idx: number) => {
-          const msgIdx = matchedIds[idx];
-          if (msgIdx == null || !scrollRef.current) return;
-          const msgEl = scrollRef.current.querySelector(`[data-msg-idx="${msgIdx}"]`);
-          if (msgEl) msgEl.scrollIntoView({ behavior: "smooth", block: "center" });
-        };
-
-        return (
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
-            <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-            <input
-              ref={threadSearchRef}
-              type="text"
-              value={threadSearch}
-              onChange={(e) => { setThreadSearch(e.target.value); setSearchMatchIdx(0); }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") { setShowThreadSearch(false); setThreadSearch(""); }
-                if (e.key === "Enter" && matchCount > 0) {
-                  e.preventDefault();
-                  const next = e.shiftKey
-                    ? (clampedIdx - 1 + matchCount) % matchCount
-                    : (clampedIdx + 1) % matchCount;
-                  setSearchMatchIdx(next);
-                  scrollToMatch(next);
-                }
-              }}
-              placeholder="Search messages..."
-              className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 outline-none"
-            />
-            {threadSearch && (
-              <span className="text-xs text-gray-400 whitespace-nowrap">
-                {matchCount > 0 ? `${clampedIdx + 1}/${matchCount}` : "0 found"}
-              </span>
-            )}
-            {matchCount > 1 && (
-              <div className="flex items-center">
-                <button
-                  onClick={() => { const prev = (clampedIdx - 1 + matchCount) % matchCount; setSearchMatchIdx(prev); scrollToMatch(prev); }}
-                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                  title="Previous match (Shift+Enter)"
-                >
-                  <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
-                </button>
-                <button
-                  onClick={() => { const next = (clampedIdx + 1) % matchCount; setSearchMatchIdx(next); scrollToMatch(next); }}
-                  className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                  title="Next match (Enter)"
-                >
-                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                </button>
-              </div>
-            )}
-            <button
-              onClick={() => { setShowThreadSearch(false); setThreadSearch(""); }}
-              className="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-            >
-              <X className="h-3.5 w-3.5 text-gray-400" />
-            </button>
-          </div>
-        );
-      })()}
+      {showThreadSearch && (
+        <ThreadSearchBar
+          allMessages={allMessages}
+          threadSearch={threadSearch}
+          onSearchChange={setThreadSearch}
+          scrollRef={scrollRef}
+          onClose={() => { setShowThreadSearch(false); setThreadSearch(""); }}
+        />
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" onClick={handleQuoteClick}>
         {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
-          const isEditing = editingMessageId === m.id;
-          const isBroadcast = m.to_tutor_id === null;
-          const isGroup = m.is_group_message;
 
           // Date separator logic
           const msgDate = new Date(m.created_at);
@@ -1420,272 +920,28 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           const isFirstInGroup = !prevMsg || prevMsg.from_tutor_id !== m.from_tutor_id || isNewDay;
           const isLastInGroup = !nextMsg || nextMsg.from_tutor_id !== m.from_tutor_id;
 
-          // Message bubble content (extracted for optional SwipeableMessage wrapping)
           const messageBubble = (
-            <div data-msg-idx={idx} className={cn(
-              !isOwn && "flex gap-2 mr-12 sm:mr-20",
-              isFirstInGroup ? "mt-3" : "mt-1",
-              idx === 0 && "mt-0"
-            )}>
-              {!isOwn && (
-                <div className="mt-1" style={{ visibility: isFirstInGroup ? 'visible' : 'hidden', width: 32, flexShrink: 0 }}>
-                  {isFirstInGroup && <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureMap?.get(m.from_tutor_id)} />}
-                </div>
-              )}
-            <div
-              id={`msg-${m.id}`}
-              style={{ animation: 'message-in 0.2s ease-out both' }}
-              className={cn(
-                "group/msg relative p-3 rounded-2xl transition-shadow",
-                m.like_count > 0 && "mb-2",
-                isOwn
-                  ? cn("bg-[#ede0cf] dark:bg-[#3d3628] ml-12 sm:ml-20", isLastInGroup && "bubble-tail-right")
-                  : "flex-1 min-w-0",
-                !isOwn && isBroadcast && "bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/30",
-                !isOwn && isGroup && !isBroadcast && "bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30",
-                !isOwn && !isBroadcast && !isGroup && "bg-[#faf6f1] dark:bg-[#2a2a2a] border border-[#e8d4b8]/50 dark:border-[#6b5a4a]"
-              )}
-            >
-              {/* Sender name + time (others only, first in group) */}
-              {!isOwn && isFirstInGroup && (
-                <div className="flex items-baseline justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                    {m.from_tutor_name || "Unknown"}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
-                      !isMobile && "opacity-0 group-hover/msg:opacity-100"
-                    )}
-                    title={new Date(m.created_at).toLocaleString()}
-                  >
-                    {formatMessageTime(m.created_at)}
-                    {m.updated_at && <span className="italic">(edited)</span>}
-                    <SeenBadge message={m} currentTutorId={currentTutorId} />
-                  </span>
-                </div>
-              )}
-
-              {/* Message body - editable for own messages */}
-              {isEditing ? (
-                <div className="space-y-2">
-                  <InboxRichEditor
-                    onUpdate={setEditText}
-                    initialContent={editText}
-                    minHeight="100px"
-                    onPasteFiles={(files) => {
-                      const dt = new DataTransfer();
-                      files.forEach(f => dt.items.add(f));
-                      handleEditImageUpload(dt.files);
-                    }}
-                    mentionUsers={threadMentionUsers}
-                  />
-                  {/* Image attachments for edit mode */}
-                  <div>
-                    <input
-                      ref={editFileInputRef}
-                      type="file"
-                      accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-                      multiple
-                      onChange={(e) => handleEditImageUpload(e.target.files)}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => editFileInputRef.current?.click()}
-                      disabled={isEditUploading}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {isEditUploading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Paperclip className="h-4 w-4" />
-                      )}
-                      {isEditUploading ? 'Uploading...' : 'Attach'}
-                    </button>
-                    {editImages.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {editImages.map((url, index) => (
-                          <div key={url} className="relative group">
-                            <img
-                              src={url}
-                              alt={`Attachment ${index + 1}`}
-                              className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
-                              className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={saveEdit}
-                      disabled={isSaving || !editText || editText === "<p></p>" || editText.replace(/<[^>]*>/g, "").trim().length === 0}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                    >
-                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                      Save
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      disabled={isSaving}
-                      className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
-                  dangerouslySetInnerHTML={{ __html: highlightRegex
-                    ? m.message.replace(
-                        highlightRegex,
-                        (_match: string, tag: string | undefined, text: string | undefined) => tag ? tag : `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded-sm px-0.5">${text}</mark>`
-                      )
-                    : m.message
-                  }}
-                />
-              ) : (
-                <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                  {threadSearch ? highlightMatch(m.message, threadSearch) : m.message}
-                </div>
-              )}
-
-              {/* Link previews */}
-              {!editingMessageId && m.message && <LinkPreview messageHtml={m.message} />}
-
-              {/* Image attachments */}
-              {m.image_attachments && m.image_attachments.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {m.image_attachments.map((url, idx) => (
-                    <a
-                      key={url}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={url}
-                        alt={`Attachment ${idx + 1}`}
-                        className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
-                        loading="lazy"
-                      />
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {/* File/document attachments */}
-              {m.file_attachments && m.file_attachments.length > 0 && (
-                <div className="mt-3 space-y-2">
-                  {m.file_attachments.map((file, idx) => (
-                    <a
-                      key={file.url}
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
-                    >
-                      <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                          {file.filename}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {file.content_type.split('/').pop()?.toUpperCase()}
-                        </div>
-                      </div>
-                      <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
-                    </a>
-                  ))}
-                </div>
-              )}
-
-              {/* Proposal embed for MakeupConfirmation messages */}
-              {m.category === "MakeupConfirmation" && (
-                <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
-              )}
-
-              {/* Message actions — floating pill on hover (desktop), inline on mobile */}
-              {!isEditing && (
-                <div className={cn(
-                  "flex items-center gap-0.5",
-                  isMobile
-                    ? "mt-2 gap-2"
-                    : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
-                )}>
-                  <ReactionPicker messageId={m.id} onReact={(emoji) => onLike(m.id, emoji)} isMobile={isMobile} />
-                  <button
-                    onClick={() => handleQuote(m)}
-                    className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
-                    title="Quote"
-                  >
-                    <Reply className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => onForward(m)}
-                    className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
-                    title="Forward"
-                  >
-                    <Forward className="h-3.5 w-3.5" />
-                  </button>
-                  {isOwn && (
-                    <>
-                      <button
-                        onClick={() => startEdit(m)}
-                        className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this message?")) {
-                            onDelete(m.id);
-                          }
-                        }}
-                        className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-              {/* Like count badge — floating reaction pill */}
-              {m.like_count > 0 && (
-                <div className="absolute -bottom-2.5 left-3">
-                  <LikesBadge message={m} />
-                </div>
-              )}
-
-              {/* Own message: timestamp + seen badge at bottom-right */}
-              {isOwn && (
-                <div className={cn(
-                  "flex items-center justify-end gap-1 mt-1 transition-opacity",
-                  !isMobile && "opacity-0 group-hover/msg:opacity-100"
-                )}>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
-                    {formatMessageTime(m.created_at)}
-                    {m.updated_at && <span className="italic ml-1">(edited)</span>}
-                  </span>
-                  <SeenBadge message={m} currentTutorId={currentTutorId} />
-                </div>
-              )}
-            </div>
-            </div>
+            <MessageBubble
+              message={m}
+              idx={idx}
+              isOwn={isOwn}
+              isFirstInGroup={isFirstInGroup}
+              isLastInGroup={isLastInGroup}
+              isMobile={isMobile}
+              isEditing={editingMessageId === m.id}
+              currentTutorId={currentTutorId}
+              pictureUrl={pictureMap?.get(m.from_tutor_id)}
+              highlightRegex={highlightRegex}
+              threadSearch={threadSearch}
+              mentionUsers={threadMentionUsers}
+              onStartEdit={() => setEditingMessageId(m.id)}
+              onCancelEdit={() => setEditingMessageId(null)}
+              onSaveEdit={onEdit}
+              onReact={(emoji) => onLike(m.id, emoji)}
+              onQuote={() => handleQuote(m)}
+              onForward={() => onForward(m)}
+              onDelete={onDelete}
+            />
           );
 
           return (
@@ -1757,11 +1013,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <div className="flex-1" />
                 <button
                   onClick={() => {
-                    // Restore content to editor for retry
-                    initialDraft.current = { message: optimisticMessage.text, images: optimisticMessage.images, savedAt: Date.now() };
-                    setReplyText(optimisticMessage.text);
-                    setReplyImages([...optimisticMessage.images]);
-                    setReplyEditorKey(prev => prev + 1);
+                    replyComposerRef.current?.restoreContent(optimisticMessage.text, [...optimisticMessage.images]);
                     setOptimisticMessage(null);
                   }}
                   className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
@@ -1796,116 +1048,16 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       </div>
 
       {/* Inline reply bar */}
-      <div
-        className={cn(
-          "flex-shrink-0 p-3 relative",
-          isReplyDragging && "ring-2 ring-inset ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10"
-        )}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            handleSendReply();
-          }
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsReplyDragging(true);
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setIsReplyDragging(false);
-          }
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsReplyDragging(false);
-          const files = e.dataTransfer?.files;
-          if (files && files.length > 0) {
-            handleReplyImageUpload(files);
-          }
-        }}
-      >
-        {isReplyDragging && (
-          <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
-            <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop images here</span>
-          </div>
-        )}
-        <InboxRichEditor
-          key={replyEditorKey}
-          onEditorReady={(editor) => {
-            replyEditorRef.current = {
-              focus: () => editor.commands.focus(),
-              insertContent: (html: string) => { editor.commands.focus(); editor.commands.insertContent(html); },
-            };
-          }}
-          onUpdate={setReplyText}
-          initialContent={initialDraft.current?.message || ""}
-          onAttachImage={() => replyFileInputRef.current?.click()}
-          onPasteFiles={(files) => {
-            const dt = new DataTransfer();
-            files.forEach(f => dt.items.add(f));
-            handleReplyImageUpload(dt.files);
-          }}
-          placeholder="Type a reply..."
-          minHeight="40px"
-          mentionUsers={threadMentionUsers}
-        />
-        <input
-          ref={replyFileInputRef}
-          type="file"
-          accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-          multiple
-          onChange={(e) => handleReplyImageUpload(e.target.files)}
-          className="hidden"
-        />
-        {/* Image previews + send row */}
-        <div className="flex items-end justify-between mt-2">
-          <div className="flex flex-wrap gap-2 flex-1 min-w-0">
-            {replyImages.map((url, idx) => (
-              <div key={url} className="relative group">
-                <img
-                  src={url}
-                  alt={`Attachment ${idx + 1}`}
-                  className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setReplyImages(prev => prev.filter((_, i) => i !== idx))}
-                  className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-            {isReplyUploading && (
-              <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a]">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1 ml-2">
-            <button
-              onClick={() => onReply(msg)}
-              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-              title="Open full editor"
-            >
-              <PenSquare className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleSendReply}
-              disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-full shadow-sm transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-            >
-              {isReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              <span className="hidden sm:inline">Send</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <ReplyComposer
+        ref={replyComposerRef}
+        threadId={threadId}
+        currentTutorId={currentTutorId}
+        mentionUsers={threadMentionUsers}
+        isMobile={isMobile}
+        onSend={handleSendReply}
+        onOpenFullEditor={() => onReply(msg)}
+        onDraftChange={onDraftChange}
+      />
     </div>
   );
 });
@@ -1973,6 +1125,7 @@ export default function InboxPage() {
     return localStorage.getItem("inbox_sound_muted") !== "1";
   });
   const notifAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   useEffect(() => {
     localStorage.setItem("inbox_sound_muted", soundEnabled ? "0" : "1");
   }, [soundEnabled]);
@@ -1980,8 +1133,10 @@ export default function InboxPage() {
     if (!soundEnabled) return;
     try {
       if (!notifAudioRef.current) {
-        // Short, subtle notification chime (Web Audio API fallback)
-        const ctx = new AudioContext();
+        // Short, subtle notification chime (Web Audio API — reuse context)
+        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+        const ctx = audioCtxRef.current;
+        if (ctx.state === "suspended") ctx.resume();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -2688,7 +1843,7 @@ export default function InboxPage() {
                               {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
                                 <span className={cn(
                                   "absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-0.5",
-                                  categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite]"
+                                  categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
                                 )}>
                                   {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
                                 </span>
@@ -2700,7 +1855,7 @@ export default function InboxPage() {
                                 {categoryUnreadCounts[cat.id] > 0 && (
                                   <span className={cn(
                                     "min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
-                                    categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite]"
+                                    categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
                                   )}>
                                     {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
                                   </span>
@@ -2854,9 +2009,17 @@ export default function InboxPage() {
                   ))}
                 </div>
               ) : (threadsError || proposalsError) ? (
-                <div className="flex-1 flex items-center justify-center text-red-500">
-                  <AlertCircle className="h-6 w-6 mr-2" />
-                  Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
+                <div className="flex-1 flex flex-col items-center justify-center text-red-500 gap-3">
+                  <div className="flex items-center">
+                    <AlertCircle className="h-6 w-6 mr-2" />
+                    Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
+                  </div>
+                  <button
+                    onClick={() => mutate(isAnyMessageKey)}
+                    className="px-4 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : (selectedCategory === "makeup-confirmation" ? (proposals.length === 0 && makeupThreads.length === 0) : displayThreads.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
@@ -3019,8 +2182,10 @@ export default function InboxPage() {
 
             {/* Right panel - Thread detail */}
             {selectedThread && hasTutor ? (
-              <div className={cn(
-                "h-full rounded-lg overflow-hidden",
+              <div
+                key={selectedThread.root_message.id}
+                className={cn(
+                "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
                 <ThreadDetailPanel
