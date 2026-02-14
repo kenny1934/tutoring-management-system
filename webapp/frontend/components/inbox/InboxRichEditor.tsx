@@ -48,7 +48,7 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
       type="button"
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded transition-colors",
+        "p-1.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1",
         isActive
           ? "bg-[#a0704b] text-white"
           : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
@@ -542,7 +542,7 @@ export default function InboxRichEditor({
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
+            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
             title="Insert emoji"
           >
             <Smile className="w-4 h-4" />
@@ -551,7 +551,7 @@ export default function InboxRichEditor({
             <button
               type="button"
               onClick={onAttachImage}
-              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
+              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
               title="Attach file"
             >
               <Paperclip className="w-4 h-4" />

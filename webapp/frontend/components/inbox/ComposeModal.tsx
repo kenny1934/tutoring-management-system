@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { messagesAPI } from "@/lib/api";
+import { useFileUpload } from "@/lib/useFileUpload";
 import { useClickOutside } from "@/lib/hooks";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
@@ -70,9 +71,12 @@ export default function ComposeModal({
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [isComposeDragging, setIsComposeDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFiles: handleUploadFiles, isUploading, fileInputRef } = useFileUpload({
+    tutorId: fromTutorId,
+    acceptFiles: true,
+    onError: (error) => showToast(error instanceof Error ? error.message : 'Failed to upload file', "error"),
+  });
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
   const recipientDropdownRef = useRef<HTMLDivElement>(null);
@@ -84,27 +88,11 @@ export default function ComposeModal({
     return allUsers.filter(u => recipientSet.has(u.id));
   }, [tutors, recipientMode, selectedTutorIds, fromTutorId, pictureMap]);
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    setIsUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (file.type.startsWith('image/')) {
-          const result = await messagesAPI.uploadImage(file, fromTutorId);
-          setUploadedImages(prev => [...prev, result.url]);
-        } else {
-          const result = await messagesAPI.uploadFile(file, fromTutorId);
-          setUploadedFiles(prev => [...prev, result]);
-        }
-      }
-    } catch (error) {
-      console.error('File upload failed:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to upload file', "error");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+  const handleFileUpload = (files: FileList | null) => {
+    handleUploadFiles(files, {
+      onImage: (url) => setUploadedImages(prev => [...prev, url]),
+      onFile: (file) => setUploadedFiles(prev => [...prev, file]),
+    });
   };
 
   const removeImage = (index: number) => {

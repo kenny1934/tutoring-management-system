@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
+import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -22,6 +22,7 @@ const SendToWecomModal = lazy(() => import("@/components/wecom/SendToWecomModal"
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import ComposeModal from "@/components/inbox/ComposeModal";
 import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
+import { useSwipeable } from "@/lib/useSwipeable";
 import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
 import MessageBubble from "@/components/inbox/MessageBubble";
 import { formatMessageTime, highlightMatch } from "@/components/inbox/MessageBubble";
@@ -152,7 +153,7 @@ const EMPTY_MESSAGES: Record<string, string> = {
 // Mutate filter functions
 const isThreadsKey = (key: unknown) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "message-threads-paginated");
 const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
-const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
+const isUnreadKey = (key: unknown) => Array.isArray(key) && (key[0] === "unread-count" || key[0] === "unread-category-counts");
 const isArchivedKey = (key: unknown) => Array.isArray(key) && key[0] === "archived-messages";
 const isPinnedKey = (key: unknown) => Array.isArray(key) && key[0] === "pinned-messages";
 const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
@@ -389,82 +390,26 @@ function SwipeableThreadItem({
   leftLabel?: string;
   rightLabel?: string;
 }) {
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const currentX = useRef(0);
-  const isSwiping = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    startY.current = e.touches[0].clientY;
-    currentX.current = 0;
-    isSwiping.current = false;
-  }, []);
-
-  const leftIconRef = useRef<HTMLDivElement>(null);
-  const rightIconRef = useRef<HTMLDivElement>(null);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const dx = e.touches[0].clientX - startX.current;
-    const dy = e.touches[0].clientY - startY.current;
-    if (!isSwiping.current && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
-      isSwiping.current = true;
-    }
-    if (!isSwiping.current) return;
-    // Clamp between -80 and 80
-    currentX.current = Math.max(-80, Math.min(80, dx));
-    if (containerRef.current) {
-      containerRef.current.style.transform = `translateX(${currentX.current}px)`;
-      containerRef.current.style.transition = 'none';
-    }
-    // Fade action icons based on swipe distance
-    const opacity = Math.min(1, Math.abs(currentX.current) / 60);
-    if (currentX.current < 0 && leftIconRef.current) leftIconRef.current.style.opacity = String(opacity);
-    if (currentX.current > 0 && rightIconRef.current) rightIconRef.current.style.opacity = String(opacity);
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!containerRef.current) return;
-    containerRef.current.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
-    containerRef.current.style.transform = 'translateX(0)';
-    if (leftIconRef.current) leftIconRef.current.style.opacity = '0';
-    if (rightIconRef.current) rightIconRef.current.style.opacity = '0';
-
-    if (isSwiping.current) {
-      if (currentX.current < -60 && onSwipeLeftAction) {
-        onSwipeLeftAction();
-      } else if (currentX.current > 60 && onSwipeRightAction) {
-        onSwipeRightAction();
-      }
-    }
-    isSwiping.current = false;
-    currentX.current = 0;
-  }, [onSwipeLeftAction, onSwipeRightAction]);
+  const { containerRef, leftIconRef, rightIconRef, touchHandlers } = useSwipeable({
+    onSwipeLeft: onSwipeLeftAction,
+    onSwipeRight: onSwipeRightAction,
+  });
 
   return (
     <div className="relative overflow-hidden">
-      {/* Left action bg (archive) — revealed on swipe left */}
       {onSwipeLeftAction && (
         <div ref={leftIconRef} className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
           <Archive className="h-4 w-4 mr-1" />
           {leftLabel || "Archive"}
         </div>
       )}
-      {/* Right action bg (pin) — revealed on swipe right */}
       {onSwipeRightAction && (
         <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-blue-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
           <Pin className="h-4 w-4 mr-1" />
           {rightLabel || "Pin"}
         </div>
       )}
-      <div
-        ref={containerRef}
-        className="relative bg-white dark:bg-[#1a1a1a]"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div ref={containerRef} className="relative bg-white dark:bg-[#1a1a1a]" {...touchHandlers}>
         {children}
       </div>
     </div>
@@ -473,65 +418,20 @@ function SwipeableThreadItem({
 
 // Swipeable message wrapper — swipe right to quote (mobile only)
 function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; onQuote: () => void }) {
-  const startX = useRef(0);
-  const startY = useRef(0);
-  const currentX = useRef(0);
-  const isSwiping = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const iconRef = useRef<HTMLDivElement>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    startY.current = e.touches[0].clientY;
-    currentX.current = 0;
-    isSwiping.current = false;
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    const dx = e.touches[0].clientX - startX.current;
-    const dy = e.touches[0].clientY - startY.current;
-    if (!isSwiping.current && Math.abs(dx) > Math.abs(dy) && dx > 10) {
-      isSwiping.current = true;
-    }
-    if (!isSwiping.current) return;
-    // Only rightward, clamped to 0..60
-    currentX.current = Math.max(0, Math.min(60, dx));
-    if (containerRef.current) {
-      containerRef.current.style.transform = `translateX(${currentX.current}px)`;
-      containerRef.current.style.transition = 'none';
-    }
-    if (iconRef.current) {
-      iconRef.current.style.opacity = String(Math.min(1, currentX.current / 50));
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!containerRef.current) return;
-    containerRef.current.style.transition = 'transform 0.2s ease-out';
-    containerRef.current.style.transform = 'translateX(0)';
-    if (iconRef.current) {
-      iconRef.current.style.opacity = '0';
-    }
-
-    if (isSwiping.current && currentX.current >= 50) {
-      onQuote();
-    }
-    isSwiping.current = false;
-    currentX.current = 0;
-  }, [onQuote]);
+  const { containerRef, rightIconRef, touchHandlers } = useSwipeable({
+    onSwipeRight: onQuote,
+    maxDistance: 60,
+    threshold: 50,
+    fadeDistance: 50,
+    springTransition: "transform 0.2s ease-out",
+  });
 
   return (
     <div className="relative overflow-hidden">
-      {/* Reply icon revealed on swipe right */}
-      <div ref={iconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-[#a0704b]" style={{ opacity: 0 }}>
+      <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-[#a0704b]" style={{ opacity: 0 }}>
         <Reply className="h-4 w-4" />
       </div>
-      <div
-        ref={containerRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      <div ref={containerRef} {...touchHandlers}>
         {children}
       </div>
     </div>
@@ -583,7 +483,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   isArchived?: boolean;
   isMobile?: boolean;
   pictureMap?: Map<number, string>;
-  onDraftChange?: () => void;
+  onDraftChange?: (threadId: number) => void;
   mentionUsers?: MentionUser[];
 }) {
   const { root_message: msg, replies } = thread;
@@ -1080,6 +980,10 @@ export default function InboxPage() {
     if (user?.id && user.picture) map.set(user.id, user.picture);
     return map;
   }, [tutors, user?.id, user?.picture]);
+  const mentionUsers = useMemo(() =>
+    tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture })),
+    [tutors, tutorPictureMap]
+  );
   const { showToast } = useToast();
 
   // Get initial category from URL param
@@ -1201,8 +1105,8 @@ export default function InboxPage() {
     pageSize: 20,
   });
 
-  // Fetch ALL threads (no category filter) for sidebar badge counts
-  const { data: allThreads = [] } = useMessageThreads(tutorId, undefined);
+  // Per-category unread counts for sidebar badges (lightweight endpoint)
+  const { data: categoryCountsData } = useUnreadCategoryCounts(tutorId);
 
   const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
     selectedCategory === "sent" ? tutorId : null
@@ -1238,45 +1142,22 @@ export default function InboxPage() {
   }, [sentMessages]);
 
   // Determine which data to show
-  // Search is now server-side for threads, but still client-side for sent/archived
+  // Search is now server-side for threads, but still client-side for sent/archived/starred
   const displayThreads = useMemo(() => {
-    if (selectedCategory === "sent") {
-      // Client-side filtering for sent messages (not paginated)
-      if (!debouncedSearch.trim()) return sentAsThreads;
-      const query = debouncedSearch.toLowerCase();
-      return sentAsThreads.filter(thread => {
-        const msg = thread.root_message;
-        return (
-          msg.subject?.toLowerCase().includes(query) ||
-          msg.message.toLowerCase().includes(query) ||
-          msg.to_tutor_name?.toLowerCase().includes(query)
-        );
-      });
-    }
-    if (selectedCategory === "archived") {
-      // Client-side filtering for archived messages
-      if (!debouncedSearch.trim()) return archivedThreads;
-      const query = debouncedSearch.toLowerCase();
-      return archivedThreads.filter(thread => {
-        const msg = thread.root_message;
-        return (
-          msg.subject?.toLowerCase().includes(query) ||
-          msg.message.toLowerCase().includes(query) ||
-          msg.from_tutor_name?.toLowerCase().includes(query)
-        );
-      });
-    }
-    if (selectedCategory === "starred") {
-      // Client-side filtering for pinned/starred messages
-      if (!debouncedSearch.trim()) return pinnedThreads;
-      const query = debouncedSearch.toLowerCase();
-      return pinnedThreads.filter(thread => {
-        const msg = thread.root_message;
-        return (
-          msg.subject?.toLowerCase().includes(query) ||
-          msg.message.toLowerCase().includes(query) ||
-          msg.from_tutor_name?.toLowerCase().includes(query)
-        );
+    const clientFilteredCategories: Record<string, MessageThread[]> = {
+      sent: sentAsThreads,
+      archived: archivedThreads,
+      starred: pinnedThreads,
+    };
+    const source = clientFilteredCategories[selectedCategory];
+    if (source) {
+      if (!debouncedSearch.trim()) return source;
+      const q = debouncedSearch.toLowerCase();
+      return source.filter(t => {
+        const msg = t.root_message;
+        return msg.subject?.toLowerCase().includes(q) ||
+          msg.message.toLowerCase().includes(q) ||
+          (msg.from_tutor_name || msg.to_tutor_name)?.toLowerCase().includes(q);
       });
     }
     // For inbox/other categories, threads already filtered server-side
@@ -1292,11 +1173,9 @@ export default function InboxPage() {
   useEffect(() => { setBulkMode(false); bulkClear(); }, [selectedCategory, bulkClear]);
 
   // Draft tracking for thread list preview
-  const [draftVersion, setDraftVersion] = useState(0);
-  const handleDraftChange = useCallback(() => setDraftVersion(v => v + 1), []);
-  const draftsMap = useMemo(() => {
-    // draftVersion used for invalidation
-    void draftVersion;
+  const [draftsMap, setDraftsMap] = useState<Map<number, string>>(() => new Map());
+  // Rebuild draft map when thread list changes
+  useEffect(() => {
     const map = new Map<number, string>();
     for (const t of displayThreads) {
       const draft = loadReplyDraft(t.root_message.id);
@@ -1304,8 +1183,18 @@ export default function InboxPage() {
         map.set(t.root_message.id, draft.message);
       }
     }
-    return map;
-  }, [displayThreads, draftVersion]);
+    setDraftsMap(map);
+  }, [displayThreads]);
+  // Targeted update when a single thread's draft changes
+  const handleDraftChange = useCallback((threadId: number) => {
+    const draft = loadReplyDraft(threadId);
+    setDraftsMap(prev => {
+      const next = new Map(prev);
+      if (draft && !isReplyDraftEmpty(draft.message)) next.set(threadId, draft.message);
+      else next.delete(threadId);
+      return next;
+    });
+  }, []);
 
   // Filter MakeupConfirmation threads for makeup-confirmation category
   const makeupThreads = useMemo(() => {
@@ -1327,33 +1216,28 @@ export default function InboxPage() {
     return filtered;
   }, [threads, selectedCategory, debouncedSearch]);
 
-  // Calculate per-category unread counts from all threads (not filtered by category)
+  // Map backend category counts (keyed by MessageCategory) to frontend category IDs
   const categoryUnreadCounts = useMemo(() => {
+    const raw = categoryCountsData?.counts || {};
     const counts: Record<string, number> = {};
-    allThreads.forEach(thread => {
-      if (thread.total_unread > 0) {
-        const cat = thread.root_message.category;
-        // Map to category id
-        const catId = cat ? CATEGORIES.find(c => c.filter === cat)?.id : null;
-        if (catId) {
-          counts[catId] = (counts[catId] || 0) + thread.total_unread;
-        }
-        // Also count toward inbox (all messages)
-        counts.inbox = (counts.inbox || 0) + thread.total_unread;
+    // "inbox" total comes directly from backend
+    if (raw.inbox) counts.inbox = raw.inbox;
+    // Map each MessageCategory value to its frontend category ID
+    for (const cat of CATEGORIES) {
+      if (cat.filter && raw[cat.filter]) {
+        counts[cat.id] = raw[cat.filter];
       }
-    });
+    }
     return counts;
-  }, [allThreads]);
+  }, [categoryCountsData]);
 
-  const isLoading = selectedCategory === "sent"
-    ? loadingSent
-    : selectedCategory === "makeup-confirmation"
-    ? loadingProposals
-    : selectedCategory === "archived"
-    ? loadingArchived
-    : selectedCategory === "starred"
-    ? loadingPinned
-    : loadingThreads;
+  const categoryLoadingMap: Record<string, boolean> = {
+    sent: loadingSent,
+    "makeup-confirmation": loadingProposals,
+    archived: loadingArchived,
+    starred: loadingPinned,
+  };
+  const isLoading = categoryLoadingMap[selectedCategory] ?? loadingThreads;
 
   // Sync selectedThread with latest data from SWR
   // Use a ref to track the selected thread ID to avoid stale closure issues
@@ -1648,11 +1532,13 @@ export default function InboxPage() {
   const showShortcutsRef = useRef(showShortcuts);
   const searchQueryRef = useRef(searchQuery);
   const handleComposeRef = useRef(handleCompose);
-  useEffect(() => { selectedThreadRef.current = selectedThread; }, [selectedThread]);
-  useEffect(() => { displayThreadsRef.current = displayThreads; }, [displayThreads]);
-  useEffect(() => { showShortcutsRef.current = showShortcuts; }, [showShortcuts]);
-  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
-  useEffect(() => { handleComposeRef.current = handleCompose; }, [handleCompose]);
+  useEffect(() => {
+    selectedThreadRef.current = selectedThread;
+    displayThreadsRef.current = displayThreads;
+    showShortcutsRef.current = showShortcuts;
+    searchQueryRef.current = searchQuery;
+    handleComposeRef.current = handleCompose;
+  }, [selectedThread, displayThreads, showShortcuts, searchQuery, handleCompose]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1910,84 +1796,95 @@ export default function InboxPage() {
                   )}
                 </div>
                 {/* Bulk action bar */}
-                {bulkMode && (
-                  <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-                    <button
-                      onClick={bulkToggleAll}
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                    >
-                      {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-                      {bulkAllSelected ? "Deselect all" : "Select all"}
-                    </button>
-                    {bulkHasSelection && (
-                      <>
-                        <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{bulkSelectedIds.size} selected</span>
-                        <div className="flex-1" />
-                        {selectedCategory !== "archived" && (
+                <div className={cn(
+                  "grid transition-all duration-200",
+                  bulkMode ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+                      <button
+                        onClick={bulkToggleAll}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                      >
+                        {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                        {bulkAllSelected ? "Deselect all" : "Select all"}
+                      </button>
+                      {bulkHasSelection && (
+                        <>
+                          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{bulkSelectedIds.size} selected</span>
+                          <div className="flex-1" />
+                          {selectedCategory !== "archived" && (
+                            <button
+                              onClick={async () => {
+                                if (!hasTutor || tutorId === null) return;
+                                try {
+                                  await messagesAPI.archive(Array.from(bulkSelectedIds), tutorId);
+                                  mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
+                                  bulkClear();
+                                  showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
+                                } catch { showToast("Failed to archive", "error"); }
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                              Archive
+                            </button>
+                          )}
+                          {selectedCategory === "archived" && (
+                            <button
+                              onClick={async () => {
+                                if (!hasTutor || tutorId === null) return;
+                                try {
+                                  await messagesAPI.unarchive(Array.from(bulkSelectedIds), tutorId);
+                                  mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
+                                  bulkClear();
+                                  showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
+                                } catch { showToast("Failed to unarchive", "error"); }
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                            >
+                              <ArchiveRestore className="h-3.5 w-3.5" />
+                              Unarchive
+                            </button>
+                          )}
                           <button
                             onClick={async () => {
                               if (!hasTutor || tutorId === null) return;
                               try {
-                                await messagesAPI.archive(Array.from(bulkSelectedIds), tutorId);
-                                mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
+                                await messagesAPI.pin(Array.from(bulkSelectedIds), tutorId);
+                                mutate((key) => isThreadsKey(key) || isPinnedKey(key));
                                 bulkClear();
-                                showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
-                              } catch { showToast("Failed to archive", "error"); }
+                                showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
+                              } catch { showToast("Failed to star", "error"); }
                             }}
                             className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                           >
-                            <Archive className="h-3.5 w-3.5" />
-                            Archive
+                            <Star className="h-3.5 w-3.5" />
+                            Star
                           </button>
-                        )}
-                        {selectedCategory === "archived" && (
-                          <button
-                            onClick={async () => {
-                              if (!hasTutor || tutorId === null) return;
-                              try {
-                                await messagesAPI.unarchive(Array.from(bulkSelectedIds), tutorId);
-                                mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
-                                bulkClear();
-                                showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
-                              } catch { showToast("Failed to unarchive", "error"); }
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                          >
-                            <ArchiveRestore className="h-3.5 w-3.5" />
-                            Unarchive
-                          </button>
-                        )}
-                        <button
-                          onClick={async () => {
-                            if (!hasTutor || tutorId === null) return;
-                            try {
-                              await messagesAPI.pin(Array.from(bulkSelectedIds), tutorId);
-                              mutate((key) => isThreadsKey(key) || isPinnedKey(key));
-                              bulkClear();
-                              showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
-                            } catch { showToast("Failed to star", "error"); }
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
-                        >
-                          <Star className="h-3.5 w-3.5" />
-                          Star
-                        </button>
-                      </>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
               {isLoading ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {[0, 1, 2, 3, 4].map((i) => (
+                  {([
+                    ["w-1/3", "w-2/3"],
+                    ["w-2/5", "w-1/2"],
+                    ["w-1/4", "w-3/4"],
+                    ["w-1/3", "w-3/5"],
+                    ["w-2/5", "w-1/2"],
+                  ] as const).map(([nameW, bodyW], i) => (
                     <div key={i} className="relative rounded-lg border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white dark:bg-[#1a1a1a] p-4 overflow-hidden"
                       style={{ animationDelay: `${i * 0.1}s` }}>
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
                         <div className="flex-1 space-y-2.5 min-w-0">
-                          <div className="h-4 w-1/3 bg-gray-200 dark:bg-gray-700 rounded" />
-                          <div className="h-3 w-2/3 bg-gray-100 dark:bg-gray-800 rounded" />
+                          <div className={cn("h-4 bg-gray-200 dark:bg-gray-700 rounded", nameW)} />
+                          <div className={cn("h-3 bg-gray-100 dark:bg-gray-800 rounded", bodyW)} />
                         </div>
                         <div className="h-3 w-12 bg-gray-100 dark:bg-gray-800 rounded flex-shrink-0" />
                       </div>
@@ -2208,7 +2105,7 @@ export default function InboxPage() {
                   isMobile={isMobile}
                   pictureMap={tutorPictureMap}
                   onDraftChange={handleDraftChange}
-                  mentionUsers={tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture }))}
+                  mentionUsers={mentionUsers}
                 />
               </div>
             ) : !isMobile && (
