@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditor, EditorContent, Editor, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import Mention from "@tiptap/extension-mention";
 import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import TemplatePicker from "@/components/inbox/TemplatePicker";
+import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import type { MessageTemplate } from "@/types";
 import {
   Bold,
@@ -187,8 +187,9 @@ export default function InboxRichEditor({
   onOpenFullEditor,
 }: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const colorButtonRef = useRef<HTMLButtonElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
   // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
@@ -202,11 +203,11 @@ export default function InboxRichEditor({
         // Enable all features (unlike WeCom editor which disables lists/strike)
         codeBlock: false,
         horizontalRule: false,
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-blue-600 dark:text-blue-400 underline cursor-pointer",
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            class: "text-blue-600 dark:text-blue-400 underline cursor-pointer",
+          },
         },
       }),
       Placeholder.configure({
@@ -319,17 +320,6 @@ export default function InboxRichEditor({
     }
   }, [editor, onEditorReady]);
 
-  // Close color picker on click outside
-  useEffect(() => {
-    if (!showColorPicker) return;
-    const handleClick = (e: MouseEvent) => {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
-        setShowColorPicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showColorPicker]);
 
   const insertEmoji = useCallback(
     (emoji: string) => {
@@ -460,7 +450,7 @@ export default function InboxRichEditor({
         />
 
         {/* Separator */}
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-0.5" />
+        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5" />
 
         <ToolbarButton
           icon={List}
@@ -488,11 +478,12 @@ export default function InboxRichEditor({
         />
 
         {/* Separator */}
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-0.5" />
+        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5" />
 
         {/* Color picker */}
-        <div className="relative" ref={colorPickerRef}>
+        <div>
           <button
+            ref={colorButtonRef}
             type="button"
             onClick={() => {
               if (!showColorPicker && editor) {
@@ -511,36 +502,40 @@ export default function InboxRichEditor({
           >
             <Palette className="w-4 h-4" style={activeColor ? { color: activeColor } : undefined} />
           </button>
-          {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5 min-w-[140px]">
-              {EDITOR_COLORS.map((c) => (
+          <FloatingDropdown
+            triggerRef={colorButtonRef}
+            isOpen={showColorPicker}
+            onClose={() => setShowColorPicker(false)}
+            align="left"
+            className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1.5 min-w-[140px]"
+          >
+            {EDITOR_COLORS.map((c) => (
+              <button
+                key={c.color}
+                type="button"
+                onMouseDown={() => handleSetColor(c.color)}
+                className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+              >
+                <span
+                  className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
+                  style={{ backgroundColor: c.color }}
+                />
+                <span className="text-gray-700 dark:text-gray-300">{c.label}</span>
+              </button>
+            ))}
+            {activeColor && (
+              <>
+                <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
                 <button
-                  key={c.color}
                   type="button"
-                  onMouseDown={() => handleSetColor(c.color)}
-                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                  onMouseDown={handleRemoveColor}
+                  className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-gray-500"
                 >
-                  <span
-                    className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
-                    style={{ backgroundColor: c.color }}
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">{c.label}</span>
+                  Remove color
                 </button>
-              ))}
-              {activeColor && (
-                <>
-                  <div className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
-                  <button
-                    type="button"
-                    onMouseDown={handleRemoveColor}
-                    className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-gray-500"
-                  >
-                    Remove color
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+              </>
+            )}
+          </FloatingDropdown>
         </div>
 
         {/* Spacer */}
@@ -557,6 +552,7 @@ export default function InboxRichEditor({
             />
           )}
           <button
+            ref={emojiButtonRef}
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
@@ -565,6 +561,7 @@ export default function InboxRichEditor({
             <Smile className="w-4 h-4" />
           </button>
           <EmojiPicker
+            triggerRef={emojiButtonRef}
             isOpen={showEmojiPicker}
             onClose={() => setShowEmojiPicker(false)}
             onSelect={insertEmoji}
