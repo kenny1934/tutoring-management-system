@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
+import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -24,6 +24,10 @@ import ComposeModal from "@/components/inbox/ComposeModal";
 import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useSwipeable } from "@/lib/useSwipeable";
 import { usePanelSwipe } from "@/lib/usePanelSwipe";
+import { useSSE } from "@/lib/useSSE";
+import TypingIndicator from "@/components/inbox/TypingIndicator";
+import SnoozePicker from "@/components/inbox/SnoozePicker";
+import SearchFilters from "@/components/inbox/SearchFilters";
 import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
 import MessageBubble from "@/components/inbox/MessageBubble";
 import { formatMessageTime, highlightMatch } from "@/components/inbox/MessageBubble";
@@ -33,6 +37,8 @@ import {
   Inbox,
   Send,
   Bell,
+  BellOff,
+  Clock,
   HelpCircle,
   Megaphone,
   Calendar,
@@ -48,7 +54,6 @@ import {
   Reply,
   Loader2,
   AlertCircle,
-  Clock,
   Check,
   Search,
   Trash2,
@@ -67,6 +72,9 @@ import {
   ListChecks,
   Pin,
   MoreVertical,
+  SlidersHorizontal,
+  AtSign,
+  AlarmClock,
 } from "lucide-react";
 
 // Category definition
@@ -89,6 +97,9 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     items: [
       { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
       { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
+      { id: "mentions", label: "Mentions", icon: <AtSign className="h-4 w-4" /> },
+      { id: "scheduled", label: "Scheduled", icon: <Clock className="h-4 w-4" /> },
+      { id: "reminders", label: "Follow-ups", icon: <AlarmClock className="h-4 w-4" /> },
       { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
       { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
     ],
@@ -138,17 +149,21 @@ const PRIORITIES: Record<PriorityLevel, { label: string; textClass: string; badg
 
 // Empty state messages by category
 const EMPTY_MESSAGES: Record<string, string> = {
+  inbox: "No messages in your inbox",
+  starred: "No starred messages",
+  mentions: "No mentions",
+  scheduled: "No scheduled messages",
+  reminders: "No follow-ups",
   sent: "You haven't sent any messages yet",
+  archived: "No archived messages",
   reminder: "No reminders",
   question: "No questions",
   announcement: "No announcements",
   schedule: "No schedule messages",
   chat: "No chat messages",
   courseware: "No courseware messages",
+  feedback: "No feedback messages",
   "makeup-confirmation": "No pending make-up confirmations",
-  starred: "No starred messages",
-  archived: "No archived messages",
-  inbox: "No messages in your inbox",
 };
 
 // Mutate filter functions
@@ -157,9 +172,39 @@ const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messa
 const isUnreadKey = (key: unknown) => Array.isArray(key) && (key[0] === "unread-count" || key[0] === "unread-category-counts");
 const isArchivedKey = (key: unknown) => Array.isArray(key) && key[0] === "archived-messages";
 const isPinnedKey = (key: unknown) => Array.isArray(key) && key[0] === "pinned-messages";
-const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
+const isScheduledKey = (key: unknown) => Array.isArray(key) && key[0] === "scheduled-messages";
+const isSnoozedKey = (key: unknown) => Array.isArray(key) && key[0] === "snoozed-messages";
+const isMentionedKey = (key: unknown) => Array.isArray(key) && key[0] === "mentioned-messages";
+const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key) || isScheduledKey(key) || isSnoozedKey(key) || isMentionedKey(key);
 
 
+
+// Format snoozed_until for display — "Today 3:00 PM", "Tomorrow 9:00 AM", "Feb 20 9:00 AM", or "Reminder due"
+function formatSnoozeUntil(isoDate: string): string {
+  const date = new Date(isoDate.endsWith("Z") ? isoDate : isoDate + "Z");
+  const now = new Date();
+  if (date.getTime() <= now.getTime()) return "Reminder due";
+
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (date.toDateString() === now.toDateString()) return `Today ${time}`;
+  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow ${time}`;
+  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+}
+
+function formatScheduledAt(isoDate: string): string {
+  // scheduled_at is stored as naive HK time (not UTC), so don't append Z
+  const date = new Date(isoDate);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (date.toDateString() === now.toDateString()) return `today ${time}`;
+  if (date.toDateString() === tomorrow.toDateString()) return `tomorrow ${time}`;
+  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+}
 
 // Date separator helpers — "Today", "Yesterday", or formatted date
 function formatDateLabel(date: Date): string {
@@ -232,6 +277,7 @@ const ThreadItem = React.memo(function ThreadItem({
   bulkMode = false,
   bulkSelected = false,
   onBulkToggle,
+  onlineTutorIds,
 }: {
   thread: MessageThread;
   isSelected: boolean;
@@ -243,6 +289,7 @@ const ThreadItem = React.memo(function ThreadItem({
   bulkMode?: boolean;
   bulkSelected?: boolean;
   onBulkToggle?: () => void;
+  onlineTutorIds?: Set<number>;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -277,7 +324,7 @@ const ThreadItem = React.memo(function ThreadItem({
         {/* Avatar */}
         {!isSentView && !bulkMode && (
           <div className="mt-0.5">
-            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} />
+            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} isOnline={onlineTutorIds?.has(msg.from_tutor_id)} />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -308,6 +355,17 @@ const ThreadItem = React.memo(function ThreadItem({
             )}
             {msg.is_pinned && (
               <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+            )}
+            {msg.is_thread_muted && (
+              <BellOff className="h-3 w-3 text-gray-400 flex-shrink-0" />
+            )}
+            {msg.is_snoozed && (
+              <span className="flex items-center gap-0.5 text-[#a0704b] flex-shrink-0">
+                <AlarmClock className="h-3 w-3" />
+                {msg.snoozed_until && (
+                  <span className="text-[10px] whitespace-nowrap">{formatSnoozeUntil(msg.snoozed_until)}</span>
+                )}
+              </span>
             )}
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
@@ -358,10 +416,17 @@ const ThreadItem = React.memo(function ThreadItem({
 
           {/* Meta row */}
           <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
-              {formatTimeAgo(latestMessage.created_at)}
-            </span>
+            {msg.scheduled_at ? (
+              <span className="flex items-center gap-1 text-[#a0704b]">
+                <Clock className="h-3.5 w-3.5" />
+                Sends {formatScheduledAt(msg.scheduled_at)}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5" />
+                {formatTimeAgo(latestMessage.created_at)}
+              </span>
+            )}
             {replyCount > 0 && (
               <span className="flex items-center gap-1">
                 <Reply className="h-3.5 w-3.5" />
@@ -477,6 +542,17 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   pictureMap,
   onDraftChange,
   mentionUsers,
+  typingUsers,
+  onlineTutorIds,
+  templates,
+  onCreateTemplate,
+  onDeleteTemplate,
+  onThreadMute,
+  onThreadUnmute,
+  onSnooze,
+  onUnsnooze,
+  onSendVoice,
+  onCancelScheduled,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -500,6 +576,17 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   pictureMap?: Map<number, string>;
   onDraftChange?: (threadId: number) => void;
   mentionUsers?: MentionUser[];
+  typingUsers?: import("@/lib/useSSE").TypingUser[];
+  onlineTutorIds?: Set<number>;
+  templates?: import("@/types").MessageTemplate[];
+  onCreateTemplate?: (title: string, content: string) => void;
+  onDeleteTemplate?: (templateId: number) => void;
+  onThreadMute?: (msgId: number) => Promise<void>;
+  onThreadUnmute?: (msgId: number) => Promise<void>;
+  onSnooze?: (msgId: number, snoozeUntil: string) => Promise<void>;
+  onUnsnooze?: (msgId: number) => Promise<void>;
+  onSendVoice?: (file: File) => Promise<void>;
+  onCancelScheduled?: (msgId: number) => Promise<void>;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
@@ -538,6 +625,14 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     [allMessages]
   );
 
+  // Snooze picker state
+  const [showSnoozePicker, setShowSnoozePicker] = useState(false);
+
+  // Typing indicator callback
+  const handleTyping = useCallback(() => {
+    messagesAPI.sendTyping(currentTutorId, msg.id).catch(() => {});
+  }, [currentTutorId, msg.id]);
+
   // More actions dropdown state
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -575,14 +670,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }, 100);
   }, [thread]);
 
-  // Mark messages as read when viewing
+  // Mark messages as read when viewing (skip scheduled — not sent yet)
   useEffect(() => {
+    if (msg.scheduled_at) return;
     allMessages.forEach((m) => {
       if (!m.is_read) {
         onMarkRead(m.id);
       }
     });
-  }, [allMessages, onMarkRead]);
+  }, [allMessages, onMarkRead, msg.scheduled_at]);
 
   // Quote a message into the reply editor
   const handleQuote = useCallback((m: Message) => {
@@ -655,6 +751,21 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }
   }, [msg, currentTutorId, onSendMessage]);
 
+  // Called by ReplyComposer when user schedules a reply
+  const handleScheduleReply = useCallback(async (text: string, images: string[], scheduledAt: string) => {
+    const data: MessageCreate = {
+      subject: `Re: ${msg.subject || "(no subject)"}`,
+      message: text,
+      priority: "Normal",
+      category: msg.category || undefined,
+      reply_to_id: msg.id,
+      image_attachments: images.length > 0 ? images : undefined,
+      scheduled_at: scheduledAt,
+    };
+    Object.assign(data, computeReplyRecipients(msg, currentTutorId));
+    await onSendMessage(data);
+  }, [msg, currentTutorId, onSendMessage]);
+
   return (
     <div
       ref={panelRef}
@@ -688,8 +799,14 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </span>
             )}
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-500">
-            {allMessages.length} message{allMessages.length !== 1 && "s"}
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+            <span>{allMessages.length} message{allMessages.length !== 1 && "s"}</span>
+            {msg.is_snoozed && msg.snoozed_until && (
+              <span className="flex items-center gap-1 text-[#a0704b]">
+                <AlarmClock className="h-3 w-3" />
+                {formatSnoozeUntil(msg.snoozed_until)}
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -757,6 +874,47 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-400")} />
                 <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
               </button>
+              {onThreadMute && onThreadUnmute && (
+                <button
+                  onClick={() => {
+                    if (msg.is_thread_muted) onThreadUnmute(msg.id);
+                    else onThreadMute(msg.id);
+                    setShowMoreMenu(false);
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                >
+                  {msg.is_thread_muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                  <span>{msg.is_thread_muted ? "Unmute" : "Mute"}</span>
+                </button>
+              )}
+              {onSnooze && (
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      if (msg.is_snoozed && onUnsnooze) {
+                        onUnsnooze(msg.id);
+                        setShowMoreMenu(false);
+                      } else {
+                        setShowSnoozePicker(!showSnoozePicker);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
+                  >
+                    <AlarmClock className="h-4 w-4" />
+                    <span>{msg.is_snoozed ? "Remove reminder" : "Remind me"}</span>
+                  </button>
+                  {showSnoozePicker && (
+                    <SnoozePicker
+                      onSnooze={(until) => {
+                        onSnooze(msg.id, until);
+                        setShowSnoozePicker(false);
+                        setShowMoreMenu(false);
+                      }}
+                      onClose={() => setShowSnoozePicker(false)}
+                    />
+                  )}
+                </div>
+              )}
               <button
                 onClick={() => {
                   if (isArchived) onUnarchive(msg.id);
@@ -772,6 +930,34 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           )}
         </div>
       </div>
+
+      {/* Scheduled message banner */}
+      {msg.scheduled_at && (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/40">
+          <span className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-200">
+            <Clock className="h-4 w-4" />
+            Scheduled for {formatScheduledAt(msg.scheduled_at)}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditingMessageId(msg.id)}
+              className="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            >
+              Edit
+            </button>
+            {onCancelScheduled && (
+              <button
+                type="button"
+                onClick={() => onCancelScheduled(msg.id)}
+                className="px-3 py-1 text-xs font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                Cancel send
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Thread search bar */}
       {showThreadSearch && (
@@ -803,6 +989,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               highlightRegex={highlightRegex}
               threadSearch={threadSearch}
               mentionUsers={threadMentionUsers}
+              isOnline={onlineTutorIds?.has(m.from_tutor_id)}
               onStartEdit={() => setEditingMessageId(m.id)}
               onCancelEdit={() => setEditingMessageId(null)}
               onSaveEdit={onEdit}
@@ -916,20 +1103,37 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         )}
       </div>
 
-      {/* Inline reply bar */}
-      <ReplyComposer
-        ref={replyComposerRef}
-        threadId={threadId}
-        currentTutorId={currentTutorId}
-        mentionUsers={threadMentionUsers}
-        isMobile={isMobile}
-        onSend={handleSendReply}
-        onOpenFullEditor={() => onReply(msg)}
-        onDraftChange={onDraftChange}
-      />
+      {/* Typing indicator */}
+      {typingUsers && typingUsers.length > 0 && (
+        <TypingIndicator typingUsers={typingUsers} />
+      )}
+
+      {/* Inline reply bar (hidden for scheduled messages) */}
+      {!msg.scheduled_at && (
+        <ReplyComposer
+          ref={replyComposerRef}
+          threadId={threadId}
+          currentTutorId={currentTutorId}
+          mentionUsers={threadMentionUsers}
+          isMobile={isMobile}
+          onSend={handleSendReply}
+          onScheduleSend={handleScheduleReply}
+          onOpenFullEditor={() => onReply(msg)}
+          onDraftChange={onDraftChange}
+          onTyping={handleTyping}
+          templates={templates}
+          onCreateTemplate={onCreateTemplate}
+          onDeleteTemplate={onDeleteTemplate}
+          onSendVoice={onSendVoice}
+        />
+      )}
     </div>
   );
 });
+
+// Stable empty arrays to prevent re-render loops from destructured defaults
+const STABLE_EMPTY_MSG: Message[] = [];
+const STABLE_EMPTY_THREADS: MessageThread[] = [];
 
 export default function InboxPage() {
   usePageTitle("Inbox");
@@ -938,6 +1142,7 @@ export default function InboxPage() {
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
+  const onlineTutorIds = usePresence();
 
   // Build tutor profile picture lookup map (id → picture URL)
   const tutorPictureMap = useMemo(() => {
@@ -953,7 +1158,7 @@ export default function InboxPage() {
     tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture })),
     [tutors, tutorPictureMap]
   );
-  const { showToast } = useToast();
+  const { showToast, dismissToast } = useToast();
 
   // Get initial category from URL param
   const initialCategory = useMemo(() => {
@@ -974,6 +1179,11 @@ export default function InboxPage() {
     return user?.id ?? null;
   }, [isImpersonating, effectiveRole, impersonatedTutor, user?.id]);
 
+  // Derived value for tutor selection check
+  const hasTutor = typeof effectiveTutorId === "number";
+  const tutorId = hasTutor ? effectiveTutorId : null;
+  const { data: templates = [], mutate: mutateTemplates } = useMessageTemplates(tutorId ?? undefined);
+
   // State
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
@@ -985,8 +1195,13 @@ export default function InboxPage() {
   const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024
   );
+  const [catCanScrollUp, setCatCanScrollUp] = useState(false);
+  const [catCanScrollDown, setCatCanScrollDown] = useState(false);
+  const catNavRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
+  const [searchFilters, setSearchFilters] = useState<import("@/lib/hooks").SearchFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [shortcutsPos, setShortcutsPos] = useState<{ top: number; left: number } | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -1048,10 +1263,6 @@ export default function InboxPage() {
     };
   }, [showShortcuts]);
 
-  // Derived value for tutor selection check
-  const hasTutor = typeof effectiveTutorId === "number";
-  const tutorId = hasTutor ? effectiveTutorId : null;
-
   // Get category filter
   const categoryFilter = useMemo(() => {
     const cat = CATEGORIES.find(c => c.id === selectedCategory);
@@ -1068,25 +1279,38 @@ export default function InboxPage() {
     totalCount,
     loadMore
   } = useMessageThreadsPaginated({
-    tutorId: (selectedCategory === "sent" || selectedCategory === "archived" || selectedCategory === "starred") ? null : tutorId,
+    tutorId: (selectedCategory === "sent" || selectedCategory === "archived" || selectedCategory === "starred" || selectedCategory === "mentions" || selectedCategory === "scheduled" || selectedCategory === "reminders") ? null : tutorId,
     category: categoryFilter,
     search: debouncedSearch || undefined,
     pageSize: 20,
+    filters: searchFilters,
   });
 
   // Per-category unread counts for sidebar badges (lightweight endpoint)
   const { data: categoryCountsData } = useUnreadCategoryCounts(tutorId);
 
-  const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
+  const { data: sentMessages = STABLE_EMPTY_MSG, isLoading: loadingSent } = useSentMessages(
     selectedCategory === "sent" ? tutorId : null
   );
 
-  const { data: archivedThreads = [], isLoading: loadingArchived } = useArchivedMessages(
+  const { data: archivedThreads = STABLE_EMPTY_THREADS, isLoading: loadingArchived } = useArchivedMessages(
     selectedCategory === "archived" ? tutorId : null
   );
 
-  const { data: pinnedThreads = [], isLoading: loadingPinned } = usePinnedMessages(
+  const { data: pinnedThreads = STABLE_EMPTY_THREADS, isLoading: loadingPinned } = usePinnedMessages(
     selectedCategory === "starred" ? tutorId : null
+  );
+
+  const { data: mentionedThreads = STABLE_EMPTY_THREADS, isLoading: loadingMentions } = useMentionedMessages(
+    selectedCategory === "mentions" ? tutorId : null
+  );
+
+  const { data: scheduledMessages = STABLE_EMPTY_MSG, isLoading: loadingScheduled } = useScheduledMessages(
+    selectedCategory === "scheduled" ? tutorId : null
+  );
+
+  const { data: snoozedMessages = STABLE_EMPTY_MSG, isLoading: loadingSnoozed } = useSnoozedMessages(
+    selectedCategory === "reminders" ? tutorId : null
   );
 
   const { data: unreadCount } = useUnreadMessageCount(tutorId);
@@ -1110,6 +1334,22 @@ export default function InboxPage() {
     }));
   }, [sentMessages]);
 
+  const scheduledAsThreads: MessageThread[] = useMemo(() => {
+    return scheduledMessages.map(msg => ({
+      root_message: msg,
+      replies: [],
+      total_unread: 0,
+    }));
+  }, [scheduledMessages]);
+
+  const snoozedAsThreads: MessageThread[] = useMemo(() => {
+    return snoozedMessages.map(msg => ({
+      root_message: msg,
+      replies: [],
+      total_unread: 0,
+    }));
+  }, [snoozedMessages]);
+
   // Determine which data to show
   // Search is now server-side for threads, but still client-side for sent/archived/starred
   const displayThreads = useMemo(() => {
@@ -1117,6 +1357,9 @@ export default function InboxPage() {
       sent: sentAsThreads,
       archived: archivedThreads,
       starred: pinnedThreads,
+      scheduled: scheduledAsThreads,
+      mentions: mentionedThreads,
+      reminders: snoozedAsThreads,
     };
     const source = clientFilteredCategories[selectedCategory];
     if (source) {
@@ -1131,7 +1374,7 @@ export default function InboxPage() {
     }
     // For inbox/other categories, threads already filtered server-side
     return threads;
-  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
+  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, mentionedThreads, scheduledAsThreads, snoozedAsThreads, threads, debouncedSearch]);
 
   // Split thread-pinned from the rest (memoized to avoid double .filter() per render)
   const { pinnedThreads: pinnedInList, unpinnedThreads: unpinnedThreads } = useMemo(() => {
@@ -1216,6 +1459,9 @@ export default function InboxPage() {
     "makeup-confirmation": loadingProposals,
     archived: loadingArchived,
     starred: loadingPinned,
+    mentions: loadingMentions,
+    scheduled: loadingScheduled,
+    reminders: loadingSnoozed,
   };
   const isLoading = categoryLoadingMap[selectedCategory] ?? loadingThreads;
 
@@ -1224,6 +1470,9 @@ export default function InboxPage() {
   const selectedThreadId = selectedThread?.root_message.id;
   useEffect(() => {
     if (selectedThreadId) {
+      // Don't sync scheduled messages — they're complete from GET /messages/scheduled
+      // and syncing would overwrite them, causing a flash-back to the parent thread
+      if (selectedThreadRef.current?.root_message.scheduled_at) return;
       const updatedThread = displayThreads.find(
         t => t.root_message.id === selectedThreadId
       );
@@ -1241,10 +1490,38 @@ export default function InboxPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Category sidebar scroll indicators
+  useEffect(() => {
+    const nav = catNavRef.current;
+    if (!nav) return;
+    const check = () => {
+      setCatCanScrollUp(nav.scrollTop > 0);
+      setCatCanScrollDown(nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1);
+    };
+    const timer = setTimeout(check, 100);
+    nav.addEventListener('scroll', check);
+    const ro = new ResizeObserver(check);
+    ro.observe(nav);
+    return () => { clearTimeout(timer); nav.removeEventListener('scroll', check); ro.disconnect(); };
+  }, []);
+
   // Clear selection when category changes
   useEffect(() => {
     setSelectedThread(null);
   }, [selectedCategory]);
+
+  // Select thread — show immediately, then fetch full thread if replies are missing (client-side categories like reminders/scheduled)
+  const handleSelectThread = useCallback(async (thread: MessageThread) => {
+    setSelectedThread(thread);
+    if (thread.replies.length === 0 && tutorId !== null && !thread.root_message.scheduled_at) {
+      try {
+        const fullThread = await messagesAPI.getThread(thread.root_message.id, tutorId);
+        setSelectedThread(fullThread);
+      } catch (err) {
+        console.error("Failed to load full thread:", err);
+      }
+    }
+  }, [tutorId]);
 
   // Browser notifications setup (toast is now handled app-wide in Sidebar)
   const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
@@ -1274,6 +1551,27 @@ export default function InboxPage() {
     }
   }, [unreadCount?.count, sendNotification, playNotifSound]);
 
+  // SSE real-time updates — instant push instead of polling
+  const { typingByThread } = useSSE(tutorId, {
+    onNewMessage: useCallback((data: { thread_id: number; from_tutor_name: string | null; preview: string; mentioned_tutor_ids?: number[] }) => {
+      const isMentioned = tutorId != null && data.mentioned_tutor_ids?.includes(tutorId);
+      // Skip notification for muted threads (unless current user is @mentioned)
+      const thread = displayThreads.find(t => t.root_message.id === data.thread_id);
+      if (thread?.root_message.is_thread_muted && !isMentioned) return;
+
+      playNotifSound();
+      sendNotification(isMentioned ? "You were mentioned" : "New Message", {
+        body: data.from_tutor_name
+          ? `${data.from_tutor_name}: ${stripHtml(data.preview)}`
+          : stripHtml(data.preview),
+        icon: "/favicon.ico",
+      });
+    }, [playNotifSound, sendNotification, displayThreads, tutorId]),
+    onReminderDue: useCallback((data: { subject: string | null; preview: string }) => {
+      showToast(`Reminder: ${data.subject || data.preview || "Message"}`, "info");
+    }, [showToast]),
+  });
+
   // Page title badge with unread count
   useEffect(() => {
     const count = unreadCount?.count || 0;
@@ -1282,19 +1580,71 @@ export default function InboxPage() {
   }, [unreadCount?.count]);
 
   // Handlers
+  // Undo send: store pending timer so we can cancel
+  const pendingSendRef = useRef<{ timer: ReturnType<typeof setTimeout>; toastId: string } | null>(null);
+
   const handleSendMessage = useCallback(async (data: MessageCreate) => {
     if (tutorId === null) return;
 
-    try {
+    // Scheduled messages: send immediately (no undo delay)
+    // Caller (ComposeModal/ReplyComposer) handles its own success toast
+    if (data.scheduled_at) {
       await messagesAPI.create(data, tutorId);
-      showToast("Message sent!", "success");
-      // Refresh data
       mutate(isAnyMessageKey);
-    } catch (error) {
-      showToast("Failed to send message", "error");
-      throw error;
+      return;
     }
-  }, [tutorId, showToast]);
+
+    // Cancel any existing pending send
+    if (pendingSendRef.current) {
+      clearTimeout(pendingSendRef.current.timer);
+      dismissToast(pendingSendRef.current.toastId);
+      pendingSendRef.current = null;
+    }
+
+    // Show toast with Undo action, delay actual send by 5 seconds
+    const sendData = { ...data };
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      pendingSendRef.current = null;
+      try {
+        await messagesAPI.create(sendData, tutorId);
+        mutate(isAnyMessageKey);
+      } catch {
+        showToast("Failed to send message", "error");
+      }
+    }, 5000);
+
+    const toastId = showToast("Message sent", "success", {
+      label: "Undo",
+      onClick: () => {
+        cancelled = true;
+        clearTimeout(timer);
+        pendingSendRef.current = null;
+        showToast("Message unsent", "info");
+      },
+    });
+
+    pendingSendRef.current = { timer, toastId };
+  }, [tutorId, showToast, dismissToast]);
+
+  const handleCreateTemplate = useCallback(async (title: string, content: string) => {
+    if (!tutorId) return;
+    try {
+      await messagesAPI.createTemplate(tutorId, { title, content });
+      mutateTemplates();
+      showToast("Template saved", "success");
+    } catch { showToast("Failed to save template", "error"); }
+  }, [tutorId, mutateTemplates, showToast]);
+
+  const handleDeleteTemplate = useCallback(async (templateId: number) => {
+    if (!tutorId) return;
+    try {
+      await messagesAPI.deleteTemplate(templateId, tutorId);
+      mutateTemplates();
+    } catch { showToast("Failed to delete template", "error"); }
+  }, [tutorId, mutateTemplates, showToast]);
 
   const handleLike = useCallback(async (messageId: number, emoji: string = "❤️") => {
     if (tutorId === null) return;
@@ -1508,6 +1858,80 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast]);
 
+  const handleSnooze = useCallback(async (messageId: number, snoozeUntil: string) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.snooze([messageId], tutorId, snoozeUntil);
+      const until = new Date(snoozeUntil);
+      showToast(`Reminder set for ${until.toLocaleDateString()} ${until.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to set reminder", "error");
+    }
+  }, [tutorId, showToast]);
+
+  const handleUnsnooze = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.unsnooze([messageId], tutorId);
+      showToast("Reminder removed", "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to remove reminder", "error");
+    }
+  }, [tutorId, showToast]);
+
+  const handleThreadMute = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.threadMute([messageId], tutorId);
+      showToast("Thread muted", "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to mute thread", "error");
+    }
+  }, [tutorId, showToast]);
+
+  const handleThreadUnmute = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.threadUnmute([messageId], tutorId);
+      showToast("Thread unmuted", "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to unmute thread", "error");
+    }
+  }, [tutorId, showToast]);
+
+  // Voice message handler: upload audio file then send as file_attachment
+  const handleSendVoice = useCallback(async (file: File) => {
+    if (tutorId === null || !selectedThread) return;
+    try {
+      const uploaded = await messagesAPI.uploadFile(file, tutorId);
+      // Send a reply message with the voice attachment
+      await messagesAPI.create({
+        message: `<p>🎙️ Voice message</p>`,
+        reply_to_id: selectedThread.root_message.id,
+        file_attachments: [uploaded],
+      }, tutorId);
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to send voice message", "error");
+    }
+  }, [tutorId, selectedThread, showToast]);
+
+  const handleCancelScheduled = useCallback(async (msgId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.cancelScheduled(msgId, tutorId);
+      mutate(isAnyMessageKey);
+      setSelectedThread(null);
+      showToast("Scheduled message cancelled", "info");
+    } catch {
+      showToast("Failed to cancel scheduled message", "error");
+    }
+  }, [tutorId, showToast]);
+
   // Keyboard shortcuts — use refs to avoid re-registering on every state change
   const selectedThreadRef = useRef(selectedThread);
   const displayThreadsRef = useRef(displayThreads);
@@ -1667,10 +2091,16 @@ export default function InboxPage() {
           <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
             {/* Left panel - Categories */}
             <div className={cn(
-              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden",
+              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden relative",
               categoryCollapsed ? "w-12" : "w-48"
             )}>
-              <div className="h-full overflow-y-auto overflow-x-hidden p-2">
+              {/* Top scroll indicator */}
+              <div className={cn(
+                "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-t-lg",
+                "bg-gradient-to-b from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
+                catCanScrollUp ? "opacity-100" : "opacity-0"
+              )} />
+              <div ref={catNavRef} className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide p-2">
                 <button
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
                   className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 mb-1"
@@ -1725,6 +2155,12 @@ export default function InboxPage() {
                   ))}
                 </nav>
               </div>
+              {/* Bottom scroll indicator */}
+              <div className={cn(
+                "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-b-lg",
+                "bg-gradient-to-t from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
+                catCanScrollDown ? "opacity-100" : "opacity-0"
+              )} />
             </div>
 
             {/* Middle panel - Thread list */}
@@ -1739,7 +2175,7 @@ export default function InboxPage() {
                     <input
                       ref={searchInputRef}
                       type="text"
-                      placeholder="Search messages..."
+                      placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-[#a0704b]/20 focus:border-[#a0704b] transition-shadow outline-none"
@@ -1763,6 +2199,18 @@ export default function InboxPage() {
                       <span className="hidden sm:inline">Mark all read</span>
                     </button>
                   )}
+                  <button
+                    onClick={() => { setShowFilters(prev => !prev); if (showFilters) setSearchFilters({}); }}
+                    className={cn(
+                      "flex-shrink-0 p-2 rounded-lg transition-colors",
+                      showFilters || Object.values(searchFilters).some(Boolean)
+                        ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                        : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+                    )}
+                    title={showFilters ? "Hide filters" : "Show filters"}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </button>
                   {displayThreads.length > 0 && selectedCategory !== "sent" && (
                     <button
                       onClick={() => { setBulkMode(prev => !prev); bulkClear(); }}
@@ -1778,6 +2226,14 @@ export default function InboxPage() {
                     </button>
                   )}
                 </div>
+                {/* Search filters */}
+                {showFilters && (
+                  <SearchFilters
+                    filters={searchFilters}
+                    onChange={setSearchFilters}
+                    tutors={tutors}
+                  />
+                )}
                 {/* Bulk action bar */}
                 <div className={cn(
                   "grid transition-all duration-200",
@@ -1951,9 +2407,10 @@ export default function InboxPage() {
                           key={thread.root_message.id}
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => setSelectedThread(thread)}
+                          onClick={() => handleSelectThread(thread)}
                           pictureMap={tutorPictureMap}
                           draftPreview={draftsMap.get(thread.root_message.id)}
+                          onlineTutorIds={onlineTutorIds}
                         />
                       ))}
                     </>
@@ -1968,7 +2425,7 @@ export default function InboxPage() {
                           key={thread.root_message.id}
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => setSelectedThread(thread)}
+                          onClick={() => handleSelectThread(thread)}
                           isSentView={selectedCategory === "sent"}
                           searchQuery={showSearch ? debouncedSearch : undefined}
                           pictureMap={tutorPictureMap}
@@ -1976,6 +2433,7 @@ export default function InboxPage() {
                           bulkMode={bulkMode}
                           bulkSelected={bulkSelectedIds.has(thread.root_message.id)}
                           onBulkToggle={() => bulkToggle(thread.root_message.id)}
+                          onlineTutorIds={onlineTutorIds}
                         />
                       );
                       if (!isMobile || selectedCategory === "sent") return item;
@@ -2020,8 +2478,8 @@ export default function InboxPage() {
                       </>
                     );
                   })()}
-                  {/* Load More button for paginated threads (not for sent or archived) */}
-                  {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && hasMore && displayThreads.length > 0 && (
+                  {/* Load More button for paginated threads (not for client-side categories) */}
+                  {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && selectedCategory !== "reminders" && selectedCategory !== "scheduled" && selectedCategory !== "mentions" && hasMore && displayThreads.length > 0 && (
                     <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
                       <button
                         onClick={loadMore}
@@ -2088,6 +2546,17 @@ export default function InboxPage() {
                   pictureMap={tutorPictureMap}
                   onDraftChange={handleDraftChange}
                   mentionUsers={mentionUsers}
+                  typingUsers={(typingByThread.get(selectedThread.root_message.id) || []).filter(u => u.tutorId !== tutorId)}
+                  onlineTutorIds={onlineTutorIds}
+                  templates={templates}
+                  onCreateTemplate={handleCreateTemplate}
+                  onDeleteTemplate={handleDeleteTemplate}
+                  onThreadMute={handleThreadMute}
+                  onThreadUnmute={handleThreadUnmute}
+                  onSnooze={handleSnooze}
+                  onUnsnooze={handleUnsnooze}
+                  onSendVoice={handleSendVoice}
+                  onCancelScheduled={handleCancelScheduled}
                 />
               </div>
             ) : !isMobile && (

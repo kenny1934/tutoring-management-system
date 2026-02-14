@@ -1085,6 +1085,7 @@ class MessageCreate(MessageBase):
     reply_to_id: Optional[int] = Field(None, gt=0)
     image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
     file_attachments: Optional[List[dict]] = Field(default_factory=list)  # [{url, filename, content_type}]
+    scheduled_at: Optional[datetime] = None  # If set and in future, message is scheduled (not sent immediately)
 
 
 class MessageUpdate(BaseModel):
@@ -1117,6 +1118,10 @@ class MessageResponse(MessageBase):
     file_attachments: List[dict] = Field(default_factory=list)  # [{url, filename, content_type}]
     is_pinned: bool = False
     is_thread_pinned: bool = False
+    is_thread_muted: bool = False
+    is_snoozed: bool = False
+    snoozed_until: Optional[datetime] = None
+    scheduled_at: Optional[datetime] = None  # Non-null = scheduled for future delivery
     # Read receipt fields for sender's messages (WhatsApp-style seen status)
     read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
     total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)
@@ -1180,6 +1185,38 @@ class PinResponse(BaseModel):
     """Response for pin operations"""
     success: bool = True
     count: int = Field(default=0, ge=0, description="Number of messages pinned/unpinned")
+
+
+class MessageTemplateCreate(BaseModel):
+    """Schema for creating a message template"""
+    title: str = Field(..., max_length=200)
+    content: str = Field(..., min_length=1)
+    category: Optional[str] = None
+
+class MessageTemplateUpdate(BaseModel):
+    """Schema for updating a message template"""
+    title: Optional[str] = Field(None, max_length=200)
+    content: Optional[str] = Field(None, min_length=1)
+    category: Optional[str] = None
+
+class MessageTemplateResponse(BaseModel):
+    """Schema for template response"""
+    id: int
+    tutor_id: Optional[int] = None
+    title: str
+    content: str
+    category: Optional[str] = None
+    is_global: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SnoozeRequest(BaseModel):
+    """Request to snooze threads"""
+    message_ids: List[int] = Field(..., min_length=1, max_length=50)
+    snooze_until: datetime
 
 
 class MarkAllReadRequest(BaseModel):

@@ -1204,13 +1204,19 @@ export const messagesAPI = {
     category?: MessageCategory,
     limit?: number,
     offset?: number,
-    search?: string
+    search?: string,
+    filters?: { from_tutor_id?: number; date_from?: string; date_to?: string; has_attachments?: boolean; priority?: string }
   ) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
     if (category) params.append("category", category);
     if (limit) params.append("limit", limit.toString());
     if (offset) params.append("offset", offset.toString());
     if (search) params.append("search", search);
+    if (filters?.from_tutor_id) params.append("from_tutor_id", filters.from_tutor_id.toString());
+    if (filters?.date_from) params.append("date_from", filters.date_from);
+    if (filters?.date_to) params.append("date_to", filters.date_to);
+    if (filters?.has_attachments) params.append("has_attachments", "true");
+    if (filters?.priority) params.append("priority", filters.priority);
     return fetchAPI<PaginatedThreadsResponse>(`/messages?${params}`);
   },
 
@@ -1341,6 +1347,21 @@ export const messagesAPI = {
     });
   },
 
+  // Thread mute/unmute
+  threadMute: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<{ success: boolean; count: number }>(`/messages/thread-mute?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
+  threadUnmute: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<{ success: boolean; count: number }>(`/messages/thread-mute?tutor_id=${tutorId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
   // Get pinned/starred threads
   getPinned: (tutorId: number, limit?: number, offset?: number) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
@@ -1398,6 +1419,81 @@ export const messagesAPI = {
     }
 
     return response.json();
+  },
+
+  // Send typing indicator for a thread
+  sendTyping: (tutorId: number, threadId: number) => {
+    return fetchAPI<{ ok: boolean }>(`/messages/typing?tutor_id=${tutorId}&thread_id=${threadId}`, {
+      method: "POST",
+    });
+  },
+
+  // Thread reminders (snooze)
+  getSnoozed: (tutorId: number) => {
+    return fetchAPI<Message[]>(`/messages/snoozed?tutor_id=${tutorId}`);
+  },
+
+  snooze: (messageIds: number[], tutorId: number, snoozeUntil: string) => {
+    return fetchAPI<{ success: boolean; count: number }>(`/messages/snooze?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds, snooze_until: snoozeUntil }),
+    });
+  },
+
+  unsnooze: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<{ success: boolean; count: number }>(`/messages/snooze?tutor_id=${tutorId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
+  // Message templates
+  getTemplates: (tutorId: number) => {
+    return fetchAPI<import("@/types").MessageTemplate[]>(`/messages/templates?tutor_id=${tutorId}`);
+  },
+
+  createTemplate: (tutorId: number, data: { title: string; content: string; category?: string }) => {
+    return fetchAPI<import("@/types").MessageTemplate>(`/messages/templates?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateTemplate: (templateId: number, tutorId: number, data: { title?: string; content?: string; category?: string }) => {
+    return fetchAPI<import("@/types").MessageTemplate>(`/messages/templates/${templateId}?tutor_id=${tutorId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTemplate: (templateId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean }>(`/messages/templates/${templateId}?tutor_id=${tutorId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Get online presence for tutors
+  getPresence: () => {
+    return fetchAPI<{ online: number[]; last_seen: Record<string, string> }>(`/messages/presence`);
+  },
+
+  // Get threads where current tutor is @mentioned
+  getMentions: (tutorId: number, limit = 50, offset = 0) => {
+    return fetchAPI<import("@/types").PaginatedThreadsResponse>(
+      `/messages/mentions?tutor_id=${tutorId}&limit=${limit}&offset=${offset}`
+    );
+  },
+
+  // Get scheduled messages for this tutor
+  getScheduled: (tutorId: number) => {
+    return fetchAPI<import("@/types").Message[]>(`/messages/scheduled?tutor_id=${tutorId}`);
+  },
+
+  // Cancel a scheduled message
+  cancelScheduled: (messageId: number, tutorId: number) => {
+    return fetchAPI<{ success: boolean }>(`/messages/scheduled/${messageId}?tutor_id=${tutorId}`, {
+      method: "DELETE",
+    });
   },
 };
 

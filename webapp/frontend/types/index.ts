@@ -680,6 +680,17 @@ export interface ReactionSummary {
   tutor_ids: number[];
 }
 
+export interface MessageTemplate {
+  id: number;
+  tutor_id: number | null;
+  title: string;
+  content: string;
+  category: string | null;
+  is_global: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Message {
   id: number;
   from_tutor_id: number;
@@ -696,6 +707,10 @@ export interface Message {
   is_read: boolean;
   is_pinned: boolean;
   is_thread_pinned?: boolean;
+  is_thread_muted?: boolean;
+  is_snoozed?: boolean;
+  snoozed_until?: string | null;
+  scheduled_at?: string | null;
   is_group_message?: boolean;
   to_tutor_ids?: number[];    // Group message recipient IDs
   to_tutor_names?: string[];  // Group message recipient names
@@ -744,6 +759,7 @@ export interface MessageCreate {
   category?: MessageCategory;
   image_attachments?: string[];  // List of uploaded image URLs
   file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
+  scheduled_at?: string;  // ISO datetime string for scheduled send
 }
 
 // Make-up scheduling types

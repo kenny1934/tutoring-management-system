@@ -20,28 +20,41 @@ export function getAvatarColor(id: number): string {
   return AVATAR_COLORS[id % AVATAR_COLORS.length];
 }
 
-export function TutorAvatar({ name, id, pictureUrl, size = "md" }: {
+export function TutorAvatar({ name, id, pictureUrl, size = "md", isOnline }: {
   name: string;
   id: number;
   pictureUrl?: string;
   size?: "sm" | "md";
+  isOnline?: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const sizeClass = size === "sm" ? "w-6 h-6 text-[10px]" : "w-8 h-8 text-xs";
-  if (pictureUrl && !imgError) {
-    return (
-      <img
-        src={pictureUrl}
-        alt={name}
-        className={cn(sizeClass, "rounded-full object-cover flex-shrink-0")}
-        referrerPolicy="no-referrer"
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-  return (
+  const dotSize = size === "sm" ? "w-2 h-2" : "w-2.5 h-2.5";
+
+  const validPicture = pictureUrl?.startsWith("http") ? pictureUrl : undefined;
+
+  const avatar = validPicture && !imgError ? (
+    <img
+      src={validPicture}
+      alt={name}
+      className={cn(sizeClass, "rounded-full object-cover flex-shrink-0")}
+      referrerPolicy="no-referrer"
+      onError={() => setImgError(true)}
+    />
+  ) : (
     <div className={cn(sizeClass, "rounded-full flex items-center justify-center text-white font-bold flex-shrink-0", getAvatarColor(id))}>
       {getInitials(name)}
+    </div>
+  );
+
+  if (isOnline === undefined) return avatar;
+
+  return (
+    <div className="relative inline-flex flex-shrink-0">
+      {avatar}
+      {isOnline && (
+        <span className={cn(dotSize, "absolute bottom-0 right-0 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#1a1a1a]")} />
+      )}
     </div>
   );
 }
