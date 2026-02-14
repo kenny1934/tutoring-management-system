@@ -8,12 +8,13 @@ interface AudioPlayerProps {
   src: string;
   filename?: string;
   className?: string;
+  duration?: number;
 }
 
-export default function AudioPlayer({ src, filename, className }: AudioPlayerProps) {
+export default function AudioPlayer({ src, filename, className, duration: initialDuration }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(initialDuration || 0);
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
