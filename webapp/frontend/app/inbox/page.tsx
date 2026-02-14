@@ -1203,7 +1203,7 @@ export default function InboxPage() {
   const [showCompose, setShowCompose] = useState(false);
   const [showWecom, setShowWecom] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
-  const [forwardFrom, setForwardFrom] = useState<{ subject: string; body: string; category?: string } | undefined>();
+  const [forwardFrom, setForwardFrom] = useState<{ subject: string; body: string; category?: string; imageAttachments?: string[]; fileAttachments?: { url: string; filename: string; content_type: string; duration?: number }[] } | undefined>();
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024
@@ -2617,6 +2617,8 @@ export default function InboxPage() {
                       subject: `Fwd: ${m.subject || "(no subject)"}`,
                       body: fwdBody,
                       category: m.category || undefined,
+                      imageAttachments: m.image_attachments,
+                      fileAttachments: m.file_attachments,
                     });
                     setReplyTo(undefined);
                     setShowCompose(true);
