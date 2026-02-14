@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, Send, Loader2, Megaphone, Users, ChevronDown, Check,
-  FileText, Paperclip, Bell, HelpCircle, Calendar,
+  FileText, Bell, HelpCircle, Calendar,
   MessageCircle, BookOpen, MessageSquarePlus, Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
 import { useClickOutside } from "@/lib/hooks";
+import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
-import type { Message, MessageCreate, MessageCategory } from "@/types";
+import VoiceRecorder from "@/components/inbox/VoiceRecorder";
+import type { Message, MessageCreate, MessageCategory, MessageTemplate } from "@/types";
 import { getDraftKey, loadDraft, saveDraft, clearDraft } from "@/lib/inbox-drafts";
 import { stripHtml, isHtmlEmpty } from "@/lib/html-utils";
 import { useToast } from "@/contexts/ToastContext";
@@ -53,6 +55,9 @@ export interface ComposeModalProps {
   onSend: (data: MessageCreate) => Promise<void>;
   forwardFrom?: { subject: string; body: string; category?: string; imageAttachments?: string[]; fileAttachments?: { url: string; filename: string; content_type: string; duration?: number }[] };
   pictureMap?: Map<number, string>;
+  templates?: MessageTemplate[];
+  onCreateTemplate?: (title: string, content: string) => void;
+  onDeleteTemplate?: (templateId: number) => void;
 }
 
 export default function ComposeModal({
@@ -64,6 +69,9 @@ export default function ComposeModal({
   onSend,
   forwardFrom,
   pictureMap,
+  templates,
+  onCreateTemplate,
+  onDeleteTemplate,
 }: ComposeModalProps) {
   const { showToast } = useToast();
   const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
@@ -84,7 +92,7 @@ export default function ComposeModal({
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
   const [isComposeDragging, setIsComposeDragging] = useState(false);
-  const { uploadFiles: handleUploadFiles, isUploading, fileInputRef } = useFileUpload({
+  const { uploadFiles: handleUploadFiles, isUploading } = useFileUpload({
     tutorId: fromTutorId,
     acceptFiles: true,
     onError: (error) => showToast(error instanceof Error ? error.message : 'Failed to upload file', "error"),
@@ -672,38 +680,31 @@ export default function ComposeModal({
                 handleFileUpload(dt.files);
               }}
               mentionUsers={mentionUsers}
+              templates={templates}
+              onCreateTemplate={onCreateTemplate}
+              onDeleteTemplate={onDeleteTemplate}
             />
             {isComposeDragging && (
               <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
-                <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop images here</span>
+                <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
               </div>
             )}
           </div>
 
-          {/* Image Attachments */}
+          {/* Attachments */}
           <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-              multiple
-              onChange={(e) => handleFileUpload(e.target.files)}
-              className="hidden"
-            />
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {isUploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Paperclip className="h-4 w-4" />
-                )}
-                {isUploading ? 'Uploading...' : 'Attach'}
-              </button>
+              <VoiceRecorder
+                mode="attach"
+                onSend={async (file, durationSec) => {
+                  const uploaded = await messagesAPI.uploadFile(file, fromTutorId);
+                  setUploadedFiles(prev => [...prev, { ...uploaded, duration: durationSec }]);
+                }}
+              />
+              <AttachmentMenu
+                onFiles={(files) => handleFileUpload(files)}
+                isUploading={isUploading}
+              />
               {(uploadedImages.length > 0 || uploadedFiles.length > 0) && (
                 <span className="text-xs text-gray-500">{uploadedImages.length + uploadedFiles.length} file(s)</span>
               )}

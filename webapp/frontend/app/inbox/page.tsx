@@ -2664,6 +2664,9 @@ export default function InboxPage() {
         onSend={handleSendMessage}
         forwardFrom={forwardFrom}
         pictureMap={tutorPictureMap}
+        templates={templates}
+        onCreateTemplate={handleCreateTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
       />
 
       {/* WeCom Send Modal (lazy-loaded) */}

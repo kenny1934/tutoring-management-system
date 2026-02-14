@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Send, Loader2, X, PenSquare, FileText, ChevronDown, Clock, Calendar } from "lucide-react";
+import { Send, Loader2, X, ChevronDown, Clock, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
 import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useFileUpload } from "@/lib/useFileUpload";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
+import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
-import TemplatePicker from "@/components/inbox/TemplatePicker";
 import VoiceRecorder from "@/components/inbox/VoiceRecorder";
 import type { MessageTemplate } from "@/types";
 import { useToast } from "@/contexts/ToastContext";
@@ -53,7 +53,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   const [replyEditorKey, setReplyEditorKey] = useState(0);
   const [isReplyDragging, setIsReplyDragging] = useState(false);
   const editorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
-  const { uploadFiles: handleUpload, isUploading: isReplyUploading, fileInputRef: replyFileInputRef } = useFileUpload({ tutorId: currentTutorId });
+  const { uploadFiles: handleUpload, isUploading: isReplyUploading } = useFileUpload({ tutorId: currentTutorId });
 
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showCustomSchedule, setShowCustomSchedule] = useState(false);
@@ -218,7 +218,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     >
       {isReplyDragging && (
         <div className="absolute inset-0 flex items-center justify-center bg-blue-50/60 dark:bg-blue-900/20 rounded-lg z-10 pointer-events-none">
-          <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop images here</span>
+          <span className="text-sm font-medium text-blue-500 dark:text-blue-400">Drop files here</span>
         </div>
       )}
       <InboxRichEditor
@@ -231,7 +231,6 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         }}
         onUpdate={handleEditorUpdate}
         initialContent={initialDraft.current?.message || ""}
-        onAttachImage={() => replyFileInputRef.current?.click()}
         onPasteFiles={(files) => {
           const dt = new DataTransfer();
           files.forEach(f => dt.items.add(f));
@@ -240,14 +239,10 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         placeholder="Type a reply..."
         minHeight="40px"
         mentionUsers={mentionUsers}
-      />
-      <input
-        ref={replyFileInputRef}
-        type="file"
-        accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
-        multiple
-        onChange={(e) => handleReplyImageUpload(e.target.files)}
-        className="hidden"
+        templates={templates}
+        onCreateTemplate={onCreateTemplate}
+        onDeleteTemplate={onDeleteTemplate}
+        onOpenFullEditor={onOpenFullEditor}
       />
       {/* Image previews + send row */}
       <div className="flex items-end justify-between mt-2">
@@ -274,21 +269,10 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
           {onSendVoice && (
             <VoiceRecorder onSend={onSendVoice} />
           )}
-          {templates && templates.length > 0 && (
-            <TemplatePicker
-              templates={templates}
-              onSelect={(content) => editorRef.current?.insertContent(content)}
-              onCreate={onCreateTemplate}
-              onDelete={onDeleteTemplate}
-            />
-          )}
-          <button
-            onClick={onOpenFullEditor}
-            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded transition-colors"
-            title="Open full editor"
-          >
-            <PenSquare className="h-4 w-4" />
-          </button>
+          <AttachmentMenu
+            onFiles={(files) => handleReplyImageUpload(files)}
+            isUploading={isReplyUploading}
+          />
           <div className="relative flex">
             <button
               onClick={handleSendReply}

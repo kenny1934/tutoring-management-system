@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { FileText, Plus, Trash2, X } from "lucide-react";
+import { LayoutTemplate, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useClickOutside } from "@/lib/hooks";
 import type { MessageTemplate } from "@/types";
@@ -46,7 +46,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
         )}
         title="Message templates"
       >
-        <FileText className="h-4 w-4" />
+        <LayoutTemplate className="h-4 w-4" />
       </button>
 
       {isOpen && (
