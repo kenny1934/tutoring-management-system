@@ -76,7 +76,9 @@ import {
   AtSign,
   AlarmClock,
   Mic,
+  Users,
 } from "lucide-react";
+import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
 // Category definition
 interface Category {
@@ -343,7 +345,9 @@ const ThreadItem = React.memo(function ThreadItem({
                 "text-sm truncate",
                 hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
               )}
-              title={isSentView && msg.is_group_message && msg.to_tutor_names?.length ? msg.to_tutor_names.join(", ") : undefined}
+              title={msg.is_group_message && msg.to_tutor_names?.length
+                ? (isSentView ? "To: " : `${msg.from_tutor_name}, `) + msg.to_tutor_names.join(", ")
+                : undefined}
             >
               {isSentView
                 ? msg.to_tutor_id === null
@@ -355,6 +359,15 @@ const ThreadItem = React.memo(function ThreadItem({
                   : msg.to_tutor_name
                   ? `To: ${msg.to_tutor_name}`
                   : "To: Unknown"
+                : msg.is_group_message && msg.to_tutor_names?.length
+                ? (() => {
+                    const sender = getTutorFirstName(msg.from_tutor_name || "");
+                    const recipients = msg.to_tutor_names.map(n => getTutorFirstName(n));
+                    const all = [sender, ...recipients];
+                    return all.length <= 3
+                      ? all.join(", ")
+                      : `${all.slice(0, 3).join(", ")} +${all.length - 3}`;
+                  })()
                 : msg.from_tutor_name || "Unknown"
               }
             </span>
@@ -378,11 +391,6 @@ const ThreadItem = React.memo(function ThreadItem({
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
                 Broadcast
-              </span>
-            )}
-            {msg.is_group_message && (
-              <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">
-                Group ({msg.to_tutor_ids?.length || 0})
               </span>
             )}
             {msg.priority !== "Normal" && (
@@ -814,13 +822,40 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-500 flex-wrap">
             <span>{allMessages.length} message{allMessages.length !== 1 && "s"}</span>
-            {msg.is_snoozed && msg.snoozed_until && (
-              <span className="flex items-center gap-1 text-[#a0704b]">
-                <AlarmClock className="h-3 w-3" />
-                {formatSnoozeUntil(msg.snoozed_until)}
+            <span className="opacity-40">·</span>
+            {msg.to_tutor_id === null ? (
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                Broadcast
               </span>
+            ) : (() => {
+              const others = threadMentionUsers.filter(u => u.id !== currentTutorId);
+              if (others.length === 0) return <span>you</span>;
+              if (msg.is_group_message) {
+                const shown = others.slice(0, 3).map(u => getTutorFirstName(u.label));
+                const remaining = others.length - 3;
+                const text = remaining > 0
+                  ? `${shown.join(", ")} +${remaining} more & you`
+                  : `${shown.join(", ")} & you`;
+                return (
+                  <span className="flex items-center gap-1 truncate" title={others.map(u => u.label).join(", ") + " & you"}>
+                    <Users className="h-3 w-3 flex-shrink-0" />
+                    {text}
+                  </span>
+                );
+              }
+              return <span className="truncate">{others[0].label} & you</span>;
+            })()}
+            {msg.is_snoozed && msg.snoozed_until && (
+              <>
+                <span className="opacity-40">·</span>
+                <span className="flex items-center gap-1 text-[#a0704b]">
+                  <AlarmClock className="h-3 w-3" />
+                  {formatSnoozeUntil(msg.snoozed_until)}
+                </span>
+              </>
             )}
           </div>
         </div>
