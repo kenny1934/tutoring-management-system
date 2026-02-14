@@ -83,7 +83,6 @@ class TutorBase(BaseModel):
     role: str = Field(..., max_length=50)
     basic_salary: Optional[Decimal] = Field(None, ge=0)
     is_active_tutor: bool = Field(True, description="Whether this user teaches students")
-    profile_picture: Optional[str] = Field(None, max_length=500)
 
 
 class TutorResponse(TutorBase):
@@ -1056,18 +1055,10 @@ class ReadReceiptDetail(BaseModel):
 
 
 class LikeDetail(BaseModel):
-    """Detail of who liked/reacted to a message and when"""
+    """Detail of who liked a message and when"""
     tutor_id: int
     tutor_name: str
     liked_at: datetime
-    emoji: str = "❤️"
-
-
-class ReactionSummary(BaseModel):
-    """Summary of emoji reactions on a message"""
-    emoji: str
-    count: int
-    tutor_ids: List[int] = []
 
 
 class MessageBase(BaseModel):
@@ -1084,15 +1075,12 @@ class MessageCreate(MessageBase):
     to_tutor_ids: Optional[List[int]] = Field(None, min_length=2, max_length=50)  # Group message recipients
     reply_to_id: Optional[int] = Field(None, gt=0)
     image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
-    file_attachments: Optional[List[dict]] = Field(default_factory=list)  # [{url, filename, content_type}]
-    scheduled_at: Optional[datetime] = None  # If set and in future, message is scheduled (not sent immediately)
 
 
 class MessageUpdate(BaseModel):
     """Schema for updating an existing message"""
     message: Optional[str] = Field(None, min_length=1)
     image_attachments: Optional[List[str]] = None
-    file_attachments: Optional[List[dict]] = None
 
 
 class MessageResponse(MessageBase):
@@ -1112,16 +1100,9 @@ class MessageResponse(MessageBase):
     like_count: int = Field(default=0, ge=0)
     is_liked_by_me: bool = False
     like_details: Optional[List[LikeDetail]] = None
-    reaction_summary: Optional[List[ReactionSummary]] = None
     reply_count: int = Field(default=0, ge=0)
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
-    file_attachments: List[dict] = Field(default_factory=list)  # [{url, filename, content_type}]
     is_pinned: bool = False
-    is_thread_pinned: bool = False
-    is_thread_muted: bool = False
-    is_snoozed: bool = False
-    snoozed_until: Optional[datetime] = None
-    scheduled_at: Optional[datetime] = None  # Non-null = scheduled for future delivery
     # Read receipt fields for sender's messages (WhatsApp-style seen status)
     read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
     total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)
@@ -1140,11 +1121,6 @@ class ThreadResponse(BaseModel):
 class UnreadCountResponse(BaseModel):
     """Unread message count response"""
     count: int = Field(default=0, ge=0)
-
-
-class CategoryUnreadCountsResponse(BaseModel):
-    """Per-category unread message counts"""
-    counts: dict[str, int] = Field(default_factory=dict)
 
 
 class PaginatedThreadsResponse(BaseModel):
@@ -1185,38 +1161,6 @@ class PinResponse(BaseModel):
     """Response for pin operations"""
     success: bool = True
     count: int = Field(default=0, ge=0, description="Number of messages pinned/unpinned")
-
-
-class MessageTemplateCreate(BaseModel):
-    """Schema for creating a message template"""
-    title: str = Field(..., max_length=200)
-    content: str = Field(..., min_length=1)
-    category: Optional[str] = None
-
-class MessageTemplateUpdate(BaseModel):
-    """Schema for updating a message template"""
-    title: Optional[str] = Field(None, max_length=200)
-    content: Optional[str] = Field(None, min_length=1)
-    category: Optional[str] = None
-
-class MessageTemplateResponse(BaseModel):
-    """Schema for template response"""
-    id: int
-    tutor_id: Optional[int] = None
-    title: str
-    content: str
-    category: Optional[str] = None
-    is_global: bool = False
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class SnoozeRequest(BaseModel):
-    """Request to snooze threads"""
-    message_ids: List[int] = Field(..., min_length=1, max_length=50)
-    snooze_until: datetime
 
 
 class MarkAllReadRequest(BaseModel):

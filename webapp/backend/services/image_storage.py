@@ -84,57 +84,6 @@ def upload_image(file_bytes: bytes, original_filename: Optional[str] = None) -> 
     return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
 
 
-MAX_DOC_SIZE = 25 * 1024 * 1024  # 25MB for documents
-
-ALLOWED_DOC_TYPES = {
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain",
-    "audio/webm",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/ogg",
-    "audio/wav",
-}
-
-
-def upload_document(file_bytes: bytes, original_filename: str, content_type: str) -> str:
-    """
-    Upload a document (PDF, Word, etc.) to Google Cloud Storage without processing.
-
-    Args:
-        file_bytes: Raw file bytes
-        original_filename: Original filename (preserved in storage path)
-        content_type: MIME type of the file
-
-    Returns:
-        Public URL of the uploaded document
-
-    Raises:
-        ValueError: If file is too large or content type not allowed
-    """
-    if len(file_bytes) > MAX_DOC_SIZE:
-        raise ValueError(f"File too large. Maximum size is {MAX_DOC_SIZE // (1024*1024)}MB")
-
-    if content_type not in ALLOWED_DOC_TYPES:
-        raise ValueError(f"File type not allowed: {content_type}")
-
-    # Sanitize filename: keep alphanumeric, dots, hyphens, underscores
-    import re
-    safe_name = re.sub(r'[^\w.\-]', '_', original_filename)
-    blob_name = f"inbox/docs/{uuid.uuid4()}_{safe_name}"
-
-    client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_name)
-    blob.upload_from_string(file_bytes, content_type=content_type)
-
-    return f"https://storage.googleapis.com/{BUCKET_NAME}/{blob_name}"
-
-
 def delete_image(url: str) -> bool:
     """
     Delete an image from Google Cloud Storage.

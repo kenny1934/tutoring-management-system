@@ -1204,19 +1204,13 @@ export const messagesAPI = {
     category?: MessageCategory,
     limit?: number,
     offset?: number,
-    search?: string,
-    filters?: { from_tutor_id?: number; date_from?: string; date_to?: string; has_attachments?: boolean; priority?: string }
+    search?: string
   ) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
     if (category) params.append("category", category);
     if (limit) params.append("limit", limit.toString());
     if (offset) params.append("offset", offset.toString());
     if (search) params.append("search", search);
-    if (filters?.from_tutor_id) params.append("from_tutor_id", filters.from_tutor_id.toString());
-    if (filters?.date_from) params.append("date_from", filters.date_from);
-    if (filters?.date_to) params.append("date_to", filters.date_to);
-    if (filters?.has_attachments) params.append("has_attachments", "true");
-    if (filters?.priority) params.append("priority", filters.priority);
     return fetchAPI<PaginatedThreadsResponse>(`/messages?${params}`);
   },
 
@@ -1231,10 +1225,6 @@ export const messagesAPI = {
   // Get unread count for a tutor
   getUnreadCount: (tutorId: number) => {
     return fetchAPI<CountResponse>(`/messages/unread-count?tutor_id=${tutorId}`);
-  },
-
-  getUnreadCountsByCategory: (tutorId: number) => {
-    return fetchAPI<{ counts: Record<string, number> }>(`/messages/unread-counts-by-category?tutor_id=${tutorId}`);
   },
 
   // Get a specific thread
@@ -1273,9 +1263,9 @@ export const messagesAPI = {
     });
   },
 
-  // Toggle reaction (emoji) on a message
-  toggleLike: (messageId: number, tutorId: number, emoji: string = "❤️") => {
-    return fetchAPI<ToggleLikeResponse>(`/messages/${messageId}/like?tutor_id=${tutorId}&emoji=${encodeURIComponent(emoji)}`, { method: "POST" });
+  // Toggle like on a message
+  toggleLike: (messageId: number, tutorId: number) => {
+    return fetchAPI<ToggleLikeResponse>(`/messages/${messageId}/like?tutor_id=${tutorId}`, { method: "POST" });
   },
 
   // Update a message (only by sender)
@@ -1331,37 +1321,6 @@ export const messagesAPI = {
     });
   },
 
-  // Pin thread to top of list (separate from star)
-  threadPin: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<PinResponse>(`/messages/thread-pin?tutor_id=${tutorId}`, {
-      method: "POST",
-      body: JSON.stringify({ message_ids: messageIds }),
-    });
-  },
-
-  // Unpin thread from top of list
-  threadUnpin: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<PinResponse>(`/messages/thread-pin?tutor_id=${tutorId}`, {
-      method: "DELETE",
-      body: JSON.stringify({ message_ids: messageIds }),
-    });
-  },
-
-  // Thread mute/unmute
-  threadMute: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<{ success: boolean; count: number }>(`/messages/thread-mute?tutor_id=${tutorId}`, {
-      method: "POST",
-      body: JSON.stringify({ message_ids: messageIds }),
-    });
-  },
-
-  threadUnmute: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<{ success: boolean; count: number }>(`/messages/thread-mute?tutor_id=${tutorId}`, {
-      method: "DELETE",
-      body: JSON.stringify({ message_ids: messageIds }),
-    });
-  },
-
   // Get pinned/starred threads
   getPinned: (tutorId: number, limit?: number, offset?: number) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });
@@ -1375,17 +1334,10 @@ export const messagesAPI = {
     const formData = new FormData();
     formData.append("file", file);
 
-    const headers: Record<string, string> = {};
-    if (typeof window !== "undefined") {
-      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
-      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
-    }
-
     const response = await fetch(`${API_BASE_URL}/messages/upload-image?tutor_id=${tutorId}`, {
       method: "POST",
       body: formData,
       credentials: "include",
-      headers,
     });
 
     if (!response.ok) {
@@ -1394,106 +1346,6 @@ export const messagesAPI = {
     }
 
     return response.json();
-  },
-
-  uploadFile: async (file: File, tutorId: number): Promise<{ url: string; filename: string; content_type: string }> => {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const headers: Record<string, string> = {};
-    if (typeof window !== "undefined") {
-      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
-      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/messages/upload-file?tutor_id=${tutorId}`, {
-      method: "POST",
-      body: formData,
-      credentials: "include",
-      headers,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
-      throw new Error(error.detail || "Upload failed");
-    }
-
-    return response.json();
-  },
-
-  // Send typing indicator for a thread
-  sendTyping: (tutorId: number, threadId: number) => {
-    return fetchAPI<{ ok: boolean }>(`/messages/typing?tutor_id=${tutorId}&thread_id=${threadId}`, {
-      method: "POST",
-    });
-  },
-
-  // Thread reminders (snooze)
-  getSnoozed: (tutorId: number) => {
-    return fetchAPI<Message[]>(`/messages/snoozed?tutor_id=${tutorId}`);
-  },
-
-  snooze: (messageIds: number[], tutorId: number, snoozeUntil: string) => {
-    return fetchAPI<{ success: boolean; count: number }>(`/messages/snooze?tutor_id=${tutorId}`, {
-      method: "POST",
-      body: JSON.stringify({ message_ids: messageIds, snooze_until: snoozeUntil }),
-    });
-  },
-
-  unsnooze: (messageIds: number[], tutorId: number) => {
-    return fetchAPI<{ success: boolean; count: number }>(`/messages/snooze?tutor_id=${tutorId}`, {
-      method: "DELETE",
-      body: JSON.stringify({ message_ids: messageIds }),
-    });
-  },
-
-  // Message templates
-  getTemplates: (tutorId: number) => {
-    return fetchAPI<import("@/types").MessageTemplate[]>(`/messages/templates?tutor_id=${tutorId}`);
-  },
-
-  createTemplate: (tutorId: number, data: { title: string; content: string; category?: string }) => {
-    return fetchAPI<import("@/types").MessageTemplate>(`/messages/templates?tutor_id=${tutorId}`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  },
-
-  updateTemplate: (templateId: number, tutorId: number, data: { title?: string; content?: string; category?: string }) => {
-    return fetchAPI<import("@/types").MessageTemplate>(`/messages/templates/${templateId}?tutor_id=${tutorId}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  },
-
-  deleteTemplate: (templateId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean }>(`/messages/templates/${templateId}?tutor_id=${tutorId}`, {
-      method: "DELETE",
-    });
-  },
-
-  // Get online presence for tutors
-  getPresence: () => {
-    return fetchAPI<{ online: number[]; last_seen: Record<string, string> }>(`/messages/presence`);
-  },
-
-  // Get threads where current tutor is @mentioned
-  getMentions: (tutorId: number, limit = 50, offset = 0) => {
-    return fetchAPI<import("@/types").PaginatedThreadsResponse>(
-      `/messages/mentions?tutor_id=${tutorId}&limit=${limit}&offset=${offset}`
-    );
-  },
-
-  // Get scheduled messages for this tutor
-  getScheduled: (tutorId: number) => {
-    return fetchAPI<import("@/types").Message[]>(`/messages/scheduled?tutor_id=${tutorId}`);
-  },
-
-  // Cancel a scheduled message
-  cancelScheduled: (messageId: number, tutorId: number) => {
-    return fetchAPI<{ success: boolean }>(`/messages/scheduled/${messageId}?tutor_id=${tutorId}`, {
-      method: "DELETE",
-    });
   },
 };
 

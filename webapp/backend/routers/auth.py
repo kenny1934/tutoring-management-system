@@ -124,19 +124,13 @@ async def google_callback(
                 status_code=status.HTTP_302_FOUND,
             )
 
-        # Persist Google profile picture on the tutor record
-        google_picture = user_info.get("picture")
-        if google_picture and tutor.profile_picture != google_picture:
-            tutor.profile_picture = google_picture
-            db.commit()
-
         # Create JWT token (sub must be a string per JWT spec)
         token = create_access_token({
             "sub": str(tutor.id),
             "email": tutor.user_email,
             "name": tutor.tutor_name,
             "role": tutor.role,
-            "picture": google_picture,
+            "picture": user_info.get("picture"),  # Google profile picture
         })
 
         # Create redirect response with cookie
