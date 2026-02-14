@@ -29,7 +29,7 @@ const releases = changelogData as ChangelogRelease[];
 function renderMarkdown(text: string) {
   // Split on **bold**, `code`, and [text](url) patterns, preserving delimiters
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
-  return parts.map((part, i) => {
+  return parts.filter(Boolean).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i} className="font-semibold text-foreground/90">{part.slice(2, -2)}</strong>;
     }
@@ -149,7 +149,7 @@ export default function WhatsNewPage() {
                               className="text-sm text-foreground/70 flex items-start gap-2"
                             >
                               <span className="mt-2 h-1 w-1 rounded-full bg-foreground/30 flex-shrink-0" />
-                              {renderMarkdown(item.description)}
+                              <span>{renderMarkdown(item.description)}</span>
                             </li>
                           ))}
                         </ul>
