@@ -728,7 +728,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     // Build MessageCreate with auto-computed recipients
     const data: MessageCreate = {
       subject: `Re: ${msg.subject || "(no subject)"}`,
-      message: text,
+      message: text || "<p></p>",
       priority: "Normal",
       category: msg.category || undefined,
       reply_to_id: msg.id,
@@ -739,7 +739,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     Object.assign(data, computeReplyRecipients(msg, currentTutorId));
 
     // Show optimistic bubble
-    setOptimisticMessage({ text, images: [...images] });
+    setOptimisticMessage({ text: text || "<p></p>", images: [...images] });
 
     // Scroll to bottom
     setTimeout(() => {
@@ -762,7 +762,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const handleScheduleReply = useCallback(async (text: string, images: string[], scheduledAt: string) => {
     const data: MessageCreate = {
       subject: `Re: ${msg.subject || "(no subject)"}`,
-      message: text,
+      message: text || "<p></p>",
       priority: "Normal",
       category: msg.category || undefined,
       reply_to_id: msg.id,

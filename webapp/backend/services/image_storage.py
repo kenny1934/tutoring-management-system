@@ -119,7 +119,9 @@ def upload_document(file_bytes: bytes, original_filename: str, content_type: str
     if len(file_bytes) > MAX_DOC_SIZE:
         raise ValueError(f"File too large. Maximum size is {MAX_DOC_SIZE // (1024*1024)}MB")
 
-    if content_type not in ALLOWED_DOC_TYPES:
+    # Strip codec parameters (e.g. "audio/webm;codecs=opus" → "audio/webm")
+    base_type = content_type.split(";")[0].strip()
+    if base_type not in ALLOWED_DOC_TYPES:
         raise ValueError(f"File type not allowed: {content_type}")
 
     # Sanitize filename: keep alphanumeric, dots, hyphens, underscores

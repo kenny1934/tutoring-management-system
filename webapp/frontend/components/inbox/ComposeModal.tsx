@@ -221,7 +221,9 @@ export default function ComposeModal({
 
   // Check for unsaved changes
   const isMessageEmpty = isHtmlEmpty(message);
-  const hasUnsavedChanges = !isMessageEmpty || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
+  const hasAttachments = uploadedImages.length > 0 || uploadedFiles.length > 0;
+  const canSend = !isMessageEmpty || hasAttachments;
+  const hasUnsavedChanges = !isMessageEmpty || (subject.trim().length > 0 && !replyTo) || hasAttachments;
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const handleClose = () => {
@@ -252,13 +254,13 @@ export default function ComposeModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isMessageEmpty) return;
+    if (!canSend) return;
 
     setIsSending(true);
     try {
       const sendData: MessageCreate = {
         subject: subject || undefined,
-        message,
+        message: message || "<p></p>",
         priority,
         category: category || undefined,
         reply_to_id: effectiveReplyToId,
@@ -284,13 +286,13 @@ export default function ComposeModal({
   };
 
   const handleScheduleSend = async (scheduledAt: Date) => {
-    if (isMessageEmpty) return;
+    if (!canSend) return;
     setShowScheduleMenu(false);
     setIsSending(true);
     try {
       const sendData: MessageCreate = {
         subject: subject || undefined,
-        message,
+        message: message || "<p></p>",
         priority,
         category: category || undefined,
         reply_to_id: effectiveReplyToId,
@@ -759,7 +761,7 @@ export default function ComposeModal({
             <div className="relative flex">
               <button
                 type="submit"
-                disabled={isSending || isUploading || isMessageEmpty}
+                disabled={isSending || isUploading || !canSend}
                 className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-l-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -767,7 +769,7 @@ export default function ComposeModal({
               </button>
               <button
                 type="button"
-                disabled={isSending || isUploading || isMessageEmpty}
+                disabled={isSending || isUploading || !canSend}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
                 className="px-2 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-lg border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
                 title="Schedule send"
