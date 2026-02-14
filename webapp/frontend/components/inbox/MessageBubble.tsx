@@ -573,7 +573,7 @@ const MessageBubble = React.memo(function MessageBubble({
             "flex items-center gap-0.5",
             isMobile
               ? "mt-2 gap-2"
-              : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
+              : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
             <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Quote">
