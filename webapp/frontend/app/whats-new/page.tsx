@@ -25,6 +25,25 @@ interface ChangelogRelease {
 
 const releases = changelogData as ChangelogRelease[];
 
+/** Render basic markdown (bold, code, links) in changelog descriptions. */
+function renderMarkdown(text: string) {
+  // Split on **bold**, `code`, and [text](url) patterns, preserving delimiters
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i} className="font-semibold text-foreground/90">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={i} className="px-1 py-0.5 rounded bg-foreground/5 text-xs font-mono">{part.slice(1, -1)}</code>;
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return <a key={i} href={linkMatch[2]} className="underline text-primary">{linkMatch[1]}</a>;
+    }
+    return part;
+  });
+}
+
 const sectionIcons: Record<string, typeof Megaphone> = {
   "New Features": Megaphone,
   "Bug Fixes": Bug,
@@ -130,7 +149,7 @@ export default function WhatsNewPage() {
                               className="text-sm text-foreground/70 flex items-start gap-2"
                             >
                               <span className="mt-2 h-1 w-1 rounded-full bg-foreground/30 flex-shrink-0" />
-                              {item.description}
+                              {renderMarkdown(item.description)}
                             </li>
                           ))}
                         </ul>
