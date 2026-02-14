@@ -296,7 +296,7 @@ def _deliver_due_scheduled_messages(tutor_id: int, db: Session):
         TutorMessage.from_tutor_id == tutor_id,
         TutorMessage.scheduled_at.isnot(None),
         TutorMessage.scheduled_at <= now,
-    ).all()
+    ).with_for_update(skip_locked=True).all()
 
     for msg in due_messages:
         msg.created_at = now  # Update to delivery time (not original creation time)
