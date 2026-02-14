@@ -62,25 +62,25 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
-            "description": "Sidebar reorganized into 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags"
+            "description": "**Sidebar reorganization** — 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags"
           },
           {
-            "description": "Rich interactions: quote-reply, message forwarding, swipe actions, keyboard shortcuts"
+            "description": "**Rich interactions** — quote-reply, message forwarding, swipe actions, keyboard shortcuts"
           },
           {
-            "description": "Paste/drag image uploads with parallel processing"
+            "description": "**Paste/drag image uploads** — parallel processing for multiple images"
           },
           {
-            "description": "Search highlighting across thread list and message content"
+            "description": "**Search highlighting** — across thread list and message content"
           },
           {
-            "description": "Draft auto-save with thread list preview indicator"
+            "description": "**Draft auto-save** — with thread list preview indicator"
           },
           {
-            "description": "Dark mode polish across all new components"
+            "description": "**Dark mode polish** — across all new components"
           },
           {
-            "description": "Performance: memoized components, stale-while-revalidate for category navigation"
+            "description": "**Performance** — memoized components, stale-while-revalidate for category navigation"
           },
           {
             "description": "**Video & GIF attachments** — send and preview video/GIF files inline in messages"
@@ -98,7 +98,7 @@ const changelogData = [
             "description": "**Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode"
           },
           {
-            "description": "Smooth slide animation on search filters panel (matches bulk action bar)"
+            "description": "**Slide animations** — smooth expand/collapse on search filters panel and collapsible sections"
           }
         ]
       },

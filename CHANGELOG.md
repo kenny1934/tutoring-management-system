@@ -26,19 +26,19 @@
 
 ### Improvements
 
-* Sidebar reorganized into 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags
-* Rich interactions: quote-reply, message forwarding, swipe actions, keyboard shortcuts
-* Paste/drag image uploads with parallel processing
-* Search highlighting across thread list and message content
-* Draft auto-save with thread list preview indicator
-* Dark mode polish across all new components
-* Performance: memoized components, stale-while-revalidate for category navigation
+* **Sidebar reorganization** — 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags
+* **Rich interactions** — quote-reply, message forwarding, swipe actions, keyboard shortcuts
+* **Paste/drag image uploads** — parallel processing for multiple images
+* **Search highlighting** — across thread list and message content
+* **Draft auto-save** — with thread list preview indicator
+* **Dark mode polish** — across all new components
+* **Performance** — memoized components, stale-while-revalidate for category navigation
 * **Video & GIF attachments** — send and preview video/GIF files inline in messages
 * **Message forwarding with attachments** — forwarded messages now include all original attachments (images, files, voice recordings)
 * **Categorized attachment menu** — attachment button opens a popover with Photos & Videos / Document sections
 * **File attachments in replies** — attach files when replying, with thumbnail previews and remove button
 * **Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode
-* Smooth slide animation on search filters panel (matches bulk action bar)
+* **Slide animations** — smooth expand/collapse on search filters panel and collapsible sections
 
 ### Bug Fixes
 
