@@ -19,6 +19,8 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import AudioPlayer from "@/components/inbox/AudioPlayer";
 import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { Message } from "@/types";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 // Module-level constants
 const HAS_HTML_RE = /<[a-z][\s\S]*>/i;
@@ -465,6 +467,34 @@ const MessageBubble = React.memo(function MessageBubble({
   const isBroadcast = m.to_tutor_id === null;
   const isGroup = m.is_group_message;
 
+  // Pre-render KaTeX math nodes into the HTML string (stable across re-renders)
+  const renderedMessage = useMemo(() => {
+    let html = m.message;
+    // Replace inline math spans with KaTeX-rendered HTML
+    html = html.replace(
+      /<span[^>]*data-type="inline-math"[^>]*>.*?<\/span>/gs,
+      (match) => {
+        const latexMatch = match.match(/data-latex="([^"]*)"/);
+        if (!latexMatch) return match;
+        try {
+          return katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: false });
+        } catch { return latexMatch[1]; }
+      }
+    );
+    // Replace block math divs with KaTeX-rendered HTML
+    html = html.replace(
+      /<div[^>]*data-type="block-math"[^>]*>.*?<\/div>/gs,
+      (match) => {
+        const latexMatch = match.match(/data-latex="([^"]*)"/);
+        if (!latexMatch) return match;
+        try {
+          return `<div style="text-align:center;padding:8px 0;margin:4px 0">${katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: true })}</div>`;
+        } catch { return latexMatch[1]; }
+      }
+    );
+    return html;
+  }, [m.message]);
+
   // Internal edit state
   const [editText, setEditText] = useState(m.message);
   const [editImages, setEditImages] = useState<string[]>(m.image_attachments || []);
@@ -605,11 +635,11 @@ const MessageBubble = React.memo(function MessageBubble({
           <div
             className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
             dangerouslySetInnerHTML={{ __html: highlightRegex
-              ? m.message.replace(
+              ? renderedMessage.replace(
                   highlightRegex,
                   (_match: string, tag: string | undefined, text: string | undefined) => tag ? tag : `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded-sm px-0.5">${text}</mark>`
                 )
-              : m.message
+              : renderedMessage
             }}
           />
         ) : (
