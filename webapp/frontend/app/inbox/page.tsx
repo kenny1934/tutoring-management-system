@@ -2309,13 +2309,18 @@ export default function InboxPage() {
                   )}
                 </div>
                 {/* Search filters */}
-                {showFilters && (
-                  <SearchFilters
-                    filters={searchFilters}
-                    onChange={setSearchFilters}
-                    tutors={tutors}
-                  />
-                )}
+                <div className={cn(
+                  "grid transition-all duration-200",
+                  showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <SearchFilters
+                      filters={searchFilters}
+                      onChange={setSearchFilters}
+                      tutors={tutors}
+                    />
+                  </div>
+                </div>
                 {/* Bulk action bar */}
                 <div className={cn(
                   "grid transition-all duration-200",
