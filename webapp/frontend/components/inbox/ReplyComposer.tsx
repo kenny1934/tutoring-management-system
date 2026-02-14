@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperat
 import { Send, Loader2, X, PenSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
-import { messagesAPI } from "@/lib/api";
 import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
+import { useFileUpload } from "@/lib/useFileUpload";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 
@@ -21,7 +21,7 @@ interface ReplyComposerProps {
   isMobile: boolean;
   onSend: (text: string, images: string[]) => Promise<void>;
   onOpenFullEditor: () => void;
-  onDraftChange?: () => void;
+  onDraftChange?: (threadId: number) => void;
 }
 
 const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(function ReplyComposer(
@@ -32,11 +32,10 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   const [replyText, setReplyText] = useState(initialDraft.current?.message || "");
   const [replyImages, setReplyImages] = useState<string[]>(initialDraft.current?.images || []);
   const [isReplySending, setIsReplySending] = useState(false);
-  const [isReplyUploading, setIsReplyUploading] = useState(false);
   const [replyEditorKey, setReplyEditorKey] = useState(0);
   const [isReplyDragging, setIsReplyDragging] = useState(false);
-  const replyFileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
+  const { uploadFiles: handleUpload, isUploading: isReplyUploading, fileInputRef: replyFileInputRef } = useFileUpload({ tutorId: currentTutorId });
 
   const isReplyEmpty = isHtmlEmpty(replyText);
 
@@ -66,28 +65,15 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   useEffect(() => {
     if (isReplyDraftEmpty(replyText) && replyImages.length === 0) {
       clearReplyDraft(threadId);
-      onDraftChange?.();
+      onDraftChange?.(threadId);
     } else if (!isReplyDraftEmpty(replyText) || replyImages.length > 0) {
       saveReplyDraft(threadId, { message: replyText, images: replyImages, savedAt: Date.now() });
-      onDraftChange?.();
+      onDraftChange?.(threadId);
     }
   }, [replyText, replyImages, threadId, onDraftChange]);
 
-  const handleReplyImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsReplyUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
-        const result = await messagesAPI.uploadImage(file, currentTutorId);
-        setReplyImages(prev => [...prev, result.url]);
-      }
-    } catch (error) {
-      console.error('Image upload failed:', error);
-    } finally {
-      setIsReplyUploading(false);
-      if (replyFileInputRef.current) replyFileInputRef.current.value = '';
-    }
+  const handleReplyImageUpload = (files: FileList | null) => {
+    handleUpload(files, { onImage: (url) => setReplyImages(prev => [...prev, url]) });
   };
 
   const handleSendReply = useCallback(async () => {
@@ -113,7 +99,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   return (
     <div
       className={cn(
-        "flex-shrink-0 p-3 relative",
+        "flex-shrink-0 p-3 relative transition-all",
         isReplyDragging && "ring-2 ring-inset ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10"
       )}
       onKeyDown={(e) => {

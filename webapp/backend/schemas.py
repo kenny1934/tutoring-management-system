@@ -1137,6 +1137,11 @@ class UnreadCountResponse(BaseModel):
     count: int = Field(default=0, ge=0)
 
 
+class CategoryUnreadCountsResponse(BaseModel):
+    """Per-category unread message counts"""
+    counts: dict[str, int] = Field(default_factory=dict)
+
+
 class PaginatedThreadsResponse(BaseModel):
     """Paginated thread list response with metadata"""
     threads: List[ThreadResponse] = []

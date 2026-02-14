@@ -17,6 +17,7 @@ from schemas import (
     MessageResponse,
     ThreadResponse,
     UnreadCountResponse,
+    CategoryUnreadCountsResponse,
     PaginatedThreadsResponse,
     PaginatedMessagesResponse,
     ArchiveRequest,
@@ -773,6 +774,59 @@ async def get_unread_count(
     return UnreadCountResponse(count=unread_count)
 
 
+@router.get("/messages/unread-counts-by-category", response_model=CategoryUnreadCountsResponse)
+async def get_unread_counts_by_category(
+    tutor_id: int = Query(..., description="Tutor ID"),
+    db: Session = Depends(get_db)
+):
+    """Get per-category unread message counts for sidebar badges."""
+    archived_ids_subq = db.query(MessageArchive.message_id).filter(
+        MessageArchive.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    read_ids_subq = db.query(MessageReadReceipt.message_id).filter(
+        MessageReadReceipt.tutor_id == tutor_id
+    ).scalar_subquery()
+
+    # Count unread root messages (reply_to_id IS NULL) grouped by category
+    rows = db.query(
+        TutorMessage.category,
+        func.count(TutorMessage.id)
+    ).filter(
+        visible_to_tutor_filter(tutor_id, db),
+        TutorMessage.reply_to_id.is_(None),
+        ~TutorMessage.id.in_(archived_ids_subq),
+        ~TutorMessage.id.in_(read_ids_subq),
+    ).group_by(TutorMessage.category).all()
+
+    # Also count unread replies
+    reply_rows = db.query(
+        # For replies, get the root's category
+        func.coalesce(
+            db.query(TutorMessage.category).filter(
+                TutorMessage.id == TutorMessage.reply_to_id
+            ).correlate(TutorMessage).scalar_subquery(),
+            TutorMessage.category
+        ).label("root_category"),
+        func.count(TutorMessage.id)
+    ).filter(
+        visible_to_tutor_filter(tutor_id, db),
+        TutorMessage.reply_to_id.isnot(None),
+        ~TutorMessage.id.in_(archived_ids_subq),
+        ~TutorMessage.id.in_(read_ids_subq),
+    ).group_by("root_category").all()
+
+    counts: dict[str, int] = {}
+    total = 0
+    for category, count in list(rows) + list(reply_rows):
+        cat_key = category or "uncategorized"
+        counts[cat_key] = counts.get(cat_key, 0) + count
+        total += count
+    counts["inbox"] = total
+
+    return CategoryUnreadCountsResponse(counts=counts)
+
+
 @router.get("/messages/thread/{message_id}", response_model=ThreadResponse)
 async def get_thread(
     message_id: int,
@@ -1027,15 +1081,11 @@ async def mark_all_read(
     if not unread_ids:
         return MarkAllReadResponse(success=True, count=0)
 
-    # Bulk insert read receipts
-    count = 0
-    for msg_id in unread_ids:
-        stmt = mysql_insert(MessageReadReceipt).values(
-            message_id=msg_id,
-            tutor_id=tutor_id
-        ).prefix_with('IGNORE')
-        result = db.execute(stmt)
-        count += result.rowcount
+    # Bulk insert read receipts in a single statement
+    values = [{"message_id": msg_id, "tutor_id": tutor_id} for msg_id in unread_ids]
+    stmt = mysql_insert(MessageReadReceipt).values(values).prefix_with('IGNORE')
+    result = db.execute(stmt)
+    count = result.rowcount
 
     db.commit()
     return MarkAllReadResponse(success=True, count=count)

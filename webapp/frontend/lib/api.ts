@@ -1227,6 +1227,10 @@ export const messagesAPI = {
     return fetchAPI<CountResponse>(`/messages/unread-count?tutor_id=${tutorId}`);
   },
 
+  getUnreadCountsByCategory: (tutorId: number) => {
+    return fetchAPI<{ counts: Record<string, number> }>(`/messages/unread-counts-by-category?tutor_id=${tutorId}`);
+  },
+
   // Get a specific thread
   getThread: (messageId: number, tutorId: number) => {
     return fetchAPI<MessageThread>(`/messages/thread/${messageId}?tutor_id=${tutorId}`);
@@ -1350,10 +1354,17 @@ export const messagesAPI = {
     const formData = new FormData();
     formData.append("file", file);
 
+    const headers: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
+      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
+    }
+
     const response = await fetch(`${API_BASE_URL}/messages/upload-image?tutor_id=${tutorId}`, {
       method: "POST",
       body: formData,
       credentials: "include",
+      headers,
     });
 
     if (!response.ok) {
@@ -1368,10 +1379,17 @@ export const messagesAPI = {
     const formData = new FormData();
     formData.append("file", file);
 
+    const headers: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
+      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
+    }
+
     const response = await fetch(`${API_BASE_URL}/messages/upload-file?tutor_id=${tutorId}`, {
       method: "POST",
       body: formData,
       credentials: "include",
+      headers,
     });
 
     if (!response.ok) {

@@ -751,6 +751,19 @@ export function useUnreadMessageCount(tutorId: number | null | undefined) {
 }
 
 /**
+ * Hook for fetching per-category unread counts for sidebar badges.
+ * Replaces the expensive pattern of fetching ALL threads client-side.
+ */
+export function useUnreadCategoryCounts(tutorId: number | null | undefined) {
+  const refreshInterval = useVisibilityAwareInterval(30000);
+  return useSWR<{ counts: Record<string, number> }>(
+    tutorId ? ['unread-category-counts', tutorId] : null,
+    () => messagesAPI.getUnreadCountsByCategory(tutorId!),
+    { refreshInterval, revalidateOnFocus: false }
+  );
+}
+
+/**
  * Hook for fetching a specific message thread
  */
 export function useMessageThread(

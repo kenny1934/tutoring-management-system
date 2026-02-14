@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
 import { messagesAPI } from "@/lib/api";
+import { useFileUpload } from "@/lib/useFileUpload";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import { LinkPreview } from "@/components/inbox/LinkPreview";
@@ -347,9 +348,8 @@ const MessageBubble = React.memo(function MessageBubble({
   // Internal edit state
   const [editText, setEditText] = useState(m.message);
   const [editImages, setEditImages] = useState<string[]>(m.image_attachments || []);
-  const [isEditUploading, setIsEditUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFiles: handleEditUpload, isUploading: isEditUploading, fileInputRef: editFileInputRef } = useFileUpload({ tutorId: currentTutorId });
 
   // Internal delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -362,21 +362,8 @@ const MessageBubble = React.memo(function MessageBubble({
     }
   }, [isEditing, m.message, m.image_attachments]);
 
-  const handleEditImageUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsEditUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) continue;
-        const result = await messagesAPI.uploadImage(file, currentTutorId);
-        setEditImages(prev => [...prev, result.url]);
-      }
-    } catch (error) {
-      console.error('Image upload failed:', error);
-    } finally {
-      setIsEditUploading(false);
-      if (editFileInputRef.current) editFileInputRef.current.value = '';
-    }
+  const handleEditImageUpload = (files: FileList | null) => {
+    handleEditUpload(files, { onImage: (url) => setEditImages(prev => [...prev, url]) });
   };
 
   const handleSaveEdit = async () => {
@@ -424,7 +411,7 @@ const MessageBubble = React.memo(function MessageBubble({
             <span
               className={cn(
                 "text-[11px] text-gray-400 dark:text-gray-400 flex items-center gap-1 transition-opacity",
-                !isMobile && "opacity-0 group-hover/msg:opacity-100"
+                !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
               )}
               title={new Date(m.created_at).toLocaleString()}
             >
@@ -623,7 +610,7 @@ const MessageBubble = React.memo(function MessageBubble({
         {isOwn && (
           <div className={cn(
             "flex items-center justify-end gap-1 mt-1 transition-opacity",
-            !isMobile && "opacity-0 group-hover/msg:opacity-100"
+            !isMobile && "opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100"
           )}>
             <span className="text-[11px] text-gray-400 dark:text-gray-400" title={new Date(m.created_at).toLocaleString()}>
               {formatMessageTime(m.created_at)}
