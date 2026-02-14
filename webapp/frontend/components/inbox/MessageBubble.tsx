@@ -556,7 +556,7 @@ const MessageBubble = React.memo(function MessageBubble({
               <input
                 ref={editFileInputRef}
                 type="file"
-                accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+                accept="image/*,video/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
                 multiple
                 onChange={(e) => handleEditImageUpload(e.target.files)}
                 className="hidden"
@@ -653,6 +653,23 @@ const MessageBubble = React.memo(function MessageBubble({
             {m.file_attachments.map((file) =>
               file.content_type?.startsWith("audio/") ? (
                 <AudioPlayer key={file.url} src={file.url} filename={file.filename} duration={file.duration} />
+              ) : file.content_type?.startsWith("video/") ? (
+                <video
+                  key={file.url}
+                  src={file.url}
+                  controls
+                  preload="metadata"
+                  className="max-h-64 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                />
+              ) : file.content_type === "image/gif" ? (
+                <a key={file.url} href={file.url} target="_blank" rel="noopener noreferrer" className="block">
+                  <img
+                    src={file.url}
+                    alt={file.filename}
+                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                    loading="lazy"
+                  />
+                </a>
               ) : (
                 <a
                   key={file.url}

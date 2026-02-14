@@ -98,6 +98,10 @@ ALLOWED_DOC_TYPES = {
     "audio/mpeg",
     "audio/ogg",
     "audio/wav",
+    "image/gif",
+    "video/mp4",
+    "video/webm",
+    "video/quicktime",
 }
 
 
