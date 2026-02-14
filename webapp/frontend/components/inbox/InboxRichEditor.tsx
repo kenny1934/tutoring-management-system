@@ -329,31 +329,38 @@ export default function InboxRichEditor({
     [editor]
   );
 
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   const handleSetLink = useCallback(() => {
     if (!editor) return;
-
     const previousUrl = editor.getAttributes("link").href;
-    const url = window.prompt("Enter URL:", previousUrl || "https://");
-
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-
-    if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      window.alert("URL must start with http:// or https://");
-      return;
-    }
-
-    if (editor.state.selection.empty) {
-      // No text selected — insert URL as clickable link text
-      editor.chain().focus().insertContent(`<a href="${url}">${url}</a>`).run();
-    } else {
-      // Text selected — apply link to selection
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-    }
+    setLinkUrl(previousUrl || "https://");
+    setLinkError("");
+    setShowLinkInput(true);
+    setTimeout(() => linkInputRef.current?.select(), 50);
   }, [editor]);
+
+  const handleLinkSubmit = useCallback(() => {
+    if (!editor) return;
+    if (linkUrl === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      setShowLinkInput(false);
+      return;
+    }
+    if (!linkUrl.startsWith("http://") && !linkUrl.startsWith("https://")) {
+      setLinkError("URL must start with http:// or https://");
+      return;
+    }
+    if (editor.state.selection.empty) {
+      editor.chain().focus().insertContent(`<a href="${linkUrl}">${linkUrl}</a>`).run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl }).run();
+    }
+    setShowLinkInput(false);
+  }, [editor, linkUrl]);
 
   const handleToggleHeading = useCallback(() => {
     if (!editor) return;
@@ -557,6 +564,25 @@ export default function InboxRichEditor({
           />
         </div>
       </div>
+
+      {/* Inline link input bar */}
+      {showLinkInput && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-[#252525] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <input
+            ref={linkInputRef}
+            type="url"
+            value={linkUrl}
+            onChange={(e) => { setLinkUrl(e.target.value); setLinkError(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleLinkSubmit(); } else if (e.key === "Escape") setShowLinkInput(false); }}
+            placeholder="https://example.com"
+            className="flex-1 text-sm bg-transparent outline-none text-gray-900 dark:text-white placeholder-gray-400"
+          />
+          {linkError && <span className="text-xs text-red-500 flex-shrink-0">{linkError}</span>}
+          <button type="button" onClick={handleLinkSubmit} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Apply</button>
+          <button type="button" onClick={() => setShowLinkInput(false)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+        </div>
+      )}
 
       {/* Editor content */}
       <EditorContent editor={editor} />

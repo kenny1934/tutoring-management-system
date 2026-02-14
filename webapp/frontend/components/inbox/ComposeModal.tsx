@@ -13,6 +13,8 @@ import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import type { Message, MessageCreate, MessageCategory } from "@/types";
 import { getDraftKey, loadDraft, saveDraft, clearDraft } from "@/lib/inbox-drafts";
+import { stripHtml, isHtmlEmpty } from "@/lib/html-utils";
+import { useToast } from "@/contexts/ToastContext";
 
 // Category options for compose dropdown
 const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon: React.ReactNode }> = [
@@ -54,6 +56,7 @@ export default function ComposeModal({
   forwardFrom,
   pictureMap,
 }: ComposeModalProps) {
+  const { showToast } = useToast();
   const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
   const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
@@ -97,7 +100,7 @@ export default function ComposeModal({
       }
     } catch (error) {
       console.error('File upload failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to upload file');
+      showToast(error instanceof Error ? error.message : 'Failed to upload file', "error");
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -201,7 +204,7 @@ export default function ComposeModal({
     if (!isOpen) return;
     const timer = setTimeout(() => {
       const draftKey = getDraftKey(replyTo?.id);
-      const hasContent = (message && message !== "<p></p>" && message.replace(/<[^>]*>/g, "").trim().length > 0)
+      const hasContent = !isHtmlEmpty(message)
         || (subject.trim().length > 0 && !replyTo)
         || uploadedImages.length > 0;
       if (hasContent) {
@@ -217,18 +220,22 @@ export default function ComposeModal({
   useClickOutside(recipientDropdownRef, () => setRecipientDropdownOpen(false), recipientDropdownOpen);
 
   // Check for unsaved changes
-  const isMessageEmpty = !message || message === "<p></p>" || message.replace(/<[^>]*>/g, "").trim().length === 0;
+  const isMessageEmpty = isHtmlEmpty(message);
   const hasUnsavedChanges = !isMessageEmpty || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
-      if (confirm("You have unsaved changes. Discard draft?")) {
-        clearDraft(getDraftKey(replyTo?.id));
-        onClose();
-      }
+      setShowDiscardConfirm(true);
     } else {
       onClose();
     }
+  };
+
+  const handleDiscard = () => {
+    clearDraft(getDraftKey(replyTo?.id));
+    setShowDiscardConfirm(false);
+    onClose();
   };
 
   // Close on escape key
@@ -288,6 +295,20 @@ export default function ComposeModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {showDiscardConfirm && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/40">
+            <span className="text-sm text-amber-800 dark:text-amber-200">Discard unsaved changes?</span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowDiscardConfirm(false)} className="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                Keep editing
+              </button>
+              <button type="button" onClick={handleDiscard} className="px-3 py-1 text-xs font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors">
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* To */}
@@ -525,7 +546,7 @@ export default function ComposeModal({
                 {replyTo.from_tutor_name} wrote:
               </div>
               <div className="text-gray-600 dark:text-gray-400 line-clamp-3">
-                {replyTo.message.replace(/<[^>]*>/g, "")}
+                {stripHtml(replyTo.message)}
               </div>
             </div>
           )}
