@@ -2,18 +2,14 @@
 Messages API endpoints.
 Provides messaging system for tutor-to-tutor communication.
 """
-import asyncio
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func, desc
+from sqlalchemy import and_, or_, func
 from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
 from database import get_db
-from sse import sse_manager
-import re
-from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, ThreadPin, ThreadMute, MessageSnooze, MessageMention, MessageRecipient, MessageTemplate, Tutor, MakeupProposal
+from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, MessageRecipient, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html
 from schemas import (
     MessageCreate,
@@ -21,7 +17,6 @@ from schemas import (
     MessageResponse,
     ThreadResponse,
     UnreadCountResponse,
-    CategoryUnreadCountsResponse,
     PaginatedThreadsResponse,
     PaginatedMessagesResponse,
     ArchiveRequest,
@@ -31,12 +26,7 @@ from schemas import (
     MarkAllReadRequest,
     MarkAllReadResponse,
     ReadReceiptDetail,
-    LikeDetail,
-    ReactionSummary,
-    MessageTemplateCreate,
-    MessageTemplateUpdate,
-    MessageTemplateResponse,
-    SnoozeRequest,
+    LikeDetail
 )
 from utils.rate_limiter import check_user_rate_limit
 from services.image_storage import upload_image
@@ -67,267 +57,6 @@ def visible_to_tutor_filter(tutor_id: int, db: Session):
             TutorMessage.id.in_(group_msg_subq)
         )
     )
-
-
-# ============================================
-# Shared query helpers (avoid duplication)
-# ============================================
-
-def _get_liked_by_me(db: Session, message_ids: list[int], tutor_id: int) -> set[int]:
-    """Get set of message IDs that the given tutor has liked (latest action = LIKE)."""
-    if not message_ids:
-        return set()
-    subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.action_type,
-            func.row_number().over(
-                partition_by=MessageLike.message_id,
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id.in_(message_ids), MessageLike.tutor_id == tutor_id)
-        .subquery()
-    )
-    rows = db.query(subq.c.message_id, subq.c.action_type).filter(subq.c.rn == 1).all()
-    return set(r.message_id for r in rows if r.action_type == "LIKE")
-
-
-def _bulk_insert_ignore(db: Session, model_class, message_ids: list[int], tutor_id: int) -> int:
-    """Bulk INSERT IGNORE for archive/pin/thread-pin operations. Returns count of newly inserted rows."""
-    from sqlalchemy.dialects.mysql import insert
-    count = 0
-    for message_id in message_ids:
-        stmt = insert(model_class).values(message_id=message_id, tutor_id=tutor_id).prefix_with('IGNORE')
-        result = db.execute(stmt)
-        count += result.rowcount
-    db.commit()
-    return count
-
-
-def _fetch_like_details(db: Session, message_ids: list[int]) -> dict[int, list[LikeDetail]]:
-    """Batch fetch like details (emoji reactions) for a set of messages.
-    Returns {message_id: [LikeDetail, ...]}."""
-    if not message_ids:
-        return {}
-
-    like_details_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.tutor_id,
-            MessageLike.action_type,
-            MessageLike.emoji,
-            MessageLike.liked_at,
-            func.row_number().over(
-                partition_by=[MessageLike.message_id, MessageLike.tutor_id, MessageLike.emoji],
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(MessageLike.message_id.in_(message_ids))
-        .subquery()
-    )
-    current_likers = (
-        db.query(
-            like_details_subq.c.message_id,
-            like_details_subq.c.tutor_id,
-            like_details_subq.c.emoji,
-            like_details_subq.c.liked_at,
-            Tutor.tutor_name
-        )
-        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
-        .filter(
-            like_details_subq.c.rn == 1,
-            like_details_subq.c.action_type == "LIKE"
-        )
-        .order_by(like_details_subq.c.liked_at.asc())
-        .all()
-    )
-    result: dict[int, list[LikeDetail]] = {}
-    for liker in current_likers:
-        result.setdefault(liker.message_id, []).append(
-            LikeDetail(
-                tutor_id=liker.tutor_id,
-                tutor_name=liker.tutor_name or "Unknown",
-                liked_at=liker.liked_at,
-                emoji=liker.emoji or "❤️"
-            )
-        )
-    return result
-
-
-def _fetch_read_receipts(
-    db: Session, message_ids: list[int], current_tutor_id: int
-) -> dict[int, list[ReadReceiptDetail]]:
-    """Batch fetch read receipts for messages sent by current tutor.
-    Returns {message_id: [ReadReceiptDetail, ...]}."""
-    if not message_ids:
-        return {}
-    sender_receipts = (
-        db.query(
-            MessageReadReceipt.message_id,
-            MessageReadReceipt.tutor_id,
-            MessageReadReceipt.read_at,
-            Tutor.tutor_name
-        )
-        .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
-        .filter(MessageReadReceipt.message_id.in_(message_ids))
-        .filter(MessageReadReceipt.tutor_id != current_tutor_id)
-        .order_by(MessageReadReceipt.read_at.asc())
-        .all()
-    )
-    result: dict[int, list[ReadReceiptDetail]] = {}
-    for receipt in sender_receipts:
-        result.setdefault(receipt.message_id, []).append(
-            ReadReceiptDetail(
-                tutor_id=receipt.tutor_id,
-                tutor_name=receipt.tutor_name or "Unknown",
-                read_at=receipt.read_at
-            )
-        )
-    return result
-
-
-def _fetch_group_recipients(
-    db: Session, message_ids: list[int]
-) -> tuple[dict[int, list[int]], dict[int, list[str]], dict[int, int]]:
-    """Batch fetch group message recipients.
-    Returns (ids_map, names_map, count_map) where:
-      ids_map:   {message_id: [tutor_id, ...]}
-      names_map: {message_id: [tutor_name, ...]}
-      count_map: {message_id: int}
-    """
-    ids_map: dict[int, list[int]] = {}
-    names_map: dict[int, list[str]] = {}
-    count_map: dict[int, int] = {}
-    if not message_ids:
-        return ids_map, names_map, count_map
-    rows = (
-        db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
-        .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
-        .filter(MessageRecipient.message_id.in_(message_ids))
-        .order_by(MessageRecipient.message_id, Tutor.tutor_name)
-        .all()
-    )
-    for r in rows:
-        ids_map.setdefault(r.message_id, []).append(r.tutor_id)
-        names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
-    for mid in message_ids:
-        count_map[mid] = len(ids_map.get(mid, []))
-    return ids_map, names_map, count_map
-
-
-def _fetch_thread_pin_ids(db: Session, message_ids: list[int], tutor_id: int) -> set[int]:
-    """Batch fetch thread-pinned status for a set of messages.
-    Returns set of message_ids that are thread-pinned by this tutor."""
-    if not message_ids:
-        return set()
-    rows = db.query(ThreadPin.message_id).filter(
-        ThreadPin.message_id.in_(message_ids),
-        ThreadPin.tutor_id == tutor_id
-    ).all()
-    return set(r.message_id for r in rows)
-
-
-def _fetch_thread_mute_ids(db: Session, message_ids: list[int], tutor_id: int) -> set[int]:
-    """Batch fetch muted status for a set of messages."""
-    if not message_ids:
-        return set()
-    rows = db.query(ThreadMute.message_id).filter(
-        ThreadMute.message_id.in_(message_ids),
-        ThreadMute.tutor_id == tutor_id
-    ).all()
-    return set(r.message_id for r in rows)
-
-
-def _fetch_snooze_data(db: Session, message_ids: list[int], tutor_id: int) -> dict[int, datetime]:
-    """Batch fetch active snooze data. Returns {message_id: snooze_until} for actively snoozed messages."""
-    if not message_ids:
-        return {}
-    rows = db.query(MessageSnooze.message_id, MessageSnooze.snooze_until).filter(
-        MessageSnooze.message_id.in_(message_ids),
-        MessageSnooze.tutor_id == tutor_id,
-        MessageSnooze.snooze_until > func.now()
-    ).all()
-    return {r.message_id: r.snooze_until for r in rows}
-
-
-# Regex to extract tiptap mention data-id from HTML (e.g., <span data-type="mention" data-id="42">)
-_MENTION_ID_RE = re.compile(r'data-type=["\']mention["\'][^>]*data-id=["\'](\d+)["\']')
-
-
-def _parse_mention_ids(html: str) -> set[int]:
-    """Extract mentioned tutor IDs from tiptap HTML content."""
-    if not html:
-        return set()
-    return {int(m) for m in _MENTION_ID_RE.findall(html)}
-
-
-def _save_mentions(db: Session, message_id: int, html: str) -> set[int]:
-    """Parse mentions from HTML and persist to DB. Returns mentioned tutor IDs."""
-    mention_ids = _parse_mention_ids(html)
-    if not mention_ids:
-        return set()
-    # Get existing mentions for this message
-    existing = db.query(MessageMention.mentioned_tutor_id).filter(
-        MessageMention.message_id == message_id
-    ).all()
-    existing_ids = {r.mentioned_tutor_id for r in existing}
-    # Add new mentions
-    for tid in mention_ids - existing_ids:
-        db.add(MessageMention(message_id=message_id, mentioned_tutor_id=tid))
-    # Remove stale mentions
-    stale = existing_ids - mention_ids
-    if stale:
-        db.query(MessageMention).filter(
-            MessageMention.message_id == message_id,
-            MessageMention.mentioned_tutor_id.in_(stale)
-        ).delete(synchronize_session=False)
-    if mention_ids != existing_ids:
-        db.commit()
-    return mention_ids
-
-
-def _deliver_due_scheduled_messages(tutor_id: int, db: Session):
-    """Lazy delivery: find scheduled messages from this tutor that are now due, clear scheduled_at, and broadcast."""
-    now = hk_now()
-    due_messages = db.query(TutorMessage).options(
-        joinedload(TutorMessage.from_tutor)
-    ).filter(
-        TutorMessage.from_tutor_id == tutor_id,
-        TutorMessage.scheduled_at.isnot(None),
-        TutorMessage.scheduled_at <= now,
-    ).with_for_update(skip_locked=True).all()
-
-    for msg in due_messages:
-        msg.created_at = now  # Update to delivery time (not original creation time)
-        msg.scheduled_at = None
-        db.commit()
-        # Save mentions now that message is delivered
-        mentioned_ids = _save_mentions(db, msg.id, msg.message)
-        # Broadcast via SSE
-        recipient_ids = []
-        if msg.to_tutor_id is None:
-            all_tutors = db.query(Tutor.id).all()
-            recipient_ids = [t.id for t in all_tutors if t.id != msg.from_tutor_id]
-        elif msg.to_tutor_id == GROUP_MESSAGE_SENTINEL:
-            recips = db.query(MessageRecipient.tutor_id).filter(
-                MessageRecipient.message_id == msg.id
-            ).all()
-            recipient_ids = [r.tutor_id for r in recips]
-        elif msg.to_tutor_id > 0:
-            recipient_ids = [msg.to_tutor_id]
-        if recipient_ids:
-            asyncio.create_task(sse_manager.broadcast("new_message", {
-                "message_id": msg.id,
-                "thread_id": msg.reply_to_id or msg.id,
-                "from_tutor_id": msg.from_tutor_id,
-                "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
-                "subject": msg.subject,
-                "preview": (msg.message or "")[:100],
-                "category": msg.category,
-                "priority": msg.priority,
-                "mentioned_tutor_ids": sorted(mentioned_ids),
-            }, recipient_ids))
 
 
 def build_message_response(
@@ -365,45 +94,36 @@ def build_message_response(
         MessagePin.tutor_id == current_tutor_id
     ).first() is not None
 
-    # Check if thread-pinned by current tutor
-    is_thread_pinned = db.query(ThreadPin).filter(
-        ThreadPin.message_id == message.id,
-        ThreadPin.tutor_id == current_tutor_id
-    ).first() is not None
-
-    # Check if thread-muted by current tutor
-    is_thread_muted = db.query(ThreadMute).filter(
-        ThreadMute.message_id == message.id,
-        ThreadMute.tutor_id == current_tutor_id
-    ).first() is not None
-
-    # Check if snoozed
-    snooze = db.query(MessageSnooze).filter(
-        MessageSnooze.message_id == message.id,
-        MessageSnooze.tutor_id == current_tutor_id,
-        MessageSnooze.snooze_until > func.now()
-    ).first()
-    is_snoozed = snooze is not None
-    snoozed_until = snooze.snooze_until if snooze else None
-
     # Count replies
     reply_count = db.query(TutorMessage).filter(
         TutorMessage.reply_to_id == message.id
     ).count()
 
-    # Fetch like details via shared helper
-    like_details_map = _fetch_like_details(db, [message.id])
-    like_details = like_details_map.get(message.id, [])
-    # Build reaction summary from like_details
-    reaction_map: dict = {}
-    for ld in like_details:
-        if ld.emoji not in reaction_map:
-            reaction_map[ld.emoji] = {"count": 0, "tutor_ids": []}
-        reaction_map[ld.emoji]["count"] += 1
-        reaction_map[ld.emoji]["tutor_ids"].append(ld.tutor_id)
-    reaction_summary = [
-        ReactionSummary(emoji=e, count=r["count"], tutor_ids=r["tutor_ids"])
-        for e, r in reaction_map.items()
+    # Fetch like details (who liked this message)
+    from sqlalchemy import desc
+    like_details_subq = (
+        db.query(
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=MessageLike.tutor_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id == message.id)
+        .subquery()
+    )
+    current_likers = (
+        db.query(like_details_subq.c.tutor_id, like_details_subq.c.liked_at, Tutor.tutor_name)
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(like_details_subq.c.rn == 1, like_details_subq.c.action_type == "LIKE")
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details = [
+        LikeDetail(tutor_id=l.tutor_id, tutor_name=l.tutor_name or "Unknown", liked_at=l.liked_at)
+        for l in current_likers
     ]
 
     # Group message fields
@@ -412,14 +132,19 @@ def build_message_response(
     _to_tutor_names = None
     _to_tutor_name = message.to_tutor.tutor_name if message.to_tutor else "All"
     if is_group:
-        ids_map, names_map, _ = _fetch_group_recipients(db, [message.id])
-        _to_tutor_ids = ids_map.get(message.id)
-        _to_tutor_names = names_map.get(message.id)
-        if _to_tutor_names:
-            if len(_to_tutor_names) <= 3:
-                _to_tutor_name = ", ".join(_to_tutor_names)
-            else:
-                _to_tutor_name = f"{', '.join(_to_tutor_names[:2])} +{len(_to_tutor_names) - 2}"
+        _recips = (
+            db.query(MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id == message.id)
+            .order_by(Tutor.tutor_name)
+            .all()
+        )
+        _to_tutor_ids = [r.tutor_id for r in _recips]
+        _to_tutor_names = [r.tutor_name or "Unknown" for r in _recips]
+        if len(_to_tutor_names) <= 3:
+            _to_tutor_name = ", ".join(_to_tutor_names)
+        else:
+            _to_tutor_name = f"{', '.join(_to_tutor_names[:2])} +{len(_to_tutor_names) - 2}"
 
     return MessageResponse(
         id=message.id,
@@ -436,21 +161,14 @@ def build_message_response(
         reply_to_id=message.reply_to_id,
         is_read=is_read,
         is_pinned=is_pinned,
-        is_thread_pinned=is_thread_pinned,
-        is_thread_muted=is_thread_muted,
-        is_snoozed=is_snoozed,
-        snoozed_until=snoozed_until,
-        scheduled_at=message.scheduled_at,
         is_group_message=is_group,
         to_tutor_ids=_to_tutor_ids,
         to_tutor_names=_to_tutor_names,
         like_count=like_count,
         is_liked_by_me=is_liked_by_me,
         like_details=like_details,
-        reaction_summary=reaction_summary,
         reply_count=reply_count,
-        image_attachments=message.image_attachments or [],
-        file_attachments=message.file_attachments or []
+        image_attachments=message.image_attachments or []
     )
 
 
@@ -464,7 +182,7 @@ def batch_build_message_responses(
     This function runs ~6 queries total regardless of message count,
     compared to 4 queries per message with build_message_response().
     """
-
+    from sqlalchemy import desc
 
     if not messages:
         return []
@@ -478,21 +196,12 @@ def batch_build_message_responses(
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
 
-    # 2. Batch fetch pinned (star) status
+    # 2. Batch fetch pinned status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(message_ids),
         MessagePin.tutor_id == current_tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
-
-    # 2b. Batch fetch thread-pinned status
-    thread_pinned_ids = _fetch_thread_pin_ids(db, message_ids, current_tutor_id)
-
-    # 2c. Batch fetch thread-muted status
-    thread_muted_ids = _fetch_thread_mute_ids(db, message_ids, current_tutor_id)
-
-    # 2d. Batch fetch snooze data
-    snooze_data = _fetch_snooze_data(db, message_ids, current_tutor_id)
 
     # 3. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -505,26 +214,106 @@ def batch_build_message_responses(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # 3. Batch fetch "liked by me" - get latest action per message
-    liked_by_me = _get_liked_by_me(db, message_ids, current_tutor_id)
+    my_likes_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(
+            MessageLike.message_id.in_(message_ids),
+            MessageLike.tutor_id == current_tutor_id
+        )
+        .subquery()
+    )
+    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
+        my_likes_subq.c.rn == 1
+    ).all()
+    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 4. Batch fetch like details (who reacted to each message)
-    like_details_map = _fetch_like_details(db, message_ids)
+    # 4. Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
 
-    # 5. Batch fetch reply counts (exclude pending scheduled)
+    # 5. Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
         func.count(TutorMessage.id).label('count')
     ).filter(
-        TutorMessage.reply_to_id.in_(message_ids),
-        TutorMessage.scheduled_at.is_(None),
+        TutorMessage.reply_to_id.in_(message_ids)
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 6. Fetch read receipts for messages sent by current tutor (WhatsApp-style seen)
+    # 6. Fetch read receipts with tutor names for messages sent by current tutor (WhatsApp-style seen)
     my_sent_ids = [m.id for m in messages if m.from_tutor_id == current_tutor_id]
-    sender_read_receipts_map = _fetch_read_receipts(db, my_sent_ids, current_tutor_id)
+    sender_read_receipts_map: dict = {}  # message_id -> list of ReadReceiptDetail
+    if my_sent_ids:
+        sender_receipts = (
+            db.query(
+                MessageReadReceipt.message_id,
+                MessageReadReceipt.tutor_id,
+                MessageReadReceipt.read_at,
+                Tutor.tutor_name
+            )
+            .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
+            .filter(MessageReadReceipt.message_id.in_(my_sent_ids))
+            .order_by(MessageReadReceipt.read_at.asc())
+            .all()
+        )
+        for receipt in sender_receipts:
+            if receipt.message_id not in sender_read_receipts_map:
+                sender_read_receipts_map[receipt.message_id] = []
+            sender_read_receipts_map[receipt.message_id].append(
+                ReadReceiptDetail(
+                    tutor_id=receipt.tutor_id,
+                    tutor_name=receipt.tutor_name or "Unknown",
+                    read_at=receipt.read_at
+                )
+            )
 
-    # 7. Get total active tutor count for broadcast messages (excluding sender)
+    # 6. Get total active tutor count for broadcast messages (excluding sender)
+    # Only query once if there are broadcast messages sent by current tutor
     has_broadcast = any(m.from_tutor_id == current_tutor_id and m.to_tutor_id is None for m in messages)
     total_active_tutors = 0
     if has_broadcast:
@@ -532,9 +321,24 @@ def batch_build_message_responses(
             Tutor.id != current_tutor_id
         ).scalar() or 0
 
-    # 8. Batch fetch group recipient info
+    # 7. Batch fetch group recipient info
     _batch_group_ids = [m.id for m in messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
-    _batch_group_recipients_map, _batch_group_names_map, _batch_group_count_map = _fetch_group_recipients(db, _batch_group_ids)
+    _batch_group_recipients_map = {}
+    _batch_group_names_map = {}
+    _batch_group_count_map = {}
+    if _batch_group_ids:
+        _batch_recips = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_batch_group_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _batch_recips:
+            _batch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            _batch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _batch_group_ids:
+            _batch_group_count_map[mid] = len(_batch_group_recipients_map.get(mid, []))
 
     # Build responses using pre-fetched data
     responses = []
@@ -585,11 +389,6 @@ def batch_build_message_responses(
                 reply_to_id=msg.reply_to_id,
                 is_read=msg.id in read_ids,
                 is_pinned=msg.id in pinned_ids,
-                is_thread_pinned=msg.id in thread_pinned_ids,
-                is_thread_muted=msg.id in thread_muted_ids,
-                is_snoozed=msg.id in snooze_data,
-                snoozed_until=snooze_data.get(msg.id),
-                scheduled_at=msg.scheduled_at,
                 is_group_message=is_group,
                 to_tutor_ids=_batch_group_recipients_map.get(msg.id) if is_group else None,
                 to_tutor_names=_batch_group_names_map.get(msg.id) if is_group else None,
@@ -598,7 +397,6 @@ def batch_build_message_responses(
                 like_details=like_details_map.get(msg.id, []),
                 reply_count=reply_count_map.get(msg.id, 0),
                 image_attachments=msg.image_attachments or [],
-                file_attachments=msg.file_attachments or [],
                 read_receipts=read_receipts_list,
                 total_recipients=total_recipients,
                 read_by_all=read_by_all
@@ -608,333 +406,17 @@ def batch_build_message_responses(
     return responses
 
 
-# ============================================
-# SSE real-time stream
-# ============================================
-
-@router.get("/messages/stream")
-async def message_stream(
-    tutor_id: int = Query(..., description="Tutor ID to stream events for"),
-    request: Request = None,
-):
-    """Server-Sent Events stream for real-time message delivery.
-
-    Pushes events: new_message, message_read, reaction, typing, presence.
-    Client connects via EventSource and receives JSON payloads.
-    """
-    queue = sse_manager.connect(tutor_id)
-
-    async def event_generator():
-        try:
-            while True:
-                # Check if client disconnected
-                if await request.is_disconnected():
-                    break
-
-                try:
-                    # Wait for an event, with 30s timeout for keepalive
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield message
-                except asyncio.TimeoutError:
-                    # Send keepalive comment to prevent connection timeout
-                    sse_manager.update_presence(tutor_id)
-                    yield ": keepalive\n\n"
-        finally:
-            sse_manager.disconnect(tutor_id, queue)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable nginx buffering
-        },
-    )
-
-
-@router.post("/messages/typing")
-async def send_typing_indicator(
-    tutor_id: int = Query(..., description="Tutor who is typing"),
-    thread_id: int = Query(..., description="Root message ID of the thread"),
-    db: Session = Depends(get_db),
-):
-    """Broadcast a typing indicator to thread participants via SSE."""
-    # Get sender name
-    sender = db.query(Tutor.tutor_name).filter(Tutor.id == tutor_id).first()
-    if not sender:
-        raise HTTPException(status_code=404, detail="Tutor not found")
-
-    # Get thread root to determine participants
-    root = db.query(TutorMessage).filter(TutorMessage.id == thread_id).first()
-    if not root:
-        raise HTTPException(status_code=404, detail="Thread not found")
-
-    # Determine recipients (all thread participants except the typer)
-    participant_ids: set[int] = set()
-    # Root sender + root recipient
-    participant_ids.add(root.from_tutor_id)
-    if root.to_tutor_id and root.to_tutor_id > 0:
-        participant_ids.add(root.to_tutor_id)
-    elif root.to_tutor_id == GROUP_MESSAGE_SENTINEL:
-        group_ids = db.query(MessageRecipient.tutor_id).filter(
-            MessageRecipient.message_id == thread_id
-        ).all()
-        participant_ids.update(r.tutor_id for r in group_ids)
-    elif root.to_tutor_id is None:
-        # Broadcast thread — don't send typing to everyone, just active repliers
-        replier_ids = db.query(TutorMessage.from_tutor_id).filter(
-            TutorMessage.reply_to_id == thread_id
-        ).distinct().all()
-        participant_ids.update(r.from_tutor_id for r in replier_ids)
-
-    participant_ids.discard(tutor_id)
-
-    if participant_ids:
-        await sse_manager.broadcast("typing", {
-            "thread_id": thread_id,
-            "tutor_id": tutor_id,
-            "tutor_name": sender.tutor_name,
-        }, list(participant_ids))
-
-    return {"success": True}
-
-
-@router.get("/messages/presence")
-async def get_presence():
-    """Return currently online tutors and their last-seen timestamps."""
-    online = sse_manager.get_online_tutors(within_seconds=300)
-    return {
-        "online": list(online.keys()),
-        "last_seen": {str(tid): ts.isoformat() for tid, ts in online.items()},
-    }
-
-
-@router.get("/messages/templates", response_model=List[MessageTemplateResponse])
-async def get_templates(
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Get message templates (personal + global)."""
-    templates = db.query(MessageTemplate).filter(
-        or_(MessageTemplate.tutor_id == tutor_id, MessageTemplate.is_global == True)
-    ).order_by(MessageTemplate.is_global.desc(), MessageTemplate.title).all()
-    return templates
-
-
-@router.post("/messages/templates", response_model=MessageTemplateResponse)
-async def create_template(
-    template: MessageTemplateCreate,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Create a personal message template."""
-    db_template = MessageTemplate(
-        tutor_id=tutor_id,
-        title=template.title,
-        content=template.content,
-        category=template.category,
-        is_global=False,
-    )
-    db.add(db_template)
-    db.commit()
-    db.refresh(db_template)
-    return db_template
-
-
-@router.patch("/messages/templates/{template_id}", response_model=MessageTemplateResponse)
-async def update_template(
-    template_id: int,
-    template: MessageTemplateUpdate,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Update a personal message template."""
-    db_template = db.query(MessageTemplate).filter(
-        MessageTemplate.id == template_id,
-        MessageTemplate.tutor_id == tutor_id,
-    ).first()
-    if not db_template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    if template.title is not None:
-        db_template.title = template.title
-    if template.content is not None:
-        db_template.content = template.content
-    if template.category is not None:
-        db_template.category = template.category
-    db.commit()
-    db.refresh(db_template)
-    return db_template
-
-
-@router.delete("/messages/templates/{template_id}")
-async def delete_template(
-    template_id: int,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Delete a personal message template."""
-    db_template = db.query(MessageTemplate).filter(
-        MessageTemplate.id == template_id,
-        MessageTemplate.tutor_id == tutor_id,
-    ).first()
-    if not db_template:
-        raise HTTPException(status_code=404, detail="Template not found")
-    db.delete(db_template)
-    db.commit()
-    return {"success": True}
-
-
-@router.post("/messages/thread-mute")
-async def mute_threads(
-    request: PinRequest,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Mute threads to suppress notifications."""
-    count = 0
-    for mid in request.message_ids:
-        exists = db.query(ThreadMute).filter(
-            ThreadMute.message_id == mid, ThreadMute.tutor_id == tutor_id
-        ).first()
-        if not exists:
-            db.add(ThreadMute(message_id=mid, tutor_id=tutor_id))
-            count += 1
-    db.commit()
-    return {"success": True, "count": count}
-
-
-@router.delete("/messages/thread-mute")
-async def unmute_threads(
-    request: PinRequest,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Unmute threads."""
-    count = db.query(ThreadMute).filter(
-        ThreadMute.message_id.in_(request.message_ids),
-        ThreadMute.tutor_id == tutor_id
-    ).delete(synchronize_session=False)
-    db.commit()
-    return {"success": True, "count": count}
-
-
-@router.post("/messages/snooze")
-async def snooze_threads(
-    request: SnoozeRequest,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Snooze threads until a specified time."""
-    count = 0
-    for mid in request.message_ids:
-        existing = db.query(MessageSnooze).filter(
-            MessageSnooze.message_id == mid, MessageSnooze.tutor_id == tutor_id
-        ).first()
-        if existing:
-            existing.snooze_until = request.snooze_until
-        else:
-            db.add(MessageSnooze(message_id=mid, tutor_id=tutor_id, snooze_until=request.snooze_until))
-        count += 1
-    db.commit()
-    return {"success": True, "count": count}
-
-
-@router.delete("/messages/snooze")
-async def unsnooze_threads(
-    request: PinRequest,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Unsnooze threads immediately."""
-    count = db.query(MessageSnooze).filter(
-        MessageSnooze.message_id.in_(request.message_ids),
-        MessageSnooze.tutor_id == tutor_id
-    ).delete(synchronize_session=False)
-    db.commit()
-    return {"success": True, "count": count}
-
-
-@router.get("/messages/snoozed")
-async def get_snoozed_threads(
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Get currently snoozed/reminded threads as full messages."""
-    snooze_rows = db.query(MessageSnooze).filter(
-        MessageSnooze.tutor_id == tutor_id,
-        MessageSnooze.snooze_until > func.now()
-    ).all()
-    if not snooze_rows:
-        return []
-    msg_ids = [s.message_id for s in snooze_rows]
-    messages = (
-        db.query(TutorMessage)
-        .options(joinedload(TutorMessage.from_tutor), joinedload(TutorMessage.to_tutor))
-        .filter(TutorMessage.id.in_(msg_ids))
-        .order_by(TutorMessage.created_at.desc())
-        .all()
-    )
-    return [build_message_response(m, tutor_id, db) for m in messages]
-
-
-@router.get("/messages/scheduled")
-async def get_scheduled_messages(
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Get messages scheduled for future delivery by this tutor."""
-    messages = (
-        db.query(TutorMessage)
-        .options(joinedload(TutorMessage.from_tutor), joinedload(TutorMessage.to_tutor))
-        .filter(
-            TutorMessage.from_tutor_id == tutor_id,
-            TutorMessage.scheduled_at.isnot(None),
-            TutorMessage.scheduled_at > hk_now(),
-        )
-        .order_by(TutorMessage.scheduled_at)
-        .all()
-    )
-    return [build_message_response(m, tutor_id, db) for m in messages]
-
-
-@router.delete("/messages/scheduled/{message_id}")
-async def cancel_scheduled_message(
-    message_id: int,
-    tutor_id: int = Query(...),
-    db: Session = Depends(get_db),
-):
-    """Cancel a scheduled message (delete from DB)."""
-    message = db.query(TutorMessage).filter(
-        TutorMessage.id == message_id,
-        TutorMessage.from_tutor_id == tutor_id,
-        TutorMessage.scheduled_at.isnot(None),
-    ).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Scheduled message not found")
-    db.delete(message)
-    db.commit()
-    return {"success": True}
-
-
 @router.get("/messages", response_model=PaginatedThreadsResponse)
 async def get_message_threads(
     tutor_id: int = Query(..., description="Current tutor ID (required for read status)"),
     category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, min_length=1, max_length=100, description="Search in subject, message, or tutor names"),
-    from_tutor_id: Optional[int] = Query(None, description="Filter by sender tutor ID"),
-    date_from: Optional[str] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
-    date_to: Optional[str] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
-    has_attachments: Optional[bool] = Query(None, description="Filter messages with attachments"),
-    priority: Optional[str] = Query(None, description="Filter by priority level"),
     limit: int = Query(50, ge=1, le=500, description="Maximum threads to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
     """Get message threads with batched queries for performance."""
-
-    # Lazy delivery of scheduled messages that are now due
-    _deliver_due_scheduled_messages(tutor_id, db)
+    from sqlalchemy import desc
 
     # Subquery for archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
@@ -947,14 +429,13 @@ async def get_message_threads(
         TutorMessage.from_tutor_id != tutor_id
     ).scalar_subquery()
 
-    # Base query for root messages (excluding archived and still-scheduled)
+    # Base query for root messages (excluding archived)
     base_query = (
         db.query(TutorMessage)
         .outerjoin(Tutor, TutorMessage.from_tutor_id == Tutor.id)
         .filter(
             TutorMessage.reply_to_id.is_(None),
             ~TutorMessage.id.in_(archived_ids_subq),  # Exclude archived
-            TutorMessage.scheduled_at.is_(None),  # Exclude pending scheduled messages
             or_(
                 visible_to_tutor_filter(tutor_id, db),
                 TutorMessage.id.in_(has_replies_subq),     # Threads I started with replies
@@ -963,21 +444,6 @@ async def get_message_threads(
     )
     if category:
         base_query = base_query.filter(TutorMessage.category == category)
-    if from_tutor_id:
-        base_query = base_query.filter(TutorMessage.from_tutor_id == from_tutor_id)
-    if date_from:
-        base_query = base_query.filter(TutorMessage.created_at >= date_from)
-    if date_to:
-        base_query = base_query.filter(TutorMessage.created_at <= f"{date_to} 23:59:59")
-    if has_attachments:
-        base_query = base_query.filter(
-            or_(
-                func.json_length(TutorMessage.image_attachments) > 0,
-                func.json_length(TutorMessage.file_attachments) > 0,
-            )
-        )
-    if priority:
-        base_query = base_query.filter(TutorMessage.priority == priority)
 
     # Apply search filter
     if search:
@@ -1014,17 +480,14 @@ async def get_message_threads(
 
     root_ids = [m.id for m in root_messages]
 
-    # 2. Batch fetch ALL replies for these roots (exclude pending scheduled)
+    # 2. Batch fetch ALL replies for these roots
     all_replies = (
         db.query(TutorMessage)
         .options(
             joinedload(TutorMessage.from_tutor),
             joinedload(TutorMessage.to_tutor)
         )
-        .filter(
-            TutorMessage.reply_to_id.in_(root_ids),
-            TutorMessage.scheduled_at.is_(None),
-        )
+        .filter(TutorMessage.reply_to_id.in_(root_ids))
         .order_by(TutorMessage.created_at.asc())
         .all()
     )
@@ -1044,21 +507,12 @@ async def get_message_threads(
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
 
-    # Batch fetch pinned (star) status
+    # Batch fetch pinned status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(all_message_ids),
         MessagePin.tutor_id == tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
-
-    # Batch fetch thread-pinned status
-    thread_pinned_ids = _fetch_thread_pin_ids(db, all_message_ids, tutor_id)
-
-    # Batch fetch thread-muted status
-    thread_muted_ids = _fetch_thread_mute_ids(db, all_message_ids, tutor_id)
-
-    # Batch fetch snooze data
-    snooze_data = _fetch_snooze_data(db, all_message_ids, tutor_id)
 
     # Combine all messages for in-memory lookups
     all_messages = root_messages + all_replies
@@ -1078,7 +532,22 @@ async def get_message_threads(
                 (msg.to_tutor_id == GROUP_MESSAGE_SENTINEL and msg.id in group_visible_ids))
 
     # Batch fetch group recipient info for response building
-    group_recipients_map, group_recipient_names_map, group_recipient_count_map = _fetch_group_recipients(db, _group_msg_ids)
+    group_recipients_map = {}  # message_id -> [tutor_ids]
+    group_recipient_names_map = {}  # message_id -> [tutor_names]
+    group_recipient_count_map = {}  # message_id -> count
+    if _group_msg_ids:
+        _recipients = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_group_msg_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _recipients:
+            group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            group_recipient_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _group_msg_ids:
+            group_recipient_count_map[mid] = len(group_recipients_map.get(mid, []))
 
     # 4. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -1091,26 +560,105 @@ async def get_message_threads(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # 5. Batch fetch "liked by me" - get latest action per message
-    liked_by_me = _get_liked_by_me(db, all_message_ids, tutor_id)
+    my_likes_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(
+            MessageLike.message_id.in_(all_message_ids),
+            MessageLike.tutor_id == tutor_id
+        )
+        .subquery()
+    )
+    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
+        my_likes_subq.c.rn == 1
+    ).all()
+    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # 6. Batch fetch like details (who reacted to each message)
-    like_details_map = _fetch_like_details(db, all_message_ids)
+    # 6. Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(all_message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
 
-    # 7. Batch fetch reply counts (exclude pending scheduled)
+    # 7. Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
         func.count(TutorMessage.id).label('count')
     ).filter(
-        TutorMessage.reply_to_id.in_(all_message_ids),
-        TutorMessage.scheduled_at.is_(None),
+        TutorMessage.reply_to_id.in_(all_message_ids)
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # 8. Fetch read receipts for messages sent by current tutor (seen badges)
+    # 8. Fetch read receipts with tutor names for messages sent by current tutor (seen badges)
     my_sent_ids = [m.id for m in all_messages if m.from_tutor_id == tutor_id]
-    sender_read_receipts_map = _fetch_read_receipts(db, my_sent_ids, tutor_id)
+    sender_read_receipts_map: dict = {}
+    if my_sent_ids:
+        sender_receipts = (
+            db.query(
+                MessageReadReceipt.message_id,
+                MessageReadReceipt.tutor_id,
+                MessageReadReceipt.read_at,
+                Tutor.tutor_name
+            )
+            .join(Tutor, MessageReadReceipt.tutor_id == Tutor.id)
+            .filter(MessageReadReceipt.message_id.in_(my_sent_ids))
+            .order_by(MessageReadReceipt.read_at.asc())
+            .all()
+        )
+        for receipt in sender_receipts:
+            if receipt.message_id not in sender_read_receipts_map:
+                sender_read_receipts_map[receipt.message_id] = []
+            sender_read_receipts_map[receipt.message_id].append(
+                ReadReceiptDetail(
+                    tutor_id=receipt.tutor_id,
+                    tutor_name=receipt.tutor_name or "Unknown",
+                    read_at=receipt.read_at
+                )
+            )
 
-    # 9. Get total tutor count for broadcast messages (excluding sender)
+    # 8. Get total tutor count for broadcast messages (excluding sender)
     has_broadcast = any(m.from_tutor_id == tutor_id and m.to_tutor_id is None for m in all_messages)
     total_active_tutors = 0
     if has_broadcast:
@@ -1166,10 +714,6 @@ async def get_message_threads(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
-            is_thread_pinned=msg.id in thread_pinned_ids,
-            is_thread_muted=msg.id in thread_muted_ids,
-            is_snoozed=msg.id in snooze_data,
-            snoozed_until=snooze_data.get(msg.id),
             is_group_message=is_group,
             to_tutor_ids=group_recipients_map.get(msg.id) if is_group else None,
             to_tutor_names=group_recipient_names_map.get(msg.id) if is_group else None,
@@ -1178,7 +722,6 @@ async def get_message_threads(
             like_details=like_details_map.get(msg.id, []),
             reply_count=reply_count_map.get(msg.id, 0),
             image_attachments=msg.image_attachments or [],
-            file_attachments=msg.file_attachments or [],
             read_receipts=read_receipts_list,
             total_recipients=total_recipients,
             read_by_all=read_by_all
@@ -1242,10 +785,9 @@ async def get_unread_count(
         MessageArchive.tutor_id == tutor_id
     ).scalar_subquery()
 
-    # Count visible messages that have no read receipt (excluding archived and pending scheduled)
+    # Count visible messages that have no read receipt (excluding archived)
     unread_count = db.query(func.count(TutorMessage.id)).filter(
         visible_to_tutor_filter(tutor_id, db),
-        TutorMessage.scheduled_at.is_(None),
         ~TutorMessage.id.in_(archived_ids_subq),
         ~db.query(MessageReadReceipt.id).filter(
             MessageReadReceipt.message_id == TutorMessage.id,
@@ -1254,169 +796,6 @@ async def get_unread_count(
     ).scalar() or 0
 
     return UnreadCountResponse(count=unread_count)
-
-
-@router.get("/messages/unread-counts-by-category", response_model=CategoryUnreadCountsResponse)
-async def get_unread_counts_by_category(
-    tutor_id: int = Query(..., description="Tutor ID"),
-    db: Session = Depends(get_db)
-):
-    """Get per-category unread message counts for sidebar badges."""
-    archived_ids_subq = db.query(MessageArchive.message_id).filter(
-        MessageArchive.tutor_id == tutor_id
-    ).scalar_subquery()
-
-    read_ids_subq = db.query(MessageReadReceipt.message_id).filter(
-        MessageReadReceipt.tutor_id == tutor_id
-    ).scalar_subquery()
-
-    # Count unread root messages (reply_to_id IS NULL) grouped by category
-    rows = db.query(
-        TutorMessage.category,
-        func.count(TutorMessage.id)
-    ).filter(
-        visible_to_tutor_filter(tutor_id, db),
-        TutorMessage.scheduled_at.is_(None),
-        TutorMessage.reply_to_id.is_(None),
-        ~TutorMessage.id.in_(archived_ids_subq),
-        ~TutorMessage.id.in_(read_ids_subq),
-    ).group_by(TutorMessage.category).all()
-
-    # Also count unread replies
-    reply_rows = db.query(
-        # For replies, get the root's category
-        func.coalesce(
-            db.query(TutorMessage.category).filter(
-                TutorMessage.id == TutorMessage.reply_to_id
-            ).correlate(TutorMessage).scalar_subquery(),
-            TutorMessage.category
-        ).label("root_category"),
-        func.count(TutorMessage.id)
-    ).filter(
-        visible_to_tutor_filter(tutor_id, db),
-        TutorMessage.scheduled_at.is_(None),
-        TutorMessage.reply_to_id.isnot(None),
-        ~TutorMessage.id.in_(archived_ids_subq),
-        ~TutorMessage.id.in_(read_ids_subq),
-    ).group_by("root_category").all()
-
-    counts: dict[str, int] = {}
-    total = 0
-    for category, count in list(rows) + list(reply_rows):
-        cat_key = category or "uncategorized"
-        counts[cat_key] = counts.get(cat_key, 0) + count
-        total += count
-    counts["inbox"] = total
-
-    # Count unread threads where this tutor is mentioned
-    mention_msg_ids = db.query(MessageMention.message_id).filter(
-        MessageMention.mentioned_tutor_id == tutor_id
-    ).scalar_subquery()
-    mention_unread = db.query(func.count(TutorMessage.id)).filter(
-        TutorMessage.id.in_(mention_msg_ids),
-        TutorMessage.scheduled_at.is_(None),
-        ~TutorMessage.id.in_(read_ids_subq),
-    ).scalar() or 0
-    counts["mentions"] = mention_unread
-
-    return CategoryUnreadCountsResponse(counts=counts)
-
-
-@router.get("/messages/mentions", response_model=PaginatedThreadsResponse)
-async def get_mentioned_threads(
-    tutor_id: int = Query(..., description="Current tutor ID"),
-    limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
-):
-    """Get threads where current tutor is @mentioned."""
-    # Find root thread IDs for messages mentioning this tutor
-    mentioned_msg_ids_subq = db.query(MessageMention.message_id).filter(
-        MessageMention.mentioned_tutor_id == tutor_id
-    ).scalar_subquery()
-
-    # Get root message IDs: either the mentioned message itself (if root) or its reply_to_id
-    mentioned_msgs = db.query(TutorMessage).filter(
-        TutorMessage.id.in_(mentioned_msg_ids_subq)
-    ).all()
-    root_ids = set()
-    for m in mentioned_msgs:
-        root_ids.add(m.reply_to_id if m.reply_to_id else m.id)
-
-    if not root_ids:
-        return PaginatedThreadsResponse(threads=[], total=0, limit=limit, offset=offset)
-
-    total = len(root_ids)
-
-    # Fetch root messages, sorted by latest mention
-    root_messages = (
-        db.query(TutorMessage)
-        .options(
-            joinedload(TutorMessage.from_tutor),
-            joinedload(TutorMessage.to_tutor)
-        )
-        .filter(TutorMessage.id.in_(root_ids))
-        .order_by(desc(TutorMessage.created_at))
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
-
-    if not root_messages:
-        return PaginatedThreadsResponse(threads=[], total=total, limit=limit, offset=offset)
-
-    root_ids_page = [m.id for m in root_messages]
-    root_responses = batch_build_message_responses(root_messages, tutor_id, db)
-
-    # Fetch replies (exclude pending scheduled)
-    all_replies = (
-        db.query(TutorMessage)
-        .options(
-            joinedload(TutorMessage.from_tutor),
-            joinedload(TutorMessage.to_tutor)
-        )
-        .filter(
-            TutorMessage.reply_to_id.in_(root_ids_page),
-            TutorMessage.scheduled_at.is_(None),
-        )
-        .order_by(TutorMessage.created_at)
-        .all()
-    )
-    replies_map: dict[int, list] = {}
-    for r in all_replies:
-        replies_map.setdefault(r.reply_to_id, []).append(r)
-
-    # Batch build replies
-    flat_replies = [r for group in replies_map.values() for r in group]
-    reply_responses = batch_build_message_responses(flat_replies, tutor_id, db)
-    reply_resp_map: dict[int, list] = {}
-    for rr in reply_responses:
-        reply_resp_map.setdefault(rr.reply_to_id, []).append(rr)
-
-    # Unread counts
-    read_ids_subq = db.query(MessageReadReceipt.message_id).filter(
-        MessageReadReceipt.tutor_id == tutor_id
-    ).scalar_subquery()
-
-    threads = []
-    for root_resp in root_responses:
-        thread_msg_ids = [root_resp.id] + [r.id for r in reply_resp_map.get(root_resp.id, [])]
-        unread = db.query(func.count(TutorMessage.id)).filter(
-            TutorMessage.id.in_(thread_msg_ids),
-            ~TutorMessage.id.in_(read_ids_subq),
-        ).scalar() or 0
-        threads.append(ThreadResponse(
-            root_message=root_resp,
-            replies=reply_resp_map.get(root_resp.id, []),
-            total_unread=unread,
-        ))
-
-    # Sort by most recent activity
-    threads.sort(key=lambda t: max(
-        [t.root_message.created_at] + [r.created_at for r in t.replies]
-    ), reverse=True)
-
-    return PaginatedThreadsResponse(threads=threads, total=total, limit=limit, offset=offset)
 
 
 @router.get("/messages/thread/{message_id}", response_model=ThreadResponse)
@@ -1453,17 +832,14 @@ async def get_thread(
         if actual_root:
             root = actual_root
 
-    # Get replies (exclude pending scheduled messages)
+    # Get replies
     replies = (
         db.query(TutorMessage)
         .options(
             joinedload(TutorMessage.from_tutor),
             joinedload(TutorMessage.to_tutor)
         )
-        .filter(
-            TutorMessage.reply_to_id == root.id,
-            TutorMessage.scheduled_at.is_(None),
-        )
+        .filter(TutorMessage.reply_to_id == root.id)
         .order_by(TutorMessage.created_at.asc())
         .all()
     )
@@ -1532,18 +908,6 @@ async def create_message(
         if not recipient:
             raise HTTPException(status_code=404, detail="Recipient tutor not found")
 
-    # Determine if this is a scheduled message
-    # Convert scheduled_at to naive HK time (matching DB convention) to avoid aware/naive TypeError
-    scheduled_at_hk = None
-    is_scheduled = False
-    if message_data.scheduled_at is not None:
-        from constants import HK_TZ
-        if message_data.scheduled_at.tzinfo:
-            scheduled_at_hk = message_data.scheduled_at.astimezone(HK_TZ).replace(tzinfo=None)
-        else:
-            scheduled_at_hk = message_data.scheduled_at
-        is_scheduled = scheduled_at_hk > hk_now()
-
     # Create message (sanitize HTML to prevent XSS)
     new_message = TutorMessage(
         from_tutor_id=from_tutor_id,
@@ -1553,9 +917,7 @@ async def create_message(
         priority=message_data.priority,
         category=message_data.category,
         reply_to_id=message_data.reply_to_id,
-        image_attachments=message_data.image_attachments or [],
-        file_attachments=message_data.file_attachments or [],
-        scheduled_at=scheduled_at_hk if is_scheduled else None,
+        image_attachments=message_data.image_attachments or []
     )
 
     db.add(new_message)
@@ -1569,11 +931,6 @@ async def create_message(
                 db.add(MessageRecipient(message_id=new_message.id, tutor_id=tid))
         db.commit()
 
-    # Parse and save @mentions (skip for scheduled messages — will be done on delivery)
-    mentioned_ids: set[int] = set()
-    if not is_scheduled:
-        mentioned_ids = _save_mentions(db, new_message.id, new_message.message)
-
     # Load relationships
     new_message = (
         db.query(TutorMessage)
@@ -1584,33 +941,6 @@ async def create_message(
         .filter(TutorMessage.id == new_message.id)
         .first()
     )
-
-    # Broadcast new message via SSE to all recipients (skip for scheduled messages)
-    if not is_scheduled:
-        recipient_ids = []
-        if effective_to_tutor_id is None:
-            # Broadcast: notify all tutors
-            all_tutors = db.query(Tutor.id).all()
-            recipient_ids = [t.id for t in all_tutors if t.id != from_tutor_id]
-        elif effective_to_tutor_id == GROUP_MESSAGE_SENTINEL:
-            # Group: notify recipients
-            recipient_ids = [tid for tid in (message_data.to_tutor_ids or []) if tid != from_tutor_id]
-        elif effective_to_tutor_id > 0:
-            # Direct: notify recipient
-            recipient_ids = [effective_to_tutor_id]
-
-        if recipient_ids:
-            asyncio.create_task(sse_manager.broadcast("new_message", {
-                "message_id": new_message.id,
-                "thread_id": new_message.reply_to_id or new_message.id,
-                "from_tutor_id": from_tutor_id,
-                "from_tutor_name": new_message.from_tutor.tutor_name if new_message.from_tutor else None,
-                "subject": new_message.subject,
-                "preview": (new_message.message or "")[:100],
-                "category": new_message.category,
-                "priority": new_message.priority,
-                "mentioned_tutor_ids": sorted(mentioned_ids),
-            }, recipient_ids))
 
     return build_message_response(new_message, from_tutor_id, db)
 
@@ -1642,33 +972,6 @@ async def upload_message_image(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-@router.post("/messages/upload-file")
-async def upload_message_file(
-    file: UploadFile = File(...),
-    tutor_id: int = Query(..., description="Tutor ID for authentication")
-):
-    """
-    Upload a file (image or document) for message attachment.
-    Images are resized/compressed; documents are stored as-is.
-    Returns URL, filename, and content_type.
-    """
-    content_type = file.content_type or ""
-    contents = await file.read()
-
-    try:
-        if content_type.startswith('image/'):
-            url = upload_image(contents, file.filename)
-            return {"url": url, "filename": file.filename, "content_type": content_type}
-        else:
-            from services.image_storage import upload_document
-            url = upload_document(contents, file.filename or "file", content_type)
-            return {"url": url, "filename": file.filename, "content_type": content_type}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-
 # ============================================
 # Batch Read Endpoint (must be before {message_id} routes)
 # ============================================
@@ -1694,10 +997,9 @@ async def mark_all_read(
         MessageReadReceipt.tutor_id == tutor_id
     ).scalar_subquery()
 
-    # Find all unread, non-archived messages visible to this tutor (exclude pending scheduled)
+    # Find all unread, non-archived messages visible to this tutor
     unread_query = db.query(TutorMessage.id).filter(
         visible_to_tutor_filter(tutor_id, db),
-        TutorMessage.scheduled_at.is_(None),
         ~TutorMessage.id.in_(archived_ids_subq),
         ~TutorMessage.id.in_(already_read_subq),
         TutorMessage.from_tutor_id != tutor_id,  # Don't mark own messages
@@ -1722,11 +1024,15 @@ async def mark_all_read(
     if not unread_ids:
         return MarkAllReadResponse(success=True, count=0)
 
-    # Bulk insert read receipts in a single statement
-    values = [{"message_id": msg_id, "tutor_id": tutor_id} for msg_id in unread_ids]
-    stmt = mysql_insert(MessageReadReceipt).values(values).prefix_with('IGNORE')
-    result = db.execute(stmt)
-    count = result.rowcount
+    # Bulk insert read receipts
+    count = 0
+    for msg_id in unread_ids:
+        stmt = mysql_insert(MessageReadReceipt).values(
+            message_id=msg_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
 
     db.commit()
     return MarkAllReadResponse(success=True, count=count)
@@ -1743,7 +1049,19 @@ async def archive_messages(
     db: Session = Depends(get_db)
 ):
     """Archive multiple messages for the current tutor (bulk operation)."""
-    count = _bulk_insert_ignore(db, MessageArchive, request.message_ids, tutor_id)
+    from sqlalchemy.dialects.mysql import insert
+
+    # Use INSERT IGNORE for idempotency (ignores duplicates)
+    count = 0
+    for message_id in request.message_ids:
+        stmt = insert(MessageArchive).values(
+            message_id=message_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
     return ArchiveResponse(success=True, count=count)
 
 
@@ -1771,7 +1089,7 @@ async def get_archived_messages(
     db: Session = Depends(get_db)
 ):
     """Get archived message threads for the current tutor."""
-
+    from sqlalchemy import desc
 
     # Get archived message IDs for this tutor
     archived_ids_subq = db.query(MessageArchive.message_id).filter(
@@ -1815,17 +1133,14 @@ async def get_archived_messages(
 
     root_ids = [m.id for m in root_messages]
 
-    # Batch fetch ALL replies for these roots (exclude pending scheduled)
+    # Batch fetch ALL replies for these roots
     all_replies = (
         db.query(TutorMessage)
         .options(
             joinedload(TutorMessage.from_tutor),
             joinedload(TutorMessage.to_tutor)
         )
-        .filter(
-            TutorMessage.reply_to_id.in_(root_ids),
-            TutorMessage.scheduled_at.is_(None),
-        )
+        .filter(TutorMessage.reply_to_id.in_(root_ids))
         .order_by(TutorMessage.created_at.asc())
         .all()
     )
@@ -1856,48 +1171,110 @@ async def get_archived_messages(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # Batch fetch "liked by me"
-    liked_by_me = _get_liked_by_me(db, all_message_ids, tutor_id)
+    my_likes_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(
+            MessageLike.message_id.in_(all_message_ids),
+            MessageLike.tutor_id == tutor_id
+        )
+        .subquery()
+    )
+    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
+        my_likes_subq.c.rn == 1
+    ).all()
+    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
 
-    # Batch fetch like details (who reacted to each message)
-    like_details_map = _fetch_like_details(db, all_message_ids)
+    # Batch fetch like details (who liked each message)
+    like_details_subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.tutor_id,
+            MessageLike.action_type,
+            MessageLike.liked_at,
+            func.row_number().over(
+                partition_by=[MessageLike.message_id, MessageLike.tutor_id],
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(all_message_ids))
+        .subquery()
+    )
+    current_likers = (
+        db.query(
+            like_details_subq.c.message_id,
+            like_details_subq.c.tutor_id,
+            like_details_subq.c.liked_at,
+            Tutor.tutor_name
+        )
+        .join(Tutor, like_details_subq.c.tutor_id == Tutor.id)
+        .filter(
+            like_details_subq.c.rn == 1,
+            like_details_subq.c.action_type == "LIKE"
+        )
+        .order_by(like_details_subq.c.liked_at.asc())
+        .all()
+    )
+    like_details_map: dict = {}
+    for liker in current_likers:
+        if liker.message_id not in like_details_map:
+            like_details_map[liker.message_id] = []
+        like_details_map[liker.message_id].append(
+            LikeDetail(
+                tutor_id=liker.tutor_id,
+                tutor_name=liker.tutor_name or "Unknown",
+                liked_at=liker.liked_at
+            )
+        )
 
-    # Batch fetch reply counts (exclude pending scheduled)
+    # Batch fetch reply counts
     reply_counts = db.query(
         TutorMessage.reply_to_id,
         func.count(TutorMessage.id).label('count')
     ).filter(
-        TutorMessage.reply_to_id.in_(all_message_ids),
-        TutorMessage.scheduled_at.is_(None),
+        TutorMessage.reply_to_id.in_(all_message_ids)
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # Batch fetch pinned (star) status
+    # Batch fetch pinned status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(all_message_ids),
         MessagePin.tutor_id == tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
 
-    # Batch fetch thread-pinned status
-    thread_pinned_ids = _fetch_thread_pin_ids(db, all_message_ids, tutor_id)
-
-    # Batch fetch thread-muted status
-    thread_muted_ids = _fetch_thread_mute_ids(db, all_message_ids, tutor_id)
-
-    # Batch fetch snooze data
-    snooze_data = _fetch_snooze_data(db, all_message_ids, tutor_id)
-
     # Batch fetch group message visibility and recipients
     _all_archived_messages = root_messages + all_replies
     _arch_group_ids = [m.id for m in _all_archived_messages if m.to_tutor_id == GROUP_MESSAGE_SENTINEL]
     _arch_group_visible_ids = set()
+    _arch_group_recipients_map = {}
+    _arch_group_names_map = {}
+    _arch_group_count_map = {}
     if _arch_group_ids:
         _vis_rows = db.query(MessageRecipient.message_id).filter(
             MessageRecipient.message_id.in_(_arch_group_ids),
             MessageRecipient.tutor_id == tutor_id
         ).all()
         _arch_group_visible_ids = set(r.message_id for r in _vis_rows)
-    _arch_group_recipients_map, _arch_group_names_map, _arch_group_count_map = _fetch_group_recipients(db, _arch_group_ids)
+
+        _recips = (
+            db.query(MessageRecipient.message_id, MessageRecipient.tutor_id, Tutor.tutor_name)
+            .join(Tutor, MessageRecipient.tutor_id == Tutor.id)
+            .filter(MessageRecipient.message_id.in_(_arch_group_ids))
+            .order_by(MessageRecipient.message_id, Tutor.tutor_name)
+            .all()
+        )
+        for r in _recips:
+            _arch_group_recipients_map.setdefault(r.message_id, []).append(r.tutor_id)
+            _arch_group_names_map.setdefault(r.message_id, []).append(r.tutor_name or "Unknown")
+        for mid in _arch_group_ids:
+            _arch_group_count_map[mid] = len(_arch_group_recipients_map.get(mid, []))
 
     def _arch_is_visible(msg):
         return (msg.to_tutor_id == tutor_id or msg.to_tutor_id is None or
@@ -1927,10 +1304,6 @@ async def get_archived_messages(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
-            is_thread_pinned=msg.id in thread_pinned_ids,
-            is_thread_muted=msg.id in thread_muted_ids,
-            is_snoozed=msg.id in snooze_data,
-            snoozed_until=snooze_data.get(msg.id),
             is_group_message=is_group,
             to_tutor_ids=_arch_group_recipients_map.get(msg.id) if is_group else None,
             to_tutor_names=_arch_group_names_map.get(msg.id) if is_group else None,
@@ -1973,7 +1346,18 @@ async def pin_messages(
     db: Session = Depends(get_db)
 ):
     """Pin/star multiple messages for the current tutor (bulk operation)."""
-    count = _bulk_insert_ignore(db, MessagePin, request.message_ids, tutor_id)
+    from sqlalchemy.dialects.mysql import insert
+
+    count = 0
+    for message_id in request.message_ids:
+        stmt = insert(MessagePin).values(
+            message_id=message_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
     return PinResponse(success=True, count=count)
 
 
@@ -1993,33 +1377,6 @@ async def unpin_messages(
     return PinResponse(success=True, count=count)
 
 
-@router.post("/messages/thread-pin", response_model=PinResponse)
-async def thread_pin_messages(
-    request: PinRequest,
-    tutor_id: int = Query(..., description="Tutor pinning threads"),
-    db: Session = Depends(get_db)
-):
-    """Pin threads to top of thread list (separate from star/favorite)."""
-    count = _bulk_insert_ignore(db, ThreadPin, request.message_ids, tutor_id)
-    return PinResponse(success=True, count=count)
-
-
-@router.delete("/messages/thread-pin", response_model=PinResponse)
-async def thread_unpin_messages(
-    request: PinRequest,
-    tutor_id: int = Query(..., description="Tutor unpinning threads"),
-    db: Session = Depends(get_db)
-):
-    """Unpin threads from top of thread list."""
-    count = db.query(ThreadPin).filter(
-        ThreadPin.message_id.in_(request.message_ids),
-        ThreadPin.tutor_id == tutor_id
-    ).delete(synchronize_session=False)
-
-    db.commit()
-    return PinResponse(success=True, count=count)
-
-
 @router.get("/messages/pinned", response_model=PaginatedThreadsResponse)
 async def get_pinned_messages(
     tutor_id: int = Query(..., description="Current tutor ID"),
@@ -2028,7 +1385,7 @@ async def get_pinned_messages(
     db: Session = Depends(get_db)
 ):
     """Get pinned/starred message threads for the current tutor."""
-
+    from sqlalchemy import desc
 
     # Get pinned message IDs for this tutor
     pinned_ids_subq = db.query(MessagePin.message_id).filter(
@@ -2073,17 +1430,14 @@ async def get_pinned_messages(
 
     root_ids = [m.id for m in root_messages]
 
-    # Batch fetch ALL replies for these roots (exclude pending scheduled)
+    # Batch fetch ALL replies for these roots
     all_replies = (
         db.query(TutorMessage)
         .options(
             joinedload(TutorMessage.from_tutor),
             joinedload(TutorMessage.to_tutor)
         )
-        .filter(
-            TutorMessage.reply_to_id.in_(root_ids),
-            TutorMessage.scheduled_at.is_(None),
-        )
+        .filter(TutorMessage.reply_to_id.in_(root_ids))
         .order_by(TutorMessage.created_at.asc())
         .all()
     )
@@ -2114,7 +1468,7 @@ async def get_pinned_messages(
     return PaginatedThreadsResponse(
         threads=threads,
         total_count=total_count,
-        has_more=(offset + len(threads)) < total_count,
+        has_more=(offset + limit) < total_count,
         limit=limit,
         offset=offset
     )
@@ -2140,17 +1494,8 @@ async def mark_as_read(
         message_id=message_id,
         tutor_id=tutor_id
     ).prefix_with('IGNORE')
-    result = db.execute(stmt)
+    db.execute(stmt)
     db.commit()
-
-    # Broadcast read receipt to message sender via SSE
-    if result.rowcount > 0:
-        msg = db.query(TutorMessage.from_tutor_id).filter(TutorMessage.id == message_id).first()
-        if msg and msg.from_tutor_id != tutor_id:
-            asyncio.create_task(sse_manager.broadcast("message_read", {
-                "message_id": message_id,
-                "reader_tutor_id": tutor_id,
-            }, [msg.from_tutor_id]))
 
     return {"success": True}
 
@@ -2177,28 +1522,25 @@ async def mark_as_unread(
 async def toggle_like(
     message_id: int,
     tutor_id: int = Query(..., description="Tutor toggling like"),
-    emoji: str = Query("❤️", description="Reaction emoji"),
     db: Session = Depends(get_db)
 ):
-    """Toggle a reaction (emoji) on a message."""
+    """Toggle like on a message."""
     check_user_rate_limit(tutor_id, "message_like")
 
-    # Get current like status for this specific emoji
+    # Get current like status (skip message existence check - FK will catch it)
     current_like = db.query(MessageLike.action_type).filter(
         MessageLike.message_id == message_id,
-        MessageLike.tutor_id == tutor_id,
-        MessageLike.emoji == emoji
+        MessageLike.tutor_id == tutor_id
     ).order_by(MessageLike.liked_at.desc()).first()
 
-    # Toggle: if currently liked with this emoji -> unlike, else -> like
+    # Toggle: if currently liked -> unlike, else -> like
     new_action = "UNLIKE" if (current_like and current_like.action_type == "LIKE") else "LIKE"
 
     try:
         new_like = MessageLike(
             message_id=message_id,
             tutor_id=tutor_id,
-            action_type=new_action,
-            emoji=emoji
+            action_type=new_action
         )
         db.add(new_like)
         db.commit()
@@ -2206,30 +1548,16 @@ async def toggle_like(
         db.rollback()
         raise HTTPException(status_code=404, detail="Message not found")
 
-    # Return total like count and per-emoji breakdown
+    # Return new like count (more efficient: count distinct LIKE actions)
     like_count = db.query(func.count(MessageLike.id)).filter(
         MessageLike.message_id == message_id,
         MessageLike.action_type == "LIKE"
     ).scalar() or 0
 
-    # Check if user currently has this emoji active
-    is_liked = new_action == "LIKE"
-
-    # Broadcast reaction event via SSE to message sender
-    msg = db.query(TutorMessage.from_tutor_id).filter(TutorMessage.id == message_id).first()
-    if msg and msg.from_tutor_id != tutor_id:
-        asyncio.create_task(sse_manager.broadcast("reaction", {
-            "message_id": message_id,
-            "tutor_id": tutor_id,
-            "emoji": emoji,
-            "action": new_action,
-        }, [msg.from_tutor_id]))
-
     return {
         "success": True,
-        "is_liked": is_liked,
-        "like_count": like_count,
-        "emoji": emoji
+        "is_liked": new_action == "LIKE",
+        "like_count": like_count
     }
 
 
@@ -2259,16 +1587,8 @@ async def update_message(
         message.image_attachments = update_data.image_attachments
         message.updated_at = hk_now()
 
-    if update_data.file_attachments is not None:
-        message.file_attachments = update_data.file_attachments
-        message.updated_at = hk_now()
-
     db.commit()
     db.refresh(message)
-
-    # Re-parse mentions on edit
-    if update_data.message is not None:
-        _save_mentions(db, message.id, message.message)
 
     # Reload with relationships
     message = (

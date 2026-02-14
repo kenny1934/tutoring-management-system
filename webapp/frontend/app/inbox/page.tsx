@@ -1,44 +1,28 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
-import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
+import { usePageTitle, useMessageThreads, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages } from "@/lib/hooks";
+import { useSwipeGesture } from "@/lib/hooks/useSwipeGesture";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
-import { TutorAvatar } from "@/lib/avatar-utils";
-import { stripHtml } from "@/lib/html-utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
 import { ProposalCard } from "@/components/inbox/ProposalCard";
-const ScheduleMakeupModal = lazy(() => import("@/components/sessions/ScheduleMakeupModal").then(m => ({ default: m.ScheduleMakeupModal })));
-const SendToWecomModal = lazy(() => import("@/components/wecom/SendToWecomModal"));
-import type { MentionUser } from "@/components/inbox/InboxRichEditor";
-import ComposeModal from "@/components/inbox/ComposeModal";
-import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
-import { useSwipeable } from "@/lib/useSwipeable";
-import { usePanelSwipe } from "@/lib/usePanelSwipe";
-import { useSSE } from "@/lib/useSSE";
-import TypingIndicator from "@/components/inbox/TypingIndicator";
-import SnoozePicker from "@/components/inbox/SnoozePicker";
-import SearchFilters from "@/components/inbox/SearchFilters";
-import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
-import MessageBubble from "@/components/inbox/MessageBubble";
-import { formatMessageTime, highlightMatch } from "@/components/inbox/MessageBubble";
-import ReplyComposer from "@/components/inbox/ReplyComposer";
-import type { ReplyComposerHandle } from "@/components/inbox/ReplyComposer";
+import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
+import { ScheduleMakeupModal } from "@/components/sessions/ScheduleMakeupModal";
+import SendToWecomModal from "@/components/wecom/SendToWecomModal";
+import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import {
   Inbox,
   Send,
   Bell,
-  BellOff,
-  Clock,
   HelpCircle,
   Megaphone,
   Calendar,
@@ -49,11 +33,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
   Heart,
   Reply,
   Loader2,
   AlertCircle,
+  Clock,
+  Pencil,
   Check,
   Search,
   Trash2,
@@ -62,19 +47,11 @@ import {
   CircleDot,
   Archive,
   ArchiveRestore,
+  Image as ImageIcon,
   MessageSquareShare,
   Star,
+  Users,
   MessageSquarePlus,
-  Volume2,
-  VolumeX,
-  CheckSquare,
-  Square,
-  ListChecks,
-  Pin,
-  MoreVertical,
-  SlidersHorizontal,
-  AtSign,
-  AlarmClock,
 } from "lucide-react";
 
 // Category definition
@@ -88,7 +65,6 @@ interface Category {
 interface CategorySection {
   id: string;
   label?: string;
-  collapsible?: boolean;
   items: Category[];
 }
 
@@ -97,23 +73,14 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     id: "mailboxes",
     items: [
       { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
+      { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
       { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
       { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
     ],
   },
   {
-    id: "views",
-    items: [
-      { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
-      { id: "mentions", label: "Mentions", icon: <AtSign className="h-4 w-4" /> },
-      { id: "scheduled", label: "Send Later", icon: <Clock className="h-4 w-4" /> },
-      { id: "reminders", label: "Snoozed", icon: <AlarmClock className="h-4 w-4" /> },
-    ],
-  },
-  {
-    id: "tags",
-    label: "Tags",
-    collapsible: true,
+    id: "categories",
+    label: "Categories",
     items: [
       { id: "reminder", label: "Reminder", icon: <Bell className="h-4 w-4" />, filter: "Reminder" },
       { id: "question", label: "Question", icon: <HelpCircle className="h-4 w-4" />, filter: "Question" },
@@ -153,123 +120,631 @@ const PRIORITIES: Record<PriorityLevel, { label: string; textClass: string; badg
   },
 };
 
+// Category options for dropdown
+const CATEGORY_OPTIONS: Array<{ value: MessageCategory | ""; label: string; icon: React.ReactNode }> = [
+  { value: "", label: "None", icon: null },
+  { value: "Reminder", label: "Reminder", icon: <Bell className="h-4 w-4" /> },
+  { value: "Question", label: "Question", icon: <HelpCircle className="h-4 w-4" /> },
+  { value: "Announcement", label: "Announcement", icon: <Megaphone className="h-4 w-4" /> },
+  { value: "Schedule", label: "Schedule", icon: <Calendar className="h-4 w-4" /> },
+  { value: "Chat", label: "Chat", icon: <MessageCircle className="h-4 w-4" /> },
+  { value: "Courseware", label: "Courseware", icon: <BookOpen className="h-4 w-4" /> },
+  { value: "Feedback", label: "Feedback", icon: <MessageSquarePlus className="h-4 w-4" /> },
+];
+
+// Priority options for dropdown (derived from PRIORITIES)
+const PRIORITY_OPTIONS = (Object.entries(PRIORITIES) as [PriorityLevel, typeof PRIORITIES[PriorityLevel]][]).map(
+  ([value, config]) => ({ value, label: config.label, colorClass: config.textClass })
+);
 
 // Empty state messages by category
 const EMPTY_MESSAGES: Record<string, string> = {
-  inbox: "No messages in your inbox",
-  starred: "No starred messages",
-  mentions: "No mentions",
-  scheduled: "No messages scheduled to send later",
-  reminders: "No snoozed messages",
   sent: "You haven't sent any messages yet",
-  archived: "No archived messages",
   reminder: "No reminders",
   question: "No questions",
   announcement: "No announcements",
   schedule: "No schedule messages",
   chat: "No chat messages",
   courseware: "No courseware messages",
-  feedback: "No feedback messages",
   "makeup-confirmation": "No pending make-up confirmations",
+  starred: "No starred messages",
+  archived: "No archived messages",
+  inbox: "No messages in your inbox",
 };
 
 // Mutate filter functions
 const isThreadsKey = (key: unknown) => Array.isArray(key) && (key[0] === "message-threads" || key[0] === "message-threads-paginated");
 const isSentKey = (key: unknown) => Array.isArray(key) && key[0] === "sent-messages";
-const isUnreadKey = (key: unknown) => Array.isArray(key) && (key[0] === "unread-count" || key[0] === "unread-category-counts");
-const isArchivedKey = (key: unknown) => Array.isArray(key) && key[0] === "archived-messages";
-const isPinnedKey = (key: unknown) => Array.isArray(key) && key[0] === "pinned-messages";
-const isScheduledKey = (key: unknown) => Array.isArray(key) && key[0] === "scheduled-messages";
-const isSnoozedKey = (key: unknown) => Array.isArray(key) && key[0] === "snoozed-messages";
-const isMentionedKey = (key: unknown) => Array.isArray(key) && key[0] === "mentioned-messages";
-const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key) || isScheduledKey(key) || isSnoozedKey(key) || isMentionedKey(key);
+const isUnreadKey = (key: unknown) => Array.isArray(key) && key[0] === "unread-count";
+const isAnyMessageKey = (key: unknown) => isThreadsKey(key) || isSentKey(key) || isUnreadKey(key);
 
-
-
-// Format snoozed_until for display — "Today 3:00 PM", "Tomorrow 9:00 AM", "Feb 20 9:00 AM", or "Reminder due"
-function formatSnoozeUntil(isoDate: string): string {
-  const date = new Date(isoDate.endsWith("Z") ? isoDate : isoDate + "Z");
-  const now = new Date();
-  if (date.getTime() <= now.getTime()) return "Reminder due";
-
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
-  if (date.toDateString() === now.toDateString()) return `Today ${time}`;
-  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow ${time}`;
-  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+// Draft auto-save helpers
+interface DraftData {
+  toTutorId?: number | "all"; // Legacy compat
+  recipientMode: "all" | "select";
+  selectedTutorIds: number[];
+  subject: string;
+  message: string;
+  priority: "Normal" | "High" | "Urgent";
+  category: string;
+  uploadedImages: string[];
+  savedAt: number;
 }
 
-function formatScheduledAt(isoDate: string): string {
-  // scheduled_at is stored as naive HK time (not UTC), so don't append Z
-  const date = new Date(isoDate);
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  if (date.toDateString() === now.toDateString()) return `today ${time}`;
-  if (date.toDateString() === tomorrow.toDateString()) return `tomorrow ${time}`;
-  return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+const DRAFT_COMPOSE_KEY = "inbox-draft-compose";
+const DRAFT_REPLY_PREFIX = "inbox-draft-reply-";
+const DRAFT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function getDraftKey(replyToId?: number): string {
+  return replyToId ? `${DRAFT_REPLY_PREFIX}${replyToId}` : DRAFT_COMPOSE_KEY;
 }
 
-// Date separator helpers — "Today", "Yesterday", or formatted date
-function formatDateLabel(date: Date): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-  if (msgDay.getTime() === today.getTime()) return "Today";
-  if (msgDay.getTime() === yesterday.getTime()) return "Yesterday";
-
-  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+function saveDraft(key: string, draft: DraftData): void {
+  try { localStorage.setItem(key, JSON.stringify(draft)); } catch {}
 }
 
-// Thread grouping helper — group threads into temporal buckets
-function groupThreadsByDate(threads: MessageThread[]): { label: string; threads: MessageThread[] }[] {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(today.getDate() - 7);
-
-  const groups: { label: string; threads: MessageThread[] }[] = [
-    { label: "Today", threads: [] },
-    { label: "Yesterday", threads: [] },
-    { label: "This Week", threads: [] },
-    { label: "Earlier", threads: [] },
-  ];
-
-  for (const t of threads) {
-    const latest = t.replies.length > 0 ? t.replies[t.replies.length - 1] : t.root_message;
-    const d = new Date(latest.created_at);
-    const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-    if (dDay.getTime() >= today.getTime()) groups[0].threads.push(t);
-    else if (dDay.getTime() >= yesterday.getTime()) groups[1].threads.push(t);
-    else if (dDay.getTime() >= weekAgo.getTime()) groups[2].threads.push(t);
-    else groups[3].threads.push(t);
-  }
-
-  return groups.filter(g => g.threads.length > 0);
+function loadDraft(key: string): DraftData | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DraftData;
+    if (Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return draft;
+  } catch { return null; }
 }
 
-// Compute reply recipients based on original message context
-function computeReplyRecipients(msg: Message, currentTutorId: number): Pick<MessageCreate, 'to_tutor_id' | 'to_tutor_ids'> {
-  if (msg.is_group_message && msg.to_tutor_ids) {
-    const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
-    if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id))
-      replyRecipients.push(msg.from_tutor_id);
-    if (replyRecipients.length === 1) return { to_tutor_id: replyRecipients[0] };
-    if (replyRecipients.length >= 2) return { to_tutor_ids: replyRecipients };
-    return {};
-  }
-  if (msg.from_tutor_id === currentTutorId) return msg.to_tutor_id != null ? { to_tutor_id: msg.to_tutor_id } : {};
-  return { to_tutor_id: msg.from_tutor_id };
+function clearDraft(key: string): void {
+  try { localStorage.removeItem(key); } catch {}
+}
+
+// Compose Modal Component
+function ComposeModal({
+  isOpen,
+  onClose,
+  tutors,
+  fromTutorId,
+  replyTo,
+  onSend,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  tutors: Array<{ id: number; tutor_name: string }>;
+  fromTutorId: number;
+  replyTo?: Message;
+  onSend: (data: MessageCreate) => Promise<void>;
+}) {
+  const [recipientMode, setRecipientMode] = useState<"all" | "select">("all");
+  const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
+  const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
+  const [category, setCategory] = useState<MessageCategory | "">("");
+  const [isSending, setIsSending] = useState(false);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const priorityDropdownRef = useRef<HTMLDivElement>(null);
+  const recipientDropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const newUrls: string[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, fromTutorId);
+        newUrls.push(result.url);
+      }
+      setUploadedImages(prev => [...prev, ...newUrls]);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      alert(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Reset form when opening — check for saved draft
+  useEffect(() => {
+    if (isOpen) {
+      const draftKey = getDraftKey(replyTo?.id);
+      const draft = loadDraft(draftKey);
+
+      const setReplyRecipients = () => {
+        if (!replyTo) return;
+        if (replyTo.is_group_message && replyTo.to_tutor_ids) {
+          // Reply-all: remove self, add original sender
+          const replyRecipients = replyTo.to_tutor_ids.filter(id => id !== fromTutorId);
+          if (!replyRecipients.includes(replyTo.from_tutor_id)) {
+            replyRecipients.push(replyTo.from_tutor_id);
+          }
+          setRecipientMode("select");
+          setSelectedTutorIds(replyRecipients);
+        } else if (replyTo.from_tutor_id === fromTutorId) {
+          // Replying to own message: send to original recipient(s)
+          if (replyTo.to_tutor_id == null) {
+            setRecipientMode("all");
+            setSelectedTutorIds([]);
+          } else {
+            setRecipientMode("select");
+            setSelectedTutorIds([replyTo.to_tutor_id]);
+          }
+        } else {
+          // Replying to someone else: send to them
+          setRecipientMode("select");
+          setSelectedTutorIds([replyTo.from_tutor_id]);
+        }
+      };
+
+      if (draft && !replyTo) {
+        // Compose mode: restore full draft
+        setRecipientMode(draft.recipientMode || "all");
+        setSelectedTutorIds(draft.selectedTutorIds || []);
+        setSubject(draft.subject);
+        setMessage(draft.message);
+        setPriority(draft.priority);
+        setCategory(draft.category as MessageCategory | "");
+        setUploadedImages(draft.uploadedImages);
+      } else if (draft && replyTo) {
+        // Reply mode: keep auto-filled to/subject/category, restore message content
+        setReplyRecipients();
+        setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
+        setCategory(replyTo.category || "");
+        setMessage(draft.message);
+        setPriority(draft.priority);
+        setUploadedImages(draft.uploadedImages);
+      } else if (replyTo) {
+        // Reply mode, no draft
+        setReplyRecipients();
+        setSubject(`Re: ${replyTo.subject || "(no subject)"}`);
+        setCategory(replyTo.category || "");
+        setMessage("");
+        setPriority("Normal");
+        setUploadedImages([]);
+      } else {
+        // Compose mode, no draft
+        setRecipientMode("all");
+        setSelectedTutorIds([]);
+        setSubject("");
+        setCategory("");
+        setMessage("");
+        setPriority("Normal");
+        setUploadedImages([]);
+      }
+    }
+  }, [isOpen, replyTo]);
+
+  // Auto-save draft (debounced 1s)
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      const draftKey = getDraftKey(replyTo?.id);
+      const hasContent = (message && message !== "<p></p>" && message.replace(/<[^>]*>/g, "").trim().length > 0)
+        || (subject.trim().length > 0 && !replyTo)
+        || uploadedImages.length > 0;
+      if (hasContent) {
+        saveDraft(draftKey, { recipientMode, selectedTutorIds, subject, message, priority, category, uploadedImages, savedAt: Date.now() });
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isOpen, recipientMode, selectedTutorIds, subject, message, priority, category, uploadedImages, replyTo?.id]);
+
+  // Close dropdowns on click outside
+  useClickOutside(categoryDropdownRef, () => setCategoryDropdownOpen(false), categoryDropdownOpen);
+  useClickOutside(priorityDropdownRef, () => setPriorityDropdownOpen(false), priorityDropdownOpen);
+  useClickOutside(recipientDropdownRef, () => setRecipientDropdownOpen(false), recipientDropdownOpen);
+
+  // Check for unsaved changes
+  // Tiptap returns "<p></p>" for empty content
+  const isMessageEmpty = !message || message === "<p></p>" || message.replace(/<[^>]*>/g, "").trim().length === 0;
+  const hasUnsavedChanges = !isMessageEmpty || (subject.trim().length > 0 && !replyTo) || uploadedImages.length > 0;
+
+  const handleClose = () => {
+    if (hasUnsavedChanges) {
+      if (confirm("You have unsaved changes. Discard draft?")) {
+        clearDraft(getDraftKey(replyTo?.id));
+        onClose();
+      }
+    } else {
+      onClose();
+    }
+  };
+
+  // Close on escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [isOpen, hasUnsavedChanges]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isMessageEmpty) return;
+
+    setIsSending(true);
+    try {
+      const sendData: MessageCreate = {
+        subject: subject || undefined,
+        message,
+        priority,
+        category: category || undefined,
+        reply_to_id: replyTo?.id,
+        image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
+      };
+      if (recipientMode === "select") {
+        if (selectedTutorIds.length === 1) {
+          sendData.to_tutor_id = selectedTutorIds[0];
+        } else if (selectedTutorIds.length >= 2) {
+          sendData.to_tutor_ids = selectedTutorIds;
+        }
+        // 0 selected = broadcast (no to_tutor_id or to_tutor_ids)
+      }
+      await onSend(sendData);
+      clearDraft(getDraftKey(replyTo?.id));
+      onClose();
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 lg:pl-64">
+      <div className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-xl w-full min-w-[320px] max-w-xl sm:max-w-2xl md:max-w-4xl lg:max-w-5xl mx-4 border border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+          <h2 className="font-semibold text-gray-900 dark:text-white">
+            {replyTo ? "Reply" : "New Message"}
+          </h2>
+          <button
+            onClick={handleClose}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* To */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              To
+            </label>
+            {replyTo ? (
+              /* Reply mode: read-only display */
+              <div className={cn(
+                "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white opacity-60 cursor-not-allowed"
+              )}>
+                {recipientMode === "all"
+                  ? "All Tutors (Broadcast)"
+                  : selectedTutorIds.map(id => tutors.find(t => t.id === id)?.tutor_name || "Unknown").join(", ")
+                }
+              </div>
+            ) : (
+              /* Compose mode: interactive recipient picker */
+              <div ref={recipientDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setRecipientDropdownOpen(!recipientDropdownOpen)}
+                  className={cn(
+                    "w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white text-left flex items-center gap-2"
+                  )}
+                >
+                  {recipientMode === "all" ? (
+                    <span className="flex items-center gap-2 flex-1">
+                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      All Tutors (Broadcast)
+                    </span>
+                  ) : selectedTutorIds.length === 0 ? (
+                    <span className="text-gray-400 flex-1">Select recipients...</span>
+                  ) : (
+                    <span className="flex items-center gap-1 flex-1 flex-wrap">
+                      <Users className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      {selectedTutorIds.length === 1
+                        ? tutors.find(t => t.id === selectedTutorIds[0])?.tutor_name || "Unknown"
+                        : `${selectedTutorIds.length} recipients`
+                      }
+                    </span>
+                  )}
+                  <ChevronDown className={cn("h-4 w-4 transition-transform flex-shrink-0", recipientDropdownOpen && "rotate-180")} />
+                </button>
+
+                {/* Selected tutor chips (shown above dropdown when 2+ selected) */}
+                {recipientMode === "select" && selectedTutorIds.length >= 2 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {selectedTutorIds.map(id => {
+                      const tutor = tutors.find(t => t.id === id);
+                      return (
+                        <span
+                          key={id}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-[#f5ede3] dark:bg-[#3d3628] text-gray-700 dark:text-gray-300 border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        >
+                          {tutor?.tutor_name || "Unknown"}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTutorIds(prev => prev.filter(tid => tid !== id));
+                            }}
+                            className="hover:text-red-500"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Dropdown */}
+                {recipientDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    {/* Broadcast option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecipientMode("all");
+                        setSelectedTutorIds([]);
+                        setRecipientDropdownOpen(false);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50",
+                        recipientMode === "all" && "bg-blue-50 dark:bg-blue-900/20"
+                      )}
+                    >
+                      <Megaphone className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <span>All Tutors (Broadcast)</span>
+                      {recipientMode === "all" && <Check className="h-4 w-4 text-blue-500 ml-auto" />}
+                    </button>
+
+                    {/* Individual tutors */}
+                    {tutors
+                      .filter(t => t.id !== fromTutorId)
+                      .sort((a, b) => {
+                        const getFirstName = (name: string) => {
+                          const parts = name.split(' ');
+                          return parts.length > 1 ? parts[1] : parts[0];
+                        };
+                        return getFirstName(a.tutor_name).localeCompare(getFirstName(b.tutor_name));
+                      })
+                      .map((tutor) => {
+                        const isSelected = selectedTutorIds.includes(tutor.id);
+                        return (
+                          <button
+                            key={tutor.id}
+                            type="button"
+                            onClick={() => {
+                              setRecipientMode("select");
+                              setSelectedTutorIds(prev =>
+                                isSelected
+                                  ? prev.filter(id => id !== tutor.id)
+                                  : [...prev, tutor.id]
+                              );
+                            }}
+                            className={cn(
+                              "w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800",
+                              isSelected && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                            )}
+                          >
+                            <div className={cn(
+                              "h-4 w-4 rounded border flex items-center justify-center flex-shrink-0",
+                              isSelected
+                                ? "bg-[#c9a96e] border-[#c9a96e] text-white"
+                                : "border-gray-300 dark:border-gray-600"
+                            )}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <span>{tutor.tutor_name}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Subject */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Subject
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Optional subject..."
+              className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white"
+            />
+          </div>
+
+          {/* Category & Priority row */}
+          <div className="grid grid-cols-5 gap-4">
+            <div className="col-span-3">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Category
+              </label>
+              <div ref={categoryDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    {CATEGORY_OPTIONS.find(c => c.value === category)?.icon}
+                    {CATEGORY_OPTIONS.find(c => c.value === category)?.label || "None"}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", categoryDropdownOpen && "rotate-180")} />
+                </button>
+                {categoryDropdownOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setCategory(opt.value); setCategoryDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          category === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        )}
+                      >
+                        {opt.icon}
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+                Priority
+              </label>
+              <div ref={priorityDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setPriorityDropdownOpen(!priorityDropdownOpen)}
+                  className="w-full px-3 py-2 border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] flex items-center justify-between"
+                >
+                  <span className={PRIORITY_OPTIONS.find(p => p.value === priority)?.colorClass}>
+                    {priority}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", priorityDropdownOpen && "rotate-180")} />
+                </button>
+                {priorityDropdownOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg overflow-hidden">
+                    {PRIORITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setPriority(opt.value); setPriorityDropdownOpen(false); }}
+                        className={cn(
+                          "w-full px-3 py-2 text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors",
+                          opt.colorClass,
+                          priority === opt.value && "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Reply context */}
+          {replyTo && (
+            <div className="p-3 bg-gray-50 dark:bg-[#2a2a2a] rounded-lg border-l-4 border-[#a0704b] text-sm">
+              <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {replyTo.from_tutor_name} wrote:
+              </div>
+              <div className="text-gray-600 dark:text-gray-400 line-clamp-3">
+                {replyTo.message.replace(/<[^>]*>/g, "")}
+              </div>
+            </div>
+          )}
+
+          {/* Message */}
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+              Message
+            </label>
+            <InboxRichEditor
+              onUpdate={setMessage}
+            />
+          </div>
+
+          {/* Image Attachments */}
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => handleImageUpload(e.target.files)}
+              className="hidden"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ImageIcon className="h-4 w-4" />
+                )}
+                {isUploading ? 'Uploading...' : 'Add Images'}
+              </button>
+              {uploadedImages.length > 0 && (
+                <span className="text-xs text-gray-500">{uploadedImages.length} image(s) attached</span>
+              )}
+            </div>
+            {/* Image Previews */}
+            {uploadedImages.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {uploadedImages.map((url, index) => (
+                  <div key={url} className="relative group">
+                    <img
+                      src={url}
+                      alt={`Attachment ${index + 1}`}
+                      className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSending || isUploading || isMessageEmpty}
+              className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // Thread Item Component - memoized to prevent unnecessary re-renders
@@ -277,26 +752,10 @@ const ThreadItem = React.memo(function ThreadItem({
   thread,
   isSelected,
   onClick,
-  isSentView = false,
-  searchQuery,
-  pictureMap,
-  draftPreview,
-  bulkMode = false,
-  bulkSelected = false,
-  onBulkToggle,
-  onlineTutorIds,
 }: {
   thread: MessageThread;
   isSelected: boolean;
   onClick: () => void;
-  isSentView?: boolean;
-  searchQuery?: string;
-  pictureMap?: Map<number, string>;
-  draftPreview?: string | null;
-  bulkMode?: boolean;
-  bulkSelected?: boolean;
-  onBulkToggle?: () => void;
-  onlineTutorIds?: Set<number>;
 }) {
   const { root_message: msg, replies, total_unread } = thread;
   const hasUnread = total_unread > 0;
@@ -307,72 +766,29 @@ const ThreadItem = React.memo(function ThreadItem({
 
   return (
     <button
-      onClick={bulkMode ? (onBulkToggle || onClick) : onClick}
+      onClick={onClick}
       className={cn(
-        "w-full text-left p-3 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 transition-all duration-150 min-h-[64px] lg:min-h-0",
-        isSelected && !bulkMode
+        "w-full text-left p-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors min-h-[64px] lg:min-h-0",
+        isSelected
           ? "bg-[#f5ede3] dark:bg-[#3d3628]"
-          : "hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50",
+          : "hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]",
         hasUnread && "bg-[#fefcf9] dark:bg-[#2a2518]",
-        bulkSelected && "bg-[#f5ede3]/80 dark:bg-[#3d3628]/60",
         priorityConfig.borderClass
       )}
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 88px' }}
     >
-      <div className="flex items-start gap-2.5">
-        {/* Bulk selection checkbox */}
-        {bulkMode && (
-          <div className="mt-1 flex-shrink-0">
-            {bulkSelected
-              ? <CheckSquare className="h-4 w-4 text-[#a0704b]" />
-              : <Square className="h-4 w-4 text-gray-400" />}
-          </div>
-        )}
-        {/* Avatar */}
-        {!isSentView && !bulkMode && (
-          <div className="mt-0.5">
-            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} isOnline={onlineTutorIds?.has(msg.from_tutor_id)} />
-          </div>
-        )}
+      <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           {/* Sender & Time */}
           <div className="flex items-center gap-2 mb-0.5">
-            <span
-              className={cn(
-                "text-sm truncate",
-                hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
-              )}
-              title={isSentView && msg.is_group_message && msg.to_tutor_names?.length ? msg.to_tutor_names.join(", ") : undefined}
-            >
-              {isSentView
-                ? msg.to_tutor_id === null
-                  ? "To: All Tutors"
-                  : msg.is_group_message && msg.to_tutor_names?.length
-                  ? msg.to_tutor_names.length <= 2
-                    ? `To: ${msg.to_tutor_names.join(", ")}`
-                    : `To: ${msg.to_tutor_names.slice(0, 2).join(", ")} +${msg.to_tutor_names.length - 2} more`
-                  : msg.to_tutor_name
-                  ? `To: ${msg.to_tutor_name}`
-                  : "To: Unknown"
-                : msg.from_tutor_name || "Unknown"
-              }
+            <span className={cn(
+              "text-sm truncate",
+              hasUnread ? "font-semibold text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+            )}>
+              {msg.from_tutor_name || "Unknown"}
             </span>
-            {msg.is_thread_pinned && (
-              <Pin className="h-3 w-3 text-blue-500 flex-shrink-0" />
-            )}
             {msg.is_pinned && (
               <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-            )}
-            {msg.is_thread_muted && (
-              <BellOff className="h-3 w-3 text-gray-400 flex-shrink-0" />
-            )}
-            {msg.is_snoozed && (
-              <span className="flex items-center gap-0.5 text-[#a0704b] flex-shrink-0">
-                <AlarmClock className="h-3 w-3" />
-                {msg.snoozed_until && (
-                  <span className="text-[10px] whitespace-nowrap">{formatSnoozeUntil(msg.snoozed_until)}</span>
-                )}
-              </span>
             )}
             {msg.to_tutor_id === null && (
               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
@@ -397,52 +813,39 @@ const ThreadItem = React.memo(function ThreadItem({
           {/* Subject */}
           <div className={cn(
             "text-sm truncate flex items-center gap-1",
-            hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-700 dark:text-gray-400"
+            hasUnread ? "font-medium text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"
           )}>
             {msg.category && (
-              <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">
+              <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">
                 {CATEGORIES.find(c => c.filter === msg.category)?.icon}
               </span>
             )}
-            <span className="truncate">{searchQuery ? highlightMatch(msg.subject || "(no subject)", searchQuery) : (msg.subject || "(no subject)")}</span>
+            <span className="truncate">{msg.subject || "(no subject)"}</span>
           </div>
 
-          {/* Preview — show draft if exists, otherwise latest message */}
-          <div className="text-xs text-gray-600 dark:text-gray-400 truncate mt-0.5">
-            {draftPreview ? (
-              <>
-                <span className="text-[#a0704b] dark:text-[#c49a6c] font-medium">Draft: </span>
-                <span>{stripHtml(draftPreview).slice(0, 60)}</span>
-              </>
-            ) : (() => {
-              const plain = stripHtml(latestMessage.message);
-              const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
-              return searchQuery ? highlightMatch(preview, searchQuery) : preview;
+          {/* Preview */}
+          <div className="text-xs text-gray-500 dark:text-gray-500 truncate mt-0.5">
+            {(() => {
+              const plain = latestMessage.message.replace(/<[^>]*>/g, "").trim();
+              return plain.slice(0, 80) + (plain.length > 80 ? "..." : "");
             })()}
           </div>
 
           {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-            {msg.scheduled_at ? (
-              <span className="flex items-center gap-1 text-[#a0704b]">
-                <Clock className="h-3.5 w-3.5" />
-                Sends {formatScheduledAt(msg.scheduled_at)}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5" />
-                {formatTimeAgo(latestMessage.created_at)}
-              </span>
-            )}
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-500">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatTimeAgo(latestMessage.created_at)}
+            </span>
             {replyCount > 0 && (
               <span className="flex items-center gap-1">
-                <Reply className="h-3.5 w-3.5" />
+                <Reply className="h-3 w-3" />
                 {replyCount}
               </span>
             )}
             {msg.like_count > 0 && (
               <span className="flex items-center gap-1">
-                <Heart className="h-3.5 w-3.5" />
+                <Heart className="h-3 w-3" />
                 {msg.like_count}
               </span>
             )}
@@ -451,10 +854,7 @@ const ThreadItem = React.memo(function ThreadItem({
 
         {/* Unread badge */}
         {hasUnread && (
-          <span className={cn(
-            "flex-shrink-0 min-w-[22px] h-[22px] flex items-center justify-center text-[11px] font-bold text-white bg-[#a0704b] rounded-full px-1.5",
-            total_unread > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
-          )}>
+          <span className="flex-shrink-0 min-w-[20px] h-5 flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1.5">
             {total_unread}
           </span>
         )}
@@ -463,67 +863,180 @@ const ThreadItem = React.memo(function ThreadItem({
   );
 });
 
-// Swipeable wrapper for ThreadItem — reveals archive (left) / star (right) on mobile
-function SwipeableThreadItem({
-  children,
-  onSwipeLeftAction,
-  onSwipeRightAction,
-  leftLabel,
-  rightLabel,
+// Seen Badge Component - WhatsApp-style read receipts
+const SeenBadge = React.memo(function SeenBadge({
+  message,
+  currentTutorId,
 }: {
-  children: React.ReactNode;
-  onSwipeLeftAction?: () => void;
-  onSwipeRightAction?: () => void;
-  leftLabel?: string;
-  rightLabel?: string;
+  message: Message;
+  currentTutorId: number;
 }) {
-  const { containerRef, leftIconRef, rightIconRef, touchHandlers } = useSwipeable({
-    onSwipeLeft: onSwipeLeftAction,
-    onSwipeRight: onSwipeRightAction,
-  });
+  const [showPopover, setShowPopover] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Only show for sender's own messages
+  if (message.from_tutor_id !== currentTutorId) {
+    return null;
+  }
+
+  const readReceipts = message.read_receipts || [];
+  const readCount = readReceipts.length;
+  const totalRecipients = message.total_recipients || 0;
+  const readByAll = message.read_by_all || false;
+  const hasBeenRead = readCount > 0;
+
+  // Determine checkmark color and style
+  // Gray single check = sent (no one read)
+  // Gray double check = read by some (for broadcasts)
+  // Blue double check = read by all / read by recipient
+  const isBlue = readByAll;
+  const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-500";
 
   return (
-    <div className="relative overflow-hidden">
-      {onSwipeLeftAction && (
-        <div ref={leftIconRef} className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-red-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
-          <Archive className="h-4 w-4 mr-1" />
-          {leftLabel || "Archive"}
-        </div>
+    <div className="relative inline-flex items-center">
+      <button
+        onClick={() => setShowPopover(!showPopover)}
+        className={cn(
+          "flex items-center gap-0.5 text-xs transition-colors hover:opacity-80",
+          checkColor
+        )}
+        title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
+      >
+        {/* Double checkmark SVG for read, single for sent */}
+        {hasBeenRead ? (
+          <svg
+            viewBox="0 0 16 11"
+            width="16"
+            height="11"
+            className={checkColor}
+            fill="currentColor"
+          >
+            {/* Double checkmark */}
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+            <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 12 11"
+            width="12"
+            height="11"
+            className={checkColor}
+            fill="currentColor"
+          >
+            {/* Single checkmark */}
+            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+          </svg>
+        )}
+      </button>
+
+      {/* Popover showing who read the message */}
+      {showPopover && hasBeenRead && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowPopover(false)}
+          />
+          {/* Popover content */}
+          <div
+            ref={popoverRef}
+            className="absolute top-full right-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
+          >
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {readReceipts.map((receipt) => (
+                <div
+                  key={receipt.tutor_id}
+                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Check className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {receipt.tutor_name}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(receipt.read_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
-      {onSwipeRightAction && (
-        <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-blue-500 text-white text-xs font-medium" style={{ opacity: 0 }}>
-          <Pin className="h-4 w-4 mr-1" />
-          {rightLabel || "Pin"}
-        </div>
-      )}
-      <div ref={containerRef} className="relative bg-white dark:bg-[#1a1a1a]" {...touchHandlers}>
-        {children}
-      </div>
     </div>
   );
-}
+});
 
-// Swipeable message wrapper — swipe right to quote (mobile only)
-function SwipeableMessage({ children, onQuote }: { children: React.ReactNode; onQuote: () => void }) {
-  const { containerRef, rightIconRef, touchHandlers } = useSwipeable({
-    onSwipeRight: onQuote,
-    maxDistance: 60,
-    threshold: 50,
-    fadeDistance: 50,
-    springTransition: "transform 0.2s ease-out",
-  });
+// Likes Badge Component - shows who liked a message in a popover
+const LikesBadge = React.memo(function LikesBadge({
+  message,
+}: {
+  message: Message;
+}) {
+  const [showPopover, setShowPopover] = useState(false);
+
+  const likeDetails = message.like_details || [];
+  if (likeDetails.length === 0) return null;
 
   return (
-    <div className="relative overflow-hidden">
-      <div ref={rightIconRef} className="absolute inset-y-0 left-0 w-14 flex items-center justify-center text-[#a0704b]" style={{ opacity: 0 }}>
-        <Reply className="h-4 w-4" />
-      </div>
-      <div ref={containerRef} {...touchHandlers}>
-        {children}
-      </div>
+    <div className="relative inline-flex items-center">
+      <button
+        onClick={() => setShowPopover(!showPopover)}
+        className="text-sm text-red-500 hover:opacity-80 transition-opacity"
+        title={`Liked by ${likeDetails.length}`}
+      >
+        {likeDetails.length}
+      </button>
+
+      {showPopover && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowPopover(false)}
+          />
+          <div className="absolute top-full left-0 mt-2 z-50 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]">
+            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+              Liked by {likeDetails.length}
+            </div>
+            <div className="max-h-[200px] overflow-y-auto">
+              {likeDetails.map((detail) => (
+                <div
+                  key={detail.tutor_id}
+                  className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Heart className="h-3 w-3 text-red-500 fill-current flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {detail.tutor_name}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                    {new Date(detail.liked_at).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
-}
+});
 
 // Thread Detail Panel Component - memoized to prevent unnecessary re-renders
 const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
@@ -531,7 +1044,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   currentTutorId,
   onClose,
   onReply,
-  onSendMessage,
   onLike,
   onMarkRead,
   onMarkUnread,
@@ -541,32 +1053,14 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive,
   onPin,
   onUnpin,
-  onThreadPin,
-  onThreadUnpin,
-  onForward,
   isArchived = false,
   isMobile = false,
-  pictureMap,
-  onDraftChange,
-  mentionUsers,
-  typingUsers,
-  onlineTutorIds,
-  templates,
-  onCreateTemplate,
-  onDeleteTemplate,
-  onThreadMute,
-  onThreadUnmute,
-  onSnooze,
-  onUnsnooze,
-  onSendVoice,
-  onCancelScheduled,
 }: {
   thread: MessageThread;
   currentTutorId: number;
   onClose: () => void;
   onReply: (msg: Message) => void;
-  onSendMessage: (data: MessageCreate) => Promise<void>;
-  onLike: (msgId: number, emoji?: string) => void;
+  onLike: (msgId: number) => void;
   onMarkRead: (msgId: number) => void;
   onMarkUnread: (msgId: number) => void;
   onEdit: (msgId: number, newText: string, imageAttachments?: string[]) => Promise<void>;
@@ -575,100 +1069,26 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive: (msgId: number) => Promise<void>;
   onPin: (msgId: number) => Promise<void>;
   onUnpin: (msgId: number) => Promise<void>;
-  onThreadPin: (msgId: number) => Promise<void>;
-  onThreadUnpin: (msgId: number) => Promise<void>;
-  onForward: (msg: Message) => void;
   isArchived?: boolean;
   isMobile?: boolean;
-  pictureMap?: Map<number, string>;
-  onDraftChange?: (threadId: number) => void;
-  mentionUsers?: MentionUser[];
-  typingUsers?: import("@/lib/useSSE").TypingUser[];
-  onlineTutorIds?: Set<number>;
-  templates?: import("@/types").MessageTemplate[];
-  onCreateTemplate?: (title: string, content: string) => void;
-  onDeleteTemplate?: (templateId: number) => void;
-  onThreadMute?: (msgId: number) => Promise<void>;
-  onThreadUnmute?: (msgId: number) => Promise<void>;
-  onSnooze?: (msgId: number, snoozeUntil: string) => Promise<void>;
-  onUnsnooze?: (msgId: number) => Promise<void>;
-  onSendVoice?: (file: File) => Promise<void>;
-  onCancelScheduled?: (msgId: number) => Promise<void>;
 }) {
   const { root_message: msg, replies } = thread;
   const allMessages = [msg, ...replies];
 
-  // Scope @mentions to thread participants (senders + recipients)
-  const threadMentionUsers = useMemo(() => {
-    if (!mentionUsers) return [];
-    const participantIds = new Set<number>();
-    for (const m of allMessages) {
-      participantIds.add(m.from_tutor_id);
-      if (m.to_tutor_ids) m.to_tutor_ids.forEach(id => participantIds.add(id));
-      else if (m.to_tutor_id) participantIds.add(m.to_tutor_id);
-    }
-    return mentionUsers.filter(u => participantIds.has(u.id));
-  }, [allMessages, mentionUsers]);
+  // Swipe gesture for mobile - swipe right to close
+  const swipeHandlers = useSwipeGesture({
+    onSwipeRight: isMobile ? onClose : undefined,
+    threshold: 80,
+  });
 
-  // Edge-only swipe right to close with peeking animation (mobile)
-  const { panelRef, touchHandlers } = usePanelSwipe(isMobile, onClose);
-
-  // Thread search state
-  const [threadSearch, setThreadSearch] = useState("");
-  const [showThreadSearch, setShowThreadSearch] = useState(false);
-
-  // Pre-compute date separators and message grouping to avoid recalculating per render
-  const processedMessages = useMemo(() =>
-    allMessages.map((m, idx) => {
-      const msgDate = new Date(m.created_at);
-      const dateStr = msgDate.toDateString();
-      const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
-      const isNewDay = idx === 0 || dateStr !== prevDateStr;
-      const prevMsg = idx > 0 ? allMessages[idx - 1] : null;
-      const isFirstInGroup = !prevMsg || prevMsg.from_tutor_id !== m.from_tutor_id || isNewDay;
-      const isLastInGroup = !allMessages[idx + 1] || allMessages[idx + 1].from_tutor_id !== m.from_tutor_id;
-      return { message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup };
-    }),
-    [allMessages]
-  );
-
-  // Snooze picker state
-  const [showSnoozePicker, setShowSnoozePicker] = useState(false);
-
-  // Typing indicator callback
-  const handleTyping = useCallback(() => {
-    messagesAPI.sendTyping(currentTutorId, msg.id).catch(() => {});
-  }, [currentTutorId, msg.id]);
-
-  // More actions dropdown state
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(moreMenuRef, () => setShowMoreMenu(false));
-
-  // Memoize search highlight regex to avoid recompiling per message per render
-  const highlightRegex = useMemo(() => {
-    if (!threadSearch) return null;
-    const escaped = threadSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(<[^>]+>)|(${escaped})`, "gi");
-  }, [threadSearch]);
-
-  // Edit state — only editingMessageId is tracked here; actual edit state is in MessageBubble
+  // Edit state
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [isEditUploading, setIsEditUploading] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Capture first unread message ID before auto-mark-read (runs during render, before effects)
-  const firstUnreadIdRef = useRef<number | null>(null);
-  const prevThreadIdRef = useRef<number | null>(null);
-  if (thread.root_message.id !== prevThreadIdRef.current) {
-    prevThreadIdRef.current = thread.root_message.id;
-    const firstUnread = allMessages.find(m => !m.is_read && m.from_tutor_id !== currentTutorId);
-    firstUnreadIdRef.current = firstUnread?.id ?? null;
-  }
-
-  // Reply composer ref for imperative actions (quoting, retry)
-  const threadId = thread.root_message.id;
-  const replyComposerRef = useRef<ReplyComposerHandle>(null);
-  const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[]; failed?: boolean } | null>(null);
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -677,113 +1097,67 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     }, 100);
   }, [thread]);
 
-  // Mark messages as read when viewing (skip scheduled — not sent yet)
+  // Mark messages as read when viewing
   useEffect(() => {
-    if (msg.scheduled_at) return;
     allMessages.forEach((m) => {
       if (!m.is_read) {
         onMarkRead(m.id);
       }
     });
-  }, [allMessages, onMarkRead, msg.scheduled_at]);
+  }, [allMessages, onMarkRead]);
 
-  // Quote a message into the reply editor
-  const handleQuote = useCallback((m: Message) => {
-    const senderName = m.from_tutor_name || "Unknown";
-    const plainText = stripHtml(m.message);
-    const truncated = plainText.length > 150 ? plainText.slice(0, 150) + "..." : plainText;
-    const quoteHtml = `<blockquote data-msg-id="${m.id}"><strong>${senderName}</strong><br>${truncated}</blockquote><p></p>`;
-    replyComposerRef.current?.insertContent(quoteHtml);
-  }, []);
+  const startEdit = (m: Message) => {
+    setEditingMessageId(m.id);
+    setEditText(m.message);
+    setEditImages(m.image_attachments || []);
+  };
 
-  // Scroll-to-bottom button
-  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText("");
+    setEditImages([]);
+  };
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setShowScrollBottom(distanceFromBottom > 150);
-    };
-    el.addEventListener('scroll', handleScroll);
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [thread]);
-
-  // Click-to-scroll for embedded quotes
-  const handleQuoteClick = useCallback((e: React.MouseEvent) => {
-    const blockquote = (e.target as HTMLElement).closest('blockquote[data-msg-id]');
-    if (!blockquote) return;
-    const msgId = blockquote.getAttribute('data-msg-id');
-    const target = document.getElementById(`msg-${msgId}`);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('ring-2', 'ring-blue-400');
-      setTimeout(() => target.classList.remove('ring-2', 'ring-blue-400'), 1500);
-    }
-  }, []);
-
-  // Called by ReplyComposer when user sends a reply
-  const handleSendReply = useCallback(async (text: string, images: string[]) => {
-    // Build MessageCreate with auto-computed recipients
-    const data: MessageCreate = {
-      subject: `Re: ${msg.subject || "(no subject)"}`,
-      message: text,
-      priority: "Normal",
-      category: msg.category || undefined,
-      reply_to_id: msg.id,
-      image_attachments: images.length > 0 ? images : undefined,
-    };
-
-    // Compute recipients
-    Object.assign(data, computeReplyRecipients(msg, currentTutorId));
-
-    // Show optimistic bubble
-    setOptimisticMessage({ text, images: [...images] });
-
-    // Scroll to bottom
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }, 50);
-
+  const saveEdit = async () => {
+    if (!editingMessageId || !editText || editText === "<p></p>") return;
+    setIsSaving(true);
     try {
-      await onSendMessage(data);
-      setOptimisticMessage(null);
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-      }, 500);
-    } catch (err) {
-      setOptimisticMessage(prev => prev ? { ...prev, failed: true } : null);
-      throw err; // Re-throw so ReplyComposer knows it failed
+      await onEdit(editingMessageId, editText, editImages);
+      setEditingMessageId(null);
+      setEditText("");
+      setEditImages([]);
+    } finally {
+      setIsSaving(false);
     }
-  }, [msg, currentTutorId, onSendMessage]);
+  };
 
-  // Called by ReplyComposer when user schedules a reply
-  const handleScheduleReply = useCallback(async (text: string, images: string[], scheduledAt: string) => {
-    const data: MessageCreate = {
-      subject: `Re: ${msg.subject || "(no subject)"}`,
-      message: text,
-      priority: "Normal",
-      category: msg.category || undefined,
-      reply_to_id: msg.id,
-      image_attachments: images.length > 0 ? images : undefined,
-      scheduled_at: scheduledAt,
-    };
-    Object.assign(data, computeReplyRecipients(msg, currentTutorId));
-    await onSendMessage(data);
-  }, [msg, currentTutorId, onSendMessage]);
+  const handleEditImageUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsEditUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/')) continue;
+        const result = await messagesAPI.uploadImage(file, currentTutorId);
+        setEditImages(prev => [...prev, result.url]);
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+    } finally {
+      setIsEditUploading(false);
+      if (editFileInputRef.current) editFileInputRef.current.value = '';
+    }
+  };
 
   return (
     <div
-      ref={panelRef}
-      className={cn("h-full flex flex-col", isMobile ? "bg-white dark:bg-[#1a1a1a]" : "bg-white/90 dark:bg-[#1a1a1a]/90")}
-      {...touchHandlers}
+      className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]"
+      {...(isMobile ? swipeHandlers : {})}
     >
       {/* Header */}
-      <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] z-[1] relative">
+      <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -806,14 +1180,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
-            <span>{allMessages.length} message{allMessages.length !== 1 && "s"}</span>
-            {msg.is_snoozed && msg.snoozed_until && (
-              <span className="flex items-center gap-1 text-[#a0704b]">
-                <AlarmClock className="h-3 w-3" />
-                {formatSnoozeUntil(msg.snoozed_until)}
-              </span>
-            )}
+          <div className="text-xs text-gray-500 dark:text-gray-500">
+            {allMessages.length} message{allMessages.length !== 1 && "s"}
           </div>
         </div>
         <button
@@ -821,7 +1189,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             msg.is_read
-              ? "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+              ? "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           )}
           title={msg.is_read ? "Mark as unread" : "Mark as read"}
@@ -829,318 +1197,255 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           {msg.is_read ? <Circle className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
         </button>
         <button
-          onClick={() => {
-            if (showThreadSearch) setThreadSearch("");
-            setShowThreadSearch(!showThreadSearch);
-          }}
+          onClick={() => msg.is_pinned ? onUnpin(msg.id) : onPin(msg.id)}
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-            showThreadSearch
-              ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-              : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+            msg.is_pinned
+              ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
           )}
-          title="Search in thread"
+          title={msg.is_pinned ? "Unstar" : "Star"}
         >
-          <Search className="h-4 w-4" />
+          <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400")} />
         </button>
-        {/* More actions dropdown */}
-        <div className="relative" ref={moreMenuRef}>
+        {isArchived ? (
           <button
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className={cn(
-              "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-              showMoreMenu
-                ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-            )}
-            title="More actions"
+            onClick={() => onUnarchive(msg.id)}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+            title="Unarchive"
           >
-            <MoreVertical className="h-4 w-4" />
+            <ArchiveRestore className="h-4 w-4" />
           </button>
-          {showMoreMenu && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-              <button
-                onClick={() => {
-                  if (msg.is_thread_pinned) onThreadUnpin(msg.id);
-                  else onThreadPin(msg.id);
-                  setShowMoreMenu(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
-              >
-                <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-500")} />
-                <span>{msg.is_thread_pinned ? "Unpin from top" : "Pin to top"}</span>
-              </button>
-              <button
-                onClick={() => {
-                  if (msg.is_pinned) onUnpin(msg.id);
-                  else onPin(msg.id);
-                  setShowMoreMenu(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
-              >
-                <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-400")} />
-                <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
-              </button>
-              {onThreadMute && onThreadUnmute && (
-                <button
-                  onClick={() => {
-                    if (msg.is_thread_muted) onThreadUnmute(msg.id);
-                    else onThreadMute(msg.id);
-                    setShowMoreMenu(false);
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
-                >
-                  {msg.is_thread_muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-                  <span>{msg.is_thread_muted ? "Unmute" : "Mute"}</span>
-                </button>
-              )}
-              {onSnooze && (
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      if (msg.is_snoozed && onUnsnooze) {
-                        onUnsnooze(msg.id);
-                        setShowMoreMenu(false);
-                      } else {
-                        setShowSnoozePicker(!showSnoozePicker);
-                      }
-                    }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
-                  >
-                    <AlarmClock className="h-4 w-4" />
-                    <span>{msg.is_snoozed ? "Remove reminder" : "Remind me"}</span>
-                  </button>
-                  {showSnoozePicker && (
-                    <SnoozePicker
-                      onSnooze={(until) => {
-                        onSnooze(msg.id, until);
-                        setShowSnoozePicker(false);
-                        setShowMoreMenu(false);
-                      }}
-                      onClose={() => setShowSnoozePicker(false)}
-                    />
-                  )}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  if (isArchived) onUnarchive(msg.id);
-                  else onArchive(msg.id);
-                  setShowMoreMenu(false);
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
-              >
-                {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                <span>{isArchived ? "Unarchive" : "Archive"}</span>
-              </button>
-            </div>
-          )}
-        </div>
+        ) : (
+          <button
+            onClick={() => onArchive(msg.id)}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+            title="Archive"
+          >
+            <Archive className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          onClick={() => onReply(msg)}
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors"
+        >
+          <Reply className="h-4 w-4" />
+          <span className="hidden sm:inline">Reply</span>
+        </button>
       </div>
-
-      {/* Scheduled message banner */}
-      {msg.scheduled_at && (
-        <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/40">
-          <span className="flex items-center gap-1.5 text-sm text-amber-800 dark:text-amber-200">
-            <Clock className="h-4 w-4" />
-            Scheduled for {formatScheduledAt(msg.scheduled_at)}
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setEditingMessageId(msg.id)}
-              className="px-3 py-1 text-xs font-medium rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            >
-              Edit
-            </button>
-            {onCancelScheduled && (
-              <button
-                type="button"
-                onClick={() => onCancelScheduled(msg.id)}
-                className="px-3 py-1 text-xs font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
-              >
-                Cancel send
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Thread search bar */}
-      {showThreadSearch && (
-        <ThreadSearchBar
-          allMessages={allMessages}
-          threadSearch={threadSearch}
-          onSearchChange={setThreadSearch}
-          scrollRef={scrollRef}
-          onClose={() => { setShowThreadSearch(false); setThreadSearch(""); }}
-        />
-      )}
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" onClick={handleQuoteClick}>
-        {processedMessages.map(({ message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup }, idx) => {
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+        {allMessages.map((m, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
-
-          const messageBubble = (
-            <MessageBubble
-              message={m}
-              idx={idx}
-              isOwn={isOwn}
-              isFirstInGroup={isFirstInGroup}
-              isLastInGroup={isLastInGroup}
-              isMobile={isMobile}
-              isEditing={editingMessageId === m.id}
-              currentTutorId={currentTutorId}
-              pictureUrl={pictureMap?.get(m.from_tutor_id)}
-              highlightRegex={highlightRegex}
-              threadSearch={threadSearch}
-              mentionUsers={threadMentionUsers}
-              isOnline={onlineTutorIds?.has(m.from_tutor_id)}
-              onStartEdit={() => setEditingMessageId(m.id)}
-              onCancelEdit={() => setEditingMessageId(null)}
-              onSaveEdit={onEdit}
-              onReact={(emoji) => onLike(m.id, emoji)}
-              onQuote={() => handleQuote(m)}
-              onForward={() => onForward(m)}
-              onDelete={onDelete}
-            />
-          );
+          const isEditing = editingMessageId === m.id;
+          const isBroadcast = m.to_tutor_id === null;
+          const isGroup = m.is_group_message;
 
           return (
-            <React.Fragment key={m.id}>
-              {/* Date separator */}
-              {isNewDay && (
-                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 my-2">
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
-                  <span className="font-medium px-2">{formatDateLabel(msgDate)}</span>
-                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
+            <div
+              key={m.id}
+              className={cn(
+                "p-4 rounded-lg border",
+                isOwn
+                  ? "bg-[#f5ede3] dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a] ml-8"
+                  : isBroadcast
+                  ? "bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/30"
+                  : isGroup
+                  ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/30"
+                  : "bg-white dark:bg-[#2a2a2a] border-[#e8d4b8] dark:border-[#6b5a4a]"
+              )}
+            >
+              {/* Message header */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-2 mb-2">
+                <div className="flex items-center gap-1 min-w-0 flex-1">
+                  <span className="font-medium text-gray-900 dark:text-white truncate">
+                    {m.from_tutor_name || "Unknown"}
+                  </span>
+                  <span className="text-gray-500 dark:text-gray-500 flex-shrink-0">→</span>
+                  <span className="text-gray-600 dark:text-gray-400 truncate">
+                    {m.to_tutor_id === null ? "All" : m.to_tutor_name || "Unknown"}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-500 flex-shrink-0 flex items-center gap-1">
+                  {new Date(m.created_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                  {m.updated_at && (
+                    <span className="text-gray-400 dark:text-gray-500 italic">(edited)</span>
+                  )}
+                  <SeenBadge message={m} currentTutorId={currentTutorId} />
+                </span>
+              </div>
+
+              {/* Message body - editable for own messages */}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <InboxRichEditor
+                    onUpdate={setEditText}
+                    initialContent={editText}
+                    minHeight="100px"
+                  />
+                  {/* Image attachments for edit mode */}
+                  <div>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleEditImageUpload(e.target.files)}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={isEditUploading}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {isEditUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
+                      {isEditUploading ? 'Uploading...' : 'Add Images'}
+                    </button>
+                    {editImages.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {editImages.map((url, index) => (
+                          <div key={url} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Attachment ${index + 1}`}
+                              className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
+                              className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveEdit}
+                      disabled={isSaving || !editText || editText === "<p></p>" || editText.replace(/<[^>]*>/g, "").trim().length === 0}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200"
+                  dangerouslySetInnerHTML={{ __html: m.message }}
+                />
+              ) : (
+                <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                  {m.message}
                 </div>
               )}
-              {/* "New messages" divider */}
-              {m.id === firstUnreadIdRef.current && (
-                <div className="flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400">
-                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'right' }} />
-                  <span className="font-medium">New messages</span>
-                  <div className="flex-1 h-px bg-blue-300 dark:bg-blue-700" style={{ animation: 'line-grow 0.4s ease-out both', transformOrigin: 'left' }} />
+
+              {/* Image attachments */}
+              {m.image_attachments && m.image_attachments.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {m.image_attachments.map((url, idx) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={url}
+                        alt={`Attachment ${idx + 1}`}
+                        className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
                 </div>
               )}
-              {/* Wrap with SwipeableMessage on mobile for swipe-to-quote */}
-              {isMobile ? (
-                <SwipeableMessage onQuote={() => handleQuote(m)}>
-                  {messageBubble}
-                </SwipeableMessage>
-              ) : messageBubble}
-            </React.Fragment>
+
+              {/* Proposal embed for MakeupConfirmation messages */}
+              {m.category === "MakeupConfirmation" && (
+                <ProposalEmbed messageText={m.message} currentTutorId={currentTutorId} />
+              )}
+
+              {/* Message footer */}
+              <div className="flex items-center gap-2 sm:gap-4 mt-3 pt-3 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onLike(m.id)}
+                    className={cn(
+                      "flex items-center text-sm transition-colors",
+                      m.is_liked_by_me
+                        ? "text-red-500"
+                        : "text-gray-500 hover:text-red-500"
+                    )}
+                  >
+                    <Heart className={cn("h-4 w-4", m.is_liked_by_me && "fill-current")} />
+                  </button>
+                  <LikesBadge message={m} />
+                </div>
+                {isOwn && !isEditing && (
+                  <>
+                    <button
+                      onClick={() => startEdit(m)}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this message?")) {
+                          onDelete(m.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Delete</span>
+                    </button>
+                  </>
+                )}
+                {idx === allMessages.length - 1 && (
+                  <button
+                    onClick={() => onReply(msg)}
+                    className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#a0704b] transition-colors"
+                  >
+                    <Reply className="h-4 w-4" />
+                    <span className="hidden sm:inline">Reply</span>
+                  </button>
+                )}
+              </div>
+            </div>
           );
         })}
-
-        {/* Optimistic send bubble */}
-        {optimisticMessage && (
-          <div className={cn(
-            "ml-12 sm:ml-20 p-3 rounded-2xl mt-1",
-            optimisticMessage.failed
-              ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40"
-              : "bg-[#ede0cf]/60 dark:bg-[#3d3628]/60 opacity-70"
-          )} style={{ animation: 'message-in 0.2s ease-out both' }}>
-            {!optimisticMessage.failed && (
-              <div className="flex items-center gap-1.5 mb-1">
-                {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#a0704b]"
-                    style={{ animation: `typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />
-                ))}
-              </div>
-            )}
-            {optimisticMessage.text && optimisticMessage.text !== "<p></p>" && (
-              <div
-                className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
-                dangerouslySetInnerHTML={{ __html: optimisticMessage.text }}
-              />
-            )}
-            {optimisticMessage.images.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {optimisticMessage.images.map((url, idx) => (
-                  <img
-                    key={url}
-                    src={url}
-                    alt={`Attachment ${idx + 1}`}
-                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
-                  />
-                ))}
-              </div>
-            )}
-            {optimisticMessage.failed && (
-              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-800/40">
-                <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
-                <span className="text-xs text-red-600 dark:text-red-400">Failed to send</span>
-                <div className="flex-1" />
-                <button
-                  onClick={() => {
-                    replyComposerRef.current?.restoreContent(optimisticMessage.text, [...optimisticMessage.images]);
-                    setOptimisticMessage(null);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Retry
-                </button>
-                <button
-                  onClick={() => setOptimisticMessage(null)}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Discard
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Scroll to bottom button — sticky stays pinned to bottom of scroll viewport */}
-        {showScrollBottom && (
-          <div className="sticky bottom-2 h-0 flex justify-end pr-2 z-10 overflow-visible">
-            <button
-              onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-[#2a2a2a] shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-gray-500 hover:text-[#a0704b] transition-all -translate-y-full"
-              title="Scroll to bottom"
-            >
-              <ChevronDown className="h-5 w-5" />
-            </button>
-          </div>
-        )}
       </div>
-
-      {/* Typing indicator */}
-      {typingUsers && typingUsers.length > 0 && (
-        <TypingIndicator typingUsers={typingUsers} />
-      )}
-
-      {/* Inline reply bar (hidden for scheduled messages) */}
-      {!msg.scheduled_at && (
-        <ReplyComposer
-          ref={replyComposerRef}
-          threadId={threadId}
-          currentTutorId={currentTutorId}
-          mentionUsers={threadMentionUsers}
-          isMobile={isMobile}
-          onSend={handleSendReply}
-          onScheduleSend={handleScheduleReply}
-          onOpenFullEditor={() => onReply(msg)}
-          onDraftChange={onDraftChange}
-          onTyping={handleTyping}
-          templates={templates}
-          onCreateTemplate={onCreateTemplate}
-          onDeleteTemplate={onDeleteTemplate}
-          onSendVoice={onSendVoice}
-        />
-      )}
     </div>
   );
 });
-
-// Stable empty arrays to prevent re-render loops from destructured defaults
-const STABLE_EMPTY_MSG: Message[] = [];
-const STABLE_EMPTY_THREADS: MessageThread[] = [];
 
 export default function InboxPage() {
   usePageTitle("Inbox");
@@ -1149,23 +1454,7 @@ export default function InboxPage() {
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
   const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
-  const onlineTutorIds = usePresence();
-
-  // Build tutor profile picture lookup map (id → picture URL)
-  const tutorPictureMap = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const t of tutors) {
-      if (t.profile_picture) map.set(t.id, t.profile_picture);
-    }
-    // Also include the current user's picture from auth context
-    if (user?.id && user.picture) map.set(user.id, user.picture);
-    return map;
-  }, [tutors, user?.id, user?.picture]);
-  const mentionUsers = useMemo(() =>
-    tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture })),
-    [tutors, tutorPictureMap]
-  );
-  const { showToast, dismissToast } = useToast();
+  const { showToast } = useToast();
 
   // Get initial category from URL param
   const initialCategory = useMemo(() => {
@@ -1186,90 +1475,22 @@ export default function InboxPage() {
     return user?.id ?? null;
   }, [isImpersonating, effectiveRole, impersonatedTutor, user?.id]);
 
-  // Derived value for tutor selection check
-  const hasTutor = typeof effectiveTutorId === "number";
-  const tutorId = hasTutor ? effectiveTutorId : null;
-  const { data: templates = [], mutate: mutateTemplates } = useMessageTemplates(tutorId ?? undefined);
-
   // State
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [showWecom, setShowWecom] = useState(false);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
-  const [forwardFrom, setForwardFrom] = useState<{ subject: string; body: string; category?: string } | undefined>();
   const [isMobile, setIsMobile] = useState(false);
   const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024
   );
-  const [tagsExpanded, setTagsExpanded] = useState(false);
-  const [catCanScrollUp, setCatCanScrollUp] = useState(false);
-  const [catCanScrollDown, setCatCanScrollDown] = useState(false);
-  const catNavRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebouncedValue(searchQuery, 300);  // Debounce search by 300ms
-  const [searchFilters, setSearchFilters] = useState<import("@/lib/hooks").SearchFilters>({});
-  const [showFilters, setShowFilters] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const [shortcutsPos, setShortcutsPos] = useState<{ top: number; left: number } | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Notification sound preference (persisted in localStorage)
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem("inbox_sound_muted") !== "1";
-  });
-  const notifAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  useEffect(() => {
-    localStorage.setItem("inbox_sound_muted", soundEnabled ? "0" : "1");
-  }, [soundEnabled]);
-  const playNotifSound = useCallback(() => {
-    if (!soundEnabled) return;
-    try {
-      if (!notifAudioRef.current) {
-        // Short, subtle notification chime (Web Audio API — reuse context)
-        if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-        const ctx = audioCtxRef.current;
-        if (ctx.state === "suspended") ctx.resume();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.3);
-        return;
-      }
-      notifAudioRef.current.currentTime = 0;
-      notifAudioRef.current.play().catch(() => {});
-    } catch {}
-  }, [soundEnabled]);
-
-  // Track button position when popover is open — compute once on open + on scroll/resize
-  useEffect(() => {
-    if (!showShortcuts || !shortcutsButtonRef.current) {
-      setShortcutsPos(null);
-      return;
-    }
-    const updatePos = () => {
-      if (shortcutsButtonRef.current) {
-        const rect = shortcutsButtonRef.current.getBoundingClientRect();
-        setShortcutsPos({ top: rect.bottom + 8, left: rect.left });
-      }
-    };
-    updatePos();
-    window.addEventListener("scroll", updatePos, true);
-    window.addEventListener("resize", updatePos);
-    return () => {
-      window.removeEventListener("scroll", updatePos, true);
-      window.removeEventListener("resize", updatePos);
-    };
-  }, [showShortcuts]);
+  // Derived value for tutor selection check
+  const hasTutor = typeof effectiveTutorId === "number";
+  const tutorId = hasTutor ? effectiveTutorId : null;
 
   // Get category filter
   const categoryFilter = useMemo(() => {
@@ -1287,38 +1508,25 @@ export default function InboxPage() {
     totalCount,
     loadMore
   } = useMessageThreadsPaginated({
-    tutorId: (selectedCategory === "sent" || selectedCategory === "archived" || selectedCategory === "starred" || selectedCategory === "mentions" || selectedCategory === "scheduled" || selectedCategory === "reminders") ? null : tutorId,
+    tutorId: (selectedCategory === "sent" || selectedCategory === "archived" || selectedCategory === "starred") ? null : tutorId,
     category: categoryFilter,
     search: debouncedSearch || undefined,
     pageSize: 20,
-    filters: searchFilters,
   });
 
-  // Per-category unread counts for sidebar badges (lightweight endpoint)
-  const { data: categoryCountsData } = useUnreadCategoryCounts(tutorId);
+  // Fetch ALL threads (no category filter) for sidebar badge counts
+  const { data: allThreads = [] } = useMessageThreads(tutorId, undefined);
 
-  const { data: sentMessages = STABLE_EMPTY_MSG, isLoading: loadingSent } = useSentMessages(
+  const { data: sentMessages = [], isLoading: loadingSent } = useSentMessages(
     selectedCategory === "sent" ? tutorId : null
   );
 
-  const { data: archivedThreads = STABLE_EMPTY_THREADS, isLoading: loadingArchived } = useArchivedMessages(
+  const { data: archivedThreads = [], isLoading: loadingArchived } = useArchivedMessages(
     selectedCategory === "archived" ? tutorId : null
   );
 
-  const { data: pinnedThreads = STABLE_EMPTY_THREADS, isLoading: loadingPinned } = usePinnedMessages(
+  const { data: pinnedThreads = [], isLoading: loadingPinned } = usePinnedMessages(
     selectedCategory === "starred" ? tutorId : null
-  );
-
-  const { data: mentionedThreads = STABLE_EMPTY_THREADS, isLoading: loadingMentions } = useMentionedMessages(
-    selectedCategory === "mentions" ? tutorId : null
-  );
-
-  const { data: scheduledMessages = STABLE_EMPTY_MSG, isLoading: loadingScheduled } = useScheduledMessages(
-    selectedCategory === "scheduled" ? tutorId : null
-  );
-
-  const { data: snoozedMessages = STABLE_EMPTY_MSG, isLoading: loadingSnoozed } = useSnoozedMessages(
-    selectedCategory === "reminders" ? tutorId : null
   );
 
   const { data: unreadCount } = useUnreadMessageCount(tutorId);
@@ -1342,90 +1550,51 @@ export default function InboxPage() {
     }));
   }, [sentMessages]);
 
-  const scheduledAsThreads: MessageThread[] = useMemo(() => {
-    return scheduledMessages.map(msg => ({
-      root_message: msg,
-      replies: [],
-      total_unread: 0,
-    }));
-  }, [scheduledMessages]);
-
-  const snoozedAsThreads: MessageThread[] = useMemo(() => {
-    return snoozedMessages.map(msg => ({
-      root_message: msg,
-      replies: [],
-      total_unread: 0,
-    }));
-  }, [snoozedMessages]);
-
   // Determine which data to show
-  // Search is now server-side for threads, but still client-side for sent/archived/starred
+  // Search is now server-side for threads, but still client-side for sent/archived
   const displayThreads = useMemo(() => {
-    const clientFilteredCategories: Record<string, MessageThread[]> = {
-      sent: sentAsThreads,
-      archived: archivedThreads,
-      starred: pinnedThreads,
-      scheduled: scheduledAsThreads,
-      mentions: mentionedThreads,
-      reminders: snoozedAsThreads,
-    };
-    const source = clientFilteredCategories[selectedCategory];
-    if (source) {
-      if (!debouncedSearch.trim()) return source;
-      const q = debouncedSearch.toLowerCase();
-      return source.filter(t => {
-        const msg = t.root_message;
-        return msg.subject?.toLowerCase().includes(q) ||
-          msg.message.toLowerCase().includes(q) ||
-          (msg.from_tutor_name || msg.to_tutor_name)?.toLowerCase().includes(q);
+    if (selectedCategory === "sent") {
+      // Client-side filtering for sent messages (not paginated)
+      if (!debouncedSearch.trim()) return sentAsThreads;
+      const query = debouncedSearch.toLowerCase();
+      return sentAsThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.to_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
+    if (selectedCategory === "archived") {
+      // Client-side filtering for archived messages
+      if (!debouncedSearch.trim()) return archivedThreads;
+      const query = debouncedSearch.toLowerCase();
+      return archivedThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.from_tutor_name?.toLowerCase().includes(query)
+        );
+      });
+    }
+    if (selectedCategory === "starred") {
+      // Client-side filtering for pinned/starred messages
+      if (!debouncedSearch.trim()) return pinnedThreads;
+      const query = debouncedSearch.toLowerCase();
+      return pinnedThreads.filter(thread => {
+        const msg = thread.root_message;
+        return (
+          msg.subject?.toLowerCase().includes(query) ||
+          msg.message.toLowerCase().includes(query) ||
+          msg.from_tutor_name?.toLowerCase().includes(query)
+        );
       });
     }
     // For inbox/other categories, threads already filtered server-side
     return threads;
-  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, mentionedThreads, scheduledAsThreads, snoozedAsThreads, threads, debouncedSearch]);
-
-  // Split thread-pinned from the rest (memoized to avoid double .filter() per render)
-  const { pinnedThreads: pinnedInList, unpinnedThreads: unpinnedThreads } = useMemo(() => {
-    if (selectedCategory === "starred") return { pinnedThreads: [] as MessageThread[], unpinnedThreads: displayThreads };
-    const pinned: MessageThread[] = [];
-    const rest: MessageThread[] = [];
-    for (const t of displayThreads) {
-      (t.root_message.is_thread_pinned ? pinned : rest).push(t);
-    }
-    return { pinnedThreads: pinned, unpinnedThreads: rest };
-  }, [displayThreads, selectedCategory]);
-
-  // Bulk selection mode
-  const [bulkMode, setBulkMode] = useState(false);
-  const allThreadIds = useMemo(() => displayThreads.map(t => t.root_message.id), [displayThreads]);
-  const { selectedIds: bulkSelectedIds, toggleSelect: bulkToggle, toggleSelectAll: bulkToggleAll, clearSelection: bulkClear, hasSelection: bulkHasSelection, isAllSelected: bulkAllSelected } = useBulkSelection(allThreadIds);
-
-  // Exit bulk mode when category changes
-  useEffect(() => { setBulkMode(false); bulkClear(); }, [selectedCategory, bulkClear]);
-
-  // Draft tracking for thread list preview
-  const [draftsMap, setDraftsMap] = useState<Map<number, string>>(() => new Map());
-  // Rebuild draft map when thread list changes
-  useEffect(() => {
-    const map = new Map<number, string>();
-    for (const t of displayThreads) {
-      const draft = loadReplyDraft(t.root_message.id);
-      if (draft && !isReplyDraftEmpty(draft.message)) {
-        map.set(t.root_message.id, draft.message);
-      }
-    }
-    setDraftsMap(map);
-  }, [displayThreads]);
-  // Targeted update when a single thread's draft changes
-  const handleDraftChange = useCallback((threadId: number) => {
-    const draft = loadReplyDraft(threadId);
-    setDraftsMap(prev => {
-      const next = new Map(prev);
-      if (draft && !isReplyDraftEmpty(draft.message)) next.set(threadId, draft.message);
-      else next.delete(threadId);
-      return next;
-    });
-  }, []);
+  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
 
   // Filter MakeupConfirmation threads for makeup-confirmation category
   const makeupThreads = useMemo(() => {
@@ -1447,42 +1616,39 @@ export default function InboxPage() {
     return filtered;
   }, [threads, selectedCategory, debouncedSearch]);
 
-  // Map backend category counts (keyed by MessageCategory) to frontend category IDs
+  // Calculate per-category unread counts from all threads (not filtered by category)
   const categoryUnreadCounts = useMemo(() => {
-    const raw = categoryCountsData?.counts || {};
     const counts: Record<string, number> = {};
-    // "inbox" total comes directly from backend
-    if (raw.inbox) counts.inbox = raw.inbox;
-    // "mentions" uses a separate hook, not a category filter
-    if (raw.mentions) counts.mentions = raw.mentions;
-    // Map each MessageCategory value to its frontend category ID
-    for (const cat of CATEGORIES) {
-      if (cat.filter && raw[cat.filter]) {
-        counts[cat.id] = raw[cat.filter];
+    allThreads.forEach(thread => {
+      if (thread.total_unread > 0) {
+        const cat = thread.root_message.category;
+        // Map to category id
+        const catId = cat ? CATEGORIES.find(c => c.filter === cat)?.id : null;
+        if (catId) {
+          counts[catId] = (counts[catId] || 0) + thread.total_unread;
+        }
+        // Also count toward inbox (all messages)
+        counts.inbox = (counts.inbox || 0) + thread.total_unread;
       }
-    }
+    });
     return counts;
-  }, [categoryCountsData]);
+  }, [allThreads]);
 
-  const categoryLoadingMap: Record<string, boolean> = {
-    sent: loadingSent,
-    "makeup-confirmation": loadingProposals,
-    archived: loadingArchived,
-    starred: loadingPinned,
-    mentions: loadingMentions,
-    scheduled: loadingScheduled,
-    reminders: loadingSnoozed,
-  };
-  const isLoading = categoryLoadingMap[selectedCategory] ?? loadingThreads;
+  const isLoading = selectedCategory === "sent"
+    ? loadingSent
+    : selectedCategory === "makeup-confirmation"
+    ? loadingProposals
+    : selectedCategory === "archived"
+    ? loadingArchived
+    : selectedCategory === "starred"
+    ? loadingPinned
+    : loadingThreads;
 
   // Sync selectedThread with latest data from SWR
   // Use a ref to track the selected thread ID to avoid stale closure issues
   const selectedThreadId = selectedThread?.root_message.id;
   useEffect(() => {
     if (selectedThreadId) {
-      // Don't sync scheduled messages — they're complete from GET /messages/scheduled
-      // and syncing would overwrite them, causing a flash-back to the parent thread
-      if (selectedThreadRef.current?.root_message.scheduled_at) return;
       const updatedThread = displayThreads.find(
         t => t.root_message.id === selectedThreadId
       );
@@ -1500,38 +1666,10 @@ export default function InboxPage() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Category sidebar scroll indicators
-  useEffect(() => {
-    const nav = catNavRef.current;
-    if (!nav) return;
-    const check = () => {
-      setCatCanScrollUp(nav.scrollTop > 0);
-      setCatCanScrollDown(nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1);
-    };
-    const timer = setTimeout(check, 100);
-    nav.addEventListener('scroll', check);
-    const ro = new ResizeObserver(check);
-    ro.observe(nav);
-    return () => { clearTimeout(timer); nav.removeEventListener('scroll', check); ro.disconnect(); };
-  }, []);
-
   // Clear selection when category changes
   useEffect(() => {
     setSelectedThread(null);
   }, [selectedCategory]);
-
-  // Select thread — show immediately, then fetch full thread if replies are missing (client-side categories like reminders/scheduled)
-  const handleSelectThread = useCallback(async (thread: MessageThread) => {
-    setSelectedThread(thread);
-    if (thread.replies.length === 0 && tutorId !== null && !thread.root_message.scheduled_at) {
-      try {
-        const fullThread = await messagesAPI.getThread(thread.root_message.id, tutorId);
-        setSelectedThread(fullThread);
-      } catch (err) {
-        console.error("Failed to load full thread:", err);
-      }
-    }
-  }, [tutorId]);
 
   // Browser notifications setup (toast is now handled app-wide in Sidebar)
   const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
@@ -1554,33 +1692,10 @@ export default function InboxPage() {
           body: `You have ${newCount} new message${newCount > 1 ? 's' : ''} in your inbox`,
           icon: '/favicon.ico'
         });
-        // Play notification sound
-        playNotifSound();
       }
       prevUnreadRef.current = unreadCount.count;
     }
-  }, [unreadCount?.count, sendNotification, playNotifSound]);
-
-  // SSE real-time updates — instant push instead of polling
-  const { typingByThread } = useSSE(tutorId, {
-    onNewMessage: useCallback((data: { thread_id: number; from_tutor_name: string | null; preview: string; mentioned_tutor_ids?: number[] }) => {
-      const isMentioned = tutorId != null && data.mentioned_tutor_ids?.includes(tutorId);
-      // Skip notification for muted threads (unless current user is @mentioned)
-      const thread = displayThreads.find(t => t.root_message.id === data.thread_id);
-      if (thread?.root_message.is_thread_muted && !isMentioned) return;
-
-      playNotifSound();
-      sendNotification(isMentioned ? "You were mentioned" : "New Message", {
-        body: data.from_tutor_name
-          ? `${data.from_tutor_name}: ${stripHtml(data.preview)}`
-          : stripHtml(data.preview),
-        icon: "/favicon.ico",
-      });
-    }, [playNotifSound, sendNotification, displayThreads, tutorId]),
-    onReminderDue: useCallback((data: { subject: string | null; preview: string }) => {
-      showToast(`Reminder: ${data.subject || data.preview || "Message"}`, "info");
-    }, [showToast]),
-  });
+  }, [unreadCount?.count, sendNotification]);
 
   // Page title badge with unread count
   useEffect(() => {
@@ -1590,80 +1705,28 @@ export default function InboxPage() {
   }, [unreadCount?.count]);
 
   // Handlers
-  // Undo send: store pending timer so we can cancel
-  const pendingSendRef = useRef<{ timer: ReturnType<typeof setTimeout>; toastId: string } | null>(null);
-
   const handleSendMessage = useCallback(async (data: MessageCreate) => {
     if (tutorId === null) return;
 
-    // Scheduled messages: send immediately (no undo delay)
-    // Caller (ComposeModal/ReplyComposer) handles its own success toast
-    if (data.scheduled_at) {
+    try {
       await messagesAPI.create(data, tutorId);
+      showToast("Message sent!", "success");
+      // Refresh data
       mutate(isAnyMessageKey);
-      return;
+    } catch (error) {
+      showToast("Failed to send message", "error");
+      throw error;
     }
+  }, [tutorId, showToast]);
 
-    // Cancel any existing pending send
-    if (pendingSendRef.current) {
-      clearTimeout(pendingSendRef.current.timer);
-      dismissToast(pendingSendRef.current.toastId);
-      pendingSendRef.current = null;
-    }
-
-    // Show toast with Undo action, delay actual send by 5 seconds
-    const sendData = { ...data };
-    let cancelled = false;
-
-    const timer = setTimeout(async () => {
-      if (cancelled) return;
-      pendingSendRef.current = null;
-      try {
-        await messagesAPI.create(sendData, tutorId);
-        mutate(isAnyMessageKey);
-      } catch {
-        showToast("Failed to send message", "error");
-      }
-    }, 5000);
-
-    const toastId = showToast("Message sent", "success", {
-      label: "Undo",
-      onClick: () => {
-        cancelled = true;
-        clearTimeout(timer);
-        pendingSendRef.current = null;
-        showToast("Message unsent", "info");
-      },
-    });
-
-    pendingSendRef.current = { timer, toastId };
-  }, [tutorId, showToast, dismissToast]);
-
-  const handleCreateTemplate = useCallback(async (title: string, content: string) => {
-    if (!tutorId) return;
-    try {
-      await messagesAPI.createTemplate(tutorId, { title, content });
-      mutateTemplates();
-      showToast("Template saved", "success");
-    } catch { showToast("Failed to save template", "error"); }
-  }, [tutorId, mutateTemplates, showToast]);
-
-  const handleDeleteTemplate = useCallback(async (templateId: number) => {
-    if (!tutorId) return;
-    try {
-      await messagesAPI.deleteTemplate(templateId, tutorId);
-      mutateTemplates();
-    } catch { showToast("Failed to delete template", "error"); }
-  }, [tutorId, mutateTemplates, showToast]);
-
-  const handleLike = useCallback(async (messageId: number, emoji: string = "❤️") => {
+  const handleLike = useCallback(async (messageId: number) => {
     if (tutorId === null) return;
 
     try {
-      await messagesAPI.toggleLike(messageId, tutorId, emoji);
+      await messagesAPI.toggleLike(messageId, tutorId);
       mutate(isThreadsKey);
-    } catch {
-      showToast("Failed to toggle reaction", "error");
+    } catch (error) {
+      showToast("Failed to toggle like", "error");
     }
   }, [tutorId, showToast]);
 
@@ -1704,7 +1767,6 @@ export default function InboxPage() {
       await messagesAPI.markRead(messageId, tutorId);
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     } catch {
-      showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
   }, [tutorId, createReadStatusUpdaters]);
@@ -1726,7 +1788,6 @@ export default function InboxPage() {
       await messagesAPI.markUnread(messageId, tutorId);
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     } catch {
-      showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
   }, [tutorId, createReadStatusUpdaters]);
@@ -1846,180 +1907,6 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast, selectedCategory]);
 
-  const handleThreadPin = useCallback(async (messageId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.threadPin([messageId], tutorId);
-      showToast("Thread pinned!", "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to pin thread", "error");
-    }
-  }, [tutorId, showToast]);
-
-  const handleThreadUnpin = useCallback(async (messageId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.threadUnpin([messageId], tutorId);
-      showToast("Thread unpinned!", "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to unpin thread", "error");
-    }
-  }, [tutorId, showToast]);
-
-  const handleSnooze = useCallback(async (messageId: number, snoozeUntil: string) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.snooze([messageId], tutorId, snoozeUntil);
-      const until = new Date(snoozeUntil);
-      showToast(`Reminder set for ${until.toLocaleDateString()} ${until.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to set reminder", "error");
-    }
-  }, [tutorId, showToast]);
-
-  const handleUnsnooze = useCallback(async (messageId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.unsnooze([messageId], tutorId);
-      showToast("Reminder removed", "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to remove reminder", "error");
-    }
-  }, [tutorId, showToast]);
-
-  const handleThreadMute = useCallback(async (messageId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.threadMute([messageId], tutorId);
-      showToast("Thread muted", "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to mute thread", "error");
-    }
-  }, [tutorId, showToast]);
-
-  const handleThreadUnmute = useCallback(async (messageId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.threadUnmute([messageId], tutorId);
-      showToast("Thread unmuted", "success");
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to unmute thread", "error");
-    }
-  }, [tutorId, showToast]);
-
-  // Voice message handler: upload audio file then send as file_attachment
-  const handleSendVoice = useCallback(async (file: File) => {
-    if (tutorId === null || !selectedThread) return;
-    try {
-      const uploaded = await messagesAPI.uploadFile(file, tutorId);
-      // Send a reply message with the voice attachment
-      await messagesAPI.create({
-        message: `<p>🎙️ Voice message</p>`,
-        reply_to_id: selectedThread.root_message.id,
-        file_attachments: [uploaded],
-      }, tutorId);
-      mutate(isAnyMessageKey);
-    } catch {
-      showToast("Failed to send voice message", "error");
-    }
-  }, [tutorId, selectedThread, showToast]);
-
-  const handleCancelScheduled = useCallback(async (msgId: number) => {
-    if (tutorId === null) return;
-    try {
-      await messagesAPI.cancelScheduled(msgId, tutorId);
-      mutate(isAnyMessageKey);
-      setSelectedThread(null);
-      showToast("Scheduled message cancelled", "info");
-    } catch {
-      showToast("Failed to cancel scheduled message", "error");
-    }
-  }, [tutorId, showToast]);
-
-  // Keyboard shortcuts — use refs to avoid re-registering on every state change
-  const selectedThreadRef = useRef(selectedThread);
-  const displayThreadsRef = useRef(displayThreads);
-  const showShortcutsRef = useRef(showShortcuts);
-  const searchQueryRef = useRef(searchQuery);
-  const handleComposeRef = useRef(handleCompose);
-  useEffect(() => {
-    selectedThreadRef.current = selectedThread;
-    displayThreadsRef.current = displayThreads;
-    showShortcutsRef.current = showShortcuts;
-    searchQueryRef.current = searchQuery;
-    handleComposeRef.current = handleCompose;
-  }, [selectedThread, displayThreads, showShortcuts, searchQuery, handleCompose]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Skip if typing in an input/editor
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).closest(".tiptap")) return;
-
-      const threads = displayThreadsRef.current;
-      const selected = selectedThreadRef.current;
-
-      switch (e.key) {
-        case "?":
-          e.preventDefault();
-          setShowShortcuts(prev => !prev);
-          break;
-        case "j":
-        case "ArrowDown": {
-          if (!threads.length) break;
-          e.preventDefault();
-          const currentIdx = selected
-            ? threads.findIndex(t => t.root_message.id === selected.root_message.id)
-            : -1;
-          const nextIdx = Math.min(currentIdx + 1, threads.length - 1);
-          setSelectedThread(threads[nextIdx]);
-          break;
-        }
-        case "k":
-        case "ArrowUp": {
-          if (!threads.length || !selected) break;
-          e.preventDefault();
-          const curIdx = threads.findIndex(t => t.root_message.id === selected.root_message.id);
-          const prevIdx = Math.max(curIdx - 1, 0);
-          setSelectedThread(threads[prevIdx]);
-          break;
-        }
-        case "Enter":
-          if (!selected && threads.length > 0) {
-            e.preventDefault();
-            setSelectedThread(threads[0]);
-          }
-          break;
-        case "Escape":
-          e.preventDefault();
-          if (showShortcutsRef.current) {
-            setShowShortcuts(false);
-          } else if (selected) {
-            setSelectedThread(null);
-          } else if (searchQueryRef.current) {
-            setSearchQuery("");
-          }
-          break;
-        case "c":
-          e.preventDefault();
-          handleComposeRef.current();
-          break;
-        case "/":
-          e.preventDefault();
-          searchInputRef.current?.focus();
-          break;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
   if (isSupervisor || isGuest) {
     return (
       <DeskSurface fullHeight>
@@ -2034,9 +1921,9 @@ export default function InboxPage() {
   return (
     <DeskSurface fullHeight>
       <PageTransition className="h-full">
-        <div className="h-full flex flex-col overflow-hidden gap-1">
+        <div className="h-full flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-b-lg mx-1 px-4 py-3">
+          <div className="flex-shrink-0 bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm border-b border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Inbox className="h-6 w-6 text-[#a0704b]" />
@@ -2053,26 +1940,6 @@ export default function InboxPage() {
                     {unreadCount.count}
                   </span>
                 )}
-                <button
-                  onClick={() => setSoundEnabled(prev => !prev)}
-                  className={cn(
-                    "w-6 h-6 inline-flex items-center justify-center rounded-full transition-colors border",
-                    soundEnabled
-                      ? "text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-300 dark:border-gray-600"
-                      : "text-gray-300 dark:text-gray-600 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border-gray-200 dark:border-gray-700"
-                  )}
-                  title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
-                >
-                  {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
-                </button>
-                <button
-                  ref={shortcutsButtonRef}
-                  onClick={() => setShowShortcuts(prev => !prev)}
-                  className="hidden lg:inline-flex w-6 h-6 items-center justify-center rounded-full text-xs text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] border border-gray-300 dark:border-gray-600 transition-colors"
-                  title="Keyboard shortcuts (?)"
-                >
-                  ?
-                </button>
               </div>
               <div className="flex items-center gap-3">
                 {isAdmin && (
@@ -2088,7 +1955,7 @@ export default function InboxPage() {
                 <button
                   onClick={handleCompose}
                   disabled={!hasTutor}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-50"
                 >
                   <PenSquare className="h-4 w-4" />
                   Compose
@@ -2098,128 +1965,92 @@ export default function InboxPage() {
           </div>
 
           {/* Main content - 3 panel layout */}
-          <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
+          <div className="flex-1 flex overflow-hidden min-h-0">
             {/* Left panel - Categories */}
             <div className={cn(
-              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden relative",
-              categoryCollapsed ? "w-12" : "w-48"
+              "h-full flex-shrink-0 border-r border-[#e8d4b8] dark:border-[#6b5a4a] bg-white/50 dark:bg-[#1a1a1a]/50 transition-all duration-200 overflow-y-auto",
+              categoryCollapsed ? "w-12" : "w-48",
+              isMobile && selectedThread && "hidden"
             )}>
-              {/* Top scroll indicator */}
-              <div className={cn(
-                "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-t-lg",
-                "bg-gradient-to-b from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
-                catCanScrollUp ? "opacity-100" : "opacity-0"
-              )} />
-              <div ref={catNavRef} className="h-full overflow-y-auto overflow-x-hidden scrollbar-hide p-2">
+              <div className="p-2">
                 <button
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 mb-1"
+                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] mb-1"
                   title={categoryCollapsed ? "Expand" : "Collapse"}
                 >
                   {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
                 <nav>
-                  {CATEGORY_SECTIONS.map((section, sectionIdx) => {
-                    const isCollapsible = section.collapsible;
-                    const isExpanded = !isCollapsible || tagsExpanded;
-                    const hasUnread = isCollapsible && section.items.some(c => categoryUnreadCounts[c.id] > 0);
-
-                    return (
-                      <div key={section.id}>
-                        {sectionIdx > 0 && (
-                          <div className="mt-3 mb-1">
-                            <div className="mx-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30" />
-                            {section.label && (
-                              isCollapsible ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setTagsExpanded(!tagsExpanded)}
-                                  className={cn(
-                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
-                                    categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
-                                  )}
-                                >
-                                  <span>{section.label}</span>
-                                  {hasUnread && !isExpanded && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#a0704b] flex-shrink-0" />
-                                  )}
-                                  <ChevronDown className={cn(
-                                    "h-3 w-3 ml-auto transition-transform duration-200",
-                                    isExpanded ? "rotate-180" : ""
-                                  )} />
-                                </button>
-                              ) : (
-                                <div className={cn(
-                                  "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap transition-opacity duration-200",
-                                  categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
-                                )}>
-                                  {section.label}
-                                </div>
-                              )
-                            )}
+                  {CATEGORY_SECTIONS.map((section, sectionIdx) => (
+                    <div key={section.id}>
+                      {sectionIdx > 0 && (
+                        categoryCollapsed ? (
+                          <div className="my-2 mx-2 border-t border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                        ) : (
+                          <div className="mt-3 mb-1 px-3">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                              {section.label}
+                            </span>
                           </div>
-                        )}
-                        <div className={cn(
-                          "space-y-1 overflow-hidden transition-all duration-200",
-                          isCollapsible && !isExpanded ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
-                        )}>
-                          {section.items.map((cat) => (
-                            <button
-                              key={cat.id}
-                              onClick={() => setSelectedCategory(cat.id)}
-                              className={cn(
-                                "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
-                                categoryCollapsed ? "px-2" : "px-3",
-                                selectedCategory === cat.id
-                                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                                  : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                              )}
-                              title={cat.label}
-                            >
-                              <span className="relative flex-shrink-0">
-                                {cat.icon}
-                              </span>
-                              <span className="flex-1 truncate">{cat.label}</span>
-                              {categoryUnreadCounts[cat.id] > 0 && (
-                                <span className={cn(
-                                  "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
-                                  categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
-                                )}>
+                        )
+                      )}
+                      <div className="space-y-1">
+                        {section.items.map((cat) => (
+                          <button
+                            key={cat.id}
+                            onClick={() => setSelectedCategory(cat.id)}
+                            className={cn(
+                              "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors min-h-[44px]",
+                              categoryCollapsed && "justify-center px-2",
+                              selectedCategory === cat.id
+                                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                                : "text-gray-700 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                            )}
+                            title={categoryCollapsed ? cat.label : undefined}
+                          >
+                            <span className="relative">
+                              {cat.icon}
+                              {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
+                                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold text-white bg-[#a0704b] rounded-full px-0.5">
                                   {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
                                 </span>
                               )}
-                            </button>
-                          ))}
-                        </div>
+                            </span>
+                            {!categoryCollapsed && (
+                              <>
+                                <span className="flex-1">{cat.label}</span>
+                                {categoryUnreadCounts[cat.id] > 0 && (
+                                  <span className="min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1">
+                                    {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </nav>
               </div>
-              {/* Bottom scroll indicator */}
-              <div className={cn(
-                "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200 rounded-b-lg",
-                "bg-gradient-to-t from-white to-transparent dark:from-[#1a1a1a] dark:to-transparent",
-                catCanScrollDown ? "opacity-100" : "opacity-0"
-              )} />
             </div>
 
             {/* Middle panel - Thread list */}
             <div className={cn(
-              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg overflow-hidden flex flex-col"
+              "flex-1 min-w-0 min-h-0 bg-white/90 dark:bg-[#1a1a1a]/30 flex flex-col",
+              isMobile && selectedThread && "hidden"
             )}>
               {/* Search bar */}
-              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60">
+              <div className="flex-shrink-0 p-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
-                      ref={searchInputRef}
                       type="text"
-                      placeholder="Search..."
+                      placeholder="Search messages..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-[#a0704b]/20 focus:border-[#a0704b] transition-shadow outline-none"
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400"
                     />
                   </div>
                   {displayThreads.some(t => t.total_unread > 0) && selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && (
@@ -2233,157 +2064,34 @@ export default function InboxPage() {
                           showToast("Failed to mark all as read", "error");
                         }
                       }}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded-lg transition-colors"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                       title="Mark all as read"
                     >
                       <Check className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Mark all read</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => { setShowFilters(prev => !prev); if (showFilters) setSearchFilters({}); }}
-                    className={cn(
-                      "flex-shrink-0 p-2 rounded-lg transition-colors",
-                      showFilters || Object.values(searchFilters).some(Boolean)
-                        ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                        : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                    )}
-                    title={showFilters ? "Hide filters" : "Show filters"}
-                  >
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </button>
-                  {displayThreads.length > 0 && selectedCategory !== "sent" && (
-                    <button
-                      onClick={() => { setBulkMode(prev => !prev); bulkClear(); }}
-                      className={cn(
-                        "flex-shrink-0 p-2 rounded-lg transition-colors",
-                        bulkMode
-                          ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                          : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                      )}
-                      title={bulkMode ? "Exit select mode" : "Select threads"}
-                    >
-                      <ListChecks className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {/* Search filters */}
-                {showFilters && (
-                  <SearchFilters
-                    filters={searchFilters}
-                    onChange={setSearchFilters}
-                    tutors={tutors}
-                  />
-                )}
-                {/* Bulk action bar */}
-                <div className={cn(
-                  "grid transition-all duration-200",
-                  bulkMode ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                )}>
-                  <div className="overflow-hidden">
-                    <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-                      <button
-                        onClick={bulkToggleAll}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                      >
-                        {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
-                        {bulkAllSelected ? "Deselect all" : "Select all"}
-                      </button>
-                      {bulkHasSelection && (
-                        <>
-                          <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{bulkSelectedIds.size} selected</span>
-                          <div className="flex-1" />
-                          {selectedCategory !== "archived" && (
-                            <button
-                              onClick={async () => {
-                                if (!hasTutor || tutorId === null) return;
-                                try {
-                                  await messagesAPI.archive(Array.from(bulkSelectedIds), tutorId);
-                                  mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
-                                  bulkClear();
-                                  showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
-                                } catch { showToast("Failed to archive", "error"); }
-                              }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                            >
-                              <Archive className="h-3.5 w-3.5" />
-                              Archive
-                            </button>
-                          )}
-                          {selectedCategory === "archived" && (
-                            <button
-                              onClick={async () => {
-                                if (!hasTutor || tutorId === null) return;
-                                try {
-                                  await messagesAPI.unarchive(Array.from(bulkSelectedIds), tutorId);
-                                  mutate((key) => isThreadsKey(key) || isUnreadKey(key) || isArchivedKey(key));
-                                  bulkClear();
-                                  showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
-                                } catch { showToast("Failed to unarchive", "error"); }
-                              }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                            >
-                              <ArchiveRestore className="h-3.5 w-3.5" />
-                              Unarchive
-                            </button>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (!hasTutor || tutorId === null) return;
-                              try {
-                                await messagesAPI.pin(Array.from(bulkSelectedIds), tutorId);
-                                mutate((key) => isThreadsKey(key) || isPinnedKey(key));
-                                bulkClear();
-                                showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
-                              } catch { showToast("Failed to star", "error"); }
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
-                          >
-                            <Star className="h-3.5 w-3.5" />
-                            Star
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
               {isLoading ? (
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {([
-                    ["w-1/3", "w-2/3"],
-                    ["w-2/5", "w-1/2"],
-                    ["w-1/4", "w-3/4"],
-                    ["w-1/3", "w-3/5"],
-                    ["w-2/5", "w-1/2"],
-                  ] as const).map(([nameW, bodyW], i) => (
-                    <div key={i} className="relative rounded-lg border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white dark:bg-[#1a1a1a] p-4 overflow-hidden"
-                      style={{ animationDelay: `${i * 0.1}s` }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="animate-pulse rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] p-4">
                       <div className="flex items-start gap-3">
                         <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex-shrink-0" />
-                        <div className="flex-1 space-y-2.5 min-w-0">
-                          <div className={cn("h-4 bg-gray-200 dark:bg-gray-700 rounded", nameW)} />
-                          <div className={cn("h-3 bg-gray-100 dark:bg-gray-800 rounded", bodyW)} />
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <div className="h-4 w-1/3 bg-gray-300 dark:bg-gray-600 rounded" />
+                          <div className="h-3 w-1/2 bg-gray-200 dark:bg-gray-700 rounded" />
                         </div>
-                        <div className="h-3 w-12 bg-gray-100 dark:bg-gray-800 rounded flex-shrink-0" />
+                        <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded flex-shrink-0" />
                       </div>
-                      <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
                     </div>
                   ))}
                 </div>
               ) : (threadsError || proposalsError) ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-red-500 gap-3">
-                  <div className="flex items-center">
-                    <AlertCircle className="h-6 w-6 mr-2" />
-                    Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
-                  </div>
-                  <button
-                    onClick={() => mutate(isAnyMessageKey)}
-                    className="px-4 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    Retry
-                  </button>
+                <div className="flex-1 flex items-center justify-center text-red-500">
+                  <AlertCircle className="h-6 w-6 mr-2" />
+                  Failed to load {selectedCategory === "makeup-confirmation" ? "proposals" : "messages"}
                 </div>
               ) : (selectedCategory === "makeup-confirmation" ? (proposals.length === 0 && makeupThreads.length === 0) : displayThreads.length === 0) ? (
                 <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-500">
@@ -2398,16 +2106,6 @@ export default function InboxPage() {
                         ? "No messages match your search"
                         : EMPTY_MESSAGES[selectedCategory] || "No messages in your inbox"}
                     </p>
-                    {!searchQuery && ["inbox", "sent", "starred", "archived"].includes(selectedCategory) && (
-                      <button
-                        onClick={handleCompose}
-                        disabled={!hasTutor}
-                        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
-                      >
-                        <PenSquare className="h-4 w-4" />
-                        Compose
-                      </button>
-                    )}
                   </div>
                 </div>
               ) : selectedCategory === "makeup-confirmation" ? (
@@ -2448,10 +2146,7 @@ export default function InboxPage() {
                           key={thread.root_message.id}
                           thread={thread}
                           isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => handleSelectThread(thread)}
-                          pictureMap={tutorPictureMap}
-                          draftPreview={draftsMap.get(thread.root_message.id)}
-                          onlineTutorIds={onlineTutorIds}
+                          onClick={() => setSelectedThread(thread)}
                         />
                       ))}
                     </>
@@ -2459,68 +2154,16 @@ export default function InboxPage() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-y-auto">
-                  {(() => {
-                    const renderThread = (thread: MessageThread, showSearch?: boolean) => {
-                      const item = (
-                        <ThreadItem
-                          key={thread.root_message.id}
-                          thread={thread}
-                          isSelected={selectedThread?.root_message.id === thread.root_message.id}
-                          onClick={() => handleSelectThread(thread)}
-                          isSentView={selectedCategory === "sent"}
-                          searchQuery={showSearch ? debouncedSearch : undefined}
-                          pictureMap={tutorPictureMap}
-                          draftPreview={draftsMap.get(thread.root_message.id)}
-                          bulkMode={bulkMode}
-                          bulkSelected={bulkSelectedIds.has(thread.root_message.id)}
-                          onBulkToggle={() => bulkToggle(thread.root_message.id)}
-                          onlineTutorIds={onlineTutorIds}
-                        />
-                      );
-                      if (!isMobile || selectedCategory === "sent") return item;
-                      return (
-                        <SwipeableThreadItem
-                          key={thread.root_message.id}
-                          onSwipeLeftAction={selectedCategory !== "archived" ? () => handleArchive(thread.root_message.id) : undefined}
-                          onSwipeRightAction={() => thread.root_message.is_thread_pinned ? handleThreadUnpin(thread.root_message.id) : handleThreadPin(thread.root_message.id)}
-                          rightLabel={thread.root_message.is_thread_pinned ? "Unpin" : "Pin"}
-                        >
-                          {item}
-                        </SwipeableThreadItem>
-                      );
-                    };
-
-                    return debouncedSearch.trim() ? (
-                      // Flat list when searching — pinned threads first
-                      <>
-                        {pinnedInList.map((thread) => renderThread(thread, true))}
-                        {unpinnedThreads.map((thread) => renderThread(thread, true))}
-                      </>
-                    ) : (
-                      // Pinned group first, then grouped by date
-                      <>
-                        {pinnedInList.length > 0 && (
-                          <div>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-1.5">
-                              <Pin className="h-3 w-3" />
-                              Pinned
-                            </div>
-                            {pinnedInList.map((thread) => renderThread(thread))}
-                          </div>
-                        )}
-                        {groupThreadsByDate(unpinnedThreads).map((group) => (
-                          <div key={group.label}>
-                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
-                              {group.label}
-                            </div>
-                            {group.threads.map((thread) => renderThread(thread))}
-                          </div>
-                        ))}
-                      </>
-                    );
-                  })()}
-                  {/* Load More button for paginated threads (not for client-side categories) */}
-                  {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && selectedCategory !== "reminders" && selectedCategory !== "scheduled" && selectedCategory !== "mentions" && hasMore && displayThreads.length > 0 && (
+                  {displayThreads.map((thread) => (
+                    <ThreadItem
+                      key={thread.root_message.id}
+                      thread={thread}
+                      isSelected={selectedThread?.root_message.id === thread.root_message.id}
+                      onClick={() => setSelectedThread(thread)}
+                    />
+                  ))}
+                  {/* Load More button for paginated threads (not for sent or archived) */}
+                  {selectedCategory !== "sent" && selectedCategory !== "archived" && selectedCategory !== "starred" && hasMore && displayThreads.length > 0 && (
                     <div className="p-4 border-t border-[#e8d4b8] dark:border-[#6b5a4a]">
                       <button
                         onClick={loadMore}
@@ -2543,14 +2186,9 @@ export default function InboxPage() {
             </div>
 
             {/* Right panel - Thread detail */}
-            {selectedThread && hasTutor ? (
-              <div
-                key={selectedThread.root_message.id}
-                role="region"
-                aria-label="Thread detail"
-                aria-live="polite"
-                className={cn(
-                "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
+            {selectedThread && hasTutor && (
+              <div className={cn(
+                "h-full border-l border-[#e8d4b8] dark:border-[#6b5a4a]",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
                 <ThreadDetailPanel
@@ -2558,7 +2196,6 @@ export default function InboxPage() {
                   currentTutorId={effectiveTutorId}
                   onClose={() => setSelectedThread(null)}
                   onReply={handleReply}
-                  onSendMessage={handleSendMessage}
                   onLike={handleLike}
                   onMarkRead={handleMarkRead}
                   onMarkUnread={handleMarkUnread}
@@ -2568,45 +2205,9 @@ export default function InboxPage() {
                   onUnarchive={handleUnarchive}
                   onPin={handlePin}
                   onUnpin={handleUnpin}
-                  onThreadPin={handleThreadPin}
-                  onThreadUnpin={handleThreadUnpin}
-                  onForward={(m: Message) => {
-                    const senderName = m.from_tutor_name || "Unknown";
-                    const date = new Date(m.created_at).toLocaleString();
-                    const fwdBody = `<blockquote><p><strong>Forwarded from ${senderName}</strong> <em>(${date})</em></p>${m.message}</blockquote><p></p>`;
-                    setForwardFrom({
-                      subject: `Fwd: ${m.subject || "(no subject)"}`,
-                      body: fwdBody,
-                      category: m.category || undefined,
-                    });
-                    setReplyTo(undefined);
-                    setShowCompose(true);
-                  }}
                   isArchived={selectedCategory === "archived"}
                   isMobile={isMobile}
-                  pictureMap={tutorPictureMap}
-                  onDraftChange={handleDraftChange}
-                  mentionUsers={mentionUsers}
-                  typingUsers={(typingByThread.get(selectedThread.root_message.id) || []).filter(u => u.tutorId !== tutorId)}
-                  onlineTutorIds={onlineTutorIds}
-                  templates={templates}
-                  onCreateTemplate={handleCreateTemplate}
-                  onDeleteTemplate={handleDeleteTemplate}
-                  onThreadMute={handleThreadMute}
-                  onThreadUnmute={handleThreadUnmute}
-                  onSnooze={handleSnooze}
-                  onUnsnooze={handleUnsnooze}
-                  onSendVoice={handleSendVoice}
-                  onCancelScheduled={handleCancelScheduled}
                 />
-              </div>
-            ) : !isMobile && (
-              <div className="w-[450px] xl:w-[550px] flex-shrink-0 flex items-center justify-center bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg">
-                <div className="text-center text-gray-400 dark:text-gray-500">
-                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">Select a conversation</p>
-                  <p className="text-xs mt-1 opacity-60">or press <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[10px] font-mono">c</kbd> to compose</p>
-                </div>
               </div>
             )}
           </div>
@@ -2616,62 +2217,26 @@ export default function InboxPage() {
       {/* Compose Modal */}
       <ComposeModal
         isOpen={showCompose}
-        onClose={() => { setShowCompose(false); setForwardFrom(undefined); }}
+        onClose={() => setShowCompose(false)}
         tutors={tutors}
         fromTutorId={tutorId ?? 0}
         replyTo={replyTo}
         onSend={handleSendMessage}
-        forwardFrom={forwardFrom}
-        pictureMap={tutorPictureMap}
       />
 
-      {/* WeCom Send Modal (lazy-loaded) */}
-      {showWecom && (
-        <Suspense fallback={null}>
-          <SendToWecomModal
-            isOpen={showWecom}
-            onClose={() => setShowWecom(false)}
-          />
-        </Suspense>
-      )}
+      {/* WeCom Send Modal */}
+      <SendToWecomModal
+        isOpen={showWecom}
+        onClose={() => setShowWecom(false)}
+      />
 
-      {/* Schedule Makeup Modal for needs_input proposals (lazy-loaded) */}
+      {/* Schedule Makeup Modal for needs_input proposals */}
       {makeupModalSession && (
-        <Suspense fallback={null}>
-          <ScheduleMakeupModal
-            session={makeupModalSession}
-            isOpen={!!makeupModalSession}
-            onClose={() => setMakeupModalSession(null)}
-          />
-        </Suspense>
-      )}
-
-      {/* Keyboard Shortcuts Help Panel — subtle dropdown anchored to ? button */}
-      {showShortcuts && shortcutsPos && (
-          <>
-            <div className="fixed inset-0 z-[60]" onClick={() => setShowShortcuts(false)} />
-            <div
-              className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] px-4 py-3 w-56"
-              style={{ top: shortcutsPos.top, left: shortcutsPos.left }}
-            >
-              <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">Keyboard Shortcuts</h4>
-              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[11px]">
-                {[
-                  ["j / k", "Navigate threads"],
-                  ["Enter", "Open first thread"],
-                  ["Esc", "Close / clear"],
-                  ["c", "Compose message"],
-                  ["/", "Focus search"],
-                  ["?", "This help"],
-                ].map(([key, desc]) => (
-                  <div key={key} className="contents">
-                    <kbd className="text-gray-700 dark:text-gray-300 font-mono bg-gray-100 dark:bg-[#1a1a1a] px-1.5 py-0.5 rounded text-[10px] text-center">{key}</kbd>
-                    <span className="text-gray-500 dark:text-gray-400 py-0.5">{desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+        <ScheduleMakeupModal
+          session={makeupModalSession}
+          isOpen={!!makeupModalSession}
+          onClose={() => setMakeupModalSession(null)}
+        />
       )}
     </DeskSurface>
   );

@@ -8,7 +8,6 @@ export interface Tutor {
   default_location?: string;
   role: TutorRole;
   is_active_tutor?: boolean;
-  profile_picture?: string;
 }
 
 // Session Status constants
@@ -671,24 +670,6 @@ export interface LikeDetail {
   tutor_id: number;
   tutor_name: string;
   liked_at: string;
-  emoji: string;
-}
-
-export interface ReactionSummary {
-  emoji: string;
-  count: number;
-  tutor_ids: number[];
-}
-
-export interface MessageTemplate {
-  id: number;
-  tutor_id: number | null;
-  title: string;
-  content: string;
-  category: string | null;
-  is_global: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Message {
@@ -706,21 +687,14 @@ export interface Message {
   reply_to_id?: number;
   is_read: boolean;
   is_pinned: boolean;
-  is_thread_pinned?: boolean;
-  is_thread_muted?: boolean;
-  is_snoozed?: boolean;
-  snoozed_until?: string | null;
-  scheduled_at?: string | null;
   is_group_message?: boolean;
   to_tutor_ids?: number[];    // Group message recipient IDs
   to_tutor_names?: string[];  // Group message recipient names
   like_count: number;
   is_liked_by_me: boolean;
   like_details?: LikeDetail[];
-  reaction_summary?: ReactionSummary[];
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
-  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
   // Read receipt fields for sender's messages (WhatsApp-style seen status)
   read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
   total_recipients?: number;  // Total recipients for broadcasts/groups
@@ -758,8 +732,6 @@ export interface MessageCreate {
   priority?: MessagePriority;
   category?: MessageCategory;
   image_attachments?: string[];  // List of uploaded image URLs
-  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
-  scheduled_at?: string;  // ISO datetime string for scheduled send
 }
 
 // Make-up scheduling types

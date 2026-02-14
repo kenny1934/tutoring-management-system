@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useEditor, EditorContent, Editor, ReactRenderer } from "@tiptap/react";
+import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
-import Mention from "@tiptap/extension-mention";
-import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import {
   Bold,
@@ -21,10 +19,9 @@ import {
   ListOrdered,
   Palette,
   Smile,
-  Paperclip,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -48,7 +45,7 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
       type="button"
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1",
+        "p-1.5 rounded transition-colors",
         isActive
           ? "bg-[#a0704b] text-white"
           : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
@@ -60,94 +57,6 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
   );
 }
 
-// --- Mention suggestion list component ---
-export interface MentionUser {
-  id: number;
-  label: string;
-  pictureUrl?: string;
-}
-
-interface MentionListProps {
-  items: MentionUser[];
-  command: (item: MentionUser) => void;
-}
-
-interface MentionListRef {
-  onKeyDown: (props: { event: KeyboardEvent }) => boolean;
-}
-
-import React from "react";
-
-function MentionAvatar({ item }: { item: MentionUser }) {
-  const [imgError, setImgError] = useState(false);
-  if (item.pictureUrl && !imgError) {
-    return (
-      <img
-        src={item.pictureUrl}
-        alt={item.label}
-        className="w-5 h-5 rounded-full object-cover flex-shrink-0"
-        referrerPolicy="no-referrer"
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-  return (
-    <span className={cn("w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0", AVATAR_COLORS[item.id % AVATAR_COLORS.length])}>
-      {getInitials(item.label)}
-    </span>
-  );
-}
-
-const MentionList = React.forwardRef<MentionListRef, MentionListProps>(
-  ({ items, command }, ref) => {
-    const [selectedIndex, setSelectedIndex] = useState(0);
-
-    useEffect(() => setSelectedIndex(0), [items]);
-
-    React.useImperativeHandle(ref, () => ({
-      onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-        if (event.key === "ArrowUp") {
-          setSelectedIndex((prev) => (prev + items.length - 1) % items.length);
-          return true;
-        }
-        if (event.key === "ArrowDown") {
-          setSelectedIndex((prev) => (prev + 1) % items.length);
-          return true;
-        }
-        if (event.key === "Enter") {
-          if (items[selectedIndex]) command(items[selectedIndex]);
-          return true;
-        }
-        return false;
-      },
-    }));
-
-    if (items.length === 0) return null;
-
-    return (
-      <div className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[160px] max-h-[200px] overflow-y-auto z-50">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            className={cn(
-              "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors text-left",
-              index === selectedIndex
-                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b]"
-                : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
-            )}
-            onClick={() => command(item)}
-          >
-            <MentionAvatar item={item} />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </div>
-    );
-  }
-);
-MentionList.displayName = "MentionList";
-
 interface InboxRichEditorProps {
   /** Called with Tiptap editor instance once created */
   onEditorReady?: (editor: Editor) => void;
@@ -155,36 +64,26 @@ interface InboxRichEditorProps {
   onUpdate: (html: string) => void;
   /** Trigger file input for image attachment */
   onAttachImage?: () => void;
-  /** Called when images are pasted from clipboard */
-  onPasteFiles?: (files: File[]) => void;
   /** Initial HTML content */
   initialContent?: string;
   /** Placeholder text */
   placeholder?: string;
   /** Minimum height of editor area */
   minHeight?: string;
-  /** List of mentionable users (for @mentions) */
-  mentionUsers?: MentionUser[];
 }
 
 export default function InboxRichEditor({
   onEditorReady,
   onUpdate,
   onAttachImage,
-  onPasteFiles,
   initialContent = "",
   placeholder = "Write your message...",
   minHeight = "150px",
-  mentionUsers,
 }: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
-
-  // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
-  const mentionUsersRef = useRef(mentionUsers);
-  useEffect(() => { mentionUsersRef.current = mentionUsers; }, [mentionUsers]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -205,80 +104,6 @@ export default function InboxRichEditor({
       }),
       TextStyle,
       Color,
-      Mention.configure({
-        HTMLAttributes: {
-          class: "mention",
-        },
-        suggestion: {
-          items: ({ query }: { query: string }) => {
-            const users = mentionUsersRef.current || [];
-            const getFirstName = (name: string) => {
-              const parts = name.split(' ');
-              return parts.length > 1 ? parts[1] : parts[0];
-            };
-            return users
-              .filter((u) => u.label.toLowerCase().includes(query.toLowerCase()))
-              .sort((a, b) => getFirstName(a.label).localeCompare(getFirstName(b.label)));
-          },
-          render: () => {
-            let component: ReactRenderer<MentionListRef> | null = null;
-            let popup: HTMLDivElement | null = null;
-
-            const positionPopup = (rect: DOMRect, el: HTMLDivElement) => {
-              const popupHeight = el.offsetHeight || 200;
-              const spaceBelow = window.innerHeight - rect.bottom;
-              const goAbove = spaceBelow < popupHeight + 8;
-              el.style.left = `${rect.left}px`;
-              el.style.top = goAbove
-                ? `${rect.top + window.scrollY - popupHeight - 4}px`
-                : `${rect.bottom + window.scrollY + 4}px`;
-            };
-
-            return {
-              onStart: (props: SuggestionProps) => {
-                component = new ReactRenderer(MentionList, {
-                  props,
-                  editor: props.editor,
-                });
-
-                popup = document.createElement("div");
-                popup.style.position = "absolute";
-                popup.style.zIndex = "9999";
-                document.body.appendChild(popup);
-                popup.appendChild(component.element);
-
-                const rect = props.clientRect?.();
-                if (rect && popup) {
-                  positionPopup(rect, popup);
-                }
-              },
-              onUpdate: (props: SuggestionProps) => {
-                component?.updateProps(props);
-                const rect = props.clientRect?.();
-                if (rect && popup) {
-                  positionPopup(rect, popup);
-                }
-              },
-              onKeyDown: (props: SuggestionKeyDownProps) => {
-                if (props.event.key === "Escape") {
-                  popup?.remove();
-                  component?.destroy();
-                  popup = null;
-                  component = null;
-                  return true;
-                }
-                return component?.ref?.onKeyDown(props) ?? false;
-              },
-              onExit: () => {
-                popup?.remove();
-                component?.destroy();
-                popup = null;
-                component = null;
-              },
-            };
-          },
-        },
-      }),
     ],
     content: initialContent,
     onUpdate: ({ editor }) => {
@@ -287,18 +112,6 @@ export default function InboxRichEditor({
     editorProps: {
       attributes: {
         class: `prose prose-sm dark:prose-invert max-w-none px-3 py-2 min-h-[${minHeight}] focus:outline-none text-gray-900 dark:text-white`,
-      },
-      handlePaste: (_view, event) => {
-        const files = event.clipboardData?.files;
-        if (files && files.length > 0) {
-          const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-          if (imageFiles.length > 0 && onPasteFiles) {
-            event.preventDefault();
-            onPasteFiles(imageFiles);
-            return true;
-          }
-        }
-        return false;
       },
     },
   });
@@ -329,38 +142,25 @@ export default function InboxRichEditor({
     [editor]
   );
 
-  const [showLinkInput, setShowLinkInput] = useState(false);
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkError, setLinkError] = useState("");
-  const linkInputRef = useRef<HTMLInputElement>(null);
-
   const handleSetLink = useCallback(() => {
     if (!editor) return;
-    const previousUrl = editor.getAttributes("link").href;
-    setLinkUrl(previousUrl || "https://");
-    setLinkError("");
-    setShowLinkInput(true);
-    setTimeout(() => linkInputRef.current?.select(), 50);
-  }, [editor]);
 
-  const handleLinkSubmit = useCallback(() => {
-    if (!editor) return;
-    if (linkUrl === "") {
+    const previousUrl = editor.getAttributes("link").href;
+    const url = window.prompt("Enter URL:", previousUrl || "https://");
+
+    if (url === null) return;
+    if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      setShowLinkInput(false);
       return;
     }
-    if (!linkUrl.startsWith("http://") && !linkUrl.startsWith("https://")) {
-      setLinkError("URL must start with http:// or https://");
+
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      window.alert("URL must start with http:// or https://");
       return;
     }
-    if (editor.state.selection.empty) {
-      editor.chain().focus().insertContent(`<a href="${linkUrl}">${linkUrl}</a>`).run();
-    } else {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: linkUrl }).run();
-    }
-    setShowLinkInput(false);
-  }, [editor, linkUrl]);
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
 
   const handleToggleHeading = useCallback(() => {
     if (!editor) return;
@@ -418,7 +218,7 @@ export default function InboxRichEditor({
   return (
     <div className="border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg bg-white dark:bg-[#2a2a2a]">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2d2820] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
+      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#f5ede3] dark:bg-[#2a2215] border-b border-[#e8d4b8] dark:border-[#6b5a4a] flex-wrap rounded-t-lg" onMouseDown={(e) => e.preventDefault()}>
         <ToolbarButton
           icon={Bold}
           label="Bold"
@@ -542,7 +342,7 @@ export default function InboxRichEditor({
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
+            className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
             title="Insert emoji"
           >
             <Smile className="w-4 h-4" />
@@ -551,10 +351,10 @@ export default function InboxRichEditor({
             <button
               type="button"
               onClick={onAttachImage}
-              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1"
-              title="Attach file"
+              className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
+              title="Attach image"
             >
-              <Paperclip className="w-4 h-4" />
+              <ImageIcon className="w-4 h-4" />
             </button>
           )}
           <EmojiPicker
@@ -565,43 +365,8 @@ export default function InboxRichEditor({
         </div>
       </div>
 
-      {/* Inline link input bar */}
-      {showLinkInput && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-          <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-          <input
-            ref={linkInputRef}
-            type="url"
-            value={linkUrl}
-            onChange={(e) => { setLinkUrl(e.target.value); setLinkError(""); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleLinkSubmit(); } else if (e.key === "Escape") setShowLinkInput(false); }}
-            placeholder="https://example.com"
-            className="flex-1 text-sm bg-transparent outline-none text-gray-900 dark:text-white placeholder-gray-400"
-          />
-          {linkError && <span className="text-xs text-red-500 flex-shrink-0">{linkError}</span>}
-          <button type="button" onClick={handleLinkSubmit} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">Apply</button>
-          <button type="button" onClick={() => setShowLinkInput(false)} className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
-        </div>
-      )}
-
       {/* Editor content */}
       <EditorContent editor={editor} />
-
-      {/* Mention styling */}
-      <style jsx global>{`
-        .mention {
-          background-color: #f5ede3;
-          border-radius: 4px;
-          padding: 1px 4px;
-          color: #a0704b;
-          font-weight: 600;
-          font-size: 0.875em;
-        }
-        .dark .mention {
-          background-color: #3d3628;
-          color: #c49a6c;
-        }
-      `}</style>
     </div>
   );
 }

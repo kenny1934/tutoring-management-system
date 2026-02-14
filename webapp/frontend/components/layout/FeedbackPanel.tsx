@@ -8,7 +8,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI, tutorsAPI } from "@/lib/api";
 import type { MessageCreate } from "@/types";
-import { stripHtml } from "@/lib/html-utils";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 
 type FeedbackType = "Bug Report" | "Feature Request" | "Suggestion";
@@ -78,7 +77,7 @@ export function FeedbackPanel() {
     if (!user?.id) return;
 
     // Check if there's actual content (not just empty tags)
-    const textContent = stripHtml(messageHtml);
+    const textContent = messageHtml.replace(/<[^>]*>/g, "").trim();
     if (!textContent && uploadedImages.length === 0) {
       showToast("Please describe your feedback", "error");
       return;

@@ -621,20 +621,11 @@ export function useMessageThreads(
 /**
  * Options for the paginated message threads hook
  */
-export interface SearchFilters {
-  from_tutor_id?: number;
-  date_from?: string;
-  date_to?: string;
-  has_attachments?: boolean;
-  priority?: string;
-}
-
 export interface UseMessageThreadsPaginatedOptions {
   tutorId: number | null | undefined;
   category?: MessageCategory;
   search?: string;
   pageSize?: number;
-  filters?: SearchFilters;
 }
 
 /**
@@ -658,8 +649,7 @@ export interface PaginatedResult<T> {
 export function useMessageThreadsPaginated(
   options: UseMessageThreadsPaginatedOptions
 ): PaginatedResult<MessageThread> {
-  const { tutorId, category, search, pageSize = 20, filters } = options;
-  const filtersKey = filters ? JSON.stringify(filters) : '';
+  const { tutorId, category, search, pageSize = 20 } = options;
   const [allData, setAllData] = useState<MessageThread[]>([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -669,25 +659,22 @@ export function useMessageThreadsPaginated(
 
   const refreshInterval = useVisibilityAwareInterval(60000);
 
-  // Reset when search/category/tutorId/filters changes
+  // Reset when search/category/tutorId changes
   useEffect(() => {
-    setIsTransitioning(true);
+    setIsTransitioning(true);  // Show loading spinner during transition
+    setAllData([]);
     setOffset(0);
     setHasMore(true);
     setTotalCount(0);
-  }, [search, category, tutorId, filtersKey]);
+  }, [search, category, tutorId]);
 
   // Fetch current page
   const { data, isLoading, error, mutate } = useSWR<PaginatedThreadsResponse>(
-    tutorId ? ['message-threads-paginated', tutorId, category || 'all', search || '', offset, pageSize, filtersKey] : null,
-    () => messagesAPI.getThreads(tutorId!, category, pageSize, offset, search, filters),
+    tutorId ? ['message-threads-paginated', tutorId, category || 'all', search || '', offset, pageSize] : null,
+    () => messagesAPI.getThreads(tutorId!, category, pageSize, offset, search),
     {
       refreshInterval: offset === 0 ? refreshInterval : 0, // Only poll first page
       revalidateOnFocus: false,
-      onError: () => {
-        setIsTransitioning(false);
-        setIsLoadingMore(false);
-      },
       onSuccess: (response) => {
         setIsTransitioning(false);  // Clear transition state when data arrives
         if (offset === 0) {
@@ -705,13 +692,13 @@ export function useMessageThreadsPaginated(
   // Sync cached data immediately when SWR returns from cache
   // onSuccess only fires after fetch, not for cache hits
   useEffect(() => {
-    if (data && offset === 0) {
+    if (data && offset === 0 && !isLoading) {
       setAllData(data.threads);
       setHasMore(data.has_more);
       setTotalCount(data.total_count);
       setIsTransitioning(false);
     }
-  }, [data, offset]);
+  }, [data, offset, isLoading]);
 
   const loadMore = useCallback(() => {
     if (hasMore && !isLoadingMore && !isLoading) {
@@ -729,7 +716,7 @@ export function useMessageThreadsPaginated(
 
   return {
     data: allData,
-    isLoading: (isLoading && offset === 0) || (isTransitioning && !data),
+    isLoading: (isLoading && offset === 0) || isTransitioning,
     isLoadingMore,
     error,
     hasMore,
@@ -764,19 +751,6 @@ export function useUnreadMessageCount(tutorId: number | null | undefined) {
 }
 
 /**
- * Hook for fetching per-category unread counts for sidebar badges.
- * Replaces the expensive pattern of fetching ALL threads client-side.
- */
-export function useUnreadCategoryCounts(tutorId: number | null | undefined) {
-  const refreshInterval = useVisibilityAwareInterval(30000);
-  return useSWR<{ counts: Record<string, number> }>(
-    tutorId ? ['unread-category-counts', tutorId] : null,
-    () => messagesAPI.getUnreadCountsByCategory(tutorId!),
-    { refreshInterval, revalidateOnFocus: false }
-  );
-}
-
-/**
  * Hook for fetching a specific message thread
  */
 export function useMessageThread(
@@ -798,9 +772,11 @@ export function useArchivedMessages(tutorId: number | null | undefined) {
     () => messagesAPI.getArchived(tutorId!, 50), // Max allowed by backend
     { revalidateOnFocus: false }
   );
-  const data = useMemo(() => result.data?.threads ?? [], [result.data]);
 
-  return { ...result, data };
+  return {
+    ...result,
+    data: result.data?.threads ?? []
+  };
 }
 
 /**
@@ -812,36 +788,11 @@ export function usePinnedMessages(tutorId: number | null | undefined) {
     () => messagesAPI.getPinned(tutorId!, 50),
     { revalidateOnFocus: false }
   );
-  const data = useMemo(() => result.data?.threads ?? [], [result.data]);
 
-  return { ...result, data };
-}
-
-export function useScheduledMessages(tutorId: number | null | undefined) {
-  return useSWR<Message[]>(
-    tutorId ? ['scheduled-messages', tutorId] : null,
-    () => messagesAPI.getScheduled(tutorId!),
-    { revalidateOnFocus: false }
-  );
-}
-
-export function useMentionedMessages(tutorId: number | null | undefined) {
-  const result = useSWR<PaginatedThreadsResponse>(
-    tutorId ? ['mentioned-messages', tutorId] : null,
-    () => messagesAPI.getMentions(tutorId!, 50),
-    { revalidateOnFocus: false }
-  );
-  const data = useMemo(() => result.data?.threads ?? [], [result.data]);
-
-  return { ...result, data };
-}
-
-export function useSnoozedMessages(tutorId: number | null | undefined) {
-  return useSWR<Message[]>(
-    tutorId ? ['snoozed-messages', tutorId] : null,
-    () => messagesAPI.getSnoozed(tutorId!),
-    { revalidateOnFocus: false }
-  );
+  return {
+    ...result,
+    data: result.data?.threads ?? []
+  };
 }
 
 // ============================================
@@ -1398,28 +1349,4 @@ export function usePendingMemoCount(tutorId?: number) {
     ['tutor-memos-pending-count', tutorId],
     () => memosAPI.getPendingCount(tutorId)
   );
-}
-
-/**
- * Hook for fetching message templates (personal + global).
- */
-export function useMessageTemplates(tutorId?: number) {
-  return useSWR<import("@/types").MessageTemplate[]>(
-    tutorId ? ['message-templates', tutorId] : null,
-    () => messagesAPI.getTemplates(tutorId!),
-    { revalidateOnFocus: false }
-  );
-}
-
-/**
- * Hook for tracking online presence of tutors.
- * Polls /messages/presence every 30s and returns a Set of online tutor IDs.
- */
-export function usePresence() {
-  const { data } = useSWR<{ online: number[]; last_seen: Record<string, string> }>(
-    ['tutor-presence'],
-    () => messagesAPI.getPresence(),
-    { refreshInterval: 30000, revalidateOnFocus: false, dedupingInterval: 10000 }
-  );
-  return useMemo(() => new Set(data?.online || []), [data?.online]);
 }

@@ -583,12 +583,6 @@ class TutorMessage(Base):
     Supports direct messages and broadcasts (to_tutor_id = NULL).
     """
     __tablename__ = "tutor_messages"
-    __table_args__ = (
-        Index('idx_message_from_tutor', 'from_tutor_id'),
-        Index('idx_message_to_tutor', 'to_tutor_id'),
-        Index('idx_message_reply_to', 'reply_to_id'),
-        Index('idx_message_category', 'category'),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     from_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
@@ -602,8 +596,6 @@ class TutorMessage(Base):
     reply_to_id = Column(Integer, ForeignKey("tutor_messages.id"), nullable=True)
     image_attachment = Column(String(500))  # KEEP for AppSheet compatibility (single URL)
     image_attachments = Column(JSON, default=list)  # NEW for webapp (multiple URLs)
-    file_attachments = Column(JSON, default=list)  # Document attachments [{url, filename, content_type}]
-    scheduled_at = Column(DateTime, nullable=True)  # NULL = send immediately, future datetime = scheduled
 
     # Relationships
     from_tutor = relationship("Tutor", foreign_keys=[from_tutor_id], backref="sent_messages")
@@ -613,10 +605,6 @@ class TutorMessage(Base):
     likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
     archives = relationship("MessageArchive", back_populates="message", cascade="all, delete-orphan")
     pins = relationship("MessagePin", back_populates="message", cascade="all, delete-orphan")
-    thread_pins = relationship("ThreadPin", back_populates="message", cascade="all, delete-orphan")
-    thread_mutes = relationship("ThreadMute", back_populates="message", cascade="all, delete-orphan")
-    message_snoozes = relationship("MessageSnooze", back_populates="message", cascade="all, delete-orphan")
-    mentions = relationship("MessageMention", back_populates="message", cascade="all, delete-orphan")
     recipients = relationship("MessageRecipient", back_populates="message", cascade="all, delete-orphan")
 
 
@@ -626,9 +614,6 @@ class MessageReadReceipt(Base):
     Used to calculate unread counts and show read status.
     """
     __tablename__ = "message_read_receipts"
-    __table_args__ = (
-        Index('idx_read_receipt_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
@@ -645,15 +630,11 @@ class MessageLike(Base):
     Tracks message likes/reactions from tutors.
     """
     __tablename__ = "message_likes"
-    __table_args__ = (
-        Index('idx_like_msg_tutor_emoji', 'message_id', 'tutor_id', 'emoji'),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
     tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     action_type = Column(String(10), default="LIKE")  # LIKE or UNLIKE
-    emoji = Column(String(10), default="❤️")  # Reaction emoji
     liked_at = Column(DateTime, server_default=func.now())
 
     # Relationships
@@ -667,9 +648,6 @@ class MessageArchive(Base):
     Similar pattern to MessageReadReceipt for per-user archiving.
     """
     __tablename__ = "message_archives"
-    __table_args__ = (
-        Index('idx_archive_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
@@ -687,9 +665,6 @@ class MessagePin(Base):
     Same pattern as MessageArchive for per-user pinning.
     """
     __tablename__ = "message_pins"
-    __table_args__ = (
-        Index('idx_pin_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
@@ -701,101 +676,12 @@ class MessagePin(Base):
     tutor = relationship("Tutor")
 
 
-class ThreadPin(Base):
-    """
-    Tracks threads pinned to top of thread list, per tutor.
-    Separate from MessagePin (star/favorite) — this controls list position.
-    """
-    __tablename__ = "thread_pins"
-    __table_args__ = (
-        Index('idx_thread_pin_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
-
-    id = Column(Integer, primary_key=True, index=True)
-    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
-    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
-    pinned_at = Column(DateTime, server_default=func.now())
-
-    # Relationships
-    message = relationship("TutorMessage", back_populates="thread_pins")
-    tutor = relationship("Tutor")
-
-
-class MessageSnooze(Base):
-    """Tracks snoozed threads per tutor — temporarily hidden until snooze_until."""
-    __tablename__ = "message_snoozes"
-    __table_args__ = (
-        Index('idx_snooze_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
-
-    id = Column(Integer, primary_key=True, index=True)
-    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
-    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
-    snooze_until = Column(DateTime, nullable=False)
-    snoozed_at = Column(DateTime, server_default=func.now())
-
-    message = relationship("TutorMessage", back_populates="message_snoozes")
-    tutor = relationship("Tutor")
-
-
-class ThreadMute(Base):
-    """Tracks muted threads per tutor — suppresses notifications."""
-    __tablename__ = "thread_mutes"
-    __table_args__ = (
-        Index('idx_thread_mute_msg_tutor', 'message_id', 'tutor_id', unique=True),
-    )
-
-    id = Column(Integer, primary_key=True, index=True)
-    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
-    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
-    muted_at = Column(DateTime, server_default=func.now())
-
-    message = relationship("TutorMessage", back_populates="thread_mutes")
-    tutor = relationship("Tutor")
-
-
-class MessageTemplate(Base):
-    """Reusable message templates. Global templates have tutor_id=NULL."""
-    __tablename__ = "message_templates"
-
-    id = Column(Integer, primary_key=True, index=True)
-    tutor_id = Column(Integer, ForeignKey("tutors.id", ondelete="CASCADE"), nullable=True)
-    title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)
-    category = Column(String(50), nullable=True)
-    is_global = Column(Boolean, default=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-
-    tutor = relationship("Tutor")
-
-
-class MessageMention(Base):
-    """Tracks @mentions in messages for notification routing."""
-    __tablename__ = "message_mentions"
-    __table_args__ = (
-        Index('idx_mention_msg_tutor', 'message_id', 'mentioned_tutor_id', unique=True),
-    )
-
-    id = Column(Integer, primary_key=True, index=True)
-    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
-    mentioned_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
-    mentioned_at = Column(DateTime, server_default=func.now())
-
-    message = relationship("TutorMessage", back_populates="mentions")
-    tutor = relationship("Tutor")
-
-
 class MessageRecipient(Base):
     """
     Junction table for group message recipients.
     Only populated when to_tutor_id = -1 (group message sentinel).
     """
     __tablename__ = "message_recipients"
-    __table_args__ = (
-        Index('idx_recipient_msg_tutor', 'message_id', 'tutor_id'),
-        Index('idx_recipient_tutor', 'tutor_id'),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
