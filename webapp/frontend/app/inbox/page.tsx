@@ -13,6 +13,7 @@ import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { stripHtml, renderMathInHtml } from "@/lib/html-utils";
+import { shatterElement } from "@/lib/shatter-animation";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
@@ -587,7 +588,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onMarkRead: (msgId: number) => void;
   onMarkUnread: (msgId: number) => void;
   onEdit: (msgId: number, newText: string, imageAttachments?: string[]) => Promise<void>;
-  onDelete: (msgId: number) => Promise<void>;
+  onDelete: (msgId: number, isRoot: boolean) => Promise<void>;
   onArchive: (msgId: number) => Promise<void>;
   onUnarchive: (msgId: number) => Promise<void>;
   onPin: (msgId: number) => Promise<void>;
@@ -1087,7 +1088,13 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               onReact={(emoji) => onLike(m.id, emoji)}
               onQuote={() => handleQuote(m)}
               onForward={() => onForward(m)}
-              onDelete={onDelete}
+              onDelete={async (msgId) => {
+                const el = document.getElementById(`msg-${msgId}`);
+                if (el) {
+                  await new Promise<void>(resolve => shatterElement(el, resolve));
+                }
+                onDelete(msgId, msgId === msg.id);
+              }}
             />
           );
 
@@ -1986,17 +1993,25 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast]);
 
-  const handleDelete = useCallback(async (messageId: number) => {
+  const handleDelete = useCallback(async (messageId: number, isRoot: boolean) => {
     if (tutorId === null) return;
 
-    // Optimistic update - remove thread from SWR cache immediately
-    mutate(isThreadsKey, (data: MessageThread[] | PaginatedThreadsResponse | undefined) => {
-      if (Array.isArray(data)) return data.filter(t => t.root_message.id !== messageId);
-      if (data && 'threads' in data) return { ...data, threads: data.threads.filter(t => t.root_message.id !== messageId), total_count: data.total_count - 1 };
-      return data;
-    }, { revalidate: false });
-    mutate(isSentKey, (data: Message[] | undefined) => data?.filter(m => m.id !== messageId), { revalidate: false });
-    setSelectedThread(null);
+    if (isRoot) {
+      // Root message: remove thread from list + close panel
+      mutate(isThreadsKey, (data: MessageThread[] | PaginatedThreadsResponse | undefined) => {
+        if (Array.isArray(data)) return data.filter(t => t.root_message.id !== messageId);
+        if (data && 'threads' in data) return { ...data, threads: data.threads.filter(t => t.root_message.id !== messageId), total_count: data.total_count - 1 };
+        return data;
+      }, { revalidate: false });
+      mutate(isSentKey, (data: Message[] | undefined) => data?.filter(m => m.id !== messageId), { revalidate: false });
+      setSelectedThread(null);
+    } else {
+      // Reply: optimistically remove from thread, keep panel open
+      setSelectedThread(prev => {
+        if (!prev) return null;
+        return { ...prev, replies: prev.replies.filter(r => r.id !== messageId) };
+      });
+    }
 
     try {
       await messagesAPI.delete(messageId, tutorId);
