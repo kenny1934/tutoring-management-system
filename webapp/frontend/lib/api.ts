@@ -1321,6 +1321,22 @@ export const messagesAPI = {
     });
   },
 
+  // Pin thread to top of list (separate from star)
+  threadPin: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<PinResponse>(`/messages/thread-pin?tutor_id=${tutorId}`, {
+      method: "POST",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
+  // Unpin thread from top of list
+  threadUnpin: (messageIds: number[], tutorId: number) => {
+    return fetchAPI<PinResponse>(`/messages/thread-pin?tutor_id=${tutorId}`, {
+      method: "DELETE",
+      body: JSON.stringify({ message_ids: messageIds }),
+    });
+  },
+
   // Get pinned/starred threads
   getPinned: (tutorId: number, limit?: number, offset?: number) => {
     const params = new URLSearchParams({ tutor_id: tutorId.toString() });

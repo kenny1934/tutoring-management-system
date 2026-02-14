@@ -606,6 +606,7 @@ class TutorMessage(Base):
     likes = relationship("MessageLike", back_populates="message", cascade="all, delete-orphan")
     archives = relationship("MessageArchive", back_populates="message", cascade="all, delete-orphan")
     pins = relationship("MessagePin", back_populates="message", cascade="all, delete-orphan")
+    thread_pins = relationship("ThreadPin", back_populates="message", cascade="all, delete-orphan")
     recipients = relationship("MessageRecipient", back_populates="message", cascade="all, delete-orphan")
 
 
@@ -675,6 +676,23 @@ class MessagePin(Base):
 
     # Relationships
     message = relationship("TutorMessage", back_populates="pins")
+    tutor = relationship("Tutor")
+
+
+class ThreadPin(Base):
+    """
+    Tracks threads pinned to top of thread list, per tutor.
+    Separate from MessagePin (star/favorite) — this controls list position.
+    """
+    __tablename__ = "thread_pins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("tutor_messages.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    pinned_at = Column(DateTime, server_default=func.now())
+
+    # Relationships
+    message = relationship("TutorMessage", back_populates="thread_pins")
     tutor = relationship("Tutor")
 
 

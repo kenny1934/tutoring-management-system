@@ -69,6 +69,8 @@ import {
   Square,
   ListChecks,
   Smile,
+  Pin,
+  MoreVertical,
 } from "lucide-react";
 
 // Category definition
@@ -327,6 +329,9 @@ const ThreadItem = React.memo(function ThreadItem({
                 : msg.from_tutor_name || "Unknown"
               }
             </span>
+            {msg.is_thread_pinned && (
+              <Pin className="h-3 w-3 text-blue-500 flex-shrink-0" />
+            )}
             {msg.is_pinned && (
               <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
             )}
@@ -479,11 +484,11 @@ function SwipeableThreadItem({
           {leftLabel || "Archive"}
         </div>
       )}
-      {/* Right action bg (star) — revealed on swipe right */}
+      {/* Right action bg (pin) — revealed on swipe right */}
       {onSwipeRightAction && (
-        <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-amber-500 text-white text-xs font-medium">
-          <Star className="h-4 w-4 mr-1" />
-          {rightLabel || "Star"}
+        <div className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-blue-500 text-white text-xs font-medium">
+          <Pin className="h-4 w-4 mr-1" />
+          {rightLabel || "Pin"}
         </div>
       )}
       <div
@@ -851,6 +856,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive,
   onPin,
   onUnpin,
+  onThreadPin,
+  onThreadUnpin,
   onForward,
   isArchived = false,
   isMobile = false,
@@ -872,6 +879,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnarchive: (msgId: number) => Promise<void>;
   onPin: (msgId: number) => Promise<void>;
   onUnpin: (msgId: number) => Promise<void>;
+  onThreadPin: (msgId: number) => Promise<void>;
+  onThreadUnpin: (msgId: number) => Promise<void>;
   onForward: (msg: Message) => void;
   isArchived?: boolean;
   isMobile?: boolean;
@@ -905,6 +914,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   const threadSearchRef = useRef<HTMLInputElement>(null);
   const allMessagesRef = useRef(allMessages);
   useEffect(() => { allMessagesRef.current = allMessages; }, [allMessages]);
+
+  // More actions dropdown state
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useClickOutside(moreMenuRef, () => setShowMoreMenu(false));
 
   // Memoize search highlight regex to avoid recompiling per message per render
   const highlightRegex = useMemo(() => {
@@ -1245,18 +1259,6 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           {msg.is_read ? <Circle className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
         </button>
         <button
-          onClick={() => msg.is_pinned ? onUnpin(msg.id) : onPin(msg.id)}
-          className={cn(
-            "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
-            msg.is_pinned
-              ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-              : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-          )}
-          title={msg.is_pinned ? "Unstar" : "Star"}
-        >
-          <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400")} />
-        </button>
-        <button
           onClick={() => {
             setShowThreadSearch(!showThreadSearch);
             if (!showThreadSearch) setTimeout(() => threadSearchRef.current?.focus(), 50);
@@ -1272,23 +1274,58 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
         >
           <Search className="h-4 w-4" />
         </button>
-        {isArchived ? (
+        {/* More actions dropdown */}
+        <div className="relative" ref={moreMenuRef}>
           <button
-            onClick={() => onUnarchive(msg.id)}
-            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
-            title="Unarchive"
+            onClick={() => setShowMoreMenu(!showMoreMenu)}
+            className={cn(
+              "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
+              showMoreMenu
+                ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+            )}
+            title="More actions"
           >
-            <ArchiveRestore className="h-4 w-4" />
+            <MoreVertical className="h-4 w-4" />
           </button>
-        ) : (
-          <button
-            onClick={() => onArchive(msg.id)}
-            className="flex items-center gap-1.5 px-2 py-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm rounded-lg transition-colors"
-            title="Archive"
-          >
-            <Archive className="h-4 w-4" />
-          </button>
-        )}
+          {showMoreMenu && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+              <button
+                onClick={() => {
+                  if (msg.is_thread_pinned) onThreadUnpin(msg.id);
+                  else onThreadPin(msg.id);
+                  setShowMoreMenu(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-500")} />
+                <span>{msg.is_thread_pinned ? "Unpin from top" : "Pin to top"}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (msg.is_pinned) onUnpin(msg.id);
+                  else onPin(msg.id);
+                  setShowMoreMenu(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-400")} />
+                <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (isArchived) onUnarchive(msg.id);
+                  else onArchive(msg.id);
+                  setShowMoreMenu(false);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+              >
+                {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                <span>{isArchived ? "Unarchive" : "Archive"}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Thread search bar */}
@@ -2428,6 +2465,28 @@ export default function InboxPage() {
     }
   }, [tutorId, showToast, selectedCategory]);
 
+  const handleThreadPin = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.threadPin([messageId], tutorId);
+      showToast("Thread pinned!", "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to pin thread", "error");
+    }
+  }, [tutorId, showToast]);
+
+  const handleThreadUnpin = useCallback(async (messageId: number) => {
+    if (tutorId === null) return;
+    try {
+      await messagesAPI.threadUnpin([messageId], tutorId);
+      showToast("Thread unpinned!", "success");
+      mutate(isAnyMessageKey);
+    } catch {
+      showToast("Failed to unpin thread", "error");
+    }
+  }, [tutorId, showToast]);
+
   // Keyboard shortcuts — use refs to avoid re-registering on every state change
   const selectedThreadRef = useRef(selectedThread);
   const displayThreadsRef = useRef(displayThreads);
@@ -2894,27 +2953,45 @@ export default function InboxPage() {
                         <SwipeableThreadItem
                           key={thread.root_message.id}
                           onSwipeLeftAction={selectedCategory !== "archived" ? () => handleArchive(thread.root_message.id) : undefined}
-                          onSwipeRightAction={() => thread.root_message.is_pinned ? handleUnpin(thread.root_message.id) : handlePin(thread.root_message.id)}
-                          rightLabel={thread.root_message.is_pinned ? "Unstar" : "Star"}
+                          onSwipeRightAction={() => thread.root_message.is_thread_pinned ? handleThreadUnpin(thread.root_message.id) : handleThreadPin(thread.root_message.id)}
+                          rightLabel={thread.root_message.is_thread_pinned ? "Unpin" : "Pin"}
                         >
                           {item}
                         </SwipeableThreadItem>
                       );
                     };
 
+                    // Split thread-pinned from the rest (skip in "starred" view — irrelevant there)
+                    const pinnedInList = selectedCategory !== "starred" ? displayThreads.filter(t => t.root_message.is_thread_pinned) : [];
+                    const unpinned = selectedCategory !== "starred" ? displayThreads.filter(t => !t.root_message.is_thread_pinned) : displayThreads;
+
                     return debouncedSearch.trim() ? (
-                      // Flat list when searching
-                      displayThreads.map((thread) => renderThread(thread, true))
+                      // Flat list when searching — pinned threads first
+                      <>
+                        {pinnedInList.map((thread) => renderThread(thread, true))}
+                        {unpinned.map((thread) => renderThread(thread, true))}
+                      </>
                     ) : (
-                      // Grouped by date when not searching
-                      groupThreadsByDate(displayThreads).map((group) => (
-                        <div key={group.label}>
-                          <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
-                            {group.label}
+                      // Pinned group first, then grouped by date
+                      <>
+                        {pinnedInList.length > 0 && (
+                          <div>
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 flex items-center gap-1.5">
+                              <Pin className="h-3 w-3" />
+                              Pinned
+                            </div>
+                            {pinnedInList.map((thread) => renderThread(thread))}
                           </div>
-                          {group.threads.map((thread) => renderThread(thread))}
-                        </div>
-                      ))
+                        )}
+                        {groupThreadsByDate(unpinned).map((group) => (
+                          <div key={group.label}>
+                            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
+                              {group.label}
+                            </div>
+                            {group.threads.map((thread) => renderThread(thread))}
+                          </div>
+                        ))}
+                      </>
                     );
                   })()}
                   {/* Load More button for paginated threads (not for sent or archived) */}
@@ -2961,6 +3038,8 @@ export default function InboxPage() {
                   onUnarchive={handleUnarchive}
                   onPin={handlePin}
                   onUnpin={handleUnpin}
+                  onThreadPin={handleThreadPin}
+                  onThreadUnpin={handleThreadUnpin}
                   onForward={(m: Message) => {
                     const senderName = m.from_tutor_name || "Unknown";
                     const date = new Date(m.created_at).toLocaleString();
