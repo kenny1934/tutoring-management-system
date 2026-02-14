@@ -2,7 +2,7 @@
 Pydantic schemas for API request/response validation.
 These define the structure of data sent to and from the API.
 """
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional, List, Dict
 from datetime import date, datetime
 from decimal import Decimal
@@ -1073,7 +1073,7 @@ class ReactionSummary(BaseModel):
 class MessageBase(BaseModel):
     """Base message schema with common fields"""
     subject: Optional[str] = Field(None, max_length=200)
-    message: str = Field(..., min_length=1)
+    message: str = Field("")  # Allow empty for attachment-only messages
     priority: str = Field("Normal", pattern="^(Normal|High|Urgent)$")
     category: Optional[str] = Field(None, pattern="^(Reminder|Question|Announcement|Schedule|Chat|Courseware|MakeupConfirmation|Feedback)$")
 
@@ -1086,6 +1086,15 @@ class MessageCreate(MessageBase):
     image_attachments: Optional[List[str]] = Field(default_factory=list)  # List of uploaded image URLs
     file_attachments: Optional[List[dict]] = Field(default_factory=list)  # [{url, filename, content_type}]
     scheduled_at: Optional[datetime] = None  # If set and in future, message is scheduled (not sent immediately)
+
+    @model_validator(mode='after')
+    def require_content(self):
+        """Require at least message text or attachments."""
+        has_text = bool(self.message and self.message.strip() and self.message not in ("", "<p></p>"))
+        has_attachments = bool(self.image_attachments) or bool(self.file_attachments)
+        if not has_text and not has_attachments:
+            raise ValueError("Message must have text or attachments")
+        return self
 
 
 class MessageUpdate(BaseModel):
