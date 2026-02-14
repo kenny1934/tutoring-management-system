@@ -22,6 +22,12 @@
 * Draft auto-save with thread list preview indicator
 * Dark mode polish across all new components
 * Performance: memoized components, stale-while-revalidate for category navigation
+* **Video & GIF attachments** — send and preview video/GIF files inline in messages
+* **Message forwarding with attachments** — forwarded messages now include all original attachments (images, files, voice recordings)
+* **Categorized attachment menu** — attachment button opens a popover with Photos & Videos / Document sections
+* **File attachments in replies** — attach files when replying, with thumbnail previews and remove button
+* **Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode
+* Smooth slide animation on search filters panel (matches bulk action bar)
 
 ### Bug Fixes
 
@@ -30,6 +36,10 @@
 * Fixed timezone mismatch in snooze reminder background task (use HK time consistently)
 * Added row-level locking to prevent duplicate scheduled message delivery
 * Added unique constraint on thread pins to prevent duplicates
+* Fixed voice message emoji rendering — replaced with Lucide Mic SVG icon
+* Fixed voice message duration not persisting in file_attachments metadata
+* Fixed duplicate tiptap Link extension warning in rich editors
+* Fixed changelog markdown rendering on What's New page
 
 ## [2.0.1](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.1) (2026-02-13)
 
