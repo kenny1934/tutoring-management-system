@@ -567,7 +567,7 @@ export default function InboxRichEditor({
 
       {/* Inline link input bar */}
       {showLinkInput && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-[#252525] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#faf6f1] dark:bg-[#2a2518] border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <LinkIcon className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
           <input
             ref={linkInputRef}

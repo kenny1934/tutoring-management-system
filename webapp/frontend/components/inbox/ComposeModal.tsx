@@ -262,6 +262,8 @@ export default function ComposeModal({
       await onSend(sendData);
       clearDraft(getDraftKey(replyTo?.id));
       onClose();
+    } catch {
+      showToast("Failed to send message", "error");
     } finally {
       setIsSending(false);
     }

@@ -65,6 +65,38 @@ def visible_to_tutor_filter(tutor_id: int, db: Session):
 # Shared query helpers (avoid duplication)
 # ============================================
 
+def _get_liked_by_me(db: Session, message_ids: list[int], tutor_id: int) -> set[int]:
+    """Get set of message IDs that the given tutor has liked (latest action = LIKE)."""
+    if not message_ids:
+        return set()
+    subq = (
+        db.query(
+            MessageLike.message_id,
+            MessageLike.action_type,
+            func.row_number().over(
+                partition_by=MessageLike.message_id,
+                order_by=desc(MessageLike.liked_at)
+            ).label('rn')
+        )
+        .filter(MessageLike.message_id.in_(message_ids), MessageLike.tutor_id == tutor_id)
+        .subquery()
+    )
+    rows = db.query(subq.c.message_id, subq.c.action_type).filter(subq.c.rn == 1).all()
+    return set(r.message_id for r in rows if r.action_type == "LIKE")
+
+
+def _bulk_insert_ignore(db: Session, model_class, message_ids: list[int], tutor_id: int) -> int:
+    """Bulk INSERT IGNORE for archive/pin/thread-pin operations. Returns count of newly inserted rows."""
+    from sqlalchemy.dialects.mysql import insert
+    count = 0
+    for message_id in message_ids:
+        stmt = insert(model_class).values(message_id=message_id, tutor_id=tutor_id).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+    db.commit()
+    return count
+
+
 def _fetch_like_details(db: Session, message_ids: list[int]) -> dict[int, list[LikeDetail]]:
     """Batch fetch like details (emoji reactions) for a set of messages.
     Returns {message_id: [LikeDetail, ...]}."""
@@ -338,25 +370,7 @@ def batch_build_message_responses(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # 3. Batch fetch "liked by me" - get latest action per message
-    my_likes_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.action_type,
-            func.row_number().over(
-                partition_by=MessageLike.message_id,
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(
-            MessageLike.message_id.in_(message_ids),
-            MessageLike.tutor_id == current_tutor_id
-        )
-        .subquery()
-    )
-    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
-        my_likes_subq.c.rn == 1
-    ).all()
-    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
+    liked_by_me = _get_liked_by_me(db, message_ids, current_tutor_id)
 
     # 4. Batch fetch like details (who reacted to each message)
     like_details_map = _fetch_like_details(db, message_ids)
@@ -596,25 +610,7 @@ async def get_message_threads(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # 5. Batch fetch "liked by me" - get latest action per message
-    my_likes_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.action_type,
-            func.row_number().over(
-                partition_by=MessageLike.message_id,
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(
-            MessageLike.message_id.in_(all_message_ids),
-            MessageLike.tutor_id == tutor_id
-        )
-        .subquery()
-    )
-    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
-        my_likes_subq.c.rn == 1
-    ).all()
-    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
+    liked_by_me = _get_liked_by_me(db, all_message_ids, tutor_id)
 
     # 6. Batch fetch like details (who reacted to each message)
     like_details_map = _fetch_like_details(db, all_message_ids)
@@ -1102,19 +1098,7 @@ async def archive_messages(
     db: Session = Depends(get_db)
 ):
     """Archive multiple messages for the current tutor (bulk operation)."""
-    from sqlalchemy.dialects.mysql import insert
-
-    # Use INSERT IGNORE for idempotency (ignores duplicates)
-    count = 0
-    for message_id in request.message_ids:
-        stmt = insert(MessageArchive).values(
-            message_id=message_id,
-            tutor_id=tutor_id
-        ).prefix_with('IGNORE')
-        result = db.execute(stmt)
-        count += result.rowcount
-
-    db.commit()
+    count = _bulk_insert_ignore(db, MessageArchive, request.message_ids, tutor_id)
     return ArchiveResponse(success=True, count=count)
 
 
@@ -1224,25 +1208,7 @@ async def get_archived_messages(
     like_count_map = {lc.message_id: lc.count for lc in like_counts}
 
     # Batch fetch "liked by me"
-    my_likes_subq = (
-        db.query(
-            MessageLike.message_id,
-            MessageLike.action_type,
-            func.row_number().over(
-                partition_by=MessageLike.message_id,
-                order_by=desc(MessageLike.liked_at)
-            ).label('rn')
-        )
-        .filter(
-            MessageLike.message_id.in_(all_message_ids),
-            MessageLike.tutor_id == tutor_id
-        )
-        .subquery()
-    )
-    my_likes = db.query(my_likes_subq.c.message_id, my_likes_subq.c.action_type).filter(
-        my_likes_subq.c.rn == 1
-    ).all()
-    liked_by_me = set(ml.message_id for ml in my_likes if ml.action_type == "LIKE")
+    liked_by_me = _get_liked_by_me(db, all_message_ids, tutor_id)
 
     # Batch fetch like details (who reacted to each message)
     like_details_map = _fetch_like_details(db, all_message_ids)
@@ -1349,18 +1315,7 @@ async def pin_messages(
     db: Session = Depends(get_db)
 ):
     """Pin/star multiple messages for the current tutor (bulk operation)."""
-    from sqlalchemy.dialects.mysql import insert
-
-    count = 0
-    for message_id in request.message_ids:
-        stmt = insert(MessagePin).values(
-            message_id=message_id,
-            tutor_id=tutor_id
-        ).prefix_with('IGNORE')
-        result = db.execute(stmt)
-        count += result.rowcount
-
-    db.commit()
+    count = _bulk_insert_ignore(db, MessagePin, request.message_ids, tutor_id)
     return PinResponse(success=True, count=count)
 
 
@@ -1387,18 +1342,7 @@ async def thread_pin_messages(
     db: Session = Depends(get_db)
 ):
     """Pin threads to top of thread list (separate from star/favorite)."""
-    from sqlalchemy.dialects.mysql import insert
-
-    count = 0
-    for message_id in request.message_ids:
-        stmt = insert(ThreadPin).values(
-            message_id=message_id,
-            tutor_id=tutor_id
-        ).prefix_with('IGNORE')
-        result = db.execute(stmt)
-        count += result.rowcount
-
-    db.commit()
+    count = _bulk_insert_ignore(db, ThreadPin, request.message_ids, tutor_id)
     return PinResponse(success=True, count=count)
 
 
@@ -1509,7 +1453,7 @@ async def get_pinned_messages(
     return PaginatedThreadsResponse(
         threads=threads,
         total_count=total_count,
-        has_more=(offset + limit) < total_count,
+        has_more=(offset + len(threads)) < total_count,
         limit=limit,
         offset=offset
     )
