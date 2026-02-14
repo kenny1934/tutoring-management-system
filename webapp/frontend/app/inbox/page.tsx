@@ -1518,11 +1518,43 @@ export default function InboxPage() {
   // Clear selection when category changes
   useEffect(() => {
     setSelectedThread(null);
+    if (isMobile && history.state?.inboxThread) {
+      history.back();
+    }
   }, [selectedCategory]);
+
+  // Mobile back navigation: push history entry when selecting a thread,
+  // listen for popstate to close the panel on browser back.
+  const closingThreadRef = useRef(false);
+
+  const handleCloseThread = useCallback(() => {
+    if (closingThreadRef.current) return;
+    closingThreadRef.current = true;
+    setSelectedThread(null);
+    if (isMobile && history.state?.inboxThread) {
+      history.back();
+    }
+    setTimeout(() => { closingThreadRef.current = false; }, 100);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const handlePopState = () => {
+      if (closingThreadRef.current) return;
+      closingThreadRef.current = true;
+      setSelectedThread(null);
+      setTimeout(() => { closingThreadRef.current = false; }, 100);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [isMobile]);
 
   // Select thread — show immediately, then fetch full thread if replies are missing (client-side categories like reminders/scheduled)
   const handleSelectThread = useCallback(async (thread: MessageThread) => {
     setSelectedThread(thread);
+    if (isMobile) {
+      history.pushState({ inboxThread: true }, "");
+    }
     if (thread.replies.length === 0 && tutorId !== null && !thread.root_message.scheduled_at) {
       try {
         const fullThread = await messagesAPI.getThread(thread.root_message.id, tutorId);
@@ -1531,7 +1563,7 @@ export default function InboxPage() {
         console.error("Failed to load full thread:", err);
       }
     }
-  }, [tutorId]);
+  }, [tutorId, isMobile]);
 
   // Browser notifications setup (toast is now handled app-wide in Sidebar)
   const { permission: notifPermission, requestPermission, sendNotification } = useBrowserNotifications();
@@ -1918,11 +1950,12 @@ export default function InboxPage() {
     if (tutorId === null || !selectedThread) return;
     try {
       const uploaded = await messagesAPI.uploadFile(file, tutorId);
-      // Send a reply message with the voice attachment
+      const recipients = computeReplyRecipients(selectedThread.root_message, tutorId);
       await messagesAPI.create({
         message: `<p>🎙️ Voice message</p>`,
         reply_to_id: selectedThread.root_message.id,
         file_attachments: [uploaded],
+        ...recipients,
       }, tutorId);
       mutate(isAnyMessageKey);
     } catch {
@@ -2556,7 +2589,7 @@ export default function InboxPage() {
                 <ThreadDetailPanel
                   thread={selectedThread}
                   currentTutorId={effectiveTutorId}
-                  onClose={() => setSelectedThread(null)}
+                  onClose={handleCloseThread}
                   onReply={handleReply}
                   onSendMessage={handleSendMessage}
                   onLike={handleLike}
