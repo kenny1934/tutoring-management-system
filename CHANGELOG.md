@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.3](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.3) (2026-02-15)
+
+### New Features
+
+* **Math equations in inbox** — type `$...$` for inline or `$$...$$` for block math, rendered with KaTeX; Sigma toolbar button converts selected text to equations; click to edit existing equations
+
+### Bug Fixes
+
+* Fixed send button disabled when message contains only math equations
+* Fixed math equations vanishing from message bubbles on re-render
+
 ## [2.0.2](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.2) (2026-02-14)
 
 ### New Features
