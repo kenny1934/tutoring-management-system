@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, Send, Loader2, Megaphone, Users, ChevronDown, Check,
   FileText, Paperclip, Bell, HelpCircle, Calendar,
-  MessageCircle, BookOpen, MessageSquarePlus,
+  MessageCircle, BookOpen, MessageSquarePlus, Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,13 @@ const PRIORITY_OPTIONS = [
   { value: "Urgent" as const, label: "Urgent", colorClass: "text-red-600 dark:text-red-400" },
 ];
 
+function getDefaultCustomDateTime() {
+  const d = new Date(Date.now() + 60_000); // 1 minute from now
+  const date = d.toLocaleDateString("en-CA"); // "YYYY-MM-DD"
+  const time = d.toTimeString().slice(0, 5);  // "HH:MM"
+  return { date, time };
+}
+
 export interface ComposeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,6 +74,10 @@ export default function ComposeModal({
   const [priority, setPriority] = useState<"Normal" | "High" | "Urgent">("Normal");
   const [category, setCategory] = useState<MessageCategory | "">("");
   const [isSending, setIsSending] = useState(false);
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+  const [showCustomSchedule, setShowCustomSchedule] = useState(false);
+  const [customScheduleDate, setCustomScheduleDate] = useState("");
+  const [customScheduleTime, setCustomScheduleTime] = useState("09:00");
   const [composeEditorKey, setComposeEditorKey] = useState(0);
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false);
@@ -237,6 +248,8 @@ export default function ComposeModal({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, hasUnsavedChanges]);
 
+  const effectiveReplyToId = replyTo?.id || undefined;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isMessageEmpty) return;
@@ -248,7 +261,7 @@ export default function ComposeModal({
         message,
         priority,
         category: category || undefined,
-        reply_to_id: replyTo?.id,
+        reply_to_id: effectiveReplyToId,
         image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
         file_attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
       };
@@ -268,6 +281,66 @@ export default function ComposeModal({
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleScheduleSend = async (scheduledAt: Date) => {
+    if (isMessageEmpty) return;
+    setShowScheduleMenu(false);
+    setIsSending(true);
+    try {
+      const sendData: MessageCreate = {
+        subject: subject || undefined,
+        message,
+        priority,
+        category: category || undefined,
+        reply_to_id: effectiveReplyToId,
+        image_attachments: uploadedImages.length > 0 ? uploadedImages : undefined,
+        file_attachments: uploadedFiles.length > 0 ? uploadedFiles : undefined,
+        scheduled_at: scheduledAt.toISOString(),
+      };
+      if (recipientMode === "select") {
+        if (selectedTutorIds.length === 1) {
+          sendData.to_tutor_id = selectedTutorIds[0];
+        } else if (selectedTutorIds.length >= 2) {
+          sendData.to_tutor_ids = selectedTutorIds;
+        }
+      }
+      await onSend(sendData);
+      clearDraft(getDraftKey(replyTo?.id));
+      onClose();
+      showToast(`Message scheduled for ${scheduledAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`, "success");
+    } catch {
+      showToast("Failed to schedule message", "error");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleCustomScheduleSend = () => {
+    if (!customScheduleDate) return;
+    const dt = new Date(`${customScheduleDate}T${customScheduleTime}:00`);
+    if (dt <= new Date()) return;
+    handleScheduleSend(dt);
+  };
+
+  // Schedule presets
+  const getSchedulePresets = () => {
+    const now = new Date();
+
+    const in30min = new Date(now.getTime() + 30 * 60 * 1000);
+    const in1hr = new Date(now.getTime() + 60 * 60 * 1000);
+    const in2hr = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    const tomorrow9am = new Date(now);
+    tomorrow9am.setDate(tomorrow9am.getDate() + 1);
+    tomorrow9am.setHours(9, 0, 0, 0);
+
+    return [
+      { label: "30 minutes later", time: in30min },
+      { label: "1 hour later", time: in1hr },
+      { label: "2 hours later", time: in2hr },
+      { label: "Tomorrow 9:00 AM", time: tomorrow9am },
+    ];
   };
 
   return (
@@ -683,14 +756,95 @@ export default function ComposeModal({
             >
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isSending || isUploading || isMessageEmpty}
-              className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              Send
-            </button>
+            <div className="relative flex">
+              <button
+                type="submit"
+                disabled={isSending || isUploading || isMessageEmpty}
+                className="px-4 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-l-lg transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Send
+              </button>
+              <button
+                type="button"
+                disabled={isSending || isUploading || isMessageEmpty}
+                onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                className="px-2 py-2 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-lg border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                title="Schedule send"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              {showScheduleMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => { setShowScheduleMenu(false); setShowCustomSchedule(false); }} />
+                  <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[220px]">
+                    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Schedule send</div>
+                    {getSchedulePresets().map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => handleScheduleSend(preset.time)}
+                        className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2 text-gray-700 dark:text-gray-300"
+                      >
+                        <Clock className="h-3.5 w-3.5 text-gray-400" />
+                        {preset.label}
+                      </button>
+                    ))}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-1 pt-1">
+                      {!showCustomSchedule ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { date, time } = getDefaultCustomDateTime();
+                            setCustomScheduleDate(date);
+                            setCustomScheduleTime(time);
+                            setShowCustomSchedule(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-left"
+                        >
+                          <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                          <span className="text-gray-700 dark:text-gray-300">Pick date & time</span>
+                        </button>
+                      ) : (
+                        <div className="px-3 py-2 space-y-1.5">
+                          <input
+                            type="date"
+                            value={customScheduleDate}
+                            onChange={(e) => setCustomScheduleDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                            className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          />
+                          <input
+                            type="time"
+                            value={customScheduleTime}
+                            onChange={(e) => setCustomScheduleTime(e.target.value)}
+                            min={customScheduleDate === new Date().toLocaleDateString("en-CA") ? new Date().toTimeString().slice(0, 5) : undefined}
+                            className="w-full px-2 py-1 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent focus:outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-700 dark:text-gray-200"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowCustomSchedule(false)}
+                              className="flex-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCustomScheduleSend}
+                              disabled={!customScheduleDate}
+                              className="flex-1 px-2 py-1 text-xs font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+                            >
+                              Set
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </form>
         </motion.div>

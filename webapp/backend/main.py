@@ -2,12 +2,17 @@
 FastAPI main application for tutoring management system.
 Provides read-only API endpoints for MVP testing.
 """
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import os
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -76,6 +81,66 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         return response
 
+async def _check_expired_reminders():
+    """Background task: process expired snoozes every 30s.
+    Marks messages as unread, broadcasts SSE event, deletes snooze record."""
+    from database import SessionLocal
+    from models import MessageSnooze, TutorMessage, MessageReadReceipt
+    from sse import sse_manager
+    from sqlalchemy import func
+
+    while True:
+        await asyncio.sleep(30)
+        try:
+            db = SessionLocal()
+            try:
+                expired = db.query(MessageSnooze).filter(
+                    MessageSnooze.snooze_until <= func.now()
+                ).all()
+
+                for snooze in expired:
+                    # Mark message as unread (delete read receipt)
+                    db.query(MessageReadReceipt).filter(
+                        MessageReadReceipt.message_id == snooze.message_id,
+                        MessageReadReceipt.tutor_id == snooze.tutor_id,
+                    ).delete()
+
+                    # Get message info for SSE event
+                    msg = db.query(TutorMessage).filter(
+                        TutorMessage.id == snooze.message_id
+                    ).first()
+
+                    if msg:
+                        await sse_manager.broadcast(
+                            "reminder_due",
+                            {
+                                "message_id": snooze.message_id,
+                                "thread_id": msg.reply_to_id or msg.id,
+                                "subject": msg.subject,
+                                "preview": (msg.message or "")[:100],
+                            },
+                            [snooze.tutor_id],
+                        )
+
+                    # Delete snooze record
+                    db.delete(snooze)
+
+                if expired:
+                    db.commit()
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error("Reminder check failed: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(app_instance):
+    """Application lifespan: start/stop background tasks."""
+    task = asyncio.create_task(_check_expired_reminders())
+    yield
+    task.cancel()
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Tutoring Management API",
@@ -83,6 +148,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS - use specific origins even in development for better security practice

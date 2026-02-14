@@ -15,6 +15,8 @@ import InboxRichEditor from "@/components/inbox/InboxRichEditor";
 import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
+import { EmojiPicker } from "@/components/ui/emoji-picker";
+import AudioPlayer from "@/components/inbox/AudioPlayer";
 import type { Message } from "@/types";
 
 // Module-level constants
@@ -79,47 +81,78 @@ const SeenBadge = React.memo(function SeenBadge({
   const isBlue = readByAll;
   const checkColor = isBlue ? "text-blue-500" : "text-gray-400 dark:text-gray-400";
 
+  const showProgressBar = totalRecipients >= 3;
+  const readPercent = totalRecipients > 0 ? Math.round((readCount / totalRecipients) * 100) : 0;
+
   return (
-    <div className="relative inline-flex items-center">
-      <button
-        ref={buttonRef}
-        onClick={() => {
-          if (!showPopover && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            setPopoverPos({
-              top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
-              left: Math.max(8, Math.min(rect.right - 250, window.innerWidth - 260)),
-            });
-          }
-          setShowPopover(!showPopover);
-        }}
-        className={cn("flex items-center gap-0.5 text-xs transition-colors hover:opacity-80", checkColor)}
-        title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
-      >
-        {hasBeenRead ? (
-          <svg viewBox="0 0 16 11" width="16" height="11" className={checkColor} fill="currentColor">
-            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
-            <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 12 11" width="12" height="11" className={checkColor} fill="currentColor">
-            <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
-          </svg>
-        )}
-      </button>
-      {showPopover && hasBeenRead && createPortal(
+    <div className="relative inline-flex flex-col items-end gap-0.5">
+      <div className="inline-flex items-center">
+        <button
+          ref={buttonRef}
+          onClick={() => {
+            if (!showPopover && buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              setPopoverPos({
+                top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
+                left: Math.max(8, Math.min(rect.right - 250, window.innerWidth - 260)),
+              });
+            }
+            setShowPopover(!showPopover);
+          }}
+          className={cn("flex items-center gap-0.5 text-xs transition-colors hover:opacity-80", checkColor)}
+          title={readByAll ? "Seen by all" : hasBeenRead ? `Seen by ${readCount}` : "Sent"}
+        >
+          {hasBeenRead ? (
+            <svg viewBox="0 0 16 11" width="16" height="11" className={checkColor} fill="currentColor">
+              <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+              <path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-1.005-.951a.457.457 0 0 0-.312-.123.469.469 0 0 0-.327.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l1.327 1.259a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.118-.287z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 12 11" width="12" height="11" className={checkColor} fill="currentColor">
+              <path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 0 0-.336-.136.473.473 0 0 0-.323.137.473.473 0 0 0-.137.323c0 .126.046.236.137.327l2.727 2.591a.46.46 0 0 0 .327.136.476.476 0 0 0 .381-.178l6.5-8.045a.426.426 0 0 0 .102-.31.414.414 0 0 0-.098-.285z" />
+            </svg>
+          )}
+          {showProgressBar && (
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-0.5">
+              {readCount}/{totalRecipients}
+            </span>
+          )}
+        </button>
+      </div>
+      {showProgressBar && (
+        <div className="w-20 h-1 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500 bg-[#a0704b]"
+            style={{ width: `${readPercent}%` }}
+          />
+        </div>
+      )}
+      {showPopover && createPortal(
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setShowPopover(false)} />
           <div
             ref={popoverRef}
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[180px] max-w-[250px]"
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#d4a574] dark:border-[#8b6f47] py-2 min-w-[200px] max-w-[260px]"
             style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
           >
             <div className="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              Seen by {readCount}{totalRecipients > 1 ? ` of ${totalRecipients}` : ""}
+              Read by {readCount} of {totalRecipients}
             </div>
+            {showProgressBar && (
+              <div className="px-3 py-1.5">
+                <div className="w-full h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 bg-[#a0704b]"
+                    style={{ width: `${readPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="max-h-[200px] overflow-y-auto">
+              {readReceipts.length > 0 && (
+                <div className="px-3 pt-1 pb-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Read</div>
+              )}
               {readReceipts.map((receipt) => (
                 <div key={receipt.tutor_id} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
                   <div className="flex items-center gap-2 min-w-0">
@@ -145,22 +178,53 @@ const SeenBadge = React.memo(function SeenBadge({
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const EMOJI_LABELS: Record<string, string> = { "👍": "thumbs up", "❤️": "heart", "😂": "laugh", "😮": "surprised", "😢": "sad", "🙏": "pray" };
 
+// Frequently used emoji tracking in localStorage
+const FREQ_EMOJI_KEY = "inbox_frequent_emoji";
+
+function getFrequentEmojis(max = 6): string[] {
+  try {
+    const data = JSON.parse(localStorage.getItem(FREQ_EMOJI_KEY) || "[]") as { emoji: string; count: number }[];
+    return data.sort((a, b) => b.count - a.count).slice(0, max).map(d => d.emoji);
+  } catch {
+    return [];
+  }
+}
+
+function trackEmojiUse(emoji: string) {
+  try {
+    const data = JSON.parse(localStorage.getItem(FREQ_EMOJI_KEY) || "[]") as { emoji: string; count: number }[];
+    const existing = data.find(d => d.emoji === emoji);
+    if (existing) {
+      existing.count++;
+    } else {
+      data.push({ emoji, count: 1 });
+    }
+    // Keep only top 20
+    data.sort((a, b) => b.count - a.count);
+    localStorage.setItem(FREQ_EMOJI_KEY, JSON.stringify(data.slice(0, 20)));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, isMobile }: { messageId: number; onReact: (emoji: string) => void; isMobile?: boolean }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showFullPicker, setShowFullPicker] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
   const emojiRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
-    if (!showPicker) return;
+    if (!showPicker && !showFullPicker) return;
     const handleClick = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowPicker(false);
+        setShowFullPicker(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPicker]);
+  }, [showPicker, showFullPicker]);
 
   useEffect(() => {
     if (showPicker) {
@@ -170,7 +234,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
   }, [showPicker]);
 
   const handlePickerKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") { setShowPicker(false); return; }
+    if (e.key === "Escape") { setShowPicker(false); setShowFullPicker(false); return; }
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
       const next = (focusIdx + 1) % REACTION_EMOJIS.length;
@@ -184,10 +248,17 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
     }
   }, [focusIdx]);
 
+  const handleReact = useCallback((emoji: string) => {
+    trackEmojiUse(emoji);
+    onReact(emoji);
+    setShowPicker(false);
+    setShowFullPicker(false);
+  }, [onReact]);
+
   return (
     <div className="relative" ref={pickerRef}>
       <button
-        onClick={() => setShowPicker(!showPicker)}
+        onClick={() => { setShowPicker(!showPicker); setShowFullPicker(false); }}
         className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors"
         title="React"
         aria-haspopup="true"
@@ -195,7 +266,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
       >
         <Smile className="h-3.5 w-3.5" />
       </button>
-      {showPicker && (
+      {showPicker && !showFullPicker && (
         <div
           className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}
           role="menu"
@@ -208,14 +279,28 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
               ref={(el) => { emojiRefs.current[i] = el; }}
               role="menuitem"
               aria-label={`React with ${EMOJI_LABELS[emoji] || emoji}`}
-              onClick={() => { onReact(emoji); setShowPicker(false); }}
+              onClick={() => handleReact(emoji)}
               className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-base"
               tabIndex={i === focusIdx ? 0 : -1}
             >
               {emoji}
             </button>
           ))}
+          <button
+            onClick={() => setShowFullPicker(true)}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-sm text-gray-400"
+            title="More emojis"
+          >
+            +
+          </button>
         </div>
+      )}
+      {showFullPicker && (
+        <EmojiPicker
+          isOpen={true}
+          onSelect={handleReact}
+          onClose={() => { setShowFullPicker(false); setShowPicker(false); }}
+        />
       )}
     </div>
   );
@@ -223,68 +308,94 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
 
 // --- LikesBadge ---
 
-const LikesBadge = React.memo(function LikesBadge({ message }: { message: Message }) {
-  const [showPopover, setShowPopover] = useState(false);
-  const buttonRef = useRef<HTMLDivElement>(null);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number } | null>(null);
+const LikesBadge = React.memo(function LikesBadge({ message, currentTutorId, onToggleReaction }: { message: Message; currentTutorId: number; onToggleReaction: (emoji: string) => void }) {
+  const [popover, setPopover] = useState<{ emoji: string; pos: { top: number; left: number } } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
 
   const likeDetails = message.like_details || [];
-  if (likeDetails.length === 0) return null;
 
   const grouped = useMemo(() => {
-    const map = new Map<string, { emoji: string; count: number; tutors: string[] }>();
+    const map = new Map<string, { emoji: string; count: number; tutors: string[]; tutorIds: number[] }>();
     for (const d of likeDetails) {
       const emoji = d.emoji || "❤️";
       const existing = map.get(emoji);
       if (existing) {
         existing.count++;
         existing.tutors.push(d.tutor_name);
+        existing.tutorIds.push(d.tutor_id);
       } else {
-        map.set(emoji, { emoji, count: 1, tutors: [d.tutor_name] });
+        map.set(emoji, { emoji, count: 1, tutors: [d.tutor_name], tutorIds: [d.tutor_id] });
       }
     }
     return Array.from(map.values());
   }, [likeDetails]);
 
+  const clearLongPress = useCallback(() => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  }, []);
+
+  if (likeDetails.length === 0) return null;
+
+  const popoverDetails = popover
+    ? likeDetails.filter(d => (d.emoji || "❤️") === popover.emoji)
+    : [];
+
   return (
-    <div ref={buttonRef} className="inline-flex items-center gap-0.5">
-      {grouped.map((g) => (
-        <button
-          key={g.emoji}
-          onClick={() => {
-            if (!showPopover && buttonRef.current) {
-              const rect = buttonRef.current.getBoundingClientRect();
-              const spaceBelow = window.innerHeight - rect.bottom;
-              setPopoverPos({
-                top: spaceBelow > 220 ? rect.bottom + 8 : rect.top - 220,
-                left: Math.max(8, Math.min(rect.left, window.innerWidth - 260)),
-              });
-            }
-            setShowPopover(!showPopover);
-          }}
-          className="flex items-center gap-0.5 px-1.5 py-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-sm border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 text-xs hover:shadow-md transition-shadow"
-          title={g.tutors.join(", ")}
-        >
-          <span className="text-sm leading-none">{g.emoji}</span>
-          {g.count > 1 && <span className="text-gray-600 dark:text-gray-400">{g.count}</span>}
-        </button>
-      ))}
-      {showPopover && createPortal(
-        <>
-          <div className="fixed inset-0 z-[60]" onClick={() => setShowPopover(false)} />
-          <div
-            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[180px] max-w-[250px]"
-            style={{ top: popoverPos?.top ?? 0, left: popoverPos?.left ?? 0 }}
+    <div className="inline-flex items-center gap-0.5">
+      {grouped.map((g) => {
+        const isMine = g.tutorIds.includes(currentTutorId);
+        return (
+          <button
+            key={g.emoji}
+            onClick={() => {
+              if (longPressFired.current) { longPressFired.current = false; return; }
+              onToggleReaction(g.emoji);
+            }}
+            onTouchStart={(e) => {
+              longPressFired.current = false;
+              const rect = e.currentTarget.getBoundingClientRect();
+              longPressTimer.current = setTimeout(() => {
+                longPressFired.current = true;
+                const spaceBelow = window.innerHeight - rect.bottom;
+                setPopover({
+                  emoji: g.emoji,
+                  pos: {
+                    top: spaceBelow > 180 ? rect.bottom + 6 : rect.top - 180,
+                    left: Math.max(8, Math.min(rect.left, window.innerWidth - 200)),
+                  },
+                });
+              }, 500);
+            }}
+            onTouchEnd={clearLongPress}
+            onTouchMove={clearLongPress}
+            className={cn(
+              "flex items-center gap-0.5 px-1.5 py-0.5 rounded-full shadow-sm text-xs transition-all duration-150",
+              "hover:scale-110 hover:shadow-md active:scale-95",
+              isMine
+                ? "bg-[#a0704b]/10 border border-[#a0704b]/60 dark:border-[#a0704b]/60"
+                : "bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60"
+            )}
+            title={g.tutors.join(", ")}
           >
-            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
-              Reactions ({likeDetails.length})
-            </div>
-            <div className="max-h-[200px] overflow-y-auto">
-              {likeDetails.map((detail, i) => (
-                <div key={`${detail.tutor_id}-${detail.emoji}-${i}`} className="px-3 py-1.5 flex items-center justify-between gap-2 hover:bg-gray-50 dark:hover:bg-gray-800">
+            <span className="text-sm leading-none">{g.emoji}</span>
+            {g.count > 1 && <span className="text-gray-600 dark:text-gray-400">{g.count}</span>}
+          </button>
+        );
+      })}
+      {popover && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setPopover(null)} onTouchEnd={() => setPopover(null)} />
+          <div
+            className="fixed z-[61] bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-2 min-w-[160px] max-w-[220px]"
+            style={{ top: popover.pos.top, left: popover.pos.left }}
+          >
+            <div className="max-h-[150px] overflow-y-auto">
+              {popoverDetails.map((detail, i) => (
+                <div key={`${detail.tutor_id}-${i}`} className="px-3 py-1.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm flex-shrink-0">{detail.emoji || "❤️"}</span>
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{detail.tutor_name}</span>
+                    <span className="text-xs text-gray-700 dark:text-gray-300 truncate">{detail.tutor_name}</span>
                   </div>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
                     {new Date(detail.liked_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
@@ -315,6 +426,7 @@ export interface MessageBubbleProps {
   highlightRegex: RegExp | null;
   threadSearch: string;
   mentionUsers: MentionUser[];
+  isOnline?: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: (msgId: number, text: string, images?: string[]) => Promise<void>;
@@ -337,6 +449,7 @@ const MessageBubble = React.memo(function MessageBubble({
   highlightRegex,
   threadSearch,
   mentionUsers,
+  isOnline,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -388,7 +501,7 @@ const MessageBubble = React.memo(function MessageBubble({
     )}>
       {!isOwn && (
         <div className="mt-1" style={{ visibility: isFirstInGroup ? 'visible' : 'hidden', width: 32, flexShrink: 0 }}>
-          {isFirstInGroup && <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureUrl} />}
+          {isFirstInGroup && <TutorAvatar name={m.from_tutor_name || "?"} id={m.from_tutor_id} pictureUrl={pictureUrl} isOnline={isOnline} />}
         </div>
       )}
       <div
@@ -396,7 +509,7 @@ const MessageBubble = React.memo(function MessageBubble({
         style={{ animation: 'message-in 0.2s ease-out both' }}
         className={cn(
           "group/msg relative p-3 rounded-2xl transition-shadow",
-          m.like_count > 0 && "mb-2",
+          m.like_count > 0 && "mb-4",
           isOwn
             ? cn("bg-[#ede0cf] dark:bg-[#3d3628] ml-12 sm:ml-20", isLastInGroup && "bubble-tail-right")
             : "flex-1 min-w-0",
@@ -532,24 +645,28 @@ const MessageBubble = React.memo(function MessageBubble({
         {/* File/document attachments */}
         {m.file_attachments && m.file_attachments.length > 0 && (
           <div className="mt-3 space-y-2">
-            {m.file_attachments.map((file) => (
-              <a
-                key={file.url}
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
-              >
-                <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">{file.content_type.split('/').pop()?.toUpperCase()}</div>
-                </div>
-                <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
-              </a>
-            ))}
+            {m.file_attachments.map((file) =>
+              file.content_type?.startsWith("audio/") ? (
+                <AudioPlayer key={file.url} src={file.url} filename={file.filename} />
+              ) : (
+                <a
+                  key={file.url}
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2820] transition-colors group"
+                >
+                  <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{file.content_type.split('/').pop()?.toUpperCase()}</div>
+                  </div>
+                  <Download className="h-4 w-4 text-gray-400 group-hover:text-[#a0704b] transition-colors flex-shrink-0" />
+                </a>
+              )
+            )}
           </div>
         )}
 
@@ -606,7 +723,7 @@ const MessageBubble = React.memo(function MessageBubble({
         {/* Like count badge */}
         {m.like_count > 0 && (
           <div className="absolute -bottom-2.5 left-3">
-            <LikesBadge message={m} />
+            <LikesBadge message={m} currentTutorId={currentTutorId} onToggleReaction={onReact} />
           </div>
         )}
 
