@@ -5,7 +5,7 @@ import { Mic, Square, Send, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface VoiceRecorderProps {
-  onSend: (file: File) => Promise<void>;
+  onSend: (file: File, durationSec: number) => Promise<void>;
   className?: string;
 }
 
@@ -82,7 +82,7 @@ export default function VoiceRecorder({ onSend, className }: VoiceRecorderProps)
 
         setState("uploading");
         try {
-          await onSend(file);
+          await onSend(file, duration);
         } finally {
           setState("idle");
           setDuration(0);

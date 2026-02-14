@@ -38,7 +38,7 @@ interface ReplyComposerProps {
   templates?: MessageTemplate[];
   onCreateTemplate?: (title: string, content: string) => void;
   onDeleteTemplate?: (templateId: number) => void;
-  onSendVoice?: (file: File) => Promise<void>;
+  onSendVoice?: (file: File, durationSec: number) => Promise<void>;
 }
 
 const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(function ReplyComposer(

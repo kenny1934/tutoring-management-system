@@ -647,7 +647,7 @@ const MessageBubble = React.memo(function MessageBubble({
           <div className="mt-3 space-y-2">
             {m.file_attachments.map((file) =>
               file.content_type?.startsWith("audio/") ? (
-                <AudioPlayer key={file.url} src={file.url} filename={file.filename} />
+                <AudioPlayer key={file.url} src={file.url} filename={file.filename} duration={file.duration} />
               ) : (
                 <a
                   key={file.url}

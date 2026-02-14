@@ -720,7 +720,7 @@ export interface Message {
   reaction_summary?: ReactionSummary[];
   reply_count: number;
   image_attachments?: string[];  // List of image URLs
-  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
+  file_attachments?: { url: string; filename: string; content_type: string; duration?: number }[];  // Document attachments
   // Read receipt fields for sender's messages (WhatsApp-style seen status)
   read_receipts?: ReadReceiptDetail[];  // Only populated for sender's own messages
   total_recipients?: number;  // Total recipients for broadcasts/groups
@@ -758,7 +758,7 @@ export interface MessageCreate {
   priority?: MessagePriority;
   category?: MessageCategory;
   image_attachments?: string[];  // List of uploaded image URLs
-  file_attachments?: { url: string; filename: string; content_type: string }[];  // Document attachments
+  file_attachments?: { url: string; filename: string; content_type: string; duration?: number }[];  // Document attachments
   scheduled_at?: string;  // ISO datetime string for scheduled send
 }
 

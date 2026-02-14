@@ -592,7 +592,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onThreadUnmute?: (msgId: number) => Promise<void>;
   onSnooze?: (msgId: number, snoozeUntil: string) => Promise<void>;
   onUnsnooze?: (msgId: number) => Promise<void>;
-  onSendVoice?: (file: File) => Promise<void>;
+  onSendVoice?: (file: File, durationSec: number) => Promise<void>;
   onCancelScheduled?: (msgId: number) => Promise<void>;
 }) {
   const { root_message: msg, replies } = thread;
@@ -1946,7 +1946,7 @@ export default function InboxPage() {
   }, [tutorId, showToast]);
 
   // Voice message handler: upload audio file then send as file_attachment
-  const handleSendVoice = useCallback(async (file: File) => {
+  const handleSendVoice = useCallback(async (file: File, durationSec: number) => {
     if (tutorId === null || !selectedThread) return;
     try {
       const uploaded = await messagesAPI.uploadFile(file, tutorId);
@@ -1954,7 +1954,7 @@ export default function InboxPage() {
       await messagesAPI.create({
         message: `<p>🎙️ Voice message</p>`,
         reply_to_id: selectedThread.root_message.id,
-        file_attachments: [uploaded],
+        file_attachments: [{ ...uploaded, duration: durationSec }],
         ...recipients,
       }, tutorId);
       mutate(isAnyMessageKey);
