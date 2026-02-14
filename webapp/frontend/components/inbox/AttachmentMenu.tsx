@@ -51,7 +51,7 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled || isUploading}
-        className="p-1.5 text-gray-400 hover:text-[#a0704b] hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors disabled:opacity-50"
+        className="p-1.5 text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] rounded transition-colors disabled:opacity-50"
         title="Attach file"
       >
         {isUploading ? (

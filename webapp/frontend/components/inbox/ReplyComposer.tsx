@@ -196,7 +196,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   return (
     <div
       className={cn(
-        "flex-shrink-0 p-3 relative transition-all",
+        "flex-shrink-0 p-3 relative transition-all border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/60 shadow-[0_-2px_6px_0_rgba(0,0,0,0.06)] dark:shadow-[0_-2px_6px_0_rgba(0,0,0,0.25)]",
         isReplyDragging && "ring-2 ring-inset ring-blue-400 bg-blue-50/30 dark:bg-blue-900/10"
       )}
       onKeyDown={(e) => {

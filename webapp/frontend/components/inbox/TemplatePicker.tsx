@@ -43,7 +43,7 @@ export default function TemplatePicker({ templates, onSelect, onDelete, onCreate
           "p-1.5 rounded transition-colors",
           isOpen
             ? "text-[#a0704b] bg-[#f5ede3]/60 dark:bg-[#3d3628]/50"
-            : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            : "text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
         )}
         title="Message templates"
       >

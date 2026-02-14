@@ -108,7 +108,7 @@ export default function VoiceRecorder({ onSend, mode = "send", className }: Voic
         type="button"
         onClick={startRecording}
         className={cn(
-          "p-2 rounded-lg text-gray-500 hover:text-[#a0704b] bg-[#f5ede3]/50 dark:bg-[#3d3628]/30 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]/60 transition-colors",
+          "p-1.5 rounded-lg text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors",
           className
         )}
         title="Record voice message"
