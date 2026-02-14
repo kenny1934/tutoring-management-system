@@ -1656,7 +1656,7 @@ async def upload_message_file(
     contents = await file.read()
 
     try:
-        if content_type.startswith('image/'):
+        if content_type.startswith('image/') and content_type != 'image/gif':
             url = upload_image(contents, file.filename)
             return {"url": url, "filename": file.filename, "content_type": content_type}
         else:
