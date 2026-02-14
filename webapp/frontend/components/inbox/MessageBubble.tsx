@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
-import { isHtmlEmpty } from "@/lib/html-utils";
+import { isHtmlEmpty, renderMathInHtml } from "@/lib/html-utils";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
@@ -19,7 +19,6 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import AudioPlayer from "@/components/inbox/AudioPlayer";
 import AttachmentMenu from "@/components/inbox/AttachmentMenu";
 import type { Message } from "@/types";
-import katex from "katex";
 import "katex/dist/katex.min.css";
 
 // Module-level constants
@@ -468,32 +467,7 @@ const MessageBubble = React.memo(function MessageBubble({
   const isGroup = m.is_group_message;
 
   // Pre-render KaTeX math nodes into the HTML string (stable across re-renders)
-  const renderedMessage = useMemo(() => {
-    let html = m.message;
-    // Replace inline math spans with KaTeX-rendered HTML
-    html = html.replace(
-      /<span[^>]*data-type="inline-math"[^>]*>.*?<\/span>/gs,
-      (match) => {
-        const latexMatch = match.match(/data-latex="([^"]*)"/);
-        if (!latexMatch) return match;
-        try {
-          return katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: false });
-        } catch { return latexMatch[1]; }
-      }
-    );
-    // Replace block math divs with KaTeX-rendered HTML
-    html = html.replace(
-      /<div[^>]*data-type="block-math"[^>]*>.*?<\/div>/gs,
-      (match) => {
-        const latexMatch = match.match(/data-latex="([^"]*)"/);
-        if (!latexMatch) return match;
-        try {
-          return `<div style="text-align:center;padding:8px 0;margin:4px 0">${katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: true })}</div>`;
-        } catch { return latexMatch[1]; }
-      }
-    );
-    return html;
-  }, [m.message]);
+  const renderedMessage = useMemo(() => renderMathInHtml(m.message), [m.message]);
 
   // Internal edit state
   const [editText, setEditText] = useState(m.message);

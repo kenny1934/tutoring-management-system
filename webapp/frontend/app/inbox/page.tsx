@@ -12,7 +12,7 @@ import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
-import { stripHtml } from "@/lib/html-utils";
+import { stripHtml, renderMathInHtml } from "@/lib/html-utils";
 import { formatTimeAgo } from "@/lib/formatters";
 import { mutate } from "swr";
 import type { Message, MessageThread, MessageCreate, MessageCategory, MakeupProposal, Session, PaginatedThreadsResponse } from "@/types";
@@ -77,6 +77,7 @@ import {
   AlarmClock,
   Mic,
   Users,
+  FileText,
 } from "lucide-react";
 import { getTutorFirstName } from "@/components/zen/utils/sessionSorting";
 
@@ -574,6 +575,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnsnooze,
   onSendVoice,
   onCancelScheduled,
+  onRegisterUndo,
+  onOptimisticReply,
 }: {
   thread: MessageThread;
   currentTutorId: number;
@@ -608,9 +611,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   onUnsnooze?: (msgId: number) => Promise<void>;
   onSendVoice?: (file: File, durationSec: number) => Promise<void>;
   onCancelScheduled?: (msgId: number) => Promise<void>;
+  onRegisterUndo?: (callback: () => void) => void;
+  onOptimisticReply?: (info: { threadId: number; message: string; createdAt: string } | null) => void;
 }) {
   const { root_message: msg, replies } = thread;
-  const allMessages = [msg, ...replies];
+  const allMessages = [msg, ...replies.filter(r => r.id > 0)];
 
   // Scope @mentions to thread participants (senders + recipients)
   const threadMentionUsers = useMemo(() => {
@@ -682,7 +687,29 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   // Reply composer ref for imperative actions (quoting, retry)
   const threadId = thread.root_message.id;
   const replyComposerRef = useRef<ReplyComposerHandle>(null);
-  const [optimisticMessage, setOptimisticMessage] = useState<{ text: string; images: string[]; failed?: boolean } | null>(null);
+  const [optimisticMessage, setOptimisticMessage] = useState<{
+    text: string;
+    images: string[];
+    files: { url: string; filename: string; content_type: string; duration?: number }[];
+    status: 'sending' | 'failed';
+  } | null>(null);
+  const optimisticCreatedRef = useRef<Date | null>(null);
+
+  // Clear optimistic bubble when SWR data arrives with the real message (no flash)
+  useEffect(() => {
+    if (!optimisticMessage || optimisticMessage.status === 'failed') return;
+    const created = optimisticCreatedRef.current;
+    if (!created) return;
+    const allMsgs = [thread.root_message, ...thread.replies];
+    const hasNewerOwn = allMsgs.some(
+      m => m.id > 0 && m.from_tutor_id === currentTutorId && new Date(m.created_at) >= created
+    );
+    if (hasNewerOwn) {
+      setOptimisticMessage(null);
+      optimisticCreatedRef.current = null;
+      onOptimisticReply?.(null);
+    }
+  }, [thread, currentTutorId, optimisticMessage, onOptimisticReply]);
 
   // Auto-scroll to bottom when thread opens
   useEffect(() => {
@@ -753,8 +780,22 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     // Compute recipients
     Object.assign(data, computeReplyRecipients(msg, currentTutorId));
 
-    // Show optimistic bubble
-    setOptimisticMessage({ text: text || "<p></p>", images: [...images] });
+    // Show optimistic bubble (looks fully sent with clock indicator)
+    optimisticCreatedRef.current = new Date();
+    setOptimisticMessage({ text: text || "<p></p>", images: [...images], files: [...files], status: 'sending' });
+
+    // Update thread list preview optimistically
+    onOptimisticReply?.({ threadId: msg.id, message: text || "<p></p>", createdAt: new Date().toISOString() });
+
+    // Register undo callback so Undo restores editor content
+    const savedText = text;
+    const savedImages = [...images];
+    onRegisterUndo?.(() => {
+      setOptimisticMessage(null);
+      optimisticCreatedRef.current = null;
+      onOptimisticReply?.(null);
+      replyComposerRef.current?.restoreContent(savedText, savedImages);
+    });
 
     // Scroll to bottom
     setTimeout(() => {
@@ -763,15 +804,15 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
     try {
       await onSendMessage(data);
-      setOptimisticMessage(null);
+      // Don't clear optimistic here — useEffect below clears it when SWR data arrives
       setTimeout(() => {
         scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
       }, 500);
     } catch (err) {
-      setOptimisticMessage(prev => prev ? { ...prev, failed: true } : null);
+      setOptimisticMessage(prev => prev ? { ...prev, status: 'failed' } : null);
       throw err; // Re-throw so ReplyComposer knows it failed
     }
-  }, [msg, currentTutorId, onSendMessage]);
+  }, [msg, currentTutorId, onSendMessage, onRegisterUndo, onOptimisticReply]);
 
   // Called by ReplyComposer when user schedules a reply
   const handleScheduleReply = useCallback(async (text: string, images: string[], files: { url: string; filename: string; content_type: string }[] = [], scheduledAt: string) => {
@@ -1078,41 +1119,55 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           );
         })}
 
-        {/* Optimistic send bubble */}
+        {/* Optimistic send bubble — looks fully sent, like a real message */}
         {optimisticMessage && (
           <div className={cn(
             "ml-12 sm:ml-20 p-3 rounded-2xl mt-1",
-            optimisticMessage.failed
+            optimisticMessage.status === 'failed'
               ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40"
-              : "bg-[#ede0cf]/60 dark:bg-[#3d3628]/60 opacity-70"
+              : "bg-[#ede0cf] dark:bg-[#3d3628]"
           )} style={{ animation: 'message-in 0.2s ease-out both' }}>
-            {!optimisticMessage.failed && (
-              <div className="flex items-center gap-1.5 mb-1">
-                {[0, 1, 2].map(i => (
-                  <span key={i} className="w-1.5 h-1.5 rounded-full bg-[#a0704b]"
-                    style={{ animation: `typing-dot 1.2s ease-in-out ${i * 0.15}s infinite` }} />
-                ))}
-              </div>
-            )}
             {optimisticMessage.text && optimisticMessage.text !== "<p></p>" && (
               <div
                 className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
-                dangerouslySetInnerHTML={{ __html: optimisticMessage.text }}
+                dangerouslySetInnerHTML={{ __html: renderMathInHtml(optimisticMessage.text) }}
               />
             )}
             {optimisticMessage.images.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {optimisticMessage.images.map((url, idx) => (
-                  <img
-                    key={url}
-                    src={url}
-                    alt={`Attachment ${idx + 1}`}
-                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
-                  />
+                  <img key={url} src={url} alt={`Attachment ${idx + 1}`}
+                    className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
                 ))}
               </div>
             )}
-            {optimisticMessage.failed && (
+            {optimisticMessage.files.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {optimisticMessage.files.map((file) =>
+                  file.content_type?.startsWith("video/") ? (
+                    <video key={file.url} src={file.url} controls preload="metadata"
+                      className="max-h-64 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                  ) : file.content_type === "image/gif" ? (
+                    <img key={file.url} src={file.url} alt={file.filename}
+                      className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+                  ) : (
+                    <div key={file.url}
+                      className="flex items-center gap-3 p-2.5 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+                      <div className="p-2 rounded-lg bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] flex-shrink-0">
+                        {file.content_type?.startsWith("audio/")
+                          ? <Mic className="h-5 w-5" />
+                          : <FileText className="h-5 w-5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{file.filename}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{file.content_type?.split('/').pop()?.toUpperCase()}</div>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+            {optimisticMessage.status === 'failed' ? (
               <div className="flex items-center gap-2 mt-2 pt-2 border-t border-red-200 dark:border-red-800/40">
                 <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                 <span className="text-xs text-red-600 dark:text-red-400">Failed to send</span>
@@ -1134,6 +1189,11 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   <Trash2 className="h-3 w-3" />
                   Discard
                 </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <span className="text-[11px] text-gray-400">Just now</span>
+                <Clock className="h-3 w-3 text-gray-400" />
               </div>
             )}
           </div>
@@ -1239,6 +1299,8 @@ export default function InboxPage() {
   const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [showWecom, setShowWecom] = useState(false);
+  const [optimisticThread, setOptimisticThread] = useState<MessageThread | null>(null);
+  const [optimisticReply, setOptimisticReply] = useState<{ threadId: number; message: string; createdAt: string } | null>(null);
   const [replyTo, setReplyTo] = useState<Message | undefined>();
   const [forwardFrom, setForwardFrom] = useState<{ subject: string; body: string; category?: string; imageAttachments?: string[]; fileAttachments?: { url: string; filename: string; content_type: string; duration?: number }[] } | undefined>();
   const [isMobile, setIsMobile] = useState(false);
@@ -1413,19 +1475,41 @@ export default function InboxPage() {
       reminders: snoozedAsThreads,
     };
     const source = clientFilteredCategories[selectedCategory];
+    let result: MessageThread[];
     if (source) {
-      if (!debouncedSearch.trim()) return source;
-      const q = debouncedSearch.toLowerCase();
-      return source.filter(t => {
-        const msg = t.root_message;
-        return msg.subject?.toLowerCase().includes(q) ||
-          msg.message.toLowerCase().includes(q) ||
-          (msg.from_tutor_name || msg.to_tutor_name)?.toLowerCase().includes(q);
+      if (!debouncedSearch.trim()) {
+        result = source;
+      } else {
+        const q = debouncedSearch.toLowerCase();
+        result = source.filter(t => {
+          const msg = t.root_message;
+          return msg.subject?.toLowerCase().includes(q) ||
+            msg.message.toLowerCase().includes(q) ||
+            (msg.from_tutor_name || msg.to_tutor_name)?.toLowerCase().includes(q);
+        });
+      }
+    } else {
+      // For inbox/other categories, threads already filtered server-side
+      result = threads;
+    }
+    // Patch thread list with optimistic reply so preview/timestamp update instantly
+    if (optimisticReply) {
+      result = result.map(t => {
+        if (t.root_message.id !== optimisticReply.threadId) return t;
+        const fakeReply = {
+          ...t.root_message,
+          id: -(Date.now()),
+          message: optimisticReply.message,
+          created_at: optimisticReply.createdAt,
+          from_tutor_id: tutorId!,
+        } as Message;
+        return { ...t, replies: [...t.replies, fakeReply] };
       });
     }
-    // For inbox/other categories, threads already filtered server-side
-    return threads;
-  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, mentionedThreads, scheduledAsThreads, snoozedAsThreads, threads, debouncedSearch]);
+    // Prepend optimistic compose thread if present
+    if (optimisticThread) return [optimisticThread, ...result];
+    return result;
+  }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, mentionedThreads, scheduledAsThreads, snoozedAsThreads, threads, debouncedSearch, optimisticThread, optimisticReply, tutorId]);
 
   // Split thread-pinned from the rest (memoized to avoid double .filter() per render)
   const { pinnedThreads: pinnedInList, unpinnedThreads: unpinnedThreads } = useMemo(() => {
@@ -1665,14 +1749,41 @@ export default function InboxPage() {
   }, [unreadCount?.count]);
 
   // Handlers
-  // Undo send: store pending timer so we can cancel
-  const pendingSendRef = useRef<{ timer: ReturnType<typeof setTimeout>; toastId: string } | null>(null);
+  // Undo send: store pending timer + data so we can cancel or flush on tab close
+  const pendingSendRef = useRef<{
+    timer: ReturnType<typeof setTimeout>;
+    toastId: string;
+    data: MessageCreate;
+    tutorId: number;
+  } | null>(null);
+  const undoRestoreRef = useRef<(() => void) | null>(null);
+
+  // Flush pending send on tab close (beforeunload) or SPA navigation (unmount)
+  useEffect(() => {
+    const flushPending = () => {
+      const pending = pendingSendRef.current;
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      fetch(`/api/messages?from_tutor_id=${pending.tutorId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pending.data),
+        keepalive: true,
+      });
+      pendingSendRef.current = null;
+    };
+    window.addEventListener('beforeunload', flushPending);
+    return () => {
+      window.removeEventListener('beforeunload', flushPending);
+      // Also flush on component unmount (SPA navigation away from inbox)
+      flushPending();
+    };
+  }, []);
 
   const handleSendMessage = useCallback(async (data: MessageCreate) => {
     if (tutorId === null) return;
 
     // Scheduled messages: send immediately (no undo delay)
-    // Caller (ComposeModal/ReplyComposer) handles its own success toast
     if (data.scheduled_at) {
       await messagesAPI.create(data, tutorId);
       mutate(isAnyMessageKey);
@@ -1686,18 +1797,58 @@ export default function InboxPage() {
       pendingSendRef.current = null;
     }
 
+    // For compose (non-reply), create optimistic thread so it appears immediately
+    const isCompose = !data.reply_to_id;
+    if (isCompose) {
+      const tempId = -(Date.now());
+      const tempMessage: Message = {
+        id: tempId,
+        from_tutor_id: tutorId,
+        from_tutor_name: user?.name || "",
+        to_tutor_id: data.to_tutor_id ?? null,
+        to_tutor_ids: data.to_tutor_ids,
+        subject: data.subject,
+        message: data.message,
+        priority: data.priority || "Normal",
+        category: data.category || null,
+        created_at: new Date().toISOString(),
+        is_read: true,
+        is_pinned: false,
+        like_count: 0,
+        is_liked_by_me: false,
+        reply_count: 0,
+        image_attachments: data.image_attachments,
+        file_attachments: data.file_attachments,
+        is_group_message: !!(data.to_tutor_ids && data.to_tutor_ids.length > 1),
+      } as Message;
+      const tempThread: MessageThread = {
+        root_message: tempMessage,
+        replies: [],
+        total_unread: 0,
+      } as MessageThread;
+      setOptimisticThread(tempThread);
+      setSelectedThread(tempThread);
+    }
+
     // Show toast with Undo action, delay actual send by 5 seconds
     const sendData = { ...data };
     let cancelled = false;
 
     const timer = setTimeout(async () => {
       if (cancelled) return;
+      dismissToast(toastId); // Dismiss undo toast when window closes
       pendingSendRef.current = null;
+      undoRestoreRef.current = null;
       try {
         await messagesAPI.create(sendData, tutorId);
         mutate(isAnyMessageKey);
+        // Clear optimistic thread/reply — real data will arrive from SWR
+        setOptimisticThread(null);
+        setOptimisticReply(null);
       } catch {
         showToast("Failed to send message", "error");
+        setOptimisticThread(null);
+        setOptimisticReply(null);
       }
     }, 5000);
 
@@ -1707,12 +1858,18 @@ export default function InboxPage() {
         cancelled = true;
         clearTimeout(timer);
         pendingSendRef.current = null;
+        // Remove optimistic thread/reply on undo
+        setOptimisticThread(null);
+        setOptimisticReply(null);
+        // Restore editor content if undo callback was registered
+        undoRestoreRef.current?.();
+        undoRestoreRef.current = null;
         showToast("Message unsent", "info");
       },
     });
 
-    pendingSendRef.current = { timer, toastId };
-  }, [tutorId, showToast, dismissToast]);
+    pendingSendRef.current = { timer, toastId, data: sendData, tutorId };
+  }, [tutorId, user?.name, showToast, dismissToast]);
 
   const handleCreateTemplate = useCallback(async (title: string, content: string) => {
     if (!tutorId) return;
@@ -2645,7 +2802,7 @@ export default function InboxPage() {
                 aria-live="polite"
                 className={cn(
                 "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
-                isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"
+                isMobile ? "fixed inset-0 z-40 md:left-[var(--sidebar-width)] transition-[left] duration-200" : "w-[450px] xl:w-[550px] flex-shrink-0"
               )}>
                 <ThreadDetailPanel
                   thread={selectedThread}
@@ -2694,6 +2851,8 @@ export default function InboxPage() {
                   onUnsnooze={handleUnsnooze}
                   onSendVoice={handleSendVoice}
                   onCancelScheduled={handleCancelScheduled}
+                  onRegisterUndo={(cb) => { undoRestoreRef.current = cb; }}
+                  onOptimisticReply={setOptimisticReply}
                 />
               </div>
             ) : !isMobile && (
