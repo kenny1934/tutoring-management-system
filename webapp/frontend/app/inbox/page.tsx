@@ -2181,6 +2181,15 @@ export default function InboxPage() {
                                   )}
                                 >
                                   <span>{section.label}</span>
+                                  {!isExpanded && !categoryCollapsed && (
+                                    <span className="flex items-center gap-0.5 ml-1 opacity-50">
+                                      {section.items.slice(0, 6).map((cat) => (
+                                        <span key={cat.id} className="[&>svg]:h-2.5 [&>svg]:w-2.5">
+                                          {cat.icon}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  )}
                                   {hasUnread && !isExpanded && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#a0704b] flex-shrink-0" />
                                   )}
@@ -2201,9 +2210,10 @@ export default function InboxPage() {
                           </div>
                         )}
                         <div className={cn(
-                          "space-y-1 overflow-hidden transition-all duration-200",
-                          isCollapsible && !isExpanded ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
+                          "grid transition-[grid-template-rows] duration-200",
+                          isCollapsible && !isExpanded ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
                         )}>
+                          <div className="overflow-hidden space-y-1">
                           {section.items.map((cat) => (
                             <button
                               key={cat.id}
@@ -2231,6 +2241,7 @@ export default function InboxPage() {
                               )}
                             </button>
                           ))}
+                          </div>
                         </div>
                       </div>
                     );
