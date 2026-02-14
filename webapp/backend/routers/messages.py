@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from constants import hk_now
 from database import get_db
-from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, MessageRecipient, Tutor, MakeupProposal
+from models import TutorMessage, MessageReadReceipt, MessageLike, MessageArchive, MessagePin, ThreadPin, MessageRecipient, Tutor, MakeupProposal
 from utils.html_sanitizer import sanitize_message_html
 from schemas import (
     MessageCreate,
@@ -175,6 +175,18 @@ def _fetch_group_recipients(
     return ids_map, names_map, count_map
 
 
+def _fetch_thread_pin_ids(db: Session, message_ids: list[int], tutor_id: int) -> set[int]:
+    """Batch fetch thread-pinned status for a set of messages.
+    Returns set of message_ids that are thread-pinned by this tutor."""
+    if not message_ids:
+        return set()
+    rows = db.query(ThreadPin.message_id).filter(
+        ThreadPin.message_id.in_(message_ids),
+        ThreadPin.tutor_id == tutor_id
+    ).all()
+    return set(r.message_id for r in rows)
+
+
 def build_message_response(
     message: TutorMessage,
     current_tutor_id: int,
@@ -208,6 +220,12 @@ def build_message_response(
     is_pinned = db.query(MessagePin).filter(
         MessagePin.message_id == message.id,
         MessagePin.tutor_id == current_tutor_id
+    ).first() is not None
+
+    # Check if thread-pinned by current tutor
+    is_thread_pinned = db.query(ThreadPin).filter(
+        ThreadPin.message_id == message.id,
+        ThreadPin.tutor_id == current_tutor_id
     ).first() is not None
 
     # Count replies
@@ -260,6 +278,7 @@ def build_message_response(
         reply_to_id=message.reply_to_id,
         is_read=is_read,
         is_pinned=is_pinned,
+        is_thread_pinned=is_thread_pinned,
         is_group_message=is_group,
         to_tutor_ids=_to_tutor_ids,
         to_tutor_names=_to_tutor_names,
@@ -297,12 +316,15 @@ def batch_build_message_responses(
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
 
-    # 2. Batch fetch pinned status
+    # 2. Batch fetch pinned (star) status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(message_ids),
         MessagePin.tutor_id == current_tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
+
+    # 2b. Batch fetch thread-pinned status
+    thread_pinned_ids = _fetch_thread_pin_ids(db, message_ids, current_tutor_id)
 
     # 3. Batch fetch like counts (GROUP BY)
     like_counts = db.query(
@@ -412,6 +434,7 @@ def batch_build_message_responses(
                 reply_to_id=msg.reply_to_id,
                 is_read=msg.id in read_ids,
                 is_pinned=msg.id in pinned_ids,
+                is_thread_pinned=msg.id in thread_pinned_ids,
                 is_group_message=is_group,
                 to_tutor_ids=_batch_group_recipients_map.get(msg.id) if is_group else None,
                 to_tutor_names=_batch_group_names_map.get(msg.id) if is_group else None,
@@ -531,12 +554,15 @@ async def get_message_threads(
     ).all()
     read_ids = set(r.message_id for r in read_receipts)
 
-    # Batch fetch pinned status
+    # Batch fetch pinned (star) status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(all_message_ids),
         MessagePin.tutor_id == tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
+
+    # Batch fetch thread-pinned status
+    thread_pinned_ids = _fetch_thread_pin_ids(db, all_message_ids, tutor_id)
 
     # Combine all messages for in-memory lookups
     all_messages = root_messages + all_replies
@@ -661,6 +687,7 @@ async def get_message_threads(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
+            is_thread_pinned=msg.id in thread_pinned_ids,
             is_group_message=is_group,
             to_tutor_ids=group_recipients_map.get(msg.id) if is_group else None,
             to_tutor_names=group_recipient_names_map.get(msg.id) if is_group else None,
@@ -1179,12 +1206,15 @@ async def get_archived_messages(
     ).group_by(TutorMessage.reply_to_id).all()
     reply_count_map = {rc.reply_to_id: rc.count for rc in reply_counts}
 
-    # Batch fetch pinned status
+    # Batch fetch pinned (star) status
     pinned_receipts = db.query(MessagePin.message_id).filter(
         MessagePin.message_id.in_(all_message_ids),
         MessagePin.tutor_id == tutor_id
     ).all()
     pinned_ids = set(r.message_id for r in pinned_receipts)
+
+    # Batch fetch thread-pinned status
+    thread_pinned_ids = _fetch_thread_pin_ids(db, all_message_ids, tutor_id)
 
     # Batch fetch group message visibility and recipients
     _all_archived_messages = root_messages + all_replies
@@ -1226,6 +1256,7 @@ async def get_archived_messages(
             reply_to_id=msg.reply_to_id,
             is_read=msg.id in read_ids,
             is_pinned=msg.id in pinned_ids,
+            is_thread_pinned=msg.id in thread_pinned_ids,
             is_group_message=is_group,
             to_tutor_ids=_arch_group_recipients_map.get(msg.id) if is_group else None,
             to_tutor_names=_arch_group_names_map.get(msg.id) if is_group else None,
@@ -1293,6 +1324,44 @@ async def unpin_messages(
     count = db.query(MessagePin).filter(
         MessagePin.message_id.in_(request.message_ids),
         MessagePin.tutor_id == tutor_id
+    ).delete(synchronize_session=False)
+
+    db.commit()
+    return PinResponse(success=True, count=count)
+
+
+@router.post("/messages/thread-pin", response_model=PinResponse)
+async def thread_pin_messages(
+    request: PinRequest,
+    tutor_id: int = Query(..., description="Tutor pinning threads"),
+    db: Session = Depends(get_db)
+):
+    """Pin threads to top of thread list (separate from star/favorite)."""
+    from sqlalchemy.dialects.mysql import insert
+
+    count = 0
+    for message_id in request.message_ids:
+        stmt = insert(ThreadPin).values(
+            message_id=message_id,
+            tutor_id=tutor_id
+        ).prefix_with('IGNORE')
+        result = db.execute(stmt)
+        count += result.rowcount
+
+    db.commit()
+    return PinResponse(success=True, count=count)
+
+
+@router.delete("/messages/thread-pin", response_model=PinResponse)
+async def thread_unpin_messages(
+    request: PinRequest,
+    tutor_id: int = Query(..., description="Tutor unpinning threads"),
+    db: Session = Depends(get_db)
+):
+    """Unpin threads from top of thread list."""
+    count = db.query(ThreadPin).filter(
+        ThreadPin.message_id.in_(request.message_ids),
+        ThreadPin.tutor_id == tutor_id
     ).delete(synchronize_session=False)
 
     db.commit()

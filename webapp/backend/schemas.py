@@ -1116,6 +1116,7 @@ class MessageResponse(MessageBase):
     image_attachments: List[str] = Field(default_factory=list)  # List of image URLs
     file_attachments: List[dict] = Field(default_factory=list)  # [{url, filename, content_type}]
     is_pinned: bool = False
+    is_thread_pinned: bool = False
     # Read receipt fields for sender's messages (WhatsApp-style seen status)
     read_receipts: Optional[List[ReadReceiptDetail]] = None  # Only populated for sender's own messages
     total_recipients: Optional[int] = None  # Total recipients for broadcasts (for "seen by all" check)

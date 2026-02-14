@@ -695,6 +695,7 @@ export interface Message {
   reply_to_id?: number;
   is_read: boolean;
   is_pinned: boolean;
+  is_thread_pinned?: boolean;
   is_group_message?: boolean;
   to_tutor_ids?: number[];    // Group message recipient IDs
   to_tutor_names?: string[];  // Group message recipient names
