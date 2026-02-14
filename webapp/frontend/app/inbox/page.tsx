@@ -88,6 +88,7 @@ interface Category {
 interface CategorySection {
   id: string;
   label?: string;
+  collapsible?: boolean;
   items: Category[];
 }
 
@@ -96,17 +97,23 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     id: "mailboxes",
     items: [
       { id: "inbox", label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
-      { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
-      { id: "mentions", label: "Mentions", icon: <AtSign className="h-4 w-4" /> },
-      { id: "scheduled", label: "Scheduled", icon: <Clock className="h-4 w-4" /> },
-      { id: "reminders", label: "Follow-ups", icon: <AlarmClock className="h-4 w-4" /> },
       { id: "sent", label: "Sent", icon: <Send className="h-4 w-4" /> },
       { id: "archived", label: "Archived", icon: <Archive className="h-4 w-4" /> },
     ],
   },
   {
-    id: "categories",
-    label: "Categories",
+    id: "views",
+    items: [
+      { id: "starred", label: "Starred", icon: <Star className="h-4 w-4" /> },
+      { id: "mentions", label: "Mentions", icon: <AtSign className="h-4 w-4" /> },
+      { id: "scheduled", label: "Send Later", icon: <Clock className="h-4 w-4" /> },
+      { id: "reminders", label: "Snoozed", icon: <AlarmClock className="h-4 w-4" /> },
+    ],
+  },
+  {
+    id: "tags",
+    label: "Tags",
+    collapsible: true,
     items: [
       { id: "reminder", label: "Reminder", icon: <Bell className="h-4 w-4" />, filter: "Reminder" },
       { id: "question", label: "Question", icon: <HelpCircle className="h-4 w-4" />, filter: "Question" },
@@ -152,8 +159,8 @@ const EMPTY_MESSAGES: Record<string, string> = {
   inbox: "No messages in your inbox",
   starred: "No starred messages",
   mentions: "No mentions",
-  scheduled: "No scheduled messages",
-  reminders: "No follow-ups",
+  scheduled: "No messages scheduled to send later",
+  reminders: "No snoozed messages",
   sent: "You haven't sent any messages yet",
   archived: "No archived messages",
   reminder: "No reminders",
@@ -1195,6 +1202,7 @@ export default function InboxPage() {
   const [categoryCollapsed, setCategoryCollapsed] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 1024
   );
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const [catCanScrollUp, setCatCanScrollUp] = useState(false);
   const [catCanScrollDown, setCatCanScrollDown] = useState(false);
   const catNavRef = useRef<HTMLDivElement>(null);
@@ -1445,6 +1453,8 @@ export default function InboxPage() {
     const counts: Record<string, number> = {};
     // "inbox" total comes directly from backend
     if (raw.inbox) counts.inbox = raw.inbox;
+    // "mentions" uses a separate hook, not a category filter
+    if (raw.mentions) counts.mentions = raw.mentions;
     // Map each MessageCategory value to its frontend category ID
     for (const cat of CATEGORIES) {
       if (cat.filter && raw[cat.filter]) {
@@ -2109,50 +2119,81 @@ export default function InboxPage() {
                   {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 </button>
                 <nav>
-                  {CATEGORY_SECTIONS.map((section, sectionIdx) => (
-                    <div key={section.id}>
-                      {sectionIdx > 0 && (
-                        <div className="mt-3 mb-1">
-                          <div className="mx-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30" />
-                          <div className={cn(
-                            "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap transition-opacity duration-200",
-                            categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
-                          )}>
-                            {section.label}
+                  {CATEGORY_SECTIONS.map((section, sectionIdx) => {
+                    const isCollapsible = section.collapsible;
+                    const isExpanded = !isCollapsible || tagsExpanded;
+                    const hasUnread = isCollapsible && section.items.some(c => categoryUnreadCounts[c.id] > 0);
+
+                    return (
+                      <div key={section.id}>
+                        {sectionIdx > 0 && (
+                          <div className="mt-3 mb-1">
+                            <div className="mx-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30" />
+                            {section.label && (
+                              isCollapsible ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setTagsExpanded(!tagsExpanded)}
+                                  className={cn(
+                                    "w-full flex items-center gap-1 px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-all duration-200",
+                                    categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
+                                  )}
+                                >
+                                  <span>{section.label}</span>
+                                  {hasUnread && !isExpanded && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#a0704b] flex-shrink-0" />
+                                  )}
+                                  <ChevronDown className={cn(
+                                    "h-3 w-3 ml-auto transition-transform duration-200",
+                                    isExpanded ? "rotate-180" : ""
+                                  )} />
+                                </button>
+                              ) : (
+                                <div className={cn(
+                                  "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap transition-opacity duration-200",
+                                  categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
+                                )}>
+                                  {section.label}
+                                </div>
+                              )
+                            )}
                           </div>
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        {section.items.map((cat) => (
-                          <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className={cn(
-                              "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
-                              categoryCollapsed ? "px-2" : "px-3",
-                              selectedCategory === cat.id
-                                ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                                : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
-                            )}
-                            title={cat.label}
-                          >
-                            <span className="relative flex-shrink-0">
-                              {cat.icon}
-                            </span>
-                            <span className="flex-1 truncate">{cat.label}</span>
-                            {categoryUnreadCounts[cat.id] > 0 && (
-                              <span className={cn(
-                                "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
-                                categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
-                              )}>
-                                {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                        )}
+                        <div className={cn(
+                          "space-y-1 overflow-hidden transition-all duration-200",
+                          isCollapsible && !isExpanded ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
+                        )}>
+                          {section.items.map((cat) => (
+                            <button
+                              key={cat.id}
+                              onClick={() => setSelectedCategory(cat.id)}
+                              className={cn(
+                                "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
+                                categoryCollapsed ? "px-2" : "px-3",
+                                selectedCategory === cat.id
+                                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                                  : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
+                              )}
+                              title={cat.label}
+                            >
+                              <span className="relative flex-shrink-0">
+                                {cat.icon}
                               </span>
-                            )}
-                          </button>
-                        ))}
+                              <span className="flex-1 truncate">{cat.label}</span>
+                              {categoryUnreadCounts[cat.id] > 0 && (
+                                <span className={cn(
+                                  "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
+                                  categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
+                                )}>
+                                  {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </nav>
               </div>
               {/* Bottom scroll indicator */}
