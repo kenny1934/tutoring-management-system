@@ -75,6 +75,7 @@ import {
   SlidersHorizontal,
   AtSign,
   AlarmClock,
+  Mic,
 } from "lucide-react";
 
 // Category definition
@@ -414,6 +415,11 @@ const ThreadItem = React.memo(function ThreadItem({
                 <span className="text-[#a0704b] dark:text-[#c49a6c] font-medium">Draft: </span>
                 <span>{stripHtml(draftPreview).slice(0, 60)}</span>
               </>
+            ) : latestMessage.file_attachments?.some(f => f.content_type?.startsWith("audio/")) && latestMessage.message.includes("Voice message") ? (
+              <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
+                <Mic className="h-3 w-3 inline" />
+                Voice message
+              </span>
             ) : (() => {
               const plain = stripHtml(latestMessage.message);
               const preview = plain.slice(0, 80) + (plain.length > 80 ? "..." : "");

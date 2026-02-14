@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { createPortal } from "react-dom";
 import {
   X, Pencil, Check, Trash2, Loader2, Paperclip, Reply, Forward,
-  Smile, FileText, Download,
+  Smile, FileText, Download, Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
@@ -604,6 +604,11 @@ const MessageBubble = React.memo(function MessageBubble({
                 Cancel
               </button>
             </div>
+          </div>
+        ) : m.message.includes("Voice message") && m.file_attachments?.some(f => f.content_type?.startsWith("audio/")) ? (
+          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+            <Mic className="h-3.5 w-3.5" />
+            <span>Voice message</span>
           </div>
         ) : HAS_HTML_RE.test(m.message) ? (
           <div
