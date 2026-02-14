@@ -6,5 +6,5 @@ CREATE TABLE thread_pins (
     pinned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (message_id) REFERENCES tutor_messages(id) ON DELETE CASCADE,
     FOREIGN KEY (tutor_id) REFERENCES tutors(id),
-    INDEX ix_thread_pins_id (id)
+    UNIQUE KEY uq_thread_pin (message_id, tutor_id)
 );

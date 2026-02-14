@@ -87,7 +87,7 @@ async def _check_expired_reminders():
     from database import SessionLocal
     from models import MessageSnooze, TutorMessage, MessageReadReceipt
     from sse import sse_manager
-    from sqlalchemy import func
+    from constants import hk_now
 
     while True:
         await asyncio.sleep(30)
@@ -95,7 +95,7 @@ async def _check_expired_reminders():
             db = SessionLocal()
             try:
                 expired = db.query(MessageSnooze).filter(
-                    MessageSnooze.snooze_until <= func.now()
+                    MessageSnooze.snooze_until <= hk_now()
                 ).all()
 
                 for snooze in expired:
