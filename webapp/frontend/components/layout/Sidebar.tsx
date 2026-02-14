@@ -400,7 +400,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
               </button>
 
               {/* Admin Submenu Items */}
-              {adminExpanded && showExpanded && (
+              {showExpanded && (
+              <div className={cn(
+                "grid transition-[grid-template-rows] duration-200",
+                adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              )}>
+                <div className="overflow-hidden">
                 <div className="mt-1 ml-3 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
@@ -457,10 +462,17 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     </Link>
                   )}
                 </div>
+                </div>
+              </div>
               )}
 
               {/* Collapsed state flyout */}
-              {!showExpanded && adminExpanded && (
+              {!showExpanded && (
+              <div className={cn(
+                "grid transition-[grid-template-rows] duration-200",
+                adminExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              )}>
+                <div className="overflow-hidden">
                 <div className="mt-1 space-y-1">
                   {adminNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
@@ -541,6 +553,8 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                     </div>
                   )}
                 </div>
+                </div>
+              </div>
               )}
             </div>
           );
