@@ -20,16 +20,24 @@ export default function AudioPlayer({ src, filename, className }: AudioPlayerPro
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onLoadedMetadata = () => setDuration(audio.duration);
+    // WebM/Opus audio may report Infinity duration on loadedmetadata;
+    // durationchange fires later when the real duration is known.
+    const setValidDuration = () => {
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
     const onEnded = () => { setIsPlaying(false); setCurrentTime(0); };
 
-    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("loadedmetadata", setValidDuration);
+    audio.addEventListener("durationchange", setValidDuration);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
 
     return () => {
-      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("loadedmetadata", setValidDuration);
+      audio.removeEventListener("durationchange", setValidDuration);
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
     };
