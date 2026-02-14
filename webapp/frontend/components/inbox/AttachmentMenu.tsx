@@ -2,8 +2,8 @@
 
 import React, { useState, useRef } from "react";
 import { Paperclip, Image, FileText, Loader2 } from "lucide-react";
-import { useClickOutside } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 
 interface AttachmentMenuProps {
   onFiles: (files: FileList) => void;
@@ -29,10 +29,8 @@ const ATTACHMENT_OPTIONS = [
 
 export default function AttachmentMenu({ onFiles, disabled, isUploading, className }: AttachmentMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  useClickOutside(menuRef, () => setIsOpen(false), isOpen);
 
   const handleOptionClick = (optionId: string) => {
     setIsOpen(false);
@@ -47,8 +45,9 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
   };
 
   return (
-    <div ref={menuRef} className={cn("relative", className)}>
+    <div className={cn(className)}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled || isUploading}
@@ -62,21 +61,25 @@ export default function AttachmentMenu({ onFiles, disabled, isUploading, classNa
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute bottom-full right-0 mb-1 z-20 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[180px]">
-          {ATTACHMENT_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => handleOptionClick(option.id)}
-              className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2.5 text-gray-700 dark:text-gray-300 transition-colors"
-            >
-              <option.icon className="h-4 w-4 text-gray-400" />
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <FloatingDropdown
+        triggerRef={triggerRef}
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        align="right"
+        className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-lg border border-[#e8d4b8] dark:border-[#6b5a4a] py-1 min-w-[180px]"
+      >
+        {ATTACHMENT_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => handleOptionClick(option.id)}
+            className="w-full px-3 py-2 text-sm text-left hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] flex items-center gap-2.5 text-gray-700 dark:text-gray-300 transition-colors"
+          >
+            <option.icon className="h-4 w-4 text-gray-400" />
+            {option.label}
+          </button>
+        ))}
+      </FloatingDropdown>
 
       {/* Hidden file inputs — one per category for proper accept filtering */}
       {ATTACHMENT_OPTIONS.map((option) => (

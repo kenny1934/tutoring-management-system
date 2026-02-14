@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, RefObject } from "react";
 import { cn } from "@/lib/utils";
+import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 
 const FREQ_EMOJI_KEY = "inbox_frequent_emoji";
 
@@ -25,26 +26,12 @@ interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  triggerRef: RefObject<HTMLElement | null>;
 }
 
-export function EmojiPicker({ onSelect, isOpen, onClose }: EmojiPickerProps) {
-  const ref = useRef<HTMLDivElement>(null);
+export function EmojiPicker({ onSelect, isOpen, onClose, triggerRef }: EmojiPickerProps) {
   const [selectedGroup, setSelectedGroup] = useState(-1); // -1 = frequent
   const frequent = getFrequentEmojis();
-
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, onClose]);
 
   // Close on escape
   useEffect(() => {
@@ -60,12 +47,13 @@ export function EmojiPicker({ onSelect, isOpen, onClose }: EmojiPickerProps) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      ref={ref}
-      className="absolute bottom-full right-0 mb-2 bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2 z-50 w-64"
+    <FloatingDropdown
+      triggerRef={triggerRef}
+      isOpen={isOpen}
+      onClose={onClose}
+      align="right"
+      className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2 w-64"
     >
       {/* Group tabs */}
       <div className="flex gap-1 mb-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] pb-2">
@@ -116,6 +104,6 @@ export function EmojiPicker({ onSelect, isOpen, onClose }: EmojiPickerProps) {
           </button>
         ))}
       </div>
-    </div>
+    </FloatingDropdown>
   );
 }

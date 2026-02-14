@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useEditor, EditorContent, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { EmojiPicker } from "@/components/ui/emoji-picker";
@@ -70,6 +69,7 @@ export default function WecomRichEditor({
   initialContent = "",
 }: WecomRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
@@ -85,11 +85,11 @@ export default function WecomRichEditor({
         listItem: false,
         codeBlock: false,
         horizontalRule: false,
-      }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: {
-          class: "text-blue-600 dark:text-blue-400 underline cursor-pointer",
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            class: "text-blue-600 dark:text-blue-400 underline cursor-pointer",
+          },
         },
       }),
       Placeholder.configure({
@@ -314,6 +314,7 @@ export default function WecomRichEditor({
         {/* Emoji + Image buttons */}
         <div className="relative flex items-center gap-0.5">
           <button
+            ref={emojiButtonRef}
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="p-1.5 rounded text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e] transition-colors"
@@ -332,6 +333,7 @@ export default function WecomRichEditor({
             </button>
           )}
           <EmojiPicker
+            triggerRef={emojiButtonRef}
             isOpen={showEmojiPicker}
             onClose={() => setShowEmojiPicker(false)}
             onSelect={insertEmoji}

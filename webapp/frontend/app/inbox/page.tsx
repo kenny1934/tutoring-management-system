@@ -730,7 +730,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   }, []);
 
   // Called by ReplyComposer when user sends a reply
-  const handleSendReply = useCallback(async (text: string, images: string[]) => {
+  const handleSendReply = useCallback(async (text: string, images: string[], files: { url: string; filename: string; content_type: string }[] = []) => {
     // Build MessageCreate with auto-computed recipients
     const data: MessageCreate = {
       subject: `Re: ${msg.subject || "(no subject)"}`,
@@ -739,6 +739,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       category: msg.category || undefined,
       reply_to_id: msg.id,
       image_attachments: images.length > 0 ? images : undefined,
+      file_attachments: files.length > 0 ? files : undefined,
     };
 
     // Compute recipients
@@ -765,7 +766,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   }, [msg, currentTutorId, onSendMessage]);
 
   // Called by ReplyComposer when user schedules a reply
-  const handleScheduleReply = useCallback(async (text: string, images: string[], scheduledAt: string) => {
+  const handleScheduleReply = useCallback(async (text: string, images: string[], files: { url: string; filename: string; content_type: string }[] = [], scheduledAt: string) => {
     const data: MessageCreate = {
       subject: `Re: ${msg.subject || "(no subject)"}`,
       message: text || "<p></p>",
@@ -773,6 +774,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       category: msg.category || undefined,
       reply_to_id: msg.id,
       image_attachments: images.length > 0 ? images : undefined,
+      file_attachments: files.length > 0 ? files : undefined,
       scheduled_at: scheduledAt,
     };
     Object.assign(data, computeReplyRecipients(msg, currentTutorId));

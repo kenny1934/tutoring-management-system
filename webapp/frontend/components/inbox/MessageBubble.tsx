@@ -213,6 +213,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
   const [showFullPicker, setShowFullPicker] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const plusButtonRef = useRef<HTMLButtonElement>(null);
   const emojiRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -267,7 +268,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
       >
         <Smile className="h-3.5 w-3.5" />
       </button>
-      {showPicker && !showFullPicker && (
+      {showPicker && (
         <div
           className={cn("absolute bottom-full mb-1 z-50 flex gap-0.5 bg-white dark:bg-[#2a2a2a] rounded-full shadow-lg border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1 py-0.5", isMobile ? "left-0" : "right-0")}
           role="menu"
@@ -288,6 +289,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
             </button>
           ))}
           <button
+            ref={plusButtonRef}
             onClick={() => setShowFullPicker(true)}
             className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors text-sm text-gray-400"
             title="More emojis"
@@ -298,6 +300,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
       )}
       {showFullPicker && (
         <EmojiPicker
+          triggerRef={plusButtonRef}
           isOpen={true}
           onSelect={handleReact}
           onClose={() => { setShowFullPicker(false); setShowPicker(false); }}
@@ -554,13 +557,10 @@ const MessageBubble = React.memo(function MessageBubble({
               mentionUsers={mentionUsers}
             />
             <div>
-              <div className="flex items-center gap-2">
-                <AttachmentMenu
-                  onFiles={(files) => handleEditImageUpload(files)}
-                  isUploading={isEditUploading}
-                />
-                <span className="text-sm text-gray-500 dark:text-gray-400">Attach</span>
-              </div>
+              <AttachmentMenu
+                onFiles={(files) => handleEditImageUpload(files)}
+                isUploading={isEditUploading}
+              />
               {editImages.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {editImages.map((url, index) => (

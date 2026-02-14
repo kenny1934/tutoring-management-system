@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Send, Loader2, X, ChevronDown, Clock, Calendar } from "lucide-react";
+import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
 import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
@@ -30,8 +30,8 @@ interface ReplyComposerProps {
   currentTutorId: number;
   mentionUsers: MentionUser[];
   isMobile: boolean;
-  onSend: (text: string, images: string[]) => Promise<void>;
-  onScheduleSend?: (text: string, images: string[], scheduledAt: string) => Promise<void>;
+  onSend: (text: string, images: string[], files: { url: string; filename: string; content_type: string }[]) => Promise<void>;
+  onScheduleSend?: (text: string, images: string[], files: { url: string; filename: string; content_type: string }[], scheduledAt: string) => Promise<void>;
   onOpenFullEditor: () => void;
   onDraftChange?: (threadId: number) => void;
   onTyping?: () => void;
@@ -53,7 +53,8 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   const [replyEditorKey, setReplyEditorKey] = useState(0);
   const [isReplyDragging, setIsReplyDragging] = useState(false);
   const editorRef = useRef<{ focus: () => void; insertContent: (html: string) => void } | null>(null);
-  const { uploadFiles: handleUpload, isUploading: isReplyUploading } = useFileUpload({ tutorId: currentTutorId });
+  const [replyFiles, setReplyFiles] = useState<{ url: string; filename: string; content_type: string }[]>([]);
+  const { uploadFiles: handleUpload, isUploading: isReplyUploading } = useFileUpload({ tutorId: currentTutorId, acceptFiles: true });
 
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [showCustomSchedule, setShowCustomSchedule] = useState(false);
@@ -94,6 +95,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     initialDraft.current = draft;
     setReplyText(draft?.message || "");
     setReplyImages(draft?.images || []);
+    setReplyFiles([]);
     setReplyEditorKey(prev => prev + 1);
   }, [threadId]);
 
@@ -108,29 +110,36 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
     }
   }, [replyText, replyImages, threadId, onDraftChange]);
 
-  const handleReplyImageUpload = (files: FileList | null) => {
-    handleUpload(files, { onImage: (url) => setReplyImages(prev => [...prev, url]) });
+  const handleReplyFileUpload = (files: FileList | null) => {
+    handleUpload(files, {
+      onImage: (url) => setReplyImages(prev => [...prev, url]),
+      onFile: (file) => setReplyFiles(prev => [...prev, file]),
+    });
   };
 
+  const hasContent = !isReplyEmpty || replyImages.length > 0 || replyFiles.length > 0;
+
   const handleSendReply = useCallback(async () => {
-    if ((isReplyEmpty && replyImages.length === 0) || isReplySending) return;
+    if (!hasContent || isReplySending) return;
     setIsReplySending(true);
 
     const text = replyText;
     const images = [...replyImages];
+    const files = [...replyFiles];
 
     // Clear editor immediately for snappy feel
     setReplyText("");
     setReplyImages([]);
+    setReplyFiles([]);
     setReplyEditorKey(prev => prev + 1);
     clearReplyDraft(threadId);
 
     try {
-      await onSend(text, images);
+      await onSend(text, images, files);
     } finally {
       setIsReplySending(false);
     }
-  }, [isReplyEmpty, replyImages, isReplySending, replyText, threadId, onSend]);
+  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, threadId, onSend]);
 
   const getSchedulePresets = () => {
     const now = new Date();
@@ -152,28 +161,30 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
   };
 
   const handleScheduleReply = useCallback(async (scheduledAt: Date) => {
-    if ((isReplyEmpty && replyImages.length === 0) || isReplySending || !onScheduleSend) return;
+    if (!hasContent || isReplySending || !onScheduleSend) return;
     setShowScheduleMenu(false);
     setShowCustomSchedule(false);
     setIsReplySending(true);
 
     const text = replyText;
     const images = [...replyImages];
+    const files = [...replyFiles];
 
     setReplyText("");
     setReplyImages([]);
+    setReplyFiles([]);
     setReplyEditorKey(prev => prev + 1);
     clearReplyDraft(threadId);
 
     try {
-      await onScheduleSend(text, images, scheduledAt.toISOString());
+      await onScheduleSend(text, images, files, scheduledAt.toISOString());
       showToast(`Reply scheduled for ${scheduledAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}`, "success");
     } catch {
       showToast("Failed to schedule reply", "error");
     } finally {
       setIsReplySending(false);
     }
-  }, [isReplyEmpty, replyImages, isReplySending, replyText, threadId, onScheduleSend, showToast]);
+  }, [hasContent, replyFiles, isReplySending, replyText, replyImages, threadId, onScheduleSend, showToast]);
 
   const handleCustomScheduleReply = () => {
     if (!customScheduleDate) return;
@@ -212,7 +223,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         setIsReplyDragging(false);
         const files = e.dataTransfer?.files;
         if (files && files.length > 0) {
-          handleReplyImageUpload(files);
+          handleReplyFileUpload(files);
         }
       }}
     >
@@ -234,7 +245,7 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         onPasteFiles={(files) => {
           const dt = new DataTransfer();
           files.forEach(f => dt.items.add(f));
-          handleReplyImageUpload(dt.files);
+          handleReplyFileUpload(dt.files);
         }}
         placeholder="Type a reply..."
         minHeight="40px"
@@ -244,11 +255,28 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         onDeleteTemplate={onDeleteTemplate}
         onOpenFullEditor={onOpenFullEditor}
       />
-      {/* Image previews + send row */}
+      {/* Attachment previews + send row */}
+      {replyFiles.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {replyFiles.map((file, idx) => (
+            <div key={file.url} className="flex items-center gap-2 px-2 py-1 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+              <FileText className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
+              <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
+              <button
+                type="button"
+                onClick={() => setReplyFiles(prev => prev.filter((_, i) => i !== idx))}
+                className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="flex items-end justify-between mt-2">
         <div className="flex flex-wrap gap-2 flex-1 min-w-0">
           {replyImages.map((url, idx) => (
-            <div key={url} className="relative group">
+            <div key={url} className="relative group hover:opacity-80 transition-opacity">
               <img src={url} alt={`Attachment ${idx + 1}`} className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
               <button
                 type="button"
@@ -270,15 +298,16 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             <VoiceRecorder onSend={onSendVoice} />
           )}
           <AttachmentMenu
-            onFiles={(files) => handleReplyImageUpload(files)}
+            onFiles={(files) => handleReplyFileUpload(files)}
             isUploading={isReplyUploading}
           />
           <div className="relative flex">
             <button
               onClick={handleSendReply}
-              disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
+              disabled={isReplySending || !hasContent}
+              title="Send (Ctrl+Enter)"
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm shadow-sm transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed",
+                "flex items-center gap-1.5 px-3 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white text-sm shadow-sm transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed",
                 onScheduleSend ? "rounded-l-full" : "rounded-full"
               )}
             >
@@ -288,9 +317,9 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
             {onScheduleSend && (
               <button
                 type="button"
-                disabled={isReplySending || (isReplyEmpty && replyImages.length === 0)}
+                disabled={isReplySending || !hasContent}
                 onClick={() => setShowScheduleMenu(!showScheduleMenu)}
-                className="px-1.5 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-full border-l border-white/20 transition-colors disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+                className="px-1.5 py-1.5 bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-r-full border-l border-white/20 transition-colors disabled:bg-[#c9b99a] dark:disabled:bg-[#5a4a3a] disabled:text-white/50 disabled:cursor-not-allowed"
                 title="Schedule send"
               >
                 <ChevronDown className="h-3.5 w-3.5" />
