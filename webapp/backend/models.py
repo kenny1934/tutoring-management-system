@@ -583,6 +583,12 @@ class TutorMessage(Base):
     Supports direct messages and broadcasts (to_tutor_id = NULL).
     """
     __tablename__ = "tutor_messages"
+    __table_args__ = (
+        Index('idx_message_from_tutor', 'from_tutor_id'),
+        Index('idx_message_to_tutor', 'to_tutor_id'),
+        Index('idx_message_reply_to', 'reply_to_id'),
+        Index('idx_message_category', 'category'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     from_tutor_id = Column(Integer, ForeignKey("tutors.id"), nullable=False)
@@ -719,6 +725,7 @@ class MessageRecipient(Base):
     __tablename__ = "message_recipients"
     __table_args__ = (
         Index('idx_recipient_msg_tutor', 'message_id', 'tutor_id'),
+        Index('idx_recipient_tutor', 'tutor_id'),
     )
 
     id = Column(Integer, primary_key=True, index=True)

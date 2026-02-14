@@ -23,6 +23,7 @@ import type { MentionUser } from "@/components/inbox/InboxRichEditor";
 import ComposeModal from "@/components/inbox/ComposeModal";
 import { DRAFT_REPLY_PREFIX, loadReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
 import { useSwipeable } from "@/lib/useSwipeable";
+import { usePanelSwipe } from "@/lib/usePanelSwipe";
 import ThreadSearchBar from "@/components/inbox/ThreadSearchBar";
 import MessageBubble from "@/components/inbox/MessageBubble";
 import { formatMessageTime, highlightMatch } from "@/components/inbox/MessageBubble";
@@ -203,6 +204,20 @@ function groupThreadsByDate(threads: MessageThread[]): { label: string; threads:
   }
 
   return groups.filter(g => g.threads.length > 0);
+}
+
+// Compute reply recipients based on original message context
+function computeReplyRecipients(msg: Message, currentTutorId: number): Pick<MessageCreate, 'to_tutor_id' | 'to_tutor_ids'> {
+  if (msg.is_group_message && msg.to_tutor_ids) {
+    const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
+    if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id))
+      replyRecipients.push(msg.from_tutor_id);
+    if (replyRecipients.length === 1) return { to_tutor_id: replyRecipients[0] };
+    if (replyRecipients.length >= 2) return { to_tutor_ids: replyRecipients };
+    return {};
+  }
+  if (msg.from_tutor_id === currentTutorId) return msg.to_tutor_id != null ? { to_tutor_id: msg.to_tutor_id } : {};
+  return { to_tutor_id: msg.from_tutor_id };
 }
 
 // Thread Item Component - memoized to prevent unnecessary re-renders
@@ -502,12 +517,26 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
   }, [allMessages, mentionUsers]);
 
   // Edge-only swipe right to close with peeking animation (mobile)
-  const panelRef = useRef<HTMLDivElement>(null);
-  const panelSwipe = useRef({ x: 0, y: 0, active: false });
+  const { panelRef, touchHandlers } = usePanelSwipe(isMobile, onClose);
 
   // Thread search state
   const [threadSearch, setThreadSearch] = useState("");
   const [showThreadSearch, setShowThreadSearch] = useState(false);
+
+  // Pre-compute date separators and message grouping to avoid recalculating per render
+  const processedMessages = useMemo(() =>
+    allMessages.map((m, idx) => {
+      const msgDate = new Date(m.created_at);
+      const dateStr = msgDate.toDateString();
+      const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
+      const isNewDay = idx === 0 || dateStr !== prevDateStr;
+      const prevMsg = idx > 0 ? allMessages[idx - 1] : null;
+      const isFirstInGroup = !prevMsg || prevMsg.from_tutor_id !== m.from_tutor_id || isNewDay;
+      const isLastInGroup = !allMessages[idx + 1] || allMessages[idx + 1].from_tutor_id !== m.from_tutor_id;
+      return { message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup };
+    }),
+    [allMessages]
+  );
 
   // More actions dropdown state
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -604,23 +633,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     };
 
     // Compute recipients
-    if (msg.is_group_message && msg.to_tutor_ids) {
-      const replyRecipients = msg.to_tutor_ids.filter(id => id !== currentTutorId);
-      if (msg.from_tutor_id !== currentTutorId && !replyRecipients.includes(msg.from_tutor_id)) {
-        replyRecipients.push(msg.from_tutor_id);
-      }
-      if (replyRecipients.length === 1) {
-        data.to_tutor_id = replyRecipients[0];
-      } else if (replyRecipients.length >= 2) {
-        data.to_tutor_ids = replyRecipients;
-      }
-    } else if (msg.from_tutor_id === currentTutorId) {
-      if (msg.to_tutor_id != null) {
-        data.to_tutor_id = msg.to_tutor_id;
-      }
-    } else {
-      data.to_tutor_id = msg.from_tutor_id;
-    }
+    Object.assign(data, computeReplyRecipients(msg, currentTutorId));
 
     // Show optimistic bubble
     setOptimisticMessage({ text, images: [...images] });
@@ -646,39 +659,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
     <div
       ref={panelRef}
       className={cn("h-full flex flex-col", isMobile ? "bg-white dark:bg-[#1a1a1a]" : "bg-white/90 dark:bg-[#1a1a1a]/90")}
-      onTouchStart={isMobile ? (e) => {
-        const x = e.touches[0].clientX;
-        if (x > 30) return; // Edge-only: must start within 30px of left edge
-        panelSwipe.current = { x, y: e.touches[0].clientY, active: false };
-      } : undefined}
-      onTouchMove={isMobile ? (e) => {
-        if (panelSwipe.current.x === 0) return; // Not started from edge
-        const dx = e.touches[0].clientX - panelSwipe.current.x;
-        const dy = e.touches[0].clientY - panelSwipe.current.y;
-        if (!panelSwipe.current.active && Math.abs(dx) > Math.abs(dy) && dx > 10) {
-          panelSwipe.current.active = true;
-        }
-        if (!panelSwipe.current.active || !panelRef.current) return;
-        const clamped = Math.max(0, dx);
-        panelRef.current.style.transform = `translateX(${clamped}px)`;
-        panelRef.current.style.transition = 'none';
-      } : undefined}
-      onTouchEnd={isMobile ? (e) => {
-        if (!panelSwipe.current.active || !panelRef.current) {
-          panelSwipe.current = { x: 0, y: 0, active: false };
-          return;
-        }
-        const dx = e.changedTouches[0].clientX - panelSwipe.current.x;
-        if (dx > 120) {
-          panelRef.current.style.transition = 'transform 0.25s ease-out';
-          panelRef.current.style.transform = 'translateX(100%)';
-          setTimeout(onClose, 250);
-        } else {
-          panelRef.current.style.transition = 'transform 0.2s ease-out';
-          panelRef.current.style.transform = 'translateX(0)';
-        }
-        panelSwipe.current = { x: 0, y: 0, active: false };
-      } : undefined}
+      {...touchHandlers}
     >
       {/* Header */}
       <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] z-[1] relative">
@@ -805,20 +786,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" onClick={handleQuoteClick}>
-        {allMessages.map((m, idx) => {
+        {processedMessages.map(({ message: m, isNewDay, msgDate, isFirstInGroup, isLastInGroup }, idx) => {
           const isOwn = m.from_tutor_id === currentTutorId;
-
-          // Date separator logic
-          const msgDate = new Date(m.created_at);
-          const dateStr = msgDate.toDateString();
-          const prevDateStr = idx > 0 ? new Date(allMessages[idx - 1].created_at).toDateString() : null;
-          const isNewDay = idx === 0 || dateStr !== prevDateStr;
-
-          // Message grouping: consecutive messages from same sender
-          const prevMsg = idx > 0 ? allMessages[idx - 1] : null;
-          const nextMsg = allMessages[idx + 1];
-          const isFirstInGroup = !prevMsg || prevMsg.from_tutor_id !== m.from_tutor_id || isNewDay;
-          const isLastInGroup = !nextMsg || nextMsg.from_tutor_id !== m.from_tutor_id;
 
           const messageBubble = (
             <MessageBubble
@@ -1164,6 +1133,17 @@ export default function InboxPage() {
     return threads;
   }, [selectedCategory, sentAsThreads, archivedThreads, pinnedThreads, threads, debouncedSearch]);
 
+  // Split thread-pinned from the rest (memoized to avoid double .filter() per render)
+  const { pinnedThreads: pinnedInList, unpinnedThreads: unpinnedThreads } = useMemo(() => {
+    if (selectedCategory === "starred") return { pinnedThreads: [] as MessageThread[], unpinnedThreads: displayThreads };
+    const pinned: MessageThread[] = [];
+    const rest: MessageThread[] = [];
+    for (const t of displayThreads) {
+      (t.root_message.is_thread_pinned ? pinned : rest).push(t);
+    }
+    return { pinnedThreads: pinned, unpinnedThreads: rest };
+  }, [displayThreads, selectedCategory]);
+
   // Bulk selection mode
   const [bulkMode, setBulkMode] = useState(false);
   const allThreadIds = useMemo(() => displayThreads.map(t => t.root_message.id), [displayThreads]);
@@ -1364,6 +1344,7 @@ export default function InboxPage() {
       await messagesAPI.markRead(messageId, tutorId);
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     } catch {
+      showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
   }, [tutorId, createReadStatusUpdaters]);
@@ -1385,6 +1366,7 @@ export default function InboxPage() {
       await messagesAPI.markUnread(messageId, tutorId);
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     } catch {
+      showToast("Failed to update read status", "error");
       mutate((key) => isThreadsKey(key) || isUnreadKey(key));
     }
   }, [tutorId, createReadStatusUpdaters]);
@@ -2009,15 +1991,11 @@ export default function InboxPage() {
                       );
                     };
 
-                    // Split thread-pinned from the rest (skip in "starred" view — irrelevant there)
-                    const pinnedInList = selectedCategory !== "starred" ? displayThreads.filter(t => t.root_message.is_thread_pinned) : [];
-                    const unpinned = selectedCategory !== "starred" ? displayThreads.filter(t => !t.root_message.is_thread_pinned) : displayThreads;
-
                     return debouncedSearch.trim() ? (
                       // Flat list when searching — pinned threads first
                       <>
                         {pinnedInList.map((thread) => renderThread(thread, true))}
-                        {unpinned.map((thread) => renderThread(thread, true))}
+                        {unpinnedThreads.map((thread) => renderThread(thread, true))}
                       </>
                     ) : (
                       // Pinned group first, then grouped by date
@@ -2031,7 +2009,7 @@ export default function InboxPage() {
                             {pinnedInList.map((thread) => renderThread(thread))}
                           </div>
                         )}
-                        {groupThreadsByDate(unpinned).map((group) => (
+                        {groupThreadsByDate(unpinnedThreads).map((group) => (
                           <div key={group.label}>
                             <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-[#faf6f1]/80 dark:bg-[#1a1a1a]/80 sticky top-0 z-[5] border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
                               {group.label}
@@ -2069,6 +2047,9 @@ export default function InboxPage() {
             {selectedThread && hasTutor ? (
               <div
                 key={selectedThread.root_message.id}
+                role="region"
+                aria-label="Thread detail"
+                aria-live="polite"
                 className={cn(
                 "h-full rounded-lg overflow-hidden animate-in fade-in duration-150",
                 isMobile ? "fixed inset-0 z-40" : "w-[450px] xl:w-[550px] flex-shrink-0"

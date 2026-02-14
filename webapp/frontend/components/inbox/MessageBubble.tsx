@@ -17,6 +17,9 @@ import { LinkPreview } from "@/components/inbox/LinkPreview";
 import { ProposalEmbed } from "@/components/inbox/ProposalEmbed";
 import type { Message } from "@/types";
 
+// Module-level constants
+const HAS_HTML_RE = /<[a-z][\s\S]*>/i;
+
 // --- Utility functions ---
 
 export function formatMessageTime(dateStr: string): string {
@@ -489,7 +492,7 @@ const MessageBubble = React.memo(function MessageBubble({
               </button>
             </div>
           </div>
-        ) : /<[a-z][\s\S]*>/i.test(m.message) ? (
+        ) : HAS_HTML_RE.test(m.message) ? (
           <div
             className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
             dangerouslySetInnerHTML={{ __html: highlightRegex
@@ -519,6 +522,7 @@ const MessageBubble = React.memo(function MessageBubble({
                   alt={`Attachment ${i + 1}`}
                   className="max-h-48 max-w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:opacity-90 transition-opacity cursor-pointer"
                   loading="lazy"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
               </a>
             ))}
@@ -563,34 +567,34 @@ const MessageBubble = React.memo(function MessageBubble({
               : "absolute -top-3 right-2 opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 transition-opacity bg-white dark:bg-[#2a2a2a] rounded-full shadow-md border border-[#e8d4b8]/60 dark:border-[#6b5a4a]/60 px-1.5 py-0.5"
           )}>
             <ReactionPicker messageId={m.id} onReact={onReact} isMobile={isMobile} />
-            <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Quote">
+            <button onClick={onQuote} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Quote">
               <Reply className="h-3.5 w-3.5" />
             </button>
-            <button onClick={onForward} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Forward">
+            <button onClick={onForward} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Forward">
               <Forward className="h-3.5 w-3.5" />
             </button>
             {isOwn && (
               <>
-                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] transition-colors" title="Edit">
+                <button onClick={onStartEdit} className="p-1 rounded-full text-gray-400 hover:text-[#a0704b] focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors" title="Edit">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 {showDeleteConfirm ? (
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => { onDelete(m.id); setShowDeleteConfirm(false); }}
-                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-red-500 text-white hover:bg-red-600 transition-colors"
+                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-red-500 text-white hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors"
                     >
                       Delete
                     </button>
                     <button
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1 transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                  <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-full text-gray-400 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors" title="Delete">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}

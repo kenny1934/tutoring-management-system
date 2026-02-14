@@ -28,14 +28,20 @@ export function useFileUpload({ tutorId, acceptFiles = false, onError }: UseFile
     if (!files || files.length === 0) return;
     setIsUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      const results = await Promise.all(Array.from(files).map(async (file) => {
         if (file.type.startsWith("image/")) {
           const result = await messagesAPI.uploadImage(file, tutorId);
-          callbacks.onImage(result.url);
-        } else if (acceptFiles && callbacks.onFile) {
+          return { type: "image" as const, url: result.url };
+        } else if (acceptFiles) {
           const result = await messagesAPI.uploadFile(file, tutorId);
-          callbacks.onFile(result);
+          return { type: "file" as const, file: result };
         }
+        return null;
+      }));
+      for (const r of results) {
+        if (!r) continue;
+        if (r.type === "image") callbacks.onImage(r.url);
+        else if (r.type === "file" && callbacks.onFile) callbacks.onFile(r.file);
       }
     } catch (error) {
       if (onError) onError(error);
