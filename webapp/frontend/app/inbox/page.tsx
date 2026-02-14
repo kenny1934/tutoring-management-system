@@ -1799,10 +1799,10 @@ export default function InboxPage() {
           <div className="flex-1 flex overflow-hidden min-h-0 gap-1 p-1 pt-0">
             {/* Left panel - Categories */}
             <div className={cn(
-              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-y-auto",
+              "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden",
               categoryCollapsed ? "w-12" : "w-48"
             )}>
-              <div className="p-2">
+              <div className="h-full overflow-y-auto p-2">
                 <button
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
                   className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] mb-1"
@@ -1814,15 +1814,14 @@ export default function InboxPage() {
                   {CATEGORY_SECTIONS.map((section, sectionIdx) => (
                     <div key={section.id}>
                       {sectionIdx > 0 && (
-                        categoryCollapsed ? (
-                          <div className="my-2 mx-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50" />
-                        ) : (
-                          <div className="mt-3 mb-1 px-3">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                              {section.label}
-                            </span>
-                          </div>
-                        )
+                        <div className="my-2 mx-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 relative">
+                          <span className={cn(
+                            "absolute -top-2.5 left-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 bg-white dark:bg-[#1a1a1a] px-1 whitespace-nowrap transition-opacity duration-200",
+                            categoryCollapsed ? "opacity-0" : "opacity-100"
+                          )}>
+                            {section.label}
+                          </span>
+                        </div>
                       )}
                       <div className="space-y-1">
                         {section.items.map((cat) => (
@@ -1830,37 +1829,25 @@ export default function InboxPage() {
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.id)}
                             className={cn(
-                              "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors min-h-[44px]",
-                              categoryCollapsed && "justify-center px-2",
+                              "w-full flex items-center gap-2 py-2 rounded-lg text-sm transition-all duration-200 min-h-[44px] overflow-hidden whitespace-nowrap",
+                              categoryCollapsed ? "px-2" : "px-3",
                               selectedCategory === cat.id
                                 ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
                                 : "text-gray-800 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
                             )}
-                            title={categoryCollapsed ? cat.label : undefined}
+                            title={cat.label}
                           >
-                            <span className="relative">
+                            <span className="relative flex-shrink-0">
                               {cat.icon}
-                              {categoryCollapsed && categoryUnreadCounts[cat.id] > 0 && (
-                                <span className={cn(
-                                  "absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-0.5",
-                                  categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
-                                )}>
-                                  {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
-                                </span>
-                              )}
                             </span>
-                            {!categoryCollapsed && (
-                              <>
-                                <span className="flex-1">{cat.label}</span>
-                                {categoryUnreadCounts[cat.id] > 0 && (
-                                  <span className={cn(
-                                    "min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
-                                    categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
-                                  )}>
-                                    {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
-                                  </span>
-                                )}
-                              </>
+                            <span className="flex-1 truncate">{cat.label}</span>
+                            {categoryUnreadCounts[cat.id] > 0 && (
+                              <span className={cn(
+                                "flex-shrink-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white bg-[#a0704b] rounded-full px-1",
+                                categoryUnreadCounts[cat.id] > 5 && "animate-[badge-pulse_2s_ease-in-out_infinite] motion-reduce:animate-none"
+                              )}>
+                                {categoryUnreadCounts[cat.id] > 99 ? "99+" : categoryUnreadCounts[cat.id]}
+                              </span>
                             )}
                           </button>
                         ))}
