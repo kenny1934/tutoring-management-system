@@ -684,7 +684,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
       <div className="flex items-center gap-1 sm:gap-3 px-4 py-3 shadow-[0_1px_3px_0_rgba(0,0,0,0.05)] z-[1] relative">
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-1 rounded hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 lg:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -716,7 +716,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           className={cn(
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             msg.is_read
-              ? "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              ? "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
               : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
           )}
           title={msg.is_read ? "Mark as unread" : "Mark as read"}
@@ -732,7 +732,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
             "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
             showThreadSearch
               ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-              : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
           )}
           title="Search in thread"
         >
@@ -746,7 +746,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               "flex items-center gap-1.5 px-2 py-1.5 text-sm rounded-lg transition-colors",
               showMoreMenu
                 ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
             )}
             title="More actions"
           >
@@ -760,7 +760,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onThreadPin(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
               >
                 <Pin className={cn("h-4 w-4", msg.is_thread_pinned && "text-blue-500")} />
                 <span>{msg.is_thread_pinned ? "Unpin from top" : "Pin to top"}</span>
@@ -771,7 +771,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onPin(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
               >
                 <Star className={cn("h-4 w-4", msg.is_pinned && "fill-amber-400 text-amber-400")} />
                 <span>{msg.is_pinned ? "Unstar" : "Star"}</span>
@@ -782,7 +782,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                   else onArchive(msg.id);
                   setShowMoreMenu(false);
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 transition-colors text-left"
               >
                 {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
                 <span>{isArchived ? "Unarchive" : "Archive"}</span>
@@ -923,7 +923,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 </button>
                 <button
                   onClick={() => setOptimisticMessage(null)}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
                 >
                   <Trash2 className="h-3 w-3" />
                   Discard
@@ -1688,10 +1688,10 @@ export default function InboxPage() {
               "h-full flex-shrink-0 bg-white/90 dark:bg-[#1a1a1a]/90 rounded-lg transition-all duration-200 overflow-hidden",
               categoryCollapsed ? "w-12" : "w-48"
             )}>
-              <div className="h-full overflow-y-auto p-2">
+              <div className="h-full overflow-y-auto overflow-x-hidden p-2">
                 <button
                   onClick={() => setCategoryCollapsed(!categoryCollapsed)}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820] mb-1"
+                  className="w-full flex items-center justify-center p-2 rounded-lg text-gray-500 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 mb-1"
                   title={categoryCollapsed ? "Expand" : "Collapse"}
                 >
                   {categoryCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -1700,13 +1700,14 @@ export default function InboxPage() {
                   {CATEGORY_SECTIONS.map((section, sectionIdx) => (
                     <div key={section.id}>
                       {sectionIdx > 0 && (
-                        <div className="my-2 mx-2 border-t border-[#e8d4b8]/50 dark:border-[#6b5a4a]/50 relative">
-                          <span className={cn(
-                            "absolute -top-2.5 left-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 bg-white dark:bg-[#1a1a1a] px-1 whitespace-nowrap transition-opacity duration-200",
-                            categoryCollapsed ? "opacity-0" : "opacity-100"
+                        <div className="mt-3 mb-1">
+                          <div className="mx-2 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30" />
+                          <div className={cn(
+                            "px-3 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap transition-opacity duration-200",
+                            categoryCollapsed ? "opacity-0 h-0 pt-0 overflow-hidden" : "opacity-100"
                           )}>
                             {section.label}
-                          </span>
+                          </div>
                         </div>
                       )}
                       <div className="space-y-1">
@@ -1719,7 +1720,7 @@ export default function InboxPage() {
                               categoryCollapsed ? "px-2" : "px-3",
                               selectedCategory === cat.id
                                 ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
-                                : "text-gray-800 dark:text-gray-300 hover:bg-[#faf6f1] dark:hover:bg-[#2d2820]"
+                                : "text-gray-800 dark:text-gray-300 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                             )}
                             title={cat.label}
                           >
@@ -1773,7 +1774,7 @@ export default function InboxPage() {
                           showToast("Failed to mark all as read", "error");
                         }
                       }}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded-lg transition-colors"
                       title="Mark all as read"
                     >
                       <Check className="h-3.5 w-3.5" />
@@ -1787,7 +1788,7 @@ export default function InboxPage() {
                         "flex-shrink-0 p-2 rounded-lg transition-colors",
                         bulkMode
                           ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d2e1e]"
-                          : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                          : "text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50"
                       )}
                       title={bulkMode ? "Exit select mode" : "Select threads"}
                     >
@@ -1804,7 +1805,7 @@ export default function InboxPage() {
                     <div className="flex items-center gap-1 px-2 py-1.5 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
                       <button
                         onClick={bulkToggleAll}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
                       >
                         {bulkAllSelected ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
                         {bulkAllSelected ? "Deselect all" : "Select all"}
@@ -1825,7 +1826,7 @@ export default function InboxPage() {
                                   showToast(`Archived ${bulkSelectedIds.size} thread(s)`, "success");
                                 } catch { showToast("Failed to archive", "error"); }
                               }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
                             >
                               <Archive className="h-3.5 w-3.5" />
                               Archive
@@ -1842,7 +1843,7 @@ export default function InboxPage() {
                                   showToast(`Unarchived ${bulkSelectedIds.size} thread(s)`, "success");
                                 } catch { showToast("Failed to unarchive", "error"); }
                               }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
                             >
                               <ArchiveRestore className="h-3.5 w-3.5" />
                               Unarchive
@@ -1858,7 +1859,7 @@ export default function InboxPage() {
                                 showToast(`Starred ${bulkSelectedIds.size} thread(s)`, "success");
                               } catch { showToast("Failed to star", "error"); }
                             }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3]/60 dark:hover:bg-[#3d3628]/50 rounded transition-colors"
                           >
                             <Star className="h-3.5 w-3.5" />
                             Star
