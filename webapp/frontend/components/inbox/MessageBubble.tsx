@@ -217,7 +217,7 @@ const ReactionPicker = React.memo(function ReactionPicker({ messageId, onReact, 
   const emojiRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
-    if (!showPicker && !showFullPicker) return;
+    if (!showPicker || showFullPicker) return; // FloatingDropdown handles its own dismiss
     const handleClick = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowPicker(false);
