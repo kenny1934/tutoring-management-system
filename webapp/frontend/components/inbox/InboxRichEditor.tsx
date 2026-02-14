@@ -29,6 +29,8 @@ import {
   Smile,
   Expand,
   Sigma,
+  MoreHorizontal,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
@@ -47,9 +49,10 @@ interface ToolbarButtonProps {
   label: string;
   isActive?: boolean;
   onClick: () => void;
+  className?: string;
 }
 
-function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonProps) {
+function ToolbarButton({ icon: Icon, label, isActive, onClick, className }: ToolbarButtonProps) {
   return (
     <button
       type="button"
@@ -58,7 +61,8 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick }: ToolbarButtonPr
         "p-1.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-[#a0704b]/40 focus-visible:ring-offset-1",
         isActive
           ? "bg-[#a0704b] text-white"
-          : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+          : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]",
+        className
       )}
       title={label}
     >
@@ -195,6 +199,8 @@ export default function InboxRichEditor({
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
+  const [showMoreTools, setShowMoreTools] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
   // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
@@ -509,12 +515,14 @@ export default function InboxRichEditor({
           label="Strikethrough"
           isActive={editor.isActive("strike")}
           onClick={() => editor.chain().focus().toggleStrike().run()}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={Heading}
           label="Heading (cycles H1→H2→H3→text)"
           isActive={editor.isActive("heading")}
           onClick={handleToggleHeading}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={LinkIcon}
@@ -523,32 +531,36 @@ export default function InboxRichEditor({
           onClick={handleSetLink}
         />
 
-        {/* Separator */}
-        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5" />
+        {/* Separator — desktop only */}
+        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5 hidden sm:block" />
 
         <ToolbarButton
           icon={List}
           label="Bullet List"
           isActive={editor.isActive("bulletList")}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={ListOrdered}
           label="Numbered List"
           isActive={editor.isActive("orderedList")}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={TextQuote}
           label="Blockquote"
           isActive={editor.isActive("blockquote")}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={Code}
           label="Inline Code"
           isActive={editor.isActive("code")}
           onClick={() => editor.chain().focus().toggleCode().run()}
+          className="hidden sm:block"
         />
         <ToolbarButton
           icon={Sigma}
@@ -564,10 +576,70 @@ export default function InboxRichEditor({
               return true;
             }).run();
           }}
+          className="hidden sm:block"
         />
 
-        {/* Separator */}
-        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5" />
+        {/* Mobile overflow menu */}
+        <button
+          ref={moreButtonRef}
+          type="button"
+          onClick={() => setShowMoreTools(!showMoreTools)}
+          className={cn(
+            "p-1.5 rounded transition-colors sm:hidden",
+            showMoreTools
+              ? "bg-[#a0704b] text-white"
+              : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+          )}
+          title="More formatting"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+        <FloatingDropdown
+          triggerRef={moreButtonRef}
+          isOpen={showMoreTools}
+          onClose={() => setShowMoreTools(false)}
+          align="left"
+          className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[180px]"
+        >
+          {[
+            { icon: Strikethrough, label: "Strikethrough", active: editor.isActive("strike"), action: () => editor.chain().focus().toggleStrike().run() },
+            { icon: Heading, label: "Heading", active: editor.isActive("heading"), action: handleToggleHeading },
+            { icon: List, label: "Bullet List", active: editor.isActive("bulletList"), action: () => editor.chain().focus().toggleBulletList().run() },
+            { icon: ListOrdered, label: "Numbered List", active: editor.isActive("orderedList"), action: () => editor.chain().focus().toggleOrderedList().run() },
+            { icon: TextQuote, label: "Blockquote", active: editor.isActive("blockquote"), action: () => editor.chain().focus().toggleBlockquote().run() },
+            { icon: Code, label: "Code", active: editor.isActive("code"), action: () => editor.chain().focus().toggleCode().run() },
+            { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: () => {
+              const { from, to } = editor.state.selection;
+              const selectedText = from !== to ? editor.state.doc.textBetween(from, to) : '';
+              const latex = selectedText || 'x^2';
+              editor.chain().focus().command(({ tr }) => {
+                const mathNode = editor.schema.nodes.inlineMath.create({ latex });
+                tr.replaceWith(from, to, mathNode);
+                return true;
+              }).run();
+            }},
+          ].map(item => (
+            <button
+              key={item.label}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { item.action(); setShowMoreTools(false); }}
+              className={cn(
+                "flex items-center gap-2 w-full px-2.5 py-2 text-xs rounded transition-colors",
+                item.active
+                  ? "bg-[#f5ede3] dark:bg-[#3d3628] text-[#a0704b] font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+              )}
+            >
+              <item.icon className="w-4 h-4" />
+              <span className="flex-1">{item.label}</span>
+              {item.active && <Check className="w-3 h-3 text-[#a0704b]" />}
+            </button>
+          ))}
+        </FloatingDropdown>
+
+        {/* Separator — desktop only */}
+        <div className="w-px h-5 bg-[#d4c0a8] dark:bg-[#6b5a4a] mx-0.5 hidden sm:block" />
 
         {/* Color picker */}
         <div>
