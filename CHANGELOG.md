@@ -8,13 +8,20 @@
 * **Geometry viewer** — click sent diagram thumbnails to open an interactive read-only viewer with zoom in/out/reset controls and drag-to-pan
 * **Function graphing** — plot mathematical functions via LaTeX input with MathLive virtual keyboard, converted to JS and rendered as curves on the geometry board
 * **Theme-reactive geometry boards** — boards re-render with correct colors when switching between light and dark mode
+* **Grid snapping** — toggle snap-to-grid in the geometry editor toolbar (on by default) for precise point placement at integer coordinates
+* **Auto-named points** — points are automatically labeled A, B, C, ...; click a point in select mode to rename it
+* **Touch support** — geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference
+
+### Improvements
+
+* Theme toggle updates geometry board colors smoothly without visible flash
 
 ### Bug Fixes
 
-* Fixed MathLive menu button requiring long press to open (scrim dismiss race condition)
-* Fixed matrix equations rendering with "amp" text in sent messages (HTML entity unescaping)
-* Fixed doubled axis tick labels in geometry viewer (skip auto-generated text during serialization)
-* Validated SVG data URIs before rendering geometry thumbnails
+* Fixed MathLive menu button requiring long press to open
+* Fixed matrix equations showing "amp" text in sent messages
+* Fixed doubled axis tick labels in geometry viewer
+* Fixed invalid geometry thumbnails not rendering
 
 ## [2.0.3](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.3) (2026-02-15)
 
@@ -27,10 +34,10 @@
 ### Bug Fixes
 
 * Fixed send button disabled when message contains only math equations
-* Fixed math equations vanishing from message bubbles on re-render
-* Fixed event listener leak in math editor modal (input handler never cleaned up)
+* Fixed math equations disappearing from message bubbles
+* Fixed memory leak in math editor modal
 * Fixed focus not returning to message editor after closing math modal
-* Fixed mathfield border invisible in dark mode
+* Fixed math input border invisible in dark mode
 
 ## [2.0.2](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.2) (2026-02-14)
 
@@ -49,28 +56,28 @@
 
 * **Sidebar reorganization** — 3 sections: primary mailboxes, smart views (Starred, Mentions, Send Later, Snoozed), and collapsible Tags
 * **Rich interactions** — quote-reply, message forwarding, swipe actions, keyboard shortcuts
-* **Paste/drag image uploads** — parallel processing for multiple images
+* **Paste/drag image uploads** — supports multiple images at once
 * **Search highlighting** — across thread list and message content
 * **Draft auto-save** — with thread list preview indicator
 * **Dark mode polish** — across all new components
-* **Performance** — memoized components, stale-while-revalidate for category navigation
+* **Performance** — faster navigation and smoother category switching
 * **Video & GIF attachments** — send and preview video/GIF files inline in messages
 * **Message forwarding with attachments** — forwarded messages now include all original attachments (images, files, voice recordings)
 * **Categorized attachment menu** — attachment button opens a popover with Photos & Videos / Document sections
 * **File attachments in replies** — attach files when replying, with thumbnail previews and remove button
-* **Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode
+* **Improved toolbar dropdowns** — emoji, color picker, attachments, and template menus no longer get clipped on mobile or in edit mode
 * **Slide animations** — smooth expand/collapse on search filters panel and collapsible sections
 
 ### Bug Fixes
 
 * Unread counts now exclude scheduled (unsent) messages
-* Fixed inbox loading skeleton getting stuck when navigating between categories
-* Fixed timezone mismatch in snooze reminder background task (use HK time consistently)
-* Added row-level locking to prevent duplicate scheduled message delivery
-* Added unique constraint on thread pins to prevent duplicates
-* Fixed voice message emoji rendering — replaced with Lucide Mic SVG icon
-* Fixed voice message duration not persisting in file_attachments metadata
-* Fixed duplicate tiptap Link extension warning in rich editors
+* Fixed inbox loading indicator getting stuck when switching categories
+* Fixed snooze reminders firing at wrong times due to timezone mismatch
+* Fixed scheduled messages occasionally being sent twice
+* Fixed threads sometimes getting pinned twice
+* Fixed voice message icon not displaying correctly
+* Fixed voice message duration not saving correctly
+* Fixed console warning in rich text editor
 * Fixed changelog markdown rendering on What's New page
 
 ## [2.0.1](https://github.com/kennygodin/tutoring-management-system/releases/tag/v2.0.1) (2026-02-13)

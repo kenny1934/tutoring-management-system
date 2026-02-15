@@ -18,6 +18,23 @@ const changelogData = [
           },
           {
             "description": "**Theme-reactive geometry boards** — boards re-render with correct colors when switching between light and dark mode"
+          },
+          {
+            "description": "**Grid snapping** — toggle snap-to-grid in the geometry editor toolbar (on by default) for precise point placement at integer coordinates"
+          },
+          {
+            "description": "**Auto-named points** — points are automatically labeled A, B, C, ...; click a point in select mode to rename it"
+          },
+          {
+            "description": "**Touch support** — geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference"
+          }
+        ]
+      },
+      {
+        "title": "Improvements",
+        "items": [
+          {
+            "description": "Theme toggle updates geometry board colors smoothly without visible flash"
           }
         ]
       },
@@ -25,16 +42,16 @@ const changelogData = [
         "title": "Bug Fixes",
         "items": [
           {
-            "description": "Fixed MathLive menu button requiring long press to open (scrim dismiss race condition)"
+            "description": "Fixed MathLive menu button requiring long press to open"
           },
           {
-            "description": "Fixed matrix equations rendering with \"amp\" text in sent messages (HTML entity unescaping)"
+            "description": "Fixed matrix equations showing \"amp\" text in sent messages"
           },
           {
-            "description": "Fixed doubled axis tick labels in geometry viewer (skip auto-generated text during serialization)"
+            "description": "Fixed doubled axis tick labels in geometry viewer"
           },
           {
-            "description": "Validated SVG data URIs before rendering geometry thumbnails"
+            "description": "Fixed invalid geometry thumbnails not rendering"
           }
         ]
       }
@@ -65,16 +82,16 @@ const changelogData = [
             "description": "Fixed send button disabled when message contains only math equations"
           },
           {
-            "description": "Fixed math equations vanishing from message bubbles on re-render"
+            "description": "Fixed math equations disappearing from message bubbles"
           },
           {
-            "description": "Fixed event listener leak in math editor modal (input handler never cleaned up)"
+            "description": "Fixed memory leak in math editor modal"
           },
           {
             "description": "Fixed focus not returning to message editor after closing math modal"
           },
           {
-            "description": "Fixed mathfield border invisible in dark mode"
+            "description": "Fixed math input border invisible in dark mode"
           }
         ]
       }
@@ -123,7 +140,7 @@ const changelogData = [
             "description": "**Rich interactions** — quote-reply, message forwarding, swipe actions, keyboard shortcuts"
           },
           {
-            "description": "**Paste/drag image uploads** — parallel processing for multiple images"
+            "description": "**Paste/drag image uploads** — supports multiple images at once"
           },
           {
             "description": "**Search highlighting** — across thread list and message content"
@@ -135,7 +152,7 @@ const changelogData = [
             "description": "**Dark mode polish** — across all new components"
           },
           {
-            "description": "**Performance** — memoized components, stale-while-revalidate for category navigation"
+            "description": "**Performance** — faster navigation and smoother category switching"
           },
           {
             "description": "**Video & GIF attachments** — send and preview video/GIF files inline in messages"
@@ -150,7 +167,7 @@ const changelogData = [
             "description": "**File attachments in replies** — attach files when replying, with thumbnail previews and remove button"
           },
           {
-            "description": "**Portal-based popovers** — all toolbar dropdowns (emoji, color picker, attachments, templates) now render via portals, fixing overflow clipping on mobile and in edit mode"
+            "description": "**Improved toolbar dropdowns** — emoji, color picker, attachments, and template menus no longer get clipped on mobile or in edit mode"
           },
           {
             "description": "**Slide animations** — smooth expand/collapse on search filters panel and collapsible sections"
@@ -164,25 +181,25 @@ const changelogData = [
             "description": "Unread counts now exclude scheduled (unsent) messages"
           },
           {
-            "description": "Fixed inbox loading skeleton getting stuck when navigating between categories"
+            "description": "Fixed inbox loading indicator getting stuck when switching categories"
           },
           {
-            "description": "Fixed timezone mismatch in snooze reminder background task (use HK time consistently)"
+            "description": "Fixed snooze reminders firing at wrong times due to timezone mismatch"
           },
           {
-            "description": "Added row-level locking to prevent duplicate scheduled message delivery"
+            "description": "Fixed scheduled messages occasionally being sent twice"
           },
           {
-            "description": "Added unique constraint on thread pins to prevent duplicates"
+            "description": "Fixed threads sometimes getting pinned twice"
           },
           {
-            "description": "Fixed voice message emoji rendering — replaced with Lucide Mic SVG icon"
+            "description": "Fixed voice message icon not displaying correctly"
           },
           {
-            "description": "Fixed voice message duration not persisting in file_attachments metadata"
+            "description": "Fixed voice message duration not saving correctly"
           },
           {
-            "description": "Fixed duplicate tiptap Link extension warning in rich editors"
+            "description": "Fixed console warning in rich text editor"
           },
           {
             "description": "Fixed changelog markdown rendering on What's New page"
