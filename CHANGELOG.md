@@ -5,11 +5,16 @@
 ### New Features
 
 * **Math equations in inbox** — type `$...$` for inline or `$$...$$` for block math, rendered with KaTeX; Sigma toolbar button converts selected text to equations; click to edit existing equations
+* **Math equation editor modal** — dedicated editor with MathLive mathfield and virtual keyboard for visual equation input; supports inline/block mode toggle with descriptions, edit/delete existing equations, and Ctrl/⌘+Enter shortcut to insert
+* **Themed virtual keyboard** — MathLive keyboard styled with warm brown palette matching app design, with full dark mode support
 
 ### Bug Fixes
 
 * Fixed send button disabled when message contains only math equations
 * Fixed math equations vanishing from message bubbles on re-render
+* Fixed event listener leak in math editor modal (input handler never cleaned up)
+* Fixed focus not returning to message editor after closing math modal
+* Fixed mathfield border invisible in dark mode
 
 ## [2.0.2](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.2) (2026-02-14)
 
