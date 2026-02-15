@@ -287,7 +287,6 @@ export function deserializeToBoard(
 export function exportBoardSvg(board: any): string {
   const svgRoot: SVGSVGElement = board.renderer.svgRoot;
   // Set explicit size for the exported SVG
-  const bbox = board.getBoundingBox();
   const w = board.canvasWidth || 400;
   const h = board.canvasHeight || 300;
   svgRoot.setAttribute("width", String(w));
