@@ -355,6 +355,60 @@ export function deserializeToBoard(
 }
 
 // ---------------------------------------------------------------------------
+// In-place re-theming (no board rebuild)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update board colours in place when the app theme changes.
+ * Much faster than the old serialize → freeBoard → recreate → deserialize path
+ * because JSXGraph elements support `setAttribute()` for visual properties.
+ */
+export function applyBoardTheme(
+  board: any,
+  container: HTMLDivElement,
+  isDark: boolean
+): void {
+  const axisStroke = isDark ? "#a0907a" : "#6b5a4a";
+  const tickStroke = isDark ? "#4a3d30" : "#d4c0a8";
+  const gridStroke = isDark ? "#3d3628" : "#e8d4b8";
+  const textColor = isDark ? "#e3d5c5" : "#1f2937";
+  const tickLabelColor = isDark ? "#c0b0a0" : "#000000";
+
+  // Axes
+  const axes = board.defaultAxes;
+  if (axes) {
+    for (const axis of [axes.x, axes.y]) {
+      if (!axis) continue;
+      axis.setAttribute({
+        strokeColor: axisStroke,
+        highlightStrokeColor: axisStroke,
+      });
+      if (axis.ticks?.[0]) {
+        axis.ticks[0].setAttribute({ strokeColor: tickStroke });
+      }
+    }
+  }
+
+  // Grid + text elements
+  for (const el of board.objectsList) {
+    if (el.elType === "grid") {
+      el.setAttribute({ strokeColor: gridStroke });
+    }
+    // Tick labels (auto-generated text with dump:false)
+    if (el.elType === "text" && el.dump === false) {
+      el.setAttribute({ strokeColor: tickLabelColor });
+    }
+    // User-created text objects
+    if (el.elType === "text" && el.dump !== false) {
+      el.setAttribute({ strokeColor: textColor });
+    }
+  }
+
+  container.style.backgroundColor = isDark ? "#2a2a2a" : "#ffffff";
+  board.fullUpdate();
+}
+
+// ---------------------------------------------------------------------------
 // SVG export
 // ---------------------------------------------------------------------------
 
