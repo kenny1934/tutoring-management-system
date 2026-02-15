@@ -9,6 +9,12 @@ const changelogData = [
         "items": [
           {
             "description": "**Math equations in inbox** — type `$...$` for inline or `$$...$$` for block math, rendered with KaTeX; Sigma toolbar button converts selected text to equations; click to edit existing equations"
+          },
+          {
+            "description": "**Math equation editor modal** — dedicated editor with MathLive mathfield and virtual keyboard for visual equation input; supports inline/block mode toggle with descriptions, edit/delete existing equations, and Ctrl/⌘+Enter shortcut to insert"
+          },
+          {
+            "description": "**Themed virtual keyboard** — MathLive keyboard styled with warm brown palette matching app design, with full dark mode support"
           }
         ]
       },
@@ -20,6 +26,15 @@ const changelogData = [
           },
           {
             "description": "Fixed math equations vanishing from message bubbles on re-render"
+          },
+          {
+            "description": "Fixed event listener leak in math editor modal (input handler never cleaned up)"
+          },
+          {
+            "description": "Fixed focus not returning to message editor after closing math modal"
+          },
+          {
+            "description": "Fixed mathfield border invisible in dark mode"
           }
         ]
       }
