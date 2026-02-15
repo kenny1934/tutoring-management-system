@@ -78,6 +78,8 @@ export function serializeBoard(board: any): GeometryState {
     if (seen.has(el.id)) continue;
     if (!el.elType || !SERIALIZABLE_TYPES.has(el.elType)) continue;
     if (el.visProp?.visible === false) continue;
+    // Skip auto-generated text (axis tick labels) — they have dump:false
+    if (el.elType === "text" && el.dump === false) continue;
 
     const obj = elementToObject(el);
     if (obj) {
