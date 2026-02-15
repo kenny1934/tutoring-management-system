@@ -15,7 +15,7 @@ export const DEFAULT_POINT_ATTRS = {
   fillColor: "#a0704b",
   highlightStrokeColor: "#8b5f3c",
   highlightFillColor: "#8b5f3c",
-  size: 3,
+  size: 4,
 };
 
 export const DEFAULT_LINE_ATTRS = {
@@ -59,6 +59,18 @@ export function findNearbyPoint(board: any, x: number, y: number): any | null {
   return null;
 }
 
+/** Generate sequential point names: A, B, C, ..., Z, A₁, B₁, ... */
+export function generatePointName(index: number): string {
+  const letter = String.fromCharCode(65 + (index % 26));
+  const cycle = Math.floor(index / 26);
+  if (cycle === 0) return letter;
+  // Subscript digits for cycles beyond the first
+  const sub = String(cycle).replace(/\d/g, (d) =>
+    String.fromCharCode(0x2080 + Number(d))
+  );
+  return letter + sub;
+}
+
 // ---------------------------------------------------------------------------
 // Tool handler interface
 // ---------------------------------------------------------------------------
@@ -69,6 +81,8 @@ export interface ToolContext {
   pushUndo: () => void;
   updateObjectCount: () => void;
   isDark: boolean;
+  snapToGrid: boolean;
+  nextPointName: () => string;
   textInput: string;
   setTextInput: (v: string) => void;
   lastClickTime: number;
@@ -82,7 +96,7 @@ export interface ToolResult {
 export type ToolHandler = (ctx: ToolContext, x: number, y: number) => ToolResult;
 
 // ---------------------------------------------------------------------------
-// Convenience — return context unchanged
+// Internal helpers
 // ---------------------------------------------------------------------------
 
 const unchanged = (ctx: ToolContext): ToolResult => ({
@@ -90,13 +104,23 @@ const unchanged = (ctx: ToolContext): ToolResult => ({
   lastClickTime: ctx.lastClickTime,
 });
 
+/** Build point attrs with snap, auto-name, and label color applied. */
+function pointAttrs(ctx: ToolContext) {
+  return {
+    ...DEFAULT_POINT_ATTRS,
+    name: ctx.nextPointName(),
+    snapToGrid: ctx.snapToGrid,
+    label: { strokeColor: ctx.isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tool implementations
 // ---------------------------------------------------------------------------
 
 function handlePointTool(ctx: ToolContext, x: number, y: number): ToolResult {
   ctx.pushUndo();
-  ctx.board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+  ctx.board.create("point", [x, y], pointAttrs(ctx));
   ctx.updateObjectCount();
   return unchanged(ctx);
 }
@@ -107,14 +131,14 @@ function createLineHandler(lineType: "line" | "segment"): ToolHandler {
     const existing = findNearbyPoint(board, x, y);
 
     if (pending.length === 0) {
-      const p = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+      const p = existing || board.create("point", [x, y], pointAttrs(ctx));
       return { pendingPoints: [p], lastClickTime: ctx.lastClickTime };
     }
 
     if (existing === pending[0]) return unchanged(ctx); // same point — skip
 
     ctx.pushUndo();
-    const p2 = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+    const p2 = existing || board.create("point", [x, y], pointAttrs(ctx));
     board.create(lineType, [pending[0], p2], {
       ...DEFAULT_LINE_ATTRS,
       straightFirst: lineType === "line",
@@ -130,14 +154,14 @@ function handleCircleTool(ctx: ToolContext, x: number, y: number): ToolResult {
   const existing = findNearbyPoint(board, x, y);
 
   if (pending.length === 0) {
-    const center = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+    const center = existing || board.create("point", [x, y], pointAttrs(ctx));
     return { pendingPoints: [center], lastClickTime: ctx.lastClickTime };
   }
 
   if (existing === pending[0]) return unchanged(ctx); // clicked center again — skip
 
   ctx.pushUndo();
-  const edgePoint = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+  const edgePoint = existing || board.create("point", [x, y], pointAttrs(ctx));
   board.create("circle", [pending[0], edgePoint], DEFAULT_LINE_ATTRS);
   ctx.updateObjectCount();
   return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
@@ -153,7 +177,7 @@ function handlePolygonTool(ctx: ToolContext, x: number, y: number): ToolResult {
     return { pendingPoints: pending, lastClickTime: now };
   }
 
-  const p = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+  const p = existing || board.create("point", [x, y], pointAttrs(ctx));
   pending.push(p);
 
   // Visual feedback — temporary dashed segment between vertices
@@ -175,6 +199,7 @@ function handleTextTool(ctx: ToolContext, x: number, y: number): ToolResult {
   ctx.board.create("text", [x, y, ctx.textInput.trim()], {
     fontSize: 14,
     strokeColor: ctx.isDark ? "#e3d5c5" : "#1f2937",
+    display: "internal",
     fixed: false,
   });
   ctx.setTextInput("");
@@ -187,7 +212,7 @@ function handleAngleTool(ctx: ToolContext, x: number, y: number): ToolResult {
   const existing = findNearbyPoint(board, x, y);
   if (existing && pending.includes(existing)) return unchanged(ctx);
 
-  const ap = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+  const ap = existing || board.create("point", [x, y], pointAttrs(ctx));
   pending.push(ap);
 
   if (pending.length === 3) {
@@ -207,7 +232,7 @@ function handleSectorTool(ctx: ToolContext, x: number, y: number): ToolResult {
   const existing = findNearbyPoint(board, x, y);
   if (existing && pending.includes(existing)) return unchanged(ctx);
 
-  const sp = existing || board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
+  const sp = existing || board.create("point", [x, y], pointAttrs(ctx));
   pending.push(sp);
 
   if (pending.length === 3) {

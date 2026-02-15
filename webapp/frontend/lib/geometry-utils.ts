@@ -71,6 +71,8 @@ export const LIGHT_BOARD_ATTRS = {
       ticks: { strokeColor: "#d4c0a8", minorTicks: 0 },
     },
   },
+  snapSizeX: 1,
+  snapSizeY: 1,
   grid: { strokeColor: "#e8d4b8", strokeOpacity: 0.6 },
   renderer: "svg",
 };
@@ -256,7 +258,8 @@ function elementToObject(el: any): GeometryObject | null {
 export function deserializeToBoard(
   board: any,
   state: GeometryState,
-  readOnly = false
+  readOnly = false,
+  isDark = false
 ): void {
   const idMap: Record<string, any> = {};
 
@@ -278,7 +281,8 @@ export function deserializeToBoard(
         case "point":
           created = board.create("point", [obj.attrs.x!, obj.attrs.y!], {
             ...baseAttrs,
-            snapToGrid: false,
+            snapToGrid: !readOnly,
+            label: { strokeColor: isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
           });
           break;
 
@@ -329,7 +333,7 @@ export function deserializeToBoard(
           created = board.create(
             "text",
             [obj.attrs.x!, obj.attrs.y!, obj.attrs.content || ""],
-            { ...baseAttrs, fixed: true }
+            { ...baseAttrs, display: "internal", fixed: true }
           );
           break;
 
@@ -401,6 +405,10 @@ export function applyBoardTheme(
     // User-created text objects
     if (el.elType === "text" && el.dump !== false) {
       el.setAttribute({ strokeColor: textColor });
+    }
+    // Point labels
+    if (el.elType === "point" && el.label) {
+      el.label.setAttribute({ strokeColor: textColor });
     }
   }
 

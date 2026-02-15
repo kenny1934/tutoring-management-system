@@ -19,6 +19,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Grid3x3,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ import {
 import {
   TOOL_HANDLERS,
   getMouseCoords,
+  generatePointName,
   DEFAULT_POINT_ATTRS,
   DEFAULT_LINE_ATTRS,
   DEFAULT_FILL_ATTRS,
@@ -106,6 +108,8 @@ export default function GeometryEditorModal({
   const [boardVersion, setBoardVersion] = useState(0);
   const [selectedEl, setSelectedEl] = useState<any>(null);
   const [editCoords, setEditCoords] = useState("");
+  const [editName, setEditName] = useState("");
+  const [snapToGrid, setSnapToGrid] = useState(true);
 
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -117,6 +121,7 @@ export default function GeometryEditorModal({
   const lastClickTimeRef = useRef(0);
   const funcFieldRef = useRef<HTMLElement | null>(null);
   const themeInitRef = useRef(false);
+  const pointCounterRef = useRef(0);
 
   const isEditing = !!initialState;
 
@@ -163,6 +168,23 @@ export default function GeometryEditorModal({
     return resolvedTheme === "dark";
   }, [resolvedTheme]);
 
+  /** Count existing named points on the board and reset the counter. */
+  const recalcPointCounter = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) { pointCounterRef.current = 0; return; }
+    let max = 0;
+    for (const el of board.objectsList) {
+      if (el.elType === "point" && el.name) max++;
+    }
+    pointCounterRef.current = max;
+  }, []);
+
+  const nextPointName = useCallback(() => {
+    const name = generatePointName(pointCounterRef.current);
+    pointCounterRef.current++;
+    return name;
+  }, []);
+
   // ---------------------------------------------------------------------------
   // Init board
   // ---------------------------------------------------------------------------
@@ -189,9 +211,10 @@ export default function GeometryEditorModal({
 
     // Restore state if editing
     if (initialState?.objects?.length > 0) {
-      deserializeToBoard(board, initialState, false);
+      deserializeToBoard(board, initialState, false, isDark());
       updateObjectCount();
     }
+    recalcPointCounter();
 
     return () => {
       if (boardRef.current) {
@@ -272,12 +295,15 @@ export default function GeometryEditorModal({
           setSelectedEl(userEl);
           if (userEl.elType === "point") {
             setEditCoords(`${userEl.X().toFixed(2)}, ${userEl.Y().toFixed(2)}`);
+            setEditName(userEl.name || "");
           } else {
             setEditCoords("");
+            setEditName("");
           }
         } else {
           setSelectedEl(null);
           setEditCoords("");
+          setEditName("");
         }
         return;
       }
@@ -297,6 +323,8 @@ export default function GeometryEditorModal({
             pushUndo,
             updateObjectCount,
             isDark: isDark(),
+            snapToGrid,
+            nextPointName,
             textInput,
             setTextInput,
             lastClickTime: lastClickTimeRef.current,
@@ -313,7 +341,7 @@ export default function GeometryEditorModal({
     return () => {
       board.off("down", handleDown);
     };
-  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark]);
+  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark, snapToGrid, nextPointName]);
 
   // Handle double-click to close polygon
   useEffect(() => {
@@ -384,6 +412,7 @@ export default function GeometryEditorModal({
   useEffect(() => {
     setSelectedEl(null);
     setEditCoords("");
+    setEditName("");
   }, [tool]);
 
   useEffect(() => {
@@ -483,13 +512,15 @@ export default function GeometryEditorModal({
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, prevState.boundingBox, isDark());
     boardRef.current = newBoard;
-    deserializeToBoard(newBoard, prevState, false);
+    deserializeToBoard(newBoard, prevState, false, isDark());
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
+    setEditName("");
     updateObjectCount();
+    recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount]);
+  }, [isDark, updateObjectCount, recalcPointCounter]);
 
   // ---------------------------------------------------------------------------
   // Redo
@@ -511,13 +542,15 @@ export default function GeometryEditorModal({
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, nextState.boundingBox, isDark());
     boardRef.current = newBoard;
-    deserializeToBoard(newBoard, nextState, false);
+    deserializeToBoard(newBoard, nextState, false, isDark());
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
+    setEditName("");
     updateObjectCount();
+    recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount]);
+  }, [isDark, updateObjectCount, recalcPointCounter]);
 
   // ---------------------------------------------------------------------------
   // Clear
@@ -535,7 +568,9 @@ export default function GeometryEditorModal({
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
+    setEditName("");
     updateObjectCount();
+    pointCounterRef.current = 0;
     setBoardVersion((v) => v + 1);
   }, [isDark, pushUndo, updateObjectCount]);
 
@@ -595,10 +630,10 @@ export default function GeometryEditorModal({
     const parts = coordInput.split(",").map((s) => parseFloat(s.trim()));
     if (parts.length !== 2 || parts.some(isNaN)) return;
     pushUndo();
-    board.create("point", [parts[0], parts[1]], { ...DEFAULT_POINT_ATTRS, name: "" });
+    board.create("point", [parts[0], parts[1]], { ...DEFAULT_POINT_ATTRS, name: nextPointName(), snapToGrid });
     setCoordInput("");
     updateObjectCount();
-  }, [coordInput, pushUndo, updateObjectCount]);
+  }, [coordInput, pushUndo, updateObjectCount, nextPointName, snapToGrid]);
 
   // ---------------------------------------------------------------------------
   // Move selected point to new coordinates
@@ -615,6 +650,20 @@ export default function GeometryEditorModal({
   }, [selectedEl, editCoords, pushUndo]);
 
   // ---------------------------------------------------------------------------
+  // Rename selected point
+  // ---------------------------------------------------------------------------
+
+  const handleApplyNameEdit = useCallback(() => {
+    if (!selectedEl || selectedEl.elType !== "point") return;
+    const name = editName.trim();
+    selectedEl.setName(name);
+    if (selectedEl.label) {
+      selectedEl.label.setAttribute({ visible: !!name });
+    }
+    boardRef.current?.update();
+  }, [selectedEl, editName]);
+
+  // ---------------------------------------------------------------------------
   // Delete selected element
   // ---------------------------------------------------------------------------
 
@@ -625,6 +674,7 @@ export default function GeometryEditorModal({
     board.removeObject(selectedEl);
     setSelectedEl(null);
     setEditCoords("");
+    setEditName("");
     updateObjectCount();
   }, [selectedEl, pushUndo, updateObjectCount]);
 
@@ -673,6 +723,7 @@ export default function GeometryEditorModal({
         if (selectedEl) {
           setSelectedEl(null);
           setEditCoords("");
+          setEditName("");
           e.stopPropagation();
         } else {
           e.stopPropagation();
@@ -779,6 +830,21 @@ export default function GeometryEditorModal({
           >
             <Trash2 className="h-4 w-4" />
           </button>
+
+          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+
+          <button
+            onClick={() => setSnapToGrid((s) => !s)}
+            title={snapToGrid ? "Snap to grid (on)" : "Snap to grid (off)"}
+            className={cn(
+              "p-1.5 rounded-lg transition-colors",
+              snapToGrid
+                ? "text-[#a0704b] bg-[#f5ede3] dark:bg-[#3d3628]"
+                : "text-gray-400 dark:text-gray-500 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+            )}
+          >
+            <Grid3x3 className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Function input bar — shown when function tool is active */}
@@ -883,12 +949,25 @@ export default function GeometryEditorModal({
           </div>
         )}
 
-        {/* Selected point coordinate editor — shown when a point is selected in select mode */}
+        {/* Selected point editor — shown when a point is selected in select mode */}
         {tool === "select" && selectedEl?.elType === "point" && (
           <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
-              Move to
-            </span>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              onBlur={handleApplyNameEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleApplyNameEdit();
+                }
+              }}
+              placeholder="Name"
+              className="w-16 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+            />
+            <span className="text-xs text-gray-400 dark:text-gray-500">at</span>
             <input
               type="text"
               value={editCoords}
@@ -951,7 +1030,7 @@ export default function GeometryEditorModal({
             <div
               ref={containerRef}
               className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
-              style={{ height: "400px", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
+              style={{ height: "400px", touchAction: "manipulation", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
             />
           ) : (
             <div className="flex items-center justify-center h-[400px] text-sm text-gray-400">

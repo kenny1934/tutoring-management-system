@@ -59,7 +59,7 @@ export default function GeometryViewerModal({
     if (!board) return;
 
     boardRef.current = board;
-    deserializeToBoard(board, state, true);
+    deserializeToBoard(board, state, true, isDark);
 
     return () => {
       if (boardRef.current) {
@@ -139,7 +139,7 @@ export default function GeometryViewerModal({
             <div
               ref={containerRef}
               className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
-              style={{ height: "450px" }}
+              style={{ height: "450px", touchAction: "manipulation" }}
             />
           ) : (
             <div className="flex items-center justify-center h-[450px] text-sm text-gray-400">
