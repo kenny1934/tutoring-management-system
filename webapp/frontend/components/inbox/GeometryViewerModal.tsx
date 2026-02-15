@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { deserializeToBoard, serializeBoard, createThemedBoard, type GeometryState } from "@/lib/geometry-utils";
+import { deserializeToBoard, createThemedBoard, applyBoardTheme, type GeometryState } from "@/lib/geometry-utils";
 
 interface GeometryViewerModalProps {
   isOpen: boolean;
@@ -73,8 +73,7 @@ export default function GeometryViewerModal({
   // Re-theme board when app theme changes
   useEffect(() => {
     const board = boardRef.current;
-    const JXG = JXGRef.current;
-    if (!board || !JXG || !containerRef.current) return;
+    if (!board || !containerRef.current) return;
 
     // Skip the initial render
     if (!themeInitRef.current) {
@@ -82,19 +81,7 @@ export default function GeometryViewerModal({
       return;
     }
 
-    // Serialize current state + bounding box
-    const state = serializeBoard(board);
-    const bb = board.getBoundingBox();
-
-    // Rebuild board with new theme
-    JXG.JSXGraph.freeBoard(board);
-    const newBoard = createThemedBoard(JXG, containerRef.current, bb, resolvedTheme === "dark");
-    if (!newBoard) return;
-
-    boardRef.current = newBoard;
-    if (state.objects.length > 0) {
-      deserializeToBoard(newBoard, state, true);
-    }
+    applyBoardTheme(board, containerRef.current, resolvedTheme === "dark");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTheme]);
 

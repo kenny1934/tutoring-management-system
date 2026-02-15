@@ -28,9 +28,17 @@ import {
   deserializeToBoard,
   exportBoardSvg,
   createThemedBoard,
+  applyBoardTheme,
   LIGHT_BOARD_ATTRS,
   type GeometryState,
 } from "@/lib/geometry-utils";
+import {
+  TOOL_HANDLERS,
+  getMouseCoords,
+  DEFAULT_POINT_ATTRS,
+  DEFAULT_LINE_ATTRS,
+  DEFAULT_FILL_ATTRS,
+} from "@/lib/geometry-tools";
 import { latexToJs } from "@/lib/latex-to-js";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
 import { patchMathLiveMenu } from "@/lib/mathlive-utils";
@@ -74,26 +82,6 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] 
   { id: "text", label: "Label", icon: <Type className="h-4 w-4" />, hint: "Click to place text" },
   { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click endpoint, vertex, endpoint" },
 ];
-
-const DEFAULT_POINT_ATTRS = {
-  strokeColor: "#a0704b",
-  fillColor: "#a0704b",
-  highlightStrokeColor: "#8b5f3c",
-  highlightFillColor: "#8b5f3c",
-  size: 3,
-};
-
-const DEFAULT_LINE_ATTRS = {
-  strokeColor: "#8b5f3c",
-  highlightStrokeColor: "#a0704b",
-  strokeWidth: 2,
-};
-
-const DEFAULT_FILL_ATTRS = {
-  ...DEFAULT_LINE_ATTRS,
-  fillColor: "rgba(160,112,75,0.15)",
-  highlightFillColor: "rgba(160,112,75,0.25)",
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -220,8 +208,7 @@ export default function GeometryEditorModal({
 
   useEffect(() => {
     const board = boardRef.current;
-    const JXG = JXGRef.current;
-    if (!board || !JXG || !containerRef.current) return;
+    if (!board || !containerRef.current) return;
 
     // Skip the initial render (board init already set the right theme)
     if (!themeInitRef.current) {
@@ -229,23 +216,7 @@ export default function GeometryEditorModal({
       return;
     }
 
-    // Serialize current state + bounding box
-    const state = serializeBoard(board);
-    const bb = board.getBoundingBox();
-
-    // Rebuild board with new theme
-    JXG.JSXGraph.freeBoard(board);
-    const newBoard = createThemedBoard(JXG, containerRef.current, bb, resolvedTheme === "dark");
-    boardRef.current = newBoard;
-
-    // Restore objects
-    if (state.objects.length > 0) {
-      deserializeToBoard(newBoard, state, false);
-    }
-    pendingPointsRef.current = [];
-    setSelectedEl(null);
-    setEditCoords("");
-    setBoardVersion((v) => v + 1);
+    applyBoardTheme(board, containerRef.current, resolvedTheme === "dark");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTheme]);
 
@@ -317,150 +288,24 @@ export default function GeometryEditorModal({
       if (!coords) return;
       const [x, y] = coords;
 
-      switch (tool) {
-        case "point":
-          pushUndo();
-          board.create("point", [x, y], { ...DEFAULT_POINT_ATTRS, name: "" });
-          updateObjectCount();
-          break;
-
-        case "line":
-        case "segment": {
-          const pending = pendingPointsRef.current;
-          const existing = findNearbyPoint(board, x, y);
-          if (pending.length === 0) {
-            const p = existing || board.create("point", [x, y], {
-              ...DEFAULT_POINT_ATTRS,
-              name: "",
-            });
-            pending.push(p);
-          } else {
-            if (existing === pending[0]) break; // Same point — skip
-            pushUndo();
-            const p2 = existing || board.create("point", [x, y], {
-              ...DEFAULT_POINT_ATTRS,
-              name: "",
-            });
-            const lineType = tool === "line" ? "line" : "segment";
-            board.create(lineType, [pending[0], p2], {
-              ...DEFAULT_LINE_ATTRS,
-              straightFirst: tool === "line",
-              straightLast: tool === "line",
-            });
-            pendingPointsRef.current = [];
-            updateObjectCount();
-          }
-          break;
-        }
-
-        case "circle": {
-          const pending = pendingPointsRef.current;
-          const existing = findNearbyPoint(board, x, y);
-          if (pending.length === 0) {
-            const center = existing || board.create("point", [x, y], {
-              ...DEFAULT_POINT_ATTRS,
-              name: "",
-            });
-            pending.push(center);
-          } else {
-            if (existing === pending[0]) break; // Clicked center again — skip
-            pushUndo();
-            const edgePoint = existing || board.create("point", [x, y], {
-              ...DEFAULT_POINT_ATTRS,
-              name: "",
-            });
-            board.create("circle", [pending[0], edgePoint], DEFAULT_LINE_ATTRS);
-            pendingPointsRef.current = [];
-            updateObjectCount();
-          }
-          break;
-        }
-
-        case "polygon": {
-          // Debounce: skip if this is the second click of a double-click
-          const now = Date.now();
-          if (now - lastClickTimeRef.current < 300) break;
-          lastClickTimeRef.current = now;
-
-          const pending = pendingPointsRef.current;
-          const existing = findNearbyPoint(board, x, y);
-          if (existing && pending.includes(existing)) break; // Already a vertex
-          const p = existing || board.create("point", [x, y], {
-            ...DEFAULT_POINT_ATTRS,
-            name: "",
-          });
-          pending.push(p);
-          // Visual feedback: draw temporary segments between vertices
-          if (pending.length > 1) {
-            board.create("segment", [pending[pending.length - 2], p], {
-              ...DEFAULT_LINE_ATTRS,
-              dash: 2,
-              name: "",
-            });
-          }
-          board.update();
-          break;
-        }
-
-        case "text": {
-          if (!textInput.trim()) return;
-          pushUndo();
-          board.create("text", [x, y, textInput.trim()], {
-            fontSize: 14,
-            strokeColor: isDark() ? "#e3d5c5" : "#1f2937",
-            fixed: false,
-          });
-          setTextInput("");
-          updateObjectCount();
-          break;
-        }
-
-        case "angle": {
-          const pending = pendingPointsRef.current;
-          const existing = findNearbyPoint(board, x, y);
-          if (existing && pending.includes(existing)) break;
-          const ap = existing || board.create("point", [x, y], {
-            ...DEFAULT_POINT_ATTRS,
-            name: "",
-          });
-          pending.push(ap);
-          if (pending.length === 3) {
-            pushUndo();
-            // Two segments meeting at vertex (pending[1])
-            board.create("segment", [pending[1], pending[0]], { ...DEFAULT_LINE_ATTRS, name: "" });
-            board.create("segment", [pending[1], pending[2]], { ...DEFAULT_LINE_ATTRS, name: "" });
-            pendingPointsRef.current = [];
-            updateObjectCount();
-          }
-          break;
-        }
-
-        case "sector": {
-          const pending = pendingPointsRef.current;
-          const existing = findNearbyPoint(board, x, y);
-          if (existing && pending.includes(existing)) break;
-          const sp = existing || board.create("point", [x, y], {
-            ...DEFAULT_POINT_ATTRS,
-            name: "",
-          });
-          pending.push(sp);
-          if (pending.length === 3) {
-            pushUndo();
-            // Compute radius from center (pending[0]) to first edge (pending[1])
-            const cx = pending[0].X(), cy = pending[0].Y();
-            const r = Math.sqrt((pending[1].X() - cx) ** 2 + (pending[1].Y() - cy) ** 2);
-            board.create("angle", [pending[1], pending[0], pending[2]], {
-              radius: r || 1,
-              selection: "minor",
-              fillColor: "rgba(160,112,75,0.2)",
-              strokeColor: "#a0704b",
-              name: "",
-            });
-            pendingPointsRef.current = [];
-            updateObjectCount();
-          }
-          break;
-        }
+      const handler = TOOL_HANDLERS[tool];
+      if (handler) {
+        const result = handler(
+          {
+            board,
+            pendingPoints: pendingPointsRef.current,
+            pushUndo,
+            updateObjectCount,
+            isDark: isDark(),
+            textInput,
+            setTextInput,
+            lastClickTime: lastClickTimeRef.current,
+          },
+          x,
+          y
+        );
+        pendingPointsRef.current = result.pendingPoints;
+        lastClickTimeRef.current = result.lastClickTime;
       }
     };
 
@@ -616,34 +461,6 @@ export default function GeometryEditorModal({
     if (!mathFieldLoaded || !isOpen || tool !== "function") return;
     return patchMathLiveMenu(funcFieldRef);
   }, [mathFieldLoaded, isOpen, tool]);
-
-  // ---------------------------------------------------------------------------
-  // Get mouse coordinates from board event
-  // ---------------------------------------------------------------------------
-
-  function getMouseCoords(board: any, e: any): [number, number] | null {
-    try {
-      const coords = board.getUsrCoordsOfMouse(e);
-      return [coords[0], coords[1]];
-    } catch {
-      return null;
-    }
-  }
-
-  /** Find an existing user-created point near (x,y). Threshold scales with zoom. */
-  function findNearbyPoint(board: any, x: number, y: number): any | null {
-    const bb = board.getBoundingBox();
-    // ~15px worth of user-coordinate distance
-    const threshold = ((bb[2] - bb[0]) / (board.canvasWidth || 600)) * 15;
-    for (const el of board.objectsList) {
-      if (el.elType !== "point") continue;
-      if (el.visProp?.visible === false) continue;
-      if (Math.abs(el.X() - x) < threshold && Math.abs(el.Y() - y) < threshold) {
-        return el;
-      }
-    }
-    return null;
-  }
 
   // ---------------------------------------------------------------------------
   // Undo
