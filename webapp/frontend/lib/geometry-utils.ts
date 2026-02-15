@@ -48,6 +48,80 @@ export interface GeometryState {
   objects: GeometryObject[];
 }
 
+// ---------------------------------------------------------------------------
+// Board theme (warm brown palette)
+// ---------------------------------------------------------------------------
+
+export const LIGHT_BOARD_ATTRS = {
+  boundingbox: [-8, 6, 8, -6] as [number, number, number, number],
+  axis: true,
+  showCopyright: false,
+  showNavigation: false,
+  pan: { enabled: true, needTwoFingers: false, needShift: false },
+  zoom: { factorX: 1.08, factorY: 1.08, wheel: true, needShift: false },
+  defaultAxes: {
+    x: {
+      strokeColor: "#6b5a4a",
+      highlightStrokeColor: "#6b5a4a",
+      ticks: { strokeColor: "#d4c0a8", minorTicks: 0 },
+    },
+    y: {
+      strokeColor: "#6b5a4a",
+      highlightStrokeColor: "#6b5a4a",
+      ticks: { strokeColor: "#d4c0a8", minorTicks: 0 },
+    },
+  },
+  grid: { strokeColor: "#e8d4b8", strokeOpacity: 0.6 },
+  renderer: "svg",
+};
+
+export const DARK_BOARD_ATTRS = {
+  ...LIGHT_BOARD_ATTRS,
+  defaultAxes: {
+    x: {
+      strokeColor: "#a0907a",
+      highlightStrokeColor: "#a0907a",
+      ticks: {
+        strokeColor: "#4a3d30",
+        minorTicks: 0,
+        label: { color: "#c0b0a0" },
+      },
+    },
+    y: {
+      strokeColor: "#a0907a",
+      highlightStrokeColor: "#a0907a",
+      ticks: {
+        strokeColor: "#4a3d30",
+        minorTicks: 0,
+        label: { color: "#c0b0a0" },
+      },
+    },
+  },
+  grid: { strokeColor: "#3d3628", strokeOpacity: 0.6 },
+};
+
+/** Create a JSXGraph board with theme-appropriate colours. */
+export function createThemedBoard(
+  JXG: any,
+  container: HTMLDivElement,
+  boundingBox: [number, number, number, number],
+  isDark: boolean
+): any {
+  const attrs = isDark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
+  const board = JXG.JSXGraph.initBoard(container, {
+    ...attrs,
+    boundingbox: boundingBox,
+    document: document,
+    keepAspectRatio: true,
+  });
+  container.style.backgroundColor = isDark ? "#2a2a2a" : "#ffffff";
+  return board;
+}
+
+// ---------------------------------------------------------------------------
+// Serialization
+// ---------------------------------------------------------------------------
+
 // Types we explicitly serialize (matches the switch cases in elementToObject
 // and the GeometryObject.type union). Using an allowlist rather than a blocklist
 // ensures auto-generated elements (polygon borders, axis ticks, etc.) and

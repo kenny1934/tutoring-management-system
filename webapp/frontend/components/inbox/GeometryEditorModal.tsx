@@ -10,6 +10,7 @@ import {
   Pentagon,
   Type,
   Undo2,
+  Redo2,
   Trash2,
   TrendingUp,
   Dot,
@@ -21,14 +22,18 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 import {
   serializeBoard,
   deserializeToBoard,
   exportBoardSvg,
+  createThemedBoard,
+  LIGHT_BOARD_ATTRS,
   type GeometryState,
 } from "@/lib/geometry-utils";
 import { latexToJs } from "@/lib/latex-to-js";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
+import { patchMathLiveMenu } from "@/lib/mathlive-utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,38 +75,6 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] 
   { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click endpoint, vertex, endpoint" },
 ];
 
-// ---------------------------------------------------------------------------
-// Board theme (warm brown palette)
-// ---------------------------------------------------------------------------
-
-const LIGHT_BOARD_ATTRS = {
-  boundingbox: [-8, 6, 8, -6],
-  axis: true,
-  showCopyright: false,
-  showNavigation: false,
-  pan: { enabled: true, needTwoFingers: false, needShift: false },
-  zoom: { factorX: 1.08, factorY: 1.08, wheel: true, needShift: false },
-  defaultAxes: {
-    x: { strokeColor: "#6b5a4a", highlightStrokeColor: "#6b5a4a",
-         ticks: { strokeColor: "#d4c0a8", minorTicks: 0 } },
-    y: { strokeColor: "#6b5a4a", highlightStrokeColor: "#6b5a4a",
-         ticks: { strokeColor: "#d4c0a8", minorTicks: 0 } },
-  },
-  grid: { strokeColor: "#e8d4b8", strokeOpacity: 0.6 },
-  renderer: "svg",
-};
-
-const DARK_BOARD_ATTRS = {
-  ...LIGHT_BOARD_ATTRS,
-  defaultAxes: {
-    x: { strokeColor: "#a0907a", highlightStrokeColor: "#a0907a",
-         ticks: { strokeColor: "#4a3d30", minorTicks: 0, label: { color: "#c0b0a0" } } },
-    y: { strokeColor: "#a0907a", highlightStrokeColor: "#a0907a",
-         ticks: { strokeColor: "#4a3d30", minorTicks: 0, label: { color: "#c0b0a0" } } },
-  },
-  grid: { strokeColor: "#3d3628", strokeOpacity: 0.6 },
-};
-
 const DEFAULT_POINT_ATTRS = {
   strokeColor: "#a0704b",
   fillColor: "#a0704b",
@@ -133,6 +106,7 @@ export default function GeometryEditorModal({
   initialState,
 }: GeometryEditorModalProps) {
   const { resolvedTheme } = useTheme();
+  const { showToast } = useToast();
 
   const [tool, setTool] = useState<Tool>("point");
   const [jsxLoaded, setJsxLoaded] = useState(false);
@@ -149,6 +123,8 @@ export default function GeometryEditorModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const pendingPointsRef = useRef<any[]>([]);
   const undoStackRef = useRef<string[]>([]);
+  const redoStackRef = useRef<string[]>([]);
+  const [redoCount, setRedoCount] = useState(0);
   const JXGRef = useRef<any>(null);
   const lastClickTimeRef = useRef(0);
   const funcFieldRef = useRef<HTMLElement | null>(null);
@@ -214,28 +190,14 @@ export default function GeometryEditorModal({
       boardRef.current = null;
     }
 
-    const dark = isDark();
-    const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
-    const boardAttrs = initialState?.boundingBox
-      ? { ...attrs, boundingbox: initialState.boundingBox }
-      : attrs;
-
-    const board = JXG.JSXGraph.initBoard(containerRef.current, {
-      ...boardAttrs,
-      document: document,
-      keepAspectRatio: true,
-    });
+    const bb = initialState?.boundingBox || LIGHT_BOARD_ATTRS.boundingbox;
+    const board = createThemedBoard(JXG, containerRef.current, bb, isDark());
 
     boardRef.current = board;
     pendingPointsRef.current = [];
     undoStackRef.current = [];
-
-    // Set board background for dark mode
-    if (dark && containerRef.current) {
-      containerRef.current.style.backgroundColor = "#2a2a2a";
-    } else if (containerRef.current) {
-      containerRef.current.style.backgroundColor = "#ffffff";
-    }
+    redoStackRef.current = [];
+    setRedoCount(0);
 
     // Restore state if editing
     if (initialState?.objects?.length > 0) {
@@ -267,22 +229,13 @@ export default function GeometryEditorModal({
       return;
     }
 
-    const dark = resolvedTheme === "dark";
-    const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
-
     // Serialize current state + bounding box
     const state = serializeBoard(board);
     const bb = board.getBoundingBox();
 
     // Rebuild board with new theme
     JXG.JSXGraph.freeBoard(board);
-    const newBoard = JXG.JSXGraph.initBoard(containerRef.current, {
-      ...attrs,
-      boundingbox: bb,
-      document: document,
-      keepAspectRatio: true,
-    });
-    containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
+    const newBoard = createThemedBoard(JXG, containerRef.current, bb, resolvedTheme === "dark");
     boardRef.current = newBoard;
 
     // Restore objects
@@ -324,6 +277,9 @@ export default function GeometryEditorModal({
     if (undoStackRef.current.length > 50) {
       undoStackRef.current.shift();
     }
+    // New action invalidates redo history
+    redoStackRef.current = [];
+    setRedoCount(0);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -658,28 +614,7 @@ export default function GeometryEditorModal({
   // Patch MathLive menu to prevent scrim from dismissing on initial click
   useEffect(() => {
     if (!mathFieldLoaded || !isOpen || tool !== "function") return;
-    const timer = setTimeout(() => {
-      const mf = funcFieldRef.current as any;
-      const menu = mf?._mathfield?.menu;  // use getter to force-create
-      if (!menu || menu._showPatched) return;
-      menu._showPatched = true;
-
-      const origShow = menu.show.bind(menu);
-      menu.show = function(options: any) {
-        const result = origShow(options);
-        const scrimEl = menu.scrim;
-        if (scrimEl) {
-          const guard = (e: Event) => {
-            e.stopImmediatePropagation();
-            scrimEl.removeEventListener('click', guard, true);
-          };
-          scrimEl.addEventListener('click', guard, true);
-          setTimeout(() => scrimEl.removeEventListener('click', guard, true), 400);
-        }
-        return result;
-      };
-    }, 500);
-    return () => clearTimeout(timer);
+    return patchMathLiveMenu(funcFieldRef);
   }, [mathFieldLoaded, isOpen, tool]);
 
   // ---------------------------------------------------------------------------
@@ -719,26 +654,47 @@ export default function GeometryEditorModal({
     const JXG = JXGRef.current;
     if (!board || !JXG || undoStackRef.current.length === 0) return;
 
+    // Save current state for redo
+    const currentState = serializeBoard(board);
+    redoStackRef.current.push(JSON.stringify(currentState));
+    setRedoCount(redoStackRef.current.length);
+
     const prevStateJson = undoStackRef.current.pop()!;
     const prevState: GeometryState = JSON.parse(prevStateJson);
 
     // Clear board and recreate
     JXG.JSXGraph.freeBoard(board);
-    const dark = isDark();
-    const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
-    const newBoard = JXG.JSXGraph.initBoard(containerRef.current!, {
-      ...attrs,
-      boundingbox: prevState.boundingBox,
-      document: document,
-      keepAspectRatio: true,
-    });
-
-    if (containerRef.current) {
-      containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
-    }
-
+    const newBoard = createThemedBoard(JXG, containerRef.current!, prevState.boundingBox, isDark());
     boardRef.current = newBoard;
     deserializeToBoard(newBoard, prevState, false);
+    pendingPointsRef.current = [];
+    setSelectedEl(null);
+    setEditCoords("");
+    updateObjectCount();
+    setBoardVersion((v) => v + 1);
+  }, [isDark, updateObjectCount]);
+
+  // ---------------------------------------------------------------------------
+  // Redo
+  // ---------------------------------------------------------------------------
+
+  const handleRedo = useCallback(() => {
+    const board = boardRef.current;
+    const JXG = JXGRef.current;
+    if (!board || !JXG || redoStackRef.current.length === 0) return;
+
+    // Save current state for undo (without clearing redo)
+    const currentState = serializeBoard(board);
+    undoStackRef.current.push(JSON.stringify(currentState));
+
+    const nextStateJson = redoStackRef.current.pop()!;
+    const nextState: GeometryState = JSON.parse(nextStateJson);
+    setRedoCount(redoStackRef.current.length);
+
+    JXG.JSXGraph.freeBoard(board);
+    const newBoard = createThemedBoard(JXG, containerRef.current!, nextState.boundingBox, isDark());
+    boardRef.current = newBoard;
+    deserializeToBoard(newBoard, nextState, false);
     pendingPointsRef.current = [];
     setSelectedEl(null);
     setEditCoords("");
@@ -757,18 +713,7 @@ export default function GeometryEditorModal({
 
     pushUndo();
     JXG.JSXGraph.freeBoard(board);
-    const dark = isDark();
-    const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
-    const newBoard = JXG.JSXGraph.initBoard(containerRef.current!, {
-      ...attrs,
-      document: document,
-      keepAspectRatio: true,
-    });
-
-    if (containerRef.current) {
-      containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
-    }
-
+    const newBoard = createThemedBoard(JXG, containerRef.current!, LIGHT_BOARD_ATTRS.boundingbox, isDark());
     boardRef.current = newBoard;
     pendingPointsRef.current = [];
     setSelectedEl(null);
@@ -791,7 +736,6 @@ export default function GeometryEditorModal({
     const rawInput = latex || funcInput.trim();
     if (!rawInput) return;
 
-    pushUndo();
     try {
       // Convert LaTeX to JS if it came from MathLive, otherwise use as-is
       const jsExpr = latex ? latexToJs(latex) : rawInput;
@@ -801,8 +745,12 @@ export default function GeometryEditorModal({
       const testVal = fn(0);
       if (typeof testVal !== "number" || isNaN(testVal)) {
         // Allow NaN for things like 1/0, but not undefined
-        if (testVal === undefined) return;
+        if (testVal === undefined) {
+          showToast("Expression returned undefined — check your syntax", "error");
+          return;
+        }
       }
+      pushUndo();
       const curve = board.create("functiongraph", [fn], {
         ...DEFAULT_LINE_ATTRS,
         strokeWidth: 2.5,
@@ -814,10 +762,11 @@ export default function GeometryEditorModal({
       // Clear the mathfield
       if (mf) mf.value = "";
       updateObjectCount();
-    } catch {
-      // Invalid expression — do nothing
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      showToast(`Invalid expression: ${msg}`, "error");
     }
-  }, [funcInput, pushUndo, updateObjectCount]);
+  }, [funcInput, pushUndo, updateObjectCount, showToast]);
 
   // ---------------------------------------------------------------------------
   // Add point at exact coordinates
@@ -923,9 +872,12 @@ export default function GeometryEditorModal({
       } else if (e.key === "z" && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
+      } else if (e.key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
       }
     },
-    [onClose, handleInsert, handleUndo, selectedEl, handleDeleteSelected]
+    [onClose, handleInsert, handleUndo, handleRedo, selectedEl, handleDeleteSelected]
   );
 
   // ---------------------------------------------------------------------------
@@ -989,10 +941,19 @@ export default function GeometryEditorModal({
 
           <button
             onClick={handleUndo}
+            disabled={undoStackRef.current.length === 0}
             title="Undo (Ctrl+Z)"
-            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
           >
             <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={redoCount === 0}
+            title="Redo (Ctrl+Shift+Z)"
+            className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
+          >
+            <Redo2 className="h-4 w-4" />
           </button>
           <button
             onClick={handleClear}
