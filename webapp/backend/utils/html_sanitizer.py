@@ -6,17 +6,24 @@ from bleach.css_sanitizer import CSSSanitizer
 ALLOWED_TAGS = [
     "p", "br", "strong", "em", "s", "code", "pre",
     "blockquote", "h1", "h2", "h3",
-    "a", "span", "div",
+    "a", "span", "div", "img",
     "ul", "ol", "li",
 ]
 
 ALLOWED_ATTRIBUTES = {
     "a": ["href", "title", "target", "rel"],
     "span": ["style", "data-type", "data-latex"],
-    "div": ["data-type", "data-latex"],
+    "div": ["style", "data-type", "data-latex", "data-graph-json", "data-svg-thumbnail"],
+    "img": ["src", "alt", "style"],
 }
 
-ALLOWED_CSS_PROPERTIES = ["color"]
+ALLOWED_CSS_PROPERTIES = [
+    "color", "cursor", "text-align",
+    "padding", "padding-top", "padding-bottom",
+    "margin", "margin-top", "margin-bottom",
+    "max-width", "max-height", "height", "width",
+    "border-radius", "border", "object-fit",
+]
 
 
 def sanitize_message_html(html: str) -> str:
