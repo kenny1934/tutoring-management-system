@@ -48,14 +48,20 @@ export interface GeometryState {
   objects: GeometryObject[];
 }
 
-// Internal element types JSXGraph creates automatically (axes, grids, ticks…)
-const INTERNAL_TYPES = new Set([
-  "axis",
-  "ticks",
-  "grid",
-  "intersection",
-  "label",
-  "arrow",
+// Types we explicitly serialize (matches the switch cases in elementToObject
+// and the GeometryObject.type union). Using an allowlist rather than a blocklist
+// ensures auto-generated elements (polygon borders, axis ticks, etc.) and
+// elements with dump:false (functiongraph, angle) are handled correctly.
+const SERIALIZABLE_TYPES = new Set([
+  "point",
+  "line",
+  "segment",
+  "circle",
+  "polygon",
+  "functiongraph",
+  "text",
+  "angle",
+  "curve", // JSXGraph uses elType="curve" for functiongraphs
 ]);
 
 // ---------------------------------------------------------------------------
@@ -70,9 +76,8 @@ export function serializeBoard(board: any): GeometryState {
   // serialized before children.
   for (const el of board.objectsList) {
     if (seen.has(el.id)) continue;
-    if (!el.elType || INTERNAL_TYPES.has(el.elType)) continue;
-    // Skip auto-generated child elements (e.g. polygon border lines)
-    if (el.dump === false || el.visProp?.visible === false) continue;
+    if (!el.elType || !SERIALIZABLE_TYPES.has(el.elType)) continue;
+    if (el.visProp?.visible === false) continue;
 
     const obj = elementToObject(el);
     if (obj) {
@@ -132,8 +137,16 @@ function elementToObject(el: any): GeometryObject | null {
         .map((v: any) => v.id);
       break;
 
+    case "curve":
+      // JSXGraph function graphs have elType="curve" + visProp.curvetype="functiongraph"
+      if (el.visProp?.curvetype !== "functiongraph") return null;
+      base.type = "functiongraph"; // Normalize to our serialization type
+      base.attrs.expression =
+        (el as any)._expression || el.Y?.toString() || "";
+      break;
+
     case "functiongraph":
-      // Store the original expression the user typed
+      // Fallback in case JSXGraph ever uses "functiongraph" as elType directly
       base.attrs.expression =
         (el as any)._expression || el.Y?.toString() || "";
       break;
@@ -150,6 +163,7 @@ function elementToObject(el: any): GeometryObject | null {
       if (el.parents && el.parents.length >= 3) {
         base.parents = el.parents.slice(0, 3);
       }
+      base.attrs.radius = el.visProp?.radius ?? 1;
       break;
 
     default:
@@ -246,7 +260,11 @@ export function deserializeToBoard(
         case "angle": {
           const pts = obj.parents.map((pid) => idMap[pid]).filter(Boolean);
           if (pts.length < 3) continue;
-          created = board.create("angle", pts, baseAttrs);
+          created = board.create("angle", pts, {
+            ...baseAttrs,
+            radius: obj.attrs.radius || 1,
+            selection: "minor",
+          });
           break;
         }
       }

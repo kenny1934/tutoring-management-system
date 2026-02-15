@@ -268,7 +268,13 @@ export default function InboxRichEditor({
           };
         },
         parseHTML() {
-          return [{ tag: 'div[data-type="geometry-diagram"]' }];
+          return [{
+            tag: 'div[data-type="geometry-diagram"]',
+            getAttrs: (dom: HTMLElement) => ({
+              graphJson: dom.getAttribute('data-graph-json') || '{}',
+              svgThumbnail: dom.getAttribute('data-svg-thumbnail') || '',
+            }),
+          }];
         },
         renderHTML({ HTMLAttributes }) {
           const thumb = HTMLAttributes.svgThumbnail || "";
@@ -288,7 +294,7 @@ export default function InboxRichEditor({
                     src: thumb,
                     alt: "Geometry diagram",
                     style:
-                      "max-width:100%;border-radius:8px;border:1px solid #e8d4b8",
+                      "max-width:100%;max-height:200px;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8",
                   },
                 ]
               : [

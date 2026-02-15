@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { deserializeToBoard, type GeometryState } from "@/lib/geometry-utils";
+import { useTheme } from "next-themes";
+import { deserializeToBoard, serializeBoard, type GeometryState } from "@/lib/geometry-utils";
 
 interface GeometryViewerModalProps {
   isOpen: boolean;
@@ -16,10 +17,12 @@ export default function GeometryViewerModal({
   onClose,
   graphJson,
 }: GeometryViewerModalProps) {
+  const { resolvedTheme } = useTheme();
   const [jsxLoaded, setJsxLoaded] = useState(false);
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const JXGRef = useRef<any>(null);
+  const themeInitRef = useRef(false);
 
   // Lazy-load JSXGraph
   useEffect(() => {
@@ -31,11 +34,51 @@ export default function GeometryViewerModal({
   }, [isOpen, jsxLoaded]);
 
   const isDark = useCallback(() => {
-    return (
-      document.documentElement.classList.contains("dark") ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
-  }, []);
+    return resolvedTheme === "dark";
+  }, [resolvedTheme]);
+
+  // Helper to create board with theme-appropriate attrs
+  const createThemedBoard = useCallback(
+    (container: HTMLDivElement, boundingBox: [number, number, number, number]) => {
+      const JXG = JXGRef.current;
+      if (!JXG) return null;
+
+      const dark = isDark();
+      const axisColor = dark ? "#a0907a" : "#6b5a4a";
+      const tickColor = dark ? "#4a3d30" : "#d4c0a8";
+      const gridColor = dark ? "#3d3628" : "#e8d4b8";
+      const labelColor = dark ? "#c0b0a0" : undefined;
+
+      const board = JXG.JSXGraph.initBoard(container, {
+        boundingbox: boundingBox,
+        axis: true,
+        showCopyright: false,
+        showNavigation: false,
+        pan: { enabled: true, needTwoFingers: false, needShift: false },
+        zoom: { factorX: 1.08, factorY: 1.08, wheel: true, needShift: false },
+        defaultAxes: {
+          x: {
+            strokeColor: axisColor,
+            highlightStrokeColor: axisColor,
+            ticks: { strokeColor: tickColor, minorTicks: 0, ...(labelColor ? { label: { color: labelColor } } : {}) },
+          },
+          y: {
+            strokeColor: axisColor,
+            highlightStrokeColor: axisColor,
+            ticks: { strokeColor: tickColor, minorTicks: 0, ...(labelColor ? { label: { color: labelColor } } : {}) },
+          },
+        },
+        grid: { strokeColor: gridColor, strokeOpacity: 0.6 },
+        renderer: "svg",
+        document: document,
+        keepAspectRatio: true,
+      });
+
+      container.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
+      return board;
+    },
+    [isDark]
+  );
 
   // Init board when modal opens
   useEffect(() => {
@@ -55,35 +98,8 @@ export default function GeometryViewerModal({
       return;
     }
 
-    const dark = isDark();
-    const axisColor = dark ? "#a0907a" : "#6b5a4a";
-    const tickColor = dark ? "#4a3d30" : "#d4c0a8";
-    const gridColor = dark ? "#3d3628" : "#e8d4b8";
-
-    const board = JXG.JSXGraph.initBoard(containerRef.current, {
-      boundingbox: state.boundingBox,
-      axis: true,
-      showCopyright: false,
-      showNavigation: false,
-      pan: { enabled: true, needTwoFingers: false },
-      zoom: { factorX: 1.25, factorY: 1.25, wheel: true, needShift: false },
-      defaultAxes: {
-        x: { strokeColor: axisColor, highlightStrokeColor: axisColor,
-             ticks: { strokeColor: tickColor, minorTicks: 0 } },
-        y: { strokeColor: axisColor, highlightStrokeColor: axisColor,
-             ticks: { strokeColor: tickColor, minorTicks: 0 } },
-      },
-      grid: { strokeColor: gridColor, strokeOpacity: 0.6 },
-      renderer: "svg",
-      document: document,
-      keepAspectRatio: false,
-    });
-
-    if (dark && containerRef.current) {
-      containerRef.current.style.backgroundColor = "#2a2a2a";
-    } else if (containerRef.current) {
-      containerRef.current.style.backgroundColor = "#ffffff";
-    }
+    const board = createThemedBoard(containerRef.current, state.boundingBox);
+    if (!board) return;
 
     boardRef.current = board;
     deserializeToBoard(board, state, true);
@@ -96,6 +112,34 @@ export default function GeometryViewerModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jsxLoaded, isOpen, graphJson]);
+
+  // Re-theme board when app theme changes
+  useEffect(() => {
+    const board = boardRef.current;
+    const JXG = JXGRef.current;
+    if (!board || !JXG || !containerRef.current) return;
+
+    // Skip the initial render
+    if (!themeInitRef.current) {
+      themeInitRef.current = true;
+      return;
+    }
+
+    // Serialize current state + bounding box
+    const state = serializeBoard(board);
+    const bb = board.getBoundingBox();
+
+    // Rebuild board with new theme
+    JXG.JSXGraph.freeBoard(board);
+    const newBoard = createThemedBoard(containerRef.current, bb);
+    if (!newBoard) return;
+
+    boardRef.current = newBoard;
+    if (state.objects.length > 0) {
+      deserializeToBoard(newBoard, state, true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedTheme]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
