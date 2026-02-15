@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.4](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.4) (2026-02-15)
+
+### New Features
+
+* **Interactive geometry editor** — draw points, lines, segments, circles, polygons, function graphs, text labels, and angles on an interactive JSXGraph board; hexagon toolbar button in the inbox editor
+* **Geometry viewer** — click sent diagram thumbnails to open an interactive read-only viewer with zoom in/out/reset controls and drag-to-pan
+* **Function graphing** — plot mathematical functions via LaTeX input with MathLive virtual keyboard, converted to JS and rendered as curves on the geometry board
+* **Theme-reactive geometry boards** — boards re-render with correct colors when switching between light and dark mode
+
+### Bug Fixes
+
+* Fixed MathLive menu button requiring long press to open (scrim dismiss race condition)
+* Fixed matrix equations rendering with "amp" text in sent messages (HTML entity unescaping)
+* Fixed doubled axis tick labels in geometry viewer (skip auto-generated text during serialization)
+* Validated SVG data URIs before rendering geometry thumbnails
+
 ## [2.0.3](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.3) (2026-02-15)
 
 ### New Features
