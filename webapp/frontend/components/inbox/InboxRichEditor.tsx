@@ -14,6 +14,7 @@ import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion
 import { EmojiPicker } from "@/components/ui/emoji-picker";
 import TemplatePicker from "@/components/inbox/TemplatePicker";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
+import MathEditorModal from "@/components/inbox/MathEditorModal";
 import type { MessageTemplate } from "@/types";
 import {
   Bold,
@@ -202,6 +203,11 @@ export default function InboxRichEditor({
   const [showMoreTools, setShowMoreTools] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  const [mathEditorOpen, setMathEditorOpen] = useState(false);
+  const [mathEditorLatex, setMathEditorLatex] = useState("");
+  const [mathEditorMode, setMathEditorMode] = useState<"inline" | "block">("inline");
+  const [mathEditorPos, setMathEditorPos] = useState<number | null>(null);
+  const [mathEditorType, setMathEditorType] = useState<"inline" | "block">("inline");
 
   // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
   const mentionUsersRef = useRef(mentionUsers);
@@ -241,27 +247,61 @@ export default function InboxRichEditor({
     },
   }), []);
 
-  // Click handler for math nodes — uses editorInstanceRef
+  // Click handler for math nodes — opens MathEditorModal
   const handleMathClick = useCallback((node: PmNode, pos: number, type: 'inline' | 'block') => {
+    setMathEditorLatex(node.attrs.latex || '');
+    setMathEditorMode(type);
+    setMathEditorType(type);
+    setMathEditorPos(pos);
+    setMathEditorOpen(true);
+  }, []);
+
+  // Open math editor for new equation
+  const handleOpenMathEditor = useCallback(() => {
     const ed = editorInstanceRef.current;
     if (!ed) return;
-    const latex = node.attrs.latex || '';
-    const newLatex = prompt('Edit equation (LaTeX):', latex);
-    if (newLatex === null) return; // cancelled
-    if (newLatex === '') {
-      if (type === 'inline') {
-        ed.chain().focus().deleteInlineMath({ pos }).run();
-      } else {
-        ed.chain().focus().deleteBlockMath({ pos }).run();
-      }
-    } else if (newLatex !== latex) {
-      if (type === 'inline') {
-        ed.chain().focus().updateInlineMath({ latex: newLatex, pos }).run();
-      } else {
-        ed.chain().focus().updateBlockMath({ latex: newLatex, pos }).run();
-      }
-    }
+    const { from, to } = ed.state.selection;
+    const selectedText = from !== to ? ed.state.doc.textBetween(from, to) : '';
+    setMathEditorLatex(selectedText);
+    setMathEditorMode("inline");
+    setMathEditorType("inline");
+    setMathEditorPos(null); // null means inserting new
+    setMathEditorOpen(true);
   }, []);
+
+  // Handle math editor insert/update
+  const handleMathInsert = useCallback((latex: string, mode: 'inline' | 'block') => {
+    const ed = editorInstanceRef.current;
+    if (!ed) return;
+
+    if (mathEditorPos !== null) {
+      // Editing existing node
+      if (latex === '') {
+        // Delete
+        if (mathEditorType === 'inline') {
+          ed.chain().focus().deleteInlineMath({ pos: mathEditorPos }).run();
+        } else {
+          ed.chain().focus().deleteBlockMath({ pos: mathEditorPos }).run();
+        }
+      } else {
+        // Update
+        if (mathEditorType === 'inline') {
+          ed.chain().focus().updateInlineMath({ latex, pos: mathEditorPos }).run();
+        } else {
+          ed.chain().focus().updateBlockMath({ latex, pos: mathEditorPos }).run();
+        }
+      }
+    } else {
+      // Inserting new
+      const { from, to } = ed.state.selection;
+      const nodeType = mode === 'block' ? 'blockMath' : 'inlineMath';
+      const mathNode = ed.schema.nodes[nodeType].create({ latex });
+      ed.chain().focus().command(({ tr }) => {
+        tr.replaceWith(from, to, mathNode);
+        return true;
+      }).run();
+    }
+  }, [mathEditorPos, mathEditorType]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -564,18 +604,9 @@ export default function InboxRichEditor({
         />
         <ToolbarButton
           icon={Sigma}
-          label="Math equation ($...$)"
+          label="Math equation"
           isActive={editor.isActive('inlineMath') || editor.isActive('blockMath')}
-          onClick={() => {
-            const { from, to } = editor.state.selection;
-            const selectedText = from !== to ? editor.state.doc.textBetween(from, to) : '';
-            const latex = selectedText || 'x^2';
-            editor.chain().focus().command(({ tr }) => {
-              const mathNode = editor.schema.nodes.inlineMath.create({ latex });
-              tr.replaceWith(from, to, mathNode);
-              return true;
-            }).run();
-          }}
+          onClick={handleOpenMathEditor}
           className="hidden sm:block"
         />
 
@@ -608,16 +639,7 @@ export default function InboxRichEditor({
             { icon: ListOrdered, label: "Numbered List", active: editor.isActive("orderedList"), action: () => editor.chain().focus().toggleOrderedList().run() },
             { icon: TextQuote, label: "Blockquote", active: editor.isActive("blockquote"), action: () => editor.chain().focus().toggleBlockquote().run() },
             { icon: Code, label: "Code", active: editor.isActive("code"), action: () => editor.chain().focus().toggleCode().run() },
-            { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: () => {
-              const { from, to } = editor.state.selection;
-              const selectedText = from !== to ? editor.state.doc.textBetween(from, to) : '';
-              const latex = selectedText || 'x^2';
-              editor.chain().focus().command(({ tr }) => {
-                const mathNode = editor.schema.nodes.inlineMath.create({ latex });
-                tr.replaceWith(from, to, mathNode);
-                return true;
-              }).run();
-            }},
+            { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: handleOpenMathEditor },
           ].map(item => (
             <button
               key={item.label}
@@ -783,6 +805,15 @@ export default function InboxRichEditor({
           cursor: pointer;
         }
       `}</style>
+
+      {/* Math equation editor modal */}
+      <MathEditorModal
+        isOpen={mathEditorOpen}
+        onClose={() => { setMathEditorOpen(false); editor?.commands.focus(); }}
+        onInsert={handleMathInsert}
+        initialLatex={mathEditorLatex}
+        initialMode={mathEditorMode}
+      />
     </div>
   );
 }
