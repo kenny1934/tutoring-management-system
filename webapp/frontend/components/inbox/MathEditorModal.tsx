@@ -1,0 +1,252 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface MathEditorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onInsert: (latex: string, mode: "inline" | "block") => void;
+  initialLatex?: string;
+  initialMode?: "inline" | "block";
+}
+
+export default function MathEditorModal({
+  isOpen,
+  onClose,
+  onInsert,
+  initialLatex = "",
+  initialMode = "inline",
+}: MathEditorModalProps) {
+  const [mode, setMode] = useState<"inline" | "block">(initialMode);
+  const [latex, setLatex] = useState(initialLatex);
+  const [mathliveLoaded, setMathliveLoaded] = useState(false);
+  const mathfieldRef = useRef<HTMLElement | null>(null);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setLatex(initialLatex);
+    }
+  }, [isOpen, initialLatex, initialMode]);
+
+  // Lazy-load mathlive when modal first opens
+  useEffect(() => {
+    if (!isOpen || mathliveLoaded) return;
+    import("mathlive").then(() => {
+      setMathliveLoaded(true);
+    });
+  }, [isOpen, mathliveLoaded]);
+
+  // Configure mathfield after it renders
+  useEffect(() => {
+    if (!mathliveLoaded || !isOpen) return;
+
+    let cancelled = false;
+    let showTimer: ReturnType<typeof setTimeout>;
+
+    const initTimer = setTimeout(() => {
+      if (cancelled) return;
+      const mf = mathfieldRef.current as any;
+      if (!mf) return;
+
+      // Set initial value
+      mf.value = initialLatex;
+
+      // Manual keyboard policy — we control when it shows
+      mf.mathVirtualKeyboardPolicy = "manual";
+
+      // Listen for input changes
+      const handleInput = () => {
+        setLatex(mf.value || "");
+      };
+      mf.addEventListener("input", handleInput);
+
+      // Focus first — this triggers internal connectToVirtualKeyboard()
+      // which runs after a 60ms delay inside mathlive
+      mf.focus();
+
+      // After the connection is established, show the keyboard
+      showTimer = setTimeout(() => {
+        if (cancelled) return;
+        const kbd = (window as any).mathVirtualKeyboard;
+        if (kbd) {
+          kbd.show({ animate: true });
+        }
+      }, 100);
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initTimer);
+      clearTimeout(showTimer);
+    };
+  }, [mathliveLoaded, isOpen, initialLatex]);
+
+  // Hide virtual keyboard when modal closes
+  useEffect(() => {
+    if (!isOpen && mathliveLoaded) {
+      const kbd = (window as any).mathVirtualKeyboard;
+      if (kbd) {
+        kbd.hide();
+      }
+    }
+  }, [isOpen, mathliveLoaded]);
+
+  const handleInsert = useCallback(() => {
+    if (!latex.trim()) return;
+    onInsert(latex.trim(), mode);
+    onClose();
+  }, [latex, mode, onInsert, onClose]);
+
+  const handleDelete = useCallback(() => {
+    onInsert("", mode);
+    onClose();
+  }, [mode, onInsert, onClose]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleInsert();
+      }
+    },
+    [onClose, handleInsert]
+  );
+
+  if (!isOpen) return null;
+
+  const isEditing = !!initialLatex;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]"
+      onKeyDown={handleKeyDown}
+    >
+      {/* Boost MathLive keyboard z-index above modal overlays */}
+      <style>{`:root { --keyboard-zindex: 10000; }`}</style>
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div
+        style={{ maxWidth: "32rem" }}
+        className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            {isEditing ? "Edit Equation" : "Insert Equation"}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Mathfield */}
+        <div className="px-4 pt-4 pb-2">
+          {mathliveLoaded ? (
+            <math-field
+              ref={mathfieldRef as any}
+              style={{
+                display: "block",
+                width: "100%",
+                minHeight: "60px",
+                fontSize: "22px",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "1px solid #e8d4b8",
+                outline: "none",
+                background: "transparent",
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-16 text-sm text-gray-400">
+              Loading math editor...
+            </div>
+          )}
+        </div>
+
+        {/* Mode toggle + actions */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <div className="flex items-center gap-1 bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setMode("inline")}
+              className={cn(
+                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                mode === "inline"
+                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              Inline
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("block")}
+              className={cn(
+                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                mode === "block"
+                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+              )}
+            >
+              Block
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isEditing && (
+              <button
+                onClick={handleDelete}
+                className="px-3 py-1.5 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              >
+                Delete
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleInsert}
+              disabled={!latex.trim()}
+              className="px-4 py-1.5 text-xs font-medium bg-[#a0704b] hover:bg-[#8b5f3c] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isEditing ? "Update" : "Insert"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// TypeScript declaration for math-field custom element
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      "math-field": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      >;
+    }
+  }
+}
