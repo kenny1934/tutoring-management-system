@@ -14,7 +14,12 @@ import {
   TrendingUp,
   Dot,
   TriangleRight,
+  PieChart,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
   serializeBoard,
@@ -22,6 +27,8 @@ import {
   exportBoardSvg,
   type GeometryState,
 } from "@/lib/geometry-utils";
+import { latexToJs } from "@/lib/latex-to-js";
+import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,6 +40,7 @@ type Tool =
   | "line"
   | "segment"
   | "circle"
+  | "sector"
   | "polygon"
   | "function"
   | "text"
@@ -50,15 +58,16 @@ interface GeometryEditorModalProps {
 // ---------------------------------------------------------------------------
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] = [
-  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Move objects" },
-  { id: "point", label: "Point", icon: <Dot className="h-4 w-4" />, hint: "Click to place" },
+  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select, Delete to remove" },
+  { id: "point", label: "Point", icon: <Dot className="h-4 w-4" />, hint: "Click to place, or type coordinates" },
   { id: "line", label: "Line", icon: <Minus className="h-4 w-4 rotate-[30deg]" />, hint: "Click 2 points" },
   { id: "segment", label: "Segment", icon: <Minus className="h-4 w-4" />, hint: "Click 2 points" },
   { id: "circle", label: "Circle", icon: <Circle className="h-4 w-4" />, hint: "Center, then edge" },
+  { id: "sector", label: "Sector", icon: <PieChart className="h-4 w-4" />, hint: "Click center, start, end" },
   { id: "polygon", label: "Polygon", icon: <Pentagon className="h-4 w-4" />, hint: "Click vertices, dbl-click to close" },
-  { id: "function", label: "f(x)", icon: <TrendingUp className="h-4 w-4" />, hint: "Plot a function" },
+  { id: "function", label: "f(x)", icon: <TrendingUp className="h-4 w-4" />, hint: "Type a math expression and press Plot" },
   { id: "text", label: "Label", icon: <Type className="h-4 w-4" />, hint: "Click to place text" },
-  { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click 3 points" },
+  { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click endpoint, vertex, endpoint" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -70,8 +79,8 @@ const LIGHT_BOARD_ATTRS = {
   axis: true,
   showCopyright: false,
   showNavigation: false,
-  pan: { enabled: true, needTwoFingers: false },
-  zoom: { factorX: 1.25, factorY: 1.25, wheel: true, needShift: false },
+  pan: { enabled: true, needTwoFingers: false, needShift: false },
+  zoom: { factorX: 1.08, factorY: 1.08, wheel: true, needShift: false },
   defaultAxes: {
     x: { strokeColor: "#6b5a4a", highlightStrokeColor: "#6b5a4a",
          ticks: { strokeColor: "#d4c0a8", minorTicks: 0 } },
@@ -86,9 +95,9 @@ const DARK_BOARD_ATTRS = {
   ...LIGHT_BOARD_ATTRS,
   defaultAxes: {
     x: { strokeColor: "#a0907a", highlightStrokeColor: "#a0907a",
-         ticks: { strokeColor: "#4a3d30", minorTicks: 0 } },
+         ticks: { strokeColor: "#4a3d30", minorTicks: 0, label: { color: "#c0b0a0" } } },
     y: { strokeColor: "#a0907a", highlightStrokeColor: "#a0907a",
-         ticks: { strokeColor: "#4a3d30", minorTicks: 0 } },
+         ticks: { strokeColor: "#4a3d30", minorTicks: 0, label: { color: "#c0b0a0" } } },
   },
   grid: { strokeColor: "#3d3628", strokeOpacity: 0.6 },
 };
@@ -123,12 +132,18 @@ export default function GeometryEditorModal({
   onInsert,
   initialState,
 }: GeometryEditorModalProps) {
+  const { resolvedTheme } = useTheme();
+
   const [tool, setTool] = useState<Tool>("point");
   const [jsxLoaded, setJsxLoaded] = useState(false);
+  const [mathFieldLoaded, setMathFieldLoaded] = useState(false);
   const [funcInput, setFuncInput] = useState("");
   const [textInput, setTextInput] = useState("");
+  const [coordInput, setCoordInput] = useState("");
   const [objectCount, setObjectCount] = useState(0);
   const [boardVersion, setBoardVersion] = useState(0);
+  const [selectedEl, setSelectedEl] = useState<any>(null);
+  const [editCoords, setEditCoords] = useState("");
 
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,6 +151,8 @@ export default function GeometryEditorModal({
   const undoStackRef = useRef<string[]>([]);
   const JXGRef = useRef<any>(null);
   const lastClickTimeRef = useRef(0);
+  const funcFieldRef = useRef<HTMLElement | null>(null);
+  const themeInitRef = useRef(false);
 
   const isEditing = !!initialState;
 
@@ -168,18 +185,19 @@ export default function GeometryEditorModal({
       JXGRef.current = (mod as any).default || mod;
       setJsxLoaded(true);
     });
-  }, [isOpen, jsxLoaded]);
+    // Lazy-load mathlive in parallel (for function tool math input)
+    if (!mathFieldLoaded) {
+      import("mathlive").then(() => setMathFieldLoaded(true));
+    }
+  }, [isOpen, jsxLoaded, mathFieldLoaded]);
 
   // ---------------------------------------------------------------------------
-  // isDark helper (use matchMedia rather than next-themes to keep it simple)
+  // isDark helper (reactive via next-themes)
   // ---------------------------------------------------------------------------
 
   const isDark = useCallback(() => {
-    return (
-      document.documentElement.classList.contains("dark") ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    );
-  }, []);
+    return resolvedTheme === "dark";
+  }, [resolvedTheme]);
 
   // ---------------------------------------------------------------------------
   // Init board
@@ -198,14 +216,14 @@ export default function GeometryEditorModal({
 
     const dark = isDark();
     const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
-    const boardAttrs = initialState
+    const boardAttrs = initialState?.boundingBox
       ? { ...attrs, boundingbox: initialState.boundingBox }
       : attrs;
 
     const board = JXG.JSXGraph.initBoard(containerRef.current, {
       ...boardAttrs,
       document: document,
-      keepAspectRatio: false,
+      keepAspectRatio: true,
     });
 
     boardRef.current = board;
@@ -220,7 +238,7 @@ export default function GeometryEditorModal({
     }
 
     // Restore state if editing
-    if (initialState && initialState.objects.length > 0) {
+    if (initialState?.objects?.length > 0) {
       deserializeToBoard(board, initialState, false);
       updateObjectCount();
     }
@@ -233,6 +251,50 @@ export default function GeometryEditorModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jsxLoaded, isOpen]);
+
+  // ---------------------------------------------------------------------------
+  // Re-theme board when app theme changes
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    const board = boardRef.current;
+    const JXG = JXGRef.current;
+    if (!board || !JXG || !containerRef.current) return;
+
+    // Skip the initial render (board init already set the right theme)
+    if (!themeInitRef.current) {
+      themeInitRef.current = true;
+      return;
+    }
+
+    const dark = resolvedTheme === "dark";
+    const attrs = dark ? DARK_BOARD_ATTRS : LIGHT_BOARD_ATTRS;
+
+    // Serialize current state + bounding box
+    const state = serializeBoard(board);
+    const bb = board.getBoundingBox();
+
+    // Rebuild board with new theme
+    JXG.JSXGraph.freeBoard(board);
+    const newBoard = JXG.JSXGraph.initBoard(containerRef.current, {
+      ...attrs,
+      boundingbox: bb,
+      document: document,
+      keepAspectRatio: true,
+    });
+    containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
+    boardRef.current = newBoard;
+
+    // Restore objects
+    if (state.objects.length > 0) {
+      deserializeToBoard(newBoard, state, false);
+    }
+    pendingPointsRef.current = [];
+    setSelectedEl(null);
+    setEditCoords("");
+    setBoardVersion((v) => v + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedTheme]);
 
   // ---------------------------------------------------------------------------
   // Object count
@@ -273,7 +335,26 @@ export default function GeometryEditorModal({
     if (!board || !isOpen) return;
 
     const handleDown = (e: any) => {
-      if (tool === "select" || tool === "function") return;
+      if (tool === "select") {
+        // In select mode, detect which element was clicked
+        const allUnder = Object.values(board.highlightedObjects || {}) as any[];
+        const userEl = allUnder.find(
+          (el: any) => el.elType && !["axis", "ticks", "grid", "label"].includes(el.elType)
+        );
+        if (userEl) {
+          setSelectedEl(userEl);
+          if (userEl.elType === "point") {
+            setEditCoords(`${userEl.X().toFixed(2)}, ${userEl.Y().toFixed(2)}`);
+          } else {
+            setEditCoords("");
+          }
+        } else {
+          setSelectedEl(null);
+          setEditCoords("");
+        }
+        return;
+      }
+      if (tool === "function") return;
 
       // Get coordinates from the event
       const coords = getMouseCoords(board, e);
@@ -290,15 +371,17 @@ export default function GeometryEditorModal({
         case "line":
         case "segment": {
           const pending = pendingPointsRef.current;
+          const existing = findNearbyPoint(board, x, y);
           if (pending.length === 0) {
-            const p = board.create("point", [x, y], {
+            const p = existing || board.create("point", [x, y], {
               ...DEFAULT_POINT_ATTRS,
               name: "",
             });
             pending.push(p);
           } else {
+            if (existing === pending[0]) break; // Same point — skip
             pushUndo();
-            const p2 = board.create("point", [x, y], {
+            const p2 = existing || board.create("point", [x, y], {
               ...DEFAULT_POINT_ATTRS,
               name: "",
             });
@@ -316,15 +399,17 @@ export default function GeometryEditorModal({
 
         case "circle": {
           const pending = pendingPointsRef.current;
+          const existing = findNearbyPoint(board, x, y);
           if (pending.length === 0) {
-            const center = board.create("point", [x, y], {
+            const center = existing || board.create("point", [x, y], {
               ...DEFAULT_POINT_ATTRS,
               name: "",
             });
             pending.push(center);
           } else {
+            if (existing === pending[0]) break; // Clicked center again — skip
             pushUndo();
-            const edgePoint = board.create("point", [x, y], {
+            const edgePoint = existing || board.create("point", [x, y], {
               ...DEFAULT_POINT_ATTRS,
               name: "",
             });
@@ -342,7 +427,9 @@ export default function GeometryEditorModal({
           lastClickTimeRef.current = now;
 
           const pending = pendingPointsRef.current;
-          const p = board.create("point", [x, y], {
+          const existing = findNearbyPoint(board, x, y);
+          if (existing && pending.includes(existing)) break; // Already a vertex
+          const p = existing || board.create("point", [x, y], {
             ...DEFAULT_POINT_ATTRS,
             name: "",
           });
@@ -374,15 +461,41 @@ export default function GeometryEditorModal({
 
         case "angle": {
           const pending = pendingPointsRef.current;
-          const ap = board.create("point", [x, y], {
+          const existing = findNearbyPoint(board, x, y);
+          if (existing && pending.includes(existing)) break;
+          const ap = existing || board.create("point", [x, y], {
             ...DEFAULT_POINT_ATTRS,
             name: "",
           });
           pending.push(ap);
           if (pending.length === 3) {
             pushUndo();
-            board.create("angle", [pending[0], pending[1], pending[2]], {
-              radius: 1,
+            // Two segments meeting at vertex (pending[1])
+            board.create("segment", [pending[1], pending[0]], { ...DEFAULT_LINE_ATTRS, name: "" });
+            board.create("segment", [pending[1], pending[2]], { ...DEFAULT_LINE_ATTRS, name: "" });
+            pendingPointsRef.current = [];
+            updateObjectCount();
+          }
+          break;
+        }
+
+        case "sector": {
+          const pending = pendingPointsRef.current;
+          const existing = findNearbyPoint(board, x, y);
+          if (existing && pending.includes(existing)) break;
+          const sp = existing || board.create("point", [x, y], {
+            ...DEFAULT_POINT_ATTRS,
+            name: "",
+          });
+          pending.push(sp);
+          if (pending.length === 3) {
+            pushUndo();
+            // Compute radius from center (pending[0]) to first edge (pending[1])
+            const cx = pending[0].X(), cy = pending[0].Y();
+            const r = Math.sqrt((pending[1].X() - cx) ** 2 + (pending[1].Y() - cy) ** 2);
+            board.create("angle", [pending[1], pending[0], pending[2]], {
+              radius: r || 1,
+              selection: "minor",
               fillColor: "rgba(160,112,75,0.2)",
               strokeColor: "#a0704b",
               name: "",
@@ -431,24 +544,46 @@ export default function GeometryEditorModal({
   }, [tool, isOpen, jsxLoaded, boardVersion, pushUndo, updateObjectCount]);
 
   // ---------------------------------------------------------------------------
-  // Toggle pan based on active tool
+  // Selection highlight
+  // ---------------------------------------------------------------------------
+
+  const prevSelectedRef = useRef<any>(null);
+
+  useEffect(() => {
+    const prev = prevSelectedRef.current;
+    // Restore previous element's original style
+    if (prev && prev._origStroke !== undefined) {
+      try {
+        prev.setAttribute({
+          strokeColor: prev._origStroke,
+          strokeWidth: prev._origWidth,
+        });
+        delete prev._origStroke;
+        delete prev._origWidth;
+      } catch { /* element may have been removed */ }
+    }
+    // Apply highlight to newly selected element
+    if (selectedEl) {
+      try {
+        selectedEl._origStroke = selectedEl.visProp?.strokecolor || "#8b5f3c";
+        selectedEl._origWidth = selectedEl.visProp?.strokewidth || 2;
+        selectedEl.setAttribute({
+          strokeColor: "#e67e22",
+          strokeWidth: selectedEl.elType === "point" ? selectedEl._origWidth : 3,
+        });
+      } catch { /* ignore */ }
+    }
+    prevSelectedRef.current = selectedEl;
+  }, [selectedEl]);
+
+  // ---------------------------------------------------------------------------
+  // Clear pending points and selection when tool changes
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    const board = boardRef.current;
-    if (!board) return;
-    try {
-      board.setAttribute({
-        pan: { enabled: tool === "select", needTwoFingers: false },
-      });
-    } catch {
-      // Board may not support setAttribute for pan
-    }
-  }, [tool, boardVersion]);
-
-  // ---------------------------------------------------------------------------
-  // Clear pending points when tool changes
-  // ---------------------------------------------------------------------------
+    setSelectedEl(null);
+    setEditCoords("");
+  }, [tool]);
 
   useEffect(() => {
     const board = boardRef.current;
@@ -477,6 +612,50 @@ export default function GeometryEditorModal({
   }, [tool]);
 
   // ---------------------------------------------------------------------------
+  // Configure MathLive mathfield when function tool is active
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (tool !== "function" || !mathFieldLoaded) return;
+
+    let cancelled = false;
+    let showTimer: ReturnType<typeof setTimeout>;
+
+    // Wait for the math-field element to mount, then configure & show keyboard
+    const initTimer = setTimeout(() => {
+      if (cancelled) return;
+      const mf = funcFieldRef.current as any;
+      if (!mf) return;
+      mf.mathVirtualKeyboardPolicy = "manual";
+      mf.focus();
+
+      // Show the virtual keyboard after MathLive's internal connection delay
+      showTimer = setTimeout(() => {
+        if (cancelled) return;
+        const kbd = (window as any).mathVirtualKeyboard;
+        if (kbd) kbd.show({ animate: true });
+      }, 100);
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initTimer);
+      clearTimeout(showTimer);
+      // Hide keyboard when switching away from function tool
+      const kbd = (window as any).mathVirtualKeyboard;
+      if (kbd) kbd.hide();
+    };
+  }, [tool, mathFieldLoaded]);
+
+  // Hide virtual keyboard when modal closes
+  useEffect(() => {
+    if (!isOpen && mathFieldLoaded) {
+      const kbd = (window as any).mathVirtualKeyboard;
+      if (kbd) kbd.hide();
+    }
+  }, [isOpen, mathFieldLoaded]);
+
+  // ---------------------------------------------------------------------------
   // Get mouse coordinates from board event
   // ---------------------------------------------------------------------------
 
@@ -487,6 +666,21 @@ export default function GeometryEditorModal({
     } catch {
       return null;
     }
+  }
+
+  /** Find an existing user-created point near (x,y). Threshold scales with zoom. */
+  function findNearbyPoint(board: any, x: number, y: number): any | null {
+    const bb = board.getBoundingBox();
+    // ~15px worth of user-coordinate distance
+    const threshold = ((bb[2] - bb[0]) / (board.canvasWidth || 600)) * 15;
+    for (const el of board.objectsList) {
+      if (el.elType !== "point") continue;
+      if (el.visProp?.visible === false) continue;
+      if (Math.abs(el.X() - x) < threshold && Math.abs(el.Y() - y) < threshold) {
+        return el;
+      }
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -509,16 +703,18 @@ export default function GeometryEditorModal({
       ...attrs,
       boundingbox: prevState.boundingBox,
       document: document,
-      keepAspectRatio: false,
+      keepAspectRatio: true,
     });
 
-    if (dark && containerRef.current) {
-      containerRef.current.style.backgroundColor = "#2a2a2a";
+    if (containerRef.current) {
+      containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
     }
 
     boardRef.current = newBoard;
     deserializeToBoard(newBoard, prevState, false);
     pendingPointsRef.current = [];
+    setSelectedEl(null);
+    setEditCoords("");
     updateObjectCount();
     setBoardVersion((v) => v + 1);
   }, [isDark, updateObjectCount]);
@@ -539,15 +735,17 @@ export default function GeometryEditorModal({
     const newBoard = JXG.JSXGraph.initBoard(containerRef.current!, {
       ...attrs,
       document: document,
-      keepAspectRatio: false,
+      keepAspectRatio: true,
     });
 
-    if (dark && containerRef.current) {
-      containerRef.current.style.backgroundColor = "#2a2a2a";
+    if (containerRef.current) {
+      containerRef.current.style.backgroundColor = dark ? "#2a2a2a" : "#ffffff";
     }
 
     boardRef.current = newBoard;
     pendingPointsRef.current = [];
+    setSelectedEl(null);
+    setEditCoords("");
     updateObjectCount();
     setBoardVersion((v) => v + 1);
   }, [isDark, pushUndo, updateObjectCount]);
@@ -558,26 +756,96 @@ export default function GeometryEditorModal({
 
   const handleAddFunction = useCallback(() => {
     const board = boardRef.current;
-    if (!board || !funcInput.trim()) return;
+    if (!board) return;
+
+    // Read from MathLive mathfield if available, otherwise fall back to text input
+    const mf = funcFieldRef.current as any;
+    const latex = mf?.value || "";
+    const rawInput = latex || funcInput.trim();
+    if (!rawInput) return;
 
     pushUndo();
     try {
+      // Convert LaTeX to JS if it came from MathLive, otherwise use as-is
+      const jsExpr = latex ? latexToJs(latex) : rawInput;
       // eslint-disable-next-line no-new-func
-      const fn = new Function("x", `return (${funcInput.trim()})`);
+      const fn = new Function("x", `return (${jsExpr})`);
       // Quick sanity check
-      fn(0);
+      const testVal = fn(0);
+      if (typeof testVal !== "number" || isNaN(testVal)) {
+        // Allow NaN for things like 1/0, but not undefined
+        if (testVal === undefined) return;
+      }
       const curve = board.create("functiongraph", [fn], {
         ...DEFAULT_LINE_ATTRS,
         strokeWidth: 2.5,
         name: "",
       });
-      (curve as any)._expression = funcInput.trim();
+      (curve as any)._expression = jsExpr;
+      (curve as any)._latex = latex || "";
       setFuncInput("");
+      // Clear the mathfield
+      if (mf) mf.value = "";
       updateObjectCount();
     } catch {
       // Invalid expression — do nothing
     }
   }, [funcInput, pushUndo, updateObjectCount]);
+
+  // ---------------------------------------------------------------------------
+  // Add point at exact coordinates
+  // ---------------------------------------------------------------------------
+
+  const handleAddPoint = useCallback(() => {
+    const board = boardRef.current;
+    if (!board || !coordInput.trim()) return;
+    const parts = coordInput.split(",").map((s) => parseFloat(s.trim()));
+    if (parts.length !== 2 || parts.some(isNaN)) return;
+    pushUndo();
+    board.create("point", [parts[0], parts[1]], { ...DEFAULT_POINT_ATTRS, name: "" });
+    setCoordInput("");
+    updateObjectCount();
+  }, [coordInput, pushUndo, updateObjectCount]);
+
+  // ---------------------------------------------------------------------------
+  // Move selected point to new coordinates
+  // ---------------------------------------------------------------------------
+
+  const handleApplyCoordEdit = useCallback(() => {
+    if (!selectedEl || selectedEl.elType !== "point" || !editCoords.trim()) return;
+    const parts = editCoords.split(",").map((s) => parseFloat(s.trim()));
+    if (parts.length !== 2 || parts.some(isNaN)) return;
+    pushUndo();
+    selectedEl.moveTo([parts[0], parts[1]]);
+    boardRef.current?.update();
+    setEditCoords(`${parts[0].toFixed(2)}, ${parts[1].toFixed(2)}`);
+  }, [selectedEl, editCoords, pushUndo]);
+
+  // ---------------------------------------------------------------------------
+  // Delete selected element
+  // ---------------------------------------------------------------------------
+
+  const handleDeleteSelected = useCallback(() => {
+    const board = boardRef.current;
+    if (!board || !selectedEl) return;
+    pushUndo();
+    board.removeObject(selectedEl);
+    setSelectedEl(null);
+    setEditCoords("");
+    updateObjectCount();
+  }, [selectedEl, pushUndo, updateObjectCount]);
+
+  // ---------------------------------------------------------------------------
+  // Zoom controls
+  // ---------------------------------------------------------------------------
+
+  const handleZoomReset = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const bb = initialState?.boundingBox || [-8, 6, 8, -6];
+    board.setBoundingBox(bb, true);
+    board.fullUpdate();
+  }, [initialState]);
 
   // ---------------------------------------------------------------------------
   // Insert
@@ -609,8 +877,19 @@ export default function GeometryEditorModal({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
+        if (selectedEl) {
+          setSelectedEl(null);
+          setEditCoords("");
+          e.stopPropagation();
+        } else {
+          e.stopPropagation();
+          onClose();
+        }
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedEl) {
+        // Don't delete if focus is in an input field
+        if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+        e.preventDefault();
+        handleDeleteSelected();
       } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleInsert();
@@ -619,7 +898,7 @@ export default function GeometryEditorModal({
         handleUndo();
       }
     },
-    [onClose, handleInsert, handleUndo]
+    [onClose, handleInsert, handleUndo, selectedEl, handleDeleteSelected]
   );
 
   // ---------------------------------------------------------------------------
@@ -633,6 +912,9 @@ export default function GeometryEditorModal({
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[5vh]"
       onKeyDown={handleKeyDown}
     >
+      {/* MathLive keyboard theme */}
+      <style>{KEYBOARD_THEME_CSS}</style>
+
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -700,23 +982,49 @@ export default function GeometryEditorModal({
             <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
               f(x) =
             </span>
-            <input
-              type="text"
-              value={funcInput}
-              onChange={(e) => setFuncInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleAddFunction();
-                }
-              }}
-              placeholder="Math.sin(x), x**2 + 1, ..."
-              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
-            />
+            {mathFieldLoaded ? (
+              <math-field
+                ref={funcFieldRef as any}
+                aria-label="Function expression"
+                onKeyDown={(e: React.KeyboardEvent) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddFunction();
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  display: "block",
+                  fontSize: "14px",
+                  padding: "4px 8px",
+                  minHeight: "32px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--border-color)",
+                  background: "transparent",
+                  outline: "none",
+                  "--hue": "27",
+                  "--border-color": isDark() ? "#6b5a4a" : "#e8d4b8",
+                } as React.CSSProperties}
+              />
+            ) : (
+              <input
+                type="text"
+                value={funcInput}
+                onChange={(e) => setFuncInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddFunction();
+                  }
+                }}
+                placeholder="Loading math input..."
+                className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+              />
+            )}
             <button
               onClick={handleAddFunction}
-              disabled={!funcInput.trim()}
               className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
             >
               Plot
@@ -740,6 +1048,88 @@ export default function GeometryEditorModal({
           </div>
         )}
 
+        {/* Coordinate input bar — shown when point tool is active */}
+        {tool === "point" && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+              (x, y)
+            </span>
+            <input
+              type="text"
+              value={coordInput}
+              onChange={(e) => setCoordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAddPoint();
+                }
+              }}
+              placeholder="3, -2"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+            />
+            <button
+              onClick={handleAddPoint}
+              disabled={!coordInput.trim()}
+              className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+            >
+              Place
+            </button>
+          </div>
+        )}
+
+        {/* Selected point coordinate editor — shown when a point is selected in select mode */}
+        {tool === "select" && selectedEl?.elType === "point" && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-nowrap">
+              Move to
+            </span>
+            <input
+              type="text"
+              value={editCoords}
+              onChange={(e) => setEditCoords(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleApplyCoordEdit();
+                }
+              }}
+              placeholder="x, y"
+              className="flex-1 px-2 py-1 text-xs font-mono bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+            />
+            <button
+              onClick={handleApplyCoordEdit}
+              disabled={!editCoords.trim()}
+              className="px-3 py-1 text-xs font-medium bg-[#a0704b] text-white rounded-md hover:bg-[#8b5f3c] disabled:opacity-40 transition-colors"
+            >
+              Move
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              className="px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+
+        {/* Selected non-point element info bar */}
+        {tool === "select" && selectedEl && selectedEl.elType !== "point" && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
+            </span>
+            <div className="flex-1" />
+            <button
+              onClick={handleDeleteSelected}
+              className="px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+
         {/* Tool hint */}
         <div className="px-4 py-1 text-[10px] text-gray-400 dark:text-gray-500">
           {TOOLS.find((t) => t.id === tool)?.hint}
@@ -756,7 +1146,7 @@ export default function GeometryEditorModal({
             <div
               ref={containerRef}
               className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
-              style={{ height: "400px", cursor: tool === "select" ? "grab" : tool === "function" ? "default" : "crosshair" }}
+              style={{ height: "400px", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
             />
           ) : (
             <div className="flex items-center justify-center h-[400px] text-sm text-gray-400">
@@ -767,10 +1157,34 @@ export default function GeometryEditorModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">
-            {objectCount} object{objectCount !== 1 ? "s" : ""} ·
-            scroll to zoom · drag to pan
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500">
+              {objectCount} object{objectCount !== 1 ? "s" : ""}
+            </span>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => boardRef.current?.zoomIn()}
+                title="Zoom in"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => boardRef.current?.zoomOut()}
+                title="Zoom out"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleZoomReset}
+                title="Reset view"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             {isEditing && (
