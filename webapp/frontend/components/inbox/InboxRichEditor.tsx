@@ -208,7 +208,6 @@ export default function InboxRichEditor({
   const savedSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const [mathEditorOpen, setMathEditorOpen] = useState(false);
   const [mathEditorLatex, setMathEditorLatex] = useState("");
-  const [mathEditorMode, setMathEditorMode] = useState<"inline" | "block">("inline");
   const [mathEditorPos, setMathEditorPos] = useState<number | null>(null);
   const [mathEditorType, setMathEditorType] = useState<"inline" | "block">("inline");
   const [geoEditorOpen, setGeoEditorOpen] = useState(false);
@@ -407,7 +406,6 @@ export default function InboxRichEditor({
   // Click handler for math nodes — opens MathEditorModal
   const handleMathClick = useCallback((node: PmNode, pos: number, type: 'inline' | 'block') => {
     setMathEditorLatex(node.attrs.latex || '');
-    setMathEditorMode(type);
     setMathEditorType(type);
     setMathEditorPos(pos);
     setMathEditorOpen(true);
@@ -420,7 +418,6 @@ export default function InboxRichEditor({
     const { from, to } = ed.state.selection;
     const selectedText = from !== to ? ed.state.doc.textBetween(from, to) : '';
     setMathEditorLatex(selectedText);
-    setMathEditorMode("inline");
     setMathEditorType("inline");
     setMathEditorPos(null); // null means inserting new
     setMathEditorOpen(true);
@@ -978,7 +975,7 @@ export default function InboxRichEditor({
         onClose={() => { setMathEditorOpen(false); editor?.commands.focus(); }}
         onInsert={handleMathInsert}
         initialLatex={mathEditorLatex}
-        initialMode={mathEditorMode}
+        initialMode={mathEditorType}
       />
 
       {/* Geometry editor modal */}
