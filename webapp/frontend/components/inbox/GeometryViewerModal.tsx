@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { deserializeToBoard, serializeBoard, type GeometryState } from "@/lib/geometry-utils";
 
@@ -23,6 +23,7 @@ export default function GeometryViewerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const JXGRef = useRef<any>(null);
   const themeInitRef = useRef(false);
+  const initialBBRef = useRef<[number, number, number, number]>([-8, 6, 8, -6]);
 
   // Lazy-load JSXGraph
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function GeometryViewerModal({
       return;
     }
 
+    initialBBRef.current = state.boundingBox;
     const board = createThemedBoard(containerRef.current, state.boundingBox);
     if (!board) return;
 
@@ -140,6 +142,13 @@ export default function GeometryViewerModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTheme]);
+
+  const handleZoomReset = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    board.setBoundingBox(initialBBRef.current, true);
+    board.fullUpdate();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -197,8 +206,33 @@ export default function GeometryViewerModal({
           )}
         </div>
 
-        {/* Footer hint */}
-        <div className="px-4 py-2 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 text-center">
+        {/* Footer */}
+        <div className="flex items-center justify-between px-4 py-2 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => boardRef.current?.zoomIn()}
+                title="Zoom in"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => boardRef.current?.zoomOut()}
+                title="Zoom out"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleZoomReset}
+                title="Reset view"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
           <span className="text-[10px] text-gray-400 dark:text-gray-500">
             Scroll to zoom · drag to pan
           </span>
