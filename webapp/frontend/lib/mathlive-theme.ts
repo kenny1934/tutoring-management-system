@@ -1,4 +1,6 @@
-/** Shared MathLive virtual keyboard theme — warm brown palette with dark mode. */
+/** Shared MathLive virtual keyboard theme — warm brown palette with dark mode.
+ *  Dark mode uses the `.dark` class on `<html>` (set by next-themes) rather
+ *  than `prefers-color-scheme` so the keyboard follows the app theme toggle. */
 export const KEYBOARD_THEME_CSS = `
 :root {
   --keyboard-zindex: 10000;
@@ -20,23 +22,21 @@ export const KEYBOARD_THEME_CSS = `
   --keyboard-toolbar-text-active: #a0704b;
   --keyboard-toolbar-background-hover: #ede0cf;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --keyboard-background: #1e1a15;
-    --keyboard-border: #6b5a4a;
-    --keycap-background: #2a2518;
-    --keycap-background-hover: #3d3628;
-    --keycap-border: #6b5a4a;
-    --keycap-border-bottom: #4a3d30;
-    --keycap-text: #e3d5c5;
-    --keycap-secondary-background: #3d3628;
-    --keycap-secondary-background-hover: #4d4638;
-    --keycap-secondary-text: #e3d5c5;
-    --keycap-secondary-border: #6b5a4a;
-    --keycap-secondary-border-bottom: #4a3d30;
-    --keyboard-toolbar-text: #c9b99a;
-    --keyboard-toolbar-text-active: #c9a96e;
-    --keyboard-toolbar-background-hover: #3d3628;
-  }
+:root.dark {
+  --keyboard-background: #1e1a15;
+  --keyboard-border: #6b5a4a;
+  --keycap-background: #2a2518;
+  --keycap-background-hover: #3d3628;
+  --keycap-border: #6b5a4a;
+  --keycap-border-bottom: #4a3d30;
+  --keycap-text: #e3d5c5;
+  --keycap-secondary-background: #3d3628;
+  --keycap-secondary-background-hover: #4d4638;
+  --keycap-secondary-text: #e3d5c5;
+  --keycap-secondary-border: #6b5a4a;
+  --keycap-secondary-border-bottom: #4a3d30;
+  --keyboard-toolbar-text: #c9b99a;
+  --keyboard-toolbar-text-active: #c9a96e;
+  --keyboard-toolbar-background-hover: #3d3628;
 }
 `;

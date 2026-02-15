@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
+import { patchMathLiveMenu } from "@/lib/mathlive-utils";
 
 interface MathEditorModalProps {
   isOpen: boolean;
@@ -112,33 +113,10 @@ export default function MathEditorModal({
     }
   }, [isOpen, mathliveLoaded]);
 
-  // Patch MathLive menu to prevent scrim from dismissing on initial click.
-  // The scrim appears during the toggle's pointerdown and catches a spurious
-  // click event that immediately closes the menu.
+  // Patch MathLive menu to prevent scrim from dismissing on initial click
   useEffect(() => {
     if (!mathliveLoaded || !isOpen) return;
-    const timer = setTimeout(() => {
-      const mf = mathfieldRef.current as any;
-      const menu = mf?._mathfield?.menu;  // use getter to force-create
-      if (!menu || menu._showPatched) return;
-      menu._showPatched = true;
-
-      const origShow = menu.show.bind(menu);
-      menu.show = function(options: any) {
-        const result = origShow(options);
-        const scrimEl = menu.scrim;
-        if (scrimEl) {
-          const guard = (e: Event) => {
-            e.stopImmediatePropagation();
-            scrimEl.removeEventListener('click', guard, true);
-          };
-          scrimEl.addEventListener('click', guard, true);
-          setTimeout(() => scrimEl.removeEventListener('click', guard, true), 400);
-        }
-        return result;
-      };
-    }, 500);
-    return () => clearTimeout(timer);
+    return patchMathLiveMenu(mathfieldRef);
   }, [mathliveLoaded, isOpen]);
 
   const handleInsert = useCallback(() => {

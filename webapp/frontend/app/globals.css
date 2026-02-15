@@ -2137,7 +2137,8 @@ html {
 
 /* Block math in messages — centered with spacing */
 .prose [data-type="block-math"],
-[data-type="block-math"] {
+[data-type="block-math"],
+.block-math-rendered {
   text-align: center;
   padding: 8px 0;
   margin: 4px 0;
