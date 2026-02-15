@@ -655,6 +655,33 @@ export default function GeometryEditorModal({
     }
   }, [isOpen, mathFieldLoaded]);
 
+  // Patch MathLive menu to prevent scrim from dismissing on initial click
+  useEffect(() => {
+    if (!mathFieldLoaded || !isOpen || tool !== "function") return;
+    const timer = setTimeout(() => {
+      const mf = funcFieldRef.current as any;
+      const menu = mf?._mathfield?.menu;  // use getter to force-create
+      if (!menu || menu._showPatched) return;
+      menu._showPatched = true;
+
+      const origShow = menu.show.bind(menu);
+      menu.show = function(options: any) {
+        const result = origShow(options);
+        const scrimEl = menu.scrim;
+        if (scrimEl) {
+          const guard = (e: Event) => {
+            e.stopImmediatePropagation();
+            scrimEl.removeEventListener('click', guard, true);
+          };
+          scrimEl.addEventListener('click', guard, true);
+          setTimeout(() => scrimEl.removeEventListener('click', guard, true), 400);
+        }
+        return result;
+      };
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [mathFieldLoaded, isOpen, tool]);
+
   // ---------------------------------------------------------------------------
   // Get mouse coordinates from board event
   // ---------------------------------------------------------------------------

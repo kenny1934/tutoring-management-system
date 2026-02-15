@@ -1,5 +1,14 @@
 import katex from "katex";
 
+/** Unescape HTML entities that bleach encodes in data attributes. */
+function unescapeHtmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"');
+}
+
 /** Strip HTML tags from a string and trim whitespace. */
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
@@ -14,7 +23,7 @@ export function renderMathInHtml(html: string): string {
       const latexMatch = match.match(/data-latex="([^"]*)"/);
       if (!latexMatch) return match;
       try {
-        return katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: false });
+        return katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: false });
       } catch { return latexMatch[1]; }
     }
   );
@@ -25,7 +34,7 @@ export function renderMathInHtml(html: string): string {
       const latexMatch = match.match(/data-latex="([^"]*)"/);
       if (!latexMatch) return match;
       try {
-        return `<div style="text-align:center;padding:8px 0;margin:4px 0">${katex.renderToString(latexMatch[1], { throwOnError: false, displayMode: true })}</div>`;
+        return `<div style="text-align:center;padding:8px 0;margin:4px 0">${katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: true })}</div>`;
       } catch { return latexMatch[1]; }
     }
   );
