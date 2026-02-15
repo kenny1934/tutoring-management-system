@@ -32,10 +32,29 @@ export function renderMathInHtml(html: string): string {
   return html;
 }
 
+/** Replace geometry diagram divs with clickable SVG thumbnails. */
+export function renderGeometryInHtml(html: string): string {
+  return html.replace(
+    /<div[^>]*data-type="geometry-diagram"[^>]*>.*?<\/div>/gs,
+    (match) => {
+      const thumbMatch = match.match(/data-svg-thumbnail="([^"]*)"/);
+      const jsonMatch = match.match(/data-graph-json="([^"]*)"/);
+      const thumb = thumbMatch?.[1] || "";
+      const json = jsonMatch?.[1] || "";
+      if (thumb) {
+        return `<div data-type="geometry-diagram" data-graph-json="${json}" style="cursor:pointer;text-align:center;padding:8px 0;margin:4px 0"><img src="${thumb}" alt="Geometry diagram" style="max-width:100%;border-radius:8px;border:1px solid #e8d4b8" /></div>`;
+      }
+      return `<div data-type="geometry-diagram" data-graph-json="${json}" style="cursor:pointer;text-align:center;padding:8px 0;margin:4px 0;color:#999;font-size:12px">[Geometry Diagram]</div>`;
+    }
+  );
+}
+
 /** Check if an HTML string is effectively empty (no visible text content). */
 export function isHtmlEmpty(html: string | undefined | null): boolean {
   if (!html || html === "<p></p>") return true;
   // Math nodes count as content even though they have no visible text
   if (/data-type="(inline|block)-math"/.test(html)) return false;
+  // Geometry diagrams count as content
+  if (/data-type="geometry-diagram"/.test(html)) return false;
   return stripHtml(html).length === 0;
 }

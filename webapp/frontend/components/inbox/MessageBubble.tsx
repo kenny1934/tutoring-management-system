@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
-import { isHtmlEmpty, renderMathInHtml } from "@/lib/html-utils";
+import { isHtmlEmpty, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-utils";
+import GeometryViewerModal from "@/components/inbox/GeometryViewerModal";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
 import InboxRichEditor from "@/components/inbox/InboxRichEditor";
@@ -466,8 +467,12 @@ const MessageBubble = React.memo(function MessageBubble({
   const isBroadcast = m.to_tutor_id === null;
   const isGroup = m.is_group_message;
 
-  // Pre-render KaTeX math nodes into the HTML string (stable across re-renders)
-  const renderedMessage = useMemo(() => renderMathInHtml(m.message), [m.message]);
+  // Pre-render KaTeX math + geometry thumbnails into the HTML string
+  const renderedMessage = useMemo(() => renderGeometryInHtml(renderMathInHtml(m.message)), [m.message]);
+
+  // Geometry viewer state
+  const [geoViewerOpen, setGeoViewerOpen] = useState(false);
+  const [geoViewerJson, setGeoViewerJson] = useState("");
 
   // Internal edit state
   const [editText, setEditText] = useState(m.message);
@@ -608,6 +613,18 @@ const MessageBubble = React.memo(function MessageBubble({
         ) : HAS_HTML_RE.test(m.message) ? (
           <div
             className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 break-words"
+            onClick={(e) => {
+              // Handle clicks on geometry diagram thumbnails
+              const target = e.target as HTMLElement;
+              const geoDiagram = target.closest('[data-type="geometry-diagram"]') as HTMLElement | null;
+              if (geoDiagram) {
+                const json = geoDiagram.getAttribute("data-graph-json") || "";
+                if (json) {
+                  setGeoViewerJson(json);
+                  setGeoViewerOpen(true);
+                }
+              }
+            }}
             dangerouslySetInnerHTML={{ __html: highlightRegex
               ? renderedMessage.replace(
                   highlightRegex,
@@ -758,6 +775,13 @@ const MessageBubble = React.memo(function MessageBubble({
           </div>
         )}
       </div>
+
+      {/* Geometry interactive viewer */}
+      <GeometryViewerModal
+        isOpen={geoViewerOpen}
+        onClose={() => setGeoViewerOpen(false)}
+        graphJson={geoViewerJson}
+      />
     </div>
   );
 });

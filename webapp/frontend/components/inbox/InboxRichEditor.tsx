@@ -7,7 +7,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import Mention from "@tiptap/extension-mention";
 import { Mathematics } from "@tiptap/extension-mathematics";
-import { Extension, InputRule } from "@tiptap/core";
+import { Extension, InputRule, Node as TipTapNode } from "@tiptap/core";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import "katex/dist/katex.min.css";
 import type { SuggestionProps, SuggestionKeyDownProps } from "@tiptap/suggestion";
@@ -15,6 +15,8 @@ import { EmojiPicker } from "@/components/ui/emoji-picker";
 import TemplatePicker from "@/components/inbox/TemplatePicker";
 import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
+import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
+import type { GeometryState } from "@/lib/geometry-utils";
 import type { MessageTemplate } from "@/types";
 import {
   Bold,
@@ -30,6 +32,7 @@ import {
   Smile,
   Expand,
   Sigma,
+  Hexagon,
   MoreHorizontal,
   Check,
 } from "lucide-react";
@@ -208,6 +211,9 @@ export default function InboxRichEditor({
   const [mathEditorMode, setMathEditorMode] = useState<"inline" | "block">("inline");
   const [mathEditorPos, setMathEditorPos] = useState<number | null>(null);
   const [mathEditorType, setMathEditorType] = useState<"inline" | "block">("inline");
+  const [geoEditorOpen, setGeoEditorOpen] = useState(false);
+  const [geoEditorState, setGeoEditorState] = useState<GeometryState | null>(null);
+  const [geoEditorPos, setGeoEditorPos] = useState<number | null>(null);
 
   // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
   const mentionUsersRef = useRef(mentionUsers);
@@ -246,6 +252,151 @@ export default function InboxRichEditor({
       ];
     },
   }), []);
+
+  // TipTap custom node for geometry diagrams
+  const GeometryDiagramNode = useCallback(
+    () =>
+      TipTapNode.create({
+        name: "geometryDiagram",
+        group: "block",
+        atom: true,
+        draggable: true,
+        addAttributes() {
+          return {
+            graphJson: { default: "{}" },
+            svgThumbnail: { default: "" },
+          };
+        },
+        parseHTML() {
+          return [{ tag: 'div[data-type="geometry-diagram"]' }];
+        },
+        renderHTML({ HTMLAttributes }) {
+          const thumb = HTMLAttributes.svgThumbnail || "";
+          return [
+            "div",
+            {
+              "data-type": "geometry-diagram",
+              "data-graph-json": HTMLAttributes.graphJson,
+              "data-svg-thumbnail": thumb,
+              style:
+                "cursor:pointer;text-align:center;padding:8px 0;margin:4px 0",
+            },
+            thumb
+              ? [
+                  "img",
+                  {
+                    src: thumb,
+                    alt: "Geometry diagram",
+                    style:
+                      "max-width:100%;border-radius:8px;border:1px solid #e8d4b8",
+                  },
+                ]
+              : [
+                  "span",
+                  { style: "color:#999;font-size:12px" },
+                  "[Geometry Diagram]",
+                ],
+          ];
+        },
+        addNodeView() {
+          return ({ node, getPos }) => {
+            const dom = document.createElement("div");
+            dom.setAttribute("data-type", "geometry-diagram");
+            dom.style.cursor = "pointer";
+            dom.style.textAlign = "center";
+            dom.style.padding = "8px 0";
+            dom.style.margin = "4px 0";
+
+            const thumb = node.attrs.svgThumbnail;
+            if (thumb) {
+              const img = document.createElement("img");
+              img.src = thumb;
+              img.alt = "Geometry diagram";
+              img.style.maxWidth = "100%";
+              img.style.borderRadius = "8px";
+              img.style.border = "1px solid #e8d4b8";
+              dom.appendChild(img);
+            } else {
+              dom.textContent = "[Geometry Diagram]";
+              dom.style.color = "#999";
+              dom.style.fontSize = "12px";
+            }
+
+            dom.addEventListener("click", () => {
+              const pos = typeof getPos === "function" ? getPos() : null;
+              if (pos == null) return;
+              try {
+                const state: GeometryState = JSON.parse(
+                  node.attrs.graphJson || "{}"
+                );
+                setGeoEditorState(state);
+              } catch {
+                setGeoEditorState(null);
+              }
+              setGeoEditorPos(pos);
+              setGeoEditorOpen(true);
+            });
+
+            return { dom };
+          };
+        },
+      }),
+    []
+  );
+
+  // Open geometry editor for new diagram
+  const handleOpenGeoEditor = useCallback(() => {
+    setGeoEditorState(null);
+    setGeoEditorPos(null);
+    setGeoEditorOpen(true);
+  }, []);
+
+  // Handle geometry insert/update
+  const handleGeoInsert = useCallback(
+    (graphJson: string, svgDataUri: string) => {
+      const ed = editorInstanceRef.current;
+      if (!ed) return;
+
+      if (geoEditorPos !== null) {
+        if (!graphJson) {
+          // Delete existing diagram
+          ed.chain()
+            .focus()
+            .command(({ tr }) => {
+              tr.delete(geoEditorPos, geoEditorPos + 1);
+              return true;
+            })
+            .run();
+        } else {
+          // Update existing diagram
+          ed.chain()
+            .focus()
+            .command(({ tr }) => {
+              tr.setNodeMarkup(geoEditorPos, undefined, {
+                graphJson,
+                svgThumbnail: svgDataUri,
+              });
+              return true;
+            })
+            .run();
+        }
+      } else if (graphJson) {
+        // Insert new diagram
+        const node = ed.schema.nodes.geometryDiagram.create({
+          graphJson,
+          svgThumbnail: svgDataUri,
+        });
+        ed.chain()
+          .focus()
+          .command(({ tr }) => {
+            tr.replaceSelectionWith(node);
+            return true;
+          })
+          .run();
+      }
+    },
+    [geoEditorPos]
+  );
 
   // Click handler for math nodes — opens MathEditorModal
   const handleMathClick = useCallback((node: PmNode, pos: number, type: 'inline' | 'block') => {
@@ -334,6 +485,7 @@ export default function InboxRichEditor({
         },
       }),
       MathInputRules(),
+      GeometryDiagramNode(),
       Mention.configure({
         HTMLAttributes: {
           class: "mention",
@@ -609,6 +761,13 @@ export default function InboxRichEditor({
           onClick={handleOpenMathEditor}
           className="hidden sm:block"
         />
+        <ToolbarButton
+          icon={Hexagon}
+          label="Geometry diagram"
+          isActive={editor.isActive('geometryDiagram')}
+          onClick={handleOpenGeoEditor}
+          className="hidden sm:block"
+        />
 
         {/* Mobile overflow menu */}
         <button
@@ -640,6 +799,7 @@ export default function InboxRichEditor({
             { icon: TextQuote, label: "Blockquote", active: editor.isActive("blockquote"), action: () => editor.chain().focus().toggleBlockquote().run() },
             { icon: Code, label: "Code", active: editor.isActive("code"), action: () => editor.chain().focus().toggleCode().run() },
             { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: handleOpenMathEditor },
+            { icon: Hexagon, label: "Geometry", active: editor.isActive("geometryDiagram"), action: handleOpenGeoEditor },
           ].map(item => (
             <button
               key={item.label}
@@ -813,6 +973,14 @@ export default function InboxRichEditor({
         onInsert={handleMathInsert}
         initialLatex={mathEditorLatex}
         initialMode={mathEditorMode}
+      />
+
+      {/* Geometry editor modal */}
+      <GeometryEditorModal
+        isOpen={geoEditorOpen}
+        onClose={() => { setGeoEditorOpen(false); editor?.commands.focus(); }}
+        onInsert={handleGeoInsert}
+        initialState={geoEditorState}
       />
     </div>
   );
