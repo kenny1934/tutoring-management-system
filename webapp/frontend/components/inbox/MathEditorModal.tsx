@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,51 @@ interface MathEditorModalProps {
   initialMode?: "inline" | "block";
 }
 
+const isMac =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+
+const KEYBOARD_THEME_CSS = `
+:root {
+  --keyboard-zindex: 10000;
+  --keyboard-accent-color: #a0704b;
+  --keyboard-background: #f5ede3;
+  --keyboard-border: #e8d4b8;
+  --keycap-background: #fff;
+  --keycap-background-hover: #faf6f1;
+  --keycap-border: #e8d4b8;
+  --keycap-border-bottom: #d4c0a8;
+  --keycap-text: #1f2937;
+  --keycap-text-active: #fff;
+  --keycap-secondary-background: #e8d4b8;
+  --keycap-secondary-background-hover: #ddd0be;
+  --keycap-secondary-text: #4b3621;
+  --keycap-secondary-border: #d4c0a8;
+  --keycap-secondary-border-bottom: #c4ad94;
+  --keyboard-toolbar-text: #4b3621;
+  --keyboard-toolbar-text-active: #a0704b;
+  --keyboard-toolbar-background-hover: #ede0cf;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --keyboard-background: #1e1a15;
+    --keyboard-border: #6b5a4a;
+    --keycap-background: #2a2518;
+    --keycap-background-hover: #3d3628;
+    --keycap-border: #6b5a4a;
+    --keycap-border-bottom: #4a3d30;
+    --keycap-text: #e3d5c5;
+    --keycap-secondary-background: #3d3628;
+    --keycap-secondary-background-hover: #4d4638;
+    --keycap-secondary-text: #e3d5c5;
+    --keycap-secondary-border: #6b5a4a;
+    --keycap-secondary-border-bottom: #4a3d30;
+    --keyboard-toolbar-text: #c9b99a;
+    --keyboard-toolbar-text-active: #c9a96e;
+    --keyboard-toolbar-background-hover: #3d3628;
+  }
+}
+`;
+
 export default function MathEditorModal({
   isOpen,
   onClose,
@@ -24,6 +69,7 @@ export default function MathEditorModal({
   const [latex, setLatex] = useState(initialLatex);
   const [mathliveLoaded, setMathliveLoaded] = useState(false);
   const mathfieldRef = useRef<HTMLElement | null>(null);
+  const inputListenerRef = useRef<(() => void) | null>(null);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -59,10 +105,14 @@ export default function MathEditorModal({
       // Manual keyboard policy — we control when it shows
       mf.mathVirtualKeyboardPolicy = "manual";
 
-      // Listen for input changes
+      // Remove previous listener if any, then add new one
+      if (inputListenerRef.current) {
+        mf.removeEventListener("input", inputListenerRef.current);
+      }
       const handleInput = () => {
         setLatex(mf.value || "");
       };
+      inputListenerRef.current = handleInput;
       mf.addEventListener("input", handleInput);
 
       // Focus first — this triggers internal connectToVirtualKeyboard()
@@ -83,6 +133,12 @@ export default function MathEditorModal({
       cancelled = true;
       clearTimeout(initTimer);
       clearTimeout(showTimer);
+      // Clean up input listener
+      const mf = mathfieldRef.current as any;
+      if (mf && inputListenerRef.current) {
+        mf.removeEventListener("input", inputListenerRef.current);
+        inputListenerRef.current = null;
+      }
     };
   }, [mathliveLoaded, isOpen, initialLatex]);
 
@@ -120,6 +176,14 @@ export default function MathEditorModal({
     [onClose, handleInsert]
   );
 
+  const modeDescription = useMemo(
+    () =>
+      mode === "inline"
+        ? "Renders within text flow"
+        : "Centered on its own line",
+    [mode]
+  );
+
   if (!isOpen) return null;
 
   const isEditing = !!initialLatex;
@@ -129,8 +193,9 @@ export default function MathEditorModal({
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[10vh]"
       onKeyDown={handleKeyDown}
     >
-      {/* Boost MathLive keyboard z-index above modal overlays */}
-      <style>{`:root { --keyboard-zindex: 10000; }`}</style>
+      {/* MathLive keyboard theme — warm brown palette */}
+      <style>{KEYBOARD_THEME_CSS}</style>
+
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -158,20 +223,25 @@ export default function MathEditorModal({
         {/* Mathfield */}
         <div className="px-4 pt-4 pb-2">
           {mathliveLoaded ? (
-            <math-field
-              ref={mathfieldRef as any}
-              style={{
-                display: "block",
-                width: "100%",
-                minHeight: "60px",
-                fontSize: "22px",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #e8d4b8",
-                outline: "none",
-                background: "transparent",
-              }}
-            />
+            <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
+              <math-field
+                ref={mathfieldRef as any}
+                aria-label="Math equation input"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  minHeight: "60px",
+                  fontSize: "22px",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  // --hue cascades into shadow DOM to tint toggle/menu icons, caret, selection
+                  "--hue": "27",
+                } as React.CSSProperties}
+              />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-16 text-sm text-gray-400">
               Loading math editor...
@@ -181,34 +251,42 @@ export default function MathEditorModal({
 
         {/* Mode toggle + actions */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <div className="flex items-center gap-1 bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-lg p-0.5">
-            <button
-              type="button"
-              onClick={() => setMode("inline")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                mode === "inline"
-                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              )}
-            >
-              Inline
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("block")}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                mode === "block"
-                  ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-              )}
-            >
-              Block
-            </button>
+          <div>
+            <div className="flex items-center gap-1 bg-[#f5ede3]/60 dark:bg-[#3d3628]/40 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setMode("inline")}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  mode === "inline"
+                    ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                )}
+              >
+                Inline
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("block")}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  mode === "block"
+                    ? "bg-white dark:bg-[#2a2a2a] text-[#a0704b] shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                )}
+              >
+                Block
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 ml-0.5">
+              {modeDescription}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 hidden sm:inline">
+              {isMac ? "⌘" : "Ctrl+"}Enter
+            </span>
             {isEditing && (
               <button
                 onClick={handleDelete}
@@ -244,7 +322,7 @@ declare global {
   namespace JSX {
     interface IntrinsicElements {
       "math-field": React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement>,
+        React.HTMLAttributes<HTMLElement> & { "aria-label"?: string },
         HTMLElement
       >;
     }

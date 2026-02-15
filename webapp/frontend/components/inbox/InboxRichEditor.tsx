@@ -809,7 +809,7 @@ export default function InboxRichEditor({
       {/* Math equation editor modal */}
       <MathEditorModal
         isOpen={mathEditorOpen}
-        onClose={() => setMathEditorOpen(false)}
+        onClose={() => { setMathEditorOpen(false); editor?.commands.focus(); }}
         onInsert={handleMathInsert}
         initialLatex={mathEditorLatex}
         initialMode={mathEditorMode}
