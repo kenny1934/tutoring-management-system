@@ -110,7 +110,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {isMounted &&
         createPortal(
           <div
-            className="fixed bottom-4 right-4 z-[10000] flex flex-col gap-2 pointer-events-none"
+            className="fixed bottom-4 right-4 z-[10001] flex flex-col gap-2 pointer-events-none"
             aria-label="Notifications"
           >
             <AnimatePresence mode="popLayout">

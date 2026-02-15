@@ -34,7 +34,7 @@ export function renderMathInHtml(html: string): string {
       const latexMatch = match.match(/data-latex="([^"]*)"/);
       if (!latexMatch) return match;
       try {
-        return `<div style="text-align:center;padding:8px 0;margin:4px 0">${katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: true })}</div>`;
+        return `<div class="block-math-rendered">${katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: true })}</div>`;
       } catch { return latexMatch[1]; }
     }
   );
