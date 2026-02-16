@@ -2,9 +2,7 @@
 FastAPI main application for tutoring management system.
 Provides read-only API endpoints for MVP testing.
 """
-import asyncio
 import logging
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -81,61 +79,56 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         return response
 
-async def _check_expired_reminders():
-    """Background task: process expired snoozes every 30s.
-    Marks messages as unread, broadcasts SSE event, deletes snooze record."""
+async def check_expired_reminders_once():
+    """Process expired snoozes: mark messages as unread, broadcast SSE, delete snooze.
+    Called from SSE heartbeat so it only runs while clients are connected."""
     from database import SessionLocal
     from models import MessageSnooze, TutorMessage, MessageReadReceipt
     from sse import sse_manager
     from constants import hk_now
 
-    while True:
-        await asyncio.sleep(30)
+    try:
+        db = SessionLocal()
         try:
-            db = SessionLocal()
-            try:
-                expired = db.query(MessageSnooze).filter(
-                    MessageSnooze.snooze_until <= hk_now()
-                ).all()
+            expired = db.query(MessageSnooze).filter(
+                MessageSnooze.snooze_until <= hk_now()
+            ).all()
 
-                for snooze in expired:
-                    # Mark message as unread (delete read receipt)
-                    db.query(MessageReadReceipt).filter(
-                        MessageReadReceipt.message_id == snooze.message_id,
-                        MessageReadReceipt.tutor_id == snooze.tutor_id,
-                    ).delete()
+            for snooze in expired:
+                db.query(MessageReadReceipt).filter(
+                    MessageReadReceipt.message_id == snooze.message_id,
+                    MessageReadReceipt.tutor_id == snooze.tutor_id,
+                ).delete()
 
-                    # Get message info for SSE event
-                    msg = db.query(TutorMessage).filter(
-                        TutorMessage.id == snooze.message_id
-                    ).first()
+                msg = db.query(TutorMessage).filter(
+                    TutorMessage.id == snooze.message_id
+                ).first()
 
-                    if msg:
-                        await sse_manager.broadcast(
-                            "reminder_due",
-                            {
-                                "message_id": snooze.message_id,
-                                "thread_id": msg.reply_to_id or msg.id,
-                                "subject": msg.subject,
-                                "preview": (msg.message or "")[:100],
-                            },
-                            [snooze.tutor_id],
-                        )
+                if msg:
+                    await sse_manager.broadcast(
+                        "reminder_due",
+                        {
+                            "message_id": snooze.message_id,
+                            "thread_id": msg.reply_to_id or msg.id,
+                            "subject": msg.subject,
+                            "preview": (msg.message or "")[:100],
+                        },
+                        [snooze.tutor_id],
+                    )
 
-                    # Delete snooze record
-                    db.delete(snooze)
+                db.delete(snooze)
 
-                if expired:
-                    db.commit()
-            finally:
-                db.close()
-        except Exception as e:
-            logger.error("Reminder check failed: %s", e)
+            if expired:
+                db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error("Reminder check failed: %s", e)
 
 
-async def _deliver_scheduled_messages():
-    """Background task: deliver scheduled messages that are now due every 30s.
-    This ensures messages are delivered even if the sender never opens their inbox."""
+async def deliver_scheduled_messages_once():
+    """Deliver scheduled messages that are now due.
+    Called from SSE heartbeat so it only runs while clients are connected."""
     from database import SessionLocal
     from models import TutorMessage, Tutor, MessageRecipient, MessageMention
     from sqlalchemy.orm import joinedload
@@ -146,78 +139,64 @@ async def _deliver_scheduled_messages():
     GROUP_MESSAGE_SENTINEL = -1
     _MENTION_ID_RE = re.compile(r'data-type=["\']mention["\'][^>]*data-id=["\'](\d+)["\']')
 
-    while True:
-        await asyncio.sleep(30)
+    try:
+        db = SessionLocal()
         try:
-            db = SessionLocal()
-            try:
-                now = hk_now()
-                due_messages = db.query(TutorMessage).options(
-                    joinedload(TutorMessage.from_tutor)
-                ).filter(
-                    TutorMessage.scheduled_at.isnot(None),
-                    TutorMessage.scheduled_at <= now,
-                ).with_for_update(skip_locked=True).all()
+            now = hk_now()
+            due_messages = db.query(TutorMessage).options(
+                joinedload(TutorMessage.from_tutor)
+            ).filter(
+                TutorMessage.scheduled_at.isnot(None),
+                TutorMessage.scheduled_at <= now,
+            ).with_for_update(skip_locked=True).all()
 
-                for msg in due_messages:
-                    msg.created_at = now
-                    msg.scheduled_at = None
-                    db.commit()
+            for msg in due_messages:
+                msg.created_at = now
+                msg.scheduled_at = None
+                db.commit()
 
-                    # Parse and save @mentions
-                    mention_ids: set[int] = set()
-                    if msg.message:
-                        mention_ids = {int(m) for m in _MENTION_ID_RE.findall(msg.message)}
-                        if mention_ids:
-                            existing = db.query(MessageMention.mentioned_tutor_id).filter(
-                                MessageMention.message_id == msg.id
-                            ).all()
-                            existing_ids = {r.mentioned_tutor_id for r in existing}
-                            for tid in mention_ids - existing_ids:
-                                db.add(MessageMention(message_id=msg.id, mentioned_tutor_id=tid))
-                            if mention_ids != existing_ids:
-                                db.commit()
-
-                    # Determine recipients
-                    recipient_ids = []
-                    if msg.to_tutor_id is None:
-                        all_tutors = db.query(Tutor.id).all()
-                        recipient_ids = [t.id for t in all_tutors if t.id != msg.from_tutor_id]
-                    elif msg.to_tutor_id == GROUP_MESSAGE_SENTINEL:
-                        recips = db.query(MessageRecipient.tutor_id).filter(
-                            MessageRecipient.message_id == msg.id
+                mention_ids: set[int] = set()
+                if msg.message:
+                    mention_ids = {int(m) for m in _MENTION_ID_RE.findall(msg.message)}
+                    if mention_ids:
+                        existing = db.query(MessageMention.mentioned_tutor_id).filter(
+                            MessageMention.message_id == msg.id
                         ).all()
-                        recipient_ids = [r.tutor_id for r in recips]
-                    elif msg.to_tutor_id > 0:
-                        recipient_ids = [msg.to_tutor_id]
+                        existing_ids = {r.mentioned_tutor_id for r in existing}
+                        for tid in mention_ids - existing_ids:
+                            db.add(MessageMention(message_id=msg.id, mentioned_tutor_id=tid))
+                        if mention_ids != existing_ids:
+                            db.commit()
 
-                    if recipient_ids:
-                        await sse_manager.broadcast("new_message", {
-                            "message_id": msg.id,
-                            "thread_id": msg.reply_to_id or msg.id,
-                            "from_tutor_id": msg.from_tutor_id,
-                            "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
-                            "subject": msg.subject,
-                            "preview": (msg.message or "")[:100],
-                            "category": msg.category,
-                            "priority": msg.priority,
-                            "mentioned_tutor_ids": sorted(mention_ids),
-                        }, recipient_ids)
-                        logger.info("Delivered scheduled message %d to %d recipients", msg.id, len(recipient_ids))
-            finally:
-                db.close()
-        except Exception as e:
-            logger.error("Scheduled message delivery failed: %s", e)
+                recipient_ids = []
+                if msg.to_tutor_id is None:
+                    all_tutors = db.query(Tutor.id).all()
+                    recipient_ids = [t.id for t in all_tutors if t.id != msg.from_tutor_id]
+                elif msg.to_tutor_id == GROUP_MESSAGE_SENTINEL:
+                    recips = db.query(MessageRecipient.tutor_id).filter(
+                        MessageRecipient.message_id == msg.id
+                    ).all()
+                    recipient_ids = [r.tutor_id for r in recips]
+                elif msg.to_tutor_id > 0:
+                    recipient_ids = [msg.to_tutor_id]
 
-
-@asynccontextmanager
-async def lifespan(app_instance):
-    """Application lifespan: start/stop background tasks."""
-    reminder_task = asyncio.create_task(_check_expired_reminders())
-    scheduled_task = asyncio.create_task(_deliver_scheduled_messages())
-    yield
-    reminder_task.cancel()
-    scheduled_task.cancel()
+                if recipient_ids:
+                    await sse_manager.broadcast("new_message", {
+                        "message_id": msg.id,
+                        "thread_id": msg.reply_to_id or msg.id,
+                        "from_tutor_id": msg.from_tutor_id,
+                        "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
+                        "subject": msg.subject,
+                        "preview": (msg.message or "")[:100],
+                        "category": msg.category,
+                        "priority": msg.priority,
+                        "mentioned_tutor_ids": sorted(mention_ids),
+                    }, recipient_ids)
+                    logger.info("Delivered scheduled message %d to %d recipients", msg.id, len(recipient_ids))
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error("Scheduled message delivery failed: %s", e)
 
 
 # Initialize FastAPI app
@@ -227,7 +206,6 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan,
 )
 
 # Configure CORS - use specific origins even in development for better security practice
