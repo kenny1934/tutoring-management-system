@@ -440,6 +440,7 @@ export interface MessageBubbleProps {
   onQuote: () => void;
   onForward: () => void;
   onDelete: (msgId: number) => Promise<void>;
+  onEditGeoAsNew?: (graphJson: string) => void;
 }
 
 const MessageBubble = React.memo(function MessageBubble({
@@ -462,6 +463,7 @@ const MessageBubble = React.memo(function MessageBubble({
   onQuote,
   onForward,
   onDelete,
+  onEditGeoAsNew,
 }: MessageBubbleProps) {
   const isBroadcast = m.to_tutor_id === null;
   const isGroup = m.is_group_message;
@@ -780,6 +782,7 @@ const MessageBubble = React.memo(function MessageBubble({
         isOpen={geoViewerOpen}
         onClose={() => setGeoViewerOpen(false)}
         graphJson={geoViewerJson}
+        onEditAsNew={onEditGeoAsNew}
       />
     </div>
   );

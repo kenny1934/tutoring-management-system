@@ -2,20 +2,22 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { X, ZoomIn, ZoomOut, Maximize2, Download, Copy, Pencil } from "lucide-react";
 import { useTheme } from "next-themes";
-import { deserializeToBoard, createThemedBoard, applyBoardTheme, type GeometryState } from "@/lib/geometry-utils";
+import { deserializeToBoard, createThemedBoard, applyBoardTheme, exportBoardPng, downloadBlob, type GeometryState } from "@/lib/geometry-utils";
 
 interface GeometryViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   graphJson: string;
+  onEditAsNew?: (graphJson: string) => void;
 }
 
 export default function GeometryViewerModal({
   isOpen,
   onClose,
   graphJson,
+  onEditAsNew,
 }: GeometryViewerModalProps) {
   const { resolvedTheme } = useTheme();
   const [jsxLoaded, setJsxLoaded] = useState(false);
@@ -90,6 +92,33 @@ export default function GeometryViewerModal({
     if (!board) return;
     board.setBoundingBox(initialBBRef.current, true);
     board.fullUpdate();
+  }, []);
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyImage = useCallback(async () => {
+    const board = boardRef.current;
+    if (!board) return;
+    try {
+      const blob = await exportBoardPng(board);
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleEditAsNew = useCallback(() => {
+    onEditAsNew?.(graphJson);
+    onClose();
+  }, [graphJson, onEditAsNew, onClose]);
+
+  const handleExportPng = useCallback(async () => {
+    const board = boardRef.current;
+    if (!board) return;
+    try {
+      const blob = await exportBoardPng(board);
+      downloadBlob(blob, "geometry.png");
+    } catch { /* ignore */ }
   }, []);
 
   const handleKeyDown = useCallback(
@@ -181,10 +210,35 @@ export default function GeometryViewerModal({
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            <button
+              onClick={handleExportPng}
+              title="Export as PNG"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>PNG</span>
+            </button>
           </div>
-          <span className="text-[10px] text-gray-400 dark:text-gray-500">
-            Scroll to zoom · drag to pan
-          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleCopyImage}
+              title="Copy diagram as image"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              <span>{copied ? "Copied!" : "Copy Image"}</span>
+            </button>
+            {onEditAsNew && (
+              <button
+                onClick={handleEditAsNew}
+                title="Edit as new diagram"
+                className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                <span>Edit as New</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>,

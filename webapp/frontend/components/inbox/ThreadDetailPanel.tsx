@@ -196,6 +196,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   // Edit state — only editingMessageId is tracked here; actual edit state is in MessageBubble
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+
+  // "Edit as New" geometry state — set when user clicks "Edit as New" in a diagram viewer
+  const [externalGeoState, setExternalGeoState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Capture first unread message ID before auto-mark-read (runs during render, before effects)
@@ -616,6 +619,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
                 }
                 onDelete(msgId, msgId === msg.id);
               }}
+              onEditGeoAsNew={setExternalGeoState}
             />
           );
 
@@ -763,6 +767,8 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
           onCreateTemplate={onCreateTemplate}
           onDeleteTemplate={onDeleteTemplate}
           onSendVoice={onSendVoice}
+          externalGeoState={externalGeoState}
+          onExternalGeoStateConsumed={() => setExternalGeoState(null)}
         />
       )}
     </div>

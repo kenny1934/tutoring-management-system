@@ -197,6 +197,10 @@ interface InboxRichEditorProps {
   onDeleteTemplate?: (templateId: number) => void;
   /** Open full editor callback (shown in toolbar) */
   onOpenFullEditor?: () => void;
+  /** When set, auto-opens the geometry editor pre-filled with this state */
+  externalGeoState?: string | null;
+  /** Called after the external geo state has been consumed (so parent can reset it) */
+  onExternalGeoStateConsumed?: () => void;
 }
 
 export default function InboxRichEditor({
@@ -211,6 +215,8 @@ export default function InboxRichEditor({
   onCreateTemplate,
   onDeleteTemplate,
   onOpenFullEditor,
+  externalGeoState,
+  onExternalGeoStateConsumed,
 }: InboxRichEditorProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -373,6 +379,19 @@ export default function InboxRichEditor({
     setGeoEditorPos(null);
     setGeoEditorOpen(true);
   }, []);
+
+  // Auto-open geometry editor when external state is provided (e.g. "Edit as New")
+  useEffect(() => {
+    if (externalGeoState) {
+      try {
+        const parsed = JSON.parse(externalGeoState);
+        setGeoEditorState(parsed);
+        setGeoEditorPos(null);
+        setGeoEditorOpen(true);
+      } catch { /* ignore invalid JSON */ }
+      onExternalGeoStateConsumed?.();
+    }
+  }, [externalGeoState, onExternalGeoStateConsumed]);
 
   // Handle geometry insert/update
   const handleGeoInsert = useCallback(
@@ -1132,6 +1151,7 @@ export default function InboxRichEditor({
         onClose={() => { setGeoEditorOpen(false); editor?.commands.focus(); }}
         onInsert={handleGeoInsert}
         initialState={geoEditorState}
+        isEditingExisting={geoEditorPos !== null}
       />
     </div>
   );
