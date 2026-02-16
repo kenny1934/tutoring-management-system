@@ -18,6 +18,7 @@ import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import type { MessageTemplate } from "@/types";
+import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
 import {
   Bold,
   Italic,
@@ -35,6 +36,12 @@ import {
   Hexagon,
   MoreHorizontal,
   Check,
+  Table2,
+  Plus,
+  Minus,
+  Trash2,
+  ToggleLeft,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
@@ -214,6 +221,11 @@ export default function InboxRichEditor({
   const [geoEditorOpen, setGeoEditorOpen] = useState(false);
   const [geoEditorState, setGeoEditorState] = useState<GeometryState | null>(null);
   const [geoEditorPos, setGeoEditorPos] = useState<number | null>(null);
+  const [showTablePicker, setShowTablePicker] = useState(false);
+  const tableButtonRef = useRef<HTMLButtonElement>(null);
+  const [tableHover, setTableHover] = useState<[number, number]>([0, 0]);
+  const [showTableOps, setShowTableOps] = useState(false);
+  const tableOpsButtonRef = useRef<HTMLButtonElement>(null);
 
   // Keep mentionUsers in a ref so the suggestion config (created once) always sees latest
   const mentionUsersRef = useRef(mentionUsers);
@@ -488,6 +500,10 @@ export default function InboxRichEditor({
           onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, 'block'),
         },
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
       MathInputRules(),
       GeometryDiagramNode(),
       Mention.configure({
@@ -758,6 +774,122 @@ export default function InboxRichEditor({
           onClick={() => editor.chain().focus().toggleCode().run()}
           className="hidden sm:block"
         />
+        {/* Table insert / operations */}
+        <div className="hidden sm:block">
+          {editor.isActive("table") ? (
+            <>
+              <button
+                ref={tableOpsButtonRef}
+                type="button"
+                onClick={() => setShowTableOps(!showTableOps)}
+                className={cn(
+                  "p-1.5 rounded transition-colors flex items-center gap-0.5",
+                  showTableOps
+                    ? "bg-[#a0704b] text-white"
+                    : "bg-[#a0704b]/10 text-[#a0704b] hover:bg-[#a0704b]/20"
+                )}
+                title="Table options"
+              >
+                <Table2 className="w-4 h-4" />
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              <FloatingDropdown
+                triggerRef={tableOpsButtonRef}
+                isOpen={showTableOps}
+                onClose={() => setShowTableOps(false)}
+                align="left"
+                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-1 min-w-[170px]"
+              >
+                {[
+                  { icon: Plus, label: "Add row above", action: () => editor.chain().focus().addRowBefore().run() },
+                  { icon: Plus, label: "Add row below", action: () => editor.chain().focus().addRowAfter().run() },
+                  { icon: Plus, label: "Add column before", action: () => editor.chain().focus().addColumnBefore().run() },
+                  { icon: Plus, label: "Add column after", action: () => editor.chain().focus().addColumnAfter().run() },
+                  null,
+                  { icon: Minus, label: "Delete row", action: () => editor.chain().focus().deleteRow().run() },
+                  { icon: Minus, label: "Delete column", action: () => editor.chain().focus().deleteColumn().run() },
+                  null,
+                  { icon: ToggleLeft, label: "Toggle header row", action: () => editor.chain().focus().toggleHeaderRow().run() },
+                  { icon: Trash2, label: "Delete table", action: () => editor.chain().focus().deleteTable().run(), danger: true },
+                ].map((item, i) =>
+                  item === null ? (
+                    <div key={`sep-${i}`} className="border-t border-[#e8d4b8] dark:border-[#6b5a4a] my-1" />
+                  ) : (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { item.action(); setShowTableOps(false); }}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-2.5 py-1.5 text-xs rounded transition-colors",
+                        item.danger
+                          ? "text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+                      )}
+                    >
+                      <item.icon className="w-3.5 h-3.5" />
+                      <span>{item.label}</span>
+                    </button>
+                  )
+                )}
+              </FloatingDropdown>
+            </>
+          ) : (
+            <>
+              <button
+                ref={tableButtonRef}
+                type="button"
+                onClick={() => setShowTablePicker(!showTablePicker)}
+                className={cn(
+                  "p-1.5 rounded transition-colors",
+                  showTablePicker
+                    ? "bg-[#a0704b] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                )}
+                title="Insert table"
+              >
+                <Table2 className="w-4 h-4" />
+              </button>
+              <FloatingDropdown
+                triggerRef={tableButtonRef}
+                isOpen={showTablePicker}
+                onClose={() => { setShowTablePicker(false); setTableHover([0, 0]); }}
+                align="left"
+                className="bg-white dark:bg-[#2a2a2a] rounded-lg shadow-xl border border-[#e8d4b8] dark:border-[#6b5a4a] p-2"
+              >
+                <div className="grid grid-cols-6 gap-[3px]" onMouseLeave={() => setTableHover([0, 0])}>
+                  {Array.from({ length: 36 }, (_, i) => {
+                    const row = Math.floor(i / 6);
+                    const col = i % 6;
+                    const active = row < tableHover[0] && col < tableHover[1];
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseEnter={() => setTableHover([row + 1, col + 1])}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          editor.chain().focus().insertTable({ rows: row + 1, cols: col + 1, withHeaderRow: true }).run();
+                          setShowTablePicker(false);
+                          setTableHover([0, 0]);
+                        }}
+                        className={cn(
+                          "w-5 h-5 rounded-sm border transition-colors",
+                          active
+                            ? "bg-[#a0704b]/20 border-[#a0704b]"
+                            : "bg-white dark:bg-[#3d3628] border-[#e8d4b8] dark:border-[#6b5a4a]"
+                        )}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-center text-gray-400 mt-1.5">
+                  {tableHover[0] > 0 ? `${tableHover[0]} × ${tableHover[1]}` : "Select size"}
+                </p>
+              </FloatingDropdown>
+            </>
+          )}
+        </div>
         <ToolbarButton
           icon={Sigma}
           label="Math equation"
@@ -802,6 +934,7 @@ export default function InboxRichEditor({
             { icon: ListOrdered, label: "Numbered List", active: editor.isActive("orderedList"), action: () => editor.chain().focus().toggleOrderedList().run() },
             { icon: TextQuote, label: "Blockquote", active: editor.isActive("blockquote"), action: () => editor.chain().focus().toggleBlockquote().run() },
             { icon: Code, label: "Code", active: editor.isActive("code"), action: () => editor.chain().focus().toggleCode().run() },
+            { icon: Table2, label: "Table", active: editor.isActive("table"), action: () => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); } },
             { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: handleOpenMathEditor },
             { icon: Hexagon, label: "Geometry", active: editor.isActive("geometryDiagram"), action: handleOpenGeoEditor },
           ].map(item => (

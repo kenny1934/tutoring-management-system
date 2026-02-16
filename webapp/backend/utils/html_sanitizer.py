@@ -8,6 +8,7 @@ ALLOWED_TAGS = [
     "blockquote", "h1", "h2", "h3",
     "a", "span", "div", "img",
     "ul", "ol", "li",
+    "table", "thead", "tbody", "tr", "td", "th",
 ]
 
 ALLOWED_ATTRIBUTES = {
@@ -15,6 +16,8 @@ ALLOWED_ATTRIBUTES = {
     "span": ["style", "data-type", "data-latex"],
     "div": ["style", "data-type", "data-latex", "data-graph-json", "data-svg-thumbnail"],
     "img": ["src", "alt", "style"],
+    "td": ["colspan", "rowspan", "data-colwidth", "style"],
+    "th": ["colspan", "rowspan", "data-colwidth", "style"],
 }
 
 ALLOWED_CSS_PROPERTIES = [
