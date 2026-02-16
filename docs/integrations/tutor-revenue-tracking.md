@@ -18,7 +18,7 @@ Calculate tutor monthly revenue for salary calculations based on attended sessio
 ### 1. Run Migration
 
 ```bash
-mysql -u root -p csm_pro < database/migrations/030_add_tutor_revenue_tracking.sql
+mysql -u $DB_USER -p $DB_NAME < database/migrations/030_add_tutor_revenue_tracking.sql
 ```
 
 ### 2. Add to AppSheet

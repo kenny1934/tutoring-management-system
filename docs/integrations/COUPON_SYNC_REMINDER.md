@@ -10,7 +10,7 @@
 ### Fastest Method (2 min):
 ```bash
 # Terminal 1: Allowlist IP
-gcloud sql connect [INSTANCE_NAME] --user=root --project=[PROJECT_ID]
+gcloud sql connect [INSTANCE_NAME] --user=$DB_USER --project=[PROJECT_ID]
 
 # Terminal 2: Run sync (within 5 minutes)
 ./scripts/sync_coupons.sh "TerminationList_MSA_*.xls"

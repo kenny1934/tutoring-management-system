@@ -11,8 +11,8 @@ Automatically applies $300 discount during enrollment renewal if student has cou
 ### 1. Run Database Migrations
 
 ```bash
-mysql -u root -p csm_pro < database/migrations/026_add_student_coupon_tracking.sql
-mysql -u root -p csm_pro < database/migrations/027_add_staff_referral_flag.sql
+mysql -u $DB_USER -p $DB_NAME < database/migrations/026_add_student_coupon_tracking.sql
+mysql -u $DB_USER -p $DB_NAME < database/migrations/027_add_staff_referral_flag.sql
 ```
 
 ### 2. Verify Discounts Exist
@@ -66,7 +66,7 @@ pip3 install pandas openpyxl xlrd
 cd "/mnt/c/Users/asus/GitHub Repo/tutoring-management-system"
 
 # Step 1: Allowlist your IP (in one terminal)
-gcloud sql connect [INSTANCE_NAME] --user=root --project=[PROJECT_ID]
+gcloud sql connect [INSTANCE_NAME] --user=$DB_USER --project=[PROJECT_ID]
 # Wait for: "Allowlisting your IP for incoming connection for 5 minutes...done"
 
 # Step 2: Run sync script (in another terminal, within 5 minutes)
@@ -103,10 +103,10 @@ Open `coupon_updates_YYYYMMDD_HHMMSS.sql` and check:
 
 ```bash
 # Allowlist IP (5-minute window)
-gcloud sql connect [INSTANCE_NAME] --user=root --project=[PROJECT_ID]
+gcloud sql connect [INSTANCE_NAME] --user=$DB_USER --project=[PROJECT_ID]
 
 # Apply within 5 minutes
-mysql -h localhost -P 3306 -u root -p csm_db < coupon_updates_20251004_120000.sql
+mysql -h $DB_HOST -P 3306 -u $DB_USER -p $DB_NAME < coupon_updates_20251004_120000.sql
 ```
 
 **Step 4: Commit Transaction**
@@ -281,13 +281,13 @@ ORDER BY student_name;
 python3 scripts/process_coupons.py "latest_file.xls"
 
 # Apply updates
-mysql -u root -p csm_pro < coupon_updates_TIMESTAMP.sql
+mysql -u $DB_USER -p $DB_NAME < coupon_updates_TIMESTAMP.sql
 
 # Check current coupons
-mysql -u root -p csm_pro -e "SELECT COUNT(*), SUM(available_coupons) FROM student_coupons;"
+mysql -u $DB_USER -p $DB_NAME -e "SELECT COUNT(*), SUM(available_coupons) FROM student_coupons;"
 
 # View students with coupons
-mysql -u root -p csm_pro -e "SELECT * FROM students_with_coupons WHERE available_coupons > 0;"
+mysql -u $DB_USER -p $DB_NAME -e "SELECT * FROM students_with_coupons WHERE available_coupons > 0;"
 ```
 
 That's it! 🎉
