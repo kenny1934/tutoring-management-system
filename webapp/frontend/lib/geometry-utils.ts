@@ -39,6 +39,12 @@ export interface GeometryObject {
     vertices?: [number, number][];
     /** Circle radius when defined by value rather than a second point. */
     radius?: number;
+    /** Line dash style: 0=solid, 2=dashed, 3=dotted. */
+    dash?: number;
+    /** IDs of parent points for a dynamic measurement text label. */
+    measurementOf?: string[];
+    /** Whether the angle should display its degree value. */
+    showDegrees?: boolean;
   };
 }
 
@@ -185,6 +191,7 @@ function elementToObject(el: any): GeometryObject | null {
       strokeColor: el.visProp?.strokecolor,
       fillColor: el.visProp?.fillcolor,
       strokeWidth: el.visProp?.strokewidth,
+      dash: el.visProp?.dash || undefined,
     },
   };
 
@@ -234,6 +241,9 @@ function elementToObject(el: any): GeometryObject | null {
       base.attrs.y = el.Y();
       base.attrs.content =
         typeof el.plaintext === "string" ? el.plaintext : String(el.plaintext);
+      if ((el as any)._measurementParents) {
+        base.attrs.measurementOf = (el as any)._measurementParents;
+      }
       break;
 
     case "angle":
@@ -242,6 +252,9 @@ function elementToObject(el: any): GeometryObject | null {
         base.parents = el.parents.slice(0, 3);
       }
       base.attrs.radius = el.visProp?.radius ?? 1;
+      if ((el as any)._showDegrees) {
+        base.attrs.showDegrees = true;
+      }
       break;
 
     default:
@@ -271,6 +284,7 @@ export function deserializeToBoard(
       strokeColor: obj.attrs.strokeColor,
       fillColor: obj.attrs.fillColor,
       strokeWidth: obj.attrs.strokeWidth,
+      dash: obj.attrs.dash || 0,
       fixed,
     };
 
@@ -329,22 +343,71 @@ export function deserializeToBoard(
           break;
         }
 
-        case "text":
+        case "text": {
+          // Dynamic measurement text (midpoint label for segment length)
+          if (obj.attrs.measurementOf && obj.attrs.measurementOf.length === 2) {
+            const mp1 = idMap[obj.attrs.measurementOf[0]];
+            const mp2 = idMap[obj.attrs.measurementOf[1]];
+            if (mp1 && mp2) {
+              created = board.create("text", [
+                () => (mp1.X() + mp2.X()) / 2,
+                () => (mp1.Y() + mp2.Y()) / 2 + 0.3,
+                () => {
+                  const dx = mp2.X() - mp1.X();
+                  const dy = mp2.Y() - mp1.Y();
+                  return Math.sqrt(dx * dx + dy * dy).toFixed(1);
+                },
+              ], {
+                ...baseAttrs,
+                display: "internal",
+                fixed: true,
+                fontSize: 11,
+                anchorX: "middle",
+                anchorY: "bottom",
+              });
+              if (created) (created as any)._measurementParents = obj.attrs.measurementOf;
+              break;
+            }
+          }
+          // Static text
           created = board.create(
             "text",
             [obj.attrs.x!, obj.attrs.y!, obj.attrs.content || ""],
             { ...baseAttrs, display: "internal", fixed: true }
           );
           break;
+        }
 
         case "angle": {
           const pts = obj.parents.map((pid) => idMap[pid]).filter(Boolean);
           if (pts.length < 3) continue;
-          created = board.create("angle", pts, {
+          const angleAttrs: Record<string, any> = {
             ...baseAttrs,
             radius: obj.attrs.radius || 1,
             selection: "minor",
-          });
+          };
+          if (obj.attrs.showDegrees) {
+            // Dynamic name showing degree value
+            angleAttrs.label = {
+              strokeColor: isDark ? "#e3d5c5" : "#1f2937",
+              fontSize: 11,
+              display: "internal",
+            };
+          }
+          if (obj.attrs.showDegrees) {
+            // name must be passed at creation time — setName() expects a string, not a function
+            let angleRef: any;
+            angleAttrs.name = () => {
+              let val = angleRef?.Value ? angleRef.Value() : 0;
+              if (val > Math.PI) val = 2 * Math.PI - val;
+              return (val * 180 / Math.PI).toFixed(1) + "\u00B0";
+            };
+            angleRef = board.create("angle", pts, angleAttrs);
+            (angleRef as any)._showDegrees = true;
+            created = angleRef;
+          } else {
+            created = board.create("angle", pts, angleAttrs);
+          }
           break;
         }
       }

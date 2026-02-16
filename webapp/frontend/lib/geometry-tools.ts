@@ -31,6 +31,45 @@ export const DEFAULT_FILL_ATTRS = {
 };
 
 // ---------------------------------------------------------------------------
+// Color-aware attribute factories (used by tool handlers)
+// ---------------------------------------------------------------------------
+
+/** Convert hex color to rgba with given alpha (0–1). */
+export function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+export function getPointAttrs(color: string) {
+  return {
+    strokeColor: color,
+    fillColor: color,
+    highlightStrokeColor: color,
+    highlightFillColor: color,
+    size: 4,
+  };
+}
+
+export function getLineAttrs(color: string, dash = 0) {
+  return {
+    strokeColor: color,
+    highlightStrokeColor: color,
+    strokeWidth: 2,
+    dash,
+  };
+}
+
+export function getFillAttrs(color: string, dash = 0) {
+  return {
+    ...getLineAttrs(color, dash),
+    fillColor: hexToRgba(color, 0.15),
+    highlightFillColor: hexToRgba(color, 0.25),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -86,6 +125,8 @@ export interface ToolContext {
   textInput: string;
   setTextInput: (v: string) => void;
   lastClickTime: number;
+  activeColor: string;
+  activeDash: number;
 }
 
 export interface ToolResult {
@@ -104,10 +145,10 @@ const unchanged = (ctx: ToolContext): ToolResult => ({
   lastClickTime: ctx.lastClickTime,
 });
 
-/** Build point attrs with snap, auto-name, and label color applied. */
+/** Build point attrs with snap, auto-name, color, and label color applied. */
 function pointAttrs(ctx: ToolContext) {
   return {
-    ...DEFAULT_POINT_ATTRS,
+    ...getPointAttrs(ctx.activeColor),
     name: ctx.nextPointName(),
     snapToGrid: ctx.snapToGrid,
     label: { strokeColor: ctx.isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
@@ -140,10 +181,34 @@ function createLineHandler(lineType: "line" | "segment"): ToolHandler {
     ctx.pushUndo();
     const p2 = existing || board.create("point", [x, y], pointAttrs(ctx));
     board.create(lineType, [pending[0], p2], {
-      ...DEFAULT_LINE_ATTRS,
+      ...getLineAttrs(ctx.activeColor, ctx.activeDash),
       straightFirst: lineType === "line",
       straightLast: lineType === "line",
     });
+
+    // Add length measurement label for segments
+    if (lineType === "segment") {
+      const p1ref = pending[0];
+      const p2ref = p2;
+      const measureText = board.create("text", [
+        () => (p1ref.X() + p2ref.X()) / 2,
+        () => (p1ref.Y() + p2ref.Y()) / 2 + 0.3,
+        () => {
+          const dx = p2ref.X() - p1ref.X();
+          const dy = p2ref.Y() - p1ref.Y();
+          return Math.sqrt(dx * dx + dy * dy).toFixed(1);
+        },
+      ], {
+        fontSize: 11,
+        strokeColor: ctx.isDark ? "#e3d5c5" : "#6b5a4a",
+        anchorX: "middle",
+        anchorY: "bottom",
+        display: "internal",
+        fixed: true,
+      });
+      (measureText as any)._measurementParents = [p1ref.id, p2ref.id];
+    }
+
     ctx.updateObjectCount();
     return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
   };
@@ -162,7 +227,7 @@ function handleCircleTool(ctx: ToolContext, x: number, y: number): ToolResult {
 
   ctx.pushUndo();
   const edgePoint = existing || board.create("point", [x, y], pointAttrs(ctx));
-  board.create("circle", [pending[0], edgePoint], DEFAULT_LINE_ATTRS);
+  board.create("circle", [pending[0], edgePoint], getLineAttrs(ctx.activeColor, ctx.activeDash));
   ctx.updateObjectCount();
   return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
 }
@@ -183,8 +248,7 @@ function handlePolygonTool(ctx: ToolContext, x: number, y: number): ToolResult {
   // Visual feedback — temporary dashed segment between vertices
   if (pending.length > 1) {
     board.create("segment", [pending[pending.length - 2], p], {
-      ...DEFAULT_LINE_ATTRS,
-      dash: 2,
+      ...getLineAttrs(ctx.activeColor, 2),
       name: "",
     });
   }
@@ -218,8 +282,30 @@ function handleAngleTool(ctx: ToolContext, x: number, y: number): ToolResult {
   if (pending.length === 3) {
     ctx.pushUndo();
     // Two segments meeting at vertex (pending[1])
-    board.create("segment", [pending[1], pending[0]], { ...DEFAULT_LINE_ATTRS, name: "" });
-    board.create("segment", [pending[1], pending[2]], { ...DEFAULT_LINE_ATTRS, name: "" });
+    board.create("segment", [pending[1], pending[0]], { ...getLineAttrs(ctx.activeColor, ctx.activeDash), name: "" });
+    board.create("segment", [pending[1], pending[2]], { ...getLineAttrs(ctx.activeColor, ctx.activeDash), name: "" });
+
+    // Angle arc with degree display
+    // name must be passed at creation time — setName() expects a string, not a function
+    let angleEl: any;
+    angleEl = board.create("angle", [pending[0], pending[1], pending[2]], {
+      radius: 0.8,
+      selection: "minor",
+      fillColor: hexToRgba(ctx.activeColor, 0.15),
+      strokeColor: ctx.activeColor,
+      name: () => {
+        let val = angleEl?.Value ? angleEl.Value() : 0;
+        if (val > Math.PI) val = 2 * Math.PI - val;
+        return (val * 180 / Math.PI).toFixed(1) + "\u00B0";
+      },
+      label: {
+        strokeColor: ctx.isDark ? "#e3d5c5" : "#1f2937",
+        fontSize: 11,
+        display: "internal",
+      },
+    });
+    (angleEl as any)._showDegrees = true;
+
     ctx.updateObjectCount();
     return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
   }
@@ -242,8 +328,8 @@ function handleSectorTool(ctx: ToolContext, x: number, y: number): ToolResult {
     board.create("angle", [pending[1], pending[0], pending[2]], {
       radius: r || 1,
       selection: "minor",
-      fillColor: "rgba(160,112,75,0.2)",
-      strokeColor: "#a0704b",
+      fillColor: hexToRgba(ctx.activeColor, 0.2),
+      strokeColor: ctx.activeColor,
       name: "",
     });
     ctx.updateObjectCount();
@@ -251,6 +337,74 @@ function handleSectorTool(ctx: ToolContext, x: number, y: number): ToolResult {
   }
 
   return { pendingPoints: pending, lastClickTime: ctx.lastClickTime };
+}
+
+// ---------------------------------------------------------------------------
+// Shape presets
+// ---------------------------------------------------------------------------
+
+function regularPolygonVertices(
+  cx: number, cy: number, n: number, r: number
+): [number, number][] {
+  const verts: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (2 * Math.PI * i) / n - Math.PI / 2; // start from top
+    verts.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  return verts;
+}
+
+export function createShapePreset(
+  board: any,
+  preset: string,
+  cx: number,
+  cy: number,
+  color: string,
+  dash: number,
+  isDark: boolean,
+  nextPointName: () => string,
+): void {
+  const mkPtAttrs = () => ({
+    ...getPointAttrs(color),
+    name: nextPointName(),
+    snapToGrid: false,
+    label: { strokeColor: isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
+  });
+
+  let vertices: [number, number][];
+  switch (preset) {
+    case "rectangle": {
+      const hw = 2, hh = 1.5;
+      vertices = [
+        [cx - hw, cy + hh], [cx + hw, cy + hh],
+        [cx + hw, cy - hh], [cx - hw, cy - hh],
+      ];
+      break;
+    }
+    case "equilateral-triangle": {
+      const side = 3;
+      const h = (side * Math.sqrt(3)) / 2;
+      vertices = [
+        [cx - side / 2, cy - h / 3],
+        [cx + side / 2, cy - h / 3],
+        [cx, cy + (2 * h) / 3],
+      ];
+      break;
+    }
+    case "pentagon":
+      vertices = regularPolygonVertices(cx, cy, 5, 1.8);
+      break;
+    case "hexagon":
+      vertices = regularPolygonVertices(cx, cy, 6, 1.8);
+      break;
+    default:
+      return;
+  }
+
+  const points = vertices.map(([x, y]) =>
+    board.create("point", [x, y], mkPtAttrs())
+  );
+  board.create("polygon", points, getFillAttrs(color, dash));
 }
 
 // ---------------------------------------------------------------------------

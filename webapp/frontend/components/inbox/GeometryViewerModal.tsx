@@ -119,14 +119,18 @@ export default function GeometryViewerModal({
       <div
         className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         style={{ maxWidth: "52rem", maxHeight: "80vh" }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="geometry-viewer-title"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          <h3 id="geometry-viewer-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             Interactive Diagram
           </h3>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <X className="h-4 w-4 text-gray-500" />
@@ -155,6 +159,7 @@ export default function GeometryViewerModal({
               <button
                 onClick={() => boardRef.current?.zoomIn()}
                 title="Zoom in"
+                aria-label="Zoom in"
                 className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
@@ -162,6 +167,7 @@ export default function GeometryViewerModal({
               <button
                 onClick={() => boardRef.current?.zoomOut()}
                 title="Zoom out"
+                aria-label="Zoom out"
                 className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
@@ -169,6 +175,7 @@ export default function GeometryViewerModal({
               <button
                 onClick={handleZoomReset}
                 title="Reset view"
+                aria-label="Reset view"
                 className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               >
                 <Maximize2 className="h-3.5 w-3.5" />
