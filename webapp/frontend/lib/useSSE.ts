@@ -118,6 +118,16 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
       mutate(isThreadsKey);
     });
 
+    es.addEventListener("message_updated", () => {
+      // Revalidate thread detail to show edited content
+      mutate(isThreadsKey);
+    });
+
+    es.addEventListener("message_deleted", () => {
+      // Revalidate thread detail + thread list (message count changes)
+      mutate(isAnyMessageKey);
+    });
+
     es.addEventListener("reminder_due", (event) => {
       const data: ReminderDueEvent = JSON.parse(event.data);
       // Revalidate all caches (thread list, unread counts, snoozed list)
@@ -150,7 +160,28 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
   useEffect(() => {
     connect();
 
+    // Disconnect SSE when tab is hidden to free backend resources / reduce CPU billing
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      } else {
+        backoffRef.current = 1000;
+        connect();
+        mutate(isAnyMessageKey); // catch up on events missed while hidden
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -160,7 +191,7 @@ export function useSSE(tutorId: number | null | undefined, callbacks?: SSECallba
         reconnectTimeoutRef.current = null;
       }
     };
-  }, [connect]);
+  }, [connect, mutate]);
 
   return { typingByThread };
 }
