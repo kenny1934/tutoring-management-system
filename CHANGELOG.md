@@ -2,6 +2,11 @@
 
 ## [2.0.5](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.5) (2026-02-16)
 
+### New Features
+
+* **Code blocks with syntax highlighting** — toggle via toolbar button or type ``` in the editor; ~35 common languages auto-detected with Catppuccin Mocha color theme; highlighting preserved in sent messages
+* **Drag-and-drop attachment reordering** — drag images horizontally or files vertically (with grip handle) to reorder before sending, in both reply composer and compose modal
+
 ### Improvements
 
 * Scheduled messages now deliver reliably via background task even if the sender doesn't reopen their inbox
