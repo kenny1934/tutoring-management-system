@@ -11,9 +11,13 @@
 * **Grid snapping** — toggle snap-to-grid in the geometry editor toolbar (on by default) for precise point placement at integer coordinates
 * **Auto-named points** — points are automatically labeled A, B, C, ...; click a point in select mode to rename it
 * **Touch support** — geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference
+* **Area-select & group movement** — drag a selection rectangle over compound elements (angles, polygons, circles, segments) then drag any defining point to move the entire shape as a unit
+* **Polygon interior dragging** — click inside any polygon to drag it by its interior
+* **Exact angle input** — type a degree value in the text field when placing an angle to auto-compute the third point at the exact angle
 
 ### Improvements
 
+* Snap-to-grid toggle now updates all existing points on the board
 * Theme toggle updates geometry board colors smoothly without visible flash
 
 ### Bug Fixes
