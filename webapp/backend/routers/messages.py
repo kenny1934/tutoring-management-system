@@ -287,6 +287,27 @@ def _save_mentions(db: Session, message_id: int, html: str) -> set[int]:
     return mention_ids
 
 
+def _get_message_recipient_ids(msg: TutorMessage, db: Session, include_sender: bool = True) -> list[int]:
+    """Get SSE recipient IDs for a message based on its routing type."""
+    recipient_ids: list[int] = []
+    if msg.to_tutor_id is None:
+        # Broadcast: all tutors
+        all_tutors = db.query(Tutor.id).all()
+        recipient_ids = [t.id for t in all_tutors if t.id != msg.from_tutor_id]
+    elif msg.to_tutor_id == GROUP_MESSAGE_SENTINEL:
+        # Group: recipients from message_recipients table
+        recips = db.query(MessageRecipient.tutor_id).filter(
+            MessageRecipient.message_id == msg.id
+        ).all()
+        recipient_ids = [r.tutor_id for r in recips if r.tutor_id != msg.from_tutor_id]
+    elif msg.to_tutor_id > 0:
+        # Direct: just the other party
+        recipient_ids = [msg.to_tutor_id]
+    if include_sender:
+        recipient_ids.append(msg.from_tutor_id)
+    return recipient_ids
+
+
 def _deliver_due_scheduled_messages(tutor_id: int, db: Session):
     """Lazy delivery: find scheduled messages from this tutor that are now due, clear scheduled_at, and broadcast."""
     now = hk_now()
@@ -2281,6 +2302,14 @@ async def update_message(
         .first()
     )
 
+    # Broadcast edit via SSE
+    recipient_ids = _get_message_recipient_ids(message, db)
+    if recipient_ids:
+        asyncio.create_task(sse_manager.broadcast("message_updated", {
+            "message_id": message.id,
+            "thread_id": message.reply_to_id or message.id,
+        }, recipient_ids))
+
     return build_message_response(message, tutor_id, db)
 
 
@@ -2301,6 +2330,10 @@ async def delete_message(
     if message.from_tutor_id != tutor_id:
         raise HTTPException(status_code=403, detail="You can only delete your own messages")
 
+    # Capture recipients before deletion (cascade removes message_recipients)
+    thread_id = message.reply_to_id or message.id
+    recipient_ids = _get_message_recipient_ids(message, db, include_sender=True)
+
     # Nullify message_id on any linked makeup proposals (to avoid FK constraint)
     db.query(MakeupProposal).filter(MakeupProposal.message_id == message_id).update(
         {"message_id": None}, synchronize_session=False
@@ -2313,5 +2346,12 @@ async def delete_message(
     # Delete the message
     db.delete(message)
     db.commit()
+
+    # Broadcast deletion via SSE
+    if recipient_ids:
+        asyncio.create_task(sse_manager.broadcast("message_deleted", {
+            "message_id": message_id,
+            "thread_id": thread_id,
+        }, recipient_ids))
 
     return {"success": True, "message": "Message deleted"}
