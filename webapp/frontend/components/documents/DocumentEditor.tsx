@@ -8,6 +8,10 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Image from "@tiptap/extension-image";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { createMathInputRules, createGeometryDiagramNode } from "@/lib/tiptap-extensions";
 import "katex/dist/katex.min.css";
@@ -25,10 +29,15 @@ import {
   Sigma,
   Hexagon,
   Image as ImageIcon,
+  Grid3X3,
   Printer,
   Check,
   Loader2,
   CloudOff,
+  Plus,
+  Minus,
+  Trash2,
+  ToggleLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -60,6 +69,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
+  const [showTableMenu, setShowTableMenu] = useState(false);
+  const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
 
   // Math editor state
   const [mathEditorOpen, setMathEditorOpen] = useState(false);
@@ -138,6 +149,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         allowBase64: false,
         HTMLAttributes: { class: "document-image" },
       }),
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -350,7 +365,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <div className="relative">
           <button
             ref={colorButtonRef}
-            onClick={() => setShowColorPicker(!showColorPicker)}
+            onClick={() => { setShowColorPicker(!showColorPicker); setShowTableMenu(false); }}
             className={cn(
               "p-1.5 rounded transition-colors",
               showColorPicker ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
@@ -401,6 +416,93 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           onClick={() => imageInputRef.current?.click()}
         />
         {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
+
+        {/* Table menu */}
+        <div className="relative">
+          <button
+            onClick={() => { setShowTableMenu(!showTableMenu); setShowColorPicker(false); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              showTableMenu || editor.isActive("table")
+                ? "bg-[#a0704b] text-white"
+                : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title="Table"
+          >
+            <Grid3X3 className="w-4 h-4" />
+          </button>
+          {showTableMenu && (
+            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
+              {editor.isActive("table") ? (
+                /* Table operations when cursor is in a table */
+                <div className="flex flex-col gap-0.5">
+                  <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Plus className="w-3 h-3" /> Add row above
+                  </button>
+                  <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Plus className="w-3 h-3" /> Add row below
+                  </button>
+                  <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Plus className="w-3 h-3" /> Add column left
+                  </button>
+                  <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Plus className="w-3 h-3" /> Add column right
+                  </button>
+                  <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                  <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Minus className="w-3 h-3" /> Delete row
+                  </button>
+                  <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <Minus className="w-3 h-3" /> Delete column
+                  </button>
+                  <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                    <ToggleLeft className="w-3 h-3" /> Toggle header row
+                  </button>
+                  <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                  <button onClick={() => { editor.chain().focus().deleteTable().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
+                    <Trash2 className="w-3 h-3" /> Delete table
+                  </button>
+                </div>
+              ) : (
+                /* Grid size picker for inserting new table */
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-1.5 px-0.5">
+                    {gridHover ? `${gridHover.rows} × ${gridHover.cols}` : "Insert table"}
+                  </p>
+                  <div
+                    className="grid gap-[3px]"
+                    style={{ gridTemplateColumns: "repeat(5, 1fr)" }}
+                    onMouseLeave={() => setGridHover(null)}
+                  >
+                    {Array.from({ length: 25 }, (_, i) => {
+                      const row = Math.floor(i / 5) + 1;
+                      const col = (i % 5) + 1;
+                      const active = gridHover && row <= gridHover.rows && col <= gridHover.cols;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className={cn(
+                            "w-5 h-5 rounded-sm border transition-colors",
+                            active
+                              ? "bg-[#a0704b] border-[#a0704b]"
+                              : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
+                          )}
+                          onMouseEnter={() => setGridHover({ rows: row, cols: col })}
+                          onClick={() => {
+                            editor.chain().focus().insertTable({ rows: row, cols: col, withHeaderRow: true }).run();
+                            setShowTableMenu(false);
+                            setGridHover(null);
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Editor area — A4 page styling */}

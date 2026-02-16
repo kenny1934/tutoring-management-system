@@ -2345,6 +2345,41 @@ html {
   outline-offset: 2px;
 }
 
+/* Document tables */
+.document-editor-content .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+}
+
+.document-editor-content .tiptap th,
+.document-editor-content .tiptap td {
+  border: 1px solid #e8d4b8;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+}
+
+.document-editor-content .tiptap th {
+  background: #faf5ef;
+  font-weight: 600;
+}
+
+.dark .document-editor-content .tiptap th,
+.dark .document-editor-content .tiptap td {
+  border-color: #6b5a4a;
+}
+
+.dark .document-editor-content .tiptap th {
+  background: #2d2618;
+}
+
+.document-editor-content .tiptap td.selectedCell,
+.document-editor-content .tiptap th.selectedCell {
+  background: rgba(160, 112, 75, 0.12);
+}
+
 /* Print styles for document builder */
 @media print {
   /* Hide everything except the document page */
@@ -2368,6 +2403,10 @@ html {
     border: none !important;
     box-shadow: none !important;
     background: white !important;
+  }
+
+  .document-page table {
+    page-break-inside: avoid;
   }
 
   @page {
