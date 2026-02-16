@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
 import { isHtmlEmpty, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-utils";
+import { highlightCodeBlocks } from "@/lib/code-highlight";
 import GeometryViewerModal from "@/components/inbox/GeometryViewerModal";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
@@ -467,8 +468,8 @@ const MessageBubble = React.memo(function MessageBubble({
   const isBroadcast = m.to_tutor_id === null;
   const isGroup = m.is_group_message;
 
-  // Pre-render KaTeX math + geometry thumbnails into the HTML string
-  const renderedMessage = useMemo(() => renderGeometryInHtml(renderMathInHtml(m.message)), [m.message]);
+  // Pre-render KaTeX math, geometry thumbnails, and syntax highlighting into the HTML string
+  const renderedMessage = useMemo(() => highlightCodeBlocks(renderGeometryInHtml(renderMathInHtml(m.message))), [m.message]);
 
   // Geometry viewer state
   const [geoViewerOpen, setGeoViewerOpen] = useState(false);

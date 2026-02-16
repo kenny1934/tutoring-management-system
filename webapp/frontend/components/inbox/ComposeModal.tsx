@@ -4,9 +4,9 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, Send, Loader2, Megaphone, Users, ChevronDown, Check,
   FileText, Bell, HelpCircle, Calendar,
-  MessageCircle, BookOpen, MessageSquarePlus, Clock,
+  MessageCircle, BookOpen, MessageSquarePlus, Clock, GripVertical,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { messagesAPI } from "@/lib/api";
 import { useFileUpload } from "@/lib/useFileUpload";
@@ -711,42 +711,57 @@ export default function ComposeModal({
             </div>
             {/* Image Previews */}
             {uploadedImages.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {uploadedImages.map((url, index) => (
-                  <div key={url} className="relative group">
+              <Reorder.Group axis="x" values={uploadedImages} onReorder={setUploadedImages} className="mt-2 flex flex-wrap gap-2" as="div">
+                {uploadedImages.map((url) => (
+                  <Reorder.Item
+                    key={url}
+                    value={url}
+                    whileDrag={{ scale: 1.05, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                    className="relative group"
+                    style={{ cursor: uploadedImages.length > 1 ? "grab" : undefined }}
+                    as="div"
+                  >
                     <img
                       src={url}
-                      alt={`Attachment ${index + 1}`}
+                      alt="Attachment"
                       className="h-16 w-16 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]"
                     />
                     <button
                       type="button"
-                      onClick={() => removeImage(index)}
+                      onClick={() => setUploadedImages(prev => prev.filter((u) => u !== url))}
                       className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
                     </button>
-                  </div>
+                  </Reorder.Item>
                 ))}
-              </div>
+              </Reorder.Group>
             )}
             {/* File Previews */}
             {uploadedFiles.length > 0 && (
-              <div className="mt-2 space-y-1.5">
-                {uploadedFiles.map((file, index) => (
-                  <div key={file.url} className="flex items-center gap-2 p-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+              <Reorder.Group axis="y" values={uploadedFiles} onReorder={setUploadedFiles} className="mt-2 space-y-1.5" as="div">
+                {uploadedFiles.map((file) => (
+                  <Reorder.Item
+                    key={file.url}
+                    value={file}
+                    whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                    className="flex items-center gap-2 p-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+                    style={{ cursor: uploadedFiles.length > 1 ? "grab" : undefined }}
+                    as="div"
+                  >
+                    {uploadedFiles.length > 1 && <GripVertical className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />}
                     <FileText className="h-4 w-4 text-[#a0704b] flex-shrink-0" />
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
                     <button
                       type="button"
-                      onClick={() => removeFile(index)}
+                      onClick={() => setUploadedFiles(prev => prev.filter((f) => f.url !== file.url))}
                       className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                     >
                       <X className="h-3 w-3" />
                     </button>
-                  </div>
+                  </Reorder.Item>
                 ))}
-              </div>
+              </Reorder.Group>
             )}
           </div>
 

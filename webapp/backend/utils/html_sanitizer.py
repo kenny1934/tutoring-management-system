@@ -13,11 +13,13 @@ ALLOWED_TAGS = [
 
 ALLOWED_ATTRIBUTES = {
     "a": ["href", "title", "target", "rel"],
-    "span": ["style", "data-type", "data-latex"],
+    "span": ["style", "data-type", "data-latex", "class"],
     "div": ["style", "data-type", "data-latex", "data-graph-json", "data-svg-thumbnail"],
     "img": ["src", "alt", "style"],
     "td": ["colspan", "rowspan", "data-colwidth", "style"],
     "th": ["colspan", "rowspan", "data-colwidth", "style"],
+    "code": ["class"],
+    "pre": ["class"],
 }
 
 ALLOWED_CSS_PROPERTIES = [
