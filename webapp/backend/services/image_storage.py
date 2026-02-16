@@ -47,7 +47,7 @@ def resize_and_compress_image(file_bytes: bytes) -> bytes:
     return buffer.getvalue()
 
 
-def upload_image(file_bytes: bytes, original_filename: Optional[str] = None) -> str:
+def upload_image(file_bytes: bytes, original_filename: Optional[str] = None, prefix: str = "inbox") -> str:
     """
     Process and upload an image to Google Cloud Storage.
 
@@ -72,7 +72,7 @@ def upload_image(file_bytes: bytes, original_filename: Optional[str] = None) -> 
         raise ValueError(f"Invalid image file: {str(e)}")
 
     # Generate unique filename
-    blob_name = f"inbox/{uuid.uuid4()}.jpg"
+    blob_name = f"{prefix}/{uuid.uuid4()}.jpg"
 
     # Upload to GCS
     client = storage.Client()

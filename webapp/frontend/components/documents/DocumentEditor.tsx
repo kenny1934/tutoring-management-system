@@ -7,8 +7,9 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { Mathematics } from "@tiptap/extension-mathematics";
-import { Extension, InputRule, Node as TipTapNode } from "@tiptap/core";
+import Image from "@tiptap/extension-image";
 import type { Node as PmNode } from "@tiptap/pm/model";
+import { createMathInputRules, createGeometryDiagramNode } from "@/lib/tiptap-extensions";
 import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
@@ -23,6 +24,7 @@ import {
   Palette,
   Sigma,
   Hexagon,
+  Image as ImageIcon,
   Printer,
   Check,
   Loader2,
@@ -71,6 +73,29 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [geoEditorPos, setGeoEditorPos] = useState<number | null>(null);
 
   const editorInstanceRef = useRef<ReturnType<typeof useEditor>>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  // Image upload handler (used by toolbar, paste, and drop)
+  const handleImageUpload = useCallback(async (files: File[]) => {
+    const ed = editorInstanceRef.current;
+    if (!ed) return;
+    setIsImageUploading(true);
+    try {
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        const result = await documentsAPI.uploadImage(file);
+        ed.chain().focus().setImage({ src: result.url, alt: result.filename }).run();
+      }
+      setSaveState("unsaved");
+    } catch (error) {
+      console.error("Image upload failed:", error);
+    } finally {
+      setIsImageUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }, []);
 
   // Math click handler
   const handleMathClick = useCallback((node: PmNode, pos: number, type: "inline" | "block") => {
@@ -79,116 +104,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     setMathEditorPos(pos);
     setMathEditorOpen(true);
   }, []);
-
-  // Math input rules (same as InboxRichEditor)
-  const MathInputRules = useCallback(() => Extension.create({
-    name: "mathInputRules",
-    addInputRules() {
-      const inlineMathType = this.editor.schema.nodes.inlineMath;
-      const blockMathType = this.editor.schema.nodes.blockMath;
-      return [
-        new InputRule({
-          find: /(^|[^$])(\$([^$\n]+?)\$)(?!\$)/,
-          handler: ({ state, range, match }) => {
-            const latex = match[3];
-            const { tr } = state;
-            const start = range.from + match[1].length;
-            tr.replaceWith(start, range.to, inlineMathType.create({ latex }));
-          },
-        }),
-        new InputRule({
-          find: /^\$\$([^$]+)\$\$$/,
-          handler: ({ state, range, match }) => {
-            const latex = match[1];
-            const { tr } = state;
-            tr.replaceWith(range.from, range.to, blockMathType.create({ latex }));
-          },
-        }),
-      ];
-    },
-  }), []);
-
-  // Geometry diagram node (same as InboxRichEditor)
-  const GeometryDiagramNode = useCallback(
-    () =>
-      TipTapNode.create({
-        name: "geometryDiagram",
-        group: "block",
-        atom: true,
-        draggable: true,
-        addAttributes() {
-          return {
-            graphJson: { default: "{}" },
-            svgThumbnail: { default: "" },
-          };
-        },
-        parseHTML() {
-          return [{
-            tag: 'div[data-type="geometry-diagram"]',
-            getAttrs: (dom: HTMLElement) => ({
-              graphJson: dom.getAttribute("data-graph-json") || "{}",
-              svgThumbnail: dom.getAttribute("data-svg-thumbnail") || "",
-            }),
-          }];
-        },
-        renderHTML({ HTMLAttributes }) {
-          const thumb = HTMLAttributes.svgThumbnail || "";
-          return [
-            "div",
-            {
-              "data-type": "geometry-diagram",
-              "data-graph-json": HTMLAttributes.graphJson,
-              "data-svg-thumbnail": thumb,
-              style: "cursor:pointer;text-align:center;padding:8px 0;margin:4px 0",
-            },
-            thumb
-              ? ["img", { src: thumb, alt: "Geometry diagram", style: "max-width:100%;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8" }]
-              : ["span", { style: "color:#999;font-size:12px" }, "[Geometry Diagram]"],
-          ];
-        },
-        addNodeView() {
-          return ({ node, getPos }) => {
-            const dom = document.createElement("div");
-            dom.setAttribute("data-type", "geometry-diagram");
-            dom.style.cursor = "pointer";
-            dom.style.textAlign = "center";
-            dom.style.padding = "8px 0";
-            dom.style.margin = "4px 0";
-
-            const thumb = node.attrs.svgThumbnail;
-            if (thumb) {
-              const img = document.createElement("img");
-              img.src = thumb;
-              img.alt = "Geometry diagram";
-              img.style.maxWidth = "100%";
-              img.style.borderRadius = "8px";
-              img.style.border = "1px solid #e8d4b8";
-              dom.appendChild(img);
-            } else {
-              dom.textContent = "[Geometry Diagram]";
-              dom.style.color = "#999";
-              dom.style.fontSize = "12px";
-            }
-
-            dom.addEventListener("click", () => {
-              const pos = typeof getPos === "function" ? getPos() : null;
-              if (pos == null) return;
-              try {
-                const state: GeometryState = JSON.parse(node.attrs.graphJson || "{}");
-                setGeoEditorState(state);
-              } catch {
-                setGeoEditorState(null);
-              }
-              setGeoEditorPos(pos);
-              setGeoEditorOpen(true);
-            });
-
-            return { dom };
-          };
-        },
-      }),
-    []
-  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -205,10 +120,52 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         inlineOptions: { onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, "inline") },
         blockOptions: { onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, "block") },
       }),
-      MathInputRules(),
-      GeometryDiagramNode(),
+      createMathInputRules(),
+      createGeometryDiagramNode({
+        onEdit: (graphJson, pos) => {
+          try {
+            const state: GeometryState = JSON.parse(graphJson);
+            setGeoEditorState(state);
+          } catch {
+            setGeoEditorState(null);
+          }
+          setGeoEditorPos(pos);
+          setGeoEditorOpen(true);
+        },
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { class: "document-image" },
+      }),
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
+    editorProps: {
+      handlePaste: (_view, event) => {
+        const files = event.clipboardData?.files;
+        if (files && files.length > 0) {
+          const imageFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+          if (imageFiles.length > 0) {
+            event.preventDefault();
+            handleImageUpload(imageFiles);
+            return true;
+          }
+        }
+        return false;
+      },
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+          const imageFiles = Array.from(files).filter(f => f.type.startsWith("image/"));
+          if (imageFiles.length > 0) {
+            event.preventDefault();
+            handleImageUpload(imageFiles);
+            return true;
+          }
+        }
+        return false;
+      },
+    },
     onUpdate: () => {
       setSaveState("unsaved");
     },
@@ -437,14 +394,22 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           isActive={false}
           onClick={handleOpenGeoEditor}
         />
+        <ToolbarBtn
+          icon={ImageIcon}
+          label="Insert Image"
+          isActive={false}
+          onClick={() => imageInputRef.current?.click()}
+        />
+        {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
       </div>
 
       {/* Editor area — A4 page styling */}
       <div className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible">
         <div className="py-8 px-4 print:p-0 print:m-0">
           <div
+            ref={pageRef}
             className={cn(
-              "mx-auto bg-white dark:bg-[#2a2420] shadow-lg print:shadow-none",
+              "relative mx-auto bg-white dark:bg-[#2a2420] shadow-lg print:shadow-none",
               "border border-gray-200 dark:border-[#4a3a2a] print:border-none",
               "document-page"
             )}
@@ -459,6 +424,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               editor={editor}
               className="document-editor-content prose prose-sm dark:prose-invert max-w-none"
             />
+            <PageBreakOverlay containerRef={pageRef} />
           </div>
         </div>
       </div>
@@ -483,7 +449,68 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           initialState={geoEditorState}
         />
       )}
+
+      {/* Hidden file input for image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files?.length) handleImageUpload(Array.from(e.target.files));
+        }}
+      />
     </div>
+  );
+}
+
+/* Page-break overlay — dashed lines at 297mm intervals */
+const A4_HEIGHT_MM = 297;
+
+function PageBreakOverlay({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
+  const [pageCount, setPageCount] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Convert 297mm to px using a temporary element
+    const probe = document.createElement("div");
+    probe.style.width = `${A4_HEIGHT_MM}mm`;
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    el.appendChild(probe);
+    const pageHeightPx = probe.offsetWidth; // width set in mm, read as px
+    el.removeChild(probe);
+    if (!pageHeightPx) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const height = entries[0]?.contentRect.height ?? 0;
+      setPageCount(Math.max(1, Math.ceil(height / pageHeightPx)));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  if (pageCount <= 1) return null;
+
+  return (
+    <>
+      {Array.from({ length: pageCount - 1 }, (_, i) => (
+        <div
+          key={i}
+          className="absolute left-0 right-0 pointer-events-none print:hidden flex items-center"
+          style={{ top: `${(i + 1) * A4_HEIGHT_MM}mm` }}
+        >
+          <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
+          <span className="px-2 text-[10px] text-[#c4b5a3] dark:text-[#6b5a4a] select-none">
+            Page {i + 2}
+          </span>
+          <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
+        </div>
+      ))}
+    </>
   );
 }
 

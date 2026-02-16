@@ -2,7 +2,7 @@
 Documents API endpoints.
 CRUD operations for courseware documents (worksheets, exams, lesson plans).
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import List, Optional
@@ -154,3 +154,22 @@ async def delete_document(
     doc.is_archived = True
     db.commit()
     return {"message": "Document archived successfully"}
+
+
+@router.post("/documents/upload-image")
+async def upload_document_image(
+    file: UploadFile = File(...),
+    _: Tutor = Depends(get_current_user),
+):
+    """Upload an image for use in document content. Returns the public URL."""
+    from services.image_storage import upload_image
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    contents = await file.read()
+    try:
+        url = upload_image(contents, file.filename, prefix="documents")
+        return {"url": url, "filename": file.filename}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

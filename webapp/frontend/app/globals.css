@@ -2332,6 +2332,19 @@ html {
   margin: 0.5em 0 0.15em;
 }
 
+/* Document images */
+.document-editor-content .tiptap img.document-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
+
+.document-editor-content .tiptap img.document-image.ProseMirror-selectednode {
+  outline: 2px solid #a0704b;
+  outline-offset: 2px;
+}
+
 /* Print styles for document builder */
 @media print {
   /* Hide everything except the document page */

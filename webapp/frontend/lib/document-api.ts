@@ -55,4 +55,29 @@ export const documentsAPI = {
       method: "DELETE",
     });
   },
+
+  async uploadImage(file: File): Promise<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const headers: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
+      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/documents/upload-image`, {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(error.detail || "Upload failed");
+    }
+
+    return response.json();
+  },
 };
