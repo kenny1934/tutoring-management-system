@@ -86,7 +86,6 @@ jobs:
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-backend/tutoring-backend:latest \
             --region asia-east2 \
             --project csm-database-project \
-            --cpu=0.5 \
             --no-cpu-throttling \
             --max-instances=1
 
