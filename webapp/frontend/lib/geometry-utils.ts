@@ -359,6 +359,7 @@ export function deserializeToBoard(
                 },
               ], {
                 ...baseAttrs,
+                strokeColor: isDark ? "#e3d5c5" : "#6b5a4a",
                 display: "internal",
                 fixed: true,
                 fontSize: 11,
@@ -467,7 +468,10 @@ export function applyBoardTheme(
     }
     // User-created text objects
     if (el.elType === "text" && el.dump !== false) {
-      el.setAttribute({ strokeColor: textColor });
+      const color = (el as any)._measurementParents
+        ? (isDark ? "#e3d5c5" : "#6b5a4a")
+        : textColor;
+      el.setAttribute({ strokeColor: color });
     }
     // Point labels
     if (el.elType === "point" && el.label) {
