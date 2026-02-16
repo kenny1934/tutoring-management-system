@@ -41,7 +41,7 @@ jobs:
           cache: 'pip'
           cache-dependency-path: webapp/backend/requirements.txt
       - name: Install backend dependencies
-        run: pip install -r webapp/backend/requirements.txt
+        run: pip install -r webapp/backend/requirements-dev.txt
       - name: Run backend tests
         run: cd webapp/backend && pytest tests/ -v --tb=short
 
@@ -86,8 +86,8 @@ jobs:
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-backend/tutoring-backend:latest \
             --region asia-east2 \
             --project csm-database-project \
-            --no-cpu-throttling \
-            --max-instances=1
+            --max-instances=1 \
+            --timeout=900
 
   deploy-frontend:
     needs: [changes, test-frontend]
@@ -120,7 +120,8 @@ jobs:
             --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest \
             --region asia-east2 \
             --project csm-database-project \
-            --max-instances=1
+            --max-instances=1 \
+            --timeout=60
 
   summary:
     needs: [changes, deploy-backend, deploy-frontend]

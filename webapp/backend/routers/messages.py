@@ -3,6 +3,8 @@ Messages API endpoints.
 Provides messaging system for tutor-to-tutor communication.
 """
 import asyncio
+import time
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
@@ -633,6 +635,30 @@ def batch_build_message_responses(
 # SSE real-time stream
 # ============================================
 
+_logger = logging.getLogger(__name__)
+
+# Rate-limit periodic checks so only one SSE connection runs them per interval
+_last_periodic_check = 0.0
+_periodic_check_lock = asyncio.Lock()
+
+
+async def _run_periodic_checks():
+    """Run reminder + scheduled-message checks, at most once per 30s across all SSE connections."""
+    global _last_periodic_check
+    now = time.monotonic()
+    if now - _last_periodic_check < 30:
+        return
+    async with _periodic_check_lock:
+        if time.monotonic() - _last_periodic_check < 30:
+            return  # another connection already ran it
+        _last_periodic_check = time.monotonic()
+    try:
+        from main import check_expired_reminders_once, deliver_scheduled_messages_once
+        await check_expired_reminders_once()
+        await deliver_scheduled_messages_once()
+    except Exception as e:
+        _logger.error("Periodic check failed: %s", e)
+
 @router.get("/messages/stream")
 async def message_stream(
     tutor_id: int = Query(..., description="Tutor ID to stream events for"),
@@ -660,6 +686,8 @@ async def message_stream(
                     # Send keepalive comment to prevent connection timeout
                     sse_manager.update_presence(tutor_id)
                     yield ": keepalive\n\n"
+                    # Piggyback periodic checks on the heartbeat
+                    await _run_periodic_checks()
         finally:
             sse_manager.disconnect(tutor_id, queue)
 

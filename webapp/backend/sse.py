@@ -36,6 +36,7 @@ class ConnectionManager:
             queues.remove(queue)
         if not queues:
             self._connections.pop(tutor_id, None)
+            self._presence.pop(tutor_id, None)
         logger.info("SSE disconnect: tutor %d (remaining: %d)", tutor_id, len(self._connections.get(tutor_id, [])))
 
     def update_presence(self, tutor_id: int):

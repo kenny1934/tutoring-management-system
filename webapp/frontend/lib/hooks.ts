@@ -1416,10 +1416,11 @@ export function useMessageTemplates(tutorId?: number) {
  * Polls /messages/presence every 30s and returns a Set of online tutor IDs.
  */
 export function usePresence() {
+  const refreshInterval = useVisibilityAwareInterval(30000);
   const { data } = useSWR<{ online: number[]; last_seen: Record<string, string> }>(
     ['tutor-presence'],
     () => messagesAPI.getPresence(),
-    { refreshInterval: 30000, revalidateOnFocus: false, dedupingInterval: 10000 }
+    { refreshInterval, revalidateOnFocus: false, dedupingInterval: 10000 }
   );
   return useMemo(() => new Set(data?.online || []), [data?.online]);
 }

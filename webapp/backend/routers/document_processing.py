@@ -2,10 +2,11 @@
 Document processing endpoints.
 Provides handwriting removal and document cleaning functionality.
 """
+from __future__ import annotations
+
 import io
 import logging
 import base64
-import numpy as np
 from enum import Enum
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
@@ -15,19 +16,37 @@ from pydantic import BaseModel, Field
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Try to import optional dependencies
-try:
-    import cv2
-    CV2_AVAILABLE = True
-except ImportError:
-    CV2_AVAILABLE = False
-    logger.warning("opencv-python not installed. Handwriting removal will be unavailable.")
+# Lazy-loaded heavy dependencies (only imported when endpoint is called)
+np = None
+cv2 = None
+fitz = None
+CV2_AVAILABLE = None
+FITZ_AVAILABLE = None
 
-try:
-    import fitz  # PyMuPDF
-    FITZ_AVAILABLE = True
-except ImportError:
-    FITZ_AVAILABLE = False
+
+def _ensure_heavy_imports():
+    """Lazy-load numpy, cv2, and fitz on first use to speed up cold start."""
+    global np, cv2, fitz, CV2_AVAILABLE, FITZ_AVAILABLE
+    if CV2_AVAILABLE is not None:
+        return  # already loaded
+    try:
+        import numpy as _np
+        np = _np
+    except ImportError:
+        pass
+    try:
+        import cv2 as _cv2
+        cv2 = _cv2
+        CV2_AVAILABLE = True
+    except ImportError:
+        CV2_AVAILABLE = False
+        logger.warning("opencv-python not installed. Handwriting removal will be unavailable.")
+    try:
+        import fitz as _fitz
+        fitz = _fitz
+        FITZ_AVAILABLE = True
+    except ImportError:
+        FITZ_AVAILABLE = False
     logger.warning("PyMuPDF not installed. PDF processing will be unavailable.")
 
 
@@ -395,6 +414,7 @@ async def remove_handwriting(request: HandwritingRemovalRequest):
 
     Returns a cleaned PDF as base64.
     """
+    _ensure_heavy_imports()
     if not CV2_AVAILABLE:
         raise HTTPException(
             status_code=503,
@@ -491,6 +511,7 @@ async def remove_handwriting_file(
     Remove handwriting from an uploaded PDF file.
     Returns the cleaned PDF as a file download.
     """
+    _ensure_heavy_imports()
     if not CV2_AVAILABLE or not FITZ_AVAILABLE:
         raise HTTPException(
             status_code=503,
@@ -552,6 +573,7 @@ async def get_status():
     Check if document processing is available.
     Returns status of required dependencies.
     """
+    _ensure_heavy_imports()
     return {
         "available": CV2_AVAILABLE and FITZ_AVAILABLE,
         "opencv": CV2_AVAILABLE,
