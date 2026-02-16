@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TutorAvatar } from "@/lib/avatar-utils";
-import { isHtmlEmpty, renderMathInHtml, renderGeometryInHtml } from "@/lib/html-utils";
+import { isHtmlEmpty, renderMathInHtml, renderGeometryInHtml, highlightTextNodes } from "@/lib/html-utils";
 import { highlightCodeBlocks } from "@/lib/code-highlight";
 import GeometryViewerModal from "@/components/inbox/GeometryViewerModal";
 import { messagesAPI } from "@/lib/api";
@@ -430,7 +430,6 @@ export interface MessageBubbleProps {
   isEditing: boolean;
   currentTutorId: number;
   pictureUrl?: string;
-  highlightRegex: RegExp | null;
   threadSearch: string;
   mentionUsers: MentionUser[];
   isOnline?: boolean;
@@ -453,7 +452,6 @@ const MessageBubble = React.memo(function MessageBubble({
   isEditing,
   currentTutorId,
   pictureUrl,
-  highlightRegex,
   threadSearch,
   mentionUsers,
   isOnline,
@@ -470,6 +468,12 @@ const MessageBubble = React.memo(function MessageBubble({
 
   // Pre-render KaTeX math, geometry thumbnails, and syntax highlighting into the HTML string
   const renderedMessage = useMemo(() => highlightCodeBlocks(renderGeometryInHtml(renderMathInHtml(m.message))), [m.message]);
+
+  // Apply search highlighting on visible text nodes only (skips KaTeX/code/geometry internals)
+  const highlightedMessage = useMemo(
+    () => threadSearch ? highlightTextNodes(renderedMessage, threadSearch) : renderedMessage,
+    [renderedMessage, threadSearch]
+  );
 
   // Geometry viewer state
   const [geoViewerOpen, setGeoViewerOpen] = useState(false);
@@ -626,13 +630,7 @@ const MessageBubble = React.memo(function MessageBubble({
                 }
               }
             }}
-            dangerouslySetInnerHTML={{ __html: highlightRegex
-              ? renderedMessage.replace(
-                  highlightRegex,
-                  (_match: string, tag: string | undefined, text: string | undefined) => tag ? tag : `<mark class="bg-yellow-200 dark:bg-yellow-700/50 rounded-sm px-0.5">${text}</mark>`
-                )
-              : renderedMessage
-            }}
+            dangerouslySetInnerHTML={{ __html: highlightedMessage }}
           />
         ) : (
           <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
