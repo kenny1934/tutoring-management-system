@@ -8,6 +8,8 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import Image from "@tiptap/extension-image";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -25,6 +27,10 @@ import {
   ListOrdered,
   TextQuote,
   Code,
+  Underline as UnderlineIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
   Palette,
   Sigma,
   Hexagon,
@@ -149,6 +155,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         allowBase64: false,
         HTMLAttributes: { class: "document-image" },
       }),
+      Underline,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
       Table.configure({ resizable: false }),
       TableRow,
       TableCell,
@@ -343,6 +351,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <ToolbarBtn icon={Bold} label="Bold" isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
         <ToolbarBtn icon={Italic} label="Italic" isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
         <ToolbarBtn icon={Strikethrough} label="Strikethrough" isActive={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} />
+        <ToolbarBtn icon={UnderlineIcon} label="Underline" isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
         <ToolbarBtn
           icon={Heading}
@@ -359,6 +368,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <ToolbarBtn icon={ListOrdered} label="Ordered List" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
         <ToolbarBtn icon={TextQuote} label="Blockquote" isActive={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
         <ToolbarBtn icon={Code} label="Code" isActive={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} />
+        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+        <ToolbarBtn icon={AlignLeft} label="Align Left" isActive={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} />
+        <ToolbarBtn icon={AlignCenter} label="Align Center" isActive={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} />
+        <ToolbarBtn icon={AlignRight} label="Align Right" isActive={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
 
         {/* Color picker */}
