@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.1.0](https://github.com/kenny1934/tutoring-management-system/compare/v2.0.5...v2.1.0) (2026-02-16)
+
+
+### New Features
+
+* Add code blocks with syntax highlighting and drag-and-drop attachment reordering ([9e8879e](https://github.com/kenny1934/tutoring-management-system/commit/9e8879e9debf6c9817a1dd514c79b5aaa0e6d853))
+* Add geometry PNG export, copy/paste diagrams, and construction tools ([a84901e](https://github.com/kenny1934/tutoring-management-system/commit/a84901ef4ce2d0d60276d35509f82aa9922ee32f))
+* Add table support with grid picker and operations menu ([38c1196](https://github.com/kenny1934/tutoring-management-system/commit/38c119600cbd491b54fb788b89853a60a3e73acb))
+
+
+### Bug Fixes
+
+* Fix multi-stage Dockerfile to copy site-packages correctly ([c8d3023](https://github.com/kenny1934/tutoring-management-system/commit/c8d3023827d8dbc9d571b92e965eec6e61422f0f))
+* Remove --cpu=0.5 flag (requires concurrency=1, incompatible with SSE) ([88e8d51](https://github.com/kenny1934/tutoring-management-system/commit/88e8d51f09656bb93c6aa41a127b1fc754d77d31))
+
+
+### Performance
+
+* Full Cloud Run cost optimization ([18359cf](https://github.com/kenny1934/tutoring-management-system/commit/18359cf8adcabcc85a01625cd51d42e76edcbfa3))
+* Optimize Cloud Run costs and add real-time SSE for edits/deletes ([b10137a](https://github.com/kenny1934/tutoring-management-system/commit/b10137ad51d73e3450709a8f8a4f92bf79b3146a))
+* Remove periodic auth refresh timer to allow scale-to-zero ([648a117](https://github.com/kenny1934/tutoring-management-system/commit/648a117bdc5cfc75880cf27c81528ffaea4a0d4a))
+
+
+### Improvements
+
+* Extract ThreadDetailPanel and fix search highlighting ([cd4e928](https://github.com/kenny1934/tutoring-management-system/commit/cd4e928c072adcfb9b3c96fd38a18031e0cee60d))
+
 ## [2.0.5](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.5) (2026-02-16)
 
 ### New Features
