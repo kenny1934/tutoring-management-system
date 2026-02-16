@@ -133,12 +133,91 @@ async def _check_expired_reminders():
             logger.error("Reminder check failed: %s", e)
 
 
+async def _deliver_scheduled_messages():
+    """Background task: deliver scheduled messages that are now due every 30s.
+    This ensures messages are delivered even if the sender never opens their inbox."""
+    from database import SessionLocal
+    from models import TutorMessage, Tutor, MessageRecipient, MessageMention
+    from sqlalchemy.orm import joinedload
+    from sse import sse_manager
+    from constants import hk_now
+    import re
+
+    GROUP_MESSAGE_SENTINEL = -1
+    _MENTION_ID_RE = re.compile(r'data-type=["\']mention["\'][^>]*data-id=["\'](\d+)["\']')
+
+    while True:
+        await asyncio.sleep(30)
+        try:
+            db = SessionLocal()
+            try:
+                now = hk_now()
+                due_messages = db.query(TutorMessage).options(
+                    joinedload(TutorMessage.from_tutor)
+                ).filter(
+                    TutorMessage.scheduled_at.isnot(None),
+                    TutorMessage.scheduled_at <= now,
+                ).with_for_update(skip_locked=True).all()
+
+                for msg in due_messages:
+                    msg.created_at = now
+                    msg.scheduled_at = None
+                    db.commit()
+
+                    # Parse and save @mentions
+                    mention_ids: set[int] = set()
+                    if msg.message:
+                        mention_ids = {int(m) for m in _MENTION_ID_RE.findall(msg.message)}
+                        if mention_ids:
+                            existing = db.query(MessageMention.mentioned_tutor_id).filter(
+                                MessageMention.message_id == msg.id
+                            ).all()
+                            existing_ids = {r.mentioned_tutor_id for r in existing}
+                            for tid in mention_ids - existing_ids:
+                                db.add(MessageMention(message_id=msg.id, mentioned_tutor_id=tid))
+                            if mention_ids != existing_ids:
+                                db.commit()
+
+                    # Determine recipients
+                    recipient_ids = []
+                    if msg.to_tutor_id is None:
+                        all_tutors = db.query(Tutor.id).all()
+                        recipient_ids = [t.id for t in all_tutors if t.id != msg.from_tutor_id]
+                    elif msg.to_tutor_id == GROUP_MESSAGE_SENTINEL:
+                        recips = db.query(MessageRecipient.tutor_id).filter(
+                            MessageRecipient.message_id == msg.id
+                        ).all()
+                        recipient_ids = [r.tutor_id for r in recips]
+                    elif msg.to_tutor_id > 0:
+                        recipient_ids = [msg.to_tutor_id]
+
+                    if recipient_ids:
+                        await sse_manager.broadcast("new_message", {
+                            "message_id": msg.id,
+                            "thread_id": msg.reply_to_id or msg.id,
+                            "from_tutor_id": msg.from_tutor_id,
+                            "from_tutor_name": msg.from_tutor.tutor_name if msg.from_tutor else None,
+                            "subject": msg.subject,
+                            "preview": (msg.message or "")[:100],
+                            "category": msg.category,
+                            "priority": msg.priority,
+                            "mentioned_tutor_ids": sorted(mention_ids),
+                        }, recipient_ids)
+                        logger.info("Delivered scheduled message %d to %d recipients", msg.id, len(recipient_ids))
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error("Scheduled message delivery failed: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app_instance):
     """Application lifespan: start/stop background tasks."""
-    task = asyncio.create_task(_check_expired_reminders())
+    reminder_task = asyncio.create_task(_check_expired_reminders())
+    scheduled_task = asyncio.create_task(_deliver_scheduled_messages())
     yield
-    task.cancel()
+    reminder_task.cancel()
+    scheduled_task.cancel()
 
 
 # Initialize FastAPI app
