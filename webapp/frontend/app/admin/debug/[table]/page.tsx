@@ -3088,7 +3088,7 @@ export default function TableBrowserPage() {
                   <span className="kbd-key">Space</span>
                   <span className="text-gray-600 dark:text-gray-400">Toggle row selection</span>
 
-                  <span className="kbd-key">⌘S</span>
+                  <span className="kbd-key">Ctrl+S</span>
                   <span className="text-gray-600 dark:text-gray-400">Save (while editing)</span>
 
                   <span className="kbd-key">Esc</span>

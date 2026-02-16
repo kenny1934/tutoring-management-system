@@ -9,6 +9,49 @@ function unescapeHtmlEntities(s: string): string {
     .replace(/&quot;/g, '"');
 }
 
+/**
+ * Normalize MathLive's \displaylines{a}{b} to KaTeX-compatible \displaylines{a \\ b}.
+ * MathLive's "add row" menu produces multiple brace groups; KaTeX expects a single group
+ * with \\ separators. Uses brace-depth counting to handle nested braces correctly.
+ */
+function normalizeDisplaylines(latex: string): string {
+  const prefix = "\\displaylines";
+  let idx = latex.indexOf(prefix);
+  while (idx !== -1) {
+    let pos = idx + prefix.length;
+    // Skip whitespace
+    while (pos < latex.length && latex[pos] === " ") pos++;
+    if (pos >= latex.length || latex[pos] !== "{") {
+      idx = latex.indexOf(prefix, pos);
+      continue;
+    }
+    // Collect consecutive top-level brace groups
+    const groups: string[] = [];
+    while (pos < latex.length && latex[pos] === "{") {
+      let depth = 0;
+      const start = pos;
+      for (let i = pos; i < latex.length; i++) {
+        if (latex[i] === "{") depth++;
+        else if (latex[i] === "}") depth--;
+        if (depth === 0) {
+          groups.push(latex.substring(start + 1, i));
+          pos = i + 1;
+          break;
+        }
+      }
+      if (depth !== 0) break; // unmatched brace — bail
+    }
+    if (groups.length > 1) {
+      const merged = `${prefix}{${groups.join(" \\\\ ")}}`;
+      latex = latex.substring(0, idx) + merged + latex.substring(pos);
+      idx = latex.indexOf(prefix, idx + merged.length);
+    } else {
+      idx = latex.indexOf(prefix, pos);
+    }
+  }
+  return latex;
+}
+
 /** Strip HTML tags from a string and trim whitespace. */
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
@@ -23,7 +66,7 @@ export function renderMathInHtml(html: string): string {
       const latexMatch = match.match(/data-latex="([^"]*)"/);
       if (!latexMatch) return match;
       try {
-        return katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: false });
+        return katex.renderToString(normalizeDisplaylines(unescapeHtmlEntities(latexMatch[1])), { throwOnError: false, displayMode: false });
       } catch { return latexMatch[1]; }
     }
   );
@@ -34,7 +77,7 @@ export function renderMathInHtml(html: string): string {
       const latexMatch = match.match(/data-latex="([^"]*)"/);
       if (!latexMatch) return match;
       try {
-        return `<div class="block-math-rendered">${katex.renderToString(unescapeHtmlEntities(latexMatch[1]), { throwOnError: false, displayMode: true })}</div>`;
+        return `<div class="block-math-rendered">${katex.renderToString(normalizeDisplaylines(unescapeHtmlEntities(latexMatch[1])), { throwOnError: false, displayMode: true })}</div>`;
       } catch { return latexMatch[1]; }
     }
   );
