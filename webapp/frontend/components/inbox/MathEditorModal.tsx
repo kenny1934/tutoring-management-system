@@ -122,15 +122,22 @@ export default function MathEditorModal({
     };
   }, [mathliveLoaded, isOpen, initialLatex]);
 
-  // Hide virtual keyboard when modal closes
+  // Hide virtual keyboard when modal closes or component unmounts
   useEffect(() => {
     if (!isOpen && mathliveLoaded) {
       const kbd = (window as any).mathVirtualKeyboard;
-      if (kbd) {
-        kbd.hide();
-      }
+      if (kbd) kbd.hide();
     }
   }, [isOpen, mathliveLoaded]);
+
+  // Also hide on unmount (component is conditionally rendered, so the
+  // isOpen→false effect above may never fire)
+  useEffect(() => {
+    return () => {
+      const kbd = (window as any).mathVirtualKeyboard;
+      if (kbd) kbd.hide();
+    };
+  }, []);
 
   // Track virtual keyboard height for mobile layout
   useEffect(() => {

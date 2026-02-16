@@ -14,11 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "058_message_templates.sql",
-    "059_thread_mutes.sql",
-    "060_message_snoozes.sql",
-    "061_message_mentions.sql",
-    "062_scheduled_messages.sql",
+    "064_documents.sql",
 ]
 
 def main():

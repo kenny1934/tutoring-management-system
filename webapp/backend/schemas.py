@@ -1829,6 +1829,52 @@ class TutorMemoImportRequest(BaseModel):
     import_rating: bool = True
 
 
+# ============================================
+# Document Builder Schemas
+# ============================================
+
+class DocumentCreate(BaseModel):
+    """Create a new document."""
+    title: str = "Untitled Document"
+    doc_type: str = Field(..., pattern="^(worksheet|lesson_plan)$")
+
+
+class DocumentUpdate(BaseModel):
+    """Update a document. All fields optional."""
+    title: Optional[str] = None
+    content: Optional[dict] = None
+    is_archived: Optional[bool] = None
+
+
+class DocumentResponse(BaseModel):
+    """Full document response including content."""
+    id: int
+    title: str
+    doc_type: str
+    content: Optional[dict] = None
+    created_by: int
+    created_by_name: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_archived: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentListItem(BaseModel):
+    """Document summary for list views (no content)."""
+    id: int
+    title: str
+    doc_type: str
+    created_by: int
+    created_by_name: str = ""
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_archived: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Enable forward references for nested models
 SessionResponse.model_rebuild()
 StudentDetailResponse.model_rebuild()

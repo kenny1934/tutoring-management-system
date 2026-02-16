@@ -2300,3 +2300,65 @@ html {
 .hljs-regexp { color: #f38ba8; }
 .hljs-deletion { color: #f38ba8; }
 .hljs-addition { color: #a6e3a1; }
+
+/* ========================================
+   Document Editor — A4 page styling
+   ======================================== */
+
+.document-editor-content .tiptap {
+  outline: none;
+  min-height: calc(297mm - 50.8mm); /* A4 height minus top+bottom margins */
+}
+
+.document-editor-content .tiptap p {
+  margin: 0.25em 0;
+}
+
+.document-editor-content .tiptap h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin: 0.75em 0 0.25em;
+}
+
+.document-editor-content .tiptap h2 {
+  font-size: 1.35em;
+  font-weight: 600;
+  margin: 0.6em 0 0.2em;
+}
+
+.document-editor-content .tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.5em 0 0.15em;
+}
+
+/* Print styles for document builder */
+@media print {
+  /* Hide everything except the document page */
+  body > * {
+    visibility: hidden !important;
+  }
+
+  .document-page,
+  .document-page * {
+    visibility: visible !important;
+  }
+
+  .document-page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm !important;
+    min-height: auto !important;
+    padding: 20mm !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+}

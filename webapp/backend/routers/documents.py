@@ -1,0 +1,156 @@
+"""
+Documents API endpoints.
+CRUD operations for courseware documents (worksheets, exams, lesson plans).
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc
+from typing import List, Optional
+from database import get_db
+from constants import hk_now
+from models import Document, Tutor
+from schemas import (
+    DocumentCreate,
+    DocumentUpdate,
+    DocumentResponse,
+    DocumentListItem,
+)
+from auth.dependencies import get_current_user, reject_guest
+
+router = APIRouter()
+
+
+def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
+    """Convert a Document ORM object to response dict."""
+    data = {
+        "id": doc.id,
+        "title": doc.title,
+        "doc_type": doc.doc_type,
+        "created_by": doc.created_by,
+        "created_by_name": doc.creator.tutor_name if doc.creator else "Unknown",
+        "created_at": doc.created_at,
+        "updated_at": doc.updated_at,
+        "is_archived": doc.is_archived,
+    }
+    if include_content:
+        data["content"] = doc.content
+    return data
+
+
+@router.get("/documents", response_model=List[DocumentListItem])
+async def list_documents(
+    doc_type: Optional[str] = Query(None, pattern="^(worksheet|lesson_plan)$"),
+    search: Optional[str] = Query(None),
+    include_archived: bool = Query(False),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """List documents with optional filters."""
+    query = db.query(Document).options(joinedload(Document.creator))
+
+    if not include_archived:
+        query = query.filter(Document.is_archived == False)
+    if doc_type:
+        query = query.filter(Document.doc_type == doc_type)
+    if search:
+        query = query.filter(Document.title.ilike(f"%{search}%"))
+
+    docs = query.order_by(desc(Document.updated_at)).offset(offset).limit(limit).all()
+    return [_doc_to_response(d, include_content=False) for d in docs]
+
+
+@router.get("/documents/{doc_id}", response_model=DocumentResponse)
+async def get_document(
+    doc_id: int,
+    _: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """Get a single document with full content."""
+    doc = db.query(Document).options(
+        joinedload(Document.creator)
+    ).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return _doc_to_response(doc)
+
+
+@router.post("/documents", response_model=DocumentResponse)
+async def create_document(
+    data: DocumentCreate,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new document."""
+    now = hk_now()
+    doc = Document(
+        title=data.title,
+        doc_type=data.doc_type,
+        content={"type": "doc", "content": [{"type": "paragraph"}]},
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    # Reload with relationship
+    doc = db.query(Document).options(
+        joinedload(Document.creator)
+    ).filter(Document.id == doc.id).first()
+    return _doc_to_response(doc)
+
+
+@router.put("/documents/{doc_id}", response_model=DocumentResponse)
+async def update_document(
+    doc_id: int,
+    data: DocumentUpdate,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update a document (title, content, or archive status)."""
+    doc = db.query(Document).options(
+        joinedload(Document.creator)
+    ).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Only creator or admins can update
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only modify your own documents")
+
+    if data.title is not None:
+        doc.title = data.title
+    if data.content is not None:
+        doc.content = data.content
+    if data.is_archived is not None:
+        doc.is_archived = data.is_archived
+    doc.updated_at = hk_now()
+
+    db.commit()
+    db.refresh(doc)
+    return _doc_to_response(doc)
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Soft-delete a document (archive it)."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only delete your own documents")
+
+    doc.is_archived = True
+    db.commit()
+    return {"message": "Document archived successfully"}

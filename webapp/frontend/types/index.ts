@@ -1780,3 +1780,29 @@ export interface TutorMemoImportRequest {
   import_exercises: boolean;
   import_rating: boolean;
 }
+
+// Document Builder types
+export type DocType = 'worksheet' | 'lesson_plan';
+
+export interface Document {
+  id: number;
+  title: string;
+  doc_type: DocType;
+  content?: Record<string, unknown> | null;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+  is_archived: boolean;
+}
+
+export interface DocumentCreate {
+  title: string;
+  doc_type: DocType;
+}
+
+export interface DocumentUpdate {
+  title?: string;
+  content?: Record<string, unknown>;
+  is_archived?: boolean;
+}
