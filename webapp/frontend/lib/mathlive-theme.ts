@@ -39,4 +39,9 @@ export const KEYBOARD_THEME_CSS = `
   --keyboard-toolbar-text-active: #c9a96e;
   --keyboard-toolbar-background-hover: #3d3628;
 }
+@media (max-width: 639px) {
+  math-field::part(virtual-keyboard-toggle) {
+    display: none !important;
+  }
+}
 `;
