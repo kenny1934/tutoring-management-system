@@ -20,6 +20,7 @@ import {
   ZoomOut,
   Maximize2,
   Grid3x3,
+  Shapes,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -37,9 +38,10 @@ import {
   TOOL_HANDLERS,
   getMouseCoords,
   generatePointName,
-  DEFAULT_POINT_ATTRS,
-  DEFAULT_LINE_ATTRS,
-  DEFAULT_FILL_ATTRS,
+  getPointAttrs,
+  getLineAttrs,
+  getFillAttrs,
+  createShapePreset,
 } from "@/lib/geometry-tools";
 import { latexToJs } from "@/lib/latex-to-js";
 import { KEYBOARD_THEME_CSS } from "@/lib/mathlive-theme";
@@ -71,6 +73,17 @@ interface GeometryEditorModalProps {
 // ---------------------------------------------------------------------------
 // Tool definitions
 // ---------------------------------------------------------------------------
+
+const COLOR_PALETTE = [
+  { color: "#a0704b", label: "Brown" },
+  { color: "#dc2626", label: "Red" },
+  { color: "#2563eb", label: "Blue" },
+  { color: "#16a34a", label: "Green" },
+  { color: "#9333ea", label: "Purple" },
+  { color: "#ea580c", label: "Orange" },
+  { color: "#1f2937", label: "Black" },
+  { color: "#6b7280", label: "Gray" },
+];
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] = [
   { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select, Delete to remove" },
@@ -110,6 +123,12 @@ export default function GeometryEditorModal({
   const [editCoords, setEditCoords] = useState("");
   const [editName, setEditName] = useState("");
   const [snapToGrid, setSnapToGrid] = useState(true);
+  const [activeColor, setActiveColor] = useState("#a0704b");
+  const [activeDash, setActiveDash] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [shapePreset, setShapePreset] = useState<string | null>(null);
+  const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
+  const shapeMenuRef = useRef<HTMLDivElement>(null);
 
   const boardRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -314,6 +333,16 @@ export default function GeometryEditorModal({
       if (!coords) return;
       const [x, y] = coords;
 
+      // Shape preset: click to place
+      if (shapePreset) {
+        pushUndo();
+        createShapePreset(board, shapePreset, x, y, activeColor, activeDash, isDark(), nextPointName);
+        setShapePreset(null);
+        updateObjectCount();
+        recalcPointCounter();
+        return;
+      }
+
       const handler = TOOL_HANDLERS[tool];
       if (handler) {
         const result = handler(
@@ -328,12 +357,15 @@ export default function GeometryEditorModal({
             textInput,
             setTextInput,
             lastClickTime: lastClickTimeRef.current,
+            activeColor,
+            activeDash,
           },
           x,
           y
         );
         pendingPointsRef.current = result.pendingPoints;
         lastClickTimeRef.current = result.lastClickTime;
+        setPendingCount(result.pendingPoints.length);
       }
     };
 
@@ -341,36 +373,39 @@ export default function GeometryEditorModal({
     return () => {
       board.off("down", handleDown);
     };
-  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark, snapToGrid, nextPointName]);
+  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark, snapToGrid, nextPointName, activeColor, activeDash, shapePreset, recalcPointCounter]);
+
+  // Close polygon — shared by double-click and explicit button
+  const handleClosePolygon = useCallback(() => {
+    const board = boardRef.current;
+    const pending = pendingPointsRef.current;
+    if (!board || pending.length < 3) return;
+
+    pushUndo();
+    // Remove temporary dashed segments
+    const toRemove = board.objectsList.filter(
+      (el: any) => el.elType === "segment" && el.visProp?.dash === 2
+    );
+    for (const seg of toRemove) {
+      board.removeObject(seg);
+    }
+    board.create("polygon", pending, getFillAttrs(activeColor, activeDash));
+    pendingPointsRef.current = [];
+    setPendingCount(0);
+    updateObjectCount();
+  }, [pushUndo, updateObjectCount, activeColor, activeDash]);
 
   // Handle double-click to close polygon
   useEffect(() => {
     const board = boardRef.current;
     if (!board || !isOpen || tool !== "polygon") return;
 
-    const handleDblClick = () => {
-      const pending = pendingPointsRef.current;
-      if (pending.length >= 3) {
-        pushUndo();
-        // Remove temporary dashed segments
-        const toRemove = board.objectsList.filter(
-          (el: any) => el.elType === "segment" && el.visProp?.dash === 2
-        );
-        for (const seg of toRemove) {
-          board.removeObject(seg);
-        }
-        board.create("polygon", pending, DEFAULT_FILL_ATTRS);
-        pendingPointsRef.current = [];
-        updateObjectCount();
-      }
-    };
-
     const el = containerRef.current;
-    if (el) el.addEventListener("dblclick", handleDblClick);
+    if (el) el.addEventListener("dblclick", handleClosePolygon);
     return () => {
-      if (el) el.removeEventListener("dblclick", handleDblClick);
+      if (el) el.removeEventListener("dblclick", handleClosePolygon);
     };
-  }, [tool, isOpen, jsxLoaded, boardVersion, pushUndo, updateObjectCount]);
+  }, [tool, isOpen, jsxLoaded, boardVersion, handleClosePolygon]);
 
   // ---------------------------------------------------------------------------
   // Selection highlight
@@ -413,6 +448,7 @@ export default function GeometryEditorModal({
     setSelectedEl(null);
     setEditCoords("");
     setEditName("");
+    setPendingCount(0);
   }, [tool]);
 
   useEffect(() => {
@@ -440,6 +476,18 @@ export default function GeometryEditorModal({
       board.update();
     }
   }, [tool]);
+
+  // Close shapes menu on click outside
+  useEffect(() => {
+    if (!shapeMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (shapeMenuRef.current && !shapeMenuRef.current.contains(e.target as Node)) {
+        setShapeMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [shapeMenuOpen]);
 
   // ---------------------------------------------------------------------------
   // Configure MathLive mathfield when function tool is active
@@ -604,7 +652,7 @@ export default function GeometryEditorModal({
       }
       pushUndo();
       const curve = board.create("functiongraph", [fn], {
-        ...DEFAULT_LINE_ATTRS,
+        ...getLineAttrs(activeColor, activeDash),
         strokeWidth: 2.5,
         name: "",
       });
@@ -618,7 +666,7 @@ export default function GeometryEditorModal({
       const msg = err instanceof Error ? err.message : "Unknown error";
       showToast(`Invalid expression: ${msg}`, "error");
     }
-  }, [funcInput, pushUndo, updateObjectCount, showToast]);
+  }, [funcInput, pushUndo, updateObjectCount, showToast, activeColor, activeDash]);
 
   // ---------------------------------------------------------------------------
   // Add point at exact coordinates
@@ -630,10 +678,15 @@ export default function GeometryEditorModal({
     const parts = coordInput.split(",").map((s) => parseFloat(s.trim()));
     if (parts.length !== 2 || parts.some(isNaN)) return;
     pushUndo();
-    board.create("point", [parts[0], parts[1]], { ...DEFAULT_POINT_ATTRS, name: nextPointName(), snapToGrid });
+    board.create("point", [parts[0], parts[1]], {
+      ...getPointAttrs(activeColor),
+      name: nextPointName(),
+      snapToGrid,
+      label: { strokeColor: isDark() ? "#e3d5c5" : "#1f2937", display: "internal" },
+    });
     setCoordInput("");
     updateObjectCount();
-  }, [coordInput, pushUndo, updateObjectCount, nextPointName, snapToGrid]);
+  }, [coordInput, pushUndo, updateObjectCount, nextPointName, snapToGrid, activeColor, isDark]);
 
   // ---------------------------------------------------------------------------
   // Move selected point to new coordinates
@@ -772,14 +825,18 @@ export default function GeometryEditorModal({
       <div
         className="relative w-full mx-4 bg-white dark:bg-[#2a2a2a] rounded-xl shadow-2xl border border-[#e8d4b8] dark:border-[#6b5a4a] animate-in fade-in zoom-in-95 duration-150 flex flex-col"
         style={{ maxWidth: "52rem", maxHeight: "85vh" }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="geometry-editor-title"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          <h3 id="geometry-editor-title" className="text-sm font-semibold text-gray-800 dark:text-gray-200">
             {isEditing ? "Edit Diagram" : "Create Diagram"}
           </h3>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <X className="h-4 w-4 text-gray-500" />
@@ -793,6 +850,7 @@ export default function GeometryEditorModal({
               key={t.id}
               onClick={() => setTool(t.id)}
               title={`${t.label} — ${t.hint}`}
+              aria-label={t.label}
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors",
                 tool === t.id
@@ -811,6 +869,7 @@ export default function GeometryEditorModal({
             onClick={handleUndo}
             disabled={undoStackRef.current.length === 0}
             title="Undo (Ctrl+Z)"
+            aria-label="Undo"
             className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
           >
             <Undo2 className="h-4 w-4" />
@@ -819,6 +878,7 @@ export default function GeometryEditorModal({
             onClick={handleRedo}
             disabled={redoCount === 0}
             title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
             className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors disabled:opacity-30"
           >
             <Redo2 className="h-4 w-4" />
@@ -826,6 +886,7 @@ export default function GeometryEditorModal({
           <button
             onClick={handleClear}
             title="Clear all"
+            aria-label="Clear all"
             className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 rounded-lg transition-colors"
           >
             <Trash2 className="h-4 w-4" />
@@ -845,6 +906,99 @@ export default function GeometryEditorModal({
           >
             <Grid3x3 className="h-4 w-4" />
           </button>
+
+          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+
+          {/* Color palette */}
+          <div className="flex items-center gap-0.5">
+            {COLOR_PALETTE.map((c) => (
+              <button
+                key={c.color}
+                onClick={() => setActiveColor(c.color)}
+                title={c.label}
+                className={cn(
+                  "w-5 h-5 rounded-full border-2 transition-all",
+                  activeColor === c.color
+                    ? "border-gray-800 dark:border-white scale-110"
+                    : "border-transparent hover:border-gray-300 dark:hover:border-gray-600"
+                )}
+                style={{ backgroundColor: c.color }}
+              />
+            ))}
+          </div>
+
+          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+
+          {/* Line style toggle */}
+          <button
+            onClick={() => {
+              const cycle = [0, 2, 3];
+              const idx = cycle.indexOf(activeDash);
+              setActiveDash(cycle[(idx + 1) % cycle.length]);
+            }}
+            title={`Line style: ${activeDash === 0 ? "Solid" : activeDash === 2 ? "Dashed" : "Dotted"}`}
+            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] rounded-lg transition-colors"
+          >
+            <svg width="20" height="12" viewBox="0 0 20 12" className="text-current">
+              {activeDash === 0 && <line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" />}
+              {activeDash === 2 && <line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" />}
+              {activeDash === 3 && <line x1="2" y1="6" x2="18" y2="6" stroke="currentColor" strokeWidth="2" strokeDasharray="1 3" strokeLinecap="round" />}
+            </svg>
+          </button>
+
+          <div className="w-px h-5 bg-[#e8d4b8]/60 dark:bg-[#6b5a4a]/60 mx-1" />
+
+          {/* Shape presets dropdown */}
+          <div className="relative" ref={shapeMenuRef}>
+            <button
+              onClick={() => setShapeMenuOpen((v) => !v)}
+              title="Shape presets"
+              className={cn(
+                "flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg transition-colors",
+                shapePreset
+                  ? "bg-[#a0704b] text-white shadow-sm"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628]"
+              )}
+            >
+              <Shapes className="h-4 w-4" />
+              <span className="hidden sm:inline">Shapes</span>
+            </button>
+            {shapeMenuOpen && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#2a2a2a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 z-10 min-w-[170px]">
+                {[
+                  { id: "rectangle", label: "Rectangle" },
+                  { id: "equilateral-triangle", label: "Equilateral Triangle" },
+                  { id: "pentagon", label: "Pentagon" },
+                  { id: "hexagon", label: "Hexagon" },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setShapePreset(s.id);
+                      setShapeMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+                {shapePreset && (
+                  <>
+                    <div className="border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 my-1" />
+                    <button
+                      onClick={() => {
+                        setShapePreset(null);
+                        setShapeMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#3d3628] transition-colors"
+                    >
+                      Cancel placement
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Function input bar — shown when function tool is active */}
@@ -989,10 +1143,28 @@ export default function GeometryEditorModal({
             >
               Move
             </button>
+            <div className="flex items-center gap-0.5 ml-1">
+              {COLOR_PALETTE.map((c) => (
+                <button
+                  key={c.color}
+                  onClick={() => {
+                    pushUndo();
+                    selectedEl.setAttribute({ strokeColor: c.color, fillColor: c.color });
+                    if (selectedEl.label) {
+                      selectedEl.label.setAttribute({ strokeColor: isDark() ? "#e3d5c5" : "#1f2937" });
+                    }
+                    boardRef.current?.update();
+                  }}
+                  className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-125 transition-transform"
+                  style={{ backgroundColor: c.color }}
+                />
+              ))}
+            </div>
             <button
               onClick={handleDeleteSelected}
-              className="px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
             >
+              <Trash2 className="h-3 w-3" />
               Delete
             </button>
           </div>
@@ -1004,23 +1176,89 @@ export default function GeometryEditorModal({
             <span className="text-xs text-gray-500 dark:text-gray-400">
               Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
             </span>
+            <div className="flex items-center gap-0.5 ml-2">
+              {COLOR_PALETTE.map((c) => (
+                <button
+                  key={c.color}
+                  onClick={() => {
+                    pushUndo();
+                    selectedEl.setAttribute({ strokeColor: c.color });
+                    if (selectedEl.elType === "polygon") {
+                      selectedEl.setAttribute({ fillColor: `${c.color}26` });
+                      // Also update polygon border segments
+                      if (selectedEl.borders) {
+                        selectedEl.borders.forEach((b: any) => b?.setAttribute({ strokeColor: c.color }));
+                      }
+                    }
+                    boardRef.current?.update();
+                  }}
+                  className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-125 transition-transform"
+                  style={{ backgroundColor: c.color }}
+                />
+              ))}
+            </div>
+            {["line", "segment", "circle", "polygon", "functiongraph", "curve"].includes(selectedEl.elType) && (
+              <div className="flex items-center gap-0.5 ml-1">
+                {[0, 2, 3].map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      pushUndo();
+                      selectedEl.setAttribute({ dash: d });
+                      if (selectedEl.elType === "polygon" && selectedEl.borders) {
+                        selectedEl.borders.forEach((b: any) => b?.setAttribute({ dash: d }));
+                      }
+                      boardRef.current?.update();
+                    }}
+                    title={d === 0 ? "Solid" : d === 2 ? "Dashed" : "Dotted"}
+                    className={cn(
+                      "p-1 rounded transition-colors",
+                      (selectedEl.visProp?.dash || 0) === d
+                        ? "bg-[#f5ede3] dark:bg-[#3d3628]"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-800"
+                    )}
+                  >
+                    <svg width="16" height="8" viewBox="0 0 16 8" className="text-gray-600 dark:text-gray-400">
+                      {d === 0 && <line x1="1" y1="4" x2="15" y2="4" stroke="currentColor" strokeWidth="2" />}
+                      {d === 2 && <line x1="1" y1="4" x2="15" y2="4" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />}
+                      {d === 3 && <line x1="1" y1="4" x2="15" y2="4" stroke="currentColor" strokeWidth="2" strokeDasharray="1 2" strokeLinecap="round" />}
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex-1" />
             <button
               onClick={handleDeleteSelected}
-              className="px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
             >
+              <Trash2 className="h-3 w-3" />
               Delete
             </button>
           </div>
         )}
 
         {/* Tool hint */}
-        <div className="px-4 py-1 text-[10px] text-gray-400 dark:text-gray-500">
-          {TOOLS.find((t) => t.id === tool)?.hint}
-          {pendingPointsRef.current.length > 0 && (
+        <div className="flex items-center px-4 py-1 text-[10px] text-gray-400 dark:text-gray-500">
+          <span>
+            {shapePreset
+              ? "Click on the board to place the shape"
+              : tool === "polygon" && pendingCount >= 3
+                ? "Click to add vertices \u00B7 Double-click or press Close to finish"
+                : TOOLS.find((t) => t.id === tool)?.hint}
+          </span>
+          {pendingCount > 0 && (
             <span className="ml-2 text-[#a0704b]">
-              {pendingPointsRef.current.length} point(s) selected
+              {pendingCount} point{pendingCount !== 1 ? "s" : ""} pending
             </span>
+          )}
+          {tool === "polygon" && pendingCount >= 3 && (
+            <button
+              onClick={handleClosePolygon}
+              className="ml-auto px-2.5 py-0.5 text-[10px] font-medium bg-[#a0704b] text-white rounded hover:bg-[#8b5f3c] transition-colors"
+            >
+              Close Polygon
+            </button>
           )}
         </div>
 

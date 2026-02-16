@@ -69,6 +69,7 @@ function ToolbarButton({ icon: Icon, label, isActive, onClick, className }: Tool
         className
       )}
       title={label}
+      aria-label={label}
     >
       <Icon className="w-4 h-4" />
     </button>
