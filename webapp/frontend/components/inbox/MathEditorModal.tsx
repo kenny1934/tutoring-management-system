@@ -297,8 +297,11 @@ export default function MathEditorModal({
                   onClick={() => {
                     const mf = mathfieldRef.current as any;
                     if (mf) {
-                      mf.value = t.latex;
-                      setLatex(t.latex);
+                      mf.insert(t.latex, {
+                        insertionMode: "replaceSelection",
+                        selectionMode: "placeholder",
+                      });
+                      setLatex(mf.value);
                       mf.focus();
                     }
                   }}
