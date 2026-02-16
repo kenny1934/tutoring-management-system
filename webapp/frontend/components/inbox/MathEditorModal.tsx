@@ -194,8 +194,16 @@ export default function MathEditorModal({
       className="fixed inset-0 z-[100] flex items-start justify-center sm:pt-[10vh]"
       onKeyDown={handleKeyDown}
     >
-      {/* MathLive keyboard theme — warm brown palette */}
-      <style>{KEYBOARD_THEME_CSS}</style>
+      {/* MathLive keyboard theme + mobile mathfield sizing */}
+      <style>{KEYBOARD_THEME_CSS}{`
+        @media (max-width: 639px) {
+          .math-field-mobile {
+            min-height: 120px !important;
+            font-size: 26px !important;
+            padding: 16px !important;
+          }
+        }
+      `}</style>
 
       {/* Backdrop */}
       <div
@@ -238,6 +246,7 @@ export default function MathEditorModal({
             <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
               <math-field
                 ref={mathfieldRef as any}
+                className="math-field-mobile"
                 aria-label="Math equation input"
                 style={{
                   display: "block",
