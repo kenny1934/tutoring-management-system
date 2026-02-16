@@ -41,6 +41,9 @@ google-cloud-storage==2.14.0
 # Image processing
 Pillow==10.2.0
 
+# HTTP client (used by paperless, wecom)
+httpx==0.27.0
+
 # Document processing (optional - for handwriting removal)
 numpy<2.0  # Required for opencv compatibility
 opencv-python-headless==4.9.0.80
