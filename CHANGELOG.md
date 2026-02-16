@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.5](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.5) (2026-02-16)
+
+### Improvements
+
+* Scheduled messages now deliver reliably via background task even if the sender doesn't reopen their inbox
+* Math editor templates insert at cursor position instead of replacing the entire equation
+* Snoozed and scheduled message lists load faster with batched queries
+
+### Bug Fixes
+
+* Fixed segment measurement labels not updating color when switching between light and dark mode
+* Fixed measurement label colors reverting to stale values on undo/redo
+
 ## [2.0.4](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.4) (2026-02-15)
 
 ### New Features
