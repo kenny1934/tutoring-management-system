@@ -5,6 +5,17 @@ const changelogData = [
     "date": "2026-02-16",
     "sections": [
       {
+        "title": "New Features",
+        "items": [
+          {
+            "description": "**Code blocks with syntax highlighting** — toggle via toolbar button or type ``` in the editor; ~35 common languages auto-detected with Catppuccin Mocha color theme; highlighting preserved in sent messages"
+          },
+          {
+            "description": "**Drag-and-drop attachment reordering** — drag images horizontally or files vertically (with grip handle) to reorder before sending, in both reply composer and compose modal"
+          }
+        ]
+      },
+      {
         "title": "Improvements",
         "items": [
           {
