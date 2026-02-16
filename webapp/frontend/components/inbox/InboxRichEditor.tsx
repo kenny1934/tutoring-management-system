@@ -19,6 +19,8 @@ import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import type { MessageTemplate } from "@/types";
 import { Table, TableRow, TableCell, TableHeader } from "@tiptap/extension-table";
+import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
 import {
   Bold,
   Italic,
@@ -36,6 +38,7 @@ import {
   Hexagon,
   MoreHorizontal,
   Check,
+  SquareTerminal,
   Table2,
   Plus,
   Minus,
@@ -45,6 +48,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AVATAR_COLORS, getInitials } from "@/lib/avatar-utils";
+
+const lowlight = createLowlight(common);
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -474,7 +479,7 @@ export default function InboxRichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // Enable all features (unlike WeCom editor which disables lists/strike)
+        // Enable all features; code block handled by CodeBlockLowlight
         codeBlock: false,
         horizontalRule: false,
         link: {
@@ -500,6 +505,7 @@ export default function InboxRichEditor({
           onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, 'block'),
         },
       }),
+      CodeBlockLowlight.configure({ lowlight }),
       Table.configure({ resizable: false }),
       TableRow,
       TableCell,
@@ -774,6 +780,13 @@ export default function InboxRichEditor({
           onClick={() => editor.chain().focus().toggleCode().run()}
           className="hidden sm:block"
         />
+        <ToolbarButton
+          icon={SquareTerminal}
+          label="Code Block"
+          isActive={editor.isActive("codeBlock")}
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          className="hidden sm:block"
+        />
         {/* Table insert / operations */}
         <div className="hidden sm:block">
           {editor.isActive("table") ? (
@@ -934,6 +947,7 @@ export default function InboxRichEditor({
             { icon: ListOrdered, label: "Numbered List", active: editor.isActive("orderedList"), action: () => editor.chain().focus().toggleOrderedList().run() },
             { icon: TextQuote, label: "Blockquote", active: editor.isActive("blockquote"), action: () => editor.chain().focus().toggleBlockquote().run() },
             { icon: Code, label: "Code", active: editor.isActive("code"), action: () => editor.chain().focus().toggleCode().run() },
+            { icon: SquareTerminal, label: "Code Block", active: editor.isActive("codeBlock"), action: () => editor.chain().focus().toggleCodeBlock().run() },
             { icon: Table2, label: "Table", active: editor.isActive("table"), action: () => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); } },
             { icon: Sigma, label: "Math", active: editor.isActive("inlineMath") || editor.isActive("blockMath"), action: handleOpenMathEditor },
             { icon: Hexagon, label: "Geometry", active: editor.isActive("geometryDiagram"), action: handleOpenGeoEditor },

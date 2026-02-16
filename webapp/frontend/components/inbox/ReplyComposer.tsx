@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText } from "lucide-react";
+import { Send, Loader2, X, ChevronDown, Clock, Calendar, FileText, GripVertical } from "lucide-react";
+import { Reorder } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { isHtmlEmpty } from "@/lib/html-utils";
 import { saveReplyDraft, loadReplyDraft, clearReplyDraft, isReplyDraftEmpty } from "@/lib/inbox-drafts";
@@ -257,42 +258,57 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
       />
       {/* Attachment previews + send row */}
       {replyFiles.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {replyFiles.map((file, idx) => (
-            <div key={file.url} className="flex items-center gap-2 px-2 py-1 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50">
+        <Reorder.Group axis="y" values={replyFiles} onReorder={setReplyFiles} className="mt-2 space-y-1" as="div">
+          {replyFiles.map((file) => (
+            <Reorder.Item
+              key={file.url}
+              value={file}
+              whileDrag={{ scale: 1.03, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+              className="flex items-center gap-2 px-2 py-1 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf6f1]/50 dark:bg-[#1a1a1a]/50"
+              style={{ cursor: replyFiles.length > 1 ? "grab" : undefined }}
+              as="div"
+            >
+              {replyFiles.length > 1 && <GripVertical className="h-3 w-3 text-gray-400 flex-shrink-0" />}
               <FileText className="h-3.5 w-3.5 text-[#a0704b] flex-shrink-0" />
               <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{file.filename}</span>
               <button
                 type="button"
-                onClick={() => setReplyFiles(prev => prev.filter((_, i) => i !== idx))}
+                onClick={() => setReplyFiles(prev => prev.filter((f) => f.url !== file.url))}
                 className="p-0.5 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
               >
                 <X className="h-3 w-3" />
               </button>
-            </div>
+            </Reorder.Item>
           ))}
-        </div>
+        </Reorder.Group>
       )}
       <div className="flex items-end justify-between mt-2">
-        <div className="flex flex-wrap gap-2 flex-1 min-w-0">
-          {replyImages.map((url, idx) => (
-            <div key={url} className="relative group hover:opacity-80 transition-opacity">
-              <img src={url} alt={`Attachment ${idx + 1}`} className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
+        <Reorder.Group axis="x" values={replyImages} onReorder={setReplyImages} className="flex flex-wrap gap-2 flex-1 min-w-0" as="div">
+          {replyImages.map((url) => (
+            <Reorder.Item
+              key={url}
+              value={url}
+              whileDrag={{ scale: 1.05, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+              className="relative group hover:opacity-80 transition-opacity"
+              style={{ cursor: replyImages.length > 1 ? "grab" : undefined }}
+              as="div"
+            >
+              <img src={url} alt="Attachment" className="h-12 w-12 object-cover rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]" />
               <button
                 type="button"
-                onClick={() => setReplyImages(prev => prev.filter((_, i) => i !== idx))}
+                onClick={() => setReplyImages(prev => prev.filter((u) => u !== url))}
                 className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-60 hover:opacity-100 transition-opacity"
               >
                 <X className="h-3 w-3" />
               </button>
-            </div>
+            </Reorder.Item>
           ))}
           {isReplyUploading && (
             <div className="h-12 w-12 flex items-center justify-center rounded-lg border border-dashed border-[#e8d4b8] dark:border-[#6b5a4a]">
               <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
             </div>
           )}
-        </div>
+        </Reorder.Group>
         <div className="flex items-center gap-1 ml-2">
           {onSendVoice && (
             <VoiceRecorder onSend={onSendVoice} />

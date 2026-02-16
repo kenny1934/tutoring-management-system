@@ -2226,3 +2226,77 @@ html {
 .dark .prose th {
   background-color: #3d3628;
 }
+
+/* Code block styles — editor */
+.tiptap pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.tiptap pre code {
+  background: none !important;
+  padding: 0 !important;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.dark .tiptap pre {
+  background: #11111b;
+}
+
+/* Code block styles — rendered messages */
+.prose pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.prose pre code {
+  background: none !important;
+  padding: 0 !important;
+  border-radius: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+.dark .prose pre {
+  background: #11111b;
+}
+
+/* Syntax highlighting — Catppuccin Mocha-inspired warm palette */
+.hljs-keyword { color: #cba6f7; }
+.hljs-string { color: #a6e3a1; }
+.hljs-number { color: #fab387; }
+.hljs-comment { color: #6c7086; font-style: italic; }
+.hljs-function { color: #89b4fa; }
+.hljs-title { color: #89b4fa; }
+.hljs-built_in { color: #f38ba8; }
+.hljs-type { color: #f9e2af; }
+.hljs-attr { color: #fab387; }
+.hljs-variable { color: #cdd6f4; }
+.hljs-params { color: #cdd6f4; }
+.hljs-literal { color: #fab387; }
+.hljs-selector-class { color: #a6e3a1; }
+.hljs-selector-tag { color: #cba6f7; }
+.hljs-tag { color: #89b4fa; }
+.hljs-name { color: #89b4fa; }
+.hljs-attribute { color: #f9e2af; }
+.hljs-symbol { color: #f5c2e7; }
+.hljs-meta { color: #fab387; }
+.hljs-regexp { color: #f38ba8; }
+.hljs-deletion { color: #f38ba8; }
+.hljs-addition { color: #a6e3a1; }
