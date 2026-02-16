@@ -1952,7 +1952,6 @@ async def get_archived_messages(
         return (msg.to_tutor_id == tutor_id or msg.to_tutor_id is None or
                 (msg.to_tutor_id == GROUP_MESSAGE_SENTINEL and msg.id in _arch_group_visible_ids))
 
-    # Helper to build MessageResponse
     def build_response(msg: TutorMessage) -> MessageResponse:
         is_group = msg.to_tutor_id == GROUP_MESSAGE_SENTINEL
         if is_group:

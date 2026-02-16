@@ -9,7 +9,6 @@ interface TestAlertBannerProps {
   tests: UpcomingTestAlert[];
 }
 
-// Helper function to get colors based on event type
 function getEventTypeColors(eventType: string) {
   const type = eventType.toLowerCase();
 
