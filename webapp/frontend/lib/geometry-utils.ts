@@ -19,7 +19,11 @@ export interface GeometryObject {
     | "polygon"
     | "functiongraph"
     | "text"
-    | "angle";
+    | "angle"
+    | "perpendicular"
+    | "parallel"
+    | "midpoint"
+    | "bisector";
   id: string;
   /** IDs of parent objects (e.g. a line references two point IDs). */
   parents: string[];
@@ -144,6 +148,10 @@ const SERIALIZABLE_TYPES = new Set([
   "text",
   "angle",
   "curve", // JSXGraph uses elType="curve" for functiongraphs
+  "perpendicular",
+  "parallel",
+  "midpoint",
+  "bisector",
 ]);
 
 // ---------------------------------------------------------------------------
@@ -254,6 +262,28 @@ function elementToObject(el: any): GeometryObject | null {
       base.attrs.radius = el.visProp?.radius ?? 1;
       if ((el as any)._showDegrees) {
         base.attrs.showDegrees = true;
+      }
+      break;
+
+    case "perpendicular":
+    case "parallel":
+      // Parents: [line/segment ID, point ID]
+      if (el.parents && el.parents.length >= 2) {
+        base.parents = el.parents.slice(0, 2);
+      }
+      break;
+
+    case "midpoint":
+      // Parents: [point1 ID, point2 ID], position is derived
+      if (el.parents && el.parents.length >= 2) {
+        base.parents = el.parents.slice(0, 2);
+      }
+      break;
+
+    case "bisector":
+      // Parents: [point1 ID, vertex ID, point3 ID]
+      if (el.parents && el.parents.length >= 3) {
+        base.parents = el.parents.slice(0, 3);
       }
       break;
 
@@ -411,6 +441,36 @@ export function deserializeToBoard(
           }
           break;
         }
+
+        case "perpendicular":
+        case "parallel": {
+          const lineOrSeg = idMap[obj.parents[0]];
+          const pt = idMap[obj.parents[1]];
+          if (!lineOrSeg || !pt) continue;
+          created = board.create(obj.type, [lineOrSeg, pt], baseAttrs);
+          break;
+        }
+
+        case "midpoint": {
+          const mp1 = idMap[obj.parents[0]];
+          const mp2 = idMap[obj.parents[1]];
+          if (!mp1 || !mp2) continue;
+          created = board.create("midpoint", [mp1, mp2], {
+            ...baseAttrs,
+            snapToGrid: !readOnly,
+            label: { strokeColor: isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
+          });
+          break;
+        }
+
+        case "bisector": {
+          const bp1 = idMap[obj.parents[0]];
+          const bv = idMap[obj.parents[1]];
+          const bp2 = idMap[obj.parents[2]];
+          if (!bp1 || !bv || !bp2) continue;
+          created = board.create("bisector", [bp1, bv, bp2], baseAttrs);
+          break;
+        }
       }
 
       if (created) {
@@ -498,6 +558,43 @@ export function exportBoardSvg(board: any): string {
   const serializer = new XMLSerializer();
   const svgStr = serializer.serializeToString(svgRoot);
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgStr)))}`;
+}
+
+/** Export the board as a PNG blob (via SVG → Canvas). */
+export async function exportBoardPng(board: any, scale = 2): Promise<Blob> {
+  const svgDataUri = exportBoardSvg(board);
+  const w = board.canvasWidth || 400;
+  const h = board.canvasHeight || 300;
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      const ctx = canvas.getContext("2d")!;
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+        "image/png"
+      );
+    };
+    img.onerror = () => reject(new Error("SVG image load failed"));
+    img.src = svgDataUri;
+  });
+}
+
+/** Trigger a browser download for an arbitrary Blob. */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---------------------------------------------------------------------------

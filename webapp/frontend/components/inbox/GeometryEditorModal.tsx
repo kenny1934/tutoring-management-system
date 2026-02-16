@@ -21,6 +21,7 @@ import {
   Maximize2,
   Grid3x3,
   Shapes,
+  Download,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,8 @@ import {
   serializeBoard,
   deserializeToBoard,
   exportBoardSvg,
+  exportBoardPng,
+  downloadBlob,
   createThemedBoard,
   applyBoardTheme,
   LIGHT_BOARD_ATTRS,
@@ -61,13 +64,19 @@ type Tool =
   | "polygon"
   | "function"
   | "text"
-  | "angle";
+  | "angle"
+  | "perpendicular"
+  | "parallel"
+  | "midpoint"
+  | "bisector";
 
 interface GeometryEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInsert: (graphJson: string, svgDataUri: string) => void;
   initialState?: GeometryState | null;
+  /** True when editing an existing diagram in the document (shows Update/Delete). False for new diagrams, even if pre-filled. */
+  isEditingExisting?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +105,10 @@ const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] 
   { id: "function", label: "f(x)", icon: <TrendingUp className="h-4 w-4" />, hint: "Type a math expression and press Plot" },
   { id: "text", label: "Label", icon: <Type className="h-4 w-4" />, hint: "Click to place text" },
   { id: "angle", label: "Angle", icon: <TriangleRight className="h-4 w-4" />, hint: "Click endpoint, vertex, endpoint" },
+  { id: "perpendicular", label: "Perp.", icon: <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="3" y1="13" x2="13" y2="13" /><line x1="8" y1="3" x2="8" y2="13" /><rect x="8" y="10" width="3" height="3" strokeWidth="1" /></svg>, hint: "Click point, then a line" },
+  { id: "parallel", label: "Para.", icon: <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="2" y1="5" x2="14" y2="5" /><line x1="2" y1="11" x2="14" y2="11" /></svg>, hint: "Click point, then a line" },
+  { id: "midpoint", label: "Mid", icon: <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="2" y1="8" x2="14" y2="8" /><circle cx="8" cy="8" r="2.5" fill="currentColor" /></svg>, hint: "Click two points" },
+  { id: "bisector", label: "Bisect", icon: <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="8" y1="13" x2="3" y2="3" /><line x1="8" y1="13" x2="13" y2="3" /><line x1="8" y1="13" x2="8" y2="2" strokeDasharray="2 1.5" /></svg>, hint: "Click 3 points: ray, vertex, ray" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -107,6 +120,7 @@ export default function GeometryEditorModal({
   onClose,
   onInsert,
   initialState,
+  isEditingExisting = false,
 }: GeometryEditorModalProps) {
   const { resolvedTheme } = useTheme();
   const { showToast } = useToast();
@@ -149,7 +163,7 @@ export default function GeometryEditorModal({
     x1: number; y1: number; x2: number; y2: number;
   } | null>(null);
 
-  const isEditing = !!initialState;
+  const isEditing = isEditingExisting;
 
   // ---------------------------------------------------------------------------
   // Lazy-load JSXGraph
@@ -923,6 +937,17 @@ export default function GeometryEditorModal({
   // Insert
   // ---------------------------------------------------------------------------
 
+  const handleExportPng = useCallback(async () => {
+    const board = boardRef.current;
+    if (!board) return;
+    try {
+      const blob = await exportBoardPng(board);
+      downloadBlob(blob, "geometry.png");
+    } catch {
+      showToast("Failed to export PNG", "error");
+    }
+  }, [showToast]);
+
   const handleInsert = useCallback(() => {
     const board = boardRef.current;
     if (!board) return;
@@ -1534,6 +1559,15 @@ export default function GeometryEditorModal({
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            <button
+              onClick={handleExportPng}
+              disabled={objectCount === 0}
+              title="Export as PNG"
+              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors disabled:opacity-30"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">PNG</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">

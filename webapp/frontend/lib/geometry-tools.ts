@@ -98,6 +98,24 @@ export function findNearbyPoint(board: any, x: number, y: number): any | null {
   return null;
 }
 
+/** Find an existing line or segment near (x, y). */
+export function findNearbyLine(board: any, x: number, y: number): any | null {
+  const bb = board.getBoundingBox();
+  const threshold = ((bb[2] - bb[0]) / (board.canvasWidth || 600)) * 20;
+  for (const el of board.objectsList) {
+    if (el.elType !== "line" && el.elType !== "segment") continue;
+    if (el.visProp?.visible === false) continue;
+    // Use JSXGraph's distance calculation from point to line
+    try {
+      const dist = Math.abs(
+        el.stdform[0] + el.stdform[1] * x + el.stdform[2] * y
+      ) / Math.sqrt(el.stdform[1] ** 2 + el.stdform[2] ** 2);
+      if (dist < threshold) return el;
+    } catch { continue; }
+  }
+  return null;
+}
+
 /** Generate sequential point names: A, B, C, ..., Z, A₁, B₁, ... */
 export function generatePointName(index: number): string {
   const letter = String.fromCharCode(65 + (index % 26));
@@ -359,6 +377,113 @@ function handleSectorTool(ctx: ToolContext, x: number, y: number): ToolResult {
 }
 
 // ---------------------------------------------------------------------------
+// Construction tools
+// ---------------------------------------------------------------------------
+
+/**
+ * Perpendicular line tool (2-click): point, then line/segment.
+ * Creates a line through the point, perpendicular to the selected line.
+ */
+function handlePerpendicularTool(ctx: ToolContext, x: number, y: number): ToolResult {
+  const { board, pendingPoints: pending } = ctx;
+
+  if (pending.length === 0) {
+    // First click: select or create a point
+    const existing = findNearbyPoint(board, x, y);
+    const p = existing || board.create("point", [x, y], pointAttrs(ctx));
+    return { pendingPoints: [p], lastClickTime: ctx.lastClickTime };
+  }
+
+  // Second click: select a line or segment
+  const line = findNearbyLine(board, x, y);
+  if (!line) return unchanged(ctx); // Must click near a line
+
+  ctx.pushUndo();
+  board.create("perpendicular", [line, pending[0]], {
+    ...getLineAttrs(ctx.activeColor, ctx.activeDash),
+    name: "",
+  });
+  ctx.updateObjectCount();
+  return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
+}
+
+/**
+ * Parallel line tool (2-click): point, then line/segment.
+ * Creates a line through the point, parallel to the selected line.
+ */
+function handleParallelTool(ctx: ToolContext, x: number, y: number): ToolResult {
+  const { board, pendingPoints: pending } = ctx;
+
+  if (pending.length === 0) {
+    const existing = findNearbyPoint(board, x, y);
+    const p = existing || board.create("point", [x, y], pointAttrs(ctx));
+    return { pendingPoints: [p], lastClickTime: ctx.lastClickTime };
+  }
+
+  const line = findNearbyLine(board, x, y);
+  if (!line) return unchanged(ctx);
+
+  ctx.pushUndo();
+  board.create("parallel", [line, pending[0]], {
+    ...getLineAttrs(ctx.activeColor, ctx.activeDash),
+    name: "",
+  });
+  ctx.updateObjectCount();
+  return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
+}
+
+/**
+ * Midpoint tool (2-click): two points.
+ * Creates a point at the midpoint of the two selected points.
+ */
+function handleMidpointTool(ctx: ToolContext, x: number, y: number): ToolResult {
+  const { board, pendingPoints: pending } = ctx;
+  const existing = findNearbyPoint(board, x, y);
+  if (existing && pending.includes(existing)) return unchanged(ctx);
+
+  if (pending.length === 0) {
+    const p = existing || board.create("point", [x, y], pointAttrs(ctx));
+    return { pendingPoints: [p], lastClickTime: ctx.lastClickTime };
+  }
+
+  ctx.pushUndo();
+  const p2 = existing || board.create("point", [x, y], pointAttrs(ctx));
+  board.create("midpoint", [pending[0], p2], {
+    ...getPointAttrs(ctx.activeColor),
+    name: ctx.nextPointName(),
+    snapToGrid: false,
+    label: { strokeColor: ctx.isDark ? "#e3d5c5" : "#1f2937", display: "internal" },
+  });
+  ctx.updateObjectCount();
+  return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
+}
+
+/**
+ * Angle bisector tool (3-click): point on ray, vertex, point on other ray.
+ * Creates a line that bisects the angle formed by the three points.
+ */
+function handleBisectorTool(ctx: ToolContext, x: number, y: number): ToolResult {
+  const { board, pendingPoints: pending } = ctx;
+  const existing = findNearbyPoint(board, x, y);
+  if (existing && pending.includes(existing)) return unchanged(ctx);
+
+  const p = existing || board.create("point", [x, y], pointAttrs(ctx));
+  pending.push(p);
+
+  if (pending.length === 3) {
+    ctx.pushUndo();
+    board.create("bisector", [pending[0], pending[1], pending[2]], {
+      ...getLineAttrs(ctx.activeColor, ctx.activeDash),
+      name: "",
+    });
+    ctx.updateObjectCount();
+    return { pendingPoints: [], lastClickTime: ctx.lastClickTime };
+  }
+
+  return { pendingPoints: pending, lastClickTime: ctx.lastClickTime };
+}
+
+// ---------------------------------------------------------------------------
 // Shape presets
 // ---------------------------------------------------------------------------
 
@@ -439,4 +564,8 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   text: handleTextTool,
   angle: handleAngleTool,
   sector: handleSectorTool,
+  perpendicular: handlePerpendicularTool,
+  parallel: handleParallelTool,
+  midpoint: handleMidpointTool,
+  bisector: handleBisectorTool,
 };

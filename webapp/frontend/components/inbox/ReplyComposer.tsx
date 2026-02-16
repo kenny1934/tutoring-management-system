@@ -40,10 +40,12 @@ interface ReplyComposerProps {
   onCreateTemplate?: (title: string, content: string) => void;
   onDeleteTemplate?: (templateId: number) => void;
   onSendVoice?: (file: File, durationSec: number) => Promise<void>;
+  externalGeoState?: string | null;
+  onExternalGeoStateConsumed?: () => void;
 }
 
 const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(function ReplyComposer(
-  { threadId, currentTutorId, mentionUsers, isMobile, onSend, onScheduleSend, onOpenFullEditor, onDraftChange, onTyping, templates, onCreateTemplate, onDeleteTemplate, onSendVoice },
+  { threadId, currentTutorId, mentionUsers, isMobile, onSend, onScheduleSend, onOpenFullEditor, onDraftChange, onTyping, templates, onCreateTemplate, onDeleteTemplate, onSendVoice, externalGeoState, onExternalGeoStateConsumed },
   ref
 ) {
   const { showToast } = useToast();
@@ -255,6 +257,8 @@ const ReplyComposer = forwardRef<ReplyComposerHandle, ReplyComposerProps>(functi
         onCreateTemplate={onCreateTemplate}
         onDeleteTemplate={onDeleteTemplate}
         onOpenFullEditor={onOpenFullEditor}
+        externalGeoState={externalGeoState}
+        onExternalGeoStateConsumed={onExternalGeoStateConsumed}
       />
       {/* Attachment previews + send row */}
       {replyFiles.length > 0 && (
