@@ -14,27 +14,27 @@ Invoke with `/rollback` followed by optional target:
 ### List Recent Revisions
 
 ```bash
-export CLOUDSDK_PYTHON=python3
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
 # Backend revisions
-gcloud run revisions list --service tutoring-backend --region asia-east2 --limit 5
+gcloud run revisions list --service tutoring-backend --region $REGION --limit 5
 
 # Frontend revisions
-gcloud run revisions list --service tutoring-frontend --region asia-east2 --limit 5
+gcloud run revisions list --service tutoring-frontend --region $REGION --limit 5
 ```
 
 ### Rollback to Specific Revision
 
 ```bash
-export CLOUDSDK_PYTHON=python3
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
 # Rollback backend (replace REVISION_NAME with actual revision)
 gcloud run services update-traffic tutoring-backend \
   --to-revisions REVISION_NAME=100 \
-  --region asia-east2
+  --region $REGION
 
 # Rollback frontend (replace REVISION_NAME with actual revision)
 gcloud run services update-traffic tutoring-frontend \
   --to-revisions REVISION_NAME=100 \
-  --region asia-east2
+  --region $REGION
 ```
 
 ## Git Revert Rollback (Triggers New Deploy)
@@ -48,11 +48,13 @@ git push origin main
 ## Check Current Status
 
 ```bash
-export CLOUDSDK_PYTHON=python3
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
 # View current running revision
-gcloud run services describe tutoring-backend --region asia-east2 --format="value(status.traffic[0].revisionName)"
-gcloud run services describe tutoring-frontend --region asia-east2 --format="value(status.traffic[0].revisionName)"
+gcloud run services describe tutoring-backend --region $REGION --format="value(status.traffic[0].revisionName)"
+gcloud run services describe tutoring-frontend --region $REGION --format="value(status.traffic[0].revisionName)"
 
 # View recent logs
-gcloud run logs read tutoring-backend --region asia-east2 --limit 20
+gcloud run logs read tutoring-backend --region $REGION --limit 20
 ```
+
+Note: $REGION value is in the project memory file.

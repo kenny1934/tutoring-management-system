@@ -12,35 +12,34 @@ Invoke with `/deploy` followed by optional target:
 ## Deploy Backend
 
 ```bash
-cd /home/kenny/projects/tutoring-management-system/webapp/backend
-export CLOUDSDK_PYTHON=python3
-gcloud builds submit --config cloudbuild.yaml --region asia-east2
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
+cd webapp/backend
+gcloud builds submit --tag $ARTIFACT_REGISTRY/tutoring-backend:latest --region=$REGION --project=$GCP_PROJECT
 gcloud run deploy tutoring-backend \
-  --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-backend/tutoring-backend:latest \
-  --region asia-east2
+  --image $ARTIFACT_REGISTRY/tutoring-backend:latest \
+  --region $REGION --project $GCP_PROJECT \
+  --max-instances=1 --timeout=900
 ```
 
 ## Deploy Frontend
 
 ```bash
-cd /home/kenny/projects/tutoring-management-system/webapp/frontend
-export CLOUDSDK_PYTHON=python3
-gcloud builds submit --config cloudbuild.yaml --region asia-east2
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
+VERSION=$(cat .release-please-manifest.json | python3 -c "import sys,json; print(json.load(sys.stdin).get('.','0.0.0'))")
+cd webapp/frontend
+gcloud builds submit --tag $ARTIFACT_REGISTRY/tutoring-frontend:latest --region=$REGION --project=$GCP_PROJECT
 gcloud run deploy tutoring-frontend \
-  --image asia-east2-docker.pkg.dev/csm-database-project/tutoring-frontend/tutoring-frontend:latest \
-  --region asia-east2
+  --image $ARTIFACT_REGISTRY/tutoring-frontend:latest \
+  --region $REGION --project $GCP_PROJECT \
+  --max-instances=1 --timeout=60
 ```
 
 ## Check Status
 
 ```bash
-export CLOUDSDK_PYTHON=python3
-gcloud run services describe tutoring-backend --region asia-east2 --format="value(status.traffic[0].revisionName)"
-gcloud run services describe tutoring-frontend --region asia-east2 --format="value(status.traffic[0].revisionName)"
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
+gcloud run services describe tutoring-backend --region $REGION --format="value(status.traffic[0].revisionName)"
+gcloud run services describe tutoring-frontend --region $REGION --format="value(status.traffic[0].revisionName)"
 ```
 
-## Production URLs
-
-- Backend: https://tutoring-backend-284725664511.asia-east2.run.app
-- Frontend: https://tutoring-frontend-284725664511.asia-east2.run.app
-- Custom Domain: https://csm.mathconceptsecondary.academy
+Note: $GCP_PROJECT, $REGION, and $ARTIFACT_REGISTRY values are in the project memory file.

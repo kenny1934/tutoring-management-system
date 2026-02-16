@@ -115,6 +115,12 @@ Screenshot*.jpg
 tests/screenshots/
 security-report.md
 
+# Removed stale directories (prevent re-addition)
+backend/
+database/analysis/
+deployment/
+templates/
+
 # Cloud SQL proxy binary
 cloud_sql_proxy
 

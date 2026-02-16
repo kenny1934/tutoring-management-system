@@ -4,9 +4,6 @@
     "framer-motion": "^12.23.24",
     "react-window": "^2.2.3"
   },
-  "devDependencies": {
-    "@playwright/test": "^1.56.1",
-    "@types/node": "^24.8.1"
-  },
+  "devDependencies": {},
   "scripts": {}
 }

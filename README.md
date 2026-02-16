@@ -1,240 +1,94 @@
-# Tutoring Management System (CSM)
+# Tutoring Management System
 
-A comprehensive management system for tutoring operations, handling student enrollment, session scheduling, attendance tracking, and reporting.
+A full-stack web application for managing tutoring center operations — student enrollment, session scheduling, attendance tracking, messaging, and reporting.
 
-## Current Status
+## Tech Stack
 
-This project consists of two parallel systems:
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Python, FastAPI, SQLAlchemy, Pydantic |
+| **Frontend** | Next.js 15, React 19, TypeScript, Tailwind CSS 4 |
+| **Database** | MySQL (Google Cloud SQL) |
+| **Infra** | Google Cloud Run, GitHub Actions CI/CD |
+| **Auth** | Google OAuth 2.0 |
 
-1. **Legacy AppSheet System (Production)** - Currently in active use for daily operations
-2. **Modern Web Application (Development)** - Next-generation FastAPI + Next.js platform under development
+## Features
 
-## Technology Stack
-
-### Modern Web Application (In Development)
-
-**Backend:**
-- FastAPI 0.109.0 - High-performance Python web framework
-- SQLAlchemy 2.0.25 - SQL toolkit and ORM
-- Pydantic 2.5.3 - Data validation using Python type annotations
-- Google Cloud SQL Connector - Secure database connections
-- Google Calendar API - Test/exam tracking integration
-
-**Frontend:**
-- Next.js 15.5.5 - React framework with Turbopack
-- React 19.1.0 - UI library
-- Tailwind CSS 4.x - Utility-first CSS framework
-- TypeScript 5.x - Type-safe JavaScript
-- Framer Motion - Animation library
-- Recharts - Data visualization
-- next-themes - Dark mode support
-
-**Database:**
-- Google Cloud SQL (MySQL) - Production database
-- Shared with legacy AppSheet system
-
-### Legacy AppSheet System (Production)
-
-**Technology:**
-- AppSheet - No-code platform for business apps
-- Google Cloud SQL - Backend database
-- Google Sheets - Data staging and reporting
-- Google Apps Script - Advanced automation
-
-## Project Structure
-
-```
-tutoring-management-system/
-├── webapp/                    # Modern web application
-│   ├── backend/              # FastAPI backend
-│   │   ├── main.py          # FastAPI application entry point
-│   │   ├── database.py      # Database connection and session management
-│   │   ├── models.py        # SQLAlchemy ORM models
-│   │   ├── schemas.py       # Pydantic validation schemas
-│   │   ├── routers/         # API route handlers
-│   │   └── services/        # Business logic and external services
-│   └── frontend/            # Next.js frontend
-│       ├── app/             # Next.js app directory (pages and layouts)
-│       ├── components/      # React components
-│       ├── lib/             # Utility functions and API client
-│       └── types/           # TypeScript type definitions
-├── database/                 # Database migrations and schema
-│   └── migrations/          # SQL migration scripts
-├── docs/                    # Project documentation
-│   ├── general/            # Design notes and implementation guides
-│   ├── integrations/       # Integration documentation (WeChat, coupons)
-│   └── archived/           # Legacy documentation
-├── backend/                 # Legacy Python scripts
-├── scripts/                 # Automation scripts (Apps Script, etc.)
-├── tests/                   # Playwright tests
-└── private/                 # Private data (not committed)
-```
-
-## Web Application Features
-
-### Current Features
-- **Session Management**: View and manage tutoring sessions with curriculum suggestions
-- **Calendar Integration**: Sync test/exam dates from Google Calendar
-- **Student Dashboard**: Track student information and session history
-- **Exercise Tracking**: Record classwork and homework assignments
-- **Homework Completion**: Monitor homework submission and completion status
-- **Dark Mode**: System-wide theme support
-- **Responsive Design**: Mobile-friendly interface
-
-### Planned Features
-- Student enrollment management
-- Tutor scheduling and workload tracking
-- Payment and financial management
-- Attendance tracking and reminders
-- Comprehensive reporting dashboards
-- User authentication and role-based access
+- **Session Management** — view, create, and manage tutoring sessions with curriculum suggestions and exercise tracking
+- **Student Enrollment** — enrollment workflow with fee calculation, discounts, and payment tracking
+- **Inbox & Messaging** — chat-style threads with rich text (TipTap), math equations (KaTeX/MathLive), geometry diagrams (JSXGraph), code blocks, scheduled send, snooze, @mentions, voice messages, emoji reactions, and link previews
+- **Document Builder** — A4 document editor with math, geometry, and table support for creating worksheets and materials
+- **Attendance Tracking** — quick-attend mode, overdue payment alerts, unchecked attendance views
+- **Calendar Integration** — Google Calendar sync for test/exam dates with revision planning
+- **Revenue & Reporting** — revenue dashboards, tutor workload tracking, and financial summaries
+- **Courseware** — structured teaching materials organized by subject and topic
+- **Parent Communications** — contact management and message history
+- **Dark Mode** — system-wide theme support with responsive, mobile-friendly design
+- **What's New** — in-app changelog so users see new features after each release
 
 ## Development Setup
 
 ### Prerequisites
+
 - Python 3.11+
 - Node.js 20+
-- Access to Google Cloud SQL instance
+- Access to a MySQL database
 - Google OAuth credentials
-- Google Calendar API key
 
-### Backend Setup
+### Backend
 
-1. Navigate to backend directory:
 ```bash
 cd webapp/backend
-```
-
-2. Create virtual environment:
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+source venv/bin/activate
 pip install -r requirements.txt
-```
-
-4. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your credentials
-```
-
-5. Run development server:
-```bash
+cp .env.example .env   # Edit with your credentials
 uvicorn main:app --reload --port 8000 --host 127.0.0.1
 ```
 
-API documentation available at: http://localhost:8000/docs
+API docs available at http://localhost:8000/docs
 
-### Frontend Setup
+### Frontend
 
-1. Navigate to frontend directory:
 ```bash
 cd webapp/frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Configure environment variables:
-```bash
-cp .env.local.example .env.local
-# Edit .env.local with API endpoint
-```
-
-4. Run development server:
-```bash
+cp .env.local.example .env.local   # Edit with API endpoint
 npm run dev
 ```
 
-Application available at: http://localhost:3000
+App available at http://localhost:3000
 
-## Legacy AppSheet System
+### Running Tests
 
-The AppSheet system handles:
-- Student enrollment workflow
-- Session generation and scheduling
-- Payment tracking and renewals
-- Attendance reminders
-- Tutor workload management
+```bash
+# Backend
+cd webapp/backend && pytest tests/ -v
 
-See `docs/general/` for detailed AppSheet implementation documentation.
+# Frontend
+cd webapp/frontend && npm run test:run
+```
 
-## Database
+## Project Structure
 
-### Schema Overview
-- `students` - Student information and contact details
-- `tutors` - Tutor profiles and assignments
-- `enrollments` - Student enrollment blocks with payment tracking
-- `session_log` - Individual tutoring sessions
-- `session_exercises` - Classwork and homework assignments
-- `homework_completion` - Homework tracking and grading
-- `holidays` - Non-working days for scheduling
-- `discounts` - Discount codes and amounts
-- `calendar_events` - Test/exam dates from Google Calendar
-
-### Migrations
-Database migrations are located in `database/migrations/` numbered sequentially.
-
-## Documentation
-
-- **General Documentation**: `docs/general/` - Design notes, terminology, future improvements
-- **Integration Guides**: `docs/integrations/` - WeChat, coupon tracking, revenue tracking
-- **Archived Docs**: `docs/archived/` - Legacy implementation documentation
-- **API Documentation**: http://localhost:8000/docs (when backend is running)
-
-## Security
-
-This is a private repository. Security considerations:
-- Environment variables for sensitive credentials
-- Google Cloud SQL with IP-based access restrictions
-- CORS configured for specific origins only
-- Input validation using Pydantic schemas
-- Security audit report available (not committed to git)
-
-See `webapp/backend/.env.example` for required security configurations.
-
-## Development Workflow
-
-1. All database changes must include migration scripts in `database/migrations/`
-2. Backend changes require Pydantic schema updates in `schemas.py`
-3. Frontend changes should follow the existing component structure
-4. Test changes using Playwright (tests in `tests/`)
-
-## Project Roadmap
-
-### Phase 1: Foundation ✅
-- Database schema design and deployment
-- AppSheet application with core workflows
-- Google Sheets integration for hybrid workflow
-
-### Phase 2: Web Application (Current)
-- FastAPI backend with read/write API endpoints
-- Next.js frontend with core features
-- Session management and curriculum suggestions
-- Calendar integration
-
-### Phase 3: Feature Parity
-- Migrate all AppSheet features to web application
-- User authentication and authorization
-- Financial management and reporting
-- Advanced scheduling and automation
-
-### Phase 4: Production Migration
-- Complete transition from AppSheet to web application
-- User training and documentation
-- Performance optimization
-- Production deployment
-
-## Related Repositories
-
-- **GitHub Pages Dashboard**: [tutoring-dashboard](https://github.com/kenny1934/tutoring-dashboard) - Public-facing analytics dashboard
+```
+webapp/
+├── backend/          # FastAPI application
+│   ├── routers/      # API route handlers
+│   ├── services/     # Business logic
+│   ├── models.py     # SQLAlchemy ORM models
+│   └── schemas.py    # Pydantic validation schemas
+└── frontend/         # Next.js application
+    ├── app/          # Pages and layouts
+    ├── components/   # React components
+    ├── lib/          # Utilities and API client
+    └── types/        # TypeScript definitions
+database/
+└── migrations/       # Numbered SQL migration scripts
+docs/                 # Documentation and integration guides
+scripts/              # Automation and utility scripts
+```
 
 ## License
 
-Private - All Rights Reserved
+All Rights Reserved. See [LICENSE](LICENSE) for details.
