@@ -6,7 +6,6 @@ import {
   useState,
   useEffect,
   useCallback,
-  useRef,
   ReactNode,
 } from "react";
 
@@ -90,9 +89,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 const IMPERSONATION_KEY = "csm_impersonated_role";
 const IMPERSONATED_TUTOR_KEY = "csm_impersonated_tutor";
 
-// Token refresh configuration
-const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000; // Refresh every 30 minutes
-const TOKEN_REFRESH_BEFORE_EXPIRY_MS = 30 * 60 * 1000; // Refresh when <30 min left
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -104,60 +100,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [impersonatedRole, setImpersonatedRoleState] = useState<Role | null>(null);
   const [impersonatedTutor, setImpersonatedTutorState] = useState<ImpersonatedTutor | null>(null);
 
-  // Ref to track refresh timer
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Proactive token refresh function
-  const refreshAuthToken = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        return true;
-      } else {
-        return false;
-      }
-    } catch (error) {
-      return false;
-    }
-  }, []);
-
-  // Set up proactive refresh timer when user is authenticated
+  // Refresh token when user returns to the tab (lazy refresh).
+  // No periodic timer needed — token lasts 4h + 15min grace period,
+  // and api.ts already retries on 401 with auto-refresh.
   useEffect(() => {
-    // Clear any existing timer
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
+    if (!user) return;
 
-    // Only set up timer if user is authenticated
-    if (user) {
-      // Refresh periodically
-      refreshTimerRef.current = setInterval(() => {
-        refreshAuthToken();
-      }, TOKEN_REFRESH_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {});
+      }
+    };
 
-      // Also refresh on visibility change (when user returns to tab)
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible" && user) {
-          refreshAuthToken();
-        }
-      };
-
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-
-      return () => {
-        if (refreshTimerRef.current) {
-          clearInterval(refreshTimerRef.current);
-          refreshTimerRef.current = null;
-        }
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
-      };
-    }
-  }, [user, refreshAuthToken]);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [user]);
 
   // Load impersonated role and tutor from sessionStorage on mount
   useEffect(() => {
