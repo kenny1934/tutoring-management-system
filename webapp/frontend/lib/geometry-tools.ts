@@ -423,7 +423,7 @@ export function createShapePreset(
   const points = vertices.map(([x, y]) =>
     board.create("point", [x, y], mkPtAttrs())
   );
-  board.create("polygon", points, getFillAttrs(color, dash));
+  board.create("polygon", points, { ...getFillAttrs(color, dash), hasInnerPoints: true });
 }
 
 // ---------------------------------------------------------------------------

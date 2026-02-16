@@ -86,7 +86,7 @@ const COLOR_PALETTE = [
 ];
 
 const TOOLS: { id: Tool; label: string; icon: React.ReactNode; hint: string }[] = [
-  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select, Delete to remove" },
+  { id: "select", label: "Select", icon: <MousePointer2 className="h-4 w-4" />, hint: "Click to select \u00B7 Drag to area-select \u00B7 Delete to remove" },
   { id: "point", label: "Point", icon: <Dot className="h-4 w-4" />, hint: "Click to place, or type coordinates" },
   { id: "line", label: "Line", icon: <Minus className="h-4 w-4 rotate-[30deg]" />, hint: "Click 2 points" },
   { id: "segment", label: "Segment", icon: <Minus className="h-4 w-4" />, hint: "Click 2 points" },
@@ -141,6 +141,13 @@ export default function GeometryEditorModal({
   const funcFieldRef = useRef<HTMLElement | null>(null);
   const themeInitRef = useRef(false);
   const pointCounterRef = useRef(0);
+
+  // Area selection state
+  const selectStartRef = useRef<[number, number] | null>(null);
+  const isSelectDraggingRef = useRef(false);
+  const [selectionRect, setSelectionRect] = useState<{
+    x1: number; y1: number; x2: number; y2: number;
+  } | null>(null);
 
   const isEditing = !!initialState;
 
@@ -308,6 +315,86 @@ export default function GeometryEditorModal({
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Area selection helpers
+  // ---------------------------------------------------------------------------
+
+  /** Get the defining points of a compound element. */
+  const getElementPoints = useCallback((board: any, el: any): any[] => {
+    if (!el) return [];
+    if (el.elType === "angle" && el.parents?.length >= 3) {
+      return el.parents.map((id: string) => board.objects[id]).filter(Boolean);
+    }
+    if (el.elType === "polygon" && el.vertices) {
+      return el.vertices.filter((v: any) => v.elType === "point");
+    }
+    if (el.elType === "circle" && el.center) {
+      return [el.center, el.point2].filter(Boolean);
+    }
+    if (["segment", "line"].includes(el.elType) && el.point1 && el.point2) {
+      return [el.point1, el.point2];
+    }
+    return [];
+  }, []);
+
+  /** Find the highest-priority compound element whose defining points are all within a rectangle. */
+  const findBestElementInRect = useCallback((board: any, x1: number, y1: number, x2: number, y2: number) => {
+    const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+    const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+    const inside = (p: any) => p.X() >= minX && p.X() <= maxX && p.Y() >= minY && p.Y() <= maxY;
+
+    // Priority: angle (4) > polygon (3) > circle (2) > segment/line (1)
+    let best: any = null, bestPriority = -1;
+    for (const el of board.objectsList) {
+      if (["axis", "ticks", "grid", "label"].includes(el.elType)) continue;
+      if (el.visProp?.visible === false) continue;
+
+      let pts: any[] = [];
+      let priority = 0;
+
+      if (el.elType === "angle" && el.parents?.length >= 3) {
+        pts = el.parents.map((id: string) => board.objects[id]).filter(Boolean);
+        priority = 4;
+      } else if (el.elType === "polygon" && el.vertices) {
+        pts = el.vertices.filter((v: any) => v.elType === "point");
+        priority = 3;
+      } else if (el.elType === "circle" && el.center && el.point2) {
+        pts = [el.center, el.point2];
+        priority = 2;
+      } else if (["segment", "line"].includes(el.elType) && el.point1 && el.point2) {
+        pts = [el.point1, el.point2];
+        priority = 1;
+      }
+
+      if (pts.length >= 2 && pts.every(inside) && priority > bestPriority) {
+        best = el;
+        bestPriority = priority;
+      }
+    }
+    return best;
+  }, []);
+
+  /** Restore group-selected points to normal (draggable) and clear group state. */
+  /** Disband the active JSXGraph Group so points move independently again. */
+  const clearGroupSelection = useCallback((board: any) => {
+    if (board._activeGroup) {
+      try { board._activeGroup.ungroup(); } catch { /* group may have been removed */ }
+      board._activeGroup = null;
+    }
+  }, []);
+
+  /** Select a compound element — create a JSXGraph Group for synchronized movement. */
+  const selectCompoundElement = useCallback((board: any, el: any) => {
+    clearGroupSelection(board);
+    setSelectedEl(el);
+    setEditCoords("");
+    setEditName("");
+    const pts = getElementPoints(board, el);
+    if (pts.length >= 2) {
+      board._activeGroup = board.create("group", pts);
+    }
+  }, [getElementPoints, clearGroupSelection]);
+
+  // ---------------------------------------------------------------------------
   // Board click handler — creates objects based on active tool
   // ---------------------------------------------------------------------------
 
@@ -317,12 +404,30 @@ export default function GeometryEditorModal({
 
     const handleDown = (e: any) => {
       if (tool === "select") {
-        // In select mode, detect which element was clicked
+        const coords = getMouseCoords(board, e);
+        if (!coords) return;
+
+        // Check if an element is under cursor
         const allUnder = Object.values(board.highlightedObjects || {}) as any[];
         const userEl = allUnder.find(
           (el: any) => el.elType && !["axis", "ticks", "grid", "label"].includes(el.elType)
         );
+
         if (userEl) {
+          // If clicking a point that belongs to the active group, push undo
+          // for the upcoming group drag — don't deselect the group
+          if (board._activeGroup && userEl.elType === "point") {
+            const groupEls = board._activeGroup.objects;
+            const inGroup = groupEls && Object.keys(groupEls).includes(userEl.id);
+            if (inGroup) {
+              pushUndo();
+              selectStartRef.current = null;
+              isSelectDraggingRef.current = false;
+              return;
+            }
+          }
+          // Click-to-select individual element (clears any active group)
+          clearGroupSelection(board);
           setSelectedEl(userEl);
           if (userEl.elType === "point") {
             setEditCoords(`${userEl.X().toFixed(2)}, ${userEl.Y().toFixed(2)}`);
@@ -331,11 +436,12 @@ export default function GeometryEditorModal({
             setEditCoords("");
             setEditName("");
           }
+          selectStartRef.current = null;
         } else {
-          setSelectedEl(null);
-          setEditCoords("");
-          setEditName("");
+          // Empty space — start potential area selection
+          selectStartRef.current = coords;
         }
+        isSelectDraggingRef.current = false;
         return;
       }
       if (tool === "function") return;
@@ -381,11 +487,59 @@ export default function GeometryEditorModal({
       }
     };
 
+    const handleMove = (e: any) => {
+      if (tool !== "select" || !selectStartRef.current) return;
+      const coords = getMouseCoords(board, e);
+      if (!coords) return;
+      const [sx, sy] = selectStartRef.current;
+      const [cx, cy] = coords;
+      const dist = Math.sqrt((cx - sx) ** 2 + (cy - sy) ** 2);
+      if (dist < 0.2) return;
+      isSelectDraggingRef.current = true;
+      setSelectionRect({ x1: sx, y1: sy, x2: cx, y2: cy });
+    };
+
+    const handleUp = (e: any) => {
+      if (tool !== "select") return;
+
+      if (isSelectDraggingRef.current && selectStartRef.current) {
+        // Area selection — find compound element within rect
+        const coords = getMouseCoords(board, e);
+        if (coords) {
+          const [sx, sy] = selectStartRef.current;
+          const [ex, ey] = coords;
+          const found = findBestElementInRect(board, sx, sy, ex, ey);
+          if (found) {
+            selectCompoundElement(board, found);
+          } else {
+            clearGroupSelection(board);
+            setSelectedEl(null);
+            setEditCoords("");
+            setEditName("");
+          }
+        }
+      } else if (selectStartRef.current) {
+        // Clicked on empty space without dragging — deselect
+        clearGroupSelection(board);
+        setSelectedEl(null);
+        setEditCoords("");
+        setEditName("");
+      }
+
+      selectStartRef.current = null;
+      isSelectDraggingRef.current = false;
+      setSelectionRect(null);
+    };
+
     board.on("down", handleDown);
+    board.on("move", handleMove);
+    board.on("up", handleUp);
     return () => {
       board.off("down", handleDown);
+      board.off("move", handleMove);
+      board.off("up", handleUp);
     };
-  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark, snapToGrid, nextPointName, activeColor, activeDash, shapePreset, recalcPointCounter]);
+  }, [tool, isOpen, jsxLoaded, textInput, boardVersion, pushUndo, updateObjectCount, isDark, snapToGrid, nextPointName, activeColor, activeDash, shapePreset, recalcPointCounter, findBestElementInRect, selectCompoundElement, clearGroupSelection]);
 
   // Close polygon — shared by double-click and explicit button
   const handleClosePolygon = useCallback(() => {
@@ -401,7 +555,7 @@ export default function GeometryEditorModal({
     for (const seg of toRemove) {
       board.removeObject(seg);
     }
-    board.create("polygon", pending, getFillAttrs(activeColor, activeDash));
+    board.create("polygon", pending, { ...getFillAttrs(activeColor, activeDash), hasInnerPoints: true });
     pendingPointsRef.current = [];
     setPendingCount(0);
     updateObjectCount();
@@ -457,11 +611,17 @@ export default function GeometryEditorModal({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    const board = boardRef.current;
+    if (board) {
+      clearGroupSelection(board);
+      // Disable pan in select mode (area-select uses drag instead)
+      board.setAttribute({ pan: { enabled: tool !== "select" } });
+    }
     setSelectedEl(null);
     setEditCoords("");
     setEditName("");
     setPendingCount(0);
-  }, [tool]);
+  }, [tool, clearGroupSelection]);
 
   useEffect(() => {
     const board = boardRef.current;
@@ -735,13 +895,14 @@ export default function GeometryEditorModal({
   const handleDeleteSelected = useCallback(() => {
     const board = boardRef.current;
     if (!board || !selectedEl) return;
+    clearGroupSelection(board);
     pushUndo();
     board.removeObject(selectedEl);
     setSelectedEl(null);
     setEditCoords("");
     setEditName("");
     updateObjectCount();
-  }, [selectedEl, pushUndo, updateObjectCount]);
+  }, [selectedEl, pushUndo, updateObjectCount, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Zoom controls
@@ -1206,6 +1367,9 @@ export default function GeometryEditorModal({
             <span className="text-xs text-gray-500 dark:text-gray-400">
               Selected: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedEl.elType}</span>
             </span>
+            {getElementPoints(boardRef.current, selectedEl).length >= 2 && (
+              <span className="text-[10px] text-[#a0704b] dark:text-[#c9a96e] ml-1">Drag any point to move</span>
+            )}
             <div className="flex items-center gap-0.5 ml-2">
               {COLOR_PALETTE.map((c) => (
                 <button
@@ -1295,11 +1459,40 @@ export default function GeometryEditorModal({
         {/* Board container */}
         <div className="flex-1 min-h-0 px-3 pb-2">
           {jsxLoaded ? (
-            <div
-              ref={containerRef}
-              className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
-              style={{ height: "400px", touchAction: "manipulation", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
-            />
+            <div className="relative">
+              <div
+                ref={containerRef}
+                className="w-full rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] overflow-hidden"
+                style={{ height: "400px", touchAction: "manipulation", cursor: tool === "select" ? "default" : tool === "function" ? "default" : "crosshair" }}
+              />
+              {selectionRect && boardRef.current && (() => {
+                const board = boardRef.current;
+                const ox = board.origin.scrCoords[1];
+                const oy = board.origin.scrCoords[2];
+                const ux = board.unitX;
+                const uy = board.unitY;
+                const px1 = ox + selectionRect.x1 * ux;
+                const py1 = oy - selectionRect.y1 * uy;
+                const px2 = ox + selectionRect.x2 * ux;
+                const py2 = oy - selectionRect.y2 * uy;
+                const left = Math.min(px1, px2);
+                const top = Math.min(py1, py2);
+                const width = Math.abs(px2 - px1);
+                const height = Math.abs(py2 - py1);
+                return (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left, top, width, height,
+                      border: "1.5px dashed #3b82f6",
+                      backgroundColor: "rgba(59, 130, 246, 0.08)",
+                      borderRadius: "3px",
+                      pointerEvents: "none",
+                    }}
+                  />
+                );
+              })()}
+            </div>
           ) : (
             <div className="flex items-center justify-center h-[400px] text-sm text-gray-400">
               Loading geometry editor...
