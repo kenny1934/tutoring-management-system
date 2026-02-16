@@ -875,7 +875,7 @@ async def get_snoozed_threads(
         .order_by(TutorMessage.created_at.desc())
         .all()
     )
-    return [build_message_response(m, tutor_id, db) for m in messages]
+    return batch_build_message_responses(messages, tutor_id, db)
 
 
 @router.get("/messages/scheduled")
@@ -895,7 +895,7 @@ async def get_scheduled_messages(
         .order_by(TutorMessage.scheduled_at)
         .all()
     )
-    return [build_message_response(m, tutor_id, db) for m in messages]
+    return batch_build_message_responses(messages, tutor_id, db)
 
 
 @router.delete("/messages/scheduled/{message_id}")
