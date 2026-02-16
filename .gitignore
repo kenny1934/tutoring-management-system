@@ -115,6 +115,9 @@ Screenshot*.jpg
 tests/screenshots/
 security-report.md
 
+# Cloud SQL proxy binary
+cloud_sql_proxy
+
 # Google OAuth credentials (quarterly report script)
 scripts/quarterly-report/client_secrets.json
 scripts/quarterly-report/sheets_token.json

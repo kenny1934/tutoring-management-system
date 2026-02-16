@@ -13,7 +13,7 @@ Track students who have stopped attending and generate quarterly termination rep
 ### 1. Run Migration
 
 ```bash
-mysql -u root -p csm_pro < database/migrations/028_add_termination_tracking.sql
+mysql -u $DB_USER -p $DB_NAME < database/migrations/028_add_termination_tracking.sql
 ```
 
 ### 2. Add View to AppSheet

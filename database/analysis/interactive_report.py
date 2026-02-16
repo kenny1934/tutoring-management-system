@@ -4,6 +4,7 @@ Interactive Summer Course Conversion Report Generator
 Professional, fully interactive reporting with Chart.js, dark mode, and location filtering
 """
 
+import os
 import mysql.connector
 import pandas as pd
 import csv
@@ -79,14 +80,14 @@ class InteractiveSummerConversionReport:
 
         print("\nDatabase connection required...")
         print("Step 1: First run this command in another terminal:")
-        print("gcloud sql connect csm-regular-course-db --user=root --project=csm-database-project")
+        print("gcloud sql connect [INSTANCE_NAME] --user=$DB_USER --project=[PROJECT_ID]")
         print("This will allowlist your IP for 5 minutes")
         print()
 
         input("Press Enter after you've run the gcloud sql connect command and it worked...")
 
         # Database connection
-        user = input("Username (root): ").strip() or "root"
+        user = input("Username: ").strip() or os.getenv("DB_USER", "root")
         password = getpass("Password: ")
 
         try:

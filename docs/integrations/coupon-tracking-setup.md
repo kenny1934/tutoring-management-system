@@ -284,7 +284,7 @@ pip3 install pandas openpyxl
 python3 scripts/process_coupons.py "TerminationList_MSA_2025-11-01_20251004054509.xls"
 
 # Apply generated SQL
-mysql -u root -p csm_pro < coupon_updates_20251004_120000.sql
+mysql -u $DB_USER -p $DB_NAME < coupon_updates_20251004_120000.sql
 ```
 
 This generates SQL that you can review and run.

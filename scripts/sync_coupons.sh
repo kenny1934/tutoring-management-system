@@ -6,7 +6,7 @@ if [ $# -eq 0 ]; then
 fi
 
 EXCEL_FILE="$1"
-DB_HOST="localhost"
+DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="3306"
 DB_NAME="csm_db"
 
@@ -49,19 +49,19 @@ echo ""
 echo "3. Allowlisting your IP (5-minute window)..."
 echo "   Run this command in another terminal if not done already:"
 echo ""
-echo "   gcloud sql connect [INSTANCE_NAME] --user=root --project=[PROJECT_ID]"
+echo "   gcloud sql connect [INSTANCE_NAME] --user=$DB_USER --project=[PROJECT_ID]"
 echo ""
 read -p "   Press Enter when IP is allowlisted (or Ctrl+C to cancel)..."
 
 # Step 5: Apply to database
 echo ""
 echo "4. Applying to database..."
-mysql -h $DB_HOST -P $DB_PORT -u root -p $DB_NAME < "$SQL_FILE"
+mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p $DB_NAME < "$SQL_FILE"
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "5. Verifying..."
-    mysql -h $DB_HOST -P $DB_PORT -u root -p $DB_NAME -e "SELECT COUNT(*) as total, SUM(available_coupons) as coupons FROM student_coupons;"
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p $DB_NAME -e "SELECT COUNT(*) as total, SUM(available_coupons) as coupons FROM student_coupons;"
 
     echo ""
     echo "✅ Done! Sync completed successfully."
