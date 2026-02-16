@@ -279,6 +279,25 @@ function handleAngleTool(ctx: ToolContext, x: number, y: number): ToolResult {
   const ap = existing || board.create("point", [x, y], pointAttrs(ctx));
   pending.push(ap);
 
+  // Auto-place third point when exact degrees are specified and 2 points collected
+  if (pending.length === 2 && ctx.textInput.trim()) {
+    const degrees = parseFloat(ctx.textInput.trim());
+    if (!isNaN(degrees) && degrees > 0 && degrees < 360) {
+      const vertex = pending[1];
+      const p1 = pending[0];
+      const dx = p1.X() - vertex.X();
+      const dy = p1.Y() - vertex.Y();
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const baseAngle = Math.atan2(dy, dx);
+      const targetAngle = baseAngle + (degrees * Math.PI) / 180;
+      const p3x = vertex.X() + r * Math.cos(targetAngle);
+      const p3y = vertex.Y() + r * Math.sin(targetAngle);
+      const p3 = board.create("point", [p3x, p3y], pointAttrs(ctx));
+      pending.push(p3);
+      ctx.setTextInput("");
+    }
+  }
+
   if (pending.length === 3) {
     ctx.pushUndo();
     // Two segments meeting at vertex (pending[1])
