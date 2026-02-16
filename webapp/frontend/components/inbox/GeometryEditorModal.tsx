@@ -262,6 +262,18 @@ export default function GeometryEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTheme]);
 
+  // Update all existing points when snap-to-grid is toggled
+  useEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    for (const el of board.objectsList) {
+      if (el.elType === "point") {
+        el.setAttribute({ snapToGrid });
+      }
+    }
+    board.fullUpdate();
+  }, [snapToGrid]);
+
   // ---------------------------------------------------------------------------
   // Object count
   // ---------------------------------------------------------------------------
@@ -1068,6 +1080,24 @@ export default function GeometryEditorModal({
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Type text, then click on the board to place it"
+              className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
+            />
+          </div>
+        )}
+
+        {/* Angle degree input bar — shown when angle tool is active */}
+        {tool === "angle" && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 bg-[#faf6f1]/50 dark:bg-[#1e1a15]/50">
+            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              Degrees:
+            </span>
+            <input
+              type="number"
+              min="1"
+              max="359"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              placeholder="Optional — e.g. 45 (click vertex, then ray)"
               className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#2a2518] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-md outline-none focus:ring-1 focus:ring-[#a0704b] text-gray-800 dark:text-gray-200"
             />
           </div>
