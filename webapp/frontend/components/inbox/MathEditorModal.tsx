@@ -15,14 +15,15 @@ interface MathEditorModalProps {
   initialMode?: "inline" | "block";
 }
 
-const isMac =
-  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
 const MATH_TEMPLATES = [
   { label: "Fraction", latex: "\\frac{a}{b}" },
   { label: "Quadratic formula", latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}" },
   { label: "Pythagorean theorem", latex: "a^2 + b^2 = c^2" },
-  { label: "System of equations", latex: "\\begin{cases} ax + by = c \\\\ dx + ey = f \\end{cases}" },
+  { label: "System (2 eq)", latex: "\\begin{cases} ax + by = c \\\\ dx + ey = f \\end{cases}" },
+  { label: "System (3 eq)", latex: "\\begin{cases} ax + by + cz = d \\\\ ex + fy + gz = h \\\\ ix + jy + kz = l \\end{cases}" },
+  { label: "Aligned steps", latex: "\\begin{aligned} x + 3 &= 7 \\\\ x &= 4 \\end{aligned}" },
+  { label: "Piecewise function", latex: "f(x) = \\begin{cases} x^2 & x \\geq 0 \\\\ -x & x < 0 \\end{cases}" },
   { label: "Derivative", latex: "\\frac{d}{dx} f(x)" },
   { label: "Integral", latex: "\\int_{a}^{b} f(x) \\, dx" },
   { label: "Limit", latex: "\\lim_{x \\to a} f(x)" },
@@ -219,9 +220,13 @@ export default function MathEditorModal({
           "rounded-none sm:rounded-xl",
           "mx-0 sm:mx-4",
           "border-0 sm:border",
-          "sm:max-w-lg"
         )}
-        style={kbdHeight > 0 ? { paddingBottom: kbdHeight + 16 } : undefined}
+        style={{
+          maxWidth: "32rem",
+          ...(kbdHeight > 0 && typeof window !== "undefined" && window.innerWidth < 640
+            ? { paddingBottom: kbdHeight + 16 }
+            : { maxHeight: kbdHeight > 0 ? `calc(90vh - ${kbdHeight}px)` : "80vh" }),
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby="math-editor-title"
@@ -240,8 +245,11 @@ export default function MathEditorModal({
           </button>
         </div>
 
+        {/* Scrollable content area */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+
         {/* Mathfield */}
-        <div className="px-4 pt-4 pb-2 flex-1 min-h-0">
+        <div className="px-4 pt-4 pb-2">
           {mathliveLoaded ? (
             <div className="rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a]">
               <math-field
@@ -304,6 +312,8 @@ export default function MathEditorModal({
           )}
         </div>
 
+        </div>{/* end scrollable content */}
+
         {/* Mode toggle + actions */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
           <div>
@@ -340,7 +350,7 @@ export default function MathEditorModal({
 
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-400 dark:text-gray-500 hidden sm:inline">
-              {isMac ? "⌘" : "Ctrl+"}Enter
+              Ctrl+Enter
             </span>
             {isEditing && (
               <button
