@@ -729,6 +729,7 @@ export default function GeometryEditorModal({
     const prevState: GeometryState = JSON.parse(prevStateJson);
 
     // Clear board and recreate
+    clearGroupSelection(board);
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, prevState.boundingBox, isDark());
     boardRef.current = newBoard;
@@ -740,7 +741,7 @@ export default function GeometryEditorModal({
     updateObjectCount();
     recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount, recalcPointCounter]);
+  }, [isDark, updateObjectCount, recalcPointCounter, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Redo
@@ -759,6 +760,7 @@ export default function GeometryEditorModal({
     const nextState: GeometryState = JSON.parse(nextStateJson);
     setRedoCount(redoStackRef.current.length);
 
+    clearGroupSelection(board);
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, nextState.boundingBox, isDark());
     boardRef.current = newBoard;
@@ -770,7 +772,7 @@ export default function GeometryEditorModal({
     updateObjectCount();
     recalcPointCounter();
     setBoardVersion((v) => v + 1);
-  }, [isDark, updateObjectCount, recalcPointCounter]);
+  }, [isDark, updateObjectCount, recalcPointCounter, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Clear
@@ -782,6 +784,7 @@ export default function GeometryEditorModal({
     if (!board || !JXG) return;
 
     pushUndo();
+    clearGroupSelection(board);
     JXG.JSXGraph.freeBoard(board);
     const newBoard = createThemedBoard(JXG, containerRef.current!, LIGHT_BOARD_ATTRS.boundingbox, isDark());
     boardRef.current = newBoard;
@@ -792,7 +795,7 @@ export default function GeometryEditorModal({
     updateObjectCount();
     pointCounterRef.current = 0;
     setBoardVersion((v) => v + 1);
-  }, [isDark, pushUndo, updateObjectCount]);
+  }, [isDark, pushUndo, updateObjectCount, clearGroupSelection]);
 
   // ---------------------------------------------------------------------------
   // Add function graph
@@ -947,6 +950,8 @@ export default function GeometryEditorModal({
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         if (selectedEl) {
+          const board = boardRef.current;
+          if (board) clearGroupSelection(board);
           setSelectedEl(null);
           setEditCoords("");
           setEditName("");
@@ -971,7 +976,7 @@ export default function GeometryEditorModal({
         handleRedo();
       }
     },
-    [onClose, handleInsert, handleUndo, handleRedo, selectedEl, handleDeleteSelected]
+    [onClose, handleInsert, handleUndo, handleRedo, selectedEl, handleDeleteSelected, clearGroupSelection]
   );
 
   // ---------------------------------------------------------------------------
