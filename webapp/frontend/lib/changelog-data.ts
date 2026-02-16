@@ -27,12 +27,24 @@ const changelogData = [
           },
           {
             "description": "**Touch support** — geometry editor and viewer optimized for touch devices with larger hit targets and no browser gesture interference"
+          },
+          {
+            "description": "**Area-select & group movement** — drag a selection rectangle over compound elements (angles, polygons, circles, segments) then drag any defining point to move the entire shape as a unit"
+          },
+          {
+            "description": "**Polygon interior dragging** — click inside any polygon to drag it by its interior"
+          },
+          {
+            "description": "**Exact angle input** — type a degree value in the text field when placing an angle to auto-compute the third point at the exact angle"
           }
         ]
       },
       {
         "title": "Improvements",
         "items": [
+          {
+            "description": "Snap-to-grid toggle now updates all existing points on the board"
+          },
           {
             "description": "Theme toggle updates geometry board colors smoothly without visible flash"
           }
