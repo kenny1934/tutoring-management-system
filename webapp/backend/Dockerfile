@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage: slim image without build tools
 FROM python:3.11-slim
@@ -22,7 +22,9 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /install /usr/local
+# Copy installed packages and scripts from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
 
 # Cloud Run expects PORT environment variable (default 8080)
