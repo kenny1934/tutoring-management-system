@@ -2156,3 +2156,73 @@ html {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Table styles — editor */
+.tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+  table-layout: fixed;
+}
+
+.tiptap td,
+.tiptap th {
+  border: 1px solid #e8d4b8;
+  padding: 6px 10px;
+  min-width: 60px;
+  vertical-align: top;
+  position: relative;
+}
+
+.tiptap th {
+  background-color: #f5ede3;
+  font-weight: 600;
+}
+
+.dark .tiptap td,
+.dark .tiptap th {
+  border-color: #6b5a4a;
+}
+
+.dark .tiptap th {
+  background-color: #3d3628;
+}
+
+.tiptap .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(160, 112, 75, 0.15);
+  pointer-events: none;
+}
+
+.tiptap .tableWrapper {
+  overflow-x: auto;
+}
+
+/* Table styles — rendered messages */
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.prose td,
+.prose th {
+  border: 1px solid #e8d4b8;
+  padding: 6px 10px;
+}
+
+.prose th {
+  background-color: #f5ede3;
+  font-weight: 600;
+}
+
+.dark .prose td,
+.dark .prose th {
+  border-color: #6b5a4a;
+}
+
+.dark .prose th {
+  background-color: #3d3628;
+}
