@@ -1,5 +1,10 @@
 # Tutoring Management System
 
+[![CI](https://github.com/kenny1934/tutoring-management-system/actions/workflows/ci.yml/badge.svg)](https://github.com/kenny1934/tutoring-management-system/actions/workflows/ci.yml)
+[![Deploy](https://github.com/kenny1934/tutoring-management-system/actions/workflows/deploy.yml/badge.svg)](https://github.com/kenny1934/tutoring-management-system/actions/workflows/deploy.yml)
+![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkenny1934%2Ftutoring-management-system%2Fmain%2F.release-please-manifest.json&query=%24%5B%22.%22%5D&label=version&color=blue)
+![License](https://img.shields.io/badge/license-All%20Rights%20Reserved-red)
+
 A full-stack web application for managing tutoring center operations — student enrollment, session scheduling, attendance tracking, messaging, and reporting.
 
 ## Tech Stack
