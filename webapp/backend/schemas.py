@@ -1843,6 +1843,7 @@ class DocumentUpdate(BaseModel):
     """Update a document. All fields optional."""
     title: Optional[str] = None
     content: Optional[dict] = None
+    page_layout: Optional[dict] = None
     is_archived: Optional[bool] = None
 
 
@@ -1852,6 +1853,7 @@ class DocumentResponse(BaseModel):
     title: str
     doc_type: str
     content: Optional[dict] = None
+    page_layout: Optional[dict] = None
     created_by: int
     created_by_name: str = ""
     created_at: Optional[datetime] = None
@@ -1866,6 +1868,7 @@ class DocumentListItem(BaseModel):
     id: int
     title: str
     doc_type: str
+    page_layout: Optional[dict] = None
     created_by: int
     created_by_name: str = ""
     created_at: Optional[datetime] = None

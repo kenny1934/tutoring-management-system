@@ -1784,11 +1784,43 @@ export interface TutorMemoImportRequest {
 // Document Builder types
 export type DocType = 'worksheet' | 'lesson_plan';
 
+export interface DocumentMargins {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export interface DocumentHeaderFooter {
+  enabled: boolean;
+  left: string;
+  center: string;
+  right: string;
+  imageUrl?: string | null;
+  imagePosition?: "left" | "center" | "right" | null;
+}
+
+export interface DocumentWatermark {
+  enabled: boolean;
+  type: "text" | "image";
+  text?: string;
+  imageUrl?: string | null;
+  opacity: number;
+}
+
+export interface DocumentMetadata {
+  margins?: DocumentMargins;
+  header?: DocumentHeaderFooter;
+  footer?: DocumentHeaderFooter;
+  watermark?: DocumentWatermark;
+}
+
 export interface Document {
   id: number;
   title: string;
   doc_type: DocType;
   content?: Record<string, unknown> | null;
+  page_layout?: DocumentMetadata | null;
   created_by: number;
   created_by_name: string;
   created_at: string;
@@ -1804,5 +1836,6 @@ export interface DocumentCreate {
 export interface DocumentUpdate {
   title?: string;
   content?: Record<string, unknown>;
+  page_layout?: DocumentMetadata;
   is_archived?: boolean;
 }

@@ -1011,6 +1011,7 @@ class Document(Base):
     title = Column(String(255), nullable=False, default="Untitled Document")
     doc_type = Column(String(20), nullable=False, comment="worksheet or lesson_plan")
     content = Column(JSON, comment="TipTap JSON document")
+    page_layout = Column(JSON, comment="Page layout settings (margins, header/footer, watermark)")
     created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

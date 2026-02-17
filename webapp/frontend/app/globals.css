@@ -2438,6 +2438,41 @@ html {
   border-color: #6b5a4a;
 }
 
+/* Page break node — editor view */
+.document-editor-content .page-break-node {
+  border: none;
+  border-top: 2px dashed #c4b5a3;
+  margin: 1.5rem 0;
+  padding: 0;
+  position: relative;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}
+.document-editor-content .page-break-node::after {
+  content: "Page Break";
+  font-size: 10px;
+  color: #c4b5a3;
+  background: white;
+  padding: 0 8px;
+  position: relative;
+  top: -8px;
+}
+.dark .document-editor-content .page-break-node {
+  border-color: #6b5a4a;
+}
+.dark .document-editor-content .page-break-node::after {
+  color: #6b5a4a;
+  background: #2a2420;
+}
+/* Selected state */
+.document-editor-content .page-break-node.ProseMirror-selectednode {
+  border-color: #a0704b;
+}
+.document-editor-content .page-break-node.ProseMirror-selectednode::after {
+  color: #a0704b;
+}
+
 /* Document links */
 .document-editor-content .tiptap a.doc-link {
   color: #2563eb;
@@ -2469,9 +2504,13 @@ html {
   border-color: #6b5a4a;
 }
 
-/* Print styles for document builder */
+/* Watermark & header/footer — layout handled by inline styles in React.
+   CSS here is only for print overrides. */
+
+/* Print styles for document builder.
+   Uses CSS table display model for repeating header/footer on every page.
+   @page margins set dynamically via <style> in DocumentEditor.tsx. */
 @media print {
-  /* Hide everything except the document page */
   body > * {
     visibility: hidden !important;
   }
@@ -2482,12 +2521,13 @@ html {
   }
 
   .document-page {
+    display: table !important;
     position: absolute;
     top: 0;
     left: 0;
     width: 210mm !important;
     min-height: auto !important;
-    padding: 20mm !important;
+    padding: 0 !important;
     margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
@@ -2498,8 +2538,47 @@ html {
     page-break-inside: avoid;
   }
 
+  .document-page .page-break-node {
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  /* Header repeats via table display model */
+  .document-print-header {
+    display: table-header-group !important;
+  }
+
+  /* Footer repeats via position: fixed (Chrome doesn't repeat table-footer-group) */
+  .document-print-footer {
+    display: block !important;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    padding-top: 2mm !important;
+  }
+
+  .document-editor-content {
+    display: table-row-group !important;
+  }
+
+  /* Watermark still uses position: fixed to repeat on every page */
+  .document-watermark,
+  .document-watermark-image {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+  }
+
+  /* Fallback @page — overridden by dynamic <style> in DocumentEditor */
   @page {
     size: A4;
-    margin: 0;
+    margin: 25mm;
   }
 }

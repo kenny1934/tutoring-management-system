@@ -4,6 +4,7 @@ CRUD operations for courseware documents (worksheets, exams, lesson plans).
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import desc
 from typing import List, Optional
 from database import get_db
@@ -26,6 +27,7 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "id": doc.id,
         "title": doc.title,
         "doc_type": doc.doc_type,
+        "page_layout": doc.page_layout,
         "created_by": doc.created_by,
         "created_by_name": doc.creator.tutor_name if doc.creator else "Unknown",
         "created_at": doc.created_at,
@@ -126,6 +128,9 @@ async def update_document(
         doc.title = data.title
     if data.content is not None:
         doc.content = data.content
+    if data.page_layout is not None:
+        doc.page_layout = data.page_layout
+        flag_modified(doc, "page_layout")
     if data.is_archived is not None:
         doc.is_archived = data.is_archived
     doc.updated_at = hk_now()

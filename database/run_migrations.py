@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "064_documents.sql",
+    "065b_rename_metadata_to_page_layout.sql",
 ]
 
 def main():

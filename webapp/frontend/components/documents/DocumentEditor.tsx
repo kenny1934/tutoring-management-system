@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -45,6 +45,7 @@ import {
   Undo2,
   Redo2,
   SeparatorHorizontal,
+  ScissorsLineDashed,
   ChevronDown,
   Tags,
   Sigma,
@@ -61,13 +62,15 @@ import {
   ToggleLeft,
   Type,
   PlusCircle,
+  FileSliders,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
-import type { Document } from "@/types";
+import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
+import type { Document, DocumentMetadata } from "@/types";
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -162,6 +165,14 @@ type ToolbarTab = "format" | "insert";
 
 const AUTOSAVE_DELAY = 2000;
 
+function resolveHeaderFooterText(template: string, docTitle: string): string {
+  if (!template) return "";
+  return template
+    .replace(/\{title\}/g, docTitle)
+    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }))
+    .replace(/\{page\}/g, "#");
+}
+
 interface DocumentEditorProps {
   document: Document;
   onUpdate: () => void;
@@ -172,6 +183,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirtyRef = useRef(false);
 
   // Dropdown states
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -205,6 +217,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [geoEditorOpen, setGeoEditorOpen] = useState(false);
   const [geoEditorState, setGeoEditorState] = useState<GeometryState | null>(null);
   const [geoEditorPos, setGeoEditorPos] = useState<number | null>(null);
+
+  // Page layout state
+  const [pageLayoutOpen, setPageLayoutOpen] = useState(false);
+  const [docMetadata, setDocMetadata] = useState<DocumentMetadata | null>(doc.page_layout ?? null);
+
+  const handleMetadataSave = useCallback(async (metadata: DocumentMetadata) => {
+    setDocMetadata(metadata);
+    try {
+      await documentsAPI.update(doc.id, { page_layout: metadata });
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }, [doc.id]);
 
   // Close all dropdown menus
   const closeAllMenus = useCallback(() => {
@@ -309,6 +335,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      PageBreak,
       Table.configure({ resizable: false }),
       TableRow,
       TableCell,
@@ -350,6 +377,25 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     editorInstanceRef.current = editor;
   }, [editor]);
 
+  // Keep dirty ref in sync (avoids stale closures in unmount/beforeunload)
+  useEffect(() => {
+    isDirtyRef.current = saveState === "unsaved";
+  }, [saveState]);
+
+  // Immediate save (used by Ctrl+S, clickable indicator, and auto-save)
+  const saveNow = useCallback(async () => {
+    const currentEditor = editorInstanceRef.current;
+    if (!currentEditor) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveState("saving");
+    try {
+      await documentsAPI.update(doc.id, { content: currentEditor.getJSON() });
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }, [doc.id]);
+
   // Auto-save with debounce
   useEffect(() => {
     if (saveState !== "unsaved") return;
@@ -372,6 +418,22 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     };
   }, [saveState, doc.id]);
 
+  // Flush pending save on unmount (SPA navigation)
+  useEffect(() => {
+    return () => {
+      if (!isDirtyRef.current) return;
+      const currentEditor = editorInstanceRef.current;
+      if (!currentEditor) return;
+      fetch(`/api/documents/${doc.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: currentEditor.getJSON() }),
+        credentials: "include",
+        keepalive: true,
+      });
+    };
+  }, [doc.id]);
+
   // Save title on blur (also flush any pending content)
   const handleTitleBlur = useCallback(async () => {
     if (title === doc.title) return;
@@ -385,16 +447,38 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     } catch { /* ignore */ }
   }, [title, doc.id, doc.title, onUpdate]);
 
-  // Warn before unload if unsaved
+  // Flush save + warn on beforeunload (tab close/refresh)
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (saveState === "unsaved") {
+      if (isDirtyRef.current) {
         e.preventDefault();
+        const currentEditor = editorInstanceRef.current;
+        if (currentEditor) {
+          fetch(`/api/documents/${doc.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: currentEditor.getJSON() }),
+            credentials: "include",
+            keepalive: true,
+          });
+        }
       }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [saveState]);
+  }, [doc.id]);
+
+  // Ctrl+S / Cmd+S keyboard shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        if (isDirtyRef.current) saveNow();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [saveNow]);
 
   // Math editor handlers
   const handleMathInsert = useCallback((latex: string, mode: "inline" | "block") => {
@@ -486,10 +570,22 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       : AlignLeft)
     : AlignLeft;
 
+  // Dynamic print margins — @page doesn't support CSS custom properties,
+  // so we inject computed values via a <style> tag.
+  const printMargins = {
+    top: docMetadata?.margins?.top ?? 25.4,
+    right: docMetadata?.margins?.right ?? 25.4,
+    bottom: docMetadata?.margins?.bottom ?? 25.4,
+    left: docMetadata?.margins?.left ?? 25.4,
+  };
   if (!editor) return null;
 
   return (
     <div className="flex flex-col h-screen bg-background print:bg-white">
+      {/* Dynamic @page margins matching the user's document margin settings */}
+      <style>{`@media print {
+  @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
+}`}</style>
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
         <button
@@ -509,12 +605,30 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           placeholder="Untitled Document"
         />
 
-        {/* Save indicator */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {/* Save indicator (clickable when unsaved) */}
+        <button
+          onClick={() => { if (saveState === "unsaved") saveNow(); }}
+          className={cn(
+            "flex items-center gap-1.5 text-xs text-muted-foreground",
+            saveState === "unsaved" && "hover:text-[#a0704b] cursor-pointer"
+          )}
+          disabled={saveState === "saving"}
+          title={saveState === "unsaved" ? "Save now (Ctrl+S)" : undefined}
+        >
           {saveState === "saving" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</>}
           {saveState === "saved" && <><Check className="w-3.5 h-3.5 text-green-600" /> Saved</>}
+          {saveState === "unsaved" && <><CloudOff className="w-3.5 h-3.5" /> Unsaved</>}
           {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /> Error saving</>}
-        </div>
+        </button>
+
+        <button
+          onClick={() => setPageLayoutOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+          title="Page layout settings"
+        >
+          <FileSliders className="w-3.5 h-3.5" />
+          Layout
+        </button>
 
         <button
           onClick={handlePrint}
@@ -854,6 +968,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               <ToolbarBtn icon={TextQuote} label="Quote" isActive={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} showLabel={showLabels} />
               <ToolbarBtn icon={Code} label="Code" isActive={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} showLabel={showLabels} />
               <ToolbarBtn icon={SeparatorHorizontal} label="Divider" isActive={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} showLabel={showLabels} />
+              <ToolbarBtn icon={ScissorsLineDashed} label="Page Break" isActive={false} onClick={() => editor.chain().focus().setPageBreak().run()} showLabel={showLabels} />
               <ToolbarSep />
 
               {/* Link */}
@@ -1001,15 +1116,118 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             style={{
               width: "210mm",
               minHeight: "297mm",
-              padding: "25.4mm",
+              padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
               maxWidth: "100%",
+              ["--doc-margin-top" as string]: `${docMetadata?.margins?.top ?? 25.4}mm`,
+              ["--doc-margin-right" as string]: `${docMetadata?.margins?.right ?? 25.4}mm`,
+              ["--doc-margin-bottom" as string]: `${docMetadata?.margins?.bottom ?? 25.4}mm`,
+              ["--doc-margin-left" as string]: `${docMetadata?.margins?.left ?? 25.4}mm`,
             }}
           >
+            {/* Watermark overlay */}
+            {docMetadata?.watermark?.enabled && (
+              docMetadata.watermark.type === "text" && docMetadata.watermark.text ? (
+                <span
+                  className="document-watermark"
+                  style={{
+                    position: "absolute", top: "148.5mm", left: "50%",
+                    transform: "translate(-50%, -50%) rotate(-45deg)",
+                    pointerEvents: "none", zIndex: 0,
+                    fontSize: "80px", fontWeight: "bold", color: "#000",
+                    whiteSpace: "nowrap", userSelect: "none",
+                    opacity: docMetadata.watermark.opacity,
+                  }}
+                >
+                  {docMetadata.watermark.text}
+                </span>
+              ) : docMetadata.watermark.type === "image" && docMetadata.watermark.imageUrl ? (
+                <img
+                  src={docMetadata.watermark.imageUrl}
+                  alt=""
+                  className="document-watermark-image"
+                  style={{
+                    position: "absolute", top: "148.5mm", left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "none", zIndex: 0,
+                    maxWidth: "60%", maxHeight: "60%", userSelect: "none",
+                    opacity: docMetadata.watermark.opacity,
+                  }}
+                />
+              ) : null
+            )}
+
+            {/* Print header — outer div becomes table-header-group in print, inner div keeps flex */}
+            {docMetadata?.header?.enabled && (
+              <div className="document-print-header">
+                <div
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    fontSize: "9px", color: "#888",
+                    pointerEvents: "none", userSelect: "none",
+                    paddingBottom: "4px", borderBottom: "0.5px solid #ddd",
+                    marginBottom: "1em",
+                  }}
+                >
+                  <span style={{ flex: 1 }}>
+                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "left" && (
+                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
+                    )}
+                    {resolveHeaderFooterText(docMetadata.header.left, doc.title)}
+                  </span>
+                  <span style={{ flex: 1, textAlign: "center" }}>
+                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "center" && (
+                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
+                    )}
+                    {resolveHeaderFooterText(docMetadata.header.center, doc.title)}
+                  </span>
+                  <span style={{ flex: 1, textAlign: "right" }}>
+                    {resolveHeaderFooterText(docMetadata.header.right, doc.title)}
+                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "right" && (
+                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <EditorContent
               editor={editor}
               className="document-editor-content prose prose-sm dark:prose-invert max-w-none"
             />
             <PageBreakOverlay containerRef={pageRef} />
+
+            {/* Print footer — outer div becomes table-footer-group in print, inner div keeps flex */}
+            {docMetadata?.footer?.enabled && (
+              <div className="document-print-footer">
+                <div
+                  style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    fontSize: "9px", color: "#888",
+                    pointerEvents: "none", userSelect: "none",
+                    paddingTop: "4px", borderTop: "0.5px solid #ddd",
+                  }}
+                >
+                  <span style={{ flex: 1 }}>
+                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "left" && (
+                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
+                    )}
+                    {resolveHeaderFooterText(docMetadata.footer.left, doc.title)}
+                  </span>
+                  <span style={{ flex: 1, textAlign: "center" }}>
+                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "center" && (
+                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
+                    )}
+                    {resolveHeaderFooterText(docMetadata.footer.center, doc.title)}
+                  </span>
+                  <span style={{ flex: 1, textAlign: "right" }}>
+                    {resolveHeaderFooterText(docMetadata.footer.right, doc.title)}
+                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "right" && (
+                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1051,6 +1269,17 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           if (e.target.files?.length) handleImageUpload(Array.from(e.target.files));
         }}
       />
+
+      {/* Page layout modal */}
+      {pageLayoutOpen && (
+        <PageLayoutModal
+          isOpen={pageLayoutOpen}
+          onClose={() => setPageLayoutOpen(false)}
+          metadata={docMetadata}
+          onSave={handleMetadataSave}
+          docId={doc.id}
+        />
+      )}
     </div>
   );
 }
@@ -1090,7 +1319,7 @@ function PageBreakOverlay({ containerRef }: { containerRef: React.RefObject<HTML
       {Array.from({ length: pageCount - 1 }, (_, i) => (
         <div
           key={i}
-          className="absolute left-0 right-0 pointer-events-none print:hidden flex items-center"
+          className="absolute left-0 right-0 z-10 pointer-events-none print:hidden flex items-center"
           style={{ top: `${(i + 1) * A4_HEIGHT_MM}mm` }}
         >
           <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
