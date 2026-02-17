@@ -10,6 +10,12 @@ import { Mathematics } from "@tiptap/extension-mathematics";
 import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+import Highlight from "@tiptap/extension-highlight";
+import CharacterCount from "@tiptap/extension-character-count";
+import Link from "@tiptap/extension-link";
+import { Extension } from "@tiptap/core";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
@@ -28,10 +34,19 @@ import {
   TextQuote,
   Code,
   Underline as UnderlineIcon,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
+  Highlighter,
   AlignLeft,
   AlignCenter,
   AlignRight,
   Palette,
+  Link as LinkIcon,
+  Unlink,
+  Undo2,
+  Redo2,
+  SeparatorHorizontal,
+  Type,
   Sigma,
   Hexagon,
   Image as ImageIcon,
@@ -61,6 +76,42 @@ const EDITOR_COLORS = [
   { label: "Gray", color: "#6b7280" },
 ];
 
+const HIGHLIGHT_COLORS = [
+  { label: "Yellow", color: "#fef08a" },
+  { label: "Green", color: "#bbf7d0" },
+  { label: "Blue", color: "#bfdbfe" },
+  { label: "Pink", color: "#fbcfe8" },
+  { label: "Orange", color: "#fed7aa" },
+  { label: "Purple", color: "#e9d5ff" },
+];
+
+const FONT_SIZES = [
+  { label: "Small", value: "12px" },
+  { label: "Normal", value: null },
+  { label: "Large", value: "18px" },
+  { label: "X-Large", value: "24px" },
+];
+
+// Custom font-size extension via TextStyle global attributes
+const FontSize = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [{
+      types: ["textStyle"],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (element) => element.style.fontSize || null,
+          renderHTML: (attributes) => {
+            if (!attributes.fontSize) return {};
+            return { style: `font-size: ${attributes.fontSize}` };
+          },
+        },
+      },
+    }];
+  },
+});
+
 const AUTOSAVE_DELAY = 2000;
 
 interface DocumentEditorProps {
@@ -75,6 +126,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorButtonRef = useRef<HTMLButtonElement>(null);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
   const [showTableMenu, setShowTableMenu] = useState(false);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
 
@@ -88,6 +141,14 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [geoEditorOpen, setGeoEditorOpen] = useState(false);
   const [geoEditorState, setGeoEditorState] = useState<GeometryState | null>(null);
   const [geoEditorPos, setGeoEditorPos] = useState<number | null>(null);
+
+  // Close all dropdown menus
+  const closeAllMenus = useCallback(() => {
+    setShowColorPicker(false);
+    setShowHighlightPicker(false);
+    setShowFontSizeMenu(false);
+    setShowTableMenu(false);
+  }, []);
 
   const editorInstanceRef = useRef<ReturnType<typeof useEditor>>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -127,11 +188,16 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     extensions: [
       StarterKit.configure({
         codeBlock: false,
-        horizontalRule: false,
       }),
       Placeholder.configure({ placeholder: "Start writing..." }),
       TextStyle,
       Color,
+      FontSize,
+      Subscript,
+      Superscript,
+      Highlight.configure({ multicolor: true }),
+      CharacterCount,
+      Link.configure({ openOnClick: false, HTMLAttributes: { class: "doc-link" } }),
       Mathematics.configure({
         katexOptions: { throwOnError: false },
         inlineOptions: { onClick: (node: PmNode, pos: number) => handleMathClick(node, pos, "inline") },
@@ -347,12 +413,60 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden flex-wrap">
+        {/* Undo / Redo */}
+        <ToolbarBtn icon={Undo2} label="Undo" isActive={false} onClick={() => editor.chain().focus().undo().run()} />
+        <ToolbarBtn icon={Redo2} label="Redo" isActive={false} onClick={() => editor.chain().focus().redo().run()} />
+        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+
+        {/* Text formatting */}
         <ToolbarBtn icon={Bold} label="Bold" isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
         <ToolbarBtn icon={Italic} label="Italic" isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
-        <ToolbarBtn icon={Strikethrough} label="Strikethrough" isActive={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} />
         <ToolbarBtn icon={UnderlineIcon} label="Underline" isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+        <ToolbarBtn icon={Strikethrough} label="Strikethrough" isActive={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} />
+        <ToolbarBtn icon={SubscriptIcon} label="Subscript" isActive={editor.isActive("subscript")} onClick={() => editor.chain().focus().toggleSubscript().run()} />
+        <ToolbarBtn icon={SuperscriptIcon} label="Superscript" isActive={editor.isActive("superscript")} onClick={() => editor.chain().focus().toggleSuperscript().run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+
+        {/* Font size */}
+        <div className="relative">
+          <button
+            onClick={() => { const next = !showFontSizeMenu; closeAllMenus(); setShowFontSizeMenu(next); }}
+            className={cn(
+              "p-1.5 rounded transition-colors flex items-center gap-0.5",
+              showFontSizeMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title="Font Size"
+          >
+            <Type className="w-4 h-4" />
+          </button>
+          {showFontSizeMenu && (
+            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[7rem]">
+              {FONT_SIZES.map((fs) => (
+                <button
+                  key={fs.label}
+                  onClick={() => {
+                    if (fs.value) {
+                      editor.chain().focus().setMark("textStyle", { fontSize: fs.value }).run();
+                    } else {
+                      editor.chain().focus().unsetMark("textStyle").run();
+                    }
+                    setShowFontSizeMenu(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                    !fs.value && !editor.getAttributes("textStyle").fontSize && "font-semibold"
+                  )}
+                  style={fs.value ? { fontSize: fs.value } : undefined}
+                >
+                  {fs.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Block types */}
         <ToolbarBtn
           icon={Heading}
           label="Heading"
@@ -368,17 +482,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <ToolbarBtn icon={ListOrdered} label="Ordered List" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
         <ToolbarBtn icon={TextQuote} label="Blockquote" isActive={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
         <ToolbarBtn icon={Code} label="Code" isActive={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} />
+        <ToolbarBtn icon={SeparatorHorizontal} label="Horizontal Rule" isActive={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+
+        {/* Alignment */}
         <ToolbarBtn icon={AlignLeft} label="Align Left" isActive={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} />
         <ToolbarBtn icon={AlignCenter} label="Align Center" isActive={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} />
         <ToolbarBtn icon={AlignRight} label="Align Right" isActive={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
 
-        {/* Color picker */}
+        {/* Text color */}
         <div className="relative">
           <button
             ref={colorButtonRef}
-            onClick={() => { setShowColorPicker(!showColorPicker); setShowTableMenu(false); }}
+            onClick={() => { const next = !showColorPicker; closeAllMenus(); setShowColorPicker(next); }}
             className={cn(
               "p-1.5 rounded transition-colors",
               showColorPicker ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
@@ -409,7 +526,57 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           )}
         </div>
 
+        {/* Highlight */}
+        <div className="relative">
+          <button
+            onClick={() => { const next = !showHighlightPicker; closeAllMenus(); setShowHighlightPicker(next); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              showHighlightPicker || editor.isActive("highlight") ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title="Highlight"
+          >
+            <Highlighter className="w-4 h-4" />
+          </button>
+          {showHighlightPicker && (
+            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1">
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.color}
+                  onClick={() => { editor.chain().focus().toggleHighlight({ color: c.color }).run(); setShowHighlightPicker(false); }}
+                  className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+                  style={{ backgroundColor: c.color }}
+                  title={c.label}
+                />
+              ))}
+              <button
+                onClick={() => { editor.chain().focus().unsetHighlight().run(); setShowHighlightPicker(false); }}
+                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
+                title="Remove highlight"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Link */}
+        <ToolbarBtn
+          icon={editor.isActive("link") ? Unlink : LinkIcon}
+          label={editor.isActive("link") ? "Remove Link" : "Add Link"}
+          isActive={editor.isActive("link")}
+          onClick={() => {
+            if (editor.isActive("link")) {
+              editor.chain().focus().unsetLink().run();
+            } else {
+              const url = window.prompt("Enter URL:");
+              if (url) editor.chain().focus().setLink({ href: url }).run();
+            }
+          }}
+        />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+
+        {/* Insert elements */}
         <ToolbarBtn
           icon={Sigma}
           label="Math Equation"
@@ -433,7 +600,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         {/* Table menu */}
         <div className="relative">
           <button
-            onClick={() => { setShowTableMenu(!showTableMenu); setShowColorPicker(false); }}
+            onClick={() => { const next = !showTableMenu; closeAllMenus(); setShowTableMenu(next); }}
             className={cn(
               "p-1.5 rounded transition-colors",
               showTableMenu || editor.isActive("table")
@@ -447,7 +614,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           {showTableMenu && (
             <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
               {editor.isActive("table") ? (
-                /* Table operations when cursor is in a table */
                 <div className="flex flex-col gap-0.5">
                   <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
                     <Plus className="w-3 h-3" /> Add row above
@@ -477,7 +643,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   </button>
                 </div>
               ) : (
-                /* Grid size picker for inserting new table */
                 <div>
                   <p className="text-[10px] text-muted-foreground mb-1.5 px-0.5">
                     {gridHover ? `${gridHover.rows} × ${gridHover.cols}` : "Insert table"}
@@ -542,6 +707,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             <PageBreakOverlay containerRef={pageRef} />
           </div>
         </div>
+      </div>
+
+      {/* Word count status bar */}
+      <div className="flex items-center justify-end px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-muted-foreground print:hidden">
+        {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
       </div>
 
       {/* Math editor modal */}

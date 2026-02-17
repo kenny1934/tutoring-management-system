@@ -2380,6 +2380,28 @@ html {
   background: rgba(160, 112, 75, 0.12);
 }
 
+/* Document horizontal rules */
+.document-editor-content .tiptap hr {
+  border: none;
+  border-top: 1px solid #d4c4a8;
+  margin: 1em 0;
+}
+
+.dark .document-editor-content .tiptap hr {
+  border-color: #6b5a4a;
+}
+
+/* Document links */
+.document-editor-content .tiptap a.doc-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dark .document-editor-content .tiptap a.doc-link {
+  color: #60a5fa;
+}
+
 /* Print styles for document builder */
 @media print {
   /* Hide everything except the document page */
