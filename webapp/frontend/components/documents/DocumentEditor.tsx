@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -165,12 +165,82 @@ type ToolbarTab = "format" | "insert";
 
 const AUTOSAVE_DELAY = 2000;
 
-function resolveHeaderFooterText(template: string, docTitle: string): string {
-  if (!template) return "";
-  return template
+function renderHeaderFooterContent(template: string, docTitle: string): React.ReactNode {
+  if (!template) return null;
+  const resolved = template
     .replace(/\{title\}/g, docTitle)
-    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }))
-    .replace(/\{page\}/g, "#");
+    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }));
+
+  // Split on {page} and interleave with page-number spans
+  const parts = resolved.split("{page}");
+  if (parts.length === 1) return resolved;
+
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {part}
+          {i < parts.length - 1 && <span className="print-page-number" />}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+// Build @page margin box CSS for header/footer sections that use {page}.
+// Chrome only supports counter(page) inside @page margin boxes, not regular elements.
+// When ANY cell in a section has {page}, ALL cells move to @page margin boxes
+// and the HTML element is hidden (avoiding double-rendering).
+function buildPageMarginCSS(meta: DocumentMetadata | null, docTitle: string): string {
+  if (!meta) return "";
+  const rules: string[] = [];
+
+  const resolveText = (template: string) =>
+    template
+      .replace(/\{title\}/g, docTitle)
+      .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", {
+        year: "numeric", month: "short", day: "numeric",
+      }));
+
+  const buildContent = (template: string) => {
+    const resolved = resolveText(template);
+    const parts = resolved.split("{page}");
+    return parts
+      .flatMap((text, i) => {
+        const items: string[] = [];
+        if (text) items.push(`"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
+        if (i < parts.length - 1) items.push("counter(page)");
+        return items;
+      })
+      .join(" ");
+  };
+
+  const processSection = (
+    section: DocumentHeaderFooter | undefined,
+    boxes: [string, string, string],
+  ) => {
+    if (!section?.enabled) return;
+    const hasPage = [section.left, section.center, section.right]
+      .some(t => t?.includes("{page}"));
+    if (!hasPage) return;
+    [section.left, section.center, section.right].forEach((text, i) => {
+      if (!text) return;
+      const content = buildContent(text);
+      if (content) {
+        rules.push(`${boxes[i]} { content: ${content}; font-size: 9px; color: #888; vertical-align: top; }`);
+      }
+    });
+  };
+
+  processSection(meta.header, ["@top-left", "@top-center", "@top-right"]);
+  processSection(meta.footer, ["@bottom-left", "@bottom-center", "@bottom-right"]);
+
+  return rules.length ? rules.join(" ") : "";
+}
+
+function sectionHasPage(section?: DocumentHeaderFooter): boolean {
+  return !!section?.enabled && [section.left, section.center, section.right]
+    .some(t => t?.includes("{page}"));
 }
 
 interface DocumentEditorProps {
@@ -582,9 +652,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   return (
     <div className="flex flex-col h-screen bg-background print:bg-white">
-      {/* Dynamic @page margins matching the user's document margin settings */}
+      {/* Dynamic @page margins + margin boxes for {page} counter */}
       <style>{`@media print {
-  @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
+  @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; ${buildPageMarginCSS(docMetadata, doc.title)} }
 }`}</style>
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
@@ -1158,7 +1228,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             {/* Print header — outer div becomes table-header-group in print, inner div keeps flex */}
             {docMetadata?.header?.enabled && (
-              <div className="document-print-header">
+              <div className={cn("document-print-header", sectionHasPage(docMetadata.header) && "print-hide-page-section")}>
                 <div
                   style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1172,16 +1242,16 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "left" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
-                    {resolveHeaderFooterText(docMetadata.header.left, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.header.left, doc.title)}
                   </span>
                   <span style={{ flex: 1, textAlign: "center" }}>
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "center" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
-                    {resolveHeaderFooterText(docMetadata.header.center, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.header.center, doc.title)}
                   </span>
                   <span style={{ flex: 1, textAlign: "right" }}>
-                    {resolveHeaderFooterText(docMetadata.header.right, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.header.right, doc.title)}
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "right" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
                     )}
@@ -1196,9 +1266,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             />
             <PageBreakOverlay containerRef={pageRef} />
 
-            {/* Print footer — outer div becomes table-footer-group in print, inner div keeps flex */}
+            {/* Print footer — position:fixed in print for per-page repetition, inner div keeps flex */}
             {docMetadata?.footer?.enabled && (
-              <div className="document-print-footer">
+              <div className={cn("document-print-footer", sectionHasPage(docMetadata.footer) && "print-hide-page-section")}>
                 <div
                   style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1211,16 +1281,16 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "left" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
-                    {resolveHeaderFooterText(docMetadata.footer.left, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.footer.left, doc.title)}
                   </span>
                   <span style={{ flex: 1, textAlign: "center" }}>
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "center" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
-                    {resolveHeaderFooterText(docMetadata.footer.center, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.footer.center, doc.title)}
                   </span>
                   <span style={{ flex: 1, textAlign: "right" }}>
-                    {resolveHeaderFooterText(docMetadata.footer.right, doc.title)}
+                    {renderHeaderFooterContent(docMetadata.footer.right, doc.title)}
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "right" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
                     )}

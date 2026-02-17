@@ -2504,6 +2504,11 @@ html {
   border-color: #6b5a4a;
 }
 
+/* Page number placeholder — shows # in editor, actual page number in print */
+.print-page-number::after {
+  content: "#";
+}
+
 /* Watermark & header/footer — layout handled by inline styles in React.
    CSS here is only for print overrides. */
 
@@ -2561,11 +2566,17 @@ html {
     left: 0 !important;
     right: 0 !important;
     background: white !important;
-    padding-top: 2mm !important;
   }
 
   .document-editor-content {
     display: table-row-group !important;
+  }
+
+  /* Hide entire header/footer section when it uses {page} — page numbers
+     and all text are rendered via @page margin boxes instead (DocumentEditor.tsx) */
+  .print-hide-page-section,
+  .print-hide-page-section * {
+    display: none !important;
   }
 
   /* Watermark still uses position: fixed to repeat on every page */
