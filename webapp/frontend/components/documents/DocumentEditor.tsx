@@ -22,13 +22,13 @@ import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
 import { createMathInputRules, createGeometryDiagramNode } from "@/lib/tiptap-extensions";
+import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
   Bold,
   Italic,
   Strikethrough,
-  Heading,
   List,
   ListOrdered,
   TextQuote,
@@ -46,8 +46,8 @@ import {
   Undo2,
   Redo2,
   SeparatorHorizontal,
-  Type,
-  ALargeSmall,
+  ChevronDown,
+  Tags,
   Sigma,
   Hexagon,
   Image as ImageIcon,
@@ -87,10 +87,18 @@ const HIGHLIGHT_COLORS = [
 ];
 
 const FONT_SIZES = [
-  { label: "Small", value: "12px" },
-  { label: "Normal", value: null },
-  { label: "Large", value: "18px" },
-  { label: "X-Large", value: "24px" },
+  { label: "8", value: "8px" },
+  { label: "10", value: "10px" },
+  { label: "12", value: "12px" },
+  { label: "14", value: "14px" },
+  { label: "16", value: null },
+  { label: "18", value: "18px" },
+  { label: "20", value: "20px" },
+  { label: "24", value: "24px" },
+  { label: "28", value: "28px" },
+  { label: "36", value: "36px" },
+  { label: "48", value: "48px" },
+  { label: "72", value: "72px" },
 ];
 
 const FONT_FAMILIES = [
@@ -106,6 +114,19 @@ const FONT_FAMILIES = [
   { label: "思源黑體", value: "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif" },
   { label: "思源宋體", value: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif" },
   { label: "標楷體", value: "'DFKai-SB', 'BiauKai', 'Kaiti TC', serif" },
+];
+
+const ALIGN_OPTIONS = [
+  { icon: AlignLeft, label: "Align Left", value: "left" as const },
+  { icon: AlignCenter, label: "Align Center", value: "center" as const },
+  { icon: AlignRight, label: "Align Right", value: "right" as const },
+];
+
+const HEADING_OPTIONS = [
+  { label: "Normal", level: null, className: "text-sm" },
+  { label: "Heading 1", level: 1 as const, className: "text-lg font-bold" },
+  { label: "Heading 2", level: 2 as const, className: "text-base font-semibold" },
+  { label: "Heading 3", level: 3 as const, className: "text-sm font-semibold" },
 ];
 
 // Custom text style attributes via TextStyle global attributes
@@ -148,15 +169,25 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dropdown states
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const colorButtonRef = useRef<HTMLButtonElement>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
   const [showFontFamilyMenu, setShowFontFamilyMenu] = useState(false);
   const [showTableMenu, setShowTableMenu] = useState(false);
-  const colorInputRef = useRef<HTMLInputElement>(null);
-  const highlightInputRef = useRef<HTMLInputElement>(null);
+  const [showAlignMenu, setShowAlignMenu] = useState(false);
+  const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
+
+  // Toolbar label mode
+  const [showLabels, setShowLabels] = useState(false);
+  useEffect(() => {
+    setShowLabels(localStorage.getItem("doc-editor-toolbar-labels") === "true");
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("doc-editor-toolbar-labels", String(showLabels));
+  }, [showLabels]);
 
   // Math editor state
   const [mathEditorOpen, setMathEditorOpen] = useState(false);
@@ -176,7 +207,23 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     setShowFontSizeMenu(false);
     setShowFontFamilyMenu(false);
     setShowTableMenu(false);
+    setShowAlignMenu(false);
+    setShowHeadingMenu(false);
   }, []);
+
+  // Click-outside and Escape key to close dropdowns
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const anyMenuOpen = showColorPicker || showHighlightPicker || showFontSizeMenu || showFontFamilyMenu || showTableMenu || showAlignMenu || showHeadingMenu;
+  useClickOutside(toolbarRef, closeAllMenus, anyMenuOpen);
+
+  useEffect(() => {
+    if (!anyMenuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeAllMenus();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [anyMenuOpen, closeAllMenus]);
 
   const editorInstanceRef = useRef<ReturnType<typeof useEditor>>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -401,6 +448,33 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     window.print();
   }, []);
 
+  // Helper: get current font family label
+  const currentFontFamily = editor
+    ? FONT_FAMILIES.find(ff => ff.value === editor.getAttributes("textStyle").fontFamily)?.label || "Default"
+    : "Default";
+
+  // Helper: get current font size display
+  const currentFontSize = editor
+    ? (editor.getAttributes("textStyle").fontSize
+        ? parseInt(editor.getAttributes("textStyle").fontSize, 10).toString()
+        : "16")
+    : "16";
+
+  // Helper: get current heading label
+  const currentHeading = editor
+    ? (editor.isActive("heading", { level: 1 }) ? "Heading 1"
+      : editor.isActive("heading", { level: 2 }) ? "Heading 2"
+      : editor.isActive("heading", { level: 3 }) ? "Heading 3"
+      : "Normal")
+    : "Normal";
+
+  // Helper: get current alignment icon
+  const CurrentAlignIcon = editor
+    ? (editor.isActive({ textAlign: "center" }) ? AlignCenter
+      : editor.isActive({ textAlign: "right" }) ? AlignRight
+      : AlignLeft)
+    : AlignLeft;
+
   if (!editor) return null;
 
   return (
@@ -440,361 +514,444 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </button>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-4 py-1.5 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden flex-wrap">
-        {/* Undo / Redo */}
-        <ToolbarBtn icon={Undo2} label="Undo" isActive={false} onClick={() => editor.chain().focus().undo().run()} />
-        <ToolbarBtn icon={Redo2} label="Redo" isActive={false} onClick={() => editor.chain().focus().redo().run()} />
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
+      {/* Toolbar — Two-row layout */}
+      <div ref={toolbarRef} className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+        {/* Row 1: Text Formatting */}
+        <div className="flex items-center gap-0.5 px-3 pt-1.5 pb-0.5 flex-wrap">
+          {/* Undo / Redo */}
+          <ToolbarBtn icon={Undo2} label="Undo" isActive={false} onClick={() => editor.chain().focus().undo().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={Redo2} label="Redo" isActive={false} onClick={() => editor.chain().focus().redo().run()} showLabel={showLabels} />
+          <ToolbarSep />
 
-        {/* Text formatting */}
-        <ToolbarBtn icon={Bold} label="Bold" isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
-        <ToolbarBtn icon={Italic} label="Italic" isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
-        <ToolbarBtn icon={UnderlineIcon} label="Underline" isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} />
-        <ToolbarBtn icon={Strikethrough} label="Strikethrough" isActive={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} />
-        <ToolbarBtn icon={SubscriptIcon} label="Subscript" isActive={editor.isActive("subscript")} onClick={() => editor.chain().focus().toggleSubscript().run()} />
-        <ToolbarBtn icon={SuperscriptIcon} label="Superscript" isActive={editor.isActive("superscript")} onClick={() => editor.chain().focus().toggleSuperscript().run()} />
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
-
-        {/* Font family */}
-        <div className="relative">
-          <button
-            onClick={() => { const next = !showFontFamilyMenu; closeAllMenus(); setShowFontFamilyMenu(next); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              showFontFamilyMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-            )}
-            title="Font Family"
-          >
-            <ALargeSmall className="w-4 h-4" />
-          </button>
-          {showFontFamilyMenu && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[9rem]">
-              {FONT_FAMILIES.map((ff) => (
-                <button
-                  key={ff.label}
-                  onClick={() => {
-                    if (ff.value) {
-                      editor.chain().focus().setMark("textStyle", { fontFamily: ff.value }).run();
-                    } else {
-                      editor.chain().focus().unsetMark("textStyle").run();
-                    }
-                    setShowFontFamilyMenu(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
-                    !ff.value && !editor.getAttributes("textStyle").fontFamily && "font-semibold"
-                  )}
-                  style={ff.value ? { fontFamily: ff.value } : undefined}
-                >
-                  {ff.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Font size */}
-        <div className="relative">
-          <button
-            onClick={() => { const next = !showFontSizeMenu; closeAllMenus(); setShowFontSizeMenu(next); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              showFontSizeMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-            )}
-            title="Font Size"
-          >
-            <Type className="w-4 h-4" />
-          </button>
-          {showFontSizeMenu && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[7rem]">
-              {FONT_SIZES.map((fs) => (
-                <button
-                  key={fs.label}
-                  onClick={() => {
-                    if (fs.value) {
-                      editor.chain().focus().setMark("textStyle", { fontSize: fs.value }).run();
-                    } else {
-                      editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
-                    }
-                    setShowFontSizeMenu(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
-                    !fs.value && !editor.getAttributes("textStyle").fontSize && "font-semibold"
-                  )}
-                  style={fs.value ? { fontSize: fs.value } : undefined}
-                >
-                  {fs.label}
-                </button>
-              ))}
-              <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-              <form
-                className="px-2 py-1"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const input = (e.target as HTMLFormElement).elements.namedItem("customSize") as HTMLInputElement;
-                  const val = parseInt(input.value, 10);
-                  if (val >= 8 && val <= 96) {
-                    editor.chain().focus().setMark("textStyle", { fontSize: `${val}px` }).run();
-                    setShowFontSizeMenu(false);
-                  }
-                }}
-              >
-                <div className="flex items-center gap-1">
-                  <input
-                    name="customSize"
-                    type="number"
-                    min={8}
-                    max={96}
-                    placeholder="px"
-                    className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-foreground outline-none focus:border-[#a0704b]"
-                  />
-                  <button type="submit" className="text-[10px] text-[#a0704b] hover:underline">Set</button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
-
-        {/* Block types */}
-        <ToolbarBtn
-          icon={Heading}
-          label="Heading"
-          isActive={editor.isActive("heading")}
-          onClick={() => {
-            if (editor.isActive("heading", { level: 1 })) editor.chain().focus().toggleHeading({ level: 2 }).run();
-            else if (editor.isActive("heading", { level: 2 })) editor.chain().focus().toggleHeading({ level: 3 }).run();
-            else if (editor.isActive("heading", { level: 3 })) editor.chain().focus().setParagraph().run();
-            else editor.chain().focus().toggleHeading({ level: 1 }).run();
-          }}
-        />
-        <ToolbarBtn icon={List} label="Bullet List" isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} />
-        <ToolbarBtn icon={ListOrdered} label="Ordered List" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
-        <ToolbarBtn icon={TextQuote} label="Blockquote" isActive={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} />
-        <ToolbarBtn icon={Code} label="Code" isActive={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} />
-        <ToolbarBtn icon={SeparatorHorizontal} label="Horizontal Rule" isActive={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} />
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
-
-        {/* Alignment */}
-        <ToolbarBtn icon={AlignLeft} label="Align Left" isActive={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()} />
-        <ToolbarBtn icon={AlignCenter} label="Align Center" isActive={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()} />
-        <ToolbarBtn icon={AlignRight} label="Align Right" isActive={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()} />
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
-
-        {/* Text color */}
-        <div className="relative">
-          <button
-            ref={colorButtonRef}
-            onClick={() => { const next = !showColorPicker; closeAllMenus(); setShowColorPicker(next); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              showColorPicker ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-            )}
-            title="Text Color"
-          >
-            <Palette className="w-4 h-4" />
-          </button>
-          {showColorPicker && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1">
-              {EDITOR_COLORS.map((c) => (
-                <button
-                  key={c.color}
-                  onClick={() => { editor.chain().focus().setColor(c.color).run(); setShowColorPicker(false); }}
-                  className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                  style={{ backgroundColor: c.color }}
-                  title={c.label}
-                />
-              ))}
-              <button
-                onClick={() => { editor.chain().focus().unsetColor().run(); setShowColorPicker(false); }}
-                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
-                title="Remove color"
-              >
-                &times;
-              </button>
-              <button
-                onClick={() => colorInputRef.current?.click()}
-                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                style={{ background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)" }}
-                title="Custom color"
-              />
-              <input
-                ref={colorInputRef}
-                type="color"
-                className="sr-only"
-                onChange={(e) => { editor.chain().focus().setColor(e.target.value).run(); setShowColorPicker(false); }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Highlight */}
-        <div className="relative">
-          <button
-            onClick={() => { const next = !showHighlightPicker; closeAllMenus(); setShowHighlightPicker(next); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              showHighlightPicker || editor.isActive("highlight") ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-            )}
-            title="Highlight"
-          >
-            <Highlighter className="w-4 h-4" />
-          </button>
-          {showHighlightPicker && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1">
-              {HIGHLIGHT_COLORS.map((c) => (
-                <button
-                  key={c.color}
-                  onClick={() => { editor.chain().focus().toggleHighlight({ color: c.color }).run(); setShowHighlightPicker(false); }}
-                  className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                  style={{ backgroundColor: c.color }}
-                  title={c.label}
-                />
-              ))}
-              <button
-                onClick={() => { editor.chain().focus().unsetHighlight().run(); setShowHighlightPicker(false); }}
-                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
-                title="Remove highlight"
-              >
-                &times;
-              </button>
-              <button
-                onClick={() => highlightInputRef.current?.click()}
-                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                style={{ background: "conic-gradient(#fef08a, #bbf7d0, #bfdbfe, #fbcfe8, #fed7aa, #e9d5ff, #fef08a)" }}
-                title="Custom highlight color"
-              />
-              <input
-                ref={highlightInputRef}
-                type="color"
-                className="sr-only"
-                onChange={(e) => { editor.chain().focus().toggleHighlight({ color: e.target.value }).run(); setShowHighlightPicker(false); }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Link */}
-        <ToolbarBtn
-          icon={editor.isActive("link") ? Unlink : LinkIcon}
-          label={editor.isActive("link") ? "Remove Link" : "Add Link"}
-          isActive={editor.isActive("link")}
-          onClick={() => {
-            if (editor.isActive("link")) {
-              editor.chain().focus().unsetLink().run();
-            } else {
-              const url = window.prompt("Enter URL:");
-              if (url) editor.chain().focus().setLink({ href: url }).run();
-            }
-          }}
-        />
-        <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
-
-        {/* Insert elements */}
-        <ToolbarBtn
-          icon={Sigma}
-          label="Math Equation"
-          isActive={false}
-          onClick={() => { setMathEditorLatex(""); setMathEditorType("inline"); setMathEditorPos(null); setMathEditorOpen(true); }}
-        />
-        <ToolbarBtn
-          icon={Hexagon}
-          label="Geometry Diagram"
-          isActive={false}
-          onClick={handleOpenGeoEditor}
-        />
-        <ToolbarBtn
-          icon={ImageIcon}
-          label="Insert Image"
-          isActive={false}
-          onClick={() => imageInputRef.current?.click()}
-        />
-        {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
-
-        {/* Table menu */}
-        <div className="relative">
-          <button
-            onClick={() => { const next = !showTableMenu; closeAllMenus(); setShowTableMenu(next); }}
-            className={cn(
-              "p-1.5 rounded transition-colors",
-              showTableMenu || editor.isActive("table")
-                ? "bg-[#a0704b] text-white"
-                : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-            )}
-            title="Table"
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </button>
-          {showTableMenu && (
-            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
-              {editor.isActive("table") ? (
-                <div className="flex flex-col gap-0.5">
-                  <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Plus className="w-3 h-3" /> Add row above
-                  </button>
-                  <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Plus className="w-3 h-3" /> Add row below
-                  </button>
-                  <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Plus className="w-3 h-3" /> Add column left
-                  </button>
-                  <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Plus className="w-3 h-3" /> Add column right
-                  </button>
-                  <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-                  <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Minus className="w-3 h-3" /> Delete row
-                  </button>
-                  <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <Minus className="w-3 h-3" /> Delete column
-                  </button>
-                  <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
-                    <ToggleLeft className="w-3 h-3" /> Toggle header row
-                  </button>
-                  <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-                  <button onClick={() => { editor.chain().focus().deleteTable().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
-                    <Trash2 className="w-3 h-3" /> Delete table
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-[10px] text-muted-foreground mb-1.5 px-0.5">
-                    {gridHover ? `${gridHover.rows} × ${gridHover.cols}` : "Insert table"}
-                  </p>
-                  <div
-                    className="grid gap-[3px]"
-                    style={{ gridTemplateColumns: "repeat(5, 1fr)" }}
-                    onMouseLeave={() => setGridHover(null)}
-                  >
-                    {Array.from({ length: 25 }, (_, i) => {
-                      const row = Math.floor(i / 5) + 1;
-                      const col = (i % 5) + 1;
-                      const active = gridHover && row <= gridHover.rows && col <= gridHover.cols;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          className={cn(
-                            "w-5 h-5 rounded-sm border transition-colors",
-                            active
-                              ? "bg-[#a0704b] border-[#a0704b]"
-                              : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
-                          )}
-                          onMouseEnter={() => setGridHover({ rows: row, cols: col })}
-                          onClick={() => {
-                            editor.chain().focus().insertTable({ rows: row, cols: col, withHeaderRow: true }).run();
-                            setShowTableMenu(false);
-                            setGridHover(null);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
+          {/* Font Family dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showFontFamilyMenu; closeAllMenus(); setShowFontFamilyMenu(next); }}
+              className={cn(
+                "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
+                showFontFamilyMenu
+                  ? "bg-[#a0704b] text-white border-[#a0704b]"
+                  : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
               )}
-            </div>
-          )}
+              title="Font Family"
+            >
+              <span className="truncate max-w-[7rem]">{currentFontFamily}</span>
+              <ChevronDown className="w-3 h-3 shrink-0" />
+            </button>
+            {showFontFamilyMenu && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
+                {FONT_FAMILIES.map((ff) => (
+                  <button
+                    key={ff.label}
+                    onClick={() => {
+                      if (ff.value) {
+                        editor.chain().focus().setMark("textStyle", { fontFamily: ff.value }).run();
+                      } else {
+                        editor.chain().focus().unsetMark("textStyle").run();
+                      }
+                      setShowFontFamilyMenu(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                      (ff.value === editor.getAttributes("textStyle").fontFamily || (!ff.value && !editor.getAttributes("textStyle").fontFamily)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                    )}
+                    style={ff.value ? { fontFamily: ff.value } : undefined}
+                  >
+                    {ff.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Font Size dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showFontSizeMenu; closeAllMenus(); setShowFontSizeMenu(next); }}
+              className={cn(
+                "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
+                showFontSizeMenu
+                  ? "bg-[#a0704b] text-white border-[#a0704b]"
+                  : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Font Size"
+            >
+              <span className="w-5 text-center">{currentFontSize}</span>
+              <ChevronDown className="w-3 h-3 shrink-0" />
+            </button>
+            {showFontSizeMenu && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1">
+                <div className="grid grid-cols-4 gap-0.5 min-w-[8rem]">
+                  {FONT_SIZES.map((fs) => (
+                    <button
+                      key={fs.label}
+                      onClick={() => {
+                        if (fs.value) {
+                          editor.chain().focus().setMark("textStyle", { fontSize: fs.value }).run();
+                        } else {
+                          editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
+                        }
+                        setShowFontSizeMenu(false);
+                      }}
+                      className={cn(
+                        "px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground text-center",
+                        ((fs.value && editor.getAttributes("textStyle").fontSize === fs.value) ||
+                         (!fs.value && !editor.getAttributes("textStyle").fontSize)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                      )}
+                    >
+                      {fs.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                <form
+                  className="px-1 py-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.target as HTMLFormElement).elements.namedItem("customSize") as HTMLInputElement;
+                    const val = parseInt(input.value, 10);
+                    if (val >= 8 && val <= 96) {
+                      editor.chain().focus().setMark("textStyle", { fontSize: `${val}px` }).run();
+                      setShowFontSizeMenu(false);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-1">
+                    <input
+                      name="customSize"
+                      type="number"
+                      min={8}
+                      max={96}
+                      placeholder="px"
+                      className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-foreground outline-none focus:border-[#a0704b]"
+                    />
+                    <button type="submit" className="text-[10px] text-[#a0704b] hover:underline">Set</button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+          <ToolbarSep />
+
+          {/* Inline formatting */}
+          <ToolbarBtn icon={Bold} label="Bold" isActive={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={Italic} label="Italic" isActive={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={UnderlineIcon} label="Underline" isActive={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={Strikethrough} label="Strike" isActive={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={SubscriptIcon} label="Sub" isActive={editor.isActive("subscript")} onClick={() => editor.chain().focus().toggleSubscript().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={SuperscriptIcon} label="Super" isActive={editor.isActive("superscript")} onClick={() => editor.chain().focus().toggleSuperscript().run()} showLabel={showLabels} />
+          <ToolbarSep />
+
+          {/* Text color */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showColorPicker; closeAllMenus(); setShowColorPicker(next); }}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                showColorPicker ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Text Color"
+            >
+              <Palette className="w-4 h-4" />
+            </button>
+            {showColorPicker && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
+                {EDITOR_COLORS.map((c) => (
+                  <button
+                    key={c.color}
+                    onClick={() => editor.chain().focus().setColor(c.color).run()}
+                    className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.color }}
+                    title={c.label}
+                  />
+                ))}
+                <button
+                  onClick={() => editor.chain().focus().unsetColor().run()}
+                  className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
+                  title="Remove color"
+                >
+                  &times;
+                </button>
+                <input
+                  type="color"
+                  value={editor.getAttributes("textStyle").color || "#000000"}
+                  onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
+                  onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+                  className="doc-color-swatch w-6 h-6 rounded-full hover:scale-110 transition-transform"
+                  title="Custom color"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Highlight */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showHighlightPicker; closeAllMenus(); setShowHighlightPicker(next); }}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                showHighlightPicker || editor.isActive("highlight") ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Highlight"
+            >
+              <Highlighter className="w-4 h-4" />
+            </button>
+            {showHighlightPicker && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button
+                    key={c.color}
+                    onClick={() => editor.chain().focus().toggleHighlight({ color: c.color }).run()}
+                    className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.color }}
+                    title={c.label}
+                  />
+                ))}
+                <button
+                  onClick={() => editor.chain().focus().unsetHighlight().run()}
+                  className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
+                  title="Remove highlight"
+                >
+                  &times;
+                </button>
+                <input
+                  type="color"
+                  defaultValue="#fef08a"
+                  onInput={(e) => editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run()}
+                  onChange={(e) => editor.chain().focus().toggleHighlight({ color: e.target.value }).run()}
+                  className="doc-color-swatch w-6 h-6 rounded-full hover:scale-110 transition-transform"
+                  title="Custom highlight color"
+                />
+              </div>
+            )}
+          </div>
+          <ToolbarSep />
+
+          {/* Alignment dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showAlignMenu; closeAllMenus(); setShowAlignMenu(next); }}
+              className={cn(
+                "flex items-center gap-0.5 p-1.5 rounded transition-colors",
+                showAlignMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Text Alignment"
+            >
+              <CurrentAlignIcon className="w-4 h-4" />
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showAlignMenu && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[8rem]">
+                {ALIGN_OPTIONS.map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => { editor.chain().focus().setTextAlign(item.value).run(); setShowAlignMenu(false); }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                      editor.isActive({ textAlign: item.value }) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                    )}
+                  >
+                    <item.icon className="w-4 h-4" /> {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Spacer + Label toggle */}
+          <div className="flex-1" />
+          <button
+            onClick={() => setShowLabels(s => !s)}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              showLabels ? "bg-[#a0704b] text-white" : "text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title={showLabels ? "Hide labels" : "Show labels"}
+          >
+            <Tags className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Row 2: Structure & Insert */}
+        <div className="flex items-center gap-0.5 px-3 pt-0.5 pb-1.5 flex-wrap">
+          {/* Heading dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showHeadingMenu; closeAllMenus(); setShowHeadingMenu(next); }}
+              className={cn(
+                "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
+                showHeadingMenu
+                  ? "bg-[#a0704b] text-white border-[#a0704b]"
+                  : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Heading Level"
+            >
+              <span className="min-w-[4.5rem]">{currentHeading}</span>
+              <ChevronDown className="w-3 h-3 shrink-0" />
+            </button>
+            {showHeadingMenu && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+                {HEADING_OPTIONS.map((h) => (
+                  <button
+                    key={h.label}
+                    onClick={() => {
+                      if (h.level) {
+                        editor.chain().focus().toggleHeading({ level: h.level }).run();
+                      } else {
+                        editor.chain().focus().setParagraph().run();
+                      }
+                      setShowHeadingMenu(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                      h.className,
+                      (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-[#f5ede3] dark:bg-[#2d2618]"
+                    )}
+                  >
+                    {h.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <ToolbarSep />
+
+          {/* Lists */}
+          <ToolbarBtn icon={List} label="Bullet" isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={ListOrdered} label="Ordered" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} showLabel={showLabels} />
+          <ToolbarSep />
+
+          {/* Block types */}
+          <ToolbarBtn icon={TextQuote} label="Quote" isActive={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={Code} label="Code" isActive={editor.isActive("code")} onClick={() => editor.chain().focus().toggleCode().run()} showLabel={showLabels} />
+          <ToolbarBtn icon={SeparatorHorizontal} label="Divider" isActive={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} showLabel={showLabels} />
+          <ToolbarSep />
+
+          {/* Link */}
+          <ToolbarBtn
+            icon={editor.isActive("link") ? Unlink : LinkIcon}
+            label={editor.isActive("link") ? "Unlink" : "Link"}
+            isActive={editor.isActive("link")}
+            onClick={() => {
+              if (editor.isActive("link")) {
+                editor.chain().focus().unsetLink().run();
+              } else {
+                const url = window.prompt("Enter URL:");
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+              }
+            }}
+            showLabel={showLabels}
+          />
+          <ToolbarSep />
+
+          {/* Insert elements */}
+          <ToolbarBtn
+            icon={Sigma}
+            label="Math"
+            isActive={false}
+            onClick={() => { setMathEditorLatex(""); setMathEditorType("inline"); setMathEditorPos(null); setMathEditorOpen(true); }}
+            showLabel={showLabels}
+          />
+          <ToolbarBtn
+            icon={Hexagon}
+            label="Geometry"
+            isActive={false}
+            onClick={handleOpenGeoEditor}
+            showLabel={showLabels}
+          />
+          <ToolbarBtn
+            icon={ImageIcon}
+            label="Image"
+            isActive={false}
+            onClick={() => imageInputRef.current?.click()}
+            showLabel={showLabels}
+          />
+          {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
+
+          {/* Table menu */}
+          <div className="relative">
+            <button
+              onClick={() => { const next = !showTableMenu; closeAllMenus(); setShowTableMenu(next); }}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                showTableMenu || editor.isActive("table")
+                  ? "bg-[#a0704b] text-white"
+                  : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+              )}
+              title="Table"
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </button>
+            {showTableMenu && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
+                {editor.isActive("table") ? (
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Plus className="w-3 h-3" /> Add row above
+                    </button>
+                    <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Plus className="w-3 h-3" /> Add row below
+                    </button>
+                    <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Plus className="w-3 h-3" /> Add column left
+                    </button>
+                    <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Plus className="w-3 h-3" /> Add column right
+                    </button>
+                    <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                    <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Minus className="w-3 h-3" /> Delete row
+                    </button>
+                    <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <Minus className="w-3 h-3" /> Delete column
+                    </button>
+                    <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                      <ToggleLeft className="w-3 h-3" /> Toggle header row
+                    </button>
+                    <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                    <button onClick={() => { editor.chain().focus().deleteTable().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
+                      <Trash2 className="w-3 h-3" /> Delete table
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-[10px] text-muted-foreground mb-1.5 px-0.5">
+                      {gridHover ? `${gridHover.rows} × ${gridHover.cols}` : "Insert table"}
+                    </p>
+                    <div
+                      className="grid gap-[3px]"
+                      style={{ gridTemplateColumns: "repeat(5, 1fr)" }}
+                      onMouseLeave={() => setGridHover(null)}
+                    >
+                      {Array.from({ length: 25 }, (_, i) => {
+                        const row = Math.floor(i / 5) + 1;
+                        const col = (i % 5) + 1;
+                        const active = gridHover && row <= gridHover.rows && col <= gridHover.cols;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            className={cn(
+                              "w-5 h-5 rounded-sm border transition-colors",
+                              active
+                                ? "bg-[#a0704b] border-[#a0704b]"
+                                : "border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50"
+                            )}
+                            onMouseEnter={() => setGridHover({ rows: row, cols: col })}
+                            onClick={() => {
+                              editor.chain().focus().insertTable({ rows: row, cols: col, withHeaderRow: true }).run();
+                              setShowTableMenu(false);
+                              setGridHover(null);
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -914,14 +1071,20 @@ function PageBreakOverlay({ containerRef }: { containerRef: React.RefObject<HTML
   );
 }
 
-/* Small toolbar button */
-function ToolbarBtn({ icon: Icon, label, isActive, onClick }: { icon: React.ComponentType<{ className?: string }>; label: string; isActive: boolean; onClick: () => void }) {
+/* Toolbar separator */
+function ToolbarSep() {
+  return <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1 shrink-0" />;
+}
+
+/* Toolbar button with optional label */
+function ToolbarBtn({ icon: Icon, label, isActive, onClick, showLabel }: { icon: React.ComponentType<{ className?: string }>; label: string; isActive: boolean; onClick: () => void; showLabel?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "p-1.5 rounded transition-colors",
+        "rounded transition-colors",
+        showLabel ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5",
         isActive
           ? "bg-[#a0704b] text-white"
           : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
@@ -929,6 +1092,7 @@ function ToolbarBtn({ icon: Icon, label, isActive, onClick }: { icon: React.Comp
       title={label}
     >
       <Icon className="w-4 h-4" />
+      {showLabel && <span className="text-[9px] leading-none">{label}</span>}
     </button>
   );
 }

@@ -2402,6 +2402,26 @@ html {
   color: #60a5fa;
 }
 
+/* Color picker swatch in document toolbar */
+.doc-color-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
+.doc-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.doc-color-swatch::-webkit-color-swatch {
+  border: 1px solid #e8d4b8;
+  border-radius: 9999px;
+}
+.dark .doc-color-swatch::-webkit-color-swatch {
+  border-color: #6b5a4a;
+}
+
 /* Print styles for document builder */
 @media print {
   /* Hide everything except the document page */
