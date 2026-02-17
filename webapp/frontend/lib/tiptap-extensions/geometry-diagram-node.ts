@@ -2,8 +2,11 @@
  * TipTap custom node for geometry diagrams.
  * Stores a JSXGraph serialized state (graphJson) and an SVG thumbnail.
  * Renders the thumbnail in the editor; clicking opens the geometry editor.
+ * Uses React NodeView with ResizableNodeWrapper for resize + alignment.
  */
 import { Node as TipTapNode } from "@tiptap/core";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { GeometryDiagramComponent } from "@/components/documents/GeometryDiagramComponent";
 
 interface GeometryDiagramOptions {
   /** Called when user clicks a diagram to edit it. Receives (graphJson, nodePos). */
@@ -11,16 +14,39 @@ interface GeometryDiagramOptions {
 }
 
 export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) {
-  return TipTapNode.create({
+  return TipTapNode.create<GeometryDiagramOptions>({
     name: "geometryDiagram",
     group: "block",
     atom: true,
     draggable: true,
 
+    addOptions() {
+      return options;
+    },
+
     addAttributes() {
       return {
         graphJson: { default: "{}" },
         svgThumbnail: { default: "" },
+        width: {
+          default: null,
+          parseHTML: (element: HTMLElement) => {
+            const w = element.getAttribute("data-width");
+            return w ? parseInt(w, 10) || null : null;
+          },
+          renderHTML: (attributes: Record<string, unknown>) => {
+            if (!attributes.width) return {};
+            return { "data-width": String(attributes.width) };
+          },
+        },
+        align: {
+          default: null,
+          parseHTML: (element: HTMLElement) => element.getAttribute("data-align") || null,
+          renderHTML: (attributes: Record<string, unknown>) => {
+            if (!attributes.align) return {};
+            return { "data-align": attributes.align };
+          },
+        },
       };
     },
 
@@ -31,6 +57,8 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
           getAttrs: (dom: HTMLElement) => ({
             graphJson: dom.getAttribute("data-graph-json") || "{}",
             svgThumbnail: dom.getAttribute("data-svg-thumbnail") || "",
+            width: dom.getAttribute("data-width") ? parseInt(dom.getAttribute("data-width")!, 10) || null : null,
+            align: dom.getAttribute("data-align") || null,
           }),
         },
       ];
@@ -38,14 +66,17 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
 
     renderHTML({ HTMLAttributes }) {
       const thumb = HTMLAttributes.svgThumbnail || "";
+      const attrs: Record<string, string> = {
+        "data-type": "geometry-diagram",
+        "data-graph-json": HTMLAttributes.graphJson,
+        "data-svg-thumbnail": thumb,
+      };
+      if (HTMLAttributes.width) attrs["data-width"] = String(HTMLAttributes.width);
+      if (HTMLAttributes.align) attrs["data-align"] = HTMLAttributes.align;
+
       return [
         "div",
-        {
-          "data-type": "geometry-diagram",
-          "data-graph-json": HTMLAttributes.graphJson,
-          "data-svg-thumbnail": thumb,
-          style: "cursor:pointer;text-align:center;padding:8px 0;margin:4px 0",
-        },
+        attrs,
         thumb
           ? [
               "img",
@@ -53,7 +84,7 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
                 src: thumb,
                 alt: "Geometry diagram",
                 style:
-                  "max-width:100%;max-height:200px;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8",
+                  "max-width:100%;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8",
               },
             ]
           : ["span", { style: "color:#999;font-size:12px" }, "[Geometry Diagram]"],
@@ -61,39 +92,7 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
     },
 
     addNodeView() {
-      return ({ node, getPos }) => {
-        const dom = document.createElement("div");
-        dom.setAttribute("data-type", "geometry-diagram");
-        dom.style.cursor = "pointer";
-        dom.style.textAlign = "center";
-        dom.style.padding = "8px 0";
-        dom.style.margin = "4px 0";
-
-        const thumb = node.attrs.svgThumbnail;
-        if (thumb) {
-          const img = document.createElement("img");
-          img.src = thumb;
-          img.alt = "Geometry diagram";
-          img.style.maxWidth = "100%";
-          img.style.borderRadius = "8px";
-          img.style.border = "1px solid #e8d4b8";
-          dom.appendChild(img);
-        } else {
-          dom.textContent = "[Geometry Diagram]";
-          dom.style.color = "#999";
-          dom.style.fontSize = "12px";
-        }
-
-        if (options.onEdit) {
-          dom.addEventListener("click", () => {
-            const pos = typeof getPos === "function" ? getPos() : null;
-            if (pos == null) return;
-            options.onEdit!(node.attrs.graphJson || "{}", pos);
-          });
-        }
-
-        return { dom };
-      };
+      return ReactNodeViewRenderer(GeometryDiagramComponent);
     },
   });
 }

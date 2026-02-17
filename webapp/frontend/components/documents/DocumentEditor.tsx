@@ -7,7 +7,6 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { Mathematics } from "@tiptap/extension-mathematics";
-import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Subscript from "@tiptap/extension-subscript";
@@ -21,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -303,7 +302,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           setGeoEditorOpen(true);
         },
       }),
-      Image.configure({
+      ResizableImage.configure({
         inline: false,
         allowBase64: false,
         HTMLAttributes: { class: "document-image" },

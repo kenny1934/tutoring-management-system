@@ -2345,6 +2345,53 @@ html {
   outline-offset: 2px;
 }
 
+/* Resizable node wrapper */
+.resizable-node-wrapper {
+  position: relative;
+  max-width: 100%;
+}
+
+.resizable-node-wrapper.selected {
+  outline: 2px solid #a0704b;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Resize handles */
+.resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #a0704b;
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.resize-handle-tl { top: -5px; left: -5px; cursor: nwse-resize; }
+.resize-handle-tr { top: -5px; right: -5px; cursor: nesw-resize; }
+.resize-handle-bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.resize-handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+.dark .resize-handle {
+  border-color: #1a1a1a;
+}
+
+/* Wrapped (floated) nodes — the NodeViewWrapper div must also float */
+.document-editor-content .tiptap [data-node-view-wrapper]:has(.resizable-node-wrapped) {
+  display: inline;
+}
+
+@media print {
+  .resize-handle,
+  .resizable-align-toolbar {
+    display: none !important;
+  }
+  .resizable-node-wrapper.selected {
+    outline: none;
+  }
+}
+
 /* Document tables */
 .document-editor-content .tiptap table {
   border-collapse: collapse;
