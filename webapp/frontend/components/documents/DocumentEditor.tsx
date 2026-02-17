@@ -47,6 +47,7 @@ import {
   Redo2,
   SeparatorHorizontal,
   Type,
+  ALargeSmall,
   Sigma,
   Hexagon,
   Image as ImageIcon,
@@ -92,9 +93,22 @@ const FONT_SIZES = [
   { label: "X-Large", value: "24px" },
 ];
 
-// Custom font-size extension via TextStyle global attributes
-const FontSize = Extension.create({
-  name: "fontSize",
+const FONT_FAMILIES = [
+  { label: "Default", value: null },
+  { label: "Serif", value: "'Times New Roman', Times, serif" },
+  { label: "Sans-serif", value: "Arial, Helvetica, sans-serif" },
+  { label: "Monospace", value: "'Courier New', Courier, monospace" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Garamond", value: "Garamond, serif" },
+  { label: "Comic Sans", value: "'Comic Sans MS', cursive" },
+  { label: "思源黑體", value: "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif" },
+  { label: "思源宋體", value: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif" },
+  { label: "標楷體", value: "'DFKai-SB', 'BiauKai', 'Kaiti TC', serif" },
+];
+
+// Custom text style attributes via TextStyle global attributes
+const CustomTextStyles = Extension.create({
+  name: "customTextStyles",
   addGlobalAttributes() {
     return [{
       types: ["textStyle"],
@@ -105,6 +119,14 @@ const FontSize = Extension.create({
           renderHTML: (attributes) => {
             if (!attributes.fontSize) return {};
             return { style: `font-size: ${attributes.fontSize}` };
+          },
+        },
+        fontFamily: {
+          default: null,
+          parseHTML: (element) => element.style.fontFamily || null,
+          renderHTML: (attributes) => {
+            if (!attributes.fontFamily) return {};
+            return { style: `font-family: ${attributes.fontFamily}` };
           },
         },
       },
@@ -128,7 +150,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const colorButtonRef = useRef<HTMLButtonElement>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
+  const [showFontFamilyMenu, setShowFontFamilyMenu] = useState(false);
   const [showTableMenu, setShowTableMenu] = useState(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+  const highlightInputRef = useRef<HTMLInputElement>(null);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
 
   // Math editor state
@@ -147,6 +172,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     setShowColorPicker(false);
     setShowHighlightPicker(false);
     setShowFontSizeMenu(false);
+    setShowFontFamilyMenu(false);
     setShowTableMenu(false);
   }, []);
 
@@ -192,7 +218,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       Placeholder.configure({ placeholder: "Start writing..." }),
       TextStyle,
       Color,
-      FontSize,
+      CustomTextStyles,
       Subscript,
       Superscript,
       Highlight.configure({ multicolor: true }),
@@ -428,12 +454,50 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <ToolbarBtn icon={SuperscriptIcon} label="Superscript" isActive={editor.isActive("superscript")} onClick={() => editor.chain().focus().toggleSuperscript().run()} />
         <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1" />
 
+        {/* Font family */}
+        <div className="relative">
+          <button
+            onClick={() => { const next = !showFontFamilyMenu; closeAllMenus(); setShowFontFamilyMenu(next); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              showFontFamilyMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title="Font Family"
+          >
+            <ALargeSmall className="w-4 h-4" />
+          </button>
+          {showFontFamilyMenu && (
+            <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[9rem]">
+              {FONT_FAMILIES.map((ff) => (
+                <button
+                  key={ff.label}
+                  onClick={() => {
+                    if (ff.value) {
+                      editor.chain().focus().setMark("textStyle", { fontFamily: ff.value }).run();
+                    } else {
+                      editor.chain().focus().unsetMark("textStyle").run();
+                    }
+                    setShowFontFamilyMenu(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                    !ff.value && !editor.getAttributes("textStyle").fontFamily && "font-semibold"
+                  )}
+                  style={ff.value ? { fontFamily: ff.value } : undefined}
+                >
+                  {ff.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Font size */}
         <div className="relative">
           <button
             onClick={() => { const next = !showFontSizeMenu; closeAllMenus(); setShowFontSizeMenu(next); }}
             className={cn(
-              "p-1.5 rounded transition-colors flex items-center gap-0.5",
+              "p-1.5 rounded transition-colors",
               showFontSizeMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
             )}
             title="Font Size"
@@ -449,7 +513,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     if (fs.value) {
                       editor.chain().focus().setMark("textStyle", { fontSize: fs.value }).run();
                     } else {
-                      editor.chain().focus().unsetMark("textStyle").run();
+                      editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
                     }
                     setShowFontSizeMenu(false);
                   }}
@@ -462,6 +526,31 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   {fs.label}
                 </button>
               ))}
+              <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+              <form
+                className="px-2 py-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = (e.target as HTMLFormElement).elements.namedItem("customSize") as HTMLInputElement;
+                  const val = parseInt(input.value, 10);
+                  if (val >= 8 && val <= 96) {
+                    editor.chain().focus().setMark("textStyle", { fontSize: `${val}px` }).run();
+                    setShowFontSizeMenu(false);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-1">
+                  <input
+                    name="customSize"
+                    type="number"
+                    min={8}
+                    max={96}
+                    placeholder="px"
+                    className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-foreground outline-none focus:border-[#a0704b]"
+                  />
+                  <button type="submit" className="text-[10px] text-[#a0704b] hover:underline">Set</button>
+                </div>
+              </form>
             </div>
           )}
         </div>
@@ -522,6 +611,18 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               >
                 &times;
               </button>
+              <button
+                onClick={() => colorInputRef.current?.click()}
+                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+                style={{ background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)" }}
+                title="Custom color"
+              />
+              <input
+                ref={colorInputRef}
+                type="color"
+                className="sr-only"
+                onChange={(e) => { editor.chain().focus().setColor(e.target.value).run(); setShowColorPicker(false); }}
+              />
             </div>
           )}
         </div>
@@ -556,6 +657,18 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               >
                 &times;
               </button>
+              <button
+                onClick={() => highlightInputRef.current?.click()}
+                className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+                style={{ background: "conic-gradient(#fef08a, #bbf7d0, #bfdbfe, #fbcfe8, #fed7aa, #e9d5ff, #fef08a)" }}
+                title="Custom highlight color"
+              />
+              <input
+                ref={highlightInputRef}
+                type="color"
+                className="sr-only"
+                onChange={(e) => { editor.chain().focus().toggleHighlight({ color: e.target.value }).run(); setShowHighlightPicker(false); }}
+              />
             </div>
           )}
         </div>
