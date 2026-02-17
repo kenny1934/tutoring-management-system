@@ -2,7 +2,10 @@
 Documents API endpoints.
 CRUD operations for courseware documents (worksheets, exams, lesson plans).
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import desc
@@ -15,8 +18,11 @@ from schemas import (
     DocumentUpdate,
     DocumentResponse,
     DocumentListItem,
+    PDFExportRequest,
 )
 from auth.dependencies import get_current_user, reject_guest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -178,3 +184,31 @@ async def upload_document_image(
         return {"url": url, "filename": file.filename}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/documents/{doc_id}/export/pdf")
+async def export_pdf(
+    doc_id: int,
+    body: PDFExportRequest,
+    _: Tutor = Depends(reject_guest),
+    db: Session = Depends(get_db),
+):
+    """Export a document as PDF using weasyprint."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    from services.pdf_export import generate_pdf
+
+    try:
+        pdf_bytes = generate_pdf(body.html, body.css)
+    except Exception as e:
+        logger.exception("PDF generation failed for document %s", doc_id)
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}")
+
+    safe_title = doc.title.replace('"', "'")
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{safe_title}.pdf"'},
+    )

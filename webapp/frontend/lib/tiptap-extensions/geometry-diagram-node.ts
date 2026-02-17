@@ -65,14 +65,23 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
     },
 
     renderHTML({ HTMLAttributes }) {
-      const thumb = HTMLAttributes.svgThumbnail || "";
+      const thumb = (HTMLAttributes.svgThumbnail || "") as string;
+
+      // Check both raw and rendered attribute forms for data-width/data-align
+      // (TipTap may pass either form depending on version — this improves copy-paste preservation)
+      const width = (HTMLAttributes.width as number | null) ??
+        (HTMLAttributes["data-width"] ? parseInt(HTMLAttributes["data-width"] as string, 10) || null : null);
+      const align = (HTMLAttributes.align as string | null) ??
+        (HTMLAttributes["data-align"] as string | null) ?? null;
+
       const attrs: Record<string, string> = {
         "data-type": "geometry-diagram",
-        "data-graph-json": HTMLAttributes.graphJson,
+        "data-graph-json": (HTMLAttributes.graphJson as string) || "{}",
         "data-svg-thumbnail": thumb,
       };
-      if (HTMLAttributes.width) attrs["data-width"] = String(HTMLAttributes.width);
-      if (HTMLAttributes.align) attrs["data-align"] = HTMLAttributes.align;
+      if (width) attrs["data-width"] = String(width);
+      if (align) attrs["data-align"] = align;
+      // Width/align inline styles for PDF are applied in buildPdfHtml via ProseMirror state
 
       return [
         "div",
@@ -84,7 +93,7 @@ export function createGeometryDiagramNode(options: GeometryDiagramOptions = {}) 
                 src: thumb,
                 alt: "Geometry diagram",
                 style:
-                  "max-width:100%;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8",
+                  "width:100%;height:auto;object-fit:contain;border-radius:8px;border:1px solid #e8d4b8",
               },
             ]
           : ["span", { style: "color:#999;font-size:12px" }, "[Geometry Diagram]"],

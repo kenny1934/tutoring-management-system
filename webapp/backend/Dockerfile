@@ -17,9 +17,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Only runtime libs needed (no gcc/pkg-config)
-RUN apt-get update && apt-get install -y \
+# Runtime libs (no gcc/pkg-config) + weasyprint deps (pango, cairo)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     default-libmysqlclient-dev \
+    libpango-1.0-0 libpangoft2-1.0-0 libcairo2 \
+    libgdk-pixbuf2.0-0 fontconfig libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages and scripts from builder
