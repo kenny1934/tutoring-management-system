@@ -95,11 +95,13 @@ const FONT_SIZES = [
 
 const FONT_FAMILIES = [
   { label: "Default", value: null },
-  { label: "Serif", value: "'Times New Roman', Times, serif" },
-  { label: "Sans-serif", value: "Arial, Helvetica, sans-serif" },
-  { label: "Monospace", value: "'Courier New', Courier, monospace" },
+  { label: "Times New Roman", value: "'Times New Roman', Times, serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Calibri", value: "Calibri, 'Gill Sans', sans-serif" },
   { label: "Georgia", value: "Georgia, serif" },
-  { label: "Garamond", value: "Garamond, serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Garamond", value: "Garamond, 'EB Garamond', serif" },
+  { label: "Courier New", value: "'Courier New', Courier, monospace" },
   { label: "Comic Sans", value: "'Comic Sans MS', cursive" },
   { label: "思源黑體", value: "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif" },
   { label: "思源宋體", value: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif" },
