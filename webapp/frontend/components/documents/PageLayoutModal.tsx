@@ -314,12 +314,30 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   <input
                     type="range"
                     min={0.02}
-                    max={0.3}
+                    max={1}
                     step={0.01}
                     value={watermark.opacity}
                     onChange={(e) => setWatermark(w => ({ ...w, opacity: parseFloat(e.target.value) }))}
                     className="w-full accent-[#a0704b]"
                   />
+
+                  {/* Size slider (image only) */}
+                  {watermark.type === "image" && (
+                    <>
+                      <label className="text-xs text-muted-foreground mb-1 block mt-2">
+                        Size: {watermark.imageSize ?? 60}%
+                      </label>
+                      <input
+                        type="range"
+                        min={20}
+                        max={100}
+                        step={5}
+                        value={watermark.imageSize ?? 60}
+                        onChange={(e) => setWatermark(w => ({ ...w, imageSize: parseInt(e.target.value) }))}
+                        className="w-full accent-[#a0704b]"
+                      />
+                    </>
+                  )}
 
                   {/* Preview */}
                   <div className="mt-3 flex justify-center">
@@ -335,8 +353,8 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                         <img
                           src={watermark.imageUrl}
                           alt="Preview"
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[70%] max-h-[70%] pointer-events-none select-none"
-                          style={{ opacity: watermark.opacity }}
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
+                          style={{ opacity: watermark.opacity, maxWidth: `${watermark.imageSize ?? 60}%`, maxHeight: `${watermark.imageSize ?? 60}%` }}
                         />
                       ) : null}
                       <div className="absolute inset-3 flex items-center justify-center">

@@ -223,8 +223,13 @@ function buildPageMarginCSS(meta: DocumentMetadata | null, docTitle: string): st
     const hasPage = [section.left, section.center, section.right]
       .some(t => t?.includes("{page}"));
     if (!hasPage) return;
-    [section.left, section.center, section.right].forEach((text, i) => {
+
+    const hasImage = !!section.imageUrl;
+    const cells = [section.left, section.center, section.right];
+    cells.forEach((text, i) => {
       if (!text) return;
+      // When section has image (not hidden entirely), only process {page} cells
+      if (hasImage && !text.includes("{page}")) return;
       const content = buildContent(text);
       if (content) {
         rules.push(`${boxes[i]} { content: ${content}; font-size: 9px; color: #888; vertical-align: top; }`);
@@ -238,8 +243,10 @@ function buildPageMarginCSS(meta: DocumentMetadata | null, docTitle: string): st
   return rules.length ? rules.join(" ") : "";
 }
 
-function sectionHasPage(section?: DocumentHeaderFooter): boolean {
-  return !!section?.enabled && [section.left, section.center, section.right]
+function sectionShouldHideEntirely(section?: DocumentHeaderFooter): boolean {
+  if (!section?.enabled) return false;
+  if (section.imageUrl) return false;  // keep HTML visible for image
+  return [section.left, section.center, section.right]
     .some(t => t?.includes("{page}"));
 }
 
@@ -1219,7 +1226,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     position: "absolute", top: "148.5mm", left: "50%",
                     transform: "translate(-50%, -50%)",
                     pointerEvents: "none", zIndex: 0,
-                    maxWidth: "60%", maxHeight: "60%", userSelect: "none",
+                    maxWidth: `${docMetadata.watermark.imageSize ?? 60}%`, maxHeight: `${docMetadata.watermark.imageSize ?? 60}%`, userSelect: "none",
                     opacity: docMetadata.watermark.opacity,
                   }}
                 />
@@ -1228,7 +1235,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             {/* Print header — outer div becomes table-header-group in print, inner div keeps flex */}
             {docMetadata?.header?.enabled && (
-              <div className={cn("document-print-header", sectionHasPage(docMetadata.header) && "print-hide-page-section")}>
+              <div className={cn("document-print-header", sectionShouldHideEntirely(docMetadata.header) && "print-hide-page-section")}>
                 <div
                   style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1238,19 +1245,19 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     marginBottom: "1em",
                   }}
                 >
-                  <span style={{ flex: 1 }}>
+                  <span style={{ flex: 1 }} className={docMetadata.header.left?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "left" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
                     {renderHeaderFooterContent(docMetadata.header.left, doc.title)}
                   </span>
-                  <span style={{ flex: 1, textAlign: "center" }}>
+                  <span style={{ flex: 1, textAlign: "center" }} className={docMetadata.header.center?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "center" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
                     {renderHeaderFooterContent(docMetadata.header.center, doc.title)}
                   </span>
-                  <span style={{ flex: 1, textAlign: "right" }}>
+                  <span style={{ flex: 1, textAlign: "right" }} className={docMetadata.header.right?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {renderHeaderFooterContent(docMetadata.header.right, doc.title)}
                     {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "right" && (
                       <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
@@ -1268,7 +1275,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             {/* Print footer — position:fixed in print for per-page repetition, inner div keeps flex */}
             {docMetadata?.footer?.enabled && (
-              <div className={cn("document-print-footer", sectionHasPage(docMetadata.footer) && "print-hide-page-section")}>
+              <div className={cn("document-print-footer", sectionShouldHideEntirely(docMetadata.footer) && "print-hide-page-section")}>
                 <div
                   style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -1277,19 +1284,19 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     paddingTop: "4px", borderTop: "0.5px solid #ddd",
                   }}
                 >
-                  <span style={{ flex: 1 }}>
+                  <span style={{ flex: 1 }} className={docMetadata.footer.left?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "left" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
                     {renderHeaderFooterContent(docMetadata.footer.left, doc.title)}
                   </span>
-                  <span style={{ flex: 1, textAlign: "center" }}>
+                  <span style={{ flex: 1, textAlign: "center" }} className={docMetadata.footer.center?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "center" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
                     )}
                     {renderHeaderFooterContent(docMetadata.footer.center, doc.title)}
                   </span>
-                  <span style={{ flex: 1, textAlign: "right" }}>
+                  <span style={{ flex: 1, textAlign: "right" }} className={docMetadata.footer.right?.includes("{page}") ? "print-hide-page-cell" : undefined}>
                     {renderHeaderFooterContent(docMetadata.footer.right, doc.title)}
                     {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "right" && (
                       <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />

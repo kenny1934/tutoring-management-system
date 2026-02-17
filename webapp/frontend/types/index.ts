@@ -1805,6 +1805,7 @@ export interface DocumentWatermark {
   type: "text" | "image";
   text?: string;
   imageUrl?: string | null;
+  imageSize?: number;
   opacity: number;
 }
 

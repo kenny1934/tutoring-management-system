@@ -2484,6 +2484,10 @@ html {
   color: #60a5fa;
 }
 
+.dark .document-watermark-image {
+  mix-blend-mode: multiply;
+}
+
 /* Color picker swatch in document toolbar */
 .doc-color-swatch {
   -webkit-appearance: none;
@@ -2572,11 +2576,17 @@ html {
     display: table-row-group !important;
   }
 
-  /* Hide entire header/footer section when it uses {page} — page numbers
-     and all text are rendered via @page margin boxes instead (DocumentEditor.tsx) */
+  /* Hide entire header/footer section when it uses {page} and has no image —
+     page numbers and all text rendered via @page margin boxes (DocumentEditor.tsx) */
   .print-hide-page-section,
   .print-hide-page-section * {
     display: none !important;
+  }
+
+  /* Hide individual cells with {page} when section stays visible (has image) */
+  .document-page .print-hide-page-cell,
+  .document-page .print-hide-page-cell * {
+    visibility: hidden !important;
   }
 
   /* Watermark still uses position: fixed to repeat on every page */
