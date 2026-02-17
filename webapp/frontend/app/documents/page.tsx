@@ -89,6 +89,9 @@ export default function DocumentsPage() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <FileText className="w-7 h-7 text-[#a0704b] dark:text-[#cd853f]" />
               Documents
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                Beta
+              </span>
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Create and edit worksheets, exams, and lesson plans

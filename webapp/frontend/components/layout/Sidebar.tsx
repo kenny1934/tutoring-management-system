@@ -24,8 +24,8 @@ const navigation = [
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
   { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
-  { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
   { name: "Documents", href: "/documents", icon: FileText, color: "bg-amber-500" },
+  { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];
 
 // Admin navigation items - only visible to Admin and Super Admin
@@ -347,6 +347,13 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                   }}
                 />
 
+                {/* Beta badge for collapsed Documents */}
+                {!showExpanded && item.name === "Documents" && (
+                  <span className="absolute -top-1.5 -right-3 bg-amber-500 text-white text-[7px] font-bold rounded-full px-1 py-px flex items-center justify-center whitespace-nowrap">
+                    Beta
+                  </span>
+                )}
+
                 {/* Badge for collapsed Inbox */}
                 {!showExpanded && item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">
@@ -358,6 +365,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 {showExpanded && (
                   <>
                     <span className="flex-1">{item.name}</span>
+                    {/* Beta badge for Documents */}
+                    {item.name === "Documents" && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        Beta
+                      </span>
+                    )}
                     {/* Unread badge for Inbox */}
                     {item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
