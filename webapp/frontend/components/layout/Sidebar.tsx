@@ -336,23 +336,25 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 )}
 
                 {/* Icon */}
-                <item.icon
-                  className={cn(
-                    "transition-transform duration-300",
-                    showExpanded ? "h-5 w-5" : "h-6 w-6",
-                    isActive ? "scale-110" : "group-hover:scale-110"
-                  )}
-                  style={{
-                    transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
-                  }}
-                />
+                <div className="relative">
+                  <item.icon
+                    className={cn(
+                      "transition-transform duration-300",
+                      showExpanded ? "h-5 w-5" : "h-6 w-6",
+                      isActive ? "scale-110" : "group-hover:scale-110"
+                    )}
+                    style={{
+                      transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
+                    }}
+                  />
 
-                {/* Beta badge for collapsed Documents */}
-                {!showExpanded && item.name === "Documents" && (
-                  <span className="absolute -top-1.5 -right-3 bg-amber-500 text-white text-[7px] font-bold rounded-full px-1 py-px flex items-center justify-center whitespace-nowrap">
-                    Beta
-                  </span>
-                )}
+                  {/* Beta badge for collapsed Documents */}
+                  {!showExpanded && item.name === "Documents" && (
+                    <span className="absolute -top-2 -right-3 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
+                      Beta
+                    </span>
+                  )}
+                </div>
 
                 {/* Badge for collapsed Inbox */}
                 {!showExpanded && item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
