@@ -1466,7 +1466,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               editor={editor}
               className="document-editor-content prose prose-sm dark:prose-invert max-w-none"
             />
-            <PageBreakOverlay containerRef={pageRef} />
+            <PageBreakOverlay
+                containerRef={pageRef}
+                topMarginMm={docMetadata?.margins?.top ?? 25.4}
+                bottomMarginMm={docMetadata?.margins?.bottom ?? 25.4}
+              />
 
             {/* Print footer — position:fixed in print for per-page repetition, inner div keeps flex */}
             {docMetadata?.footer?.enabled && (
@@ -1556,43 +1560,68 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   );
 }
 
-/* Page-break overlay — dashed lines at 297mm intervals */
+/* Page-break overlay — dashed lines at PDF content-area intervals.
+ * Accounts for page margins (content area = 297 - topMm - bottomMm) and
+ * header/footer HTML height (they render in editor but go in Playwright's
+ * margin overlay in PDF, so they don't consume content area space). */
 const A4_HEIGHT_MM = 297;
 
-function PageBreakOverlay({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) {
-  const [pageCount, setPageCount] = useState(1);
+function PageBreakOverlay({
+  containerRef,
+  topMarginMm = 25.4,
+  bottomMarginMm = 25.4,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  topMarginMm?: number;
+  bottomMarginMm?: number;
+}) {
+  const [lines, setLines] = useState<number[]>([]);
+  const contentAreaMm = A4_HEIGHT_MM - topMarginMm - bottomMarginMm;
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    // Convert 297mm to px using a temporary element
+    // Convert contentAreaMm to px using a temporary element
     const probe = document.createElement("div");
-    probe.style.width = `${A4_HEIGHT_MM}mm`;
+    probe.style.width = `${contentAreaMm}mm`;
     probe.style.position = "absolute";
     probe.style.visibility = "hidden";
     el.appendChild(probe);
-    const pageHeightPx = probe.offsetWidth; // width set in mm, read as px
+    const contentAreaPx = probe.offsetWidth;
     el.removeChild(probe);
-    if (!pageHeightPx) return;
+    if (!contentAreaPx) return;
+
+    const mmPerPx = contentAreaMm / contentAreaPx;
 
     const observer = new ResizeObserver((entries) => {
-      const height = entries[0]?.contentRect.height ?? 0;
-      setPageCount(Math.max(1, Math.ceil(height / pageHeightPx)));
+      const totalHeight = entries[0]?.contentRect.height ?? 0;
+      // Header/footer HTML are inside the editor div but render in PDF margin area —
+      // subtract their heights so page count reflects only the editor content.
+      const headerPx = (el.querySelector(".document-print-header") as HTMLElement)?.offsetHeight ?? 0;
+      const footerPx = (el.querySelector(".document-print-footer") as HTMLElement)?.offsetHeight ?? 0;
+      const headerMm = headerPx * mmPerPx;
+      const editorContentPx = totalHeight - headerPx - footerPx;
+      const pageCount = Math.max(1, Math.ceil(editorContentPx / contentAreaPx));
+      setLines(
+        Array.from({ length: pageCount - 1 }, (_, i) =>
+          topMarginMm + headerMm + (i + 1) * contentAreaMm
+        )
+      );
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [containerRef]);
+  }, [containerRef, contentAreaMm, topMarginMm]);
 
-  if (pageCount <= 1) return null;
+  if (lines.length === 0) return null;
 
   return (
     <>
-      {Array.from({ length: pageCount - 1 }, (_, i) => (
+      {lines.map((topMm, i) => (
         <div
           key={i}
           className="absolute left-0 right-0 z-10 pointer-events-none print:hidden flex items-center"
-          style={{ top: `${(i + 1) * A4_HEIGHT_MM}mm` }}
+          style={{ top: `${topMm}mm` }}
         >
           <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
           <span className="px-2 text-[10px] text-[#c4b5a3] dark:text-[#6b5a4a] select-none">
