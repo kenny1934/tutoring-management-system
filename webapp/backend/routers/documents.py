@@ -193,7 +193,7 @@ async def export_pdf(
     _: Tutor = Depends(reject_guest),
     db: Session = Depends(get_db),
 ):
-    """Export a document as PDF using weasyprint."""
+    """Export a document as PDF using Playwright headless Chromium."""
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -201,7 +201,7 @@ async def export_pdf(
     from services.pdf_export import generate_pdf
 
     try:
-        pdf_bytes = generate_pdf(body.html, body.css)
+        pdf_bytes = await generate_pdf(body.html, body.css, doc.page_layout, doc.title)
     except Exception as e:
         logger.exception("PDF generation failed for document %s", doc_id)
         raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}")

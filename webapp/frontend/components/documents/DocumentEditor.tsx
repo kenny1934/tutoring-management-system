@@ -252,60 +252,19 @@ function sectionShouldHideEntirely(section?: DocumentHeaderFooter): boolean {
     .some(t => t?.includes("{page}"));
 }
 
-// Build the HTML body sent to weasyprint for PDF export.
-// Uses running() elements for headers/footers so images and page numbers
-// render in the same margin box context with proper sizing.
+// Build the HTML body sent to the Playwright PDF backend.
+// Headers/footers are handled server-side via Playwright's headerTemplate/footerTemplate
+// (which allows image + page number on the same line). This function only needs to
+// produce the document content + watermark.
 function buildPdfHtml(
   editorHtml: string,
   meta: DocumentMetadata | null,
-  docTitle: string,
   geoAttrs: { width: number | null; align: string | null }[] = [],
 ): string {
   const escape = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const resolveText = (template: string) =>
-    template
-      .replace(/\{title\}/g, escape(docTitle))
-      .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", {
-        year: "numeric", month: "short", day: "numeric",
-      }));
-
-  // Build inner HTML for a cell: optional image + text with {page} replaced by counter spans
-  const cellInner = (
-    text: string,
-    imageUrl: string | null | undefined,
-    imagePosition: string | null | undefined,
-    cellPos: string,
-  ): string => {
-    const parts: string[] = [];
-    if (imageUrl && imagePosition === cellPos) {
-      const margin = cellPos === "right" ? "margin-left:4px;" : "margin-right:4px;";
-      parts.push(`<img src="${imageUrl.replace(/"/g, "&quot;")}" style="max-height:8mm;width:auto;vertical-align:middle;${margin}" />`);
-    }
-    if (text) {
-      const resolved = resolveText(text);
-      const pageParts = resolved.split("{page}");
-      for (let i = 0; i < pageParts.length; i++) {
-        if (pageParts[i]) parts.push(pageParts[i]);
-        if (i < pageParts.length - 1) parts.push('<span class="pdf-page-number"></span>');
-      }
-    }
-    return parts.join("");
-  };
-
-  const sectionHtml = (
-    section: DocumentHeaderFooter | undefined,
-    prefix: string,
-  ): string => {
-    if (!section?.enabled) return "";
-    return (["left", "center", "right"] as const).map((pos) => {
-      const text = pos === "left" ? section.left : pos === "center" ? section.center : section.right;
-      const inner = cellInner(text, section.imageUrl, section.imagePosition, pos);
-      return inner ? `<div class="pdf-${prefix}-${pos}">${inner}</div>` : "";
-    }).join("");
-  };
-
+  // Watermark: position:fixed repeats on every page in Chromium's print engine
   let watermarkHtml = "";
   if (meta?.watermark?.enabled) {
     if (meta.watermark.type === "text" && meta.watermark.text) {
@@ -334,53 +293,18 @@ function buildPdfHtml(
     processedEditorHtml = parsed.body.innerHTML;
   }
 
-  return [
-    sectionHtml(meta?.header, "header"),
-    sectionHtml(meta?.footer, "footer"),
-    watermarkHtml,
-    `<div class="pdf-content">${processedEditorHtml}</div>`,
-  ].join("");
+  return `${watermarkHtml}<div class="pdf-content">${processedEditorHtml}</div>`;
 }
 
-// Build CSS for weasyprint PDF export using running()/element() paged media.
-// weasyprint fully supports this (since v51), giving us actual HTML elements
-// (with images, text, page counters) in @page margin boxes.
+// Build CSS for Playwright PDF export.
+// Headers/footers are handled by Playwright's headerTemplate/footerTemplate, so no
+// running()/element() rules are needed. Just page margins, watermark, and typography.
 function buildPdfExportCSS(meta: DocumentMetadata | null): string {
   const margins = meta?.margins;
   const top = margins?.top ?? 25.4;
   const right = margins?.right ?? 25.4;
   const bottom = margins?.bottom ?? 25.4;
   const left = margins?.left ?? 25.4;
-
-  const runningRules: string[] = [];
-  const pageRules: string[] = [];
-
-  const addSection = (
-    section: DocumentHeaderFooter | undefined,
-    defs: ["left" | "center" | "right", string, string][],
-    prefix: string,
-  ) => {
-    if (!section?.enabled) return;
-    for (const [pos, marginBox, elemName] of defs) {
-      const text = pos === "left" ? section.left : pos === "center" ? section.center : section.right;
-      const hasContent = !!text || (section.imageUrl && section.imagePosition === pos);
-      if (!hasContent) continue;
-      const justify = pos === "right" ? "flex-end" : pos === "center" ? "center" : "flex-start";
-      runningRules.push(`.pdf-${prefix}-${pos} { position: running(${elemName}); display: flex; align-items: center; justify-content: ${justify}; font-size: 9px; color: #888; }`);
-      pageRules.push(`${marginBox} { content: element(${elemName}); }`);
-    }
-  };
-
-  addSection(meta?.header, [
-    ["left", "@top-left", "hdrL"],
-    ["center", "@top-center", "hdrC"],
-    ["right", "@top-right", "hdrR"],
-  ], "header");
-  addSection(meta?.footer, [
-    ["left", "@bottom-left", "ftrL"],
-    ["center", "@bottom-center", "ftrC"],
-    ["right", "@bottom-right", "ftrR"],
-  ], "footer");
 
   let watermarkCss = "";
   if (meta?.watermark?.enabled) {
@@ -406,13 +330,7 @@ img.pdf-watermark {
   }
 
   return `
-@page {
-  size: A4;
-  margin: ${top}mm ${right}mm ${bottom}mm ${left}mm;
-  ${pageRules.join("\n  ")}
-}
-${runningRules.join("\n")}
-.pdf-page-number::after { content: counter(page); }
+@page { size: A4; margin: ${top}mm ${right}mm ${bottom}mm ${left}mm; }
 ${watermarkCss}
 body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; }
 h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
@@ -839,7 +757,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         }
         return true;
       });
-      const html = buildPdfHtml(ed.getHTML(), docMetadata, doc.title, geoAttrs);
+      const html = buildPdfHtml(ed.getHTML(), docMetadata, geoAttrs);
       const css = buildPdfExportCSS(docMetadata);
       const blob = await documentsAPI.exportPDF(doc.id, html, css);
       const url = URL.createObjectURL(blob);
@@ -857,7 +775,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     } finally {
       setPdfExporting(false);
     }
-  }, [docMetadata, doc.title, doc.id]);
+  }, [docMetadata, doc.id]);
 
   // Helper: get current font family label
   const currentFontFamily = editor
