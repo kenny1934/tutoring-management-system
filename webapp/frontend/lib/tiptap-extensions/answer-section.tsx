@@ -13,7 +13,7 @@
 import { Node as TipTapNode } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
-import { ChevronRight, ChevronDown, KeyRound } from "lucide-react";
+import { ChevronRight, ChevronDown, KeyRound, GripVertical } from "lucide-react";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -28,20 +28,24 @@ function AnswerSectionComponent({ node, updateAttributes }: NodeViewProps) {
 
   return (
     <NodeViewWrapper className="answer-section-wrapper">
-      <button
-        className="answer-toggle"
-        contentEditable={false}
-        onClick={() => updateAttributes({ open: !open })}
-        title={open ? "Hide answer" : "Show answer"}
-      >
-        {open ? (
-          <ChevronDown className="answer-toggle-icon" />
-        ) : (
-          <ChevronRight className="answer-toggle-icon" />
-        )}
-        <KeyRound className="answer-toggle-key-icon" />
-        Answer
-      </button>
+      <div className="answer-section-header" contentEditable={false}>
+        <div className="answer-drag-handle" data-drag-handle title="Drag to reposition">
+          <GripVertical className="answer-drag-icon" />
+        </div>
+        <button
+          className="answer-toggle"
+          onClick={() => updateAttributes({ open: !open })}
+          title={open ? "Hide answer" : "Show answer"}
+        >
+          {open ? (
+            <ChevronDown className="answer-toggle-icon" />
+          ) : (
+            <ChevronRight className="answer-toggle-icon" />
+          )}
+          <KeyRound className="answer-toggle-key-icon" />
+          Answer
+        </button>
+      </div>
       <div className={`answer-float-content${open ? " answer-float-open" : ""}`}>
         <NodeViewContent className="answer-float-inner" />
       </div>
@@ -53,6 +57,7 @@ export const AnswerSection = TipTapNode.create({
   name: "answerSection",
   group: "block",
   content: "block+",
+  draggable: true,
   atom: false,
   defining: true,
 

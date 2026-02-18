@@ -2480,6 +2480,26 @@ html {
   margin: 0.25em 0;
 }
 
+.answer-section-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.answer-drag-handle {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  color: #c4b5a3;
+  cursor: grab;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.answer-drag-handle:hover { color: #a0704b; background: #f5ede3; }
+.answer-drag-handle:active { cursor: grabbing; }
+.dark .answer-drag-handle:hover { color: #cd853f; background: #2d2618; }
+.answer-drag-icon { width: 12px; height: 12px; }
+
 .answer-toggle {
   display: inline-flex;
   align-items: center;
@@ -2544,6 +2564,7 @@ html {
 
 /* Teacher print: answers become static blocks inline below toggle */
 @media print {
+  .answer-drag-handle { display: none !important; }
   .answer-section-wrapper {
     page-break-inside: avoid;
   }
