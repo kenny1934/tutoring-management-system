@@ -2479,9 +2479,32 @@ html {
   display: block;
   margin: 0.25em 0;
 }
+.answer-section-wrapper:hover {
+  z-index: 2;
+}
+
+/* Alignment button strip */
+.answer-align-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.answer-align-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #c4b5a3;
+  transition: color 0.15s, background 0.15s;
+}
+.answer-align-btn:hover { color: #a0704b; background: #f5ede3; }
+.answer-align-btn.answer-align-active { color: #a0704b; background: #fef3e8; }
+.answer-align-icon { width: 11px; height: 11px; }
+.dark .answer-align-btn:hover { color: #cd853f; background: #2d2618; }
+.dark .answer-align-btn.answer-align-active { color: #cd853f; background: #2d2618; }
 
 .answer-section-header {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
 }
@@ -2564,7 +2587,7 @@ html {
 
 /* Teacher print: answers become static blocks inline below toggle */
 @media print {
-  .answer-drag-handle { display: none !important; }
+  .answer-drag-handle, .answer-align-buttons { display: none !important; }
   .answer-section-wrapper {
     page-break-inside: avoid;
   }
