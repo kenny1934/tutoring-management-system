@@ -56,6 +56,10 @@ export const documentsAPI = {
     });
   },
 
+  duplicate(id: number) {
+    return fetchAPI<Document>(`/documents/${id}/duplicate`, { method: "POST" });
+  },
+
   async uploadImage(file: File): Promise<{ url: string; filename: string }> {
     const formData = new FormData();
     formData.append("file", file);

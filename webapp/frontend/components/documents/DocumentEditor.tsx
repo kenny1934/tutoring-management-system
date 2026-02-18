@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -65,6 +65,8 @@ import {
   FileSliders,
   Download,
   FileText,
+  KeyRound,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -520,6 +522,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       PageBreak,
+      AnswerSection,
       Table.configure({ resizable: false }),
       TableRow,
       TableCell,
@@ -727,6 +730,12 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     window.print();
   }, []);
 
+  const handlePrintStudent = useCallback(() => {
+    document.body.classList.add("student-print");
+    window.print();
+    document.body.classList.remove("student-print");
+  }, []);
+
   // PDF export
   const [pdfExporting, setPdfExporting] = useState(false);
   const [showPdfMenu, setShowPdfMenu] = useState(false);
@@ -867,9 +876,19 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <button
           onClick={handlePrint}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+          title="Print (teacher copy — all answers visible)"
         >
           <Printer className="w-3.5 h-3.5" />
           Print
+        </button>
+
+        <button
+          onClick={handlePrintStudent}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+          title="Print student copy — answer sections hidden"
+        >
+          <Users className="w-3.5 h-3.5" />
+          Student
         </button>
 
         {/* Export PDF with dropdown */}
@@ -1283,6 +1302,14 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                 showLabel={showLabels}
               />
               {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
+              <ToolbarSep />
+              <ToolbarBtn
+                icon={KeyRound}
+                label="Answer"
+                isActive={editor.isActive("answerSection")}
+                onClick={() => editor.chain().focus().insertAnswerSection().run()}
+                showLabel={showLabels}
+              />
 
               {/* Table menu */}
               <div className="relative">
@@ -1466,6 +1493,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               editor={editor}
               className="document-editor-content prose prose-sm dark:prose-invert max-w-none"
             />
+
+            {/* Floating formatting toolbar on text selection */}
+            <EditorBubbleMenu editor={editor} />
+
             <PageBreakOverlay
                 containerRef={pageRef}
                 topMarginMm={docMetadata?.margins?.top ?? 25.4}
@@ -1663,6 +1694,91 @@ function TabButton({ id, label, icon: Icon, activeTab, onClick }: {
 /* Toolbar separator */
 function ToolbarSep() {
   return <div className="w-px h-5 bg-[#e8d4b8] dark:bg-[#6b5a4a] mx-1 shrink-0" />;
+}
+
+/* Floating bubble menu — appears above text selections */
+function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      const { from, to } = editor.state.selection;
+      if (from === to || !editor.view.hasFocus() || editor.isActive("image") || editor.isActive("geometryDiagram")) {
+        setPos(null);
+        return;
+      }
+      const sel = window.getSelection();
+      if (!sel?.rangeCount) { setPos(null); return; }
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      if (!rect.width && !rect.height) { setPos(null); return; }
+      setPos({ top: rect.top, left: rect.left + rect.width / 2 });
+    };
+    const hide = () => setPos(null);
+    editor.on("selectionUpdate", update);
+    editor.on("blur", hide);
+    return () => { editor.off("selectionUpdate", update); editor.off("blur", hide); };
+  }, [editor]);
+
+  if (!editor || !pos) return null;
+
+  return (
+    <div
+      onMouseDown={(e) => e.preventDefault()} // keep editor focus when clicking toolbar
+      className="flex items-center gap-0.5 px-1.5 py-1 bg-[#1a1a1a] dark:bg-[#111] rounded-lg shadow-xl border border-white/10 print:hidden"
+      style={{ position: "fixed", top: pos.top - 8, left: pos.left, transform: "translate(-50%, -100%)", zIndex: 200 }}
+    >
+      <BubbleBtn active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold"><Bold className="w-3.5 h-3.5" /></BubbleBtn>
+      <BubbleBtn active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic"><Italic className="w-3.5 h-3.5" /></BubbleBtn>
+      <BubbleBtn active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"><UnderlineIcon className="w-3.5 h-3.5" /></BubbleBtn>
+      <BubbleBtn active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough"><Strikethrough className="w-3.5 h-3.5" /></BubbleBtn>
+      <BubbleSep />
+      <BubbleBtn
+        active={editor.isActive("link")}
+        onClick={() => {
+          if (editor.isActive("link")) { editor.chain().focus().unsetLink().run(); }
+          else { const url = window.prompt("Enter URL:"); if (url) editor.chain().focus().setLink({ href: url }).run(); }
+        }}
+        title={editor.isActive("link") ? "Remove link" : "Add link"}
+      >
+        {editor.isActive("link") ? <Unlink className="w-3.5 h-3.5" /> : <LinkIcon className="w-3.5 h-3.5" />}
+      </BubbleBtn>
+      <BubbleSep />
+      {EDITOR_COLORS.map((c) => (
+        <button key={c.color} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.chain().focus().setColor(c.color).run()}
+          className="w-3.5 h-3.5 rounded-full border border-white/25 hover:scale-110 transition-transform flex-shrink-0" style={{ backgroundColor: c.color }} title={c.label} />
+      ))}
+      <BubbleSep />
+      {HIGHLIGHT_COLORS.slice(0, 4).map((c) => (
+        <button key={c.color} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.chain().focus().toggleHighlight({ color: c.color }).run()}
+          className="w-3.5 h-3.5 rounded-full border border-white/25 hover:scale-110 transition-transform flex-shrink-0" style={{ backgroundColor: c.color }} title={`Highlight: ${c.label}`} />
+      ))}
+    </div>
+  );
+}
+
+/* Bubble menu button (dark background) */
+function BubbleBtn({ active, onClick, title, children }: {
+  active: boolean; onClick: () => void; title: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "p-1 rounded transition-colors",
+        active ? "bg-white/20 text-white" : "text-white/70 hover:text-white hover:bg-white/10"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* Bubble menu separator */
+function BubbleSep() {
+  return <div className="w-px h-4 bg-white/20 mx-0.5 shrink-0" />;
 }
 
 /* Toolbar button with optional label */

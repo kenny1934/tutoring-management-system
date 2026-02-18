@@ -2473,6 +2473,102 @@ html {
   color: #a0704b;
 }
 
+/* Answer Section — floating collapsible overlay */
+.answer-section-wrapper {
+  position: relative;
+  display: block;
+  margin: 0.25em 0;
+}
+
+.answer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a0704b;
+  background: #fef3e8;
+  border: 1px solid #e8d4b8;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.answer-toggle:hover {
+  background: #f5ede3;
+}
+.dark .answer-toggle {
+  background: #2d2618;
+  border-color: #6b5a4a;
+  color: #cd853f;
+}
+.dark .answer-toggle:hover {
+  background: #3d3020;
+}
+.answer-toggle-icon {
+  width: 11px;
+  height: 11px;
+}
+.answer-toggle-key-icon {
+  width: 11px;
+  height: 11px;
+  opacity: 0.7;
+}
+
+.answer-float-content {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  background: white;
+  border: 1.5px solid #a0704b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 200px;
+  max-width: 90%;
+}
+.answer-float-content.answer-float-open {
+  display: block;
+}
+.dark .answer-float-content {
+  background: #1a1a1a;
+  border-color: #cd853f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.answer-float-inner {
+  outline: none;
+}
+
+/* Teacher print: answers become static blocks inline below toggle */
+@media print {
+  .answer-section-wrapper {
+    page-break-inside: avoid;
+  }
+  .answer-float-content {
+    display: block !important;
+    position: static !important;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    border-left: 3px solid #a0704b !important;
+    margin-top: 4px !important;
+    padding: 6px 10px !important;
+  }
+  .answer-toggle {
+    color: #888 !important;
+    background: none !important;
+    border-color: #ddd !important;
+    font-size: 10px !important;
+  }
+}
+
+/* Student print: answers completely hidden */
+body.student-print .answer-float-content {
+  display: none !important;
+}
+
 /* Document links */
 .document-editor-content .tiptap a.doc-link {
   color: #2563eb;

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, Loader2, MoreVertical, Trash2, ArchiveRestore, Archive } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, Loader2, MoreVertical, Trash2, ArchiveRestore, Archive, Copy } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle } from "@/lib/hooks";
@@ -57,6 +57,16 @@ export default function DocumentsPage() {
     }
     setMenuOpenId(null);
   }, [mutate, showToast]);
+
+  const handleDuplicate = useCallback(async (id: number) => {
+    try {
+      const copy = await documentsAPI.duplicate(id);
+      router.push(`/documents/${copy.id}`);
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+    setMenuOpenId(null);
+  }, [router, showToast]);
 
   const handleUnarchive = useCallback(async (id: number) => {
     try {
@@ -190,6 +200,13 @@ export default function DocumentsPage() {
                       </button>
                       {menuOpenId === doc.id && (
                         <div className="absolute right-0 top-7 z-10 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "9rem" }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDuplicate(doc.id); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            Duplicate
+                          </button>
                           {doc.is_archived ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleUnarchive(doc.id); }}

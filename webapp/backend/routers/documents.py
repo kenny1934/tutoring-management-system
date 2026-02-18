@@ -167,6 +167,38 @@ async def delete_document(
     return {"message": "Document archived successfully"}
 
 
+@router.post("/documents/{doc_id}/duplicate", response_model=DocumentResponse)
+async def duplicate_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Duplicate a document — copies content, type, and page layout. New owner is current user."""
+    source = db.query(Document).options(
+        joinedload(Document.creator)
+    ).filter(Document.id == doc_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    now = hk_now()
+    copy = Document(
+        title=f"{source.title} (Copy)",
+        doc_type=source.doc_type,
+        content=source.content,
+        page_layout=source.page_layout,
+        created_by=current_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(copy)
+    db.commit()
+    db.refresh(copy)
+    copy = db.query(Document).options(
+        joinedload(Document.creator)
+    ).filter(Document.id == copy.id).first()
+    return _doc_to_response(copy)
+
+
 @router.post("/documents/upload-image")
 async def upload_document_image(
     file: UploadFile = File(...),
