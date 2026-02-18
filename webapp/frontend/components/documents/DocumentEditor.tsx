@@ -1702,22 +1702,31 @@ function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) 
 
   useEffect(() => {
     if (!editor) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const update = () => {
-      const { from, to } = editor.state.selection;
-      if (from === to || !editor.view.hasFocus() || editor.isActive("image") || editor.isActive("geometryDiagram")) {
-        setPos(null);
-        return;
-      }
-      const sel = window.getSelection();
-      if (!sel?.rangeCount) { setPos(null); return; }
-      const rect = sel.getRangeAt(0).getBoundingClientRect();
-      if (!rect.width && !rect.height) { setPos(null); return; }
-      setPos({ top: rect.top, left: rect.left + rect.width / 2 });
+      if (timer) clearTimeout(timer);
+      setPos(null);
+      timer = setTimeout(() => {
+        const { from, to } = editor.state.selection;
+        if (from === to || !editor.view.hasFocus() || editor.isActive("image") || editor.isActive("geometryDiagram")) {
+          setPos(null);
+          return;
+        }
+        const sel = window.getSelection();
+        if (!sel?.rangeCount) { setPos(null); return; }
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        if (!rect.width && !rect.height) { setPos(null); return; }
+        setPos({ top: rect.top, left: rect.left + rect.width / 2 });
+      }, 300);
     };
-    const hide = () => setPos(null);
+    const hide = () => { if (timer) clearTimeout(timer); setPos(null); };
     editor.on("selectionUpdate", update);
     editor.on("blur", hide);
-    return () => { editor.off("selectionUpdate", update); editor.off("blur", hide); };
+    return () => {
+      editor.off("selectionUpdate", update);
+      editor.off("blur", hide);
+      if (timer) clearTimeout(timer);
+    };
   }, [editor]);
 
   if (!editor || !pos) return null;
