@@ -1273,7 +1273,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               width: "210mm",
               minHeight: "297mm",
               padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
-              maxWidth: "100%",
               zoom: pageScale < 1 ? pageScale : undefined,
             }}
           >
