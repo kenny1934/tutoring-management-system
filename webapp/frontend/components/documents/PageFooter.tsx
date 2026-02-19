@@ -33,6 +33,7 @@ export function PageFooter({ section, docTitle, pageNumber }: PageFooterProps) {
         justifyContent: "space-between",
         alignItems: "center",
         fontSize: "9px",
+        lineHeight: "normal",
         color: "#888",
         pointerEvents: "none",
         userSelect: "none",

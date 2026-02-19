@@ -34,6 +34,7 @@ export function PageHeader({ section, docTitle, pageNumber }: PageHeaderProps) {
         justifyContent: "space-between",
         alignItems: "center",
         fontSize: "9px",
+        lineHeight: "normal",
         color: "#888",
         pointerEvents: "none",
         userSelect: "none",
