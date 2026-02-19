@@ -64,7 +64,6 @@ import {
   PlusCircle,
   FileSliders,
   KeyRound,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -602,6 +601,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     window.print();
   }, [markPrintAncestors, cleanupPrintAncestors]);
 
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
+  const printMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPrintMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (printMenuRef.current && !printMenuRef.current.contains(e.target as Node)) {
+        setShowPrintMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showPrintMenu]);
+
   // Helper: get current font family label
   const currentFontFamily = editor
     ? FONT_FAMILIES.find(ff => ff.value === editor.getAttributes("textStyle").fontFamily)?.label || "Default"
@@ -689,23 +702,40 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           Layout
         </button>
 
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-          title="Print (teacher copy — all answers visible)"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          Print
-        </button>
-
-        <button
-          onClick={handlePrintStudent}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
-          title="Print student copy — answer sections hidden"
-        >
-          <Users className="w-3.5 h-3.5" />
-          Student
-        </button>
+        <div className="relative" ref={printMenuRef}>
+          <div className="flex items-center">
+            <button
+              onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              title="Print (questions only — no answers)"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print
+            </button>
+            <button
+              onClick={() => setShowPrintMenu(s => !s)}
+              className="flex items-center self-stretch px-1.5 rounded-r-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary-hover border-l border-primary-foreground/20 transition-colors"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
+          </div>
+          {showPrintMenu && (
+            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+              <button
+                onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
+              >
+                Questions Only
+              </button>
+              <button
+                onClick={() => { setShowPrintMenu(false); handlePrint(); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
+              >
+                With Answers
+              </button>
+            </div>
+          )}
+        </div>
 
       </div>
 
