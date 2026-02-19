@@ -79,6 +79,18 @@ export default function DocumentsPage() {
     setMenuOpenId(null);
   }, [mutate, showToast]);
 
+  const handlePermanentDelete = useCallback(async (id: number) => {
+    if (!window.confirm("Permanently delete this document? This cannot be undone.")) return;
+    try {
+      await documentsAPI.permanentDelete(id);
+      mutate();
+      showToast("Document permanently deleted", "success");
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+    setMenuOpenId(null);
+  }, [mutate, showToast]);
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const now = new Date();
@@ -94,7 +106,7 @@ export default function DocumentsPage() {
     <DeskSurface>
       <PageTransition className="p-4 sm:p-6 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <FileText className="w-7 h-7 text-[#a0704b] dark:text-[#cd853f]" />
@@ -117,7 +129,7 @@ export default function DocumentsPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="relative" style={{ flex: "1 1 0", maxWidth: "20rem" }}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -208,13 +220,22 @@ export default function DocumentsPage() {
                             Duplicate
                           </button>
                           {doc.is_archived ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleUnarchive(doc.id); }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                            >
-                              <ArchiveRestore className="w-3.5 h-3.5" />
-                              Restore
-                            </button>
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleUnarchive(doc.id); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                              >
+                                <ArchiveRestore className="w-3.5 h-3.5" />
+                                Restore
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(doc.id); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete Permanently
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleArchive(doc.id); }}

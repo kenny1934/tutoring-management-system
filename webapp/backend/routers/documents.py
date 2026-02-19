@@ -165,6 +165,30 @@ async def delete_document(
     return {"message": "Document archived successfully"}
 
 
+@router.delete("/documents/{doc_id}/permanent")
+async def permanently_delete_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Hard-delete an archived document permanently."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not doc.is_archived:
+        raise HTTPException(status_code=400, detail="Document must be archived before permanent deletion")
+
+    is_owner = doc.created_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You can only delete your own documents")
+
+    db.delete(doc)
+    db.commit()
+    return {"message": "Document permanently deleted"}
+
+
 @router.post("/documents/{doc_id}/duplicate", response_model=DocumentResponse)
 async def duplicate_document(
     doc_id: int,

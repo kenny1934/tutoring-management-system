@@ -259,8 +259,24 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   const editorInstanceRef = useRef<ReturnType<typeof useEditor>>(null);
   const pageRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
+  const [pageScale, setPageScale] = useState(1);
+
+  // Scale A4 page to fit viewport on small screens
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0].contentRect.width;
+      const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
+      const padding = 32; // px-4 = 16px each side
+      setPageScale(Math.min(1, (width - padding) / pageWidthPx));
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
@@ -691,7 +707,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
         <button
           onClick={() => router.push("/documents")}
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
@@ -705,7 +721,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState("unsaved"); }}
           onBlur={handleTitleBlur}
-          className="flex-1 text-lg font-semibold bg-transparent text-foreground outline-none border-none"
+          className="flex-1 min-w-0 text-base sm:text-lg font-semibold bg-transparent text-foreground outline-none border-none"
           placeholder="Untitled Document"
         />
 
@@ -719,10 +735,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           disabled={saveState === "saving"}
           title={saveState === "unsaved" ? "Save now (Ctrl+S)" : undefined}
         >
-          {saveState === "saving" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</>}
-          {saveState === "saved" && <><Check className="w-3.5 h-3.5 text-green-600" /> Saved</>}
-          {saveState === "unsaved" && <><CloudOff className="w-3.5 h-3.5" /> Unsaved</>}
-          {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /> Error saving</>}
+          {saveState === "saving" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="hidden sm:inline"> Saving...</span></>}
+          {saveState === "saved" && <><Check className="w-3.5 h-3.5 text-green-600" /><span className="hidden sm:inline"> Saved</span></>}
+          {saveState === "unsaved" && <><CloudOff className="w-3.5 h-3.5" /><span className="hidden sm:inline"> Unsaved</span></>}
+          {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /><span className="hidden sm:inline"> Error saving</span></>}
         </button>
 
         <button
@@ -731,7 +747,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           title="Page layout settings"
         >
           <FileSliders className="w-3.5 h-3.5" />
-          Layout
+          <span className="hidden sm:inline">Layout</span>
         </button>
 
         <div className="relative" ref={printMenuRef}>
@@ -742,7 +758,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               title="Print (questions only — no answers)"
             >
               <Printer className="w-3.5 h-3.5" />
-              Print
+              <span className="hidden sm:inline">Print</span>
             </button>
             <button
               onClick={() => setShowPrintMenu(s => !s)}
@@ -799,7 +815,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
 
         {/* Tab content row */}
-        <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px]">
+        <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px] overflow-x-auto">
           {activeTab === "format" && (
             <>
               {/* Font Family dropdown */}
@@ -1244,7 +1260,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       </div>
 
       {/* Editor area — paginated A4 view */}
-      <div className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
         <div className="py-8 px-4 print:p-0 print:m-0">
           <div
             ref={pageRef}
@@ -1258,6 +1274,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               minHeight: "297mm",
               padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
               maxWidth: "100%",
+              zoom: pageScale < 1 ? pageScale : undefined,
             }}
           >
             {/* Watermark on first page */}

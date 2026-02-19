@@ -56,6 +56,12 @@ export const documentsAPI = {
     });
   },
 
+  permanentDelete(id: number) {
+    return fetchAPI<{ message: string }>(`/documents/${id}/permanent`, {
+      method: "DELETE",
+    });
+  },
+
   duplicate(id: number) {
     return fetchAPI<Document>(`/documents/${id}/duplicate`, { method: "POST" });
   },
