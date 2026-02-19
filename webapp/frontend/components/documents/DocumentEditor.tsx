@@ -188,14 +188,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
 
-  // Dropdown states
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
-  const [showFontSizeMenu, setShowFontSizeMenu] = useState(false);
-  const [showFontFamilyMenu, setShowFontFamilyMenu] = useState(false);
-  const [showTableMenu, setShowTableMenu] = useState(false);
-  const [showAlignMenu, setShowAlignMenu] = useState(false);
-  const [showHeadingMenu, setShowHeadingMenu] = useState(false);
+  // Dropdown states — only one toolbar menu can be open at a time
+  type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | null;
+  const [activeMenu, setActiveMenu] = useState<MenuId>(null);
+  const toggleMenu = (id: MenuId) => setActiveMenu(prev => prev === id ? null : id);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
 
   // Find & Replace
@@ -256,13 +252,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Close all dropdown menus
   const closeAllMenus = useCallback(() => {
-    setShowColorPicker(false);
-    setShowHighlightPicker(false);
-    setShowFontSizeMenu(false);
-    setShowFontFamilyMenu(false);
-    setShowTableMenu(false);
-    setShowAlignMenu(false);
-    setShowHeadingMenu(false);
+    setActiveMenu(null);
   }, []);
 
   const handleTabSwitch = useCallback((tab: ToolbarTab) => {
@@ -272,7 +262,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Click-outside and Escape key to close dropdowns
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const anyMenuOpen = showColorPicker || showHighlightPicker || showFontSizeMenu || showFontFamilyMenu || showTableMenu || showAlignMenu || showHeadingMenu;
+  const anyMenuOpen = activeMenu !== null;
   useClickOutside(toolbarRef, closeAllMenus, anyMenuOpen);
 
   useEffect(() => {
@@ -463,13 +453,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   }, [editor]);
 
   // Update pagination plugin when metadata or title changes
+  // Debounce title to avoid expensive DOM measurement on every keystroke
+  const [debouncedTitle, setDebouncedTitle] = useState(title);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTitle(title), 300);
+    return () => clearTimeout(t);
+  }, [title]);
+
   useEffect(() => {
     if (!editor) return;
     const { tr } = editor.state;
-    tr.setMeta(paginationPluginKey, { metadata: docMetadata, docTitle: title });
+    tr.setMeta(paginationPluginKey, { metadata: docMetadata, docTitle: debouncedTitle });
     tr.setMeta("addToHistory", false);
     editor.view.dispatch(tr);
-  }, [editor, docMetadata, title]);
+  }, [editor, docMetadata, debouncedTitle]);
 
   // Trigger pagination recalculation when content images load (NOT decoration images)
   useEffect(() => {
@@ -669,54 +666,53 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     });
   }, []);
 
-  const handlePrint = useCallback(() => {
+  const executePrint = useCallback((setup: () => (() => void)) => {
     markPrintAncestors();
-
-    // Build answer key for "With Answers" print
-    const pageEl = pageRef.current;
-    // Query the React NodeViewWrapper elements (renderHTML attrs aren't in live DOM)
-    const answerNodes = pageEl?.querySelectorAll('.answer-section-wrapper') ?? [];
-    let answerKeyContainer: HTMLDivElement | null = null;
-
-    if (answerNodes.length > 0 && pageEl) {
-      const entries: string[] = [];
-      answerNodes.forEach((el, i) => {
-        const customLabel = el.getAttribute("data-label");
-        const ref = customLabel || String(i + 1);
-        el.setAttribute("data-answer-ref", ref); // CSS ::before shows "Ans N" badge
-        const inner = el.querySelector(".answer-float-inner");
-        const content = inner ? inner.innerHTML : "";
-        entries.push(
-          `<div class="print-answer-key-entry"><span class="print-answer-key-ref">${ref}.</span> ${content}</div>`
-        );
-      });
-
-      answerKeyContainer = document.createElement("div");
-      answerKeyContainer.className = "print-answer-key";
-      answerKeyContainer.style.display = "none"; // hidden on screen; CSS @media print overrides
-      answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div><hr style="border:none;border-top:2px solid #333;margin:0 0 12px 0">${entries.join("")}`;
-      pageEl.appendChild(answerKeyContainer);
-    }
-
-    const cleanup = () => {
-      cleanupPrintAncestors();
-      answerKeyContainer?.remove();
-      answerNodes.forEach((el) => el.removeAttribute("data-answer-ref"));
-    };
-    window.addEventListener("afterprint", cleanup, { once: true });
+    const teardown = setup();
+    window.addEventListener("afterprint", () => { cleanupPrintAncestors(); teardown(); }, { once: true });
     window.print();
   }, [markPrintAncestors, cleanupPrintAncestors]);
+
+  const handlePrint = useCallback(() => {
+    executePrint(() => {
+      // Build answer key for "With Answers" print
+      const pageEl = pageRef.current;
+      const answerNodes = pageEl?.querySelectorAll('.answer-section-wrapper') ?? [];
+      let answerKeyContainer: HTMLDivElement | null = null;
+
+      if (answerNodes.length > 0 && pageEl) {
+        const entries: string[] = [];
+        answerNodes.forEach((el, i) => {
+          const customLabel = el.getAttribute("data-label");
+          const ref = customLabel || String(i + 1);
+          el.setAttribute("data-answer-ref", ref);
+          const inner = el.querySelector(".answer-float-inner");
+          const content = inner ? inner.innerHTML : "";
+          entries.push(
+            `<div class="print-answer-key-entry"><span class="print-answer-key-ref">${ref}.</span> ${content}</div>`
+          );
+        });
+
+        answerKeyContainer = document.createElement("div");
+        answerKeyContainer.className = "print-answer-key";
+        answerKeyContainer.style.display = "none";
+        answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div><hr style="border:none;border-top:2px solid #333;margin:0 0 12px 0">${entries.join("")}`;
+        pageEl.appendChild(answerKeyContainer);
+      }
+
+      return () => {
+        answerKeyContainer?.remove();
+        answerNodes.forEach((el) => el.removeAttribute("data-answer-ref"));
+      };
+    });
+  }, [executePrint]);
 
   const handlePrintStudent = useCallback(() => {
-    markPrintAncestors();
-    document.body.classList.add("student-print");
-    const cleanup = () => {
-      cleanupPrintAncestors();
-      document.body.classList.remove("student-print");
-    };
-    window.addEventListener("afterprint", cleanup, { once: true });
-    window.print();
-  }, [markPrintAncestors, cleanupPrintAncestors]);
+    executePrint(() => {
+      document.body.classList.add("student-print");
+      return () => document.body.classList.remove("student-print");
+    });
+  }, [executePrint]);
 
   const [showPrintMenu, setShowPrintMenu] = useState(false);
   const printMenuRef = useRef<HTMLDivElement>(null);
@@ -907,10 +903,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Font Family dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showFontFamilyMenu; closeAllMenus(); setShowFontFamilyMenu(next); }}
+                  onClick={() => toggleMenu("fontFamily")}
                   className={cn(
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
-                    showFontFamilyMenu
+                    activeMenu === "fontFamily"
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
                       : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
@@ -919,7 +915,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   <span className="truncate max-w-[7rem]">{currentFontFamily}</span>
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
-                {showFontFamilyMenu && (
+                {activeMenu === "fontFamily" && (
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem] max-h-[20rem] overflow-y-auto">
                     {FONT_FAMILIES.map((ff) => (
                       <button
@@ -930,7 +926,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                           } else {
                             editor.chain().focus().unsetMark("textStyle").run();
                           }
-                          setShowFontFamilyMenu(false);
+                          setActiveMenu(null);
                         }}
                         className={cn(
                           "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
@@ -948,10 +944,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Font Size dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showFontSizeMenu; closeAllMenus(); setShowFontSizeMenu(next); }}
+                  onClick={() => toggleMenu("fontSize")}
                   className={cn(
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
-                    showFontSizeMenu
+                    activeMenu === "fontSize"
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
                       : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
@@ -960,7 +956,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   <span className="w-5 text-center">{currentFontSize}</span>
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
-                {showFontSizeMenu && (
+                {activeMenu === "fontSize" && (
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1">
                     <div className="grid grid-cols-4 gap-0.5 min-w-[8rem]">
                       {FONT_SIZES.map((fs) => (
@@ -972,7 +968,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                             } else {
                               editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
                             }
-                            setShowFontSizeMenu(false);
+                            setActiveMenu(null);
                           }}
                           className={cn(
                             "px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 text-center",
@@ -993,7 +989,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                         const val = parseInt(input.value, 10);
                         if (val >= 8 && val <= 96) {
                           editor.chain().focus().setMark("textStyle", { fontSize: `${val}px` }).run();
-                          setShowFontSizeMenu(false);
+                          setActiveMenu(null);
                         }
                       }}
                     >
@@ -1026,88 +1022,54 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Text color */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showColorPicker; closeAllMenus(); setShowColorPicker(next); }}
+                  onClick={() => toggleMenu("color")}
                   className={cn(
                     "rounded transition-colors",
                     showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5",
-                    showColorPicker ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                    activeMenu === "color" ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Color"
                 >
                   <Palette className="w-4 h-4" />
                   {showLabels && <span className="text-[9px] leading-none">Color</span>}
                 </button>
-                {showColorPicker && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
-                    {EDITOR_COLORS.map((c) => (
-                      <button
-                        key={c.color}
-                        onClick={() => editor.chain().focus().setColor(c.color).run()}
-                        className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                        style={{ backgroundColor: c.color }}
-                        title={c.label}
-                      />
-                    ))}
-                    <button
-                      onClick={() => editor.chain().focus().unsetColor().run()}
-                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
-                      title="Remove color"
-                    >
-                      &times;
-                    </button>
-                    <input
-                      type="color"
-                      value={editor.getAttributes("textStyle").color || "#000000"}
-                      onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
-                      onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
-                      className="doc-color-swatch w-6 h-6 rounded-full hover:scale-110 transition-transform"
-                      title="Custom color"
-                    />
-                  </div>
+                {activeMenu === "color" && (
+                  <ColorGrid
+                    colors={EDITOR_COLORS}
+                    onSelect={(c) => editor.chain().focus().setColor(c).run()}
+                    onRemove={() => editor.chain().focus().unsetColor().run()}
+                    customValue={editor.getAttributes("textStyle").color || "#000000"}
+                    onCustom={(c) => editor.chain().focus().setColor(c).run()}
+                    removeTitle="Remove color"
+                    customTitle="Custom color"
+                  />
                 )}
               </div>
 
               {/* Highlight */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showHighlightPicker; closeAllMenus(); setShowHighlightPicker(next); }}
+                  onClick={() => toggleMenu("highlight")}
                   className={cn(
                     "rounded transition-colors",
                     showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5",
-                    showHighlightPicker || editor.isActive("highlight") ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                    activeMenu === "highlight" || editor.isActive("highlight") ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Highlight"
                 >
                   <Highlighter className="w-4 h-4" />
                   {showLabels && <span className="text-[9px] leading-none">Highlight</span>}
                 </button>
-                {showHighlightPicker && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
-                    {HIGHLIGHT_COLORS.map((c) => (
-                      <button
-                        key={c.color}
-                        onClick={() => editor.chain().focus().toggleHighlight({ color: c.color }).run()}
-                        className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
-                        style={{ backgroundColor: c.color }}
-                        title={c.label}
-                      />
-                    ))}
-                    <button
-                      onClick={() => editor.chain().focus().unsetHighlight().run()}
-                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
-                      title="Remove highlight"
-                    >
-                      &times;
-                    </button>
-                    <input
-                      type="color"
-                      defaultValue="#fef08a"
-                      onInput={(e) => editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run()}
-                      onChange={(e) => editor.chain().focus().toggleHighlight({ color: e.target.value }).run()}
-                      className="doc-color-swatch w-6 h-6 rounded-full hover:scale-110 transition-transform"
-                      title="Custom highlight color"
-                    />
-                  </div>
+                {activeMenu === "highlight" && (
+                  <ColorGrid
+                    colors={HIGHLIGHT_COLORS}
+                    onSelect={(c) => editor.chain().focus().toggleHighlight({ color: c }).run()}
+                    onRemove={() => editor.chain().focus().unsetHighlight().run()}
+                    customValue="#fef08a"
+                    onCustom={(c) => editor.chain().focus().toggleHighlight({ color: c }).run()}
+                    removeTitle="Remove highlight"
+                    customTitle="Custom highlight color"
+                  />
                 )}
               </div>
               <ToolbarSep />
@@ -1115,11 +1077,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Alignment dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showAlignMenu; closeAllMenus(); setShowAlignMenu(next); }}
+                  onClick={() => toggleMenu("align")}
                   className={cn(
                     "rounded transition-colors",
                     showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "flex items-center gap-0.5 p-1.5",
-                    showAlignMenu ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                    activeMenu === "align" ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Align"
                 >
@@ -1129,12 +1091,12 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   </div>
                   {showLabels && <span className="text-[9px] leading-none">Align</span>}
                 </button>
-                {showAlignMenu && (
+                {activeMenu === "align" && (
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[8rem]">
                     {ALIGN_OPTIONS.map((item) => (
                       <button
                         key={item.value}
-                        onClick={() => { editor.chain().focus().setTextAlign(item.value).run(); setShowAlignMenu(false); }}
+                        onClick={() => { editor.chain().focus().setTextAlign(item.value).run(); setActiveMenu(null); }}
                         className={cn(
                           "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                           editor.isActive({ textAlign: item.value }) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
@@ -1154,10 +1116,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Heading dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showHeadingMenu; closeAllMenus(); setShowHeadingMenu(next); }}
+                  onClick={() => toggleMenu("heading")}
                   className={cn(
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
-                    showHeadingMenu
+                    activeMenu === "heading"
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
                       : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
@@ -1166,7 +1128,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   <span className="min-w-[4.5rem]">{currentHeading}</span>
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
-                {showHeadingMenu && (
+                {activeMenu === "heading" && (
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
                     {HEADING_OPTIONS.map((h) => (
                       <button
@@ -1177,7 +1139,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                           } else {
                             editor.chain().focus().setParagraph().run();
                           }
-                          setShowHeadingMenu(false);
+                          setActiveMenu(null);
                         }}
                         className={cn(
                           "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
@@ -1257,11 +1219,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Table menu */}
               <div className="relative">
                 <button
-                  onClick={() => { const next = !showTableMenu; closeAllMenus(); setShowTableMenu(next); }}
+                  onClick={() => toggleMenu("table")}
                   className={cn(
                     "rounded transition-colors",
                     showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "p-1.5",
-                    showTableMenu || editor.isActive("table")
+                    activeMenu === "table" || editor.isActive("table")
                       ? "bg-[#a0704b] text-white"
                       : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
@@ -1270,34 +1232,34 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   <Grid3X3 className="w-4 h-4" />
                   {showLabels && <span className="text-[9px] leading-none">Table</span>}
                 </button>
-                {showTableMenu && (
+                {activeMenu === "table" && (
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
                     {editor.isActive("table") ? (
                       <div className="flex flex-col gap-0.5">
-                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row above
                         </button>
-                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row below
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column left
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column right
                         </button>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete row
                         </button>
-                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete column
                         </button>
-                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
+                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-                        <button onClick={() => { editor.chain().focus().deleteTable().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
+                        <button onClick={() => { editor.chain().focus().deleteTable().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
                           <Trash2 className="w-3 h-3" /> Delete table
                         </button>
                       </div>
@@ -1328,7 +1290,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                                 onMouseEnter={() => setGridHover({ rows: row, cols: col })}
                                 onClick={() => {
                                   editor.chain().focus().insertTable({ rows: row, cols: col, withHeaderRow: true }).run();
-                                  setShowTableMenu(false);
+                                  setActiveMenu(null);
                                   setGridHover(null);
                                 }}
                               />
@@ -1717,6 +1679,46 @@ function TabButton({ id, label, icon: Icon, activeTab, onClick }: {
       <Icon className="w-3.5 h-3.5" />
       {label}
     </button>
+  );
+}
+
+/* Reusable color swatch grid for text color and highlight pickers */
+function ColorGrid({ colors, onSelect, onRemove, customValue, onCustom, removeTitle, customTitle }: {
+  colors: { color: string; label: string }[];
+  onSelect: (color: string) => void;
+  onRemove: () => void;
+  customValue: string;
+  onCustom: (color: string) => void;
+  removeTitle: string;
+  customTitle: string;
+}) {
+  return (
+    <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex gap-1 items-center">
+      {colors.map((c) => (
+        <button
+          key={c.color}
+          onClick={() => onSelect(c.color)}
+          className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform"
+          style={{ backgroundColor: c.color }}
+          title={c.label}
+        />
+      ))}
+      <button
+        onClick={onRemove}
+        className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
+        title={removeTitle}
+      >
+        &times;
+      </button>
+      <input
+        type="color"
+        defaultValue={customValue}
+        onInput={(e) => onCustom((e.target as HTMLInputElement).value)}
+        onChange={(e) => onCustom(e.target.value)}
+        className="doc-color-swatch w-6 h-6 rounded-full hover:scale-110 transition-transform"
+        title={customTitle}
+      />
+    </div>
   );
 }
 

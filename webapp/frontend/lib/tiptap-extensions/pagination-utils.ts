@@ -58,6 +58,11 @@ export function resolvePageNumber(text: string, pageNumber: number): string {
   return text.replace(/\{page\}/g, String(pageNumber));
 }
 
+/** Resolve all template variables including {page} in one call. */
+export function resolveText(template: string, docTitle: string, pageNumber: number): string {
+  return resolvePageNumber(resolveTemplate(template, docTitle), pageNumber);
+}
+
 // ─── Measurement ────────────────────────────────────────────────────
 
 export interface BlockMeasurement {

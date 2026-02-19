@@ -1835,7 +1835,7 @@ class TutorMemoImportRequest(BaseModel):
 
 class DocumentCreate(BaseModel):
     """Create a new document."""
-    title: str = "Untitled Document"
+    title: str = Field("Untitled Document", max_length=255)
     doc_type: str = Field(..., pattern="^(worksheet|lesson_plan)$")
 
 

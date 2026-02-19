@@ -994,23 +994,6 @@ html {
   color: #2563eb;
 }
 
-/* Handwriting Fonts */
-.font-handwriting-cursive {
-  font-family: 'Caveat', cursive;
-}
-
-.font-handwriting-print {
-  font-family: 'Indie Flower', cursive;
-}
-
-.font-handwriting-marker {
-  font-family: 'Permanent Marker', cursive;
-}
-
-.font-handwriting-pencil {
-  font-family: 'Shadows Into Light', cursive;
-}
-
 /* ===== ENGINEERING & TECHNICAL PAPER PATTERNS ===== */
 
 /* Quad paper - 4 squares per inch (lighter blue/green engineering style) */
@@ -2971,6 +2954,11 @@ body.student-print .print-answer-key {
   }
 
   .document-page table {
+    page-break-inside: avoid;
+  }
+
+  .document-page img {
+    max-width: 100%;
     page-break-inside: avoid;
   }
 
