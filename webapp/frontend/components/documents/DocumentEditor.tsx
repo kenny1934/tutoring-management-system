@@ -586,7 +586,39 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   const handlePrint = useCallback(() => {
     markPrintAncestors();
-    window.addEventListener("afterprint", cleanupPrintAncestors, { once: true });
+
+    // Build answer key for "With Answers" print
+    const pageEl = pageRef.current;
+    // Query the React NodeViewWrapper elements (renderHTML attrs aren't in live DOM)
+    const answerNodes = pageEl?.querySelectorAll('.answer-section-wrapper') ?? [];
+    let answerKeyContainer: HTMLDivElement | null = null;
+
+    if (answerNodes.length > 0 && pageEl) {
+      const entries: string[] = [];
+      answerNodes.forEach((el, i) => {
+        const customLabel = el.getAttribute("data-label");
+        const ref = customLabel || String(i + 1);
+        el.setAttribute("data-answer-ref", ref); // CSS ::before shows "Ans N" badge
+        const inner = el.querySelector(".answer-float-inner");
+        const content = inner ? inner.innerHTML : "";
+        entries.push(
+          `<div class="print-answer-key-entry"><span class="print-answer-key-ref">${ref}.</span> ${content}</div>`
+        );
+      });
+
+      answerKeyContainer = document.createElement("div");
+      answerKeyContainer.className = "print-answer-key";
+      answerKeyContainer.style.display = "none"; // hidden on screen; CSS @media print overrides
+      answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div>${entries.join("")}`;
+      pageEl.appendChild(answerKeyContainer);
+    }
+
+    const cleanup = () => {
+      cleanupPrintAncestors();
+      answerKeyContainer?.remove();
+      answerNodes.forEach((el) => el.removeAttribute("data-answer-ref"));
+    };
+    window.addEventListener("afterprint", cleanup, { once: true });
     window.print();
   }, [markPrintAncestors, cleanupPrintAncestors]);
 

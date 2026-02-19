@@ -8,10 +8,10 @@
  * so the surrounding layout is unaffected.
  *
  * Print behaviour:
- *   - Teacher print: @media print makes content position:static (inline visible)
- *   - Student print: body.student-print hides all answer content via CSS
+ *   - With Answers: answer content hidden inline; collected into Answer Key at end
+ *   - Questions Only: body.student-print hides toggles + answer key via CSS
  */
-import React from "react";
+import React, { useState } from "react";
 import { Node as TipTapNode } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
@@ -48,9 +48,11 @@ const ALIGN_STYLES: Record<string, React.CSSProperties> = {
 function AnswerSectionComponent({ node, updateAttributes }: NodeViewProps) {
   const open = node.attrs.open as boolean;
   const align = node.attrs.align as string;
+  const label = (node.attrs.label as string) || "";
+  const [editingLabel, setEditingLabel] = useState(false);
 
   return (
-    <NodeViewWrapper className="answer-section-wrapper" style={ALIGN_STYLES[align] ?? {}}>
+    <NodeViewWrapper className="answer-section-wrapper" data-label={label || undefined} style={ALIGN_STYLES[align] ?? {}}>
       <div contentEditable={false}>
         <div className="answer-section-header">
           <div className="answer-drag-handle" data-drag-handle title="Drag to reposition">
@@ -69,6 +71,26 @@ function AnswerSectionComponent({ node, updateAttributes }: NodeViewProps) {
             <KeyRound className="answer-toggle-key-icon" />
             Answer
           </button>
+          {editingLabel ? (
+            <input
+              className="answer-label-input"
+              type="text"
+              value={label}
+              placeholder="#"
+              autoFocus
+              onChange={(e) => updateAttributes({ label: e.target.value })}
+              onBlur={() => setEditingLabel(false)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setEditingLabel(false); }}
+            />
+          ) : (
+            <button
+              className="answer-label-btn"
+              onClick={() => setEditingLabel(true)}
+              title="Set custom label (overrides auto-number in print)"
+            >
+              {label || "#"}
+            </button>
+          )}
           <div className="answer-align-buttons">
             {ALIGN_OPTIONS.map(({ value, Icon, title }) => (
               <button
@@ -110,6 +132,14 @@ export const AnswerSection = TipTapNode.create({
         default: "left",
         parseHTML: (element) => element.getAttribute("data-align") || "left",
         renderHTML: (attributes) => ({ "data-align": String(attributes.align) }),
+      },
+      label: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-label") || "",
+        renderHTML: (attributes) => {
+          if (!attributes.label) return {};
+          return { "data-label": attributes.label };
+        },
       },
     };
   },

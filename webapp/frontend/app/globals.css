@@ -2566,6 +2566,39 @@ html {
   height: 11px;
   opacity: 0.7;
 }
+.answer-label-btn {
+  font-size: 10px;
+  color: #c4b5a3;
+  background: none;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+.answer-section-wrapper:hover .answer-label-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.answer-label-btn:hover {
+  color: #a0704b;
+  border-color: #e8d4b8;
+}
+.answer-label-input {
+  font-size: 10px;
+  width: 3em;
+  padding: 1px 4px;
+  border: 1px solid #e8d4b8;
+  border-radius: 3px;
+  outline: none;
+  color: #a0704b;
+  background: #fef3e8;
+}
+.dark .answer-label-btn { color: #6b5a4a; }
+.dark .answer-label-btn:hover { color: #cd853f; border-color: #6b5a4a; }
+.dark .answer-label-input { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
 
 .answer-float-content {
   display: none;
@@ -2593,35 +2626,74 @@ html {
   outline: none;
 }
 
-/* Teacher print: answers become static blocks inline below toggle */
+/* Answer key: hidden on screen, shown only in print */
+.print-answer-key { display: none; }
+
+/* Print: hide answer sections inline (answers collected into Answer Key at end) */
 @media print {
-  .answer-drag-handle, .answer-align-buttons { display: none !important; }
-  .answer-section-wrapper {
-    page-break-inside: avoid;
+  .answer-section-header {
+    display: none !important;
   }
   .answer-float-content {
-    display: block !important;
-    position: static !important;
-    box-shadow: none !important;
-    border: 1px solid #ddd !important;
-    border-left: 3px solid #a0704b !important;
-    margin-top: 4px !important;
-    padding: 6px 10px !important;
+    display: none !important;
   }
-  .answer-toggle {
-    color: #888 !important;
-    background: none !important;
-    border-color: #ddd !important;
-    font-size: 10px !important;
+
+  /* Inline reference badge — "Ans 1", "Ans 2" etc. */
+  .answer-section-wrapper[data-answer-ref]::before {
+    content: 'Ans ' attr(data-answer-ref);
+    font-size: 10px;
+    font-weight: 700;
+    color: #a0704b;
+    border: 1px solid #a0704b;
+    border-radius: 3px;
+    padding: 0 4px;
+    display: inline-block;
+  }
+
+  /* Answer Key section at end of document */
+  .print-answer-key {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    overflow: visible !important;
+    break-before: page;
+    padding-top: 1em;
+    color: #1a1a1a !important;
+  }
+  .print-answer-key-entry * {
+    color: inherit !important;
+  }
+  .print-answer-key-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #333;
+  }
+  .print-answer-key-entry {
+    margin-bottom: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .print-answer-key-ref {
+    font-weight: 700;
+    color: #a0704b !important;
+    margin-right: 6px;
   }
 }
 
-/* Student print: answers completely hidden, toggle invisible but layout preserved */
-body.student-print .answer-float-content {
+/* Questions Only: restore header space, hide badges + answer key */
+body.student-print .answer-section-header {
+  display: flex !important;      /* override display:none from @media print */
+  visibility: hidden !important; /* invisible but preserves layout space */
+}
+body.student-print .answer-section-wrapper::before {
   display: none !important;
 }
-body.student-print .answer-section-header {
-  visibility: hidden !important;
+body.student-print .print-answer-key {
+  display: none !important;
 }
 
 /* Document links */
