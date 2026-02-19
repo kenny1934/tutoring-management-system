@@ -1001,3 +1001,20 @@ class TutorMemo(Base):
     student = relationship("Student", foreign_keys=[student_id])
     tutor = relationship("Tutor", foreign_keys=[tutor_id])
     linked_session = relationship("SessionLog", back_populates="tutor_memo", foreign_keys=[linked_session_id])
+
+
+class Document(Base):
+    """Courseware documents — worksheets, exams, and lesson plans."""
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False, default="Untitled Document")
+    doc_type = Column(String(20), nullable=False, comment="worksheet or lesson_plan")
+    content = Column(JSON, comment="TipTap JSON document")
+    page_layout = Column(JSON, comment="Page layout settings (margins, header/footer, watermark)")
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    is_archived = Column(Boolean, default=False)
+
+    creator = relationship("Tutor", foreign_keys=[created_by])

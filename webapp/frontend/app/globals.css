@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Indie+Flower&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@400;700&family=Permanent+Marker&family=Shadows+Into+Light&display=swap');
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
@@ -2300,3 +2300,714 @@ html {
 .hljs-regexp { color: #f38ba8; }
 .hljs-deletion { color: #f38ba8; }
 .hljs-addition { color: #a6e3a1; }
+
+/* ========================================
+   Document Editor — A4 page styling
+   ======================================== */
+
+/* Find & Replace highlights */
+.search-result {
+  background-color: #fef08a; /* yellow-200 */
+  border-radius: 2px;
+}
+.search-result-current {
+  background-color: #fb923c; /* orange-400 */
+  color: white;
+  border-radius: 2px;
+}
+
+.document-editor-content .tiptap {
+  outline: none;
+  display: flow-root; /* BFC: contain child margins — prevents margin collapse through edges */
+  min-height: calc(297mm - 50.8mm); /* A4 height minus top+bottom margins */
+}
+
+.document-editor-content .tiptap p {
+  margin: 0.25em 0;
+}
+
+.document-editor-content .tiptap h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin: 0.75em 0 0.25em;
+}
+
+.document-editor-content .tiptap h2 {
+  font-size: 1.35em;
+  font-weight: 600;
+  margin: 0.6em 0 0.2em;
+}
+
+.document-editor-content .tiptap h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0.5em 0 0.15em;
+}
+
+/* Document images */
+.document-editor-content .tiptap img.document-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
+
+.document-editor-content .tiptap img.document-image.ProseMirror-selectednode {
+  outline: 2px solid #a0704b;
+  outline-offset: 2px;
+}
+
+/* Resizable node wrapper */
+.resizable-node-wrapper {
+  position: relative;
+  max-width: 100%;
+}
+
+.resizable-node-wrapper.selected {
+  outline: 2px solid #a0704b;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Resize handles */
+.resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #a0704b;
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 5;
+}
+
+.resize-handle-tl { top: -5px; left: -5px; cursor: nwse-resize; }
+.resize-handle-tr { top: -5px; right: -5px; cursor: nesw-resize; }
+.resize-handle-bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.resize-handle-br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+.dark .resize-handle {
+  border-color: #1a1a1a;
+}
+
+/* Wrapped (floated) nodes — the NodeViewWrapper div must also float */
+.document-editor-content .tiptap [data-node-view-wrapper]:has(.resizable-node-wrapped) {
+  display: inline;
+}
+
+@media print {
+  .resize-handle,
+  .resizable-align-toolbar {
+    display: none !important;
+  }
+  .resizable-node-wrapper.selected {
+    outline: none;
+  }
+}
+
+/* Document tables */
+.document-editor-content .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+}
+
+.document-editor-content .tiptap th,
+.document-editor-content .tiptap td {
+  border: 1px solid #e8d4b8;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+}
+
+.document-editor-content .tiptap th {
+  background: #faf5ef;
+  font-weight: 600;
+}
+
+.dark .document-editor-content .tiptap th,
+.dark .document-editor-content .tiptap td {
+  border-color: #6b5a4a;
+}
+
+.dark .document-editor-content .tiptap th {
+  background: #2d2618;
+}
+
+.document-editor-content .tiptap td.selectedCell,
+.document-editor-content .tiptap th.selectedCell {
+  background: rgba(160, 112, 75, 0.12);
+}
+
+/* Document horizontal rules */
+.document-editor-content .tiptap hr {
+  border: none;
+  border-top: 1px solid #d4c4a8;
+  margin: 1em 0;
+}
+
+.dark .document-editor-content .tiptap hr {
+  border-color: #6b5a4a;
+}
+
+/* Page break node — editor view */
+.document-editor-content .page-break-node {
+  border: none;
+  border-top: 2px dashed #c4b5a3;
+  margin: 1.5rem 0;
+  padding: 0;
+  position: relative;
+  text-align: center;
+  cursor: default;
+  user-select: none;
+}
+.document-editor-content .page-break-node::after {
+  content: "Page Break";
+  font-size: 10px;
+  color: #c4b5a3;
+  background: white;
+  padding: 0 8px;
+  position: relative;
+  top: -8px;
+}
+.dark .document-editor-content .page-break-node {
+  border-color: #6b5a4a;
+}
+.dark .document-editor-content .page-break-node::after {
+  color: #6b5a4a;
+  background: #2a2420;
+}
+/* Selected state */
+.document-editor-content .page-break-node.ProseMirror-selectednode {
+  border-color: #a0704b;
+}
+.document-editor-content .page-break-node.ProseMirror-selectednode::after {
+  color: #a0704b;
+}
+
+/* Answer Section — floating collapsible overlay */
+.answer-section-wrapper {
+  position: relative;
+  display: block;
+  margin: 0.25em 0;
+}
+.answer-section-wrapper:hover {
+  z-index: 2;
+}
+
+/* Alignment button strip */
+.answer-align-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.answer-section-wrapper:hover .answer-align-buttons {
+  opacity: 1;
+  pointer-events: auto;
+}
+.answer-align-btn {
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: #c4b5a3;
+  transition: color 0.15s, background 0.15s;
+}
+.answer-align-btn:hover { color: #a0704b; background: #f5ede3; }
+.answer-align-btn.answer-align-active { color: #a0704b; background: #fef3e8; }
+.answer-align-icon { width: 11px; height: 11px; }
+.dark .answer-align-btn:hover { color: #cd853f; background: #2d2618; }
+.dark .answer-align-btn.answer-align-active { color: #cd853f; background: #2d2618; }
+
+.answer-section-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.answer-drag-handle {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  color: #c4b5a3;
+  cursor: grab;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.answer-drag-handle:hover { color: #a0704b; background: #f5ede3; }
+.answer-drag-handle:active { cursor: grabbing; }
+.dark .answer-drag-handle:hover { color: #cd853f; background: #2d2618; }
+.answer-drag-icon { width: 12px; height: 12px; }
+
+.answer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a0704b;
+  background: #fef3e8;
+  border: 1px solid #e8d4b8;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.answer-toggle:hover {
+  background: #f5ede3;
+}
+.dark .answer-toggle {
+  background: #2d2618;
+  border-color: #6b5a4a;
+  color: #cd853f;
+}
+.dark .answer-toggle:hover {
+  background: #3d3020;
+}
+.answer-toggle-icon {
+  width: 11px;
+  height: 11px;
+}
+.answer-toggle-key-icon {
+  width: 11px;
+  height: 11px;
+  opacity: 0.7;
+}
+.answer-label-btn {
+  font-size: 10px;
+  color: #c4b5a3;
+  background: none;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  opacity: 0;
+  pointer-events: none;
+}
+.answer-section-wrapper:hover .answer-label-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.answer-label-btn:hover {
+  color: #a0704b;
+  border-color: #e8d4b8;
+}
+.answer-label-input {
+  font-size: 10px;
+  width: 3em;
+  padding: 1px 4px;
+  border: 1px solid #e8d4b8;
+  border-radius: 3px;
+  outline: none;
+  color: #a0704b;
+  background: #fef3e8;
+}
+.dark .answer-label-btn { color: #6b5a4a; }
+.dark .answer-label-btn:hover { color: #cd853f; border-color: #6b5a4a; }
+.dark .answer-label-input { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
+
+.answer-float-content {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  background: white;
+  border: 1.5px solid #a0704b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 200px;
+  max-width: 90%;
+}
+.answer-float-content.answer-float-open {
+  display: block;
+}
+.dark .answer-float-content {
+  background: #1a1a1a;
+  border-color: #cd853f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.answer-float-inner {
+  outline: none;
+}
+
+/* Answer key: hidden on screen, shown only in print */
+.print-answer-key { display: none; }
+
+/* Print: hide answer sections inline (answers collected into Answer Key at end) */
+@media print {
+  .answer-section-header {
+    display: none !important;
+  }
+  .answer-float-content {
+    display: none !important;
+  }
+
+  /* Inline reference badge — "Ans 1", "Ans 2" etc. */
+  .answer-section-wrapper[data-answer-ref]::before {
+    content: 'Ans ' attr(data-answer-ref);
+    font-size: 10px;
+    font-weight: 700;
+    color: #a0704b;
+    border: 1px solid #a0704b;
+    border-radius: 3px;
+    padding: 0 4px;
+    display: inline-block;
+  }
+
+  /* Answer Key section at end of document */
+  .print-answer-key {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    overflow: visible !important;
+    break-before: page;
+    padding-top: 1em;
+    color: #1a1a1a !important;
+  }
+  .print-answer-key-entry * {
+    color: inherit !important;
+  }
+  .print-answer-key-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a !important;
+  }
+  .print-answer-key-entry {
+    margin-bottom: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .print-answer-key-ref {
+    font-weight: 700;
+    color: #a0704b !important;
+    margin-right: 6px;
+  }
+}
+
+/* Questions Only: restore header space, hide badges + answer key */
+body.student-print .answer-section-header {
+  display: flex !important;      /* override display:none from @media print */
+  visibility: hidden !important; /* invisible but preserves layout space */
+}
+body.student-print .answer-section-wrapper::before {
+  display: none !important;
+}
+body.student-print .print-answer-key {
+  display: none !important;
+}
+
+/* Document links */
+.document-editor-content .tiptap a.doc-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dark .document-editor-content .tiptap a.doc-link {
+  color: #60a5fa;
+}
+
+.dark .document-watermark-image {
+  mix-blend-mode: multiply;
+}
+
+/* Color picker swatch in document toolbar */
+.doc-color-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
+.doc-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.doc-color-swatch::-webkit-color-swatch {
+  border: 1px solid #e8d4b8;
+  border-radius: 9999px;
+}
+.dark .doc-color-swatch::-webkit-color-swatch {
+  border-color: #6b5a4a;
+}
+
+/* ─── Pagination: Widget Decoration styles ──────────────────────────── */
+
+/* During measurement phase, hide decorations so we get true content heights */
+.pagination-measuring .page-break-decoration {
+  display: none !important;
+}
+
+/* The widget decoration wrapper — non-editable block between pages */
+.page-break-decoration {
+  position: relative;
+  user-select: none;
+  clear: both; /* contain any floated content above */
+  z-index: 1; /* above watermark (z-index: 0) */
+  background: white;
+}
+.dark .page-break-decoration {
+  background: #2a2420;
+}
+
+/* Bottom spacer — pushes footer to page bottom */
+.page-bottom-spacer {
+  /* height set via inline style */
+}
+
+/* Footer / header content inside decorations */
+.page-footer-content,
+.page-header-content {
+  /* Inline styles handle the flex layout */
+}
+
+/* Gap between pages in editor view */
+.page-gap {
+  border-top: 1px solid #c4b5a3;
+  border-bottom: 1px solid #c4b5a3;
+}
+.dark .page-gap {
+  background: #1a1510 !important;
+  border-color: #6b5a4a;
+}
+
+/* Page break trigger (invisible, Chrome breaks here) */
+.page-break-trigger {
+  /* break-after: page set via inline style */
+}
+
+/* ─── First-page header and last-page footer (React components) ───── */
+.first-page-header,
+.last-page-footer {
+  pointer-events: none;
+  user-select: none;
+}
+.first-page-header {
+  overflow: hidden; /* BFC prevents margin collapse — offsetHeight includes child's margin-bottom */
+}
+
+/* Last-page footer spacer pushes footer to bottom of final page */
+.last-page-footer-spacer {
+  /* height set dynamically */
+}
+
+/* ─── Paper Mode: force light colors on document page in dark mode ─── */
+
+.dark .paper-mode {
+  background-color: white !important;
+  border-color: #e5e7eb !important;
+  color: #1a1a1a;
+}
+
+.dark .paper-mode .prose {
+  --tw-prose-body: #374151;
+  --tw-prose-headings: #111827;
+  --tw-prose-lead: #4b5563;
+  --tw-prose-links: #111827;
+  --tw-prose-bold: #111827;
+  --tw-prose-counters: #6b7280;
+  --tw-prose-bullets: #d1d5db;
+  --tw-prose-hr: #e5e7eb;
+  --tw-prose-quotes: #111827;
+  --tw-prose-quote-borders: #e5e7eb;
+  --tw-prose-captions: #6b7280;
+  --tw-prose-code: #111827;
+  --tw-prose-pre-code: #e5e7eb;
+  --tw-prose-pre-bg: #1f2937;
+  --tw-prose-th-borders: #d1d5db;
+  --tw-prose-td-borders: #e5e7eb;
+}
+
+/* Override .dark .tiptap rules */
+.dark .paper-mode .tiptap blockquote { border-color: #d4a574; color: #6b7280; }
+.dark .paper-mode .tiptap code { background-color: #f3f4f6; }
+.dark .paper-mode .tiptap pre { background: #1e1e2e; color: #cdd6f4; }
+.dark .paper-mode .tiptap td,
+.dark .paper-mode .tiptap th { border-color: #e8d4b8; }
+.dark .paper-mode .tiptap th { background-color: #f5ede3; }
+.dark .paper-mode .tiptap hr { border-color: #d4c4a8; }
+.dark .paper-mode .tiptap a.doc-link { color: #2563eb; }
+.dark .paper-mode .tiptap p.is-editor-empty:first-child::before { color: #adb5bd; }
+
+/* Page break nodes */
+.dark .paper-mode .page-break-node { border-color: #c4b5a3; }
+.dark .paper-mode .page-break-node::after { color: #c4b5a3; background: white; }
+
+/* Page break decorations */
+.dark .paper-mode .page-break-decoration { background: white; }
+.dark .paper-mode .page-gap { background: #d1c8bc !important; border-color: #c4b5a3; }
+
+/* Answer section */
+.dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
+.dark .paper-mode .answer-toggle:hover { background: #f5ede3; }
+.dark .paper-mode .answer-float-content { background: white; border-color: #a0704b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+
+/* ─── Print styles: paginated document builder ─────────────────────── */
+/* @page margins set dynamically via <style> in DocumentEditor.tsx.
+   Pagination decorations handle page breaks, headers, footers.
+   JS marks ancestor chain with data-print-flow before printing. */
+@media print {
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 1. Hide all body children not in the document-page ancestor chain */
+  body[data-printing] > *:not([data-print-flow]) {
+    display: none !important;
+  }
+
+  /* 2. At every level, hide siblings not in the document path */
+  [data-print-flow] > *:not([data-print-flow]):not(.document-page):not(style) {
+    display: none !important;
+  }
+
+  /* 3. Make ancestor chain transparent flow containers */
+  [data-print-flow] {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* 4. Document page — @page handles margins, so zero padding */
+  .document-page {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    overflow: visible !important;
+    zoom: 1 !important;
+  }
+
+  /* 4a. Reset editor min-height — content flows across @page breaks, not a single page */
+  .document-editor-content .tiptap {
+    min-height: auto !important;
+  }
+
+  /* 4b. Reset dark-mode colors for print — preserve user-applied inline styles */
+
+  /* Default text color for the document page (overrides inherited body color from --color-foreground) */
+  .document-page {
+    color: #1a1a1a;
+  }
+
+  /* Reset Tailwind prose-invert CSS variables to light-mode (gray theme) defaults.
+     This fixes p, h1-h4, a, strong, li markers, etc. without !important,
+     so user-applied inline styles (font color, highlights) are preserved. */
+  .document-page .prose {
+    --tw-prose-body: #374151;
+    --tw-prose-headings: #111827;
+    --tw-prose-lead: #4b5563;
+    --tw-prose-links: #111827;
+    --tw-prose-bold: #111827;
+    --tw-prose-counters: #6b7280;
+    --tw-prose-bullets: #d1d5db;
+    --tw-prose-hr: #e5e7eb;
+    --tw-prose-quotes: #111827;
+    --tw-prose-quote-borders: #e5e7eb;
+    --tw-prose-captions: #6b7280;
+    --tw-prose-code: #111827;
+    --tw-prose-pre-code: #e5e7eb;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-th-borders: #d1d5db;
+    --tw-prose-td-borders: #e5e7eb;
+  }
+
+  /* Override custom .dark .tiptap rules with light-mode equivalents.
+     Higher specificity (.dark .document-page .tiptap) beats .dark .tiptap. */
+  .dark .document-page .tiptap blockquote {
+    border-color: #d4a574;
+    color: #6b7280;
+  }
+  .dark .document-page .tiptap code {
+    background-color: #f3f4f6;
+  }
+  .dark .document-page .tiptap pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+  }
+  .dark .document-page .tiptap td,
+  .dark .document-page .tiptap th {
+    border-color: #e8d4b8;
+  }
+  .dark .document-page .tiptap th {
+    background-color: #f5ede3;
+  }
+  .dark .document-editor-content .tiptap hr {
+    border-color: #d4c4a8;
+  }
+  .dark .document-editor-content .tiptap a.doc-link {
+    color: #2563eb;
+  }
+
+  /* Header/footer elements (decoration-generated, not user-styled) */
+  .document-page .first-page-header,
+  .document-page .last-page-footer,
+  .document-page .page-header-content,
+  .document-page .page-footer-content {
+    color: #888 !important;
+  }
+
+  .document-page table {
+    page-break-inside: avoid;
+  }
+
+  /* 5. Explicit page-break nodes */
+  .document-page .page-break-node {
+    visibility: hidden !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    break-after: page;
+  }
+
+  /* 6. Pagination decorations */
+  .page-gap {
+    display: none !important;
+  }
+  .page-break-trigger {
+    break-after: page;
+    height: 0 !important;
+  }
+  .page-break-decoration {
+    background: white !important;
+    z-index: auto !important;
+  }
+
+  /* 7. Watermark repeats via position:fixed */
+  .document-watermark,
+  .document-watermark-image {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+  }
+
+  /* 8. Fallback @page — overridden by dynamic <style> in DocumentEditor */
+  @page {
+    size: A4;
+    margin: 25mm;
+  }
+}
