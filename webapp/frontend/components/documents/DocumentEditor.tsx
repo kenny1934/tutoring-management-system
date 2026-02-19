@@ -262,9 +262,26 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [isImageUploading, setIsImageUploading] = useState(false);
-  const [pageScale, setPageScale] = useState(1);
 
-  // Scale A4 page to fit viewport on small screens
+  // Zoom control: "fit" = auto-fit to viewport width, or a specific number
+  const [fitScale, setFitScale] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState<number | "fit">("fit");
+  const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
+  const effectiveZoom = zoomLevel === "fit" ? Math.min(fitScale, 1) : zoomLevel;
+
+  const zoomIn = useCallback(() => {
+    const current = effectiveZoom;
+    const next = ZOOM_STEPS.find((s) => s > current + 0.01);
+    if (next) setZoomLevel(next);
+  }, [effectiveZoom]);
+
+  const zoomOut = useCallback(() => {
+    const current = effectiveZoom;
+    const prev = [...ZOOM_STEPS].reverse().find((s) => s < current - 0.01);
+    if (prev) setZoomLevel(prev);
+  }, [effectiveZoom]);
+
+  // Auto-calculate fit-to-width scale
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -272,11 +289,23 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       const width = entries[0].contentRect.width;
       const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
       const padding = 32; // px-4 = 16px each side
-      setPageScale(Math.min(1, (width - padding) / pageWidthPx));
+      setFitScale((width - padding) / pageWidthPx);
     });
     observer.observe(container);
     return () => observer.disconnect();
   }, []);
+
+  // Keyboard shortcuts: Ctrl+=/- for zoom, Ctrl+0 for fit
+  useEffect(() => {
+    const handleZoomKeys = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
+      else if (e.key === "-") { e.preventDefault(); zoomOut(); }
+      else if (e.key === "0") { e.preventDefault(); setZoomLevel("fit"); }
+    };
+    document.addEventListener("keydown", handleZoomKeys);
+    return () => document.removeEventListener("keydown", handleZoomKeys);
+  }, [zoomIn, zoomOut]);
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
@@ -701,7 +730,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   if (!editor) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-background print:bg-white">
+    <div className="flex flex-col h-full bg-background print:bg-white">
       {/* Dynamic @page margins */}
       <style>{`@media print {
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
@@ -1273,7 +1302,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               width: "210mm",
               minHeight: "297mm",
               padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
-              zoom: pageScale < 1 ? pageScale : undefined,
+              zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
             }}
           >
             {/* Watermark on first page */}
@@ -1334,9 +1363,41 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       </div>
 
-      {/* Word count status bar */}
-      <div className="flex items-center justify-end px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-muted-foreground print:hidden">
-        {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
+      {/* Status bar: zoom controls + word count */}
+      <div className="flex items-center justify-between px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-muted-foreground print:hidden">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={zoomOut}
+            disabled={effectiveZoom <= 0.25}
+            className="p-0.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Zoom out (Ctrl+-)"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setZoomLevel("fit")}
+            className={cn(
+              "px-1.5 py-0.5 rounded min-w-[3rem] text-center tabular-nums",
+              zoomLevel === "fit"
+                ? "font-medium text-[#a0704b] dark:text-[#cd853f]"
+                : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            )}
+            title="Fit to width (Ctrl+0)"
+          >
+            {Math.round(effectiveZoom * 100)}%
+          </button>
+          <button
+            onClick={zoomIn}
+            disabled={effectiveZoom >= 2}
+            className="p-0.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Zoom in (Ctrl+=)"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div>
+          {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
+        </div>
       </div>
 
       {/* Math editor modal */}
