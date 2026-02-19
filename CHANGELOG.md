@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.0.6](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.6) (2026-02-20)
+
+### New Features
+
+* **Document Builder** — full A4 document editor with TipTap: rich text formatting, tables with grid picker, resizable images with alignment/text wrapping, math equations (KaTeX), and geometry diagrams (JSXGraph)
+* **Page layout settings** — configurable margins, headers/footers with text templates ({title}, {page}, {date}), image logos, and separate English/Chinese font selection
+* **Pagination system** — accurate page break calculation with visual page gaps, headers/footers rendered in decorations, and zoom-independent measurement
+* **Print support** — browser-native print with correct page breaks, headers, footers, and watermarks; "Questions Only" and "With Answers" print modes
+* **Answer Key section** — floating, collapsible answer overlay with drag-to-reposition and per-question labeling
+* **Find & Replace** — search with highlight decorations, navigate between matches, replace current or all occurrences
+* **Keyboard shortcuts modal** — categorized reference for all editor shortcuts (Ctrl+/)
+* **Zoom controls** — zoom in/out with fit-to-width default on mobile; page breaks remain accurate at any zoom level
+* **Paper mode** — document always displays in light/print colors regardless of global dark mode, with toggle in status bar
+* **Document management** — create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view
+
+### Improvements
+
+* Resizable media nodes support drag handles, alignment (left/center/right), and text wrapping
+* Tabbed toolbar layout with search and keyboard shortcuts buttons
+* Bubble menu for inline formatting on text selection
+* Explicit page break nodes insertable from toolbar
+* Documents section in sidebar with Beta badge
+
 ## [2.0.5](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.5) (2026-02-16)
 
 ### New Features
