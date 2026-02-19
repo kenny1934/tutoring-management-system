@@ -2616,9 +2616,12 @@ html {
   }
 }
 
-/* Student print: answers completely hidden */
+/* Student print: answers completely hidden, toggle invisible but layout preserved */
 body.student-print .answer-float-content {
   display: none !important;
+}
+body.student-print .answer-section-header {
+  visibility: hidden !important;
 }
 
 /* Document links */
