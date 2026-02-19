@@ -17,14 +17,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Only runtime libs needed (no gcc/pkg-config)
-RUN apt-get update && apt-get install -y \
+# Runtime libs: MySQL client only
+RUN apt-get update && apt-get install -y --no-install-recommends \
     default-libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages and scripts from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
 COPY . .
 
 # Cloud Run expects PORT environment variable (default 8080)

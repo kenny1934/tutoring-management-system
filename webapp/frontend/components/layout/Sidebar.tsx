@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus } from "lucide-react";
+import { Home, Users, Calendar, BookOpen, X, Settings, ChevronDown, Inbox, Shield, Clock, LogOut, RefreshCcw, Database, CreditCard, Megaphone, MessageSquarePlus, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "@/contexts/LocationContext";
@@ -24,6 +24,7 @@ const navigation = [
   { name: "Students", href: "/students", icon: Users, color: "bg-green-500" },
   { name: "Sessions", href: "/sessions", icon: Calendar, color: "bg-red-500" },
   { name: "Courseware", href: "/courseware", icon: BookOpen, color: "bg-orange-500" },
+  { name: "Documents", href: "/documents", icon: FileText, color: "bg-amber-500" },
   { name: "Inbox", href: "/inbox", icon: Inbox, color: "bg-purple-500" },
 ];
 
@@ -335,16 +336,25 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 )}
 
                 {/* Icon */}
-                <item.icon
-                  className={cn(
-                    "transition-transform duration-300",
-                    showExpanded ? "h-5 w-5" : "h-6 w-6",
-                    isActive ? "scale-110" : "group-hover:scale-110"
+                <div className="relative">
+                  <item.icon
+                    className={cn(
+                      "transition-transform duration-300",
+                      showExpanded ? "h-5 w-5" : "h-6 w-6",
+                      isActive ? "scale-110" : "group-hover:scale-110"
+                    )}
+                    style={{
+                      transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
+                    }}
+                  />
+
+                  {/* Beta badge for collapsed Documents */}
+                  {!showExpanded && item.name === "Documents" && (
+                    <span className="absolute -top-2 -right-3 text-[7px] font-semibold px-1 py-px rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex items-center justify-center whitespace-nowrap">
+                      Beta
+                    </span>
                   )}
-                  style={{
-                    transition: 'transform 200ms cubic-bezier(0.30, 1.25, 0.40, 1.00)'
-                  }}
-                />
+                </div>
 
                 {/* Badge for collapsed Inbox */}
                 {!showExpanded && item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
@@ -357,6 +367,12 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
                 {showExpanded && (
                   <>
                     <span className="flex-1">{item.name}</span>
+                    {/* Beta badge for Documents */}
+                    {item.name === "Documents" && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        Beta
+                      </span>
+                    )}
                     {/* Unread badge for Inbox */}
                     {item.name === "Inbox" && unreadCount && unreadCount.count > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
