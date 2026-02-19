@@ -302,12 +302,14 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   spacer.style.height = `${Math.max(0, config.remainingPx)}px`;
   wrapper.appendChild(spacer);
 
-  // 2. Footer of current (ending) page
+  // 2. Footer of current (ending) page — only styled when footer section is enabled
   const footer = document.createElement("div");
   footer.className = "page-footer-content";
-  footer.style.cssText = "padding-top:4px;border-top:0.5px solid #ddd;font-size:9px;line-height:normal;";
-  const footerContent = createHFContent(config.metadata?.footer, config.docTitle, config.pageNumber);
-  footer.appendChild(footerContent);
+  if (config.metadata?.footer?.enabled) {
+    footer.style.cssText = "padding-top:4px;border-top:0.5px solid #ddd;font-size:9px;line-height:normal;";
+    const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber);
+    footer.appendChild(footerContent);
+  }
   wrapper.appendChild(footer);
 
   // 3. Page break trigger — Chrome breaks HERE (skipped for explicit pageBreak nodes)
@@ -324,12 +326,14 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   gap.style.cssText = `height:${PAGE_GAP_PX}px;background:#d1c8bc;`;
   wrapper.appendChild(gap);
 
-  // 5. Header of next page
+  // 5. Header of next page — only styled when header section is enabled
   const header = document.createElement("div");
   header.className = "page-header-content";
-  header.style.cssText = "padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:9px;line-height:normal;";
-  const headerContent = createHFContent(config.metadata?.header, config.docTitle, config.nextPageNumber);
-  header.appendChild(headerContent);
+  if (config.metadata?.header?.enabled) {
+    header.style.cssText = "padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:9px;line-height:normal;";
+    const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber);
+    header.appendChild(headerContent);
+  }
   wrapper.appendChild(header);
 
   // Watermark: NOT rendered in decorations. First-page watermark is React JSX,
