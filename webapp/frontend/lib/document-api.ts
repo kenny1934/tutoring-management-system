@@ -85,27 +85,4 @@ export const documentsAPI = {
     return response.json();
   },
 
-  async exportPDF(id: number, html: string, css: string): Promise<Blob> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (typeof window !== "undefined") {
-      const effectiveRole = sessionStorage.getItem("csm_impersonated_role");
-      if (effectiveRole) headers["X-Effective-Role"] = effectiveRole;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/documents/${id}/export/pdf`, {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: JSON.stringify({ html, css }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: "PDF export failed" }));
-      throw new Error(error.detail || "PDF export failed");
-    }
-
-    return response.blob();
-  },
 };

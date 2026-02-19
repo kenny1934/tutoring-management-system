@@ -63,8 +63,6 @@ import {
   Type,
   PlusCircle,
   FileSliders,
-  Download,
-  FileText,
   KeyRound,
   Users,
 } from "lucide-react";
@@ -170,114 +168,6 @@ const CustomTextStyles = Extension.create({
 type ToolbarTab = "format" | "insert";
 
 const AUTOSAVE_DELAY = 2000;
-
-// Old renderHeaderFooterContent, buildPageMarginCSS, sectionShouldHideEntirely removed —
-// pagination decorations now handle headers/footers with static page numbers.
-
-// Build the HTML body sent to the Playwright PDF backend.
-// Headers/footers are handled server-side via Playwright's headerTemplate/footerTemplate
-// (which allows image + page number on the same line). This function only needs to
-// produce the document content + watermark.
-function buildPdfHtml(
-  editorHtml: string,
-  meta: DocumentMetadata | null,
-  geoAttrs: { width: number | null; align: string | null }[] = [],
-): string {
-  const escape = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  // Watermark: position:fixed repeats on every page in Chromium's print engine
-  let watermarkHtml = "";
-  if (meta?.watermark?.enabled) {
-    if (meta.watermark.type === "text" && meta.watermark.text) {
-      watermarkHtml = `<div class="pdf-watermark">${escape(meta.watermark.text)}</div>`;
-    } else if (meta.watermark.type === "image" && meta.watermark.imageUrl) {
-      watermarkHtml = `<img class="pdf-watermark" src="${meta.watermark.imageUrl.replace(/"/g, "&quot;")}" />`;
-    }
-  }
-
-  // Post-process editor HTML to apply geometry diagram widths/alignment from ProseMirror state.
-  // This bypasses renderHTML HTMLAttributes issues — node.attrs are always the raw values.
-  let processedEditorHtml = editorHtml;
-  if (geoAttrs.length > 0 && typeof window !== "undefined") {
-    const parser = new DOMParser();
-    const parsed = parser.parseFromString(editorHtml, "text/html");
-    const geoEls = parsed.querySelectorAll('[data-type="geometry-diagram"]');
-    geoEls.forEach((el, i) => {
-      const attrs = geoAttrs[i];
-      if (!attrs) return;
-      const styles: string[] = [];
-      if (attrs.width) styles.push(`width:${attrs.width}px;max-width:100%;`);
-      if (attrs.align === "center") styles.push("margin:0 auto;display:block;");
-      else if (attrs.align === "right") styles.push("margin-left:auto;display:block;");
-      if (styles.length) (el as HTMLElement).style.cssText = styles.join("");
-    });
-    processedEditorHtml = parsed.body.innerHTML;
-  }
-
-  return `${watermarkHtml}<div class="pdf-content">${processedEditorHtml}</div>`;
-}
-
-// Build CSS for Playwright PDF export.
-// Headers/footers are handled by Playwright's headerTemplate/footerTemplate, so no
-// running()/element() rules are needed. Just page margins, watermark, and typography.
-function buildPdfExportCSS(meta: DocumentMetadata | null): string {
-  const margins = meta?.margins;
-  const top = margins?.top ?? 25.4;
-  const right = margins?.right ?? 25.4;
-  const bottom = margins?.bottom ?? 25.4;
-  const left = margins?.left ?? 25.4;
-
-  let watermarkCss = "";
-  if (meta?.watermark?.enabled) {
-    if (meta.watermark.type === "text") {
-      watermarkCss = `
-.pdf-watermark {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%) rotate(-45deg);
-  font-size: 80px; font-weight: bold; color: #000;
-  white-space: nowrap; z-index: -1; pointer-events: none;
-  opacity: ${meta.watermark.opacity};
-}`;
-    } else if (meta.watermark.type === "image") {
-      const size = meta.watermark.imageSize ?? 60;
-      watermarkCss = `
-img.pdf-watermark {
-  position: fixed; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: ${size}%; height: auto;
-  opacity: ${meta.watermark.opacity}; z-index: -1;
-}`;
-    }
-  }
-
-  return `
-@page { size: A4; margin: ${top}mm ${right}mm ${bottom}mm ${left}mm; }
-${watermarkCss}
-body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6; color: #1a1a1a; }
-h1 { font-size: 2em; font-weight: bold; margin: 0.67em 0; }
-h2 { font-size: 1.5em; font-weight: 600; margin: 0.75em 0; }
-h3 { font-size: 1.17em; font-weight: 600; margin: 0.83em 0; }
-p { margin: 0.5em 0; }
-blockquote { border-left: 3px solid #ddd; padding-left: 1em; color: #666; margin: 1em 0; }
-code { background: #f5f5f5; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
-hr { border: none; border-top: 1px solid #ddd; margin: 1.5em 0; }
-ul, ol { padding-left: 1.5em; }
-a { color: #2563eb; text-decoration: underline; }
-table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-th, td { border: 1px solid #ddd; padding: 6px 12px; text-align: left; min-width: 40px; }
-th { background: #f9f9f9; font-weight: 600; }
-img { max-width: 100%; height: auto; }
-div[data-type="geometry-diagram"] { max-width: 80%; }
-.document-image { display: block; margin: 1em auto; }
-sup { vertical-align: super; font-size: 0.8em; }
-sub { vertical-align: sub; font-size: 0.8em; }
-s { text-decoration: line-through; }
-u { text-decoration: underline; }
-mark { padding: 0.1em 0.2em; border-radius: 2px; }
-.page-break-node { break-after: page; height: 0; margin: 0; padding: 0; border: none; }
-`;
-}
 
 interface DocumentEditorProps {
   document: Document;
@@ -712,56 +602,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     window.print();
   }, [markPrintAncestors, cleanupPrintAncestors]);
 
-  // PDF export
-  const [pdfExporting, setPdfExporting] = useState(false);
-  const [showPdfMenu, setShowPdfMenu] = useState(false);
-  const pdfMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showPdfMenu) return;
-    const handleClick = (e: MouseEvent) => {
-      if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target as Node)) {
-        setShowPdfMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPdfMenu]);
-
-  const handleExportPDF = useCallback(async (mode: "preview" | "download") => {
-    const ed = editorInstanceRef.current;
-    if (!ed) return;
-    setShowPdfMenu(false);
-    setPdfExporting(true);
-    try {
-      // Collect geometry diagram attrs from ProseMirror state (raw values, always reliable)
-      const geoAttrs: { width: number | null; align: string | null }[] = [];
-      ed.state.doc.descendants((node) => {
-        if (node.type.name === "geometryDiagram") {
-          geoAttrs.push({ width: node.attrs.width ?? null, align: node.attrs.align ?? null });
-        }
-        return true;
-      });
-      const html = buildPdfHtml(ed.getHTML(), docMetadata, geoAttrs);
-      const css = buildPdfExportCSS(docMetadata);
-      const blob = await documentsAPI.exportPDF(doc.id, html, css);
-      const url = URL.createObjectURL(blob);
-      if (mode === "preview") {
-        window.open(url, "_blank");
-      } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${doc.title || "document"}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error("PDF export failed:", error);
-    } finally {
-      setPdfExporting(false);
-    }
-  }, [docMetadata, doc.id]);
-
   // Helper: get current font family label
   const currentFontFamily = editor
     ? FONT_FAMILIES.find(ff => ff.value === editor.getAttributes("textStyle").fontFamily)?.label || "Default"
@@ -867,43 +707,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           Student
         </button>
 
-        {/* Export PDF with dropdown */}
-        <div className="relative" ref={pdfMenuRef}>
-          <div className="flex items-center">
-            <button
-              onClick={() => handleExportPDF("preview")}
-              disabled={pdfExporting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors disabled:opacity-50"
-              title="Export as PDF (opens in new tab)"
-            >
-              {pdfExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
-              PDF
-            </button>
-            <button
-              onClick={() => setShowPdfMenu(s => !s)}
-              disabled={pdfExporting}
-              className="flex items-center px-1.5 py-1.5 rounded-r-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-l-0 border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors disabled:opacity-50"
-            >
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-          {showPdfMenu && (
-            <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
-              <button
-                onClick={() => handleExportPDF("preview")}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
-              >
-                <FileText className="w-3.5 h-3.5" /> Open in new tab
-              </button>
-              <button
-                onClick={() => handleExportPDF("download")}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
-              >
-                <Download className="w-3.5 h-3.5" /> Download PDF
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Toolbar — Tabbed layout */}

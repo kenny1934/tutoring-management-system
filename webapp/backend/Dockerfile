@@ -17,7 +17,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Runtime libs: MySQL client only (pango/cairo removed — weasyprint replaced by Playwright)
+# Runtime libs: MySQL client only
 RUN apt-get update && apt-get install -y --no-install-recommends \
     default-libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -25,10 +25,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy installed packages and scripts from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Install Playwright Chromium system dependencies, then download browser binary
-RUN playwright install-deps chromium
-RUN playwright install chromium
 
 COPY . .
 

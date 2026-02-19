@@ -1863,11 +1863,6 @@ class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PDFExportRequest(BaseModel):
-    """Request body for PDF export."""
-    html: str
-    css: str
-
 
 class DocumentListItem(BaseModel):
     """Document summary for list views (no content)."""

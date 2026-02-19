@@ -48,6 +48,3 @@ httpx==0.27.0
 numpy<2.0  # Required for opencv compatibility
 opencv-python-headless==4.9.0.80
 PyMuPDF==1.24.0
-
-# PDF generation (document export via headless Chromium)
-playwright>=1.40.0
