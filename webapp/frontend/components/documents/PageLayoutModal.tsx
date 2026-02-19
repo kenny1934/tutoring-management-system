@@ -18,7 +18,27 @@ const MARGIN_PRESETS = [
 
 const DEFAULT_HEADER_FOOTER: DocumentHeaderFooter = {
   enabled: false, left: "", center: "", right: "", imageUrl: null, imagePosition: null,
+  fontSize: 9, fontFamily: null, fontFamilyCjk: null,
 };
+
+const HF_FONT_SIZES = [7, 8, 9, 10, 11, 12, 14];
+
+const HF_FONTS_LATIN = [
+  { label: "Default", value: null as string | null },
+  { label: "Times New Roman", value: "'Times New Roman', Times, serif" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Calibri", value: "Calibri, 'Gill Sans', sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+  { label: "Courier New", value: "'Courier New', Courier, monospace" },
+];
+
+const HF_FONTS_CJK = [
+  { label: "Default", value: null as string | null },
+  { label: "思源黑體", value: "'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif" },
+  { label: "思源宋體", value: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif" },
+  { label: "標楷體", value: "'DFKai-SB', 'BiauKai', 'Kaiti TC', serif" },
+];
 
 const DEFAULT_WATERMARK: DocumentWatermark = {
   enabled: false, type: "text", text: "DRAFT", imageUrl: null, opacity: 0.1,
@@ -432,6 +452,46 @@ function HeaderFooterSection({
                 />
               </div>
             ))}
+          </div>
+
+          {/* Font controls */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              <label className="text-[10px] text-muted-foreground">English Font</label>
+              <select
+                value={config.fontFamily || ""}
+                onChange={(e) => onChange({ ...config, fontFamily: e.target.value || null })}
+                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              >
+                {HF_FONTS_LATIN.map((ff) => (
+                  <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-0">
+              <label className="text-[10px] text-muted-foreground">中文字體</label>
+              <select
+                value={config.fontFamilyCjk || ""}
+                onChange={(e) => onChange({ ...config, fontFamilyCjk: e.target.value || null })}
+                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              >
+                {HF_FONTS_CJK.map((ff) => (
+                  <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">Size</label>
+              <select
+                value={config.fontSize ?? 9}
+                onChange={(e) => onChange({ ...config, fontSize: parseInt(e.target.value) })}
+                className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              >
+                {HF_FONT_SIZES.map((s) => (
+                  <option key={s} value={s}>{s}px</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Image upload */}

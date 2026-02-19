@@ -1798,6 +1798,9 @@ export interface DocumentHeaderFooter {
   right: string;
   imageUrl?: string | null;
   imagePosition?: "left" | "center" | "right" | null;
+  fontSize?: number;
+  fontFamily?: string | null;
+  fontFamilyCjk?: string | null;
 }
 
 export interface DocumentWatermark {

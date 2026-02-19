@@ -134,6 +134,8 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             const result = calculateBreakPositions(blocks, config);
 
             // Create Widget Decorations
+            // Include header/footer metadata in key so ProseMirror replaces DOM on metadata changes
+            const hfKey = JSON.stringify({ h: metadata?.header, f: metadata?.footer, t: docTitle });
             const decorations: Decoration[] = result.breaks.map((brk) => {
               const element = createPageBreakElement({
                 remainingPx: brk.remainingPx,
@@ -146,7 +148,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
               return Decoration.widget(brk.pos, element, {
                 side: -1,
-                key: `page-break-${brk.pos}-${brk.pageNumber}`,
+                key: `pb-${brk.pos}-${brk.pageNumber}-${hfKey}`,
               });
             });
 

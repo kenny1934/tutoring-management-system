@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import type { DocumentHeaderFooter } from "@/types";
+import { buildHFontFamily } from "@/lib/tiptap-extensions/pagination-utils";
 
 interface PageHeaderProps {
   section?: DocumentHeaderFooter;
@@ -33,14 +34,15 @@ export function PageHeader({ section, docTitle, pageNumber }: PageHeaderProps) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        fontSize: "9px",
+        fontSize: `${section.fontSize ?? 9}px`,
+        fontFamily: buildHFontFamily(section.fontFamily, section.fontFamilyCjk),
         lineHeight: "normal",
         color: "#888",
         pointerEvents: "none",
         userSelect: "none",
         paddingBottom: "4px",
         borderBottom: "0.5px solid #ddd",
-        marginBottom: "1em",
+        marginBottom: "9px",
       }}
     >
       {cells.map((cell, i) => (

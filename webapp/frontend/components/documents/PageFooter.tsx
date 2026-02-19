@@ -1,4 +1,5 @@
 import type { DocumentHeaderFooter } from "@/types";
+import { buildHFontFamily } from "@/lib/tiptap-extensions/pagination-utils";
 
 interface PageFooterProps {
   section?: DocumentHeaderFooter;
@@ -32,7 +33,8 @@ export function PageFooter({ section, docTitle, pageNumber }: PageFooterProps) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        fontSize: "9px",
+        fontSize: `${section.fontSize ?? 9}px`,
+        fontFamily: buildHFontFamily(section.fontFamily, section.fontFamilyCjk),
         lineHeight: "normal",
         color: "#888",
         pointerEvents: "none",

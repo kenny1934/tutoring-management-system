@@ -30,6 +30,19 @@ export function resetPxPerMm(): void {
 
 // ─── Header / Footer rendering ──────────────────────────────────────
 
+/** Build a composite CSS font-family string from separate Latin and CJK font selections.
+ *  Latin font is tried first (matches Latin characters), CJK font is fallback (matches CJK characters). */
+export function buildHFontFamily(fontFamily?: string | null, fontFamilyCjk?: string | null): string | undefined {
+  if (!fontFamily && !fontFamilyCjk) return undefined;
+  const generics = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui"]);
+  const strip = (ff: string) => ff.split(",").map(s => s.trim()).filter(s => !generics.has(s)).join(", ");
+  const parts: string[] = [];
+  if (fontFamily) parts.push(strip(fontFamily));
+  if (fontFamilyCjk) parts.push(strip(fontFamilyCjk));
+  parts.push("sans-serif");
+  return parts.join(", ");
+}
+
 /** Resolve template variables like {title}, {date} — NOT {page}, which is resolved per-decoration. */
 export function resolveTemplate(template: string, docTitle: string): string {
   if (!template) return "";
@@ -233,7 +246,10 @@ function createHFContent(
   pageNumber: number,
 ): HTMLElement {
   const container = document.createElement("div");
-  container.style.cssText = "display:flex;justify-content:space-between;align-items:center;font-size:9px;line-height:normal;color:#888;pointer-events:none;user-select:none;";
+  const fontSize = section?.fontSize ?? 9;
+  const compositeFont = buildHFontFamily(section?.fontFamily, section?.fontFamilyCjk);
+  const fontFamilyCss = compositeFont ? `font-family:${compositeFont};` : "";
+  container.style.cssText = `display:flex;justify-content:space-between;align-items:center;font-size:${fontSize}px;${fontFamilyCss}line-height:normal;color:#888;pointer-events:none;user-select:none;`;
 
   if (!section?.enabled) return container;
 
@@ -306,7 +322,10 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   const footer = document.createElement("div");
   footer.className = "page-footer-content";
   if (config.metadata?.footer?.enabled) {
-    footer.style.cssText = "padding-top:4px;border-top:0.5px solid #ddd;font-size:9px;line-height:normal;";
+    const fSize = config.metadata.footer.fontSize ?? 9;
+    const fFont = buildHFontFamily(config.metadata.footer.fontFamily, config.metadata.footer.fontFamilyCjk);
+    const fFontCss = fFont ? `font-family:${fFont};` : "";
+    footer.style.cssText = `padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
     const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber);
     footer.appendChild(footerContent);
   }
@@ -330,7 +349,10 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   const header = document.createElement("div");
   header.className = "page-header-content";
   if (config.metadata?.header?.enabled) {
-    header.style.cssText = "padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:9px;line-height:normal;";
+    const hSize = config.metadata.header.fontSize ?? 9;
+    const hFont = buildHFontFamily(config.metadata.header.fontFamily, config.metadata.header.fontFamilyCjk);
+    const hFontCss = hFont ? `font-family:${hFont};` : "";
+    header.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
     const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber);
     header.appendChild(headerContent);
   }
@@ -351,9 +373,9 @@ export function estimateHFHeightPx(section?: DocumentHeaderFooter): number {
   const hasImage = !!section.imageUrl;
   const hasText = !!(section.left || section.center || section.right);
   if (!hasImage && !hasText) return 0;
-  // ~14px for text line, or 10mm for image, plus ~8px padding/border
-  // marginBottom "1em" at font-size 9px = 9px
-  const lineHeight = hasImage ? convertMmToPx(10) : 14;
+  const fontSize = section.fontSize ?? 9;
+  // ~1.5x font-size for text line, or 10mm for image, plus ~8px padding/border + 9px margin
+  const lineHeight = hasImage ? convertMmToPx(10) : Math.ceil(fontSize * 1.5);
   return lineHeight + 8 + 9;
 }
 
