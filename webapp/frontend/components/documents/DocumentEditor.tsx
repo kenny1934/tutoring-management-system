@@ -1379,7 +1379,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             className={cn(
               "relative mx-auto bg-white shadow-lg print:shadow-none",
               "border border-gray-200 print:border-none",
-              paperMode ? "paper-mode" : "dark:bg-[#2a2420] dark:border-[#4a3a2a]",
+              paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] border-[#4a3a2a]",
               "document-page"
             )}
             style={{
@@ -1428,7 +1428,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             <EditorContent
               editor={editor}
-              className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "dark:prose-invert")}
+              className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
             />
 
             {/* Floating formatting toolbar on text selection */}
