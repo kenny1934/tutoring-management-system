@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -74,7 +74,9 @@ import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
-import type { Document, DocumentMetadata, DocumentHeaderFooter } from "@/types";
+import type { Document, DocumentMetadata } from "@/types";
+import { PageHeader } from "@/components/documents/PageHeader";
+import { PageFooter } from "@/components/documents/PageFooter";
 
 const EDITOR_COLORS = [
   { label: "Red", color: "#dc2626" },
@@ -169,90 +171,8 @@ type ToolbarTab = "format" | "insert";
 
 const AUTOSAVE_DELAY = 2000;
 
-function renderHeaderFooterContent(template: string, docTitle: string): React.ReactNode {
-  if (!template) return null;
-  const resolved = template
-    .replace(/\{title\}/g, docTitle)
-    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }));
-
-  // Split on {page} and interleave with page-number spans
-  const parts = resolved.split("{page}");
-  if (parts.length === 1) return resolved;
-
-  return (
-    <>
-      {parts.map((part, i) => (
-        <Fragment key={i}>
-          {part}
-          {i < parts.length - 1 && <span className="print-page-number" />}
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-// Build @page margin box CSS for header/footer sections that use {page}.
-// Chrome only supports counter(page) inside @page margin boxes, not regular elements.
-// When ANY cell in a section has {page}, ALL cells move to @page margin boxes
-// and the HTML element is hidden (avoiding double-rendering).
-function buildPageMarginCSS(meta: DocumentMetadata | null, docTitle: string): string {
-  if (!meta) return "";
-  const rules: string[] = [];
-
-  const resolveText = (template: string) =>
-    template
-      .replace(/\{title\}/g, docTitle)
-      .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", {
-        year: "numeric", month: "short", day: "numeric",
-      }));
-
-  const buildContent = (template: string) => {
-    const resolved = resolveText(template);
-    const parts = resolved.split("{page}");
-    return parts
-      .flatMap((text, i) => {
-        const items: string[] = [];
-        if (text) items.push(`"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`);
-        if (i < parts.length - 1) items.push("counter(page)");
-        return items;
-      })
-      .join(" ");
-  };
-
-  const processSection = (
-    section: DocumentHeaderFooter | undefined,
-    boxes: [string, string, string],
-  ) => {
-    if (!section?.enabled) return;
-    const hasPage = [section.left, section.center, section.right]
-      .some(t => t?.includes("{page}"));
-    if (!hasPage) return;
-
-    const hasImage = !!section.imageUrl;
-    const cells = [section.left, section.center, section.right];
-    cells.forEach((text, i) => {
-      if (!text) return;
-      // When section has image (not hidden entirely), only process {page} cells
-      if (hasImage && !text.includes("{page}")) return;
-      const content = buildContent(text);
-      if (content) {
-        rules.push(`${boxes[i]} { content: ${content}; font-size: 9px; color: #888; vertical-align: top; }`);
-      }
-    });
-  };
-
-  processSection(meta.header, ["@top-left", "@top-center", "@top-right"]);
-  processSection(meta.footer, ["@bottom-left", "@bottom-center", "@bottom-right"]);
-
-  return rules.length ? rules.join(" ") : "";
-}
-
-function sectionShouldHideEntirely(section?: DocumentHeaderFooter): boolean {
-  if (!section?.enabled) return false;
-  if (section.imageUrl) return false;  // keep HTML visible for image
-  return [section.left, section.center, section.right]
-    .some(t => t?.includes("{page}"));
-}
+// Old renderHeaderFooterContent, buildPageMarginCSS, sectionShouldHideEntirely removed —
+// pagination decorations now handle headers/footers with static page numbers.
 
 // Build the HTML body sent to the Playwright PDF backend.
 // Headers/footers are handled server-side via Playwright's headerTemplate/footerTemplate
@@ -527,6 +447,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       TableRow,
       TableCell,
       TableHeader,
+      PaginationExtension.configure({
+        metadata: doc.page_layout ?? null,
+        docTitle: doc.title,
+      }),
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -562,6 +486,33 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   useEffect(() => {
     editorInstanceRef.current = editor;
+  }, [editor]);
+
+  // Update pagination plugin when metadata or title changes
+  useEffect(() => {
+    if (!editor) return;
+    const { tr } = editor.state;
+    tr.setMeta(paginationPluginKey, { metadata: docMetadata, docTitle: title });
+    tr.setMeta("addToHistory", false);
+    editor.view.dispatch(tr);
+  }, [editor, docMetadata, title]);
+
+  // Trigger pagination recalculation when content images load (NOT decoration images)
+  useEffect(() => {
+    if (!editor) return;
+    const handleImageLoad = (e: Event) => {
+      const target = e.target as HTMLElement;
+      // Skip images inside pagination decorations to avoid infinite recalculation loop
+      if (!(target instanceof HTMLImageElement)) return;
+      if (target.closest(".page-break-decoration")) return;
+      const { tr } = editor.state;
+      tr.setMeta(paginationPluginKey, { __forceRecalc: true });
+      tr.setMeta("addToHistory", false);
+      editor.view.dispatch(tr);
+    };
+    const editorDom = editor.view.dom;
+    editorDom.addEventListener("load", handleImageLoad, true); // capture phase for img loads
+    return () => editorDom.removeEventListener("load", handleImageLoad, true);
   }, [editor]);
 
   // Keep dirty ref in sync (avoids stale closures in unmount/beforeunload)
@@ -726,15 +677,40 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     setGeoEditorOpen(true);
   }, []);
 
-  const handlePrint = useCallback(() => {
-    window.print();
+  const markPrintAncestors = useCallback(() => {
+    const pageEl = pageRef.current;
+    if (!pageEl) return;
+    let el: HTMLElement | null = pageEl.parentElement;
+    while (el && el !== document.body) {
+      el.setAttribute("data-print-flow", "");
+      el = el.parentElement;
+    }
+    document.body.setAttribute("data-printing", "");
   }, []);
 
-  const handlePrintStudent = useCallback(() => {
-    document.body.classList.add("student-print");
-    window.print();
-    document.body.classList.remove("student-print");
+  const cleanupPrintAncestors = useCallback(() => {
+    document.body.removeAttribute("data-printing");
+    document.querySelectorAll("[data-print-flow]").forEach((el) => {
+      el.removeAttribute("data-print-flow");
+    });
   }, []);
+
+  const handlePrint = useCallback(() => {
+    markPrintAncestors();
+    window.addEventListener("afterprint", cleanupPrintAncestors, { once: true });
+    window.print();
+  }, [markPrintAncestors, cleanupPrintAncestors]);
+
+  const handlePrintStudent = useCallback(() => {
+    markPrintAncestors();
+    document.body.classList.add("student-print");
+    const cleanup = () => {
+      cleanupPrintAncestors();
+      document.body.classList.remove("student-print");
+    };
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.print();
+  }, [markPrintAncestors, cleanupPrintAncestors]);
 
   // PDF export
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -825,9 +801,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   return (
     <div className="flex flex-col h-screen bg-background print:bg-white">
-      {/* Dynamic @page margins + margin boxes for {page} counter */}
+      {/* Dynamic @page margins */}
       <style>{`@media print {
-  @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; ${buildPageMarginCSS(docMetadata, doc.title)} }
+  @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
@@ -1402,8 +1378,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       </div>
 
-      {/* Editor area — A4 page styling */}
-      <div className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible">
+      {/* Editor area — paginated A4 view */}
+      <div className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
         <div className="py-8 px-4 print:p-0 print:m-0">
           <div
             ref={pageRef}
@@ -1417,13 +1393,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               minHeight: "297mm",
               padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
               maxWidth: "100%",
-              ["--doc-margin-top" as string]: `${docMetadata?.margins?.top ?? 25.4}mm`,
-              ["--doc-margin-right" as string]: `${docMetadata?.margins?.right ?? 25.4}mm`,
-              ["--doc-margin-bottom" as string]: `${docMetadata?.margins?.bottom ?? 25.4}mm`,
-              ["--doc-margin-left" as string]: `${docMetadata?.margins?.left ?? 25.4}mm`,
             }}
           >
-            {/* Watermark overlay */}
+            {/* Watermark on first page */}
             {docMetadata?.watermark?.enabled && (
               docMetadata.watermark.type === "text" && docMetadata.watermark.text ? (
                 <span
@@ -1455,39 +1427,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               ) : null
             )}
 
-            {/* Print header — outer div becomes table-header-group in print, inner div keeps flex */}
-            {docMetadata?.header?.enabled && (
-              <div className={cn("document-print-header", sectionShouldHideEntirely(docMetadata.header) && "print-hide-page-section")}>
-                <div
-                  style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    fontSize: "9px", color: "#888",
-                    pointerEvents: "none", userSelect: "none",
-                    paddingBottom: "4px", borderBottom: "0.5px solid #ddd",
-                    marginBottom: "1em",
-                  }}
-                >
-                  <span style={{ flex: 1 }} className={docMetadata.header.left?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "left" && (
-                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
-                    )}
-                    {renderHeaderFooterContent(docMetadata.header.left, doc.title)}
-                  </span>
-                  <span style={{ flex: 1, textAlign: "center" }} className={docMetadata.header.center?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "center" && (
-                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
-                    )}
-                    {renderHeaderFooterContent(docMetadata.header.center, doc.title)}
-                  </span>
-                  <span style={{ flex: 1, textAlign: "right" }} className={docMetadata.header.right?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {renderHeaderFooterContent(docMetadata.header.right, doc.title)}
-                    {docMetadata.header.imageUrl && docMetadata.header.imagePosition === "right" && (
-                      <img src={docMetadata.header.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
-                    )}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* First-page header (React component) */}
+            <div className="first-page-header">
+              <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} />
+            </div>
 
             <EditorContent
               editor={editor}
@@ -1497,44 +1440,15 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             {/* Floating formatting toolbar on text selection */}
             <EditorBubbleMenu editor={editor} />
 
-            <PageBreakOverlay
-                containerRef={pageRef}
-                topMarginMm={docMetadata?.margins?.top ?? 25.4}
-                bottomMarginMm={docMetadata?.margins?.bottom ?? 25.4}
+            {/* Last-page footer (React component) — pagination decorations handle intermediate footers */}
+            <div className="last-page-footer">
+              <LastPageFooter
+                section={docMetadata?.footer}
+                docTitle={title}
+                metadata={docMetadata}
+                editor={editor}
               />
-
-            {/* Print footer — position:fixed in print for per-page repetition, inner div keeps flex */}
-            {docMetadata?.footer?.enabled && (
-              <div className={cn("document-print-footer", sectionShouldHideEntirely(docMetadata.footer) && "print-hide-page-section")}>
-                <div
-                  style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    fontSize: "9px", color: "#888",
-                    pointerEvents: "none", userSelect: "none",
-                    paddingTop: "4px", borderTop: "0.5px solid #ddd",
-                  }}
-                >
-                  <span style={{ flex: 1 }} className={docMetadata.footer.left?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "left" && (
-                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
-                    )}
-                    {renderHeaderFooterContent(docMetadata.footer.left, doc.title)}
-                  </span>
-                  <span style={{ flex: 1, textAlign: "center" }} className={docMetadata.footer.center?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "center" && (
-                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginRight: "4px" }} />
-                    )}
-                    {renderHeaderFooterContent(docMetadata.footer.center, doc.title)}
-                  </span>
-                  <span style={{ flex: 1, textAlign: "right" }} className={docMetadata.footer.right?.includes("{page}") ? "print-hide-page-cell" : undefined}>
-                    {renderHeaderFooterContent(docMetadata.footer.right, doc.title)}
-                    {docMetadata.footer.imageUrl && docMetadata.footer.imagePosition === "right" && (
-                      <img src={docMetadata.footer.imageUrl} alt="" className="document-hf-image" style={{ maxHeight: "10mm", width: "auto", display: "inline-block", verticalAlign: "middle", marginLeft: "4px" }} />
-                    )}
-                  </span>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -1591,76 +1505,47 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   );
 }
 
-/* Page-break overlay — dashed lines at PDF content-area intervals.
- * Accounts for page margins (content area = 297 - topMm - bottomMm) and
- * header/footer HTML height (they render in editor but go in Playwright's
- * margin overlay in PDF, so they don't consume content area space). */
-const A4_HEIGHT_MM = 297;
-
-function PageBreakOverlay({
-  containerRef,
-  topMarginMm = 25.4,
-  bottomMarginMm = 25.4,
+/* Last-page footer — rendered as a React component below the editor content.
+ * Includes a spacer to push the footer to the bottom of the last A4 page.
+ * Subscribes to editor updates so the page number and spacer stay current. */
+function LastPageFooter({
+  section,
+  docTitle,
+  editor,
 }: {
-  containerRef: React.RefObject<HTMLDivElement | null>;
-  topMarginMm?: number;
-  bottomMarginMm?: number;
+  section?: import("@/types").DocumentHeaderFooter;
+  docTitle: string;
+  metadata: DocumentMetadata | null;
+  editor: ReturnType<typeof useEditor>;
 }) {
-  const [lines, setLines] = useState<number[]>([]);
-  const contentAreaMm = A4_HEIGHT_MM - topMarginMm - bottomMarginMm;
+  const [lastPageNumber, setLastPageNumber] = useState(1);
+  const [spacerHeight, setSpacerHeight] = useState(0);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    if (!editor) return;
+    const update = () => {
+      const pluginState = paginationPluginKey.getState(editor.state);
+      const breakCount = pluginState?.breaks?.length ?? 0;
+      setLastPageNumber(breakCount + 1);
+      setSpacerHeight(pluginState?.lastPageRemainingPx ?? 0);
+    };
+    update();
+    // Use "transaction" not "update" — TipTap's "update" only fires on doc changes,
+    // but pagination dispatches a meta-only transaction (no doc change) with the
+    // updated lastPageRemainingPx. "transaction" fires on all transactions.
+    editor.on("transaction", update);
+    return () => { editor.off("transaction", update); };
+  }, [editor]);
 
-    // Convert contentAreaMm to px using a temporary element
-    const probe = document.createElement("div");
-    probe.style.width = `${contentAreaMm}mm`;
-    probe.style.position = "absolute";
-    probe.style.visibility = "hidden";
-    el.appendChild(probe);
-    const contentAreaPx = probe.offsetWidth;
-    el.removeChild(probe);
-    if (!contentAreaPx) return;
-
-    const mmPerPx = contentAreaMm / contentAreaPx;
-
-    const observer = new ResizeObserver((entries) => {
-      const totalHeight = entries[0]?.contentRect.height ?? 0;
-      // Header/footer HTML are inside the editor div but render in PDF margin area —
-      // subtract their heights so page count reflects only the editor content.
-      const headerPx = (el.querySelector(".document-print-header") as HTMLElement)?.offsetHeight ?? 0;
-      const footerPx = (el.querySelector(".document-print-footer") as HTMLElement)?.offsetHeight ?? 0;
-      const headerMm = headerPx * mmPerPx;
-      const editorContentPx = totalHeight - headerPx - footerPx;
-      const pageCount = Math.max(1, Math.ceil(editorContentPx / contentAreaPx));
-      setLines(
-        Array.from({ length: pageCount - 1 }, (_, i) =>
-          topMarginMm + headerMm + (i + 1) * contentAreaMm
-        )
-      );
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [containerRef, contentAreaMm, topMarginMm]);
-
-  if (lines.length === 0) return null;
+  if (!editor) return null;
 
   return (
     <>
-      {lines.map((topMm, i) => (
-        <div
-          key={i}
-          className="absolute left-0 right-0 z-10 pointer-events-none print:hidden flex items-center"
-          style={{ top: `${topMm}mm` }}
-        >
-          <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
-          <span className="px-2 text-[10px] text-[#c4b5a3] dark:text-[#6b5a4a] select-none">
-            Page {i + 2}
-          </span>
-          <div className="flex-1 border-t border-dashed border-[#c4b5a3] dark:border-[#6b5a4a]" />
-        </div>
-      ))}
+      {/* Spacer pushes footer to bottom of last A4 page */}
+      <div className="last-page-footer-spacer" style={{ height: `${spacerHeight}px` }} />
+      {section?.enabled && (
+        <PageFooter section={section} docTitle={docTitle} pageNumber={lastPageNumber} />
+      )}
     </>
   );
 }

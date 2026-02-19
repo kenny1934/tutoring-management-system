@@ -2307,6 +2307,7 @@ html {
 
 .document-editor-content .tiptap {
   outline: none;
+  display: flow-root; /* BFC: contain child margins — prevents margin collapse through edges */
   min-height: calc(297mm - 50.8mm); /* A4 height minus top+bottom margins */
 }
 
@@ -2655,88 +2656,148 @@ body.student-print .answer-float-content {
   border-color: #6b5a4a;
 }
 
-/* Page number placeholder — shows # in editor, actual page number in print */
-.print-page-number::after {
-  content: "#";
+/* ─── Pagination: Widget Decoration styles ──────────────────────────── */
+
+/* During measurement phase, hide decorations so we get true content heights */
+.pagination-measuring .page-break-decoration {
+  display: none !important;
 }
 
-/* Watermark & header/footer — layout handled by inline styles in React.
-   CSS here is only for print overrides. */
+/* The widget decoration wrapper — non-editable block between pages */
+.page-break-decoration {
+  position: relative;
+  user-select: none;
+  clear: both; /* contain any floated content above */
+  z-index: 1; /* above watermark (z-index: 0) */
+  background: white;
+}
+.dark .page-break-decoration {
+  background: #2a2420;
+}
 
-/* Print styles for document builder.
-   Uses CSS table display model for repeating header/footer on every page.
-   @page margins set dynamically via <style> in DocumentEditor.tsx. */
+/* Bottom spacer — pushes footer to page bottom */
+.page-bottom-spacer {
+  /* height set via inline style */
+}
+
+/* Footer / header content inside decorations */
+.page-footer-content,
+.page-header-content {
+  /* Inline styles handle the flex layout */
+}
+
+/* Gap between pages in editor view */
+.page-gap {
+  border-top: 1px solid #c4b5a3;
+  border-bottom: 1px solid #c4b5a3;
+}
+.dark .page-gap {
+  background: #1a1510 !important;
+  border-color: #6b5a4a;
+}
+
+/* Page break trigger (invisible, Chrome breaks here) */
+.page-break-trigger {
+  /* break-after: page set via inline style */
+}
+
+/* ─── First-page header and last-page footer (React components) ───── */
+.first-page-header,
+.last-page-footer {
+  pointer-events: none;
+  user-select: none;
+}
+.first-page-header {
+  overflow: hidden; /* BFC prevents margin collapse — offsetHeight includes child's margin-bottom */
+}
+
+/* Last-page footer spacer pushes footer to bottom of final page */
+.last-page-footer-spacer {
+  /* height set dynamically */
+}
+
+/* ─── Print styles: paginated document builder ─────────────────────── */
+/* @page margins set dynamically via <style> in DocumentEditor.tsx.
+   Pagination decorations handle page breaks, headers, footers.
+   JS marks ancestor chain with data-print-flow before printing. */
 @media print {
-  body > * {
-    visibility: hidden !important;
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  .document-page,
-  .document-page * {
-    visibility: visible !important;
+  /* 1. Hide all body children not in the document-page ancestor chain */
+  body[data-printing] > *:not([data-print-flow]) {
+    display: none !important;
   }
 
+  /* 2. At every level, hide siblings not in the document path */
+  [data-print-flow] > *:not([data-print-flow]):not(.document-page):not(style) {
+    display: none !important;
+  }
+
+  /* 3. Make ancestor chain transparent flow containers */
+  [data-print-flow] {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  /* 4. Document page — @page handles margins, so zero padding */
   .document-page {
-    display: table !important;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 210mm !important;
+    display: block !important;
+    position: static !important;
+    width: auto !important;
     min-height: auto !important;
     padding: 0 !important;
     margin: 0 !important;
     border: none !important;
     box-shadow: none !important;
     background: white !important;
+    overflow: visible !important;
+  }
+
+  /* 4a. Reset editor min-height — content flows across @page breaks, not a single page */
+  .document-editor-content .tiptap {
+    min-height: auto !important;
   }
 
   .document-page table {
     page-break-inside: avoid;
   }
 
+  /* 5. Explicit page-break nodes */
   .document-page .page-break-node {
     visibility: hidden !important;
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
-    page-break-after: always;
     break-after: page;
   }
 
-  /* Header repeats via table display model */
-  .document-print-header {
-    display: table-header-group !important;
-  }
-
-  /* Footer repeats via position: fixed (Chrome doesn't repeat table-footer-group) */
-  .document-print-footer {
-    display: block !important;
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: white !important;
-  }
-
-  .document-editor-content {
-    display: table-row-group !important;
-  }
-
-  /* Hide entire header/footer section when it uses {page} and has no image —
-     page numbers and all text rendered via @page margin boxes (DocumentEditor.tsx) */
-  .print-hide-page-section,
-  .print-hide-page-section * {
+  /* 6. Pagination decorations */
+  .page-gap {
     display: none !important;
   }
-
-  /* Hide individual cells with {page} when section stays visible (has image) */
-  .document-page .print-hide-page-cell,
-  .document-page .print-hide-page-cell * {
-    visibility: hidden !important;
+  .page-break-trigger {
+    break-after: page;
+    height: 0 !important;
+  }
+  .page-break-decoration {
+    background: white !important;
+    z-index: auto !important;
   }
 
-  /* Watermark still uses position: fixed to repeat on every page */
+  /* 7. Watermark repeats via position:fixed */
   .document-watermark,
   .document-watermark-image {
     position: fixed !important;
@@ -2744,7 +2805,7 @@ body.student-print .answer-float-content {
     left: 50% !important;
   }
 
-  /* Fallback @page — overridden by dynamic <style> in DocumentEditor */
+  /* 8. Fallback @page — overridden by dynamic <style> in DocumentEditor */
   @page {
     size: A4;
     margin: 25mm;
