@@ -2800,6 +2800,57 @@ body.student-print .print-answer-key {
   /* height set dynamically */
 }
 
+/* ─── Paper Mode: force light colors on document page in dark mode ─── */
+
+.dark .paper-mode {
+  background-color: white !important;
+  border-color: #e5e7eb !important;
+  color: #1a1a1a;
+}
+
+.dark .paper-mode .prose {
+  --tw-prose-body: #374151;
+  --tw-prose-headings: #111827;
+  --tw-prose-lead: #4b5563;
+  --tw-prose-links: #111827;
+  --tw-prose-bold: #111827;
+  --tw-prose-counters: #6b7280;
+  --tw-prose-bullets: #d1d5db;
+  --tw-prose-hr: #e5e7eb;
+  --tw-prose-quotes: #111827;
+  --tw-prose-quote-borders: #e5e7eb;
+  --tw-prose-captions: #6b7280;
+  --tw-prose-code: #111827;
+  --tw-prose-pre-code: #e5e7eb;
+  --tw-prose-pre-bg: #1f2937;
+  --tw-prose-th-borders: #d1d5db;
+  --tw-prose-td-borders: #e5e7eb;
+}
+
+/* Override .dark .tiptap rules */
+.dark .paper-mode .tiptap blockquote { border-color: #d4a574; color: #6b7280; }
+.dark .paper-mode .tiptap code { background-color: #f3f4f6; }
+.dark .paper-mode .tiptap pre { background: #1e1e2e; color: #cdd6f4; }
+.dark .paper-mode .tiptap td,
+.dark .paper-mode .tiptap th { border-color: #e8d4b8; }
+.dark .paper-mode .tiptap th { background-color: #f5ede3; }
+.dark .paper-mode .tiptap hr { border-color: #d4c4a8; }
+.dark .paper-mode .tiptap a.doc-link { color: #2563eb; }
+.dark .paper-mode .tiptap p.is-editor-empty:first-child::before { color: #adb5bd; }
+
+/* Page break nodes */
+.dark .paper-mode .page-break-node { border-color: #c4b5a3; }
+.dark .paper-mode .page-break-node::after { color: #c4b5a3; background: white; }
+
+/* Page break decorations */
+.dark .paper-mode .page-break-decoration { background: white; }
+.dark .paper-mode .page-gap { background: #d1c8bc !important; border-color: #c4b5a3; }
+
+/* Answer section */
+.dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
+.dark .paper-mode .answer-toggle:hover { background: #f5ede3; }
+.dark .paper-mode .answer-float-content { background: white; border-color: #a0704b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+
 /* ─── Print styles: paginated document builder ─────────────────────── */
 /* @page margins set dynamically via <style> in DocumentEditor.tsx.
    Pagination decorations handle page breaks, headers, footers.

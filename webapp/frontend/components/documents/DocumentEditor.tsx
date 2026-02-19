@@ -70,6 +70,8 @@ import {
   Keyboard,
   ArrowDown,
   ArrowUp,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -205,6 +207,15 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Keyboard shortcuts modal
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
+  // Paper mode: document content always in light/print colors
+  const [paperMode, setPaperMode] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("doc-paper-mode") !== "false";
+  });
+  useEffect(() => {
+    localStorage.setItem("doc-paper-mode", String(paperMode));
+  }, [paperMode]);
 
   // Toolbar label mode
   const [showLabels, setShowLabels] = useState(false);
@@ -1404,8 +1415,9 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           <div
             ref={pageRef}
             className={cn(
-              "relative mx-auto bg-white dark:bg-[#2a2420] shadow-lg print:shadow-none",
-              "border border-gray-200 dark:border-[#4a3a2a] print:border-none",
+              "relative mx-auto bg-white shadow-lg print:shadow-none",
+              "border border-gray-200 print:border-none",
+              paperMode ? "paper-mode" : "dark:bg-[#2a2420] dark:border-[#4a3a2a]",
               "document-page"
             )}
             style={{
@@ -1454,7 +1466,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             <EditorContent
               editor={editor}
-              className="document-editor-content prose prose-sm dark:prose-invert max-w-none"
+              className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "dark:prose-invert")}
             />
 
             {/* Floating formatting toolbar on text selection */}
@@ -1503,6 +1515,19 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             title="Zoom in (Ctrl+=)"
           >
             <Plus className="w-3.5 h-3.5" />
+          </button>
+          <div className="mx-1 h-3 border-l border-gray-300 dark:border-gray-600" />
+          <button
+            onClick={() => setPaperMode(!paperMode)}
+            className={cn(
+              "p-0.5 rounded",
+              paperMode
+                ? "text-amber-500 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                : "hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+            )}
+            title={paperMode ? "Paper mode: ON (document always light)" : "Paper mode: OFF (document follows theme)"}
+          >
+            {paperMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
         </div>
         <div>
