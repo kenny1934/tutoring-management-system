@@ -2305,6 +2305,17 @@ html {
    Document Editor — A4 page styling
    ======================================== */
 
+/* Find & Replace highlights */
+.search-result {
+  background-color: #fef08a; /* yellow-200 */
+  border-radius: 2px;
+}
+.search-result-current {
+  background-color: #fb923c; /* orange-400 */
+  color: white;
+  border-radius: 2px;
+}
+
 .document-editor-content .tiptap {
   outline: none;
   display: flow-root; /* BFC: contain child margins — prevents margin collapse through edges */

@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -64,6 +64,12 @@ import {
   PlusCircle,
   FileSliders,
   KeyRound,
+  Search,
+  Replace,
+  X,
+  Keyboard,
+  ArrowDown,
+  ArrowUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -190,6 +196,16 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [gridHover, setGridHover] = useState<{ rows: number; cols: number } | null>(null);
 
+  // Find & Replace
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [showReplace, setShowReplace] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [replaceTerm, setReplaceTerm] = useState("");
+  const findInputRef = useRef<HTMLInputElement>(null);
+
+  // Keyboard shortcuts modal
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+
   // Toolbar label mode
   const [showLabels, setShowLabels] = useState(false);
   useEffect(() => {
@@ -295,17 +311,29 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     return () => observer.disconnect();
   }, []);
 
-  // Keyboard shortcuts: Ctrl+=/- for zoom, Ctrl+0 for fit
+  // Keyboard shortcuts: Ctrl+=/- for zoom, Ctrl+0 for fit, Ctrl+F for find, Ctrl+/ for shortcuts
   useEffect(() => {
-    const handleZoomKeys = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
-      else if (e.key === "-") { e.preventDefault(); zoomOut(); }
-      else if (e.key === "0") { e.preventDefault(); setZoomLevel("fit"); }
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod) {
+        if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
+        else if (e.key === "-") { e.preventDefault(); zoomOut(); }
+        else if (e.key === "0") { e.preventDefault(); setZoomLevel("fit"); }
+        else if (e.key === "f") {
+          e.preventDefault();
+          setShowFindReplace(true);
+          setTimeout(() => findInputRef.current?.focus(), 50);
+        }
+        else if (e.key === "/") { e.preventDefault(); setShowShortcutsModal(s => !s); }
+      }
+      if (e.key === "Escape") {
+        if (showFindReplace) { setShowFindReplace(false); setSearchTerm(""); editorInstanceRef.current?.commands.clearSearch(); }
+        if (showShortcutsModal) setShowShortcutsModal(false);
+      }
     };
-    document.addEventListener("keydown", handleZoomKeys);
-    return () => document.removeEventListener("keydown", handleZoomKeys);
-  }, [zoomIn, zoomOut]);
+    document.addEventListener("keydown", handleGlobalKeys);
+    return () => document.removeEventListener("keydown", handleGlobalKeys);
+  }, [zoomIn, zoomOut, showFindReplace, showShortcutsModal]);
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
@@ -385,6 +413,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         metadata: doc.page_layout ?? null,
         docTitle: doc.title,
       }),
+      SearchAndReplace,
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -829,8 +858,25 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           <TabButton id="format" label="Format" icon={Type} activeTab={activeTab} onClick={() => handleTabSwitch("format")} />
           <TabButton id="insert" label="Insert" icon={PlusCircle} activeTab={activeTab} onClick={() => handleTabSwitch("insert")} />
 
-          {/* Spacer + Labels toggle */}
+          {/* Spacer + actions */}
           <div className="flex-1" />
+          <button
+            onClick={() => { setShowFindReplace(s => !s); if (!showFindReplace) setTimeout(() => findInputRef.current?.focus(), 50); }}
+            className={cn(
+              "p-1.5 rounded transition-colors",
+              showFindReplace ? "bg-[#a0704b] text-white" : "text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            )}
+            title="Find & Replace (Ctrl+F)"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setShowShortcutsModal(true)}
+            className="p-1.5 rounded transition-colors text-gray-400 dark:text-gray-500 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+            title="Keyboard shortcuts (Ctrl+/)"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => setShowLabels(s => !s)}
             className={cn(
@@ -844,7 +890,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
 
         {/* Tab content row */}
-        <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px] overflow-x-auto">
+        <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px]">
           {activeTab === "format" && (
             <>
               {/* Font Family dropdown */}
@@ -1288,6 +1334,70 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       </div>
 
+      {/* Find & Replace bar */}
+      {showFindReplace && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <input
+              ref={findInputRef}
+              type="text"
+              placeholder="Find..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); editor.commands.setSearchTerm(e.target.value); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? editor.commands.goToPreviousResult() : editor.commands.goToNextResult(); }
+                if (e.key === "Escape") { setShowFindReplace(false); setSearchTerm(""); editor.commands.clearSearch(); }
+              }}
+              className="w-32 sm:w-48 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+            />
+            <span className="text-[10px] text-gray-400 tabular-nums flex-shrink-0">
+              {editor.storage.searchAndReplace.results > 0
+                ? `${editor.storage.searchAndReplace.resultIndex + 1}/${editor.storage.searchAndReplace.results}`
+                : searchTerm ? "0/0" : ""}
+            </span>
+            <button onClick={() => editor.commands.goToPreviousResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Previous (Shift+Enter)">
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => editor.commands.goToNextResult()} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="Next (Enter)">
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowReplace(s => !s)}
+            className={cn("p-1 rounded transition-colors", showReplace ? "text-[#a0704b]" : "text-gray-400 hover:text-gray-600")}
+            title="Toggle replace"
+          >
+            <Replace className="w-3.5 h-3.5" />
+          </button>
+          {showReplace && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                placeholder="Replace..."
+                value={replaceTerm}
+                onChange={(e) => { setReplaceTerm(e.target.value); editor.commands.setReplaceTerm(e.target.value); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); editor.commands.replaceCurrent(); } }}
+                className="w-28 sm:w-40 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              />
+              <button onClick={() => editor.commands.replaceCurrent()} className="px-2 py-1 text-[10px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700" title="Replace current">
+                Replace
+              </button>
+              <button onClick={() => editor.commands.replaceAll()} className="px-2 py-1 text-[10px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700" title="Replace all">
+                All
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => { setShowFindReplace(false); setSearchTerm(""); setReplaceTerm(""); editor.commands.clearSearch(); }}
+            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
+            title="Close (Escape)"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Editor area — paginated A4 view */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
         <div className="py-8 px-4 print:p-0 print:m-0">
@@ -1442,6 +1552,73 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           onSave={handleMetadataSave}
           docId={doc.id}
         />
+      )}
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 print:hidden" onClick={() => setShowShortcutsModal(false)}>
+          <div
+            className="flex flex-col overflow-hidden bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
+            style={{ width: "28rem", maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 4rem)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Keyboard Shortcuts</h2>
+              <button onClick={() => setShowShortcutsModal(false)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+              {([
+                ["Text Formatting", [
+                  ["Ctrl+B", "Bold"],
+                  ["Ctrl+I", "Italic"],
+                  ["Ctrl+U", "Underline"],
+                  ["Ctrl+Shift+X", "Strikethrough"],
+                  ["Ctrl+Shift+H", "Highlight"],
+                ]],
+                ["Structure", [
+                  ["Ctrl+Shift+7", "Ordered list"],
+                  ["Ctrl+Shift+8", "Bullet list"],
+                  ["Ctrl+Shift+B", "Blockquote"],
+                ]],
+                ["Editing", [
+                  ["Ctrl+Z", "Undo"],
+                  ["Ctrl+Shift+Z", "Redo"],
+                  ["Ctrl+S", "Save"],
+                  ["Ctrl+F", "Find & Replace"],
+                  ["Ctrl+A", "Select all"],
+                ]],
+                ["Page", [
+                  ["Ctrl+Enter", "Page break"],
+                ]],
+                ["Zoom", [
+                  ["Ctrl+=", "Zoom in"],
+                  ["Ctrl+-", "Zoom out"],
+                  ["Ctrl+0", "Fit to width"],
+                ]],
+                ["Navigation", [
+                  ["Ctrl+/", "This shortcuts panel"],
+                ]],
+              ] as [string, [string, string][]][]).map(([category, shortcuts]) => (
+                <div key={category}>
+                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{category}</h3>
+                  <div className="space-y-1">
+                    {shortcuts.map(([key, desc]) => (
+                      <div key={key} className="flex items-center justify-between py-0.5">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">{desc}</span>
+                        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                          {key.replace(/Ctrl/g, navigator?.platform?.includes("Mac") ? "⌘" : "Ctrl")}
+                        </kbd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="flex-shrink-0 text-[10px] text-gray-400 mt-4 text-center">Press Escape or Ctrl+/ to close</p>
+          </div>
+        </div>
       )}
     </div>
   );
