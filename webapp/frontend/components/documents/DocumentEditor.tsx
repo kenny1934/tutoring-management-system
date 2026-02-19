@@ -609,7 +609,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       answerKeyContainer = document.createElement("div");
       answerKeyContainer.className = "print-answer-key";
       answerKeyContainer.style.display = "none"; // hidden on screen; CSS @media print overrides
-      answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div>${entries.join("")}`;
+      answerKeyContainer.innerHTML = `<div class="print-answer-key-title">Answer Key</div><hr style="border:none;border-top:2px solid #333;margin:0 0 12px 0">${entries.join("")}`;
       pageEl.appendChild(answerKeyContainer);
     }
 

@@ -2666,9 +2666,7 @@ html {
   .print-answer-key-title {
     font-size: 18px;
     font-weight: 700;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 2px solid #333;
+    color: #1a1a1a !important;
   }
   .print-answer-key-entry {
     margin-bottom: 8px;
