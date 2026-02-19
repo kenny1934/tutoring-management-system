@@ -742,7 +742,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
           title="Back to documents"
         >
-          <ArrowLeft className="w-4 h-4 text-muted-foreground" />
+          <ArrowLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
 
         <input
@@ -750,7 +750,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState("unsaved"); }}
           onBlur={handleTitleBlur}
-          className="flex-1 min-w-0 text-base sm:text-lg font-semibold bg-transparent text-foreground outline-none border-none"
+          className="flex-1 min-w-0 text-base sm:text-lg font-semibold bg-transparent text-gray-900 dark:text-white outline-none border-none"
           placeholder="Untitled Document"
         />
 
@@ -758,7 +758,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <button
           onClick={() => { if (saveState === "unsaved") saveNow(); }}
           className={cn(
-            "flex items-center gap-1.5 text-xs text-muted-foreground",
+            "flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400",
             saveState === "unsaved" && "hover:text-[#a0704b] cursor-pointer"
           )}
           disabled={saveState === "saving"}
@@ -772,7 +772,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
         <button
           onClick={() => setPageLayoutOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
           title="Page layout settings"
         >
           <FileSliders className="w-3.5 h-3.5" />
@@ -800,13 +800,13 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             <div className="absolute top-full right-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrintStudent(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
               >
                 Questions Only
               </button>
               <button
                 onClick={() => { setShowPrintMenu(false); handlePrint(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300"
               >
                 With Answers
               </button>
@@ -855,7 +855,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     showFontFamilyMenu
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
-                      : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Font Family"
                 >
@@ -876,7 +876,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                           setShowFontFamilyMenu(false);
                         }}
                         className={cn(
-                          "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                          "w-full text-left px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                           (ff.value === editor.getAttributes("textStyle").fontFamily || (!ff.value && !editor.getAttributes("textStyle").fontFamily)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
                         )}
                         style={ff.value ? { fontFamily: ff.value } : undefined}
@@ -896,7 +896,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     showFontSizeMenu
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
-                      : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Font Size"
                 >
@@ -918,7 +918,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                             setShowFontSizeMenu(false);
                           }}
                           className={cn(
-                            "px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground text-center",
+                            "px-2 py-1 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 text-center",
                             ((fs.value && editor.getAttributes("textStyle").fontSize === fs.value) ||
                              (!fs.value && !editor.getAttributes("textStyle").fontSize)) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
                           )}
@@ -947,7 +947,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                           min={8}
                           max={96}
                           placeholder="px"
-                          className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-foreground outline-none focus:border-[#a0704b]"
+                          className="w-14 px-1.5 py-0.5 text-xs border border-[#e8d4b8] dark:border-[#6b5a4a] rounded bg-transparent text-gray-700 dark:text-gray-300 outline-none focus:border-[#a0704b]"
                         />
                         <button type="submit" className="text-[10px] text-[#a0704b] hover:underline">Set</button>
                       </div>
@@ -993,7 +993,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     ))}
                     <button
                       onClick={() => editor.chain().focus().unsetColor().run()}
-                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
+                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
                       title="Remove color"
                     >
                       &times;
@@ -1037,7 +1037,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     ))}
                     <button
                       onClick={() => editor.chain().focus().unsetHighlight().run()}
-                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-muted-foreground"
+                      className="w-6 h-6 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-110 transition-transform flex items-center justify-center text-xs text-gray-500 dark:text-gray-400"
                       title="Remove highlight"
                     >
                       &times;
@@ -1079,7 +1079,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                         key={item.value}
                         onClick={() => { editor.chain().focus().setTextAlign(item.value).run(); setShowAlignMenu(false); }}
                         className={cn(
-                          "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                          "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                           editor.isActive({ textAlign: item.value }) && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
                         )}
                       >
@@ -1102,7 +1102,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                     "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
                     showHeadingMenu
                       ? "bg-[#a0704b] text-white border-[#a0704b]"
-                      : "text-foreground border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
                   )}
                   title="Heading Level"
                 >
@@ -1123,7 +1123,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                           setShowHeadingMenu(false);
                         }}
                         className={cn(
-                          "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground",
+                          "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
                           h.className,
                           (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-[#f5ede3] dark:bg-[#2d2618]"
                         )}
@@ -1217,26 +1217,26 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
                     {editor.isActive("table") ? (
                       <div className="flex flex-col gap-0.5">
-                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().addRowBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row above
                         </button>
-                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().addRowAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add row below
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().addColumnBefore().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column left
                         </button>
-                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().addColumnAfter().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Plus className="w-3 h-3" /> Add column right
                         </button>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
-                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().deleteRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete row
                         </button>
-                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().deleteColumn().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <Minus className="w-3 h-3" /> Delete column
                         </button>
-                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-foreground">
+                        <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setShowTableMenu(false); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
@@ -1246,7 +1246,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                       </div>
                     ) : (
                       <div>
-                        <p className="text-[10px] text-muted-foreground mb-1.5 px-0.5">
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1.5 px-0.5">
                           {gridHover ? `${gridHover.rows} × ${gridHover.cols}` : "Insert table"}
                         </p>
                         <div
@@ -1364,7 +1364,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       </div>
 
       {/* Status bar: zoom controls + word count */}
-      <div className="flex items-center justify-between px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-muted-foreground print:hidden">
+      <div className="flex items-center justify-between px-4 py-1 border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-xs text-gray-500 dark:text-gray-400 print:hidden">
         <div className="flex items-center gap-1">
           <button
             onClick={zoomOut}
