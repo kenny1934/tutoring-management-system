@@ -109,16 +109,24 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
             const { metadata, docTitle } = pluginState;
 
+            // Temporarily reset CSS zoom to 1 so all DOM measurements
+            // (getBoundingClientRect, offsetHeight) are in true CSS pixels.
+            // This avoids sub-pixel rounding errors from dividing zoomed values.
+            const pageEl = view.dom.closest(".document-page") as HTMLElement | null;
+            const savedZoom = pageEl?.style.zoom ?? "";
+            if (pageEl) pageEl.style.zoom = "1";
+
             // Measure block heights (toggles pagination-measuring class)
             const blocks = measureNodeHeights(view);
 
             // Measure actual rendered header/footer heights from the DOM
-            // The React first-page header is a sibling before the editor in the document-page
-            const pageEl = view.dom.closest(".document-page");
             const firstPageHeader = pageEl?.querySelector(".first-page-header");
             const lastPageFooter = pageEl?.querySelector(".last-page-footer .page-footer-content");
             const actualHeaderPx = firstPageHeader instanceof HTMLElement ? firstPageHeader.offsetHeight : estimateHFHeightPx(metadata?.header);
             const actualFooterPx = lastPageFooter instanceof HTMLElement ? lastPageFooter.offsetHeight : estimateHFHeightPx(metadata?.footer);
+
+            // Restore zoom
+            if (pageEl) pageEl.style.zoom = savedZoom;
 
             const config: PaginationConfig = {
               margins: {

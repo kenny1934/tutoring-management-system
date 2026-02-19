@@ -2847,6 +2847,7 @@ body.student-print .print-answer-key {
     box-shadow: none !important;
     background: white !important;
     overflow: visible !important;
+    zoom: 1 !important;
   }
 
   /* 4a. Reset editor min-height — content flows across @page breaks, not a single page */
