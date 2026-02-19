@@ -94,9 +94,10 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
         },
       },
 
-      view() {
+      view(editorView) {
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         let isRecalculating = false;
+        let recalcCooldown = false;
 
         const recalculate = (view: EditorView) => {
           if (isRecalculating) return;
@@ -160,6 +161,10 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             });
             tr.setMeta("addToHistory", false);
             view.dispatch(tr);
+
+            // Cooldown: ignore ResizeObserver events caused by our own decoration changes
+            recalcCooldown = true;
+            setTimeout(() => { recalcCooldown = false; }, 500);
           } finally {
             isRecalculating = false;
           }
@@ -169,6 +174,15 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
           if (debounceTimer) clearTimeout(debounceTimer);
           debounceTimer = setTimeout(() => recalculate(view), 150);
         };
+
+        // ResizeObserver: detect external layout changes (font loading, CSS changes)
+        // that don't trigger docChanged or metadata updates. The cooldown prevents
+        // infinite loops from our own decoration changes resizing the editor.
+        const resizeObserver = new ResizeObserver(() => {
+          if (isRecalculating || recalcCooldown) return;
+          scheduleRecalc(editorView);
+        });
+        resizeObserver.observe(editorView.dom);
 
         return {
           update(view) {
@@ -183,6 +197,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
           destroy() {
             if (debounceTimer) clearTimeout(debounceTimer);
+            resizeObserver.disconnect();
           },
         };
       },

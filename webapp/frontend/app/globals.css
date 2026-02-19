@@ -2770,6 +2770,70 @@ body.student-print .answer-float-content {
     min-height: auto !important;
   }
 
+  /* 4b. Reset dark-mode colors for print — preserve user-applied inline styles */
+
+  /* Default text color for the document page (overrides inherited body color from --color-foreground) */
+  .document-page {
+    color: #1a1a1a;
+  }
+
+  /* Reset Tailwind prose-invert CSS variables to light-mode (gray theme) defaults.
+     This fixes p, h1-h4, a, strong, li markers, etc. without !important,
+     so user-applied inline styles (font color, highlights) are preserved. */
+  .document-page .prose {
+    --tw-prose-body: #374151;
+    --tw-prose-headings: #111827;
+    --tw-prose-lead: #4b5563;
+    --tw-prose-links: #111827;
+    --tw-prose-bold: #111827;
+    --tw-prose-counters: #6b7280;
+    --tw-prose-bullets: #d1d5db;
+    --tw-prose-hr: #e5e7eb;
+    --tw-prose-quotes: #111827;
+    --tw-prose-quote-borders: #e5e7eb;
+    --tw-prose-captions: #6b7280;
+    --tw-prose-code: #111827;
+    --tw-prose-pre-code: #e5e7eb;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-th-borders: #d1d5db;
+    --tw-prose-td-borders: #e5e7eb;
+  }
+
+  /* Override custom .dark .tiptap rules with light-mode equivalents.
+     Higher specificity (.dark .document-page .tiptap) beats .dark .tiptap. */
+  .dark .document-page .tiptap blockquote {
+    border-color: #d4a574;
+    color: #6b7280;
+  }
+  .dark .document-page .tiptap code {
+    background-color: #f3f4f6;
+  }
+  .dark .document-page .tiptap pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+  }
+  .dark .document-page .tiptap td,
+  .dark .document-page .tiptap th {
+    border-color: #e8d4b8;
+  }
+  .dark .document-page .tiptap th {
+    background-color: #f5ede3;
+  }
+  .dark .document-editor-content .tiptap hr {
+    border-color: #d4c4a8;
+  }
+  .dark .document-editor-content .tiptap a.doc-link {
+    color: #2563eb;
+  }
+
+  /* Header/footer elements (decoration-generated, not user-styled) */
+  .document-page .first-page-header,
+  .document-page .last-page-footer,
+  .document-page .page-header-content,
+  .document-page .page-footer-content {
+    color: #888 !important;
+  }
+
   .document-page table {
     page-break-inside: avoid;
   }
