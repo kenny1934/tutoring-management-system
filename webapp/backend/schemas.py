@@ -1839,6 +1839,8 @@ class DocumentCreate(BaseModel):
     title: str = Field("Untitled Document", max_length=255)
     doc_type: str = Field(..., pattern="^(worksheet|lesson_plan)$")
     page_layout: Optional[dict] = None
+    tags: Optional[List[str]] = None
+    folder_id: Optional[int] = None
 
 
 class DocumentUpdate(BaseModel):
@@ -1847,6 +1849,8 @@ class DocumentUpdate(BaseModel):
     content: Optional[dict] = None
     page_layout: Optional[dict] = None
     is_archived: Optional[bool] = None
+    tags: Optional[List[str]] = None
+    folder_id: Optional[int] = None
 
 
 class DocumentResponse(BaseModel):
@@ -1864,9 +1868,11 @@ class DocumentResponse(BaseModel):
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None
+    tags: List[str] = []
+    folder_id: Optional[int] = None
+    folder_name: str = ""
 
     model_config = ConfigDict(from_attributes=True)
-
 
 
 class DocumentListItem(BaseModel):
@@ -1883,6 +1889,34 @@ class DocumentListItem(BaseModel):
     locked_by: Optional[int] = None
     locked_by_name: str = ""
     lock_expires_at: Optional[datetime] = None
+    tags: List[str] = []
+    folder_id: Optional[int] = None
+    folder_name: str = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FolderCreate(BaseModel):
+    """Create a document folder."""
+    name: str = Field(..., max_length=255)
+    parent_id: Optional[int] = None
+
+
+class FolderUpdate(BaseModel):
+    """Update a document folder."""
+    name: Optional[str] = Field(None, max_length=255)
+    parent_id: Optional[int] = None
+
+
+class FolderResponse(BaseModel):
+    """Document folder response."""
+    id: int
+    name: str
+    parent_id: Optional[int] = None
+    created_by: int
+    created_by_name: str = ""
+    created_at: Optional[datetime] = None
+    document_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

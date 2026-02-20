@@ -2183,6 +2183,22 @@ html {
   overflow-x: auto;
 }
 
+/* Column resize handle (vertical bar between columns) */
+.tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #a0704b;
+  pointer-events: none;
+}
+
+/* Resize cursor when hovering column borders */
+.tiptap.resize-cursor {
+  cursor: col-resize;
+}
+
 /* Table styles — rendered messages */
 .prose table {
   border-collapse: collapse;
@@ -2307,24 +2323,28 @@ html {
 
 .document-editor-content .tiptap p {
   margin: 0.25em 0;
+  line-height: 1.5;
 }
 
 .document-editor-content .tiptap h1 {
   font-size: 1.75em;
   font-weight: 700;
   margin: 0.75em 0 0.25em;
+  line-height: 1.5;
 }
 
 .document-editor-content .tiptap h2 {
   font-size: 1.35em;
   font-weight: 600;
   margin: 0.6em 0 0.2em;
+  line-height: 1.5;
 }
 
 .document-editor-content .tiptap h3 {
   font-size: 1.1em;
   font-weight: 600;
   margin: 0.5em 0 0.15em;
+  line-height: 1.5;
 }
 
 /* Document images */
@@ -2385,6 +2405,9 @@ html {
   .resizable-node-wrapper.selected {
     outline: none;
   }
+  .column-resize-handle {
+    display: none !important;
+  }
 }
 
 /* Document tables */
@@ -2420,6 +2443,28 @@ html {
 .document-editor-content .tiptap td.selectedCell,
 .document-editor-content .tiptap th.selectedCell {
   background: rgba(160, 112, 75, 0.12);
+}
+
+/* Column resize handle — document editor */
+.document-editor-content .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #a0704b;
+  pointer-events: none;
+}
+
+.document-editor-content .tiptap.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Cell background colors — ensure they print */
+.document-editor-content .tiptap td[style*="background-color"],
+.document-editor-content .tiptap th[style*="background-color"] {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 
 /* Document horizontal rules */

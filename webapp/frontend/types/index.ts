@@ -1837,12 +1837,17 @@ export interface Document {
   locked_by?: number | null;
   locked_by_name?: string | null;
   lock_expires_at?: string | null;
+  tags: string[];
+  folder_id?: number | null;
+  folder_name?: string;
 }
 
 export interface DocumentCreate {
   title: string;
   doc_type: DocType;
   page_layout?: DocumentMetadata;
+  tags?: string[];
+  folder_id?: number | null;
 }
 
 export interface DocumentUpdate {
@@ -1850,4 +1855,16 @@ export interface DocumentUpdate {
   content?: Record<string, unknown>;
   page_layout?: DocumentMetadata;
   is_archived?: boolean;
+  tags?: string[];
+  folder_id?: number | null;
+}
+
+export interface DocumentFolder {
+  id: number;
+  name: string;
+  parent_id?: number | null;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  document_count: number;
 }

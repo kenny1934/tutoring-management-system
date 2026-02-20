@@ -7,3 +7,4 @@ export { PaginationExtension, paginationPluginKey } from "./pagination";
 export { buildHFontFamily } from "./pagination-utils";
 export { SearchAndReplace, searchPluginKey } from "./search-and-replace";
 export { Indent } from "./indent";
+export { LineSpacing } from "./line-spacing";
