@@ -66,6 +66,18 @@ export const documentsAPI = {
     return fetchAPI<Document>(`/documents/${id}/duplicate`, { method: "POST" });
   },
 
+  lock(id: number) {
+    return fetchAPI<Document>(`/documents/${id}/lock`, { method: "POST" });
+  },
+
+  heartbeat(id: number) {
+    return fetchAPI<{ lock_expires_at: string }>(`/documents/${id}/heartbeat`, { method: "POST" });
+  },
+
+  unlock(id: number) {
+    return fetchAPI<{ message: string }>(`/documents/${id}/lock`, { method: "DELETE" });
+  },
+
   async uploadImage(file: File): Promise<{ url: string; filename: string }> {
     const formData = new FormData();
     formData.append("file", file);

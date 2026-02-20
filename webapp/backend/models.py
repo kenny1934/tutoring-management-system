@@ -1016,5 +1016,8 @@ class Document(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     is_archived = Column(Boolean, default=False)
+    locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
+    lock_expires_at = Column(DateTime, nullable=True)
 
     creator = relationship("Tutor", foreign_keys=[created_by])
+    locker = relationship("Tutor", foreign_keys=[locked_by])
