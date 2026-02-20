@@ -14,6 +14,8 @@
 * **Zoom controls** — zoom in/out with fit-to-width default on mobile; page breaks remain accurate at any zoom level
 * **Paper mode** — document always displays in light/print colors regardless of global dark mode, with toggle in status bar
 * **Document management** — create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view
+* **Document templates** — create documents from templates (e.g. MathConcept) with pre-configured margins, footer, watermark, and body font
+* **Body font settings** — new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document
 
 ### Improvements
 
@@ -22,6 +24,12 @@
 * Bubble menu for inline formatting on text selection
 * Explicit page break nodes insertable from toolbar
 * Documents section in sidebar with Beta badge
+* Toolbar font and size dropdowns reactively reflect the cursor-selected text style
+
+### Bug Fixes
+
+* Fixed watermark only appearing on first page in editor view
+* Fixed decoration watermark greyish overlay in light mode and white pixels in dark mode
 
 ## [2.0.5](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.5) (2026-02-16)
 
