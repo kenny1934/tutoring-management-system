@@ -1,4 +1,4 @@
-import type { Document, DocumentCreate, DocumentUpdate } from "@/types";
+import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -23,7 +23,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 export const documentsAPI = {
-  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number }) {
+  list(params?: { doc_type?: string; search?: string; include_archived?: boolean; sort_by?: string; sort_order?: string; limit?: number; offset?: number; tag?: string; folder_id?: number }) {
     const qs = new URLSearchParams();
     if (params?.doc_type) qs.set("doc_type", params.doc_type);
     if (params?.search) qs.set("search", params.search);
@@ -32,6 +32,8 @@ export const documentsAPI = {
     if (params?.sort_order) qs.set("sort_order", params.sort_order);
     if (params?.limit) qs.set("limit", String(params.limit));
     if (params?.offset) qs.set("offset", String(params.offset));
+    if (params?.tag) qs.set("tag", params.tag);
+    if (params?.folder_id !== undefined) qs.set("folder_id", String(params.folder_id));
     const q = qs.toString();
     return fetchAPI<Document[]>(`/documents${q ? `?${q}` : ""}`);
   },
@@ -82,6 +84,10 @@ export const documentsAPI = {
     return fetchAPI<{ message: string }>(`/documents/${id}/lock`, { method: "DELETE" });
   },
 
+  listTags() {
+    return fetchAPI<string[]>("/documents/tags");
+  },
+
   async uploadImage(file: File): Promise<{ url: string; filename: string }> {
     const formData = new FormData();
     formData.append("file", file);
@@ -106,5 +112,30 @@ export const documentsAPI = {
 
     return response.json();
   },
+};
 
+export const foldersAPI = {
+  list() {
+    return fetchAPI<DocumentFolder[]>("/document-folders");
+  },
+
+  create(data: { name: string; parent_id?: number | null }) {
+    return fetchAPI<DocumentFolder>("/document-folders", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update(id: number, data: { name?: string; parent_id?: number | null }) {
+    return fetchAPI<DocumentFolder>(`/document-folders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete(id: number) {
+    return fetchAPI<{ message: string }>(`/document-folders/${id}`, {
+      method: "DELETE",
+    });
+  },
 };

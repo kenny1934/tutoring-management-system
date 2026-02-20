@@ -15,6 +15,7 @@ DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
     "067_fix_documents_updated_at.sql",
+    "068_document_tags_and_folders.sql",
 ]
 
 def main():

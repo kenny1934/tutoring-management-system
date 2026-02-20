@@ -1003,6 +1003,20 @@ class TutorMemo(Base):
     linked_session = relationship("SessionLog", back_populates="tutor_memo", foreign_keys=[linked_session_id])
 
 
+class DocumentFolder(Base):
+    """Hierarchical folders for organizing documents."""
+    __tablename__ = "document_folders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    parent_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    parent = relationship("DocumentFolder", remote_side="DocumentFolder.id", backref="children")
+    creator = relationship("Tutor", foreign_keys=[created_by])
+
+
 class Document(Base):
     """Courseware documents — worksheets, exams, and lesson plans."""
     __tablename__ = "documents"
@@ -1018,6 +1032,9 @@ class Document(Base):
     is_archived = Column(Boolean, default=False)
     locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     lock_expires_at = Column(DateTime, nullable=True)
+    tags = Column(JSON, default=list)
+    folder_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True)
 
     creator = relationship("Tutor", foreign_keys=[created_by])
     locker = relationship("Tutor", foreign_keys=[locked_by])
+    folder = relationship("DocumentFolder", foreign_keys=[folder_id])
