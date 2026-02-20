@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, Loader2, MoreVertical, Trash2, ArchiveRestore, Archive, Copy } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, Loader2, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle } from "@/lib/hooks";
@@ -258,9 +258,15 @@ export default function DocumentsPage() {
                   </h3>
 
                   {/* Meta */}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {doc.created_by_name} &middot; {formatDate(doc.updated_at)}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{doc.created_by_name} &middot; {formatDate(doc.updated_at)}</span>
+                    {doc.locked_by && (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
+                        <Lock className="w-3 h-3" />
+                        <span className="truncate max-w-[5rem]">{doc.locked_by_name}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
