@@ -2863,6 +2863,14 @@ body.student-print .print-answer-key {
 .dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
 .dark .paper-mode .answer-toggle:hover { background: #f5ede3; }
 .dark .paper-mode .answer-float-content { background: white; border-color: #a0704b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+.dark .paper-mode .answer-drag-handle { color: #c4b5a3; }
+.dark .paper-mode .answer-drag-handle:hover { color: #a0704b; background: #f5ede3; }
+.dark .paper-mode .answer-align-btn { color: #c4b5a3; }
+.dark .paper-mode .answer-align-btn:hover { color: #a0704b; background: #f5ede3; }
+.dark .paper-mode .answer-align-btn.answer-align-active { color: #a0704b; background: #fef3e8; }
+.dark .paper-mode .answer-label-btn { color: #c4b5a3; }
+.dark .paper-mode .answer-label-btn:hover { color: #a0704b; border-color: #e8d4b8; }
+.dark .paper-mode .answer-label-input { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
 
 /* ─── Dark Paper: force dark colors on document page in light mode ─── */
 
@@ -2966,6 +2974,8 @@ body.student-print .print-answer-key {
     background: white !important;
     overflow: visible !important;
     zoom: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* 4a. Reset editor min-height — content flows across @page breaks, not a single page */
@@ -3037,13 +3047,21 @@ body.student-print .print-answer-key {
     color: #888 !important;
   }
 
+  .document-page p,
+  .document-page li {
+    orphans: 2;
+    widows: 2;
+  }
+
   .document-page table {
     page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .document-page img {
     max-width: 100%;
     page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* 5. Explicit page-break nodes */

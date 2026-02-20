@@ -83,6 +83,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
                 ? value.decorationSet.map(tr.mapping, tr.doc)
                 : value.decorationSet,
               breaks: value.breaks,
+              lastPageRemainingPx: value.lastPageRemainingPx,
               metadata,
               docTitle,
               needsRecalc: true,
@@ -109,9 +110,15 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
             const { metadata, docTitle } = pluginState;
 
+            // Save scroll position BEFORE measurement. The pagination-measuring
+            // class hides decorations (display:none), collapsing the DOM height.
+            // getBoundingClientRect forces a layout reflow during which the browser
+            // may clamp scrollTop to the shorter document. We restore it after.
+            const scrollEl = view.dom.closest('.document-page-scroll-container') as HTMLElement | null;
+            const savedScrollTop = scrollEl?.scrollTop ?? 0;
+
             // Temporarily reset CSS zoom to 1 so all DOM measurements
             // (getBoundingClientRect, offsetHeight) are in true CSS pixels.
-            // This avoids sub-pixel rounding errors from dividing zoomed values.
             const pageEl = view.dom.closest(".document-page") as HTMLElement | null;
             const savedZoom = pageEl?.style.zoom ?? "";
             if (pageEl) pageEl.style.zoom = "1";
@@ -128,6 +135,9 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             // Restore zoom
             if (pageEl) pageEl.style.zoom = savedZoom;
 
+            // Restore scroll position after measurement (before calculations/dispatch)
+            if (scrollEl) scrollEl.scrollTop = savedScrollTop;
+
             const config: PaginationConfig = {
               margins: {
                 top: metadata?.margins?.top ?? 25.4,
@@ -141,14 +151,37 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
             const result = calculateBreakPositions(blocks, config);
 
+            // Compare with previous breaks to minimize unnecessary work
+            const oldBreaks = pluginState.breaks;
+            const breaksChanged = result.breaks.length !== oldBreaks.length
+              || result.breaks.some((b, i) => b.pos !== oldBreaks[i].pos);
+
+            if (!breaksChanged) {
+              // Breaks unchanged — dispatch spacer update (reuse existing decorations).
+              // This keeps lastPageRemainingPx current for the LastPageFooter spacer,
+              // and clears needsRecalc to stop continuous re-scheduling.
+              const tr = view.state.tr.setMeta(paginationPluginKey, {
+                __decorationUpdate: true,
+                breaks: result.breaks,
+                lastPageRemainingPx: result.lastPageRemainingPx,
+                decorationSet: pluginState.decorationSet, // reuse — no DOM churn
+              });
+              tr.setMeta("addToHistory", false);
+              view.dispatch(tr);
+              return;
+            }
+
+            // Breaks changed — full decoration recreation
             // Create Widget Decorations
             // Include header/footer metadata in key so ProseMirror replaces DOM on metadata changes
             const hfKey = JSON.stringify({ h: metadata?.header, f: metadata?.footer, t: docTitle });
+            const totalPages = result.breaks.length + 1;
             const decorations: Decoration[] = result.breaks.map((brk) => {
               const element = createPageBreakElement({
                 remainingPx: brk.remainingPx,
                 pageNumber: brk.pageNumber,
                 nextPageNumber: brk.pageNumber + 1,
+                totalPages,
                 docTitle: docTitle || "",
                 metadata,
                 isExplicitBreak: brk.isExplicitBreak,
@@ -170,6 +203,9 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
               decorationSet,
             });
             tr.setMeta("addToHistory", false);
+            // Only scroll to cursor when break positions change (new page created/removed).
+            // When only the spacer height changed, keep viewport stable.
+            if (breaksChanged) tr.scrollIntoView();
             view.dispatch(tr);
 
             // Cooldown: ignore ResizeObserver events caused by our own decoration changes
@@ -182,7 +218,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
         const scheduleRecalc = (view: EditorView) => {
           if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => recalculate(view), 150);
+          debounceTimer = setTimeout(() => recalculate(view), 250);
         };
 
         // ResizeObserver: detect external layout changes (font loading, CSS changes)
