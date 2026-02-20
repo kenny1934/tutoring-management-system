@@ -42,6 +42,9 @@ const changelogData = [
           },
           {
             "description": "**Body font settings** — new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document"
+          },
+          {
+            "description": "**Block indent/outdent** — Tab/Shift+Tab to indent or outdent paragraphs and headings (up to 8 levels); toolbar buttons in Format tab"
           }
         ]
       },
