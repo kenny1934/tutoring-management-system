@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, buildHFontFamily } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, LineSpacing, buildHFontFamily } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -79,6 +79,7 @@ import {
   Combine,
   SplitSquareHorizontal,
   Paintbrush,
+  WrapText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -116,6 +117,15 @@ const CELL_BG_COLORS = [
   { label: "Light Pink", color: "#fce7f3" },
   { label: "Light Orange", color: "#ffedd5" },
   { label: "Light Gray", color: "#f3f4f6" },
+];
+
+const LINE_SPACINGS = [
+  { label: "1.0", value: "1" },
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: null },
+  { label: "2.0", value: "2" },
+  { label: "2.5", value: "2.5" },
+  { label: "3.0", value: "3" },
 ];
 
 const FONT_SIZES = [
@@ -541,6 +551,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       }),
       SearchAndReplace,
       Indent,
+      LineSpacing,
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -1345,6 +1356,46 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Indent / Outdent */}
               <ToolbarBtn icon={IndentIncrease} label="Indent" onClick={() => editor.chain().focus().indent().run()} showLabel={showLabels} />
               <ToolbarBtn icon={IndentDecrease} label="Outdent" onClick={() => editor.chain().focus().outdent().run()} showLabel={showLabels} />
+              <ToolbarSep />
+
+              {/* Line Spacing dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleMenu("lineSpacing")}
+                  className={cn(
+                    "rounded transition-colors",
+                    showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "flex items-center gap-0.5 p-1.5",
+                    activeMenu === "lineSpacing" ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                  )}
+                  title="Line Spacing"
+                >
+                  <div className="flex items-center gap-0.5">
+                    <WrapText className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3" />
+                  </div>
+                  {showLabels && <span className="text-[9px] leading-none">Spacing</span>}
+                </button>
+                {activeMenu === "lineSpacing" && (
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[7rem]">
+                    {LINE_SPACINGS.map((ls) => {
+                      const currentSpacing = editor.getAttributes("paragraph").lineSpacing || editor.getAttributes("heading").lineSpacing || null;
+                      const isActive = ls.value === currentSpacing;
+                      return (
+                        <button
+                          key={ls.label}
+                          onClick={() => { editor.chain().focus().setLineSpacing(ls.value).run(); setActiveMenu(null); }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                            isActive && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                          )}
+                        >
+                          {ls.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
