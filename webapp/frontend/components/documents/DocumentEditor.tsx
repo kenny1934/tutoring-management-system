@@ -1378,8 +1378,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             ref={pageRef}
             className={cn(
               "relative mx-auto bg-white shadow-lg print:shadow-none",
-              "border border-gray-200 print:border-none",
-              paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] border-[#4a3a2a]",
+              "ring-1 ring-inset ring-gray-200 print:ring-0",
+              paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
               "document-page"
             )}
             style={{

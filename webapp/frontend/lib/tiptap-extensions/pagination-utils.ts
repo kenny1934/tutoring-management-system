@@ -349,10 +349,10 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   gap.className = "page-gap";
   const bottomMarginPx = convertMmToPx(config.metadata?.margins?.bottom ?? 25.4);
   const topMarginPx = convertMmToPx(config.metadata?.margins?.top ?? 25.4);
-  gap.style.cssText = `height:${PAGE_GAP_PX}px;background:#d1c8bc;margin-top:${bottomMarginPx}px;margin-bottom:${topMarginPx}px;`;
+  gap.style.cssText = `height:${PAGE_GAP_PX}px;margin-top:${bottomMarginPx}px;margin-bottom:${topMarginPx}px;`;
   wrapper.appendChild(gap);
 
-  // 6. Header of next page — only styled when header section is enabled
+  // 5. Header of next page — only styled when header section is enabled
   const header = document.createElement("div");
   header.className = "page-header-content";
   if (config.metadata?.header?.enabled) {

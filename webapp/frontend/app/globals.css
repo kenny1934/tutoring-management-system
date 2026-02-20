@@ -2753,13 +2753,44 @@ body.student-print .print-answer-key {
   /* Inline styles handle the flex layout */
 }
 
-/* Gap between pages in editor view — extends full page width via negative margins */
+/* Gap between pages in editor view — desk showing through between pages */
 .page-gap {
-  margin-left: calc(-1 * var(--doc-ml, 25.4mm) - 1px);
-  margin-right: calc(-1 * var(--doc-mr, 25.4mm) - 1px);
+  position: relative;
+  overflow: hidden;
+  margin-left: calc(-1 * var(--doc-ml, 25.4mm) - 20px);
+  margin-right: calc(-1 * var(--doc-mr, 25.4mm) - 20px);
+  background: #f0e8dc;
+}
+.page-gap::before,
+.page-gap::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  pointer-events: none;
+  background: #e5e7eb;
+}
+.page-gap::before {
+  top: 0;
+  box-shadow: 0 10px 15px 0 rgba(0, 0, 0, 0.3), 0 4px 6px 0 rgba(0, 0, 0, 0.2);
+}
+.page-gap::after {
+  bottom: 0;
+  box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.03);
+}
+.dark-paper .page-gap::before,
+.dark-paper .page-gap::after {
+  background: #4a3a2a;
 }
 .dark .page-gap {
-  background: #1a1510 !important;
+  background: #0d0d0d;
+}
+.dark .page-gap::before {
+  box-shadow: 0 10px 15px 0 rgba(0, 0, 0, 0.5), 0 4px 6px 0 rgba(0, 0, 0, 0.35);
+}
+.dark .page-gap::after {
+  box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.12);
 }
 
 /* Page break trigger (invisible, Chrome breaks here) */
@@ -2826,7 +2857,6 @@ body.student-print .print-answer-key {
 
 /* Page break decorations */
 .dark .paper-mode .page-break-decoration { background: white; }
-.dark .paper-mode .page-gap { background: #d1c8bc !important; }
 
 /* Answer section */
 .dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
@@ -2877,7 +2907,6 @@ body.student-print .print-answer-key {
 
 /* Page break decorations */
 .dark-paper .page-break-decoration { background: #2a2420; }
-.dark-paper .page-gap { background: #1a1510 !important; }
 
 /* Answer section */
 .dark-paper .answer-toggle { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
