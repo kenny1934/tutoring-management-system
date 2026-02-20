@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, buildHFontFamily } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, buildHFontFamily } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -73,6 +73,8 @@ import {
   Sun,
   Moon,
   Lock,
+  IndentIncrease,
+  IndentDecrease,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -491,6 +493,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         docTitle: doc.title,
       }),
       SearchAndReplace,
+      Indent,
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -1262,6 +1265,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   </div>
                 )}
               </div>
+              <ToolbarSep />
+
+              {/* Indent / Outdent */}
+              <ToolbarBtn icon={IndentIncrease} label="Indent" onClick={() => editor.chain().focus().indent().run()} showLabel={showLabels} />
+              <ToolbarBtn icon={IndentDecrease} label="Outdent" onClick={() => editor.chain().focus().outdent().run()} showLabel={showLabels} />
             </>
           )}
 
@@ -1700,6 +1708,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   ["Ctrl+Shift+7", "Ordered list"],
                   ["Ctrl+Shift+8", "Bullet list"],
                   ["Ctrl+Shift+B", "Blockquote"],
+                  ["Tab", "Indent"],
+                  ["Shift+Tab", "Outdent"],
                 ]],
                 ["Editing", [
                   ["Ctrl+Z", "Undo"],
