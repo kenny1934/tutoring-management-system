@@ -281,7 +281,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [isImageUploading, setIsImageUploading] = useState(false);
 
   // Zoom control: "fit" = auto-fit to viewport width, or a specific number
-  const [fitScale, setFitScale] = useState(0.5);
+  const [fitScale, setFitScale] = useState(1);
   const [zoomLevel, setZoomLevel] = useState<number | "fit">("fit");
   const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
   const effectiveZoom = zoomLevel === "fit" ? Math.min(fitScale, 1) : zoomLevel;
