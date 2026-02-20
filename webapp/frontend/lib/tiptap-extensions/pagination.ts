@@ -218,7 +218,7 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
 
         const scheduleRecalc = (view: EditorView) => {
           if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => recalculate(view), 250);
+          debounceTimer = setTimeout(() => recalculate(view), 80);
         };
 
         // ResizeObserver: detect external layout changes (font loading, CSS changes)
