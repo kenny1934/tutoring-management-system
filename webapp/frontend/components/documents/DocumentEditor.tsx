@@ -84,6 +84,7 @@ import {
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
@@ -241,6 +242,7 @@ interface DocumentEditorProps {
 export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -474,23 +476,35 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
     const ed = editorInstanceRef.current;
     if (!ed) return;
     setIsImageUploading(true);
+    let uploaded = false;
     try {
       for (const file of files) {
-        if (!file.type.startsWith("image/")) continue;
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          showToast(`Unsupported image type: ${file.name}. Use JPG, PNG, WebP, or GIF.`, "error");
+          continue;
+        }
+        if (file.size > MAX_SIZE) {
+          showToast(`Image too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 10MB.`, "error");
+          continue;
+        }
         const result = await documentsAPI.uploadImage(file);
         ed.chain().focus().setImage({ src: result.url, alt: result.filename }).run();
+        uploaded = true;
       }
-      setSaveState("unsaved");
+      if (uploaded) setSaveState("unsaved");
     } catch (error) {
-      console.error("Image upload failed:", error);
+      showToast("Image upload failed", "error");
     } finally {
       setIsImageUploading(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
-  }, []);
+  }, [showToast]);
 
   // Math click handler
   const handleMathClick = useCallback((node: PmNode, pos: number, type: "inline" | "block") => {
