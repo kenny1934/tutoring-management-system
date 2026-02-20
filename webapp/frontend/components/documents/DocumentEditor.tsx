@@ -1386,8 +1386,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               width: "210mm",
               minHeight: "297mm",
               padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
+              '--doc-ml': `${docMetadata?.margins?.left ?? 25.4}mm`,
+              '--doc-mr': `${docMetadata?.margins?.right ?? 25.4}mm`,
               zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
-            }}
+            } as React.CSSProperties}
           >
             {/* Watermark on first page */}
             {docMetadata?.watermark?.enabled && (
