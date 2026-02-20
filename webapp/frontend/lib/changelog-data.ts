@@ -2,11 +2,20 @@
 const changelogData = [
   {
     "version": "2.0.7",
-    "date": "2026-02-20",
+    "date": "2026-02-21",
     "sections": [
       {
         "title": "New Features",
         "items": [
+          {
+            "description": "**Tags & folders** — organize documents with color-coded tags and a nested folder sidebar; tag search popover and inline editor tag dropdown"
+          },
+          {
+            "description": "**Table enhancements** — column resize, cell background color picker, and merge/split cells"
+          },
+          {
+            "description": "**Line spacing** — configurable line spacing for paragraphs and headings (1.0–3.0)"
+          },
           {
             "description": "**Page count** — status bar shows total pages when document has more than one page"
           },
@@ -31,6 +40,12 @@ const changelogData = [
         "title": "Improvements",
         "items": [
           {
+            "description": "Document list pagination with sort controls and grid/list view toggle"
+          },
+          {
+            "description": "Image upload validation on document list"
+          },
+          {
             "description": "Pagination footer stays at page bottom while typing; scroll position stable during page recalculation"
           },
           {
@@ -40,7 +55,7 @@ const changelogData = [
             "description": "Context menu accessible on mobile without hover"
           },
           {
-            "description": "Search on document list debounced for smoother typing"
+            "description": "Search on document list debounced for smoother typing; clear button added"
           },
           {
             "description": "Empty state message adapts to active filters"
@@ -56,6 +71,21 @@ const changelogData = [
       {
         "title": "Bug Fixes",
         "items": [
+          {
+            "description": "Fixed document list theme contrast — missing dark mode variants on action buttons, low-contrast grey text against warm desk surface, and semi-transparent backgrounds letting desk texture bleed through"
+          },
+          {
+            "description": "Fixed mobile list view doc type icon not showing dark mode color"
+          },
+          {
+            "description": "Fixed archived document border style not rendering (invalid Tailwind class)"
+          },
+          {
+            "description": "Fixed context menus not closing on outside click"
+          },
+          {
+            "description": "Fixed Ctrl+S always triggers save for visual feedback"
+          },
           {
             "description": "Fixed answer section hover colors in dark paper mode"
           },

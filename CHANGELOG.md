@@ -1,9 +1,12 @@
 # Changelog
 
-## [2.0.7](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.7) (2026-02-20)
+## [2.0.7](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.7) (2026-02-21)
 
 ### New Features
 
+* **Tags & folders** — organize documents with color-coded tags and a nested folder sidebar; tag search popover and inline editor tag dropdown
+* **Table enhancements** — column resize, cell background color picker, and merge/split cells
+* **Line spacing** — configurable line spacing for paragraphs and headings (1.0–3.0)
 * **Page count** — status bar shows total pages when document has more than one page
 * **{total} placeholder** — use `{total}` in headers/footers for "Page 1 of 3" style numbering
 * **Justify alignment** — fourth text alignment option in toolbar and bubble menu
@@ -13,16 +16,23 @@
 
 ### Improvements
 
+* Document list pagination with sort controls and grid/list view toggle
+* Image upload validation on document list
 * Pagination footer stays at page bottom while typing; scroll position stable during page recalculation
 * Backgrounds and colors print correctly; isolated lines avoided at page breaks
 * Context menu accessible on mobile without hover
-* Search on document list debounced for smoother typing
+* Search on document list debounced for smoother typing; clear button added
 * Empty state message adapts to active filters
 * Keyboard shortcuts modal includes math and code block shortcuts
 * Student coupon badge shows last-updated date on hover
 
 ### Bug Fixes
 
+* Fixed document list theme contrast — missing dark mode variants on action buttons, low-contrast grey text against warm desk surface, and semi-transparent backgrounds letting desk texture bleed through
+* Fixed mobile list view doc type icon not showing dark mode color
+* Fixed archived document border style not rendering (invalid Tailwind class)
+* Fixed context menus not closing on outside click
+* Fixed Ctrl+S always triggers save for visual feedback
 * Fixed answer section hover colors in dark paper mode
 * Fixed staff referral checkbox not saving
 
