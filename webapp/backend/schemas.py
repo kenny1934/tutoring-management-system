@@ -1837,6 +1837,7 @@ class DocumentCreate(BaseModel):
     """Create a new document."""
     title: str = Field("Untitled Document", max_length=255)
     doc_type: str = Field(..., pattern="^(worksheet|lesson_plan)$")
+    page_layout: Optional[dict] = None
 
 
 class DocumentUpdate(BaseModel):
