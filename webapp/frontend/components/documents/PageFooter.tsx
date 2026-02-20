@@ -5,9 +5,10 @@ interface PageFooterProps {
   section?: DocumentHeaderFooter;
   docTitle: string;
   pageNumber: number;
+  totalPages?: number;
 }
 
-export function PageFooter({ section, docTitle, pageNumber }: PageFooterProps) {
+export function PageFooter({ section, docTitle, pageNumber, totalPages }: PageFooterProps) {
   if (!section?.enabled) return null;
 
   const cells = [
@@ -54,7 +55,7 @@ export function PageFooter({ section, docTitle, pageNumber }: PageFooterProps) {
               }}
             />
           )}
-          {cell.text && resolveText(cell.text, docTitle, pageNumber)}
+          {cell.text && resolveText(cell.text, docTitle, pageNumber, totalPages)}
           {section.imageUrl && section.imagePosition === cell.align && cell.align === "right" && (
             <img
               src={section.imageUrl}

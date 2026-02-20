@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock } from "lucide-react";
@@ -48,15 +48,23 @@ export default function DocumentsPage() {
   const { showToast } = useToast();
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
+  // Debounce search input
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
   const { data: documents, isLoading, mutate } = useSWR(
-    ["documents", filterType, search, showArchived],
+    ["documents", filterType, debouncedSearch, showArchived],
     () => documentsAPI.list({
       doc_type: filterType === "all" ? undefined : filterType,
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       include_archived: showArchived || undefined,
     }),
     { revalidateOnFocus: false }
@@ -226,8 +234,14 @@ export default function DocumentsPage() {
         ) : !documents?.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
             <FileText className="w-12 h-12 mb-3 opacity-40" />
-            <p className="text-lg font-medium">No documents yet</p>
-            <p className="text-sm mt-1">Create your first document to get started</p>
+            <p className="text-lg font-medium">
+              {debouncedSearch || filterType !== "all" || showArchived ? "No matching documents" : "No documents yet"}
+            </p>
+            <p className="text-sm mt-1">
+              {debouncedSearch || filterType !== "all" || showArchived
+                ? "Try adjusting your search or filters"
+                : "Create your first document to get started"}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -254,7 +268,7 @@ export default function DocumentsPage() {
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
-                        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       >
                         <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                       </button>

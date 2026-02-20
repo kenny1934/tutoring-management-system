@@ -129,6 +129,7 @@ export interface StudentCouponResponse {
   has_coupon: boolean;
   available?: number;
   value?: number;
+  last_synced_at?: string;
 }
 
 // =============================================================================

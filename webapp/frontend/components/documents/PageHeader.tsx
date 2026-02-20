@@ -5,9 +5,10 @@ interface PageHeaderProps {
   section?: DocumentHeaderFooter;
   docTitle: string;
   pageNumber: number;
+  totalPages?: number;
 }
 
-export function PageHeader({ section, docTitle, pageNumber }: PageHeaderProps) {
+export function PageHeader({ section, docTitle, pageNumber, totalPages }: PageHeaderProps) {
   if (!section?.enabled) return null;
 
   const cells = [
@@ -55,7 +56,7 @@ export function PageHeader({ section, docTitle, pageNumber }: PageHeaderProps) {
               }}
             />
           )}
-          {cell.text && resolveText(cell.text, docTitle, pageNumber)}
+          {cell.text && resolveText(cell.text, docTitle, pageNumber, totalPages)}
           {section.imageUrl && section.imagePosition === cell.align && cell.align === "right" && (
             <img
               src={section.imageUrl}

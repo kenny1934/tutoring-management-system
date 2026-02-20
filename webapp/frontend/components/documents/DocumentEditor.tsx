@@ -39,6 +39,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   Palette,
   Link as LinkIcon,
   Unlink,
@@ -139,6 +140,7 @@ const ALIGN_OPTIONS = [
   { icon: AlignLeft, label: "Align Left", value: "left" as const },
   { icon: AlignCenter, label: "Align Center", value: "center" as const },
   { icon: AlignRight, label: "Align Right", value: "right" as const },
+  { icon: AlignJustify, label: "Justify", value: "justify" as const },
 ];
 
 const HEADING_OPTIONS = [
@@ -292,6 +294,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [replaceTerm, setReplaceTerm] = useState("");
   const findInputRef = useRef<HTMLInputElement>(null);
 
+  // Link popover (state only — callbacks below useEditor)
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   // Keyboard shortcuts modal
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
@@ -344,6 +351,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   // Close all dropdown menus
   const closeAllMenus = useCallback(() => {
     setActiveMenu(null);
+    setLinkPopoverOpen(false);
   }, []);
 
   const handleTabSwitch = useCallback((tab: ToolbarTab) => {
@@ -445,9 +453,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     immediatelyRender: false,
     editable: !isReadOnly,
     extensions: [
-      StarterKit.configure({
-        codeBlock: false,
-      }),
+      StarterKit.configure({}),
       Placeholder.configure({ placeholder: "Start writing..." }),
       TextStyle,
       Color,
@@ -530,6 +536,26 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   useEffect(() => {
     editorInstanceRef.current = editor;
   }, [editor]);
+
+  // Link popover callbacks (must be after useEditor)
+  const openLinkPopover = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive("link")) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      setLinkUrl("");
+      setLinkPopoverOpen(true);
+      setTimeout(() => linkInputRef.current?.focus(), 50);
+    }
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor || !linkUrl.trim()) { setLinkPopoverOpen(false); return; }
+    const url = linkUrl.trim().startsWith("http") ? linkUrl.trim() : `https://${linkUrl.trim()}`;
+    editor.chain().focus().setLink({ href: url }).run();
+    setLinkPopoverOpen(false);
+    setLinkUrl("");
+  }, [editor, linkUrl]);
 
   // Update editor editability when lock status changes
   useEffect(() => {
@@ -655,6 +681,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   }, [title, doc.id, doc.title, onUpdate]);
 
   // Flush save + warn on beforeunload (tab close/refresh)
+  const titleRef = useRef(title);
+  titleRef.current = title;
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (isDirtyRef.current) {
@@ -664,7 +692,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           fetch(`/api/documents/${doc.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: currentEditor.getJSON() }),
+            body: JSON.stringify({ title: titleRef.current, content: currentEditor.getJSON() }),
             credentials: "include",
             keepalive: true,
           });
@@ -834,6 +862,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       const tsFont = e.getAttributes("textStyle").fontFamily;
       const tsSize = e.getAttributes("textStyle").fontSize;
       const defaultSize = docMetadata?.bodyFontSize?.toString() || "12";
+      const pState = paginationPluginKey.getState(e.state);
+      const totalPages = (pState?.breaks?.length ?? 0) + 1;
       return {
         currentFontFamily: FONT_FAMILIES.find(ff => ff.value === tsFont)?.label
           || (docMetadata?.bodyFontFamily
@@ -848,13 +878,17 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           : "Normal",
         currentAlignCenter: e.isActive({ textAlign: "center" }),
         currentAlignRight: e.isActive({ textAlign: "right" }),
+        currentAlignJustify: e.isActive({ textAlign: "justify" }),
+        totalPages,
       };
     },
   });
   const currentFontFamily = toolbarState?.currentFontFamily ?? "Default";
   const currentFontSize = toolbarState?.currentFontSize ?? "12";
   const currentHeading = toolbarState?.currentHeading ?? "Normal";
-  const CurrentAlignIcon = toolbarState?.currentAlignCenter ? AlignCenter
+  const totalPages = toolbarState?.totalPages ?? 1;
+  const CurrentAlignIcon = toolbarState?.currentAlignJustify ? AlignJustify
+    : toolbarState?.currentAlignCenter ? AlignCenter
     : toolbarState?.currentAlignRight ? AlignRight
     : AlignLeft;
 
@@ -1288,20 +1322,34 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               <ToolbarSep />
 
               {/* Link */}
-              <ToolbarBtn
-                icon={editor.isActive("link") ? Unlink : LinkIcon}
-                label={editor.isActive("link") ? "Unlink" : "Link"}
-                isActive={editor.isActive("link")}
-                onClick={() => {
-                  if (editor.isActive("link")) {
-                    editor.chain().focus().unsetLink().run();
-                  } else {
-                    const url = window.prompt("Enter URL:");
-                    if (url) editor.chain().focus().setLink({ href: url }).run();
-                  }
-                }}
-                showLabel={showLabels}
-              />
+              <div className="relative">
+                <ToolbarBtn
+                  icon={editor.isActive("link") ? Unlink : LinkIcon}
+                  label={editor.isActive("link") ? "Unlink" : "Link"}
+                  isActive={editor.isActive("link")}
+                  onClick={openLinkPopover}
+                  showLabel={showLabels}
+                />
+                {linkPopoverOpen && (
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2 flex items-center gap-1.5" style={{ width: "18rem" }}>
+                    <input
+                      ref={linkInputRef}
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyLink(); if (e.key === "Escape") setLinkPopoverOpen(false); }}
+                      placeholder="https://example.com"
+                      className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-700 bg-transparent text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                    />
+                    <button
+                      onClick={applyLink}
+                      className="px-2 py-1 text-xs rounded bg-[#a0704b] text-white hover:bg-[#8b5e3c] transition-colors"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
+              </div>
               <ToolbarSep />
 
               {/* Insert elements */}
@@ -1353,7 +1401,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   {showLabels && <span className="text-[9px] leading-none">Table</span>}
                 </button>
                 {activeMenu === "table" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2" style={{ width: "12rem" }}>
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-2">
                     {editor.isActive("table") ? (
                       <div className="flex flex-col gap-0.5">
                         <button onClick={() => { editor.chain().focus().addRowBefore().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
@@ -1390,12 +1438,12 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                         </p>
                         <div
                           className="grid gap-[3px]"
-                          style={{ gridTemplateColumns: "repeat(5, 1fr)" }}
+                          style={{ gridTemplateColumns: "repeat(8, 1fr)" }}
                           onMouseLeave={() => setGridHover(null)}
                         >
-                          {Array.from({ length: 25 }, (_, i) => {
-                            const row = Math.floor(i / 5) + 1;
-                            const col = (i % 5) + 1;
+                          {Array.from({ length: 64 }, (_, i) => {
+                            const row = Math.floor(i / 8) + 1;
+                            const col = (i % 8) + 1;
                             const active = gridHover && row <= gridHover.rows && col <= gridHover.cols;
                             return (
                               <button
@@ -1563,7 +1611,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
             {/* First-page header (React component) */}
             <div className="first-page-header">
-              <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} />
+              <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} totalPages={totalPages} />
             </div>
 
             <EditorContent
@@ -1633,6 +1681,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           </button>
         </div>
         <div>
+          {totalPages > 1 && <><span className="tabular-nums">{totalPages} pages</span> &middot; </>}
           {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
         </div>
       </div>
@@ -1718,8 +1767,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   ["Ctrl+F", "Find & Replace"],
                   ["Ctrl+A", "Select all"],
                 ]],
-                ["Page", [
+                ["Insert", [
                   ["Ctrl+Enter", "Page break"],
+                  ["$...$", "Inline math"],
+                  ["$$...$$", "Block math"],
+                  ["```", "Code block"],
                 ]],
                 ["Zoom", [
                   ["Ctrl+=", "Zoom in"],
@@ -1767,6 +1819,7 @@ function LastPageFooter({
   editor: ReturnType<typeof useEditor>;
 }) {
   const [lastPageNumber, setLastPageNumber] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [spacerHeight, setSpacerHeight] = useState(0);
 
   useEffect(() => {
@@ -1774,7 +1827,9 @@ function LastPageFooter({
     const update = () => {
       const pluginState = paginationPluginKey.getState(editor.state);
       const breakCount = pluginState?.breaks?.length ?? 0;
-      setLastPageNumber(breakCount + 1);
+      const total = breakCount + 1;
+      setLastPageNumber(total);
+      setTotalPages(total);
       setSpacerHeight(pluginState?.lastPageRemainingPx ?? 0);
     };
     update();
@@ -1792,7 +1847,7 @@ function LastPageFooter({
       {/* Spacer pushes footer to bottom of last A4 page */}
       <div className="last-page-footer-spacer" style={{ height: `${spacerHeight}px` }} />
       {section?.enabled && (
-        <PageFooter section={section} docTitle={docTitle} pageNumber={lastPageNumber} />
+        <PageFooter section={section} docTitle={docTitle} pageNumber={lastPageNumber} totalPages={totalPages} />
       )}
     </>
   );
@@ -1872,6 +1927,9 @@ function ToolbarSep() {
 /* Floating bubble menu — appears above text selections */
 function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [bubbleLinkOpen, setBubbleLinkOpen] = useState(false);
+  const [bubbleLinkUrl, setBubbleLinkUrl] = useState("");
+  const bubbleLinkRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!editor) return;
@@ -1915,23 +1973,59 @@ function EditorBubbleMenu({ editor }: { editor: ReturnType<typeof useEditor> }) 
       <BubbleBtn active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline"><UnderlineIcon className="w-3.5 h-3.5" /></BubbleBtn>
       <BubbleBtn active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()} title="Strikethrough"><Strikethrough className="w-3.5 h-3.5" /></BubbleBtn>
       <BubbleSep />
-      <BubbleBtn
-        active={editor.isActive("link")}
-        onClick={() => {
-          if (editor.isActive("link")) { editor.chain().focus().unsetLink().run(); }
-          else { const url = window.prompt("Enter URL:"); if (url) editor.chain().focus().setLink({ href: url }).run(); }
-        }}
-        title={editor.isActive("link") ? "Remove link" : "Add link"}
-      >
-        {editor.isActive("link") ? <Unlink className="w-3.5 h-3.5" /> : <LinkIcon className="w-3.5 h-3.5" />}
-      </BubbleBtn>
+      <div className="relative">
+        <BubbleBtn
+          active={editor.isActive("link")}
+          onClick={() => {
+            if (editor.isActive("link")) { editor.chain().focus().unsetLink().run(); }
+            else { setBubbleLinkUrl(""); setBubbleLinkOpen(true); setTimeout(() => bubbleLinkRef.current?.focus(), 50); }
+          }}
+          title={editor.isActive("link") ? "Remove link" : "Add link"}
+        >
+          {editor.isActive("link") ? <Unlink className="w-3.5 h-3.5" /> : <LinkIcon className="w-3.5 h-3.5" />}
+        </BubbleBtn>
+        {bubbleLinkOpen && (
+          <div
+            onMouseDown={(e) => e.preventDefault()}
+            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-20 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl p-2 flex items-center gap-1.5"
+            style={{ width: "16rem" }}
+          >
+            <input
+              ref={bubbleLinkRef}
+              type="url"
+              value={bubbleLinkUrl}
+              onChange={(e) => setBubbleLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const url = bubbleLinkUrl.trim().startsWith("http") ? bubbleLinkUrl.trim() : `https://${bubbleLinkUrl.trim()}`;
+                  if (url) editor.chain().focus().setLink({ href: url }).run();
+                  setBubbleLinkOpen(false);
+                }
+                if (e.key === "Escape") setBubbleLinkOpen(false);
+              }}
+              placeholder="https://example.com"
+              className="flex-1 min-w-0 px-2 py-1 text-xs rounded border border-white/20 bg-transparent text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-white/30"
+            />
+            <button
+              onClick={() => {
+                const url = bubbleLinkUrl.trim().startsWith("http") ? bubbleLinkUrl.trim() : `https://${bubbleLinkUrl.trim()}`;
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+                setBubbleLinkOpen(false);
+              }}
+              className="px-2 py-1 text-xs rounded bg-white/20 text-white hover:bg-white/30 transition-colors"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
       <BubbleSep />
       {EDITOR_COLORS.map((c) => (
         <button key={c.color} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.chain().focus().setColor(c.color).run()}
           className="w-3.5 h-3.5 rounded-full border border-white/25 hover:scale-110 transition-transform flex-shrink-0" style={{ backgroundColor: c.color }} title={c.label} />
       ))}
       <BubbleSep />
-      {HIGHLIGHT_COLORS.slice(0, 4).map((c) => (
+      {HIGHLIGHT_COLORS.map((c) => (
         <button key={c.color} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => editor.chain().focus().toggleHighlight({ color: c.color }).run()}
           className="w-3.5 h-3.5 rounded-full border border-white/25 hover:scale-110 transition-transform flex-shrink-0" style={{ backgroundColor: c.color }} title={`Highlight: ${c.label}`} />
       ))}

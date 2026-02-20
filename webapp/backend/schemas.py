@@ -113,6 +113,7 @@ class StudentCouponResponse(BaseModel):
     has_coupon: bool
     available: Optional[int] = None
     value: Optional[Decimal] = None
+    last_synced_at: Optional[datetime] = None
 
 
 # ============================================

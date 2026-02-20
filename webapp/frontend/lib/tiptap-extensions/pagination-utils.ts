@@ -58,9 +58,16 @@ export function resolvePageNumber(text: string, pageNumber: number): string {
   return text.replace(/\{page\}/g, String(pageNumber));
 }
 
-/** Resolve all template variables including {page} in one call. */
-export function resolveText(template: string, docTitle: string, pageNumber: number): string {
-  return resolvePageNumber(resolveTemplate(template, docTitle), pageNumber);
+/** Resolve {total} with total page count. */
+export function resolveTotal(text: string, totalPages: number): string {
+  return text.replace(/\{total\}/g, String(totalPages));
+}
+
+/** Resolve all template variables including {page} and {total} in one call. */
+export function resolveText(template: string, docTitle: string, pageNumber: number, totalPages?: number): string {
+  let result = resolvePageNumber(resolveTemplate(template, docTitle), pageNumber);
+  if (totalPages != null) result = resolveTotal(result, totalPages);
+  return result;
 }
 
 // ─── Measurement ────────────────────────────────────────────────────
@@ -239,6 +246,7 @@ export interface DecorationDOMConfig {
   remainingPx: number;
   pageNumber: number;
   nextPageNumber: number;
+  totalPages: number;
   docTitle: string;
   metadata: DocumentMetadata | null;
   /** If true, skip the break-trigger div (the explicit pageBreak node handles it) */
@@ -249,6 +257,7 @@ function createHFContent(
   section: DocumentHeaderFooter | undefined,
   docTitle: string,
   pageNumber: number,
+  totalPages?: number,
 ): HTMLElement {
   const container = document.createElement("div");
   const fontSize = section?.fontSize ?? 9;
@@ -276,9 +285,9 @@ function createHFContent(
       span.appendChild(img);
     }
 
-    // Text content with resolved {page}
+    // Text content with resolved {page} and {total}
     if (texts[i]) {
-      const resolved = resolvePageNumber(resolveTemplate(texts[i], docTitle), pageNumber);
+      const resolved = resolveText(texts[i], docTitle, pageNumber, totalPages);
       const textNode = document.createTextNode(resolved);
       // If image is on the right, text comes first
       if (section.imageUrl && section.imagePosition === pos && pos === "right") {
@@ -333,7 +342,7 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
     const fFont = buildHFontFamily(config.metadata.footer.fontFamily, config.metadata.footer.fontFamilyCjk);
     const fFontCss = fFont ? `font-family:${fFont};` : "";
     footer.style.cssText = `padding-top:4px;border-top:0.5px solid #ddd;font-size:${fSize}px;${fFontCss}line-height:normal;`;
-    const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber);
+    const footerContent = createHFContent(config.metadata.footer, config.docTitle, config.pageNumber, config.totalPages);
     footer.appendChild(footerContent);
   }
   wrapper.appendChild(footer);
@@ -362,7 +371,7 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
     const hFont = buildHFontFamily(config.metadata.header.fontFamily, config.metadata.header.fontFamilyCjk);
     const hFontCss = hFont ? `font-family:${hFont};` : "";
     header.style.cssText = `padding-bottom:4px;border-bottom:0.5px solid #ddd;margin-bottom:9px;font-size:${hSize}px;${hFontCss}line-height:normal;`;
-    const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber);
+    const headerContent = createHFContent(config.metadata.header, config.docTitle, config.nextPageNumber, config.totalPages);
     header.appendChild(headerContent);
   }
   wrapper.appendChild(header);

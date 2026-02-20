@@ -100,7 +100,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
   }, []);
 
   const handleSave = () => {
-    onSave({ margins, header, footer, watermark, bodyFontFamily, bodyFontFamilyCjk, bodyFontSize: bodyFontSize !== 16 ? bodyFontSize : null });
+    onSave({ margins, header, footer, watermark, bodyFontFamily, bodyFontFamilyCjk, bodyFontSize: bodyFontSize !== 12 ? bodyFontSize : null });
     onClose();
   };
 
