@@ -994,23 +994,6 @@ html {
   color: #2563eb;
 }
 
-/* Handwriting Fonts */
-.font-handwriting-cursive {
-  font-family: 'Caveat', cursive;
-}
-
-.font-handwriting-print {
-  font-family: 'Indie Flower', cursive;
-}
-
-.font-handwriting-marker {
-  font-family: 'Permanent Marker', cursive;
-}
-
-.font-handwriting-pencil {
-  font-family: 'Shadows Into Light', cursive;
-}
-
 /* ===== ENGINEERING & TECHNICAL PAPER PATTERNS ===== */
 
 /* Quad paper - 4 squares per inch (lighter blue/green engineering style) */
@@ -2770,14 +2753,44 @@ body.student-print .print-answer-key {
   /* Inline styles handle the flex layout */
 }
 
-/* Gap between pages in editor view */
+/* Gap between pages in editor view — desk showing through between pages */
 .page-gap {
-  border-top: 1px solid #c4b5a3;
-  border-bottom: 1px solid #c4b5a3;
+  position: relative;
+  overflow: hidden;
+  margin-left: calc(-1 * var(--doc-ml, 25.4mm) - 20px);
+  margin-right: calc(-1 * var(--doc-mr, 25.4mm) - 20px);
+  background: #f0e8dc;
+}
+.page-gap::before,
+.page-gap::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  pointer-events: none;
+  background: #e5e7eb;
+}
+.page-gap::before {
+  top: 0;
+  box-shadow: 0 10px 15px 0 rgba(0, 0, 0, 0.3), 0 4px 6px 0 rgba(0, 0, 0, 0.2);
+}
+.page-gap::after {
+  bottom: 0;
+  box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.03);
+}
+.dark-paper .page-gap::before,
+.dark-paper .page-gap::after {
+  background: #4a3a2a;
 }
 .dark .page-gap {
-  background: #1a1510 !important;
-  border-color: #6b5a4a;
+  background: #0d0d0d;
+}
+.dark .page-gap::before {
+  box-shadow: 0 10px 15px 0 rgba(0, 0, 0, 0.5), 0 4px 6px 0 rgba(0, 0, 0, 0.35);
+}
+.dark .page-gap::after {
+  box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.12);
 }
 
 /* Page break trigger (invisible, Chrome breaks here) */
@@ -2844,12 +2857,64 @@ body.student-print .print-answer-key {
 
 /* Page break decorations */
 .dark .paper-mode .page-break-decoration { background: white; }
-.dark .paper-mode .page-gap { background: #d1c8bc !important; border-color: #c4b5a3; }
 
 /* Answer section */
 .dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
 .dark .paper-mode .answer-toggle:hover { background: #f5ede3; }
 .dark .paper-mode .answer-float-content { background: white; border-color: #a0704b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+
+/* ─── Dark Paper: force dark colors on document page in light mode ─── */
+
+.dark-paper {
+  background-color: #2a2420 !important;
+  border-color: #4a3a2a !important;
+  color: #e5e5e5;
+}
+
+.dark-paper .prose {
+  --tw-prose-body: #d1d5db;
+  --tw-prose-headings: #f3f4f6;
+  --tw-prose-lead: #9ca3af;
+  --tw-prose-links: #f3f4f6;
+  --tw-prose-bold: #f3f4f6;
+  --tw-prose-counters: #9ca3af;
+  --tw-prose-bullets: #4b5563;
+  --tw-prose-hr: #374151;
+  --tw-prose-quotes: #f3f4f6;
+  --tw-prose-quote-borders: #374151;
+  --tw-prose-captions: #9ca3af;
+  --tw-prose-code: #f3f4f6;
+  --tw-prose-pre-code: #e5e7eb;
+  --tw-prose-pre-bg: #1f2937;
+  --tw-prose-th-borders: #4b5563;
+  --tw-prose-td-borders: #374151;
+}
+
+/* Override light .tiptap rules */
+.dark-paper .tiptap blockquote { border-color: #8b6f47; color: #9ca3af; }
+.dark-paper .tiptap code { background-color: #374151; }
+.dark-paper .tiptap pre { background: #11111b; }
+.dark-paper .tiptap td,
+.dark-paper .tiptap th { border-color: #6b5a4a; }
+.dark-paper .tiptap th { background-color: #2d2618; }
+.dark-paper .tiptap hr { border-color: #6b5a4a; }
+.dark-paper .tiptap a.doc-link { color: #cd853f; }
+.dark-paper .tiptap p.is-editor-empty:first-child::before { color: #6b7280; }
+
+/* Page break nodes */
+.dark-paper .page-break-node { border-color: #6b5a4a; }
+.dark-paper .page-break-node::after { color: #6b5a4a; background: #2a2420; }
+
+/* Page break decorations */
+.dark-paper .page-break-decoration { background: #2a2420; }
+
+/* Answer section */
+.dark-paper .answer-toggle { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
+.dark-paper .answer-toggle:hover { background: #3d3020; }
+.dark-paper .answer-float-content { background: #1a1a1a; border-color: #cd853f; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
+
+/* Watermark */
+.dark-paper .document-watermark-image { mix-blend-mode: multiply; }
 
 /* ─── Print styles: paginated document builder ─────────────────────── */
 /* @page margins set dynamically via <style> in DocumentEditor.tsx.
@@ -2971,6 +3036,11 @@ body.student-print .print-answer-key {
   }
 
   .document-page table {
+    page-break-inside: avoid;
+  }
+
+  .document-page img {
+    max-width: 100%;
     page-break-inside: avoid;
   }
 

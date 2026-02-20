@@ -58,6 +58,11 @@ export function resolvePageNumber(text: string, pageNumber: number): string {
   return text.replace(/\{page\}/g, String(pageNumber));
 }
 
+/** Resolve all template variables including {page} in one call. */
+export function resolveText(template: string, docTitle: string, pageNumber: number): string {
+  return resolvePageNumber(resolveTemplate(template, docTitle), pageNumber);
+}
+
 // ─── Measurement ────────────────────────────────────────────────────
 
 export interface BlockMeasurement {
@@ -339,10 +344,12 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
     wrapper.appendChild(trigger);
   }
 
-  // 4. Gray gap between pages (hidden in print)
+  // 4. Gap between pages (hidden in print — margins provide visual page margins)
   const gap = document.createElement("div");
   gap.className = "page-gap";
-  gap.style.cssText = `height:${PAGE_GAP_PX}px;background:#d1c8bc;`;
+  const bottomMarginPx = convertMmToPx(config.metadata?.margins?.bottom ?? 25.4);
+  const topMarginPx = convertMmToPx(config.metadata?.margins?.top ?? 25.4);
+  gap.style.cssText = `height:${PAGE_GAP_PX}px;margin-top:${bottomMarginPx}px;margin-bottom:${topMarginPx}px;`;
   wrapper.appendChild(gap);
 
   // 5. Header of next page — only styled when header section is enabled

@@ -1,21 +1,10 @@
-import { Fragment } from "react";
 import type { DocumentHeaderFooter } from "@/types";
-import { buildHFontFamily } from "@/lib/tiptap-extensions/pagination-utils";
+import { buildHFontFamily, resolveText } from "@/lib/tiptap-extensions/pagination-utils";
 
 interface PageHeaderProps {
   section?: DocumentHeaderFooter;
   docTitle: string;
   pageNumber: number;
-}
-
-function resolveText(template: string, docTitle: string, pageNumber: number): string {
-  if (!template) return "";
-  return template
-    .replace(/\{title\}/g, docTitle)
-    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "short", day: "numeric",
-    }))
-    .replace(/\{page\}/g, String(pageNumber));
 }
 
 export function PageHeader({ section, docTitle, pageNumber }: PageHeaderProps) {
