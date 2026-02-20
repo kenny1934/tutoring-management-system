@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -20,7 +21,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, buildHFontFamily } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, LineSpacing, buildHFontFamily } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -76,10 +77,15 @@ import {
   Lock,
   IndentIncrease,
   IndentDecrease,
+  Combine,
+  SplitSquareHorizontal,
+  Paintbrush,
+  WrapText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
@@ -104,6 +110,24 @@ const HIGHLIGHT_COLORS = [
   { label: "Pink", color: "#fbcfe8" },
   { label: "Orange", color: "#fed7aa" },
   { label: "Purple", color: "#e9d5ff" },
+];
+
+const CELL_BG_COLORS = [
+  { label: "Light Yellow", color: "#fef9c3" },
+  { label: "Light Green", color: "#dcfce7" },
+  { label: "Light Blue", color: "#dbeafe" },
+  { label: "Light Pink", color: "#fce7f3" },
+  { label: "Light Orange", color: "#ffedd5" },
+  { label: "Light Gray", color: "#f3f4f6" },
+];
+
+const LINE_SPACINGS = [
+  { label: "1.0", value: "1" },
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: null },
+  { label: "2.0", value: "2" },
+  { label: "2.5", value: "2.5" },
+  { label: "3.0", value: "3" },
 ];
 
 const FONT_SIZES = [
@@ -150,6 +174,35 @@ const HEADING_OPTIONS = [
   { label: "Heading 3", level: 3 as const, className: "text-sm font-semibold" },
 ];
 
+// TableCell and TableHeader with backgroundColor attribute for cell coloring
+const CustomTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+      },
+    };
+  },
+});
+
+const CustomTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+      },
+    };
+  },
+});
+
 // Custom text style attributes via TextStyle global attributes
 const CustomTextStyles = Extension.create({
   name: "customTextStyles",
@@ -190,6 +243,7 @@ interface DocumentEditorProps {
 export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -423,23 +477,35 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Image upload handler (used by toolbar, paste, and drop)
   const handleImageUpload = useCallback(async (files: File[]) => {
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
     const ed = editorInstanceRef.current;
     if (!ed) return;
     setIsImageUploading(true);
+    let uploaded = false;
     try {
       for (const file of files) {
-        if (!file.type.startsWith("image/")) continue;
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          showToast(`Unsupported image type: ${file.name}. Use JPG, PNG, WebP, or GIF.`, "error");
+          continue;
+        }
+        if (file.size > MAX_SIZE) {
+          showToast(`Image too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 10MB.`, "error");
+          continue;
+        }
         const result = await documentsAPI.uploadImage(file);
         ed.chain().focus().setImage({ src: result.url, alt: result.filename }).run();
+        uploaded = true;
       }
-      setSaveState("unsaved");
+      if (uploaded) setSaveState("unsaved");
     } catch (error) {
-      console.error("Image upload failed:", error);
+      showToast("Image upload failed", "error");
     } finally {
       setIsImageUploading(false);
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
-  }, []);
+  }, [showToast]);
 
   // Math click handler
   const handleMathClick = useCallback((node: PmNode, pos: number, type: "inline" | "block") => {
@@ -490,16 +556,17 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       PageBreak,
       AnswerSection,
-      Table.configure({ resizable: false }),
+      Table.configure({ resizable: true, cellMinWidth: 40 }),
       TableRow,
-      TableCell,
-      TableHeader,
+      CustomTableCell,
+      CustomTableHeader,
       PaginationExtension.configure({
         metadata: doc.page_layout ?? null,
         docTitle: doc.title,
       }),
       SearchAndReplace,
       Indent,
+      LineSpacing,
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
@@ -708,7 +775,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        if (isDirtyRef.current) saveNow();
+        saveNow();
       }
     };
     window.addEventListener("keydown", handler);
@@ -909,7 +976,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
-      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 pt-2 pb-1">
         <button
           onClick={() => router.push("/documents")}
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
@@ -999,6 +1067,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           )}
         </div>
 
+        </div>
+        {/* Tag strip below title */}
+        <div className="px-3 sm:px-4 pb-1.5">
+          <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
+        </div>
       </div>
 
       {/* Toolbar — Tabbed layout */}
@@ -1304,6 +1377,46 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               {/* Indent / Outdent */}
               <ToolbarBtn icon={IndentIncrease} label="Indent" onClick={() => editor.chain().focus().indent().run()} showLabel={showLabels} />
               <ToolbarBtn icon={IndentDecrease} label="Outdent" onClick={() => editor.chain().focus().outdent().run()} showLabel={showLabels} />
+              <ToolbarSep />
+
+              {/* Line Spacing dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleMenu("lineSpacing")}
+                  className={cn(
+                    "rounded transition-colors",
+                    showLabels ? "flex flex-col items-center gap-0.5 px-2 py-1" : "flex items-center gap-0.5 p-1.5",
+                    activeMenu === "lineSpacing" ? "bg-[#a0704b] text-white" : "text-gray-600 dark:text-gray-400 hover:text-[#a0704b] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                  )}
+                  title="Line Spacing"
+                >
+                  <div className="flex items-center gap-0.5">
+                    <WrapText className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3" />
+                  </div>
+                  {showLabels && <span className="text-[9px] leading-none">Spacing</span>}
+                </button>
+                {activeMenu === "lineSpacing" && (
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[7rem]">
+                    {LINE_SPACINGS.map((ls) => {
+                      const currentSpacing = editor.getAttributes("paragraph").lineSpacing || editor.getAttributes("heading").lineSpacing || null;
+                      const isActive = ls.value === currentSpacing;
+                      return (
+                        <button
+                          key={ls.label}
+                          onClick={() => { editor.chain().focus().setLineSpacing(ls.value).run(); setActiveMenu(null); }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                            isActive && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                          )}
+                        >
+                          {ls.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -1426,6 +1539,42 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                         <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
+                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <button
+                          onClick={() => { editor.chain().focus().mergeCells().run(); setActiveMenu(null); }}
+                          disabled={!editor.can().mergeCells()}
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <Combine className="w-3 h-3" /> Merge cells
+                        </button>
+                        <button
+                          onClick={() => { editor.chain().focus().splitCell().run(); setActiveMenu(null); }}
+                          disabled={!editor.can().splitCell()}
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <SplitSquareHorizontal className="w-3 h-3" /> Split cell
+                        </button>
+                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="flex items-center gap-1.5 px-2 py-1">
+                          <Paintbrush className="w-3 h-3 text-gray-500 dark:text-gray-400 shrink-0" />
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">Cell color</span>
+                          {CELL_BG_COLORS.map((c) => (
+                            <button
+                              key={c.color}
+                              onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", c.color).run(); setActiveMenu(null); }}
+                              className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform"
+                              style={{ backgroundColor: c.color }}
+                              title={c.label}
+                            />
+                          ))}
+                          <button
+                            onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", null).run(); setActiveMenu(null); }}
+                            className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform flex items-center justify-center text-[8px] text-gray-400"
+                            title="Remove color"
+                          >
+                            &times;
+                          </button>
+                        </div>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
                         <button onClick={() => { editor.chain().focus().deleteTable().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
                           <Trash2 className="w-3 h-3" /> Delete table
@@ -1680,6 +1829,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             {paperMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
         </div>
+
         <div>
           {totalPages > 1 && <><span className="tabular-nums">{totalPages} pages</span> &middot; </>}
           {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
@@ -2075,5 +2225,195 @@ function ToolbarBtn({ icon: Icon, label, isActive, onClick, showLabel }: { icon:
       <Icon className="w-4 h-4" />
       {showLabel && <span className="text-[9px] leading-none">{label}</span>}
     </button>
+  );
+}
+
+/* Inline tag editor in the status bar */
+const TAG_COLORS_EDITOR = [
+  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+];
+
+function getTagColorEditor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS_EDITOR[Math.abs(hash) % TAG_COLORS_EDITOR.length];
+}
+
+function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate: () => void; isReadOnly: boolean }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tags, setTags] = useState<string[]>(doc.tags ?? []);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useToast();
+
+  // Fetch all existing tags for suggestions
+  const { data: allTags = [], mutate: mutateTags } = useSWR(
+    dropdownOpen ? "editor-tags" : null,
+    () => documentsAPI.listTags(),
+    { revalidateOnFocus: false }
+  );
+
+  // Sync from prop
+  useEffect(() => { setTags(doc.tags ?? []); }, [doc.tags]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  const saveTags = useCallback(async (newTags: string[]) => {
+    try {
+      await documentsAPI.update(doc.id, { tags: newTags });
+      setTags(newTags);
+      onUpdate();
+      mutateTags();
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+  }, [doc.id, onUpdate, showToast, mutateTags]);
+
+  const toggleTag = useCallback((tag: string) => {
+    const newTags = tags.includes(tag)
+      ? tags.filter((t) => t !== tag)
+      : [...tags, tag];
+    setTags(newTags);
+    saveTags(newTags);
+  }, [tags, saveTags]);
+
+  const createTag = useCallback((tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      const newTags = [...tags, trimmed];
+      setTags(newTags);
+      saveTags(newTags);
+    }
+    setSearch("");
+    inputRef.current?.focus();
+  }, [tags, saveTags]);
+
+  const removeTag = useCallback((tag: string) => {
+    const newTags = tags.filter((t) => t !== tag);
+    setTags(newTags);
+    saveTags(newTags);
+  }, [tags, saveTags]);
+
+  const filtered = allTags.filter((t) => t.toLowerCase().includes(search.toLowerCase()));
+  const showCreate = search.trim() && !allTags.some((t) => t.toLowerCase() === search.trim().toLowerCase());
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Tag pills row — wraps, no overflow clipping */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Tags className="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-gray-500" />
+        {tags.map((tag) => (
+          <span key={tag} className={cn("inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", getTagColorEditor(tag))}>
+            {tag}
+            {!isReadOnly && (
+              <button onClick={() => removeTag(tag)} className="hover:opacity-70">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </span>
+        ))}
+        {!isReadOnly && (
+          <button
+            onClick={() => { setDropdownOpen(!dropdownOpen); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+            title="Add tag"
+          >
+            <Plus className="w-3 h-3" />
+            {tags.length === 0 && <span>Add tags</span>}
+          </button>
+        )}
+        {isReadOnly && tags.length === 0 && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 italic">No tags</span>
+        )}
+      </div>
+
+      {/* Dropdown — anchored to wrapper, renders below the tag row */}
+      {dropdownOpen && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg" style={{ width: "16rem" }}>
+          <div className="p-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search or create tag..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && showCreate) {
+                    e.preventDefault();
+                    createTag(search.trim());
+                  }
+                  if (e.key === "Escape") {
+                    setDropdownOpen(false);
+                    setSearch("");
+                  }
+                }}
+                className="w-full pl-6 pr-2 py-1.5 rounded border border-border bg-white dark:bg-[#1a1a1a] text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              />
+            </div>
+          </div>
+          <div className="max-h-40 overflow-y-auto px-1 pb-1">
+            {filtered.map((tag) => {
+              const checked = tags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                >
+                  <div className={cn(
+                    "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
+                    checked
+                      ? "bg-[#a0704b] border-[#a0704b] text-white"
+                      : "border-gray-300 dark:border-gray-600"
+                  )}>
+                    {checked && (
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getTagColorEditor(tag))}>
+                    {tag}
+                  </span>
+                </button>
+              );
+            })}
+            {showCreate && (
+              <button
+                onClick={() => createTag(search.trim())}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Create &ldquo;{search.trim()}&rdquo;
+              </button>
+            )}
+            {filtered.length === 0 && !showCreate && (
+              <p className="px-2 py-2 text-[10px] text-gray-400 text-center">No tags yet</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
