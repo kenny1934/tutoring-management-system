@@ -76,6 +76,9 @@ import {
   Lock,
   IndentIncrease,
   IndentDecrease,
+  Combine,
+  SplitSquareHorizontal,
+  Paintbrush,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
@@ -104,6 +107,15 @@ const HIGHLIGHT_COLORS = [
   { label: "Pink", color: "#fbcfe8" },
   { label: "Orange", color: "#fed7aa" },
   { label: "Purple", color: "#e9d5ff" },
+];
+
+const CELL_BG_COLORS = [
+  { label: "Light Yellow", color: "#fef9c3" },
+  { label: "Light Green", color: "#dcfce7" },
+  { label: "Light Blue", color: "#dbeafe" },
+  { label: "Light Pink", color: "#fce7f3" },
+  { label: "Light Orange", color: "#ffedd5" },
+  { label: "Light Gray", color: "#f3f4f6" },
 ];
 
 const FONT_SIZES = [
@@ -149,6 +161,35 @@ const HEADING_OPTIONS = [
   { label: "Heading 2", level: 2 as const, className: "text-base font-semibold" },
   { label: "Heading 3", level: 3 as const, className: "text-sm font-semibold" },
 ];
+
+// TableCell and TableHeader with backgroundColor attribute for cell coloring
+const CustomTableCell = TableCell.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+      },
+    };
+  },
+});
+
+const CustomTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      backgroundColor: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
+        renderHTML: (attrs: Record<string, unknown>) =>
+          attrs.backgroundColor ? { style: `background-color: ${attrs.backgroundColor}` } : {},
+      },
+    };
+  },
+});
 
 // Custom text style attributes via TextStyle global attributes
 const CustomTextStyles = Extension.create({
@@ -490,10 +531,10 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       PageBreak,
       AnswerSection,
-      Table.configure({ resizable: false }),
+      Table.configure({ resizable: true, cellMinWidth: 40 }),
       TableRow,
-      TableCell,
-      TableHeader,
+      CustomTableCell,
+      CustomTableHeader,
       PaginationExtension.configure({
         metadata: doc.page_layout ?? null,
         docTitle: doc.title,
@@ -1426,6 +1467,42 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                         <button onClick={() => { editor.chain().focus().toggleHeaderRow().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300">
                           <ToggleLeft className="w-3 h-3" /> Toggle header row
                         </button>
+                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <button
+                          onClick={() => { editor.chain().focus().mergeCells().run(); setActiveMenu(null); }}
+                          disabled={!editor.can().mergeCells()}
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <Combine className="w-3 h-3" /> Merge cells
+                        </button>
+                        <button
+                          onClick={() => { editor.chain().focus().splitCell().run(); setActiveMenu(null); }}
+                          disabled={!editor.can().splitCell()}
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300 disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                          <SplitSquareHorizontal className="w-3 h-3" /> Split cell
+                        </button>
+                        <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
+                        <div className="flex items-center gap-1.5 px-2 py-1">
+                          <Paintbrush className="w-3 h-3 text-gray-500 dark:text-gray-400 shrink-0" />
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">Cell color</span>
+                          {CELL_BG_COLORS.map((c) => (
+                            <button
+                              key={c.color}
+                              onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", c.color).run(); setActiveMenu(null); }}
+                              className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform"
+                              style={{ backgroundColor: c.color }}
+                              title={c.label}
+                            />
+                          ))}
+                          <button
+                            onClick={() => { editor.chain().focus().setCellAttribute("backgroundColor", null).run(); setActiveMenu(null); }}
+                            className="w-4 h-4 rounded-full border border-[#e8d4b8] dark:border-[#6b5a4a] hover:scale-125 transition-transform flex items-center justify-center text-[8px] text-gray-400"
+                            title="Remove color"
+                          >
+                            &times;
+                          </button>
+                        </div>
                         <div className="h-px bg-[#e8d4b8] dark:bg-[#6b5a4a] my-1" />
                         <button onClick={() => { editor.chain().focus().deleteTable().run(); setActiveMenu(null); }} className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600">
                           <Trash2 className="w-3 h-3" /> Delete table
