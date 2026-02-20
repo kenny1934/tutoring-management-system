@@ -277,7 +277,8 @@ async def get_student_coupon(
         return StudentCouponResponse(
             has_coupon=True,
             available=coupon.available_coupons,
-            value=coupon.coupon_value
+            value=coupon.coupon_value,
+            last_synced_at=coupon.last_synced_at
         )
     return StudentCouponResponse(has_coupon=False)
 
