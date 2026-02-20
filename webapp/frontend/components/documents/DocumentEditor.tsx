@@ -387,20 +387,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     if (prev) setZoomLevel(prev);
   }, [effectiveZoom]);
 
-  // Auto-calculate fit-to-width scale
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0].contentRect.width;
-      const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
-      const padding = 32; // px-4 = 16px each side
-      setFitScale((width - padding) / pageWidthPx);
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
   // Keyboard shortcuts: Ctrl+=/- for zoom, Ctrl+0 for fit, Ctrl+F for find, Ctrl+/ for shortcuts
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
@@ -546,6 +532,20 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   useEffect(() => {
     if (editor) editor.setEditable(!isReadOnly);
   }, [editor, isReadOnly]);
+
+  // Auto-calculate fit-to-width scale
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0].contentRect.width;
+      const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
+      const padding = 32; // px-4 = 16px each side
+      setFitScale((width - padding) / pageWidthPx);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [editor]);
 
   // Update pagination plugin when metadata or title changes
   // Debounce title to avoid expensive DOM measurement on every keystroke
