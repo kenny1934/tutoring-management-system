@@ -156,7 +156,15 @@ export const PaginationExtension = Extension.create<PaginationOptions>({
             const breaksChanged = result.breaks.length !== oldBreaks.length
               || result.breaks.some((b, i) => b.pos !== oldBreaks[i].pos);
 
-            if (!breaksChanged) {
+            // DecorationSet.map() can silently drop widget decorations when content
+            // near a widget position is deleted (WidgetType.map returns null).
+            // Verify the mapped decorationSet still has the right number of decorations
+            // before reusing it — otherwise fall through to full recreation.
+            const existingDecorations = pluginState.decorationSet.find(0, view.state.doc.content.size);
+            const decorationsIntact = existingDecorations.length === result.breaks.length
+              && existingDecorations.every((d, i) => d.from === result.breaks[i].pos);
+
+            if (!breaksChanged && decorationsIntact) {
               // Breaks unchanged — dispatch spacer update (reuse existing decorations).
               // This keeps lastPageRemainingPx current for the LastPageFooter spacer,
               // and clears needsRecalc to stop continuous re-scheduling.

@@ -233,9 +233,10 @@ export function calculateBreakPositions(
     }
   }
 
+  const lastPageRemainingPx = Math.max(0, contentAreaPx - accumulated - lastBlockMarginBottom);
   return {
     breaks,
-    lastPageRemainingPx: Math.max(0, contentAreaPx - accumulated - lastBlockMarginBottom),
+    lastPageRemainingPx,
     contentAreaPx,
   };
 }
