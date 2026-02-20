@@ -16,6 +16,7 @@
 * **Document management** — create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view
 * **Document templates** — create documents from templates (e.g. MathConcept) with pre-configured margins, footer, watermark, and body font
 * **Body font settings** — new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document
+* **Block indent/outdent** — Tab/Shift+Tab to indent or outdent paragraphs and headings (up to 8 levels); toolbar buttons in Format tab
 
 ### Improvements
 
