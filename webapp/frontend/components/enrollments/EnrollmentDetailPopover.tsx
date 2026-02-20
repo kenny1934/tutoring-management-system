@@ -197,6 +197,7 @@ export const EnrollmentDetailPopover = memo(function EnrollmentDetailPopover({
   );
   const showCancelButton = (enrollment.payment_status === 'Pending Payment'
     || enrollment.payment_status === 'Overdue')
+    && !markedAsPaid
     && !hasAttendedSessions
     && !isTutor;
 

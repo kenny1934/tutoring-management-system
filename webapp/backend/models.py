@@ -1014,7 +1014,7 @@ class Document(Base):
     page_layout = Column(JSON, comment="Page layout settings (margins, header/footer, watermark)")
     created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime, server_default=func.now())
     is_archived = Column(Boolean, default=False)
     locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     lock_expires_at = Column(DateTime, nullable=True)

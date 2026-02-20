@@ -122,7 +122,7 @@ export default function StudentDetailPage() {
   const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentEnrollments(studentId);
 
   // Fetch student coupon info
-  const { data: couponInfo } = useSWR<StudentCouponResponse>(
+  const { data: couponInfo, isLoading: couponLoading } = useSWR<StudentCouponResponse>(
     studentId ? ['student-coupon', studentId] : null,
     () => studentsAPI.getCoupon(studentId!)
   );
@@ -541,6 +541,11 @@ export default function StudentDetailPage() {
                   }}
                   selectedEnrollmentId={popoverEnrollment?.id}
                   couponInfo={couponInfo}
+                  couponLoading={couponLoading}
+                  onEnrollmentStatusChange={() => {
+                    mutate(['enrollments', studentId]);
+                    mutate(['student-coupon', studentId]);
+                  }}
                   // Edit props
                   isEditingPersonal={isEditingPersonal}
                   isEditingAcademic={isEditingAcademic}
@@ -652,6 +657,10 @@ export default function StudentDetailPage() {
           isOpen={!!popoverEnrollment}
           onClose={() => setPopoverEnrollment(null)}
           clickPosition={enrollmentClickPosition}
+          onStatusChange={() => {
+            mutate(['enrollments', studentId]);
+            mutate(['student-coupon', studentId]);
+          }}
         />
       )}
 
@@ -734,6 +743,8 @@ function ProfileTab({
   onEnrollmentClick,
   selectedEnrollmentId,
   couponInfo,
+  couponLoading,
+  onEnrollmentStatusChange,
   // Edit props
   isEditingPersonal,
   isEditingAcademic,
@@ -758,6 +769,8 @@ function ProfileTab({
   onEnrollmentClick: (enrollment: Enrollment, e: React.MouseEvent) => void;
   selectedEnrollmentId?: number;
   couponInfo?: StudentCouponResponse;
+  couponLoading?: boolean;
+  onEnrollmentStatusChange?: () => void;
   // Edit props
   isEditingPersonal: boolean;
   isEditingAcademic: boolean;
@@ -957,8 +970,22 @@ function ProfileTab({
         </div>
       </div>
 
+      {/* Discounts & Coupons Card - loading skeleton */}
+      {couponLoading && (
+        <div className={cn(
+          "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2",
+          !isMobile && "paper-texture"
+        )}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-4 w-4 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+            <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          </div>
+          <div className="h-10 rounded-lg bg-gray-100 dark:bg-gray-800/50 animate-pulse" />
+        </div>
+      )}
+
       {/* Discounts & Coupons Card - show for admins or if has coupons/staff referral */}
-      {(couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
+      {!couponLoading && (couponInfo?.has_coupon || student.is_staff_referral || isAdmin) && (
         <div className={cn(
           "bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg p-4 md:col-span-2 transition-all",
           !isMobile && "paper-texture",
@@ -1958,6 +1985,7 @@ function SessionsTab({
             setEnrollmentClickPosition(null);
           }}
           clickPosition={enrollmentClickPosition}
+          onStatusChange={onEnrollmentStatusChange}
         />
       )}
     </div>
