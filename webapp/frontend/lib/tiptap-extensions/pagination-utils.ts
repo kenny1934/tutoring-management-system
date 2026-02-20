@@ -310,6 +310,8 @@ function createHFContent(
  *     <div.page-break-trigger style="break-after:page;height:0">
  *     <div.page-gap print:hidden> (gray gap between pages in editor)
  *     <div.page-header-content>  (header of starting page)
+ *     <div style="height:0;overflow:visible"> (watermark wrapper)
+ *       <img|span>                             (watermark, absolutely positioned)
  *   </div>
  */
 export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement {
@@ -365,9 +367,35 @@ export function createPageBreakElement(config: DecorationDOMConfig): HTMLElement
   }
   wrapper.appendChild(header);
 
-  // Watermark: NOT rendered in decorations. First-page watermark is React JSX,
-  // and position:fixed CSS repeats it on every printed page. Decorations can't
-  // accurately center a watermark per-page since the wrapper height != page height.
+  // 6. Watermark for next page — centered approximately at page midpoint
+  if (config.metadata?.watermark?.enabled) {
+    const wm = config.metadata.watermark;
+    const topMm = config.metadata?.margins?.top ?? 25.4;
+    const centerOffsetMm = A4_HEIGHT_MM / 2 - topMm;
+
+    const wmWrapper = document.createElement("div");
+    wmWrapper.className = "page-watermark-overlay";
+    wmWrapper.style.cssText = "position:relative;height:0;overflow:visible;pointer-events:none;";
+
+    if (wm.type === "text" && wm.text) {
+      const span = document.createElement("span");
+      span.textContent = wm.text;
+      span.style.cssText = `position:absolute;top:${centerOffsetMm}mm;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:80px;font-weight:bold;color:#000;white-space:nowrap;user-select:none;opacity:${wm.opacity};pointer-events:none;`;
+      wmWrapper.appendChild(span);
+    } else if (wm.type === "image" && wm.imageUrl) {
+      const img = document.createElement("img");
+      img.src = wm.imageUrl;
+      img.alt = "";
+      const size = wm.imageSize ?? 60;
+      const maxW = A4_WIDTH_MM * size / 100;
+      const maxH = A4_HEIGHT_MM * size / 100;
+      img.className = "decoration-watermark-img";
+      img.style.cssText = `position:absolute;top:${centerOffsetMm}mm;left:50%;transform:translate(-50%,-50%);max-width:${maxW}mm;max-height:${maxH}mm;user-select:none;opacity:${wm.opacity};pointer-events:none;`;
+      wmWrapper.appendChild(img);
+    }
+
+    wrapper.appendChild(wmWrapper);
+  }
 
   return wrapper;
 }
