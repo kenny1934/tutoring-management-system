@@ -268,13 +268,14 @@ export default function StudentDetailPage() {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (data?: Partial<Student>) => {
     if (!student) return;
     setIsSaving(true);
     setSaveError(null);
 
     try {
-      const updatedStudent = await studentsAPI.update(student.id, editForm);
+      const dataToSave = data ?? editForm;
+      const updatedStudent = await studentsAPI.update(student.id, dataToSave);
       // Optimistic update - set new data immediately, skip revalidation
       mutate(['student', student.id], { ...student, ...updatedStudent }, false);
       setIsEditingPersonal(false);
@@ -764,7 +765,7 @@ function ProfileTab({
   onEditPersonal: () => void;
   onEditAcademic: () => void;
   onCancelEdit: () => void;
-  onSave: () => void;
+  onSave: (data?: Partial<Student>) => void;
   onFormChange: (field: string, value: string | boolean | null) => void;
   isSaving: boolean;
   saveError: string | null;
@@ -800,10 +801,10 @@ function ProfileTab({
   };
 
   const handleSaveStaffReferral = () => {
-    // Update the parent's editForm with staff referral fields
-    onFormChange("is_staff_referral", staffReferralForm.is_staff_referral);
-    onFormChange("staff_referral_notes", staffReferralForm.staff_referral_notes);
-    onSave();
+    onSave({
+      is_staff_referral: staffReferralForm.is_staff_referral,
+      staff_referral_notes: staffReferralForm.staff_referral_notes,
+    });
     setIsEditingStaffReferral(false);
   };
 
