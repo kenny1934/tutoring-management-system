@@ -2699,7 +2699,8 @@ body.student-print .print-answer-key {
   color: #60a5fa;
 }
 
-.dark .document-watermark-image {
+.dark .document-watermark-image,
+.dark .decoration-watermark-img {
   mix-blend-mode: multiply;
 }
 
@@ -2735,7 +2736,7 @@ body.student-print .print-answer-key {
   position: relative;
   user-select: none;
   clear: both; /* contain any floated content above */
-  z-index: 1; /* above watermark (z-index: 0) */
+  z-index: auto;
   background: white;
 }
 .dark .page-break-decoration {
@@ -2914,7 +2915,8 @@ body.student-print .print-answer-key {
 .dark-paper .answer-float-content { background: #1a1a1a; border-color: #cd853f; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
 
 /* Watermark */
-.dark-paper .document-watermark-image { mix-blend-mode: multiply; }
+.dark-paper .document-watermark-image,
+.dark-paper .decoration-watermark-img { mix-blend-mode: multiply; }
 
 /* ─── Print styles: paginated document builder ─────────────────────── */
 /* @page margins set dynamically via <style> in DocumentEditor.tsx.
@@ -3067,12 +3069,17 @@ body.student-print .print-answer-key {
     z-index: auto !important;
   }
 
-  /* 7. Watermark repeats via position:fixed */
+  /* 7. Watermark repeats via position:fixed (JSX first-page watermark only) */
   .document-watermark,
   .document-watermark-image {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
+  }
+
+  /* Hide decoration watermarks in print — JSX watermark + position:fixed handles all pages */
+  .page-watermark-overlay {
+    display: none !important;
   }
 
   /* 8. Fallback @page — overridden by dynamic <style> in DocumentEditor */

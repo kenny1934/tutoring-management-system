@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
@@ -20,7 +20,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, buildHFontFamily } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -823,31 +823,36 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showPrintMenu]);
 
-  // Helper: get current font family label
-  const currentFontFamily = editor
-    ? FONT_FAMILIES.find(ff => ff.value === editor.getAttributes("textStyle").fontFamily)?.label || "Default"
-    : "Default";
-
-  // Helper: get current font size display
-  const currentFontSize = editor
-    ? (editor.getAttributes("textStyle").fontSize
-        ? parseInt(editor.getAttributes("textStyle").fontSize, 10).toString()
-        : "16")
-    : "16";
-
-  // Helper: get current heading label
-  const currentHeading = editor
-    ? (editor.isActive("heading", { level: 1 }) ? "Heading 1"
-      : editor.isActive("heading", { level: 2 }) ? "Heading 2"
-      : editor.isActive("heading", { level: 3 }) ? "Heading 3"
-      : "Normal")
-    : "Normal";
-
-  // Helper: get current alignment icon
-  const CurrentAlignIcon = editor
-    ? (editor.isActive({ textAlign: "center" }) ? AlignCenter
-      : editor.isActive({ textAlign: "right" }) ? AlignRight
-      : AlignLeft)
+  // Reactive toolbar state — updates on every selection & content change
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: e }) => {
+      if (!e) return null;
+      const tsFont = e.getAttributes("textStyle").fontFamily;
+      const tsSize = e.getAttributes("textStyle").fontSize;
+      const defaultSize = docMetadata?.bodyFontSize?.toString() || "12";
+      return {
+        currentFontFamily: FONT_FAMILIES.find(ff => ff.value === tsFont)?.label
+          || (docMetadata?.bodyFontFamily
+              ? FONT_FAMILIES.find(ff => ff.value === docMetadata.bodyFontFamily)?.label || "Custom"
+              : "Default"),
+        currentFontSize: tsSize
+          ? parseInt(tsSize, 10).toString()
+          : defaultSize,
+        currentHeading: e.isActive("heading", { level: 1 }) ? "Heading 1"
+          : e.isActive("heading", { level: 2 }) ? "Heading 2"
+          : e.isActive("heading", { level: 3 }) ? "Heading 3"
+          : "Normal",
+        currentAlignCenter: e.isActive({ textAlign: "center" }),
+        currentAlignRight: e.isActive({ textAlign: "right" }),
+      };
+    },
+  });
+  const currentFontFamily = toolbarState?.currentFontFamily ?? "Default";
+  const currentFontSize = toolbarState?.currentFontSize ?? "12";
+  const currentHeading = toolbarState?.currentHeading ?? "Normal";
+  const CurrentAlignIcon = toolbarState?.currentAlignCenter ? AlignCenter
+    : toolbarState?.currentAlignRight ? AlignRight
     : AlignLeft;
 
   // Dynamic print margins — @page doesn't support CSS custom properties,
@@ -1007,6 +1012,48 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         <div className="flex items-center gap-0.5 px-3 py-1.5 flex-wrap min-h-[32px]">
           {activeTab === "format" && (
             <>
+              {/* Heading dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleMenu("heading")}
+                  className={cn(
+                    "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
+                    activeMenu === "heading"
+                      ? "bg-[#a0704b] text-white border-[#a0704b]"
+                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
+                  )}
+                  title="Heading Level"
+                >
+                  <span className="min-w-[4.5rem]">{currentHeading}</span>
+                  <ChevronDown className="w-3 h-3 shrink-0" />
+                </button>
+                {activeMenu === "heading" && (
+                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
+                    {HEADING_OPTIONS.map((h) => (
+                      <button
+                        key={h.label}
+                        onClick={() => {
+                          if (h.level) {
+                            editor.chain().focus().toggleHeading({ level: h.level }).run();
+                          } else {
+                            editor.chain().focus().setParagraph().run();
+                          }
+                          setActiveMenu(null);
+                        }}
+                        className={cn(
+                          "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                          h.className,
+                          (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-[#f5ede3] dark:bg-[#2d2618]"
+                        )}
+                      >
+                        {h.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <ToolbarSep />
+
               {/* Font Family dropdown */}
               <div className="relative">
                 <button
@@ -1220,48 +1267,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
           {activeTab === "insert" && (
             <>
-              {/* Heading dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => toggleMenu("heading")}
-                  className={cn(
-                    "flex items-center gap-1 h-7 px-2 rounded text-xs transition-colors border",
-                    activeMenu === "heading"
-                      ? "bg-[#a0704b] text-white border-[#a0704b]"
-                      : "text-gray-700 dark:text-gray-300 border-[#e8d4b8] dark:border-[#6b5a4a] hover:bg-[#ede0cf] dark:hover:bg-[#3d2e1e]"
-                  )}
-                  title="Heading Level"
-                >
-                  <span className="min-w-[4.5rem]">{currentHeading}</span>
-                  <ChevronDown className="w-3 h-3 shrink-0" />
-                </button>
-                {activeMenu === "heading" && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg p-1 min-w-[10rem]">
-                    {HEADING_OPTIONS.map((h) => (
-                      <button
-                        key={h.label}
-                        onClick={() => {
-                          if (h.level) {
-                            editor.chain().focus().toggleHeading({ level: h.level }).run();
-                          } else {
-                            editor.chain().focus().setParagraph().run();
-                          }
-                          setActiveMenu(null);
-                        }}
-                        className={cn(
-                          "w-full text-left px-2 py-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
-                          h.className,
-                          (h.level ? editor.isActive("heading", { level: h.level }) : !editor.isActive("heading")) && "bg-[#f5ede3] dark:bg-[#2d2618]"
-                        )}
-                      >
-                        {h.label}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <ToolbarSep />
-
               {/* Lists */}
               <ToolbarBtn icon={List} label="Bullet" isActive={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} showLabel={showLabels} />
               <ToolbarBtn icon={ListOrdered} label="Ordered" isActive={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} showLabel={showLabels} />
@@ -1512,6 +1517,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               '--doc-ml': `${docMetadata?.margins?.left ?? 25.4}mm`,
               '--doc-mr': `${docMetadata?.margins?.right ?? 25.4}mm`,
               zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
+              fontFamily: buildHFontFamily(docMetadata?.bodyFontFamily, docMetadata?.bodyFontFamilyCjk),
+              fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
             } as React.CSSProperties}
           >
             {/* Watermark on first page */}
