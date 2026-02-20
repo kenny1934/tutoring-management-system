@@ -10,11 +10,36 @@ import { usePageTitle } from "@/lib/hooks";
 import { useToast } from "@/contexts/ToastContext";
 import { documentsAPI } from "@/lib/document-api";
 import { cn } from "@/lib/utils";
-import type { Document, DocType } from "@/types";
+import type { Document, DocType, DocumentMetadata } from "@/types";
 
 const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string }> = {
   worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
   lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
+};
+
+const MATH_CONCEPT_TEMPLATE: DocumentMetadata = {
+  margins: { top: 12.7, left: 12.7, right: 12.7, bottom: 12.7 },
+  footer: {
+    enabled: true,
+    left: "",
+    center: "",
+    right: "{title}_p.{page}",
+    imageUrl: "https://storage.googleapis.com/csm-inbox-images/documents/d2d6a5fa-45fc-4a75-af14-cb159c0f0ef2.jpg",
+    imagePosition: "left",
+    fontSize: 9,
+    fontFamily: "'Times New Roman', Times, serif",
+    fontFamilyCjk: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif",
+  },
+  watermark: {
+    enabled: true,
+    type: "image",
+    imageUrl: "https://storage.googleapis.com/csm-inbox-images/documents/98d3f9ac-8a2b-4b55-9a7b-14a8c2d55cd3.jpg",
+    imageSize: 95,
+    opacity: 0.5,
+  },
+  bodyFontFamily: "'Times New Roman', Times, serif",
+  bodyFontFamilyCjk: "'Noto Serif TC', 'PMingLiU', 'Songti TC', serif",
+  bodyFontSize: 12,
 };
 
 export default function DocumentsPage() {
@@ -37,10 +62,17 @@ export default function DocumentsPage() {
     { revalidateOnFocus: false }
   );
 
-  const handleCreate = useCallback(async (docType: DocType) => {
+  const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
+
+  const handleCreate = useCallback(async (docType: DocType, template?: DocumentMetadata) => {
     try {
-      const doc = await documentsAPI.create({ title: "Untitled Document", doc_type: docType });
+      const doc = await documentsAPI.create({
+        title: "Untitled Document",
+        doc_type: docType,
+        ...(template ? { page_layout: template } : {}),
+      });
       setShowCreateModal(false);
+      setCreateStep({ step: "type" });
       router.push(`/documents/${doc.id}`);
     } catch (err) {
       showToast((err as Error).message, "error");
@@ -289,39 +321,82 @@ export default function DocumentsPage() {
 
         {/* Create Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowCreateModal(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}>
             <div
               className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl p-6"
               style={{ width: "24rem", maxWidth: "calc(100vw - 2rem)" }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose a document type:</p>
-              <div className="flex flex-col gap-3">
-                {(Object.entries(DOC_TYPE_LABELS) as [DocType, typeof DOC_TYPE_LABELS[DocType]][]).map(([type, info]) => {
-                  const Icon = info.icon;
-                  return (
+              {createStep.step === "type" ? (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">New Document</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Choose a document type:</p>
+                  <div className="flex flex-col gap-3">
+                    {(Object.entries(DOC_TYPE_LABELS) as [DocType, typeof DOC_TYPE_LABELS[DocType]][]).map(([type, info]) => {
+                      const Icon = info.icon;
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => setCreateStep({ step: "template", docType: type })}
+                          className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
+                        >
+                          <div className={cn("p-2 rounded-lg", info.color)}>
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{info.label}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {type === "worksheet" ? "Exercises, exams, practice sheets" : "Teaching guides and outlines"}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Choose a Template</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Start with a blank page or a pre-configured template:
+                  </p>
+                  <div className="flex flex-col gap-3">
                     <button
-                      key={type}
-                      onClick={() => handleCreate(type)}
+                      onClick={() => handleCreate(createStep.docType)}
                       className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
                     >
-                      <div className={cn("p-2 rounded-lg", info.color)}>
-                        <Icon className="w-5 h-5" />
+                      <div className="p-2 rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{info.label}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {type === "worksheet" ? "Exercises, exams, practice sheets" : "Teaching guides and outlines"}
-                        </p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Blank</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Start from scratch</p>
                       </div>
                     </button>
-                  );
-                })}
-              </div>
+                    <button
+                      onClick={() => handleCreate(createStep.docType, MATH_CONCEPT_TEMPLATE)}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] hover:border-[#a0704b]/50 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-all text-left"
+                    >
+                      <div className="p-2 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">MathConcept</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Watermark, branded footer, narrow margins</p>
+                      </div>
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setCreateStep({ step: "type" })}
+                    className="w-full mt-4 py-2 text-sm text-[#a0704b] dark:text-[#cd853f] hover:text-[#8b5e3c] dark:hover:text-[#daa06d] transition-colors"
+                  >
+                    Back
+                  </button>
+                </>
+              )}
               <button
-                onClick={() => setShowCreateModal(false)}
-                className="w-full mt-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                onClick={() => { setShowCreateModal(false); setCreateStep({ step: "type" }); }}
+                className="w-full mt-2 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
               >
                 Cancel
               </button>

@@ -1817,6 +1817,9 @@ export interface DocumentMetadata {
   header?: DocumentHeaderFooter;
   footer?: DocumentHeaderFooter;
   watermark?: DocumentWatermark;
+  bodyFontFamily?: string | null;
+  bodyFontFamilyCjk?: string | null;
+  bodyFontSize?: number | null;
 }
 
 export interface Document {
@@ -1838,6 +1841,7 @@ export interface Document {
 export interface DocumentCreate {
   title: string;
   doc_type: DocType;
+  page_layout?: DocumentMetadata;
 }
 
 export interface DocumentUpdate {

@@ -105,6 +105,7 @@ async def create_document(
         title=(data.title.strip() or "Untitled Document"),
         doc_type=data.doc_type,
         content={"type": "doc", "content": [{"type": "paragraph"}]},
+        page_layout=data.page_layout,
         created_by=current_user.id,
         created_at=now,
         updated_at=now,

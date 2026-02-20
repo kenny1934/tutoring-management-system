@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
 import type { DocumentMetadata, DocumentMargins, DocumentHeaderFooter, DocumentWatermark } from "@/types";
 
-type LayoutTab = "margins" | "headerFooter" | "watermark";
+type LayoutTab = "margins" | "headerFooter" | "watermark" | "fonts";
 
 const DEFAULT_MARGINS: DocumentMargins = { top: 25.4, right: 25.4, bottom: 25.4, left: 25.4 };
 
@@ -71,6 +71,11 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
   // Watermark state
   const [watermark, setWatermark] = useState<DocumentWatermark>(metadata?.watermark ?? DEFAULT_WATERMARK);
 
+  // Body font state
+  const [bodyFontFamily, setBodyFontFamily] = useState<string | null>(metadata?.bodyFontFamily ?? null);
+  const [bodyFontFamilyCjk, setBodyFontFamilyCjk] = useState<string | null>(metadata?.bodyFontFamilyCjk ?? null);
+  const [bodyFontSize, setBodyFontSize] = useState<number>(metadata?.bodyFontSize ?? 12);
+
   // Image upload refs
   const headerImageRef = useRef<HTMLInputElement>(null);
   const footerImageRef = useRef<HTMLInputElement>(null);
@@ -95,7 +100,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
   }, []);
 
   const handleSave = () => {
-    onSave({ margins, header, footer, watermark });
+    onSave({ margins, header, footer, watermark, bodyFontFamily, bodyFontFamilyCjk, bodyFontSize: bodyFontSize !== 16 ? bodyFontSize : null });
     onClose();
   };
 
@@ -122,6 +127,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
             { key: "margins" as const, label: "Margins" },
             { key: "headerFooter" as const, label: "Header & Footer" },
             { key: "watermark" as const, label: "Watermark" },
+            { key: "fonts" as const, label: "Fonts" },
           ]).map(({ key, label }) => (
             <button
               key={key}
@@ -242,6 +248,7 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   ))}
                 </div>
               </div>
+
             </div>
           )}
 
@@ -384,6 +391,52 @@ export function PageLayoutModal({ isOpen, onClose, metadata, onSave, docId }: Pa
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Fonts Tab */}
+          {activeTab === "fonts" && (
+            <div>
+              <p className="text-sm font-medium text-foreground mb-2">Body Font</p>
+              <p className="text-[10px] text-muted-foreground mb-2">Default font for document content (can be overridden per selection)</p>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <label className="text-[10px] text-muted-foreground">English Font</label>
+                  <select
+                    value={bodyFontFamily || ""}
+                    onChange={(e) => setBodyFontFamily(e.target.value || null)}
+                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  >
+                    {HF_FONTS_LATIN.map((ff) => (
+                      <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="text-[10px] text-muted-foreground">中文字體</label>
+                  <select
+                    value={bodyFontFamilyCjk || ""}
+                    onChange={(e) => setBodyFontFamilyCjk(e.target.value || null)}
+                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  >
+                    {HF_FONTS_CJK.map((ff) => (
+                      <option key={ff.label} value={ff.value || ""}>{ff.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-16 shrink-0">
+                  <label className="text-[10px] text-muted-foreground">Size</label>
+                  <select
+                    value={bodyFontSize}
+                    onChange={(e) => setBodyFontSize(parseInt(e.target.value))}
+                    className="w-full px-1.5 py-1 rounded border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#2a2420] text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+                  >
+                    {[8, 10, 12, 14, 16, 18, 20, 24].map((s) => (
+                      <option key={s} value={s}>{s}px</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
           )}
         </div>
