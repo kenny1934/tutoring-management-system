@@ -36,6 +36,12 @@ const changelogData = [
           },
           {
             "description": "**Document management** — create, duplicate, archive, restore, and permanently delete documents; mobile-responsive list view"
+          },
+          {
+            "description": "**Document templates** — create documents from templates (e.g. MathConcept) with pre-configured margins, footer, watermark, and body font"
+          },
+          {
+            "description": "**Body font settings** — new Fonts tab in Page Layout modal to set default font family (English + CJK) and font size for the document"
           }
         ]
       },
@@ -56,6 +62,20 @@ const changelogData = [
           },
           {
             "description": "Documents section in sidebar with Beta badge"
+          },
+          {
+            "description": "Toolbar font and size dropdowns reactively reflect the cursor-selected text style"
+          }
+        ]
+      },
+      {
+        "title": "Bug Fixes",
+        "items": [
+          {
+            "description": "Fixed watermark only appearing on first page in editor view"
+          },
+          {
+            "description": "Fixed decoration watermark greyish overlay in light mode and white pixels in dark mode"
           }
         ]
       }
