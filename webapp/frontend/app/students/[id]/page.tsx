@@ -18,6 +18,7 @@ import {
 Copy, Check, Ticket, Gift
 } from "lucide-react";
 import { StarRating, parseStarRating } from "@/components/ui/star-rating";
+import { Tooltip } from "@/components/ui/tooltip";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition, StickyNote } from "@/lib/design-system";
 import { motion, AnimatePresence } from "framer-motion";
@@ -267,13 +268,14 @@ export default function StudentDetailPage() {
     setEditForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (data?: Partial<Student>) => {
     if (!student) return;
     setIsSaving(true);
     setSaveError(null);
 
     try {
-      const updatedStudent = await studentsAPI.update(student.id, editForm);
+      const dataToSave = data ?? editForm;
+      const updatedStudent = await studentsAPI.update(student.id, dataToSave);
       // Optimistic update - set new data immediately, skip revalidation
       mutate(['student', student.id], { ...student, ...updatedStudent }, false);
       setIsEditingPersonal(false);
@@ -763,7 +765,7 @@ function ProfileTab({
   onEditPersonal: () => void;
   onEditAcademic: () => void;
   onCancelEdit: () => void;
-  onSave: () => void;
+  onSave: (data?: Partial<Student>) => void;
   onFormChange: (field: string, value: string | boolean | null) => void;
   isSaving: boolean;
   saveError: string | null;
@@ -799,10 +801,10 @@ function ProfileTab({
   };
 
   const handleSaveStaffReferral = () => {
-    // Update the parent's editForm with staff referral fields
-    onFormChange("is_staff_referral", staffReferralForm.is_staff_referral);
-    onFormChange("staff_referral_notes", staffReferralForm.staff_referral_notes);
-    onSave();
+    onSave({
+      is_staff_referral: staffReferralForm.is_staff_referral,
+      staff_referral_notes: staffReferralForm.staff_referral_notes,
+    });
     setIsEditingStaffReferral(false);
   };
 
@@ -1001,19 +1003,21 @@ function ProfileTab({
             <div className="space-y-3">
               {/* Student Coupons - read only */}
               {couponInfo?.has_coupon && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <div>
-                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                      {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
-                    </span>
-                    {couponInfo.value && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
-                        (${couponInfo.value} each)
+                <Tooltip content={couponInfo.last_synced_at ? `Last updated: ${new Date(couponInfo.last_synced_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : "No sync date available"}>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
                       </span>
-                    )}
+                      {couponInfo.value && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                          (${couponInfo.value} each)
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </Tooltip>
               )}
 
               {/* Staff Referral Checkbox */}
@@ -1063,19 +1067,21 @@ function ProfileTab({
               <div className="flex flex-wrap gap-4">
                 {/* Student Coupons */}
                 {couponInfo?.has_coupon && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                    <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    <div>
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
-                      </span>
-                      {couponInfo.value && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
-                          (${couponInfo.value} each)
+                  <Tooltip content={couponInfo.last_synced_at ? `Last updated: ${new Date(couponInfo.last_synced_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : "No sync date available"}>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                      <Ticket className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      <div>
+                        <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                          {couponInfo.available} coupon{couponInfo.available !== 1 ? 's' : ''} available
                         </span>
-                      )}
+                        {couponInfo.value && (
+                          <span className="text-xs text-amber-600 dark:text-amber-400 ml-1">
+                            (${couponInfo.value} each)
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </Tooltip>
                 )}
                 {/* Staff Referral */}
                 {student.is_staff_referral && (
