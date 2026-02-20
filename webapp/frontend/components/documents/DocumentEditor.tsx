@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -975,7 +976,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   @page { size: A4; margin: ${printMargins.top}mm ${printMargins.right}mm ${printMargins.bottom}mm ${printMargins.left}mm; }
 }`}</style>
       {/* Top bar */}
-      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+      <div className="border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] print:hidden">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 pt-2 pb-1">
         <button
           onClick={() => router.push("/documents")}
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
@@ -1065,6 +1067,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           )}
         </div>
 
+        </div>
+        {/* Tag strip below title */}
+        <div className="px-3 sm:px-4 pb-1.5">
+          <InlineTagStrip doc={doc} onUpdate={onUpdate} isReadOnly={isReadOnly} />
+        </div>
       </div>
 
       {/* Toolbar — Tabbed layout */}
@@ -1822,6 +1829,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
             {paperMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
         </div>
+
         <div>
           {totalPages > 1 && <><span className="tabular-nums">{totalPages} pages</span> &middot; </>}
           {editor.storage.characterCount.words()} words &middot; {editor.storage.characterCount.characters()} characters
@@ -2217,5 +2225,195 @@ function ToolbarBtn({ icon: Icon, label, isActive, onClick, showLabel }: { icon:
       <Icon className="w-4 h-4" />
       {showLabel && <span className="text-[9px] leading-none">{label}</span>}
     </button>
+  );
+}
+
+/* Inline tag editor in the status bar */
+const TAG_COLORS_EDITOR = [
+  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+];
+
+function getTagColorEditor(tag: string) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  return TAG_COLORS_EDITOR[Math.abs(hash) % TAG_COLORS_EDITOR.length];
+}
+
+function InlineTagStrip({ doc, onUpdate, isReadOnly }: { doc: Document; onUpdate: () => void; isReadOnly: boolean }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [tags, setTags] = useState<string[]>(doc.tags ?? []);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { showToast } = useToast();
+
+  // Fetch all existing tags for suggestions
+  const { data: allTags = [], mutate: mutateTags } = useSWR(
+    dropdownOpen ? "editor-tags" : null,
+    () => documentsAPI.listTags(),
+    { revalidateOnFocus: false }
+  );
+
+  // Sync from prop
+  useEffect(() => { setTags(doc.tags ?? []); }, [doc.tags]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  const saveTags = useCallback(async (newTags: string[]) => {
+    try {
+      await documentsAPI.update(doc.id, { tags: newTags });
+      setTags(newTags);
+      onUpdate();
+      mutateTags();
+    } catch (err) {
+      showToast((err as Error).message, "error");
+    }
+  }, [doc.id, onUpdate, showToast, mutateTags]);
+
+  const toggleTag = useCallback((tag: string) => {
+    const newTags = tags.includes(tag)
+      ? tags.filter((t) => t !== tag)
+      : [...tags, tag];
+    setTags(newTags);
+    saveTags(newTags);
+  }, [tags, saveTags]);
+
+  const createTag = useCallback((tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      const newTags = [...tags, trimmed];
+      setTags(newTags);
+      saveTags(newTags);
+    }
+    setSearch("");
+    inputRef.current?.focus();
+  }, [tags, saveTags]);
+
+  const removeTag = useCallback((tag: string) => {
+    const newTags = tags.filter((t) => t !== tag);
+    setTags(newTags);
+    saveTags(newTags);
+  }, [tags, saveTags]);
+
+  const filtered = allTags.filter((t) => t.toLowerCase().includes(search.toLowerCase()));
+  const showCreate = search.trim() && !allTags.some((t) => t.toLowerCase() === search.trim().toLowerCase());
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {/* Tag pills row — wraps, no overflow clipping */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Tags className="w-3.5 h-3.5 shrink-0 text-gray-400 dark:text-gray-500" />
+        {tags.map((tag) => (
+          <span key={tag} className={cn("inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap", getTagColorEditor(tag))}>
+            {tag}
+            {!isReadOnly && (
+              <button onClick={() => removeTag(tag)} className="hover:opacity-70">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </span>
+        ))}
+        {!isReadOnly && (
+          <button
+            onClick={() => { setDropdownOpen(!dropdownOpen); setTimeout(() => inputRef.current?.focus(), 50); }}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+            title="Add tag"
+          >
+            <Plus className="w-3 h-3" />
+            {tags.length === 0 && <span>Add tags</span>}
+          </button>
+        )}
+        {isReadOnly && tags.length === 0 && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 italic">No tags</span>
+        )}
+      </div>
+
+      {/* Dropdown — anchored to wrapper, renders below the tag row */}
+      {dropdownOpen && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg" style={{ width: "16rem" }}>
+          <div className="p-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search or create tag..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && showCreate) {
+                    e.preventDefault();
+                    createTag(search.trim());
+                  }
+                  if (e.key === "Escape") {
+                    setDropdownOpen(false);
+                    setSearch("");
+                  }
+                }}
+                className="w-full pl-6 pr-2 py-1.5 rounded border border-border bg-white dark:bg-[#1a1a1a] text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#a0704b]/40"
+              />
+            </div>
+          </div>
+          <div className="max-h-40 overflow-y-auto px-1 pb-1">
+            {filtered.map((tag) => {
+              const checked = tags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                >
+                  <div className={cn(
+                    "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors",
+                    checked
+                      ? "bg-[#a0704b] border-[#a0704b] text-white"
+                      : "border-gray-300 dark:border-gray-600"
+                  )}>
+                    {checked && (
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getTagColorEditor(tag))}>
+                    {tag}
+                  </span>
+                </button>
+              );
+            })}
+            {showCreate && (
+              <button
+                onClick={() => createTag(search.trim())}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Create &ldquo;{search.trim()}&rdquo;
+              </button>
+            )}
+            {filtered.length === 0 && !showCreate && (
+              <p className="px-2 py-2 text-[10px] text-gray-400 text-center">No tags yet</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
