@@ -8,7 +8,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import desc
+from sqlalchemy import desc, asc
 from typing import List, Optional
 from database import get_db
 from constants import hk_now
@@ -59,6 +59,8 @@ async def list_documents(
     doc_type: Optional[str] = Query(None, pattern="^(worksheet|lesson_plan)$"),
     search: Optional[str] = Query(None),
     include_archived: bool = Query(False),
+    sort_by: str = Query("updated_at", pattern="^(updated_at|created_at|title)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     _: Tutor = Depends(reject_guest),
@@ -74,7 +76,9 @@ async def list_documents(
     if search:
         query = query.filter(Document.title.ilike(f"%{search}%"))
 
-    docs = query.order_by(desc(Document.updated_at)).offset(offset).limit(limit).all()
+    sort_col = getattr(Document, sort_by)
+    order_fn = desc if sort_order == "desc" else asc
+    docs = query.order_by(order_fn(sort_col)).offset(offset).limit(limit).all()
     return [_doc_to_response(d, include_content=False) for d in docs]
 
 

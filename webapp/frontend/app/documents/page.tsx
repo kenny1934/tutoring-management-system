@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle } from "@/lib/hooks";
@@ -16,6 +16,16 @@ const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; c
   worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
   lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
 };
+
+const PAGE_SIZE = 24;
+
+const SORT_OPTIONS = [
+  { label: "Last modified", sort_by: "updated_at", sort_order: "desc" },
+  { label: "Newest first", sort_by: "created_at", sort_order: "desc" },
+  { label: "Oldest first", sort_by: "created_at", sort_order: "asc" },
+  { label: "Title A\u2013Z", sort_by: "title", sort_order: "asc" },
+  { label: "Title Z\u2013A", sort_by: "title", sort_order: "desc" },
+] as const;
 
 const MATH_CONCEPT_TEMPLATE: DocumentMetadata = {
   margins: { top: 12.7, left: 12.7, right: 12.7, bottom: 12.7 },
@@ -52,6 +62,17 @@ export default function DocumentsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [sortIdx, setSortIdx] = useState(0);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("doc-view-mode") as "grid" | "list") || "grid";
+    }
+    return "grid";
+  });
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  const sort = SORT_OPTIONS[sortIdx];
 
   // Debounce search input
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -60,15 +81,69 @@ export default function DocumentsPage() {
     return () => clearTimeout(debounceRef.current);
   }, [search]);
 
-  const { data: documents, isLoading, mutate } = useSWR(
-    ["documents", filterType, debouncedSearch, showArchived],
+  // Close sort menu on outside click
+  useEffect(() => {
+    if (!showSortMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setShowSortMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSortMenu]);
+
+  const toggleViewMode = useCallback((mode: "grid" | "list") => {
+    setViewMode(mode);
+    localStorage.setItem("doc-view-mode", mode);
+  }, []);
+
+  // Paginated fetch: SWR loads first page, "Load more" appends
+  const [extraDocs, setExtraDocs] = useState<Document[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  const { data: firstPage, isLoading, mutate } = useSWR(
+    ["documents", filterType, debouncedSearch, showArchived, sort.sort_by, sort.sort_order],
     () => documentsAPI.list({
       doc_type: filterType === "all" ? undefined : filterType,
       search: debouncedSearch || undefined,
       include_archived: showArchived || undefined,
+      sort_by: sort.sort_by,
+      sort_order: sort.sort_order,
+      limit: PAGE_SIZE,
     }),
-    { revalidateOnFocus: false }
+    {
+      revalidateOnFocus: false,
+      onSuccess: (data) => { setHasMore(data.length === PAGE_SIZE); },
+    }
   );
+
+  // Reset extra pages when filters/sort change
+  useEffect(() => {
+    setExtraDocs([]);
+    setHasMore(true);
+  }, [filterType, debouncedSearch, showArchived, sortIdx]);
+
+  const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await documentsAPI.list({
+        doc_type: filterType === "all" ? undefined : filterType,
+        search: debouncedSearch || undefined,
+        include_archived: showArchived || undefined,
+        sort_by: sort.sort_by,
+        sort_order: sort.sort_order,
+        limit: PAGE_SIZE,
+        offset: (firstPage?.length ?? 0) + extraDocs.length,
+      });
+      setExtraDocs((prev) => [...prev, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, filterType, debouncedSearch, showArchived, sort, firstPage, extraDocs]);
 
   const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
 
@@ -209,28 +284,84 @@ export default function DocumentsPage() {
             <Archive className="w-3.5 h-3.5" />
             Archived
           </button>
+          <div className="relative ml-auto" ref={sortRef}>
+            <button
+              onClick={() => setShowSortMenu(!showSortMenu)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-white/5"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              {sort.label}
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showSortMenu && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem]">
+                {SORT_OPTIONS.map((opt, i) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => { setSortIdx(i); setShowSortMenu(false); }}
+                    className={cn(
+                      "w-full text-left px-3 py-1.5 text-xs hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] text-gray-700 dark:text-gray-300",
+                      i === sortIdx && "bg-[#f5ede3] dark:bg-[#2d2618] font-semibold"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-lg p-0.5">
+            <button
+              onClick={() => toggleViewMode("grid")}
+              className={cn("p-1.5 rounded transition-colors", viewMode === "grid" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300")}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => toggleViewMode("list")}
+              className={cn("p-1.5 rounded transition-colors", viewMode === "list" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300")}
+              title="List view"
+            >
+              <ListIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
           </div>
         </div>
 
-        {/* Document Grid */}
+        {/* Document list */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {([
-              ["w-16", "w-2/3"],
-              ["w-20", "w-1/2"],
-              ["w-16", "w-3/5"],
-              ["w-20", "w-1/3"],
-              ["w-16", "w-2/5"],
-              ["w-20", "w-1/2"],
-            ] as const).map(([badgeW, titleW], i) => (
-              <div key={i} className="relative bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl p-4 overflow-hidden">
-                <div className={cn("h-5 rounded-full bg-gray-200 dark:bg-gray-700 mb-3", badgeW)} />
-                <div className={cn("h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2", titleW)} />
-                <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-800" />
-                <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
-              </div>
-            ))}
-          </div>
+          viewMode === "grid" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {([
+                ["w-16", "w-2/3"],
+                ["w-20", "w-1/2"],
+                ["w-16", "w-3/5"],
+                ["w-20", "w-1/3"],
+                ["w-16", "w-2/5"],
+                ["w-20", "w-1/2"],
+              ] as const).map(([badgeW, titleW], i) => (
+                <div key={i} className="relative bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl p-4 overflow-hidden">
+                  <div className={cn("h-5 rounded-full bg-gray-200 dark:bg-gray-700 mb-3", badgeW)} />
+                  <div className={cn("h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2", titleW)} />
+                  <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl overflow-hidden">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="relative flex items-center gap-4 px-4 py-3 border-b border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 overflow-hidden">
+                  <div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-4 flex-1 max-w-xs rounded bg-gray-200 dark:bg-gray-700" />
+                  <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800 hidden sm:block" />
+                  <div className="h-3 w-14 rounded bg-gray-100 dark:bg-gray-800 hidden sm:block" />
+                  <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.1}s` }} />
+                </div>
+              ))}
+            </div>
+          )
         ) : !documents?.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
             <FileText className="w-12 h-12 mb-3 opacity-40" />
@@ -243,7 +374,7 @@ export default function DocumentsPage() {
                 : "Create your first document to get started"}
             </p>
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {documents.map((doc) => {
               const typeInfo = DOC_TYPE_LABELS[doc.doc_type as DocType];
@@ -265,59 +396,9 @@ export default function DocumentsPage() {
                       <Icon className="w-3 h-3" />
                       {typeInfo?.label}
                     </span>
-                    <div className="relative">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
-                        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                      >
-                        <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      </button>
-                      {menuOpenId === doc.id && (
-                        <div className="absolute right-0 top-7 z-10 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "9rem" }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDuplicate(doc.id); }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            Duplicate
-                          </button>
-                          {doc.is_archived ? (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleUnarchive(doc.id); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-                              >
-                                <ArchiveRestore className="w-3.5 h-3.5" />
-                                Restore
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handlePermanentDelete(doc.id); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Delete Permanently
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleArchive(doc.id); }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Archive
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <DocContextMenu doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId} onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete} />
                   </div>
-
-                  {/* Title */}
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">
-                    {doc.title}
-                  </h3>
-
-                  {/* Meta */}
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <span>{doc.created_by_name} &middot; {formatDate(doc.updated_at)}</span>
                     {doc.locked_by && (
@@ -331,6 +412,68 @@ export default function DocumentsPage() {
               );
             })}
           </div>
+        ) : (
+          <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl">
+            {/* List header */}
+            <div className="hidden sm:flex items-center gap-4 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf5ef] dark:bg-[#1f1a14] rounded-t-xl text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <span className="w-24">Type</span>
+              <span className="flex-1">Title</span>
+              <span className="w-28">Author</span>
+              <span className="w-24">Modified</span>
+              <span className="w-8" />
+            </div>
+            {documents.map((doc) => {
+              const typeInfo = DOC_TYPE_LABELS[doc.doc_type as DocType];
+              const Icon = typeInfo?.icon ?? FileText;
+              return (
+                <div
+                  key={doc.id}
+                  onClick={() => router.push(`/documents/${doc.id}`)}
+                  className={cn(
+                    "group flex items-center gap-4 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
+                    doc.is_archived && "opacity-60 border-l-2 border-l-dashed border-l-[#e8d4b8]/60 dark:border-l-[#6b5a4a]/60"
+                  )}
+                >
+                  <span className={cn("hidden sm:inline-flex items-center gap-1 w-24 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
+                    <Icon className="w-3 h-3" />
+                    {typeInfo?.label}
+                  </span>
+                  <span className="sm:hidden"><Icon className={cn("w-4 h-4", typeInfo?.color?.split(" ")[1])} /></span>
+                  <span className="flex-1 min-w-0 flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
+                    {doc.locked_by && (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 shrink-0" title={`Locked by ${doc.locked_by_name}`}>
+                        <Lock className="w-3 h-3" />
+                      </span>
+                    )}
+                  </span>
+                  <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400 truncate">{doc.created_by_name}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 w-24 shrink-0 text-right sm:text-left">{formatDate(doc.updated_at)}</span>
+                  <DocContextMenu doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId} onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete} />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Load more */}
+        {!isLoading && documents && documents.length > 0 && hasMore && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-sm text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? "Loading..." : "Load more"}
+            </button>
+          </div>
+        )}
+
+        {/* Showing count */}
+        {!isLoading && documents && documents.length > 0 && (
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
+            Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
+          </p>
         )}
 
         {/* Create Modal */}
@@ -419,5 +562,64 @@ export default function DocumentsPage() {
         )}
       </PageTransition>
     </DeskSurface>
+  );
+}
+
+/* Context menu (3-dot) shared between grid and list views */
+function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive, onUnarchive, onPermanentDelete }: {
+  doc: Document;
+  menuOpenId: number | null;
+  setMenuOpenId: (id: number | null) => void;
+  onDuplicate: (id: number) => void;
+  onArchive: (id: number) => void;
+  onUnarchive: (id: number) => void;
+  onPermanentDelete: (id: number) => void;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
+        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+      >
+        <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+      </button>
+      {menuOpenId === doc.id && (
+        <div className="absolute right-0 top-7 z-10 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "9rem" }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            Duplicate
+          </button>
+          {doc.is_archived ? (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+              >
+                <ArchiveRestore className="w-3.5 h-3.5" />
+                Restore
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Permanently
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Archive
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
