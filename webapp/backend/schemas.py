@@ -1859,6 +1859,9 @@ class DocumentResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_archived: bool = False
+    locked_by: Optional[int] = None
+    locked_by_name: str = ""
+    lock_expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1875,6 +1878,9 @@ class DocumentListItem(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_archived: bool = False
+    locked_by: Optional[int] = None
+    locked_by_name: str = ""
+    lock_expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

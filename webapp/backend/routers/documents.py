@@ -3,6 +3,7 @@ Documents API endpoints.
 CRUD operations for courseware documents (worksheets, exams, lesson plans).
 """
 import logging
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
@@ -24,6 +25,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+LOCK_DURATION = timedelta(minutes=5)
+
+
+def _is_lock_active(doc: Document) -> bool:
+    """Check if a document has an active (non-expired) lock."""
+    return doc.locked_by is not None and doc.lock_expires_at is not None and doc.lock_expires_at > hk_now()
+
 
 def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
     """Convert a Document ORM object to response dict."""
@@ -37,6 +45,9 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "created_at": doc.created_at,
         "updated_at": doc.updated_at,
         "is_archived": doc.is_archived,
+        "locked_by": doc.locked_by if _is_lock_active(doc) else None,
+        "locked_by_name": doc.locker.tutor_name if _is_lock_active(doc) and doc.locker else "",
+        "lock_expires_at": doc.lock_expires_at if _is_lock_active(doc) else None,
     }
     if include_content:
         data["content"] = doc.content
@@ -54,7 +65,7 @@ async def list_documents(
     db: Session = Depends(get_db),
 ):
     """List documents with optional filters."""
-    query = db.query(Document).options(joinedload(Document.creator))
+    query = db.query(Document).options(joinedload(Document.creator), joinedload(Document.locker))
 
     if not include_archived:
         query = query.filter(Document.is_archived == False)
@@ -75,7 +86,7 @@ async def get_document(
 ):
     """Get a single document with full content."""
     doc = db.query(Document).options(
-        joinedload(Document.creator)
+        joinedload(Document.creator), joinedload(Document.locker)
     ).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -101,7 +112,7 @@ async def create_document(
     db.add(doc)
     db.commit()
     doc = db.query(Document).options(
-        joinedload(Document.creator)
+        joinedload(Document.creator), joinedload(Document.locker)
     ).filter(Document.id == doc.id).first()
     return _doc_to_response(doc)
 
@@ -115,7 +126,7 @@ async def update_document(
 ):
     """Update a document (title, content, or archive status)."""
     doc = db.query(Document).options(
-        joinedload(Document.creator)
+        joinedload(Document.creator), joinedload(Document.locker)
     ).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -125,6 +136,10 @@ async def update_document(
     is_admin = current_user.role in ("Admin", "Super Admin")
     if not (is_owner or is_admin):
         raise HTTPException(status_code=403, detail="You can only modify your own documents")
+
+    # Lock check: reject if locked by another user
+    if _is_lock_active(doc) and doc.locked_by != current_user.id and not is_admin:
+        raise HTTPException(status_code=409, detail=f"Document is locked by {doc.locker.tutor_name if doc.locker else 'another user'}")
 
     if data.title is not None:
         doc.title = data.title.strip() or "Untitled Document"
@@ -195,7 +210,7 @@ async def duplicate_document(
 ):
     """Duplicate a document — copies content, type, and page layout. New owner is current user."""
     source = db.query(Document).options(
-        joinedload(Document.creator)
+        joinedload(Document.creator), joinedload(Document.locker)
     ).filter(Document.id == doc_id).first()
     if not source:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -214,7 +229,7 @@ async def duplicate_document(
     db.commit()
     db.refresh(copy)
     copy = db.query(Document).options(
-        joinedload(Document.creator)
+        joinedload(Document.creator), joinedload(Document.locker)
     ).filter(Document.id == copy.id).first()
     return _doc_to_response(copy)
 
@@ -236,3 +251,79 @@ async def upload_document_image(
         return {"url": url, "filename": file.filename}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ─── Document Locking ─────────────────────────────────────────────────
+
+@router.post("/documents/{doc_id}/lock", response_model=DocumentResponse)
+async def lock_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Acquire or refresh a lock on a document."""
+    doc = db.query(Document).options(
+        joinedload(Document.creator), joinedload(Document.locker)
+    ).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    now = hk_now()
+
+    # Already locked by another user and not expired
+    if _is_lock_active(doc) and doc.locked_by != current_user.id:
+        locker_name = doc.locker.tutor_name if doc.locker else "another user"
+        raise HTTPException(status_code=409, detail=f"Document is locked by {locker_name}")
+
+    # Acquire or refresh lock
+    doc.locked_by = current_user.id
+    doc.lock_expires_at = now + LOCK_DURATION
+    db.commit()
+    db.refresh(doc)
+    return _doc_to_response(doc)
+
+
+@router.post("/documents/{doc_id}/heartbeat")
+async def heartbeat_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Refresh the lock expiry (keep-alive)."""
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not _is_lock_active(doc) or doc.locked_by != current_user.id:
+        raise HTTPException(status_code=409, detail="You do not hold the lock on this document")
+
+    doc.lock_expires_at = hk_now() + LOCK_DURATION
+    db.commit()
+    return {"lock_expires_at": doc.lock_expires_at}
+
+
+@router.delete("/documents/{doc_id}/lock")
+async def unlock_document(
+    doc_id: int,
+    current_user: Tutor = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Release a lock. Owner of the lock or admins can release."""
+    doc = db.query(Document).options(
+        joinedload(Document.locker)
+    ).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not _is_lock_active(doc):
+        return {"message": "Document is not locked"}
+
+    is_lock_owner = doc.locked_by == current_user.id
+    is_admin = current_user.role in ("Admin", "Super Admin")
+    if not (is_lock_owner or is_admin):
+        raise HTTPException(status_code=403, detail="Only the lock holder or admins can unlock")
+
+    doc.locked_by = None
+    doc.lock_expires_at = None
+    db.commit()
+    return {"message": "Lock released"}

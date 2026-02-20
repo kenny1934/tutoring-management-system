@@ -72,9 +72,11 @@ import {
   ArrowUp,
   Sun,
   Moon,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI } from "@/lib/document-api";
+import { useAuth } from "@/contexts/AuthContext";
 import MathEditorModal from "@/components/inbox/MathEditorModal";
 import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
@@ -183,10 +185,97 @@ interface DocumentEditorProps {
 
 export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps) {
   const router = useRouter();
+  const { user, isAdmin } = useAuth();
   const [title, setTitle] = useState(doc.title);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
+
+  // ─── Document Locking ──────────────────────────────────────────────
+  const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
+  const [lockedByOther, setLockedByOther] = useState<string | null>(() => {
+    // If already locked by someone else on initial load, start in read-only
+    if (doc.locked_by && doc.locked_by !== user?.id && doc.lock_expires_at) {
+      const expires = new Date(doc.lock_expires_at);
+      if (expires > new Date()) return doc.locked_by_name || "another user";
+    }
+    return null;
+  });
+  const lockAcquiredRef = useRef(false);
+
+  // Acquire lock on mount, release on unmount
+  useEffect(() => {
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+    const acquireLock = async () => {
+      try {
+        await documentsAPI.lock(doc.id);
+        lockAcquiredRef.current = true;
+        setLockedByOther(null);
+
+        // Start heartbeat
+        heartbeatTimer = setInterval(async () => {
+          try {
+            await documentsAPI.heartbeat(doc.id);
+          } catch {
+            // Lost lock (expired or stolen)
+            lockAcquiredRef.current = false;
+            setLockedByOther("another user");
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+          }
+        }, HEARTBEAT_INTERVAL);
+      } catch (err: unknown) {
+        // 409 = locked by another user
+        const msg = err instanceof Error ? err.message : "another user";
+        setLockedByOther(msg.replace("Document is locked by ", ""));
+      }
+    };
+
+    acquireLock();
+
+    return () => {
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (lockAcquiredRef.current) {
+        // Release lock on unmount — keepalive survives tab close
+        fetch(`/api/documents/${doc.id}/lock`, {
+          method: "DELETE",
+          credentials: "include",
+          keepalive: true,
+        });
+        lockAcquiredRef.current = false;
+      }
+    };
+  }, [doc.id]);
+
+  // Re-acquire lock when tab becomes visible after being hidden
+  useEffect(() => {
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible" && !lockAcquiredRef.current) {
+        try {
+          await documentsAPI.lock(doc.id);
+          lockAcquiredRef.current = true;
+          setLockedByOther(null);
+        } catch {
+          // Still locked by someone else
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [doc.id]);
+
+  const isReadOnly = lockedByOther !== null;
+
+  const handleForceUnlock = useCallback(async () => {
+    try {
+      await documentsAPI.unlock(doc.id);
+      await documentsAPI.lock(doc.id);
+      lockAcquiredRef.current = true;
+      setLockedByOther(null);
+    } catch {
+      // Failed to take over
+    }
+  }, [doc.id]);
 
   // Dropdown states — only one toolbar menu can be open at a time
   type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | null;
@@ -298,20 +387,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     if (prev) setZoomLevel(prev);
   }, [effectiveZoom]);
 
-  // Auto-calculate fit-to-width scale
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0].contentRect.width;
-      const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
-      const padding = 32; // px-4 = 16px each side
-      setFitScale((width - padding) / pageWidthPx);
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
   // Keyboard shortcuts: Ctrl+=/- for zoom, Ctrl+0 for fit, Ctrl+F for find, Ctrl+/ for shortcuts
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
@@ -366,6 +441,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !isReadOnly,
     extensions: [
       StarterKit.configure({
         codeBlock: false,
@@ -452,6 +528,25 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     editorInstanceRef.current = editor;
   }, [editor]);
 
+  // Update editor editability when lock status changes
+  useEffect(() => {
+    if (editor) editor.setEditable(!isReadOnly);
+  }, [editor, isReadOnly]);
+
+  // Auto-calculate fit-to-width scale
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0].contentRect.width;
+      const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
+      const padding = 32; // px-4 = 16px each side
+      setFitScale((width - padding) / pageWidthPx);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [editor]);
+
   // Update pagination plugin when metadata or title changes
   // Debounce title to avoid expensive DOM measurement on every keystroke
   const [debouncedTitle, setDebouncedTitle] = useState(title);
@@ -507,7 +602,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
 
   // Auto-save with debounce
   useEffect(() => {
-    if (saveState !== "unsaved") return;
+    if (saveState !== "unsaved" || isReadOnly) return;
     const currentEditor = editorInstanceRef.current;
     if (!currentEditor) return;
 
@@ -786,29 +881,41 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           value={title}
           onChange={(e) => { setTitle(e.target.value); setSaveState("unsaved"); }}
           onBlur={handleTitleBlur}
+          readOnly={isReadOnly}
           className="flex-1 min-w-0 text-base sm:text-lg font-semibold bg-transparent text-gray-900 dark:text-white outline-none border-none"
           placeholder="Untitled Document"
         />
 
-        {/* Save indicator (clickable when unsaved) */}
-        <button
-          onClick={() => { if (saveState === "unsaved") saveNow(); }}
-          className={cn(
-            "flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400",
-            saveState === "unsaved" && "hover:text-[#a0704b] cursor-pointer"
-          )}
-          disabled={saveState === "saving"}
-          title={saveState === "unsaved" ? "Save now (Ctrl+S)" : undefined}
-        >
-          {saveState === "saving" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="hidden sm:inline"> Saving...</span></>}
-          {saveState === "saved" && <><Check className="w-3.5 h-3.5 text-green-600" /><span className="hidden sm:inline"> Saved</span></>}
-          {saveState === "unsaved" && <><CloudOff className="w-3.5 h-3.5" /><span className="hidden sm:inline"> Unsaved</span></>}
-          {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /><span className="hidden sm:inline"> Error saving</span></>}
-        </button>
+        {/* Save indicator / lock status */}
+        {isReadOnly ? (
+          <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Read-only</span>
+          </span>
+        ) : (
+          <button
+            onClick={() => { if (saveState === "unsaved") saveNow(); }}
+            className={cn(
+              "flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400",
+              saveState === "unsaved" && "hover:text-[#a0704b] cursor-pointer"
+            )}
+            disabled={saveState === "saving"}
+            title={saveState === "unsaved" ? "Save now (Ctrl+S)" : undefined}
+          >
+            {saveState === "saving" && <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span className="hidden sm:inline"> Saving...</span></>}
+            {saveState === "saved" && <><Check className="w-3.5 h-3.5 text-green-600" /><span className="hidden sm:inline"> Saved</span></>}
+            {saveState === "unsaved" && <><CloudOff className="w-3.5 h-3.5" /><span className="hidden sm:inline"> Unsaved</span></>}
+            {saveState === "error" && <><CloudOff className="w-3.5 h-3.5 text-red-500" /><span className="hidden sm:inline"> Error saving</span></>}
+          </button>
+        )}
 
         <button
-          onClick={() => setPageLayoutOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors"
+          onClick={() => !isReadOnly && setPageLayoutOpen(true)}
+          disabled={isReadOnly}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-[#e8d4b8] dark:border-[#6b5a4a] transition-colors",
+            isReadOnly ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500" : "text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+          )}
           title="Page layout settings"
         >
           <FileSliders className="w-3.5 h-3.5" />
@@ -1368,6 +1475,22 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Lock banner */}
+      {isReadOnly && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm print:hidden">
+          <Lock className="w-4 h-4 shrink-0" />
+          <span>This document is being edited by <strong>{lockedByOther}</strong>. You&apos;re viewing in read-only mode.</span>
+          {isAdmin && (
+            <button
+              onClick={handleForceUnlock}
+              className="ml-auto px-2 py-0.5 text-xs font-medium rounded bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors"
+            >
+              Take over
+            </button>
+          )}
         </div>
       )}
 

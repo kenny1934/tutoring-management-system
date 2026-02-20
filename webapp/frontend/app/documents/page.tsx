@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, Loader2, MoreVertical, Trash2, ArchiveRestore, Archive, Copy } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle } from "@/lib/hooks";
@@ -174,8 +174,22 @@ export default function DocumentsPage() {
 
         {/* Document Grid */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 animate-spin text-[#a0704b]" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {([
+              ["w-16", "w-2/3"],
+              ["w-20", "w-1/2"],
+              ["w-16", "w-3/5"],
+              ["w-20", "w-1/3"],
+              ["w-16", "w-2/5"],
+              ["w-20", "w-1/2"],
+            ] as const).map(([badgeW, titleW], i) => (
+              <div key={i} className="relative bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 rounded-xl p-4 overflow-hidden">
+                <div className={cn("h-5 rounded-full bg-gray-200 dark:bg-gray-700 mb-3", badgeW)} />
+                <div className={cn("h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2", titleW)} />
+                <div className="h-3 w-1/3 rounded bg-gray-100 dark:bg-gray-800" />
+                <div className="absolute inset-0 skeleton-shimmer" style={{ animationDelay: `${i * 0.15}s` }} />
+              </div>
+            ))}
           </div>
         ) : !documents?.length ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
@@ -258,9 +272,15 @@ export default function DocumentsPage() {
                   </h3>
 
                   {/* Meta */}
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {doc.created_by_name} &middot; {formatDate(doc.updated_at)}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{doc.created_by_name} &middot; {formatDate(doc.updated_at)}</span>
+                    {doc.locked_by && (
+                      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
+                        <Lock className="w-3 h-3" />
+                        <span className="truncate max-w-[5rem]">{doc.locked_by_name}</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}

@@ -1830,6 +1830,9 @@ export interface Document {
   created_at: string;
   updated_at: string;
   is_archived: boolean;
+  locked_by?: number | null;
+  locked_by_name?: string | null;
+  lock_expires_at?: string | null;
 }
 
 export interface DocumentCreate {
