@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 import FolderSidebar from "@/components/documents/FolderSidebar";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
 
-const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string }> = {
-  worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-  lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
+const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
+  worksheet: { label: "Worksheet", icon: FileText, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", iconColor: "text-blue-700 dark:text-blue-300" },
+  lesson_plan: { label: "Lesson Plan", icon: BookOpen, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300", iconColor: "text-green-700 dark:text-green-300" },
 };
 
 const PAGE_SIZE = 24;
@@ -372,7 +372,7 @@ export default function DocumentsPage() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
         {/* Header + Filters card */}
-        <div className="bg-white/80 dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-3">
               {/* Mobile sidebar toggle */}
@@ -416,8 +416,16 @@ export default function DocumentsPage() {
               placeholder="Search documents..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40"
+              className={cn("w-full pl-9 py-2 rounded-lg border border-border bg-white dark:bg-[#1a1a1a] text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#a0704b]/40", search ? "pr-8" : "pr-3")}
             />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-gray-400" />
+              </button>
+            )}
           </div>
           <div className="flex gap-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1">
             {(["all", "worksheet", "lesson_plan"] as const).map((type) => (
@@ -476,14 +484,14 @@ export default function DocumentsPage() {
           <div className="flex bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-lg p-0.5">
             <button
               onClick={() => toggleViewMode("grid")}
-              className={cn("p-1.5 rounded transition-colors", viewMode === "grid" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300")}
+              className={cn("p-1.5 rounded transition-colors", viewMode === "grid" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
               title="Grid view"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => toggleViewMode("list")}
-              className={cn("p-1.5 rounded transition-colors", viewMode === "list" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300")}
+              className={cn("p-1.5 rounded transition-colors", viewMode === "list" ? "bg-white dark:bg-[#2d2618] shadow-sm text-[#a0704b]" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300")}
               title="List view"
             >
               <ListIcon className="w-3.5 h-3.5" />
@@ -546,7 +554,7 @@ export default function DocumentsPage() {
             </div>
           )
         ) : !documents?.length ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-500 dark:text-gray-400">
+          <div className="flex flex-col items-center justify-center py-20 text-gray-700 dark:text-gray-400">
             <FileText className="w-12 h-12 mb-3 opacity-40" />
             <p className="text-lg font-medium">
               {debouncedSearch || filterType !== "all" || showArchived || activeTag || activeFolderId ? "No matching documents" : "No documents yet"}
@@ -587,7 +595,7 @@ export default function DocumentsPage() {
                     />
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                     <span>{doc.created_by_name} &middot; {formatDate(doc.updated_at)}</span>
                     {doc.locked_by && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
@@ -606,7 +614,7 @@ export default function DocumentsPage() {
                   )}
                   {/* Folder indicator */}
                   {doc.folder_name && !activeFolderId && (
-                    <div className="flex items-center gap-1 mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                    <div className="flex items-center gap-1 mt-1.5 text-[10px] text-gray-500 dark:text-gray-400">
                       <FolderOpen className="w-3 h-3" />
                       {doc.folder_name}
                     </div>
@@ -618,7 +626,7 @@ export default function DocumentsPage() {
         ) : (
           <div className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-xl">
             {/* List header */}
-            <div className="hidden sm:flex items-center gap-4 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf5ef] dark:bg-[#1f1a14] rounded-t-xl text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div className="hidden sm:flex items-center gap-4 px-4 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#faf5ef] dark:bg-[#1f1a14] rounded-t-xl text-[10px] font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
               <span className="w-24">Type</span>
               <span className="flex-1">Title</span>
               <span className="w-28">Author</span>
@@ -634,14 +642,14 @@ export default function DocumentsPage() {
                   onClick={() => router.push(`/documents/${doc.id}`)}
                   className={cn(
                     "group flex items-center gap-4 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
-                    doc.is_archived && "opacity-60 border-l-2 border-l-dashed border-l-[#e8d4b8]/60 dark:border-l-[#6b5a4a]/60"
+                    doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]"
                   )}
                 >
                   <span className={cn("hidden sm:inline-flex items-center gap-1 w-24 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
                     <Icon className="w-3 h-3" />
                     {typeInfo?.label}
                   </span>
-                  <span className="sm:hidden"><Icon className={cn("w-4 h-4", typeInfo?.color?.split(" ")[1])} /></span>
+                  <span className="sm:hidden"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
                   <span className="flex-1 min-w-0 flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
                     {doc.locked_by && (
@@ -654,12 +662,12 @@ export default function DocumentsPage() {
                         {doc.tags.slice(0, 3).map((tag) => (
                           <span key={tag} className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getTagColor(tag))}>{tag}</span>
                         ))}
-                        {doc.tags.length > 3 && <span className="text-[10px] text-gray-400">+{doc.tags.length - 3}</span>}
+                        {doc.tags.length > 3 && <span className="text-[10px] text-gray-500 dark:text-gray-400">+{doc.tags.length - 3}</span>}
                       </span>
                     )}
                   </span>
-                  <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400 truncate">{doc.created_by_name}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 w-24 shrink-0 text-right sm:text-left">{formatDate(doc.updated_at)}</span>
+                  <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{doc.created_by_name}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0 text-right sm:text-left">{formatDate(doc.updated_at)}</span>
                   <DocContextMenu
                     doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                     onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
@@ -678,7 +686,7 @@ export default function DocumentsPage() {
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] text-sm text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 rounded-lg border border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a] text-sm text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors disabled:opacity-50"
             >
               {loadingMore ? "Loading..." : "Load more"}
             </button>
@@ -687,8 +695,10 @@ export default function DocumentsPage() {
 
         {/* Showing count */}
         {!isLoading && documents && documents.length > 0 && (
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
-            Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
+          <p className="text-center text-xs text-gray-600 dark:text-gray-400 mt-3">
+            <span className="bg-white/80 dark:bg-[#1a1a1a]/60 backdrop-blur-sm rounded-full px-3 py-1">
+              Showing {documents.length} document{documents.length !== 1 ? "s" : ""}
+            </span>
           </p>
         )}
 
@@ -907,10 +917,12 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
         onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
         className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
       >
-        <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+        <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
       {menuOpenId === doc.id && (
-        <div className="absolute right-0 top-7 z-10 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "10rem" }}>
+        <>
+        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
+        <div className="absolute right-0 top-7 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "10rem" }}>
           <button
             onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
@@ -932,14 +944,14 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
               >
                 <ArchiveRestore className="w-3.5 h-3.5" />
                 Restore
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete Permanently
@@ -948,13 +960,14 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <Trash2 className="w-3.5 h-3.5" />
               Archive
             </button>
           )}
         </div>
+        </>
       )}
     </div>
   );
@@ -990,7 +1003,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
               !doc.folder_id && "font-semibold"
             )}
           >
-            <FolderOpen className="w-3.5 h-3.5 text-gray-400" />
+            <FolderOpen className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
             No folder
           </button>
           {folders.map((f) => (

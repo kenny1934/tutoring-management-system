@@ -154,7 +154,7 @@ function FolderTreeItem({
           )}
         </button>
 
-        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500")} />
+        <FolderOpen className={cn("w-4 h-4 shrink-0", isActive ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
         <span className="flex-1 truncate">{node.name}</span>
         <span className="text-[10px] opacity-50 shrink-0 tabular-nums">{node.document_count}</span>
 
@@ -199,7 +199,7 @@ function FolderTreeItem({
                   setMenuOpen(false);
                   onDelete(node);
                 }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete
@@ -257,7 +257,7 @@ function InlineCreateFolder({ parentId, onCreate, onCancel }: {
 
   return (
     <div className="flex items-center gap-1 px-2 py-1">
-      <FolderPlus className="w-4 h-4 text-gray-400 shrink-0 ml-1" />
+      <FolderPlus className="w-4 h-4 text-gray-500 dark:text-gray-400 shrink-0 ml-1" />
       <input
         ref={inputRef}
         type="text"
@@ -332,13 +332,13 @@ export default function FolderSidebar({
   /* Collapsed state — just show icons (not applicable on mobile) */
   if (collapsed && !mobile) {
     return (
-      <div className={cn(mobile ? "flex" : "hidden md:flex", "flex-col items-center py-3 w-10 shrink-0 border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white/60 dark:bg-[#1a1a1a]/60")}>
+      <div className={cn(mobile ? "flex" : "hidden md:flex", "flex-col items-center py-3 w-10 shrink-0 border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white/95 dark:bg-[#1a1a1a]/60")}>
         <button
           onClick={toggleCollapse}
           className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors mb-3"
           title="Expand sidebar"
         >
-          <PanelLeft className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <PanelLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
         </button>
         <button
           onClick={() => onSelectFolder(null)}
@@ -346,7 +346,7 @@ export default function FolderSidebar({
             "p-1.5 rounded transition-colors",
             activeFolderId === null && !activeTag
               ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
-              : "text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
           )}
           title="All Documents"
         >
@@ -363,7 +363,7 @@ export default function FolderSidebar({
               "p-1.5 rounded transition-colors",
               activeFolderId === node.id
                 ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
-                : "text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
             title={node.name}
           >
@@ -377,11 +377,11 @@ export default function FolderSidebar({
   return (
     <div className={cn(
       mobile ? "flex w-full" : "hidden md:flex w-56 lg:w-60 border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40",
-      "flex-col shrink-0 bg-white/60 dark:bg-[#1a1a1a]/60 overflow-y-auto"
+      "flex-col shrink-0 bg-white/95 dark:bg-[#1a1a1a]/60 overflow-y-auto"
     )}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 pt-3 pb-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Folders
         </span>
         <div className="flex items-center gap-0.5">
@@ -390,7 +390,7 @@ export default function FolderSidebar({
             className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
             title="New folder"
           >
-            <Plus className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+            <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
           </button>
           {!mobile && (
             <button
@@ -398,7 +398,7 @@ export default function FolderSidebar({
               className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
               title="Collapse sidebar"
             >
-              <PanelLeftClose className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+              <PanelLeftClose className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
             </button>
           )}
         </div>
@@ -415,7 +415,7 @@ export default function FolderSidebar({
               : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
           )}
         >
-          <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-400 dark:text-gray-500")} />
+          <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
           <span className="flex-1 text-left">All Documents</span>
           {totalDocCount !== undefined && (
             <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
@@ -451,7 +451,7 @@ export default function FolderSidebar({
         {tree.length === 0 && !creating && (
           <button
             onClick={() => setCreating({ parentId: null })}
-            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"
           >
             <FolderPlus className="w-3.5 h-3.5" />
             Create a folder
@@ -462,7 +462,7 @@ export default function FolderSidebar({
       {/* Tags section */}
       {allTags.length > 0 && (
         <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 px-3 pt-2 pb-3 mt-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5 block">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
             Tags
           </span>
           <div className="flex flex-wrap gap-1">
