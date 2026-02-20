@@ -1,20 +1,10 @@
 import type { DocumentHeaderFooter } from "@/types";
-import { buildHFontFamily } from "@/lib/tiptap-extensions/pagination-utils";
+import { buildHFontFamily, resolveText } from "@/lib/tiptap-extensions/pagination-utils";
 
 interface PageFooterProps {
   section?: DocumentHeaderFooter;
   docTitle: string;
   pageNumber: number;
-}
-
-function resolveText(template: string, docTitle: string, pageNumber: number): string {
-  if (!template) return "";
-  return template
-    .replace(/\{title\}/g, docTitle)
-    .replace(/\{date\}/g, new Date().toLocaleDateString("en-US", {
-      year: "numeric", month: "short", day: "numeric",
-    }))
-    .replace(/\{page\}/g, String(pageNumber));
 }
 
 export function PageFooter({ section, docTitle, pageNumber }: PageFooterProps) {

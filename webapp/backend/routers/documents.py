@@ -91,7 +91,7 @@ async def create_document(
     """Create a new document."""
     now = hk_now()
     doc = Document(
-        title=data.title,
+        title=(data.title.strip() or "Untitled Document"),
         doc_type=data.doc_type,
         content={"type": "doc", "content": [{"type": "paragraph"}]},
         created_by=current_user.id,
@@ -100,8 +100,6 @@ async def create_document(
     )
     db.add(doc)
     db.commit()
-    db.refresh(doc)
-    # Reload with relationship
     doc = db.query(Document).options(
         joinedload(Document.creator)
     ).filter(Document.id == doc.id).first()
@@ -129,7 +127,7 @@ async def update_document(
         raise HTTPException(status_code=403, detail="You can only modify your own documents")
 
     if data.title is not None:
-        doc.title = data.title
+        doc.title = data.title.strip() or "Untitled Document"
     if data.content is not None:
         doc.content = data.content
     if data.page_layout is not None:
