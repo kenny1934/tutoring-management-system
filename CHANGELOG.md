@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.7](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.7) (2026-02-20)
+
+### New Features
+
+* **Page count** — status bar shows total pages when document has more than one page
+* **{total} placeholder** — use `{total}` in headers/footers for "Page 1 of 3" style numbering
+* **Justify alignment** — fourth text alignment option in toolbar and bubble menu
+* **Link popover** — inline popover for inserting and editing links (replaces browser prompt)
+* **Code blocks** — supported in document editor
+* **8×8 table grid** — expanded table size picker for larger tables
+
+### Improvements
+
+* Pagination footer stays at page bottom while typing; scroll position stable during page recalculation
+* Backgrounds and colors print correctly; isolated lines avoided at page breaks
+* Context menu accessible on mobile without hover
+* Search on document list debounced for smoother typing
+* Empty state message adapts to active filters
+* Keyboard shortcuts modal includes math and code block shortcuts
+* Student coupon badge shows last-updated date on hover
+
+### Bug Fixes
+
+* Fixed answer section hover colors in dark paper mode
+* Fixed staff referral checkbox not saving
+
 ## [2.0.6](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.6) (2026-02-20)
 
 ### New Features
