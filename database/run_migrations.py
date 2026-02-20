@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "066_document_locking.sql",
+    "067_fix_documents_updated_at.sql",
 ]
 
 def main():
