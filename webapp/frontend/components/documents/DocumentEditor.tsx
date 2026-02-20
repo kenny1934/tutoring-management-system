@@ -760,7 +760,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        if (isDirtyRef.current) saveNow();
+        saveNow();
       }
     };
     window.addEventListener("keydown", handler);
