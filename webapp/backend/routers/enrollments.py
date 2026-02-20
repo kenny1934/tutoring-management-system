@@ -1778,6 +1778,16 @@ async def update_enrollment(
             SessionLog.enrollment_id == enrollment_id
         ).update({'financial_status': 'Paid'})
 
+        # Decrement student's available coupons if enrollment used a coupon discount ($200 or $300)
+        if (enrollment.discount and
+            enrollment.discount.discount_value and
+            int(enrollment.discount.discount_value) in (200, 300)):
+            student_coupon = db.query(StudentCoupon).filter(
+                StudentCoupon.student_id == enrollment.student_id
+            ).first()
+            if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+                student_coupon.available_coupons -= 1
+
     enrollment.last_modified_time = hk_now()
     enrollment.last_modified_by = admin.user_email
 
