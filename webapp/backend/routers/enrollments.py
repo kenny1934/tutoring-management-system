@@ -1610,17 +1610,17 @@ async def get_fee_message(
     # Get non-holiday session dates
     session_dates = [s.session_date for s in sessions if not s.is_holiday]
 
-    # Check for student's available coupons first, then fall back to enrollment discount
-    student_coupon = db.query(StudentCoupon).filter(
-        StudentCoupon.student_id == enrollment.student_id
-    ).first()
-
-    if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
-        # Use student's available coupon discount
-        discount_value = int(student_coupon.coupon_value or 300)
+    # Use enrollment's explicit discount first (admin's choice), fall back to student coupons
+    if enrollment.discount and enrollment.discount.discount_value:
+        discount_value = int(enrollment.discount.discount_value)
     else:
-        # Fall back to enrollment's discount (if any)
-        discount_value = int(enrollment.discount.discount_value) if enrollment.discount and enrollment.discount.discount_value else 0
+        student_coupon = db.query(StudentCoupon).filter(
+            StudentCoupon.student_id == enrollment.student_id
+        ).first()
+        if student_coupon and student_coupon.available_coupons and student_coupon.available_coupons > 0:
+            discount_value = int(student_coupon.coupon_value or 300)
+        else:
+            discount_value = 0
 
     # Determine new student status: use override if provided, otherwise use enrollment value
     # Trial enrollments never have reg fee
