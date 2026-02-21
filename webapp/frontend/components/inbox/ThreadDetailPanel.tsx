@@ -602,7 +602,7 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
               isMobile={isMobile}
               isEditing={editingMessageId === m.id}
               currentTutorId={currentTutorId}
-              pictureUrl={pictureMap?.get(m.from_tutor_id)}
+              pictureUrl={m.from_tutor_profile_picture || pictureMap?.get(m.from_tutor_id)}
               threadSearch={threadSearch}
               mentionUsers={threadMentionUsers}
               isOnline={onlineTutorIds?.has(m.from_tutor_id)}
