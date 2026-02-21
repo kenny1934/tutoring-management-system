@@ -730,12 +730,12 @@ async def send_typing_indicator(
             MessageRecipient.message_id == thread_id
         ).all()
         participant_ids.update(r.tutor_id for r in group_ids)
-    elif root.to_tutor_id is None:
-        # Broadcast thread — don't send typing to everyone, just active repliers
-        replier_ids = db.query(TutorMessage.from_tutor_id).filter(
-            TutorMessage.reply_to_id == thread_id
-        ).distinct().all()
-        participant_ids.update(r.from_tutor_id for r in replier_ids)
+
+    # Also include anyone who has replied to this thread
+    replier_ids = db.query(TutorMessage.from_tutor_id).filter(
+        TutorMessage.reply_to_id == thread_id
+    ).distinct().all()
+    participant_ids.update(r.from_tutor_id for r in replier_ids)
 
     participant_ids.discard(tutor_id)
 
@@ -745,6 +745,9 @@ async def send_typing_indicator(
             "tutor_id": tutor_id,
             "tutor_name": sender.tutor_name,
         }, list(participant_ids))
+        _logger.debug("Typing: tutor=%d thread=%d → %s", tutor_id, thread_id, list(participant_ids))
+    else:
+        _logger.debug("Typing: tutor=%d thread=%d → no recipients", tutor_id, thread_id)
 
     return {"success": True}
 
