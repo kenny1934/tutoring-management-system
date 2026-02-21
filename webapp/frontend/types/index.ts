@@ -1868,3 +1868,20 @@ export interface DocumentFolder {
   created_at: string;
   document_count: number;
 }
+
+export interface DocumentVersion {
+  id: number;
+  document_id: number;
+  version_number: number;
+  title: string;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  version_type: "auto" | "manual" | "session_start";
+  label?: string | null;
+}
+
+export interface DocumentVersionDetail extends DocumentVersion {
+  content?: Record<string, unknown> | null;
+  page_layout?: DocumentMetadata | null;
+}

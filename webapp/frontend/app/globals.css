@@ -2769,31 +2769,24 @@ body.student-print .print-answer-key {
   border-color: #6b5a4a;
 }
 
-/* ─── Pagination: Widget Decoration styles ──────────────────────────── */
+/* ─── Pagination: Node Decoration + Chrome Overlay styles ────────────── */
 
-/* During measurement phase, hide decorations so we get true content heights */
-.pagination-measuring .page-break-decoration {
+/* During measurement phase, zero out Node Decoration padding so we get true content heights */
+.pagination-measuring .page-end {
+  padding-bottom: 0 !important;
+}
+/* Print-only Widget Decorations — hidden on screen, shown in print CSS */
+.print-page-break {
   display: none !important;
 }
 
-/* The widget decoration wrapper — non-editable block between pages */
-.page-break-decoration {
-  position: relative;
+/* Page chrome overlay — absolutely positioned headers, footers, gaps, watermarks */
+.page-chrome-overlay {
+  pointer-events: none;
   user-select: none;
-  clear: both; /* contain any floated content above */
-  z-index: auto;
-  background: white;
-}
-.dark .page-break-decoration {
-  background: #2a2420;
 }
 
-/* Bottom spacer — pushes footer to page bottom */
-.page-bottom-spacer {
-  /* height set via inline style */
-}
-
-/* Footer / header content inside decorations */
+/* Footer / header content */
 .page-footer-content,
 .page-header-content {
   /* Inline styles handle the flex layout */
@@ -2803,16 +2796,14 @@ body.student-print .print-answer-key {
 .page-gap {
   position: relative;
   overflow: hidden;
-  margin-left: calc(-1 * var(--doc-ml, 25.4mm) - 20px);
-  margin-right: calc(-1 * var(--doc-mr, 25.4mm) - 20px);
   background: #f0e8dc;
 }
 .page-gap::before,
 .page-gap::after {
   content: '';
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 0;
+  right: 0;
   height: 1px;
   pointer-events: none;
   background: #e5e7eb;
@@ -2839,7 +2830,7 @@ body.student-print .print-answer-key {
   box-shadow: 0 -3px 8px 0 rgba(0, 0, 0, 0.12);
 }
 
-/* Page break trigger (invisible, Chrome breaks here) */
+/* Page break trigger (invisible, Chrome breaks here in print) */
 .page-break-trigger {
   /* break-after: page set via inline style */
 }
@@ -2901,8 +2892,7 @@ body.student-print .print-answer-key {
 .dark .paper-mode .page-break-node { border-color: #c4b5a3; }
 .dark .paper-mode .page-break-node::after { color: #c4b5a3; background: white; }
 
-/* Page break decorations */
-.dark .paper-mode .page-break-decoration { background: white; }
+/* Page end blocks in paper mode — no special styling needed (padding-bottom is transparent) */
 
 /* Answer section */
 .dark .paper-mode .answer-toggle { background: #fef3e8; border-color: #e8d4b8; color: #a0704b; }
@@ -2959,8 +2949,7 @@ body.student-print .print-answer-key {
 .dark-paper .page-break-node { border-color: #6b5a4a; }
 .dark-paper .page-break-node::after { color: #6b5a4a; background: #2a2420; }
 
-/* Page break decorations */
-.dark-paper .page-break-decoration { background: #2a2420; }
+/* Page end blocks in dark-paper — no special styling needed (padding-bottom is transparent) */
 
 /* Answer section */
 .dark-paper .answer-toggle { background: #2d2618; border-color: #6b5a4a; color: #cd853f; }
@@ -3057,6 +3046,19 @@ body.student-print .print-answer-key {
     --tw-prose-td-borders: #e5e7eb;
   }
 
+  /* Code blocks: light background for print readability (all modes including dark-paper/Moon) */
+  .document-page .tiptap pre,
+  .dark-paper .tiptap pre {
+    background: #f3f4f6 !important;
+    color: #1f2937 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .document-page .tiptap pre code,
+  .dark-paper .tiptap pre code {
+    color: inherit !important;
+  }
+
   /* Override custom .dark .tiptap rules with light-mode equivalents.
      Higher specificity (.dark .document-page .tiptap) beats .dark .tiptap. */
   .dark .document-page .tiptap blockquote {
@@ -3065,10 +3067,6 @@ body.student-print .print-answer-key {
   }
   .dark .document-page .tiptap code {
     background-color: #f3f4f6;
-  }
-  .dark .document-page .tiptap pre {
-    background: #1e1e2e;
-    color: #cdd6f4;
   }
   .dark .document-page .tiptap td,
   .dark .document-page .tiptap th {
@@ -3119,20 +3117,30 @@ body.student-print .print-answer-key {
     break-after: page;
   }
 
-  /* 6. Pagination decorations */
-  .page-gap {
-    display: none !important;
+  /* 6. Node Decorations — remove padding-bottom in print (CSS @page handles breaks) */
+  .page-end {
+    padding-bottom: 0 !important;
+  }
+
+  /* 7. Print-only Widget Decorations — shown in print for page breaks and headers/footers */
+  .print-page-break {
+    display: block !important;
+    background: white !important;
   }
   .page-break-trigger {
     break-after: page;
     height: 0 !important;
   }
-  .page-break-decoration {
-    background: white !important;
-    z-index: auto !important;
+
+  /* 8. Page chrome overlay — hidden in print (print-only Widgets handle headers/footers) */
+  .page-chrome-overlay {
+    display: none !important;
+  }
+  .page-gap {
+    display: none !important;
   }
 
-  /* 7. Watermark repeats via position:fixed (JSX first-page watermark only) */
+  /* 9. Watermark repeats via position:fixed (first-page Watermark component) */
   .document-watermark,
   .document-watermark-image {
     position: fixed !important;
@@ -3140,10 +3148,51 @@ body.student-print .print-answer-key {
     left: 50% !important;
   }
 
-  /* Hide decoration watermarks in print — JSX watermark + position:fixed handles all pages */
-  .page-watermark-overlay {
-    display: none !important;
-  }
+  /* Syntax highlighting: dark colors for light print background (all modes) */
+  .document-page .hljs-keyword,
+  .dark-paper .hljs-keyword { color: #6d28d9; }
+  .document-page .hljs-string,
+  .dark-paper .hljs-string { color: #15803d; }
+  .document-page .hljs-number,
+  .document-page .hljs-literal,
+  .document-page .hljs-attr,
+  .dark-paper .hljs-number,
+  .dark-paper .hljs-literal,
+  .dark-paper .hljs-attr { color: #c2410c; }
+  .document-page .hljs-comment,
+  .dark-paper .hljs-comment { color: #6b7280; }
+  .document-page .hljs-function,
+  .document-page .hljs-title,
+  .document-page .hljs-tag,
+  .document-page .hljs-name,
+  .dark-paper .hljs-function,
+  .dark-paper .hljs-title,
+  .dark-paper .hljs-tag,
+  .dark-paper .hljs-name { color: #1d4ed8; }
+  .document-page .hljs-built_in,
+  .document-page .hljs-regexp,
+  .document-page .hljs-deletion,
+  .dark-paper .hljs-built_in,
+  .dark-paper .hljs-regexp,
+  .dark-paper .hljs-deletion { color: #be185d; }
+  .document-page .hljs-type,
+  .document-page .hljs-attribute,
+  .dark-paper .hljs-type,
+  .dark-paper .hljs-attribute { color: #a16207; }
+  .document-page .hljs-variable,
+  .document-page .hljs-params,
+  .dark-paper .hljs-variable,
+  .dark-paper .hljs-params { color: #374151; }
+  .document-page .hljs-symbol,
+  .dark-paper .hljs-symbol { color: #9333ea; }
+  .document-page .hljs-meta,
+  .dark-paper .hljs-meta { color: #c2410c; }
+  .document-page .hljs-selector-class,
+  .document-page .hljs-addition,
+  .dark-paper .hljs-selector-class,
+  .dark-paper .hljs-addition { color: #15803d; }
+  .document-page .hljs-selector-tag,
+  .dark-paper .hljs-selector-tag { color: #6d28d9; }
 
   /* 8. Fallback @page — overridden by dynamic <style> in DocumentEditor */
   @page {
