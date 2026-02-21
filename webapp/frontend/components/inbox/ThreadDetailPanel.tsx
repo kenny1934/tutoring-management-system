@@ -186,7 +186,9 @@ const ThreadDetailPanel = React.memo(function ThreadDetailPanel({
 
   // Typing indicator callback
   const handleTyping = useCallback(() => {
-    messagesAPI.sendTyping(currentTutorId, msg.id).catch(() => {});
+    messagesAPI.sendTyping(currentTutorId, msg.id).catch(e => {
+      console.warn("[typing] sendTyping failed:", e?.message || e);
+    });
   }, [currentTutorId, msg.id]);
 
   // More actions dropdown state
