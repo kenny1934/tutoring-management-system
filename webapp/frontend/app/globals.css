@@ -3046,6 +3046,19 @@ body.student-print .print-answer-key {
     --tw-prose-td-borders: #e5e7eb;
   }
 
+  /* Code blocks: light background for print readability (all modes including dark-paper/Moon) */
+  .document-page .tiptap pre,
+  .dark-paper .tiptap pre {
+    background: #f3f4f6 !important;
+    color: #1f2937 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .document-page .tiptap pre code,
+  .dark-paper .tiptap pre code {
+    color: inherit !important;
+  }
+
   /* Override custom .dark .tiptap rules with light-mode equivalents.
      Higher specificity (.dark .document-page .tiptap) beats .dark .tiptap. */
   .dark .document-page .tiptap blockquote {
@@ -3054,10 +3067,6 @@ body.student-print .print-answer-key {
   }
   .dark .document-page .tiptap code {
     background-color: #f3f4f6;
-  }
-  .dark .document-page .tiptap pre {
-    background: #1e1e2e;
-    color: #cdd6f4;
   }
   .dark .document-page .tiptap td,
   .dark .document-page .tiptap th {
@@ -3138,6 +3147,52 @@ body.student-print .print-answer-key {
     top: 50% !important;
     left: 50% !important;
   }
+
+  /* Syntax highlighting: dark colors for light print background (all modes) */
+  .document-page .hljs-keyword,
+  .dark-paper .hljs-keyword { color: #6d28d9; }
+  .document-page .hljs-string,
+  .dark-paper .hljs-string { color: #15803d; }
+  .document-page .hljs-number,
+  .document-page .hljs-literal,
+  .document-page .hljs-attr,
+  .dark-paper .hljs-number,
+  .dark-paper .hljs-literal,
+  .dark-paper .hljs-attr { color: #c2410c; }
+  .document-page .hljs-comment,
+  .dark-paper .hljs-comment { color: #6b7280; }
+  .document-page .hljs-function,
+  .document-page .hljs-title,
+  .document-page .hljs-tag,
+  .document-page .hljs-name,
+  .dark-paper .hljs-function,
+  .dark-paper .hljs-title,
+  .dark-paper .hljs-tag,
+  .dark-paper .hljs-name { color: #1d4ed8; }
+  .document-page .hljs-built_in,
+  .document-page .hljs-regexp,
+  .document-page .hljs-deletion,
+  .dark-paper .hljs-built_in,
+  .dark-paper .hljs-regexp,
+  .dark-paper .hljs-deletion { color: #be185d; }
+  .document-page .hljs-type,
+  .document-page .hljs-attribute,
+  .dark-paper .hljs-type,
+  .dark-paper .hljs-attribute { color: #a16207; }
+  .document-page .hljs-variable,
+  .document-page .hljs-params,
+  .dark-paper .hljs-variable,
+  .dark-paper .hljs-params { color: #374151; }
+  .document-page .hljs-symbol,
+  .dark-paper .hljs-symbol { color: #9333ea; }
+  .document-page .hljs-meta,
+  .dark-paper .hljs-meta { color: #c2410c; }
+  .document-page .hljs-selector-class,
+  .document-page .hljs-addition,
+  .dark-paper .hljs-selector-class,
+  .dark-paper .hljs-addition { color: #15803d; }
+  .document-page .hljs-selector-tag,
+  .dark-paper .hljs-selector-tag { color: #6d28d9; }
 
   /* 8. Fallback @page — overridden by dynamic <style> in DocumentEditor */
   @page {
