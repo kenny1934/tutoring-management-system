@@ -8,6 +8,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy import desc, asc, func as sa_func
 from typing import List, Optional
 from database import get_db
@@ -89,6 +90,58 @@ def _prune_old_versions(db: Session, document_id: int) -> None:
     if oldest_auto:
         ids_to_delete = [row[0] for row in oldest_auto]
         db.query(DocumentVersion).filter(DocumentVersion.id.in_(ids_to_delete)).delete(synchronize_session=False)
+
+
+def _resolve_unique_title(
+    db: Session,
+    base_title: str,
+    folder_id: int | None,
+    is_template: bool,
+    exclude_id: int | None = None,
+) -> str:
+    """Auto-number a title to be unique within a folder + is_template namespace."""
+    query = db.query(Document.title).filter(
+        Document.title.like(f"{base_title}%"),
+        Document.is_archived == False,
+        Document.is_template == is_template,
+    )
+    if folder_id is not None:
+        query = query.filter(Document.folder_id == folder_id)
+    else:
+        query = query.filter(Document.folder_id.is_(None))
+    if exclude_id is not None:
+        query = query.filter(Document.id != exclude_id)
+    existing_titles = {r.title for r in query.all()}
+
+    title = base_title
+    if title in existing_titles:
+        n = 2
+        while f"{base_title} ({n})" in existing_titles:
+            n += 1
+        title = f"{base_title} ({n})"
+    return title
+
+
+def _check_title_conflict(
+    db: Session,
+    title: str,
+    folder_id: int | None,
+    is_template: bool,
+    exclude_id: int | None = None,
+) -> bool:
+    """Return True if title already exists in the same folder/namespace."""
+    query = db.query(Document.id).filter(
+        Document.title == title,
+        Document.is_archived == False,
+        Document.is_template == is_template,
+    )
+    if folder_id is not None:
+        query = query.filter(Document.folder_id == folder_id)
+    else:
+        query = query.filter(Document.folder_id.is_(None))
+    if exclude_id is not None:
+        query = query.filter(Document.id != exclude_id)
+    return query.first() is not None
 
 
 def _version_to_response(ver: DocumentVersion, include_content: bool = False) -> dict:
@@ -231,8 +284,12 @@ async def create_document(
 ):
     """Create a new document."""
     now = hk_now()
+
+    base_title = data.title.strip() or "Untitled Document"
+    title = _resolve_unique_title(db, base_title, data.folder_id, data.is_template)
+
     doc = Document(
-        title=(data.title.strip() or "Untitled Document"),
+        title=title,
         doc_type=data.doc_type,
         content=data.content if data.content else {"type": "doc", "content": [{"type": "paragraph"}]},
         page_layout=data.page_layout,
@@ -276,8 +333,21 @@ async def update_document(
     if data.content is not None:
         _maybe_create_auto_version(db, doc, current_user.id)
 
+    # Determine target folder (may change if folder_id is in the update)
+    target_folder = doc.folder_id
+    if data.folder_id is not None:
+        target_folder = data.folder_id if data.folder_id != 0 else None
+
+    # Title conflict check (rename or folder move)
+    new_title = (data.title.strip() or "Untitled Document") if data.title is not None else doc.title
+    title_changed = data.title is not None and new_title != doc.title
+    folder_changed = data.folder_id is not None and target_folder != doc.folder_id
+    if title_changed or folder_changed:
+        if _check_title_conflict(db, new_title, target_folder, doc.is_template, exclude_id=doc.id):
+            raise HTTPException(status_code=409, detail="A document with this name already exists in this folder")
+
     if data.title is not None:
-        doc.title = data.title.strip() or "Untitled Document"
+        doc.title = new_title
     if data.content is not None:
         doc.content = data.content
     if data.page_layout is not None:
@@ -291,7 +361,7 @@ async def update_document(
         doc.tags = data.tags
         flag_modified(doc, "tags")
     if data.folder_id is not None:
-        doc.folder_id = data.folder_id if data.folder_id != 0 else None
+        doc.folder_id = target_folder
     doc.updated_at = hk_now()
     doc.updated_by = current_user.id
 
@@ -332,9 +402,6 @@ async def permanently_delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not doc.is_archived:
-        raise HTTPException(status_code=400, detail="Document must be archived before permanent deletion")
-
     is_owner = doc.created_by == current_user.id
     is_admin = current_user.role in ("Admin", "Super Admin")
     if not (is_owner or is_admin):
@@ -357,8 +424,9 @@ async def duplicate_document(
         raise HTTPException(status_code=404, detail="Document not found")
 
     now = hk_now()
+    copy_title = _resolve_unique_title(db, f"{source.title} (Copy)", source.folder_id, False)
     copy = Document(
-        title=f"{source.title} (Copy)",
+        title=copy_title,
         doc_type=source.doc_type,
         content=source.content,
         page_layout=source.page_layout,
@@ -459,7 +527,7 @@ async def unlock_document(
         joinedload(Document.locker)
     ).filter(Document.id == doc_id).first()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        return {"message": "Document not found, no lock to release"}
 
     if not _is_lock_active(doc):
         return {"message": "Document is not locked"}
@@ -471,7 +539,11 @@ async def unlock_document(
 
     doc.locked_by = None
     doc.lock_expires_at = None
-    db.commit()
+    try:
+        db.commit()
+    except StaleDataError:
+        db.rollback()
+        return {"message": "Document was deleted, lock released"}
     return {"message": "Lock released"}
 
 
@@ -583,7 +655,7 @@ async def restore_version(
         _create_version_snapshot(db, doc, current_user.id, "auto", label="Before restore")
 
     # Apply version content
-    doc.title = ver.title
+    doc.title = _resolve_unique_title(db, ver.title, doc.folder_id, doc.is_template, exclude_id=doc.id)
     doc.content = ver.content
     doc.page_layout = ver.page_layout
     flag_modified(doc, "page_layout")

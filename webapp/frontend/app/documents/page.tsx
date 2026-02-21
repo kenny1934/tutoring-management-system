@@ -110,6 +110,17 @@ export default function DocumentsPage() {
     { revalidateOnFocus: false }
   );
 
+  // Revalidate list after auto-delete of an empty document
+  useEffect(() => {
+    if (sessionStorage.getItem("doc_auto_deleted")) {
+      const t = setTimeout(() => {
+        sessionStorage.removeItem("doc_auto_deleted");
+        mutate();
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [mutate]);
+
   // Reset extra pages when filters/sort/tab change
   useEffect(() => {
     setExtraDocs([]);

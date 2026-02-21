@@ -243,6 +243,20 @@ type ToolbarTab = "format" | "insert";
 
 const AUTOSAVE_DELAY = 2000;
 
+/** True when title is a default name and editor content is empty (blank paragraph). */
+function isEmptyDocument(title: string, content: Record<string, unknown> | null | undefined): boolean {
+  if (!/^Untitled (Document|Template)( \(\d+\))?$/.test(title)) return false;
+  if (!content) return true;
+  const c = content as { type?: string; content?: Array<{ type?: string; content?: unknown }> };
+  return (
+    c.type === "doc" &&
+    Array.isArray(c.content) &&
+    c.content.length <= 1 &&
+    (!c.content[0] || (c.content[0].type === "paragraph" &&
+      (!c.content[0].content || (Array.isArray(c.content[0].content) && c.content[0].content.length === 0))))
+  );
+}
+
 interface DocumentEditorProps {
   document: Document;
   onUpdate: () => void;
@@ -256,6 +270,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved" | "error">("saved");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef(false);
+  const pendingDeleteRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─── Document Locking ──────────────────────────────────────────────
   const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
@@ -802,19 +817,43 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     };
   }, [saveState, doc.id]);
 
-  // Flush pending save on unmount (SPA navigation)
+  // Track title for use in unmount/beforeunload (avoids stale closures)
+  const titleRef = useRef(title);
+  titleRef.current = title;
+
+  // Flush pending save on unmount, or auto-delete empty doc (SPA navigation)
   useEffect(() => {
+    // Cancel pending empty-doc delete (handles React strict-mode double-mount)
+    if (pendingDeleteRef.current) {
+      clearTimeout(pendingDeleteRef.current);
+      pendingDeleteRef.current = null;
+      sessionStorage.removeItem("doc_auto_deleted");
+    }
+
     return () => {
-      if (!isDirtyRef.current) return;
       const currentEditor = editorInstanceRef.current;
-      if (!currentEditor) return;
-      fetch(`/api/documents/${doc.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: currentEditor.getJSON() }),
-        credentials: "include",
-        keepalive: true,
-      });
+      const currentTitle = titleRef.current;
+      const currentContent = currentEditor?.getJSON();
+
+      if (isEmptyDocument(currentTitle, currentContent)) {
+        const docId = doc.id;
+        sessionStorage.setItem("doc_auto_deleted", "1");
+        pendingDeleteRef.current = setTimeout(() => {
+          fetch(`/api/documents/${docId}/permanent`, {
+            method: "DELETE",
+            credentials: "include",
+            keepalive: true,
+          });
+        }, 100);
+      } else if (isDirtyRef.current && currentEditor) {
+        fetch(`/api/documents/${doc.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: currentContent }),
+          credentials: "include",
+          keepalive: true,
+        });
+      }
     };
   }, [doc.id]);
 
@@ -828,26 +867,38 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       await documentsAPI.update(doc.id, update);
       setSaveState("saved");
       onUpdate();
-    } catch { /* ignore */ }
-  }, [title, doc.id, doc.title, onUpdate]);
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg.includes("already exists")) {
+        showToast(msg, "error");
+        setTitle(doc.title);
+      }
+    }
+  }, [title, doc.id, doc.title, onUpdate, showToast]);
 
-  // Flush save + warn on beforeunload (tab close/refresh)
-  const titleRef = useRef(title);
-  titleRef.current = title;
+  // Flush save + warn on beforeunload (tab close/refresh), or delete empty
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirtyRef.current) {
+      const currentEditor = editorInstanceRef.current;
+      const currentContent = currentEditor?.getJSON();
+
+      if (isEmptyDocument(titleRef.current, currentContent)) {
+        fetch(`/api/documents/${doc.id}/permanent`, {
+          method: "DELETE",
+          credentials: "include",
+          keepalive: true,
+        });
+        return;
+      }
+      if (isDirtyRef.current && currentEditor) {
         e.preventDefault();
-        const currentEditor = editorInstanceRef.current;
-        if (currentEditor) {
-          fetch(`/api/documents/${doc.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: titleRef.current, content: currentEditor.getJSON() }),
-            credentials: "include",
-            keepalive: true,
-          });
-        }
+        fetch(`/api/documents/${doc.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: titleRef.current, content: currentContent }),
+          credentials: "include",
+          keepalive: true,
+        });
       }
     };
     window.addEventListener("beforeunload", handler);
