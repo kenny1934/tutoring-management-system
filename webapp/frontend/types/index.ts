@@ -696,6 +696,7 @@ export interface Message {
   id: number;
   from_tutor_id: number;
   from_tutor_name?: string;
+  from_tutor_profile_picture?: string;
   to_tutor_id?: number;
   to_tutor_name?: string;  // "All" for broadcasts, comma-joined for groups
   subject?: string;

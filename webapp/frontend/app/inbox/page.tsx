@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspens
 import { useSearchParams } from "next/navigation";
 import { useLocation } from "@/contexts/LocationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
+import { usePageTitle, useMessageThreadsPaginated, useSentMessages, useUnreadMessageCount, useUnreadCategoryCounts, useDebouncedValue, useBrowserNotifications, useProposals, useClickOutside, useActiveTutors, useTutors, useArchivedMessages, usePinnedMessages, useMentionedMessages, useScheduledMessages, useSnoozedMessages, usePresence, useMessageTemplates } from "@/lib/hooks";
 import { useBulkSelection } from "@/lib/hooks/useBulkSelection";
 import { useToast } from "@/contexts/ToastContext";
 import { messagesAPI } from "@/lib/api";
@@ -185,7 +185,7 @@ const ThreadItem = React.memo(function ThreadItem({
         {/* Avatar */}
         {!isSentView && !bulkMode && (
           <div className="mt-0.5">
-            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={pictureMap?.get(msg.from_tutor_id)} isOnline={onlineTutorIds?.has(msg.from_tutor_id)} />
+            <TutorAvatar name={msg.from_tutor_name || "?"} id={msg.from_tutor_id} pictureUrl={msg.from_tutor_profile_picture || pictureMap?.get(msg.from_tutor_id)} isOnline={onlineTutorIds?.has(msg.from_tutor_id)} />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -378,22 +378,23 @@ export default function InboxPage() {
   const searchParams = useSearchParams();
   const { selectedLocation } = useLocation();
   const { user, isImpersonating, impersonatedTutor, effectiveRole, isAdmin, isSupervisor, isGuest } = useAuth();
-  const { data: tutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
+  const { data: allTutors = [] } = useTutors();  // For profile picture map (all users)
+  const { data: activeTutors = [] } = useActiveTutors();  // For ComposeModal recipient selection
   const onlineTutorIds = usePresence();
 
   // Build tutor profile picture lookup map (id → picture URL)
   const tutorPictureMap = useMemo(() => {
     const map = new Map<number, string>();
-    for (const t of tutors) {
+    for (const t of allTutors) {
       if (t.profile_picture) map.set(t.id, t.profile_picture);
     }
     // Also include the current user's picture from auth context
     if (user?.id && user.picture) map.set(user.id, user.picture);
     return map;
-  }, [tutors, user?.id, user?.picture]);
+  }, [allTutors, user?.id, user?.picture]);
   const mentionUsers = useMemo(() =>
-    tutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture })),
-    [tutors, tutorPictureMap]
+    activeTutors.map(t => ({ id: t.id, label: t.tutor_name, pictureUrl: tutorPictureMap.get(t.id) || t.profile_picture })),
+    [activeTutors, tutorPictureMap]
   );
   const { showToast, dismissToast } = useToast();
 
@@ -1657,7 +1658,7 @@ export default function InboxPage() {
                     <SearchFilters
                       filters={searchFilters}
                       onChange={setSearchFilters}
-                      tutors={tutors}
+                      tutors={activeTutors}
                     />
                   </div>
                 </div>
@@ -2007,7 +2008,7 @@ export default function InboxPage() {
       <ComposeModal
         isOpen={showCompose}
         onClose={() => { setShowCompose(false); setForwardFrom(undefined); }}
-        tutors={tutors}
+        tutors={activeTutors}
         fromTutorId={tutorId ?? 0}
         replyTo={replyTo}
         onSend={handleSendMessage}

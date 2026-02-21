@@ -1110,6 +1110,7 @@ class MessageResponse(MessageBase):
     id: int = Field(..., gt=0)
     from_tutor_id: int = Field(..., gt=0)
     from_tutor_name: Optional[str] = Field(None, max_length=255)
+    from_tutor_profile_picture: Optional[str] = None
     to_tutor_id: Optional[int] = Field(None)  # NULL=broadcast, -1=group, positive=direct
     to_tutor_name: Optional[str] = Field(None, max_length=255)  # "All" for broadcasts, comma-joined for groups
     to_tutor_ids: Optional[List[int]] = None  # Group recipient IDs (only for group messages)
