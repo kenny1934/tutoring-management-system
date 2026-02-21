@@ -1598,14 +1598,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                 showLabel={showLabels}
               />
               {isImageUploading && <Loader2 className="w-4 h-4 animate-spin text-[#a0704b] ml-1" />}
-              <ToolbarSep />
-              <ToolbarBtn
-                icon={KeyRound}
-                label="Answer"
-                isActive={editor.isActive("answerSection")}
-                onClick={() => editor.chain().focus().insertAnswerSection().run()}
-                showLabel={showLabels}
-              />
 
               {/* Table menu */}
               <div className="relative">
@@ -1729,6 +1721,14 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                   </div>
                 )}
               </div>
+              <ToolbarSep />
+              <ToolbarBtn
+                icon={KeyRound}
+                label="Answer"
+                isActive={editor.isActive("answerSection")}
+                onClick={() => editor.chain().focus().insertAnswerSection().run()}
+                showLabel={showLabels}
+              />
             </>
           )}
         </div>
