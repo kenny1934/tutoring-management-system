@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useClickOutside } from "@/lib/hooks";
 import {
   FolderOpen,
   FolderPlus,
@@ -16,6 +17,7 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getTagColor } from "@/lib/tag-colors";
 import type { DocumentFolder } from "@/types";
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -37,25 +39,6 @@ interface FolderSidebarProps {
   totalDocCount?: number;
   /** When true, always show (skip hidden md:flex). Used inside mobile drawer. */
   mobile?: boolean;
-}
-
-/* ── Tag color util (same hash as page.tsx) ─────────────── */
-
-const TAG_COLORS = [
-  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
-  "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-];
-
-function getTagColor(tag: string) {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
 }
 
 /* ── Build tree from flat list ─────────────────────────── */
@@ -114,15 +97,8 @@ function FolderTreeItem({
   const isActive = activeFolderId === node.id;
   const hasChildren = node.children.length > 0;
 
-  // Close menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useClickOutside(menuRef, closeMenu, menuOpen);
 
   return (
     <div>
@@ -301,7 +277,7 @@ export default function FolderSidebar({
   const [renameValue, setRenameValue] = useState("");
   const renameRef = useRef<HTMLInputElement>(null);
 
-  const tree = buildFolderTree(folders);
+  const tree = useMemo(() => buildFolderTree(folders), [folders]);
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {

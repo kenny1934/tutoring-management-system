@@ -6,10 +6,13 @@ import useSWR from "swr";
 import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Menu } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
-import { usePageTitle } from "@/lib/hooks";
+import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
+import { formatTimeAgo } from "@/lib/formatters";
 import { useToast } from "@/contexts/ToastContext";
 import { documentsAPI, foldersAPI } from "@/lib/document-api";
 import { cn } from "@/lib/utils";
+import { getTagColor } from "@/lib/tag-colors";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
 
@@ -53,30 +56,13 @@ const MATH_CONCEPT_TEMPLATE: DocumentMetadata = {
   bodyFontSize: 12,
 };
 
-const TAG_COLORS = [
-  "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
-  "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
-  "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
-  "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
-];
-
-function getTagColor(tag: string) {
-  let hash = 0;
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash);
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length];
-}
-
 export default function DocumentsPage() {
   usePageTitle("Documents");
   const router = useRouter();
   const { showToast } = useToast();
   const [filterType, setFilterType] = useState<DocType | "all">("all");
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -95,19 +81,13 @@ export default function DocumentsPage() {
   const [activeFolderId, setActiveFolderId] = useState<number | null>(null);
   const [tagEditDocId, setTagEditDocId] = useState<number | null>(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "delete-doc"; id: number } | { type: "delete-folder"; folder: DocumentFolder } | null>(null);
 
   const sort = SORT_OPTIONS[sortIdx];
 
   // Fetch tags and folders
   const { data: allTags = [], mutate: mutateTags } = useSWR("document-tags", () => documentsAPI.listTags(), { revalidateOnFocus: false });
   const { data: folders = [], mutate: mutateFolders } = useSWR("document-folders", () => foldersAPI.list(), { revalidateOnFocus: false });
-
-  // Debounce search input
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => {
-    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [search]);
 
   // Close sort menu on outside click
   useEffect(() => {
@@ -118,6 +98,13 @@ export default function DocumentsPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showSortMenu]);
+
+  // Lock body scroll when mobile drawer is open
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [mobileDrawerOpen]);
 
   const toggleViewMode = useCallback((mode: "grid" | "list") => {
     setViewMode(mode);
@@ -155,27 +142,32 @@ export default function DocumentsPage() {
 
   const documents = firstPage ? [...firstPage, ...extraDocs] : undefined;
 
+  // Ref to hold current filter params so loadMore doesn't recreate on every state change
+  const filtersRef = useRef({ filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs });
+  filtersRef.current = { filterType, debouncedSearch, showArchived, sort, activeTag, activeFolderId, firstPage, extraDocs };
+
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
+    const f = filtersRef.current;
     setLoadingMore(true);
     try {
       const next = await documentsAPI.list({
-        doc_type: filterType === "all" ? undefined : filterType,
-        search: debouncedSearch || undefined,
-        include_archived: showArchived || undefined,
-        sort_by: sort.sort_by,
-        sort_order: sort.sort_order,
+        doc_type: f.filterType === "all" ? undefined : f.filterType,
+        search: f.debouncedSearch || undefined,
+        include_archived: f.showArchived || undefined,
+        sort_by: f.sort.sort_by,
+        sort_order: f.sort.sort_order,
         limit: PAGE_SIZE,
-        offset: (firstPage?.length ?? 0) + extraDocs.length,
-        tag: activeTag || undefined,
-        folder_id: activeFolderId ?? undefined,
+        offset: (f.firstPage?.length ?? 0) + f.extraDocs.length,
+        tag: f.activeTag || undefined,
+        folder_id: f.activeFolderId ?? undefined,
       });
       setExtraDocs((prev) => [...prev, ...next]);
       setHasMore(next.length === PAGE_SIZE);
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasMore, filterType, debouncedSearch, showArchived, sort, firstPage, extraDocs, activeTag, activeFolderId]);
+  }, [loadingMore, hasMore]);
 
   const [createStep, setCreateStep] = useState<{ step: "type" } | { step: "template"; docType: DocType }>({ step: "type" });
 
@@ -227,8 +219,12 @@ export default function DocumentsPage() {
     setMenuOpenId(null);
   }, [mutate, showToast]);
 
-  const handlePermanentDelete = useCallback(async (id: number) => {
-    if (!window.confirm("Permanently delete this document? This cannot be undone.")) return;
+  const handlePermanentDelete = useCallback((id: number) => {
+    setMenuOpenId(null);
+    setConfirmAction({ type: "delete-doc", id });
+  }, []);
+
+  const executePermanentDelete = useCallback(async (id: number) => {
     try {
       await documentsAPI.permanentDelete(id);
       mutate();
@@ -236,7 +232,7 @@ export default function DocumentsPage() {
     } catch (err) {
       showToast((err as Error).message, "error");
     }
-    setMenuOpenId(null);
+    setConfirmAction(null);
   }, [mutate, showToast]);
 
   const handleMoveToFolder = useCallback(async (docId: number, folderId: number | null) => {
@@ -301,8 +297,11 @@ export default function DocumentsPage() {
     }
   }, [mutateFolders, showToast]);
 
-  const handleDeleteFolder = useCallback(async (folder: DocumentFolder) => {
-    if (!window.confirm(`Delete folder "${folder.name}"? Documents inside will become unfiled.`)) return;
+  const handleDeleteFolder = useCallback((folder: DocumentFolder) => {
+    setConfirmAction({ type: "delete-folder", folder });
+  }, []);
+
+  const executeDeleteFolder = useCallback(async (folder: DocumentFolder) => {
     try {
       await foldersAPI.delete(folder.id);
       mutateFolders();
@@ -312,18 +311,8 @@ export default function DocumentsPage() {
     } catch (err) {
       showToast((err as Error).message, "error");
     }
+    setConfirmAction(null);
   }, [mutateFolders, mutate, showToast, activeFolderId]);
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - d.getTime();
-    if (diff < 60000) return "Just now";
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
 
   const activeFolder = folders.find((f) => f.id === activeFolderId);
 
@@ -596,7 +585,7 @@ export default function DocumentsPage() {
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>{doc.created_by_name} &middot; {formatDate(doc.updated_at)}</span>
+                    <span>{doc.created_by_name} &middot; {formatTimeAgo(doc.updated_at)}</span>
                     {doc.locked_by && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
                         <Lock className="w-3 h-3" />
@@ -667,7 +656,7 @@ export default function DocumentsPage() {
                     )}
                   </span>
                   <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{doc.created_by_name}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0 text-right sm:text-left">{formatDate(doc.updated_at)}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0 text-right sm:text-left">{formatTimeAgo(doc.updated_at)}</span>
                   <DocContextMenu
                     doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
                     onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
@@ -797,6 +786,25 @@ export default function DocumentsPage() {
             onClose={() => setTagEditDocId(null)}
           />
         )}
+        {/* Confirm Dialog */}
+        <ConfirmDialog
+          isOpen={confirmAction !== null}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => {
+            if (!confirmAction) return;
+            if (confirmAction.type === "delete-doc") executePermanentDelete(confirmAction.id);
+            else executeDeleteFolder(confirmAction.folder);
+          }}
+          title={confirmAction?.type === "delete-doc" ? "Delete Document" : "Delete Folder"}
+          message={confirmAction?.type === "delete-doc"
+            ? "Permanently delete this document? This cannot be undone."
+            : confirmAction?.type === "delete-folder"
+            ? `Delete folder "${confirmAction.folder.name}"?`
+            : ""}
+          consequences={confirmAction?.type === "delete-folder" ? ["Documents inside will become unfiled"] : undefined}
+          confirmText="Delete"
+          variant="danger"
+        />
           </div>{/* end max-w-6xl */}
         </div>{/* end overflow-y-auto main content */}
       </PageTransition>
@@ -921,7 +929,7 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
       </button>
       {menuOpenId === doc.id && (
         <>
-        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
+        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} onKeyDown={(e) => { if (e.key === "Escape") setMenuOpenId(null); }} tabIndex={-1} />
         <div className="absolute right-0 top-7 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "10rem" }}>
           <button
             onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
