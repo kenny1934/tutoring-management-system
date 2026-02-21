@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
-import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput, Menu } from "lucide-react";
+import { Plus, FileText, BookOpen, Search, MoreVertical, Trash2, ArchiveRestore, Archive, Copy, Lock, ArrowUpDown, ChevronDown, LayoutGrid, List as ListIcon, Tag, FolderOpen, X, ChevronRight, FolderInput } from "lucide-react";
 import { DeskSurface } from "@/components/layout/DeskSurface";
 import { PageTransition } from "@/lib/design-system";
 import { usePageTitle, useDebouncedValue } from "@/lib/hooks";
@@ -333,54 +333,58 @@ export default function DocumentsPage() {
           totalDocCount={firstPage?.length !== undefined ? (firstPage.length + extraDocs.length) : undefined}
         />
 
-        {/* Mobile drawer backdrop + sidebar */}
-        {mobileDrawerOpen && (
-          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileDrawerOpen(false)}>
-            <div className="absolute inset-0 bg-black/40" />
-            <div
-              className="absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <FolderSidebar
-                folders={folders}
-                allTags={allTags}
-                activeFolderId={activeFolderId}
-                activeTag={activeTag}
-                onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
-                onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
-                onCreateFolder={handleCreateFolder}
-                onRenameFolder={handleRenameFolder}
-                onDeleteFolder={handleDeleteFolder}
-                mobile
-              />
-            </div>
+        {/* Mobile drawer backdrop + sidebar — always mounted, animated */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 md:hidden transition-opacity duration-200",
+            mobileDrawerOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          onClick={() => setMobileDrawerOpen(false)}
+        >
+          <div className="absolute inset-0 bg-black/40" />
+          <div
+            className={cn(
+              "absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a1a1a] shadow-xl overflow-y-auto transition-transform duration-200 ease-out",
+              mobileDrawerOpen ? "translate-x-0" : "-translate-x-full"
+            )}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FolderSidebar
+              folders={folders}
+              allTags={allTags}
+              activeFolderId={activeFolderId}
+              activeTag={activeTag}
+              onSelectFolder={(id) => { setActiveFolderId(id); setMobileDrawerOpen(false); }}
+              onSelectTag={(tag) => { setActiveTag(tag); setMobileDrawerOpen(false); }}
+              onCreateFolder={handleCreateFolder}
+              onRenameFolder={handleRenameFolder}
+              onDeleteFolder={handleDeleteFolder}
+              mobile
+            />
           </div>
-        )}
+        </div>
 
         {/* Main content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
         {/* Header + Filters card */}
-        <div className="bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 sm:py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+          <div className="flex items-center justify-between mb-2 sm:mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              {/* Mobile sidebar toggle */}
-              <button
-                onClick={() => setMobileDrawerOpen(true)}
-                className="md:hidden p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-                title="Folders & Tags"
-              >
-                <Menu className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <FileText className="w-7 h-7 text-[#a0704b] dark:text-[#cd853f]" />
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5 sm:w-7 sm:h-7 text-[#a0704b] dark:text-[#cd853f]" />
                   Documents
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     Beta
                   </span>
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {activeFolder && (
+                  <span className="sm:hidden text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 ml-1">
+                    / <FolderOpen className="w-3 h-3" /> {activeFolder.name}
+                  </span>
+                )}
+                <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {activeFolder
                     ? <span className="flex items-center gap-1"><FolderOpen className="w-3.5 h-3.5" />{activeFolder.name}</span>
                     : "Create and edit worksheets, exams, and lesson plans"}
@@ -389,16 +393,25 @@ export default function DocumentsPage() {
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
+              className="flex items-center gap-2 px-2 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm font-medium shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              New Document
+              <span className="hidden sm:inline">New Document</span>
             </button>
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative" style={{ flex: "1 1 0", maxWidth: "20rem" }}>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-[20rem]">
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="md:hidden flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors border border-gray-200 dark:border-gray-700/30 shrink-0"
+              title="Folders & Tags"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              Folders
+            </button>
+            <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -415,6 +428,7 @@ export default function DocumentsPage() {
                 <X className="w-3.5 h-3.5 text-gray-400" />
               </button>
             )}
+            </div>
           </div>
           <div className="flex gap-1 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-gray-700/30 rounded-xl p-1">
             {(["all", "worksheet", "lesson_plan"] as const).map((type) => (
@@ -630,16 +644,18 @@ export default function DocumentsPage() {
                   key={doc.id}
                   onClick={() => router.push(`/documents/${doc.id}`)}
                   className={cn(
-                    "group flex items-center gap-4 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
+                    "group flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-0.5 px-4 py-2.5 border-b last:border-b-0 last:rounded-b-xl border-[#e8d4b8]/20 dark:border-[#6b5a4a]/20 cursor-pointer hover:bg-[#faf5ef] dark:hover:bg-[#1f1a14] transition-colors",
                     doc.is_archived && "opacity-60 border-l-2 border-l-[#e8d4b8] dark:border-l-[#6b5a4a]"
                   )}
                 >
+                  {/* Type badge — desktop only */}
                   <span className={cn("hidden sm:inline-flex items-center gap-1 w-24 shrink-0 px-2 py-0.5 rounded-full text-xs font-medium", typeInfo?.color)}>
                     <Icon className="w-3 h-3" />
                     {typeInfo?.label}
                   </span>
-                  <span className="sm:hidden"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
+                  {/* Title row — full width on mobile */}
                   <span className="flex-1 min-w-0 flex items-center gap-2">
+                    <span className="sm:hidden shrink-0"><Icon className={cn("w-4 h-4", typeInfo?.iconColor)} /></span>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{doc.title}</span>
                     {doc.locked_by && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 shrink-0" title={`Locked by ${doc.locked_by_name}`}>
@@ -654,15 +670,32 @@ export default function DocumentsPage() {
                         {doc.tags.length > 3 && <span className="text-[10px] text-gray-500 dark:text-gray-400">+{doc.tags.length - 3}</span>}
                       </span>
                     )}
+                    {/* Mobile menu — at end of title row */}
+                    <span className="sm:hidden shrink-0 ml-auto">
+                      <DocContextMenu
+                        doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
+                        onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
+                        folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
+                        onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
+                      />
+                    </span>
                   </span>
+                  {/* Mobile meta row — type badge + timestamp below title */}
+                  <span className="flex sm:hidden items-center gap-2 w-full pl-6 text-xs text-gray-500 dark:text-gray-400">
+                    <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", typeInfo?.color)}>{typeInfo?.label}</span>
+                    <span>{formatTimeAgo(doc.updated_at)}</span>
+                  </span>
+                  {/* Desktop: author + timestamp + menu */}
                   <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{doc.created_by_name}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 w-24 shrink-0 text-right sm:text-left">{formatTimeAgo(doc.updated_at)}</span>
-                  <DocContextMenu
-                    doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
-                    onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
-                    folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
-                    onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
-                  />
+                  <span className="hidden sm:block w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">{formatTimeAgo(doc.updated_at)}</span>
+                  <span className="hidden sm:block shrink-0">
+                    <DocContextMenu
+                      doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}
+                      onDuplicate={handleDuplicate} onArchive={handleArchive} onUnarchive={handleUnarchive} onPermanentDelete={handlePermanentDelete}
+                      folders={folders} onMoveToFolder={(fId) => handleMoveToFolder(doc.id, fId)}
+                      onEditTags={() => { setTagEditDocId(doc.id); setMenuOpenId(null); }}
+                    />
+                  </span>
                 </div>
               );
             })}
@@ -923,14 +956,14 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
     <div className="relative shrink-0">
       <button
         onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
-        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
       >
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
       {menuOpenId === doc.id && (
         <>
         <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} onKeyDown={(e) => { if (e.key === "Escape") setMenuOpenId(null); }} tabIndex={-1} />
-        <div className="absolute right-0 top-7 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1" style={{ width: "10rem" }}>
+        <div className="absolute right-0 top-7 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] max-w-[calc(100vw-2rem)]">
           <button
             onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
@@ -1003,11 +1036,11 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
         <ChevronRight className="w-3 h-3 ml-auto" />
       </button>
       {open && (
-        <div className="absolute right-full top-0 mr-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[9rem]">
+        <div className="sm:absolute sm:right-full sm:top-0 sm:mr-1 z-20 sm:bg-white sm:dark:bg-[#1a1a1a] sm:border sm:border-[#e8d4b8] sm:dark:border-[#6b5a4a] sm:rounded-lg sm:shadow-lg py-1 sm:min-w-[9rem] border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 sm:border-t-0">
           <button
             onClick={(e) => { e.stopPropagation(); onMoveToFolder(null); }}
             className={cn(
-              "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+              "w-full flex items-center gap-2 pl-6 pr-3 sm:px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
               !doc.folder_id && "font-semibold"
             )}
           >
@@ -1019,7 +1052,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
               key={f.id}
               onClick={(e) => { e.stopPropagation(); onMoveToFolder(f.id); }}
               className={cn(
-                "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                "w-full flex items-center gap-2 pl-6 pr-3 sm:px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
                 doc.folder_id === f.id && "font-semibold"
               )}
             >

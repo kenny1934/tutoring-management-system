@@ -93,6 +93,7 @@ function FolderTreeItem({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isActive = activeFolderId === node.id;
   const hasChildren = node.children.length > 0;
@@ -104,7 +105,7 @@ function FolderTreeItem({
     <div>
       <div
         className={cn(
-          "group/folder flex items-center gap-1 px-2 py-1 rounded-lg cursor-pointer transition-colors text-sm",
+          "group/folder flex items-center gap-1 px-2 py-1.5 md:py-1 rounded-lg cursor-pointer transition-colors text-sm",
           isActive
             ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f] font-medium"
             : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
@@ -139,14 +140,24 @@ function FolderTreeItem({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if (!menuOpen) {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const menuHeight = 110; // approximate: 3 items × ~36px
+                const spaceBelow = window.innerHeight - rect.bottom - 8;
+                const top = spaceBelow >= menuHeight ? rect.bottom + 4 : rect.top - menuHeight - 4;
+                setMenuPos({ top, left: rect.right });
+              }
               setMenuOpen(!menuOpen);
             }}
-            className="p-0.5 rounded opacity-0 group-hover/folder:opacity-100 hover:bg-gray-200 dark:hover:bg-white/10 transition-opacity"
+            className="p-0.5 rounded opacity-100 md:opacity-0 md:group-hover/folder:opacity-100 hover:bg-gray-200 dark:hover:bg-white/10 transition-opacity"
           >
             <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-6 z-30 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[9rem]">
+          {menuOpen && menuPos && (
+            <div
+              className="fixed z-50 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[9rem] max-w-[calc(100vw-2rem)]"
+              style={{ top: menuPos.top, left: menuPos.left, transform: "translateX(-100%)" }}
+            >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -305,160 +316,175 @@ export default function FolderSidebar({
     setRenameValue("");
   }, [renamingFolder, renameValue, onRenameFolder]);
 
-  /* Collapsed state — just show icons (not applicable on mobile) */
-  if (collapsed && !mobile) {
-    return (
-      <div className={cn(mobile ? "flex" : "hidden md:flex", "flex-col items-center py-3 w-10 shrink-0 border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 bg-white/95 dark:bg-[#1a1a1a]/60")}>
-        <button
-          onClick={toggleCollapse}
-          className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors mb-3"
-          title="Expand sidebar"
-        >
-          <PanelLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        </button>
-        <button
-          onClick={() => onSelectFolder(null)}
-          className={cn(
-            "p-1.5 rounded transition-colors",
-            activeFolderId === null && !activeTag
-              ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
-              : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
-          )}
-          title="All Documents"
-        >
-          <FileText className="w-4 h-4" />
-        </button>
-        {tree.length > 0 && (
-          <div className="w-5 border-t border-gray-200 dark:border-gray-700 my-2" />
-        )}
-        {tree.slice(0, 6).map((node) => (
+  /* Single container — width animates on collapse/expand */
+  const isCollapsed = collapsed && !mobile;
+
+  return (
+    <div
+      className={cn(
+        mobile
+          ? "flex w-full"
+          : cn(
+              "hidden md:flex border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 transition-[width] duration-200 ease-out",
+              !isCollapsed && "w-56 lg:w-60"
+            ),
+        "flex-col shrink-0 bg-white/95 dark:bg-[#1a1a1a]/60 overflow-hidden",
+        !isCollapsed && !mobile && "overflow-y-auto"
+      )}
+      style={!mobile && isCollapsed ? { width: 40 } : undefined}
+    >
+      {/* Collapsed icon strip */}
+      {isCollapsed && (
+        <div className="flex flex-col items-center py-3 w-10">
           <button
-            key={node.id}
-            onClick={() => onSelectFolder(activeFolderId === node.id ? null : node.id)}
+            onClick={toggleCollapse}
+            className="p-1.5 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors mb-3"
+            title="Expand sidebar"
+          >
+            <PanelLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+          </button>
+          <button
+            onClick={() => onSelectFolder(null)}
             className={cn(
               "p-1.5 rounded transition-colors",
-              activeFolderId === node.id
+              activeFolderId === null && !activeTag
                 ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
                 : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
             )}
-            title={node.name}
+            title="All Documents"
           >
-            <FolderOpen className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
           </button>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className={cn(
-      mobile ? "flex w-full" : "hidden md:flex w-56 lg:w-60 border-r border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40",
-      "flex-col shrink-0 bg-white/95 dark:bg-[#1a1a1a]/60 overflow-y-auto"
-    )}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          Folders
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setCreating({ parentId: null })}
-            className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-            title="New folder"
-          >
-            <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-          </button>
-          {!mobile && (
+          {tree.length > 0 && (
+            <div className="w-5 border-t border-gray-200 dark:border-gray-700 my-2" />
+          )}
+          {tree.slice(0, 6).map((node) => (
             <button
-              onClick={toggleCollapse}
-              className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
-              title="Collapse sidebar"
+              key={node.id}
+              onClick={() => onSelectFolder(activeFolderId === node.id ? null : node.id)}
+              className={cn(
+                "p-1.5 rounded transition-colors",
+                activeFolderId === node.id
+                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b]"
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
+              title={node.name}
             >
-              <PanelLeftClose className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+              <FolderOpen className="w-4 h-4" />
             </button>
-          )}
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* All Documents */}
-      <div className="px-1 mb-1">
-        <button
-          onClick={() => onSelectFolder(null)}
-          className={cn(
-            "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors",
-            activeFolderId === null
-              ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f] font-medium"
-              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
-          )}
-        >
-          <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
-          <span className="flex-1 text-left">All Documents</span>
-          {totalDocCount !== undefined && (
-            <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
-          )}
-        </button>
-      </div>
-
-      {/* Folder tree */}
-      <div className="px-1 flex-1">
-        {tree.map((node) => (
-          <FolderTreeItem
-            key={node.id}
-            node={node}
-            depth={0}
-            activeFolderId={activeFolderId}
-            onSelect={onSelectFolder}
-            onCreateSubfolder={handleCreateSubfolder}
-            onRename={handleStartRename}
-            onDelete={onDeleteFolder}
-          />
-        ))}
-
-        {/* Inline create */}
-        {creating && (
-          <InlineCreateFolder
-            parentId={creating.parentId}
-            onCreate={onCreateFolder}
-            onCancel={() => setCreating(null)}
-          />
-        )}
-
-        {/* Empty state */}
-        {tree.length === 0 && !creating && (
-          <button
-            onClick={() => setCreating({ parentId: null })}
-            className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"
-          >
-            <FolderPlus className="w-3.5 h-3.5" />
-            Create a folder
-          </button>
-        )}
-      </div>
-
-      {/* Tags section */}
-      {allTags.length > 0 && (
-        <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 px-3 pt-2 pb-3 mt-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
-            Tags
-          </span>
-          <div className="flex flex-wrap gap-1">
-            {allTags.map((tag) => (
+      {/* Expanded content */}
+      {!isCollapsed && (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 pt-3 pb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Folders
+            </span>
+            <div className="flex items-center gap-0.5">
               <button
-                key={tag}
-                onClick={() => onSelectTag(activeTag === tag ? null : tag)}
-                className={cn(
-                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors",
-                  activeTag === tag
-                    ? "ring-2 ring-[#a0704b]/50 ring-offset-1 dark:ring-offset-[#1a1a1a]"
-                    : "hover:opacity-80",
-                  getTagColor(tag)
-                )}
+                onClick={() => setCreating({ parentId: null })}
+                className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                title="New folder"
               >
-                {tag}
+                <Plus className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
               </button>
-            ))}
+              {!mobile && (
+                <button
+                  onClick={toggleCollapse}
+                  className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] transition-colors"
+                  title="Collapse sidebar"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* All Documents */}
+          <div className="px-1 mb-1">
+            <button
+              onClick={() => onSelectFolder(null)}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-2 md:py-1.5 rounded-lg text-sm transition-colors",
+                activeFolderId === null
+                  ? "bg-[#f5ede3] dark:bg-[#2d2618] text-[#a0704b] dark:text-[#cd853f] font-medium"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+              )}
+            >
+              <FileText className={cn("w-4 h-4", activeFolderId === null ? "text-[#a0704b] dark:text-[#cd853f]" : "text-gray-500 dark:text-gray-400")} />
+              <span className="flex-1 text-left">All Documents</span>
+              {totalDocCount !== undefined && (
+                <span className="text-[10px] opacity-50 tabular-nums">{totalDocCount}</span>
+              )}
+            </button>
+          </div>
+
+          {/* Folder tree */}
+          <div className="px-1 flex-1">
+            {tree.map((node) => (
+              <FolderTreeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                activeFolderId={activeFolderId}
+                onSelect={onSelectFolder}
+                onCreateSubfolder={handleCreateSubfolder}
+                onRename={handleStartRename}
+                onDelete={onDeleteFolder}
+              />
+            ))}
+
+            {/* Inline create */}
+            {creating && (
+              <InlineCreateFolder
+                parentId={creating.parentId}
+                onCreate={onCreateFolder}
+                onCancel={() => setCreating(null)}
+              />
+            )}
+
+            {/* Empty state */}
+            {tree.length === 0 && !creating && (
+              <button
+                onClick={() => setCreating({ parentId: null })}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border border-dashed border-gray-300 dark:border-gray-600 mt-1"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                Create a folder
+              </button>
+            )}
+          </div>
+
+          {/* Tags section */}
+          {allTags.length > 0 && (
+            <div className="border-t border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40 px-3 pt-2 pb-3 mt-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5 block">
+                Tags
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => onSelectTag(activeTag === tag ? null : tag)}
+                    className={cn(
+                      "inline-flex items-center gap-1 px-2 py-1 md:py-0.5 rounded-full text-xs font-medium transition-colors",
+                      activeTag === tag
+                        ? "ring-2 ring-[#a0704b]/50 ring-offset-1 dark:ring-offset-[#1a1a1a]"
+                        : "hover:opacity-80",
+                      getTagColor(tag)
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Rename modal (inline overlay) */}
