@@ -1941,7 +1941,7 @@ export default function InboxPage() {
               )}>
                 <ThreadDetailPanel
                   thread={selectedThread}
-                  currentTutorId={effectiveTutorId}
+                  currentTutorId={effectiveTutorId ?? 0}
                   onClose={handleCloseThread}
                   onReply={handleReply}
                   onSendMessage={handleSendMessage}
