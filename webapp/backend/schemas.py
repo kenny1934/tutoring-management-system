@@ -1867,6 +1867,8 @@ class DocumentResponse(BaseModel):
     created_by_name: str = ""
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    updated_by: Optional[int] = None
+    updated_by_name: str = ""
     is_archived: bool = False
     is_template: bool = False
     locked_by: Optional[int] = None
@@ -1889,6 +1891,8 @@ class DocumentListItem(BaseModel):
     created_by_name: str = ""
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    updated_by: Optional[int] = None
+    updated_by_name: str = ""
     is_archived: bool = False
     is_template: bool = False
     locked_by: Optional[int] = None

@@ -669,7 +669,12 @@ export default function DocumentsPage() {
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">{doc.title}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>{doc.created_by_name} &middot; {formatTimeAgo(doc.updated_at)}</span>
+                    <span>
+                      {doc.updated_by_name && doc.updated_by !== doc.created_by
+                        ? <>{doc.created_by_name} &middot; Edited by {doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
+                        : <>{doc.created_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
+                      }
+                    </span>
                     {doc.locked_by && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400" title={`Locked by ${doc.locked_by_name}`}>
                         <Lock className="w-3 h-3" />
@@ -703,7 +708,7 @@ export default function DocumentsPage() {
               <span className="w-24">Type</span>
               <span className="flex-1">Title</span>
               <span className="w-28">Author</span>
-              <span className="w-24">Modified</span>
+              <span className="w-36">Modified</span>
               <span className="w-8" />
             </div>
             {documents.map((doc) => {
@@ -751,17 +756,27 @@ export default function DocumentsPage() {
                       />
                     </span>
                   </span>
-                  {/* Mobile meta row — type badge + timestamp below title */}
+                  {/* Mobile meta row — type badge + editor + timestamp below title */}
                   <span className="flex sm:hidden items-center gap-2 w-full pl-6 text-xs text-gray-500 dark:text-gray-400">
                     <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", typeInfo?.color)}>{typeInfo?.label}</span>
                     {doc.is_template && (
                       <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">Template</span>
                     )}
-                    <span>{formatTimeAgo(doc.updated_at)}</span>
+                    <span>
+                      {doc.updated_by_name && doc.updated_by !== doc.created_by
+                        ? <>{doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
+                        : formatTimeAgo(doc.updated_at)
+                      }
+                    </span>
                   </span>
-                  {/* Desktop: author + timestamp + menu */}
+                  {/* Desktop: author + modified + menu */}
                   <span className="hidden sm:block w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate">{doc.created_by_name}</span>
-                  <span className="hidden sm:block w-24 shrink-0 text-xs text-gray-500 dark:text-gray-400">{formatTimeAgo(doc.updated_at)}</span>
+                  <span className="hidden sm:block w-36 shrink-0 text-xs text-gray-500 dark:text-gray-400 truncate">
+                    {doc.updated_by_name && doc.updated_by !== doc.created_by
+                      ? <>{doc.updated_by_name} &middot; {formatTimeAgo(doc.updated_at)}</>
+                      : formatTimeAgo(doc.updated_at)
+                    }
+                  </span>
                   <span className="hidden sm:block shrink-0">
                     <DocContextMenu
                       doc={doc} menuOpenId={menuOpenId} setMenuOpenId={setMenuOpenId}

@@ -1833,6 +1833,8 @@ export interface Document {
   created_by_name: string;
   created_at: string;
   updated_at: string;
+  updated_by?: number | null;
+  updated_by_name?: string;
   is_archived: boolean;
   is_template: boolean;
   locked_by?: number | null;
