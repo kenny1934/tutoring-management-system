@@ -14,7 +14,7 @@ DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
 
 MIGRATIONS = [
-    "070_document_is_template.sql",
+    "071_document_updated_by.sql",
 ]
 
 def main():

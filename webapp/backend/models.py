@@ -1029,6 +1029,7 @@ class Document(Base):
     created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now())
+    updated_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
     is_archived = Column(Boolean, default=False)
     is_template = Column(Boolean, default=False)
     locked_by = Column(Integer, ForeignKey("tutors.id"), nullable=True)
@@ -1039,6 +1040,7 @@ class Document(Base):
     last_version_at = Column(DateTime, nullable=True)
 
     creator = relationship("Tutor", foreign_keys=[created_by])
+    updater = relationship("Tutor", foreign_keys=[updated_by])
     locker = relationship("Tutor", foreign_keys=[locked_by])
     folder = relationship("DocumentFolder", foreign_keys=[folder_id])
     versions = relationship("DocumentVersion", back_populates="document", cascade="all, delete-orphan")

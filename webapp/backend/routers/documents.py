@@ -126,6 +126,8 @@ def _doc_to_response(doc: Document, include_content: bool = True) -> dict:
         "created_by_name": doc.creator.tutor_name if doc.creator else "Unknown",
         "created_at": doc.created_at,
         "updated_at": doc.updated_at,
+        "updated_by": doc.updated_by,
+        "updated_by_name": doc.updater.tutor_name if doc.updater else "",
         "is_archived": doc.is_archived,
         "is_template": doc.is_template,
         "locked_by": doc.locked_by if _is_lock_active(doc) else None,
@@ -144,6 +146,7 @@ def _doc_query(db: Session):
     """Base document query with standard eager loads."""
     return db.query(Document).options(
         joinedload(Document.creator),
+        joinedload(Document.updater),
         joinedload(Document.locker),
         joinedload(Document.folder),
     )
@@ -239,6 +242,7 @@ async def create_document(
         created_by=current_user.id,
         created_at=now,
         updated_at=now,
+        updated_by=current_user.id,
     )
     db.add(doc)
     db.commit()
@@ -289,6 +293,7 @@ async def update_document(
     if data.folder_id is not None:
         doc.folder_id = data.folder_id if data.folder_id != 0 else None
     doc.updated_at = hk_now()
+    doc.updated_by = current_user.id
 
     db.commit()
     db.refresh(doc)
@@ -363,6 +368,7 @@ async def duplicate_document(
         created_by=current_user.id,
         created_at=now,
         updated_at=now,
+        updated_by=current_user.id,
     )
     db.add(copy)
     db.commit()
@@ -582,6 +588,7 @@ async def restore_version(
     doc.page_layout = ver.page_layout
     flag_modified(doc, "page_layout")
     doc.updated_at = hk_now()
+    doc.updated_by = current_user.id
     _prune_old_versions(db, doc_id)
     db.commit()
     db.refresh(doc)
