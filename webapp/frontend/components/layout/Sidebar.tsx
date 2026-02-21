@@ -274,18 +274,11 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <div
-        ref={desktopNavRef as React.RefObject<HTMLDivElement> | undefined}
-        className="flex-1 relative min-h-0 overflow-y-auto scrollbar-hide"
-      >
-        {/* Top scroll indicator */}
+      <div className="flex-1 relative min-h-0">
         <div
-          className={cn(
-            "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
-            "bg-gradient-to-b from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
-            canScrollUp ? "opacity-100" : "opacity-0"
-          )}
-        />
+          ref={desktopNavRef as React.RefObject<HTMLDivElement> | undefined}
+          className="h-full overflow-y-auto scrollbar-hide"
+        >
         <nav className="space-y-2 px-3 py-4">
         {navigation
           // Filter out Inbox for Supervisor (read-only role)
@@ -596,7 +589,15 @@ export function Sidebar({ isMobileOpen = false, onMobileClose }: SidebarProps) {
           </div>
         )}
         </nav>
-        {/* Bottom scroll indicator */}
+        </div>
+        {/* Scroll indicators — outside the scroll area so they stay pinned */}
+        <div
+          className={cn(
+            "absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
+            "bg-gradient-to-b from-white/80 to-transparent dark:from-black/60 dark:to-transparent",
+            canScrollUp ? "opacity-100" : "opacity-0"
+          )}
+        />
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 h-6 z-10 pointer-events-none transition-opacity duration-200",
