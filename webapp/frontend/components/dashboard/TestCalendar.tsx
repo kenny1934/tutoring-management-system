@@ -172,7 +172,7 @@ function TestItemPopover({
           {...getReferenceProps()}
           onClick={handleExamClick}
           className={cn(
-            "px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+            "px-3 py-2 hover:bg-[#d4a574]/10 dark:hover:bg-[#8b6f47]/20 transition-colors cursor-pointer"
           )}
         >
           <div className="flex items-start justify-between gap-2">
@@ -750,9 +750,9 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
       </div>
 
       {/* Bottom section - toggles between upcoming and selected date events */}
-      <div className="flex-1 min-h-0 flex flex-col border-t border-[#e8d4b8] dark:border-[#6b5a4a] bg-white dark:bg-[#1a1a1a]">
+      <div className="flex-1 min-h-0 flex flex-col border-t-2 border-[#e8d4b8] dark:border-[#6b5a4a] bg-[#f5ede3] dark:bg-[#252015] shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
         {/* Tab header */}
-        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
           <button
             onClick={() => setSelectedDate(null)}
             className={cn(
@@ -832,7 +832,7 @@ export function TestCalendar({ className, isMobile = false }: TestCalendarProps)
             </div>
           ) : (
             /* Show upcoming list */
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="divide-y divide-[#e8d4b8]/50 dark:divide-[#6b5a4a]/50">
               {eventsWithDaysUntil.map((event) => (
                 <TestItemPopover
                   key={event.id}
