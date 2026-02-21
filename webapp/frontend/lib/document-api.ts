@@ -1,4 +1,4 @@
-import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder } from "@/types";
+import type { Document, DocumentCreate, DocumentUpdate, DocumentFolder, DocumentVersion, DocumentVersionDetail } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
@@ -135,6 +135,39 @@ export const foldersAPI = {
 
   delete(id: number) {
     return fetchAPI<{ message: string }>(`/document-folders/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+export const versionsAPI = {
+  list(docId: number, params?: { limit?: number; offset?: number }) {
+    const qs = new URLSearchParams();
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    const q = qs.toString();
+    return fetchAPI<DocumentVersion[]>(`/documents/${docId}/versions${q ? `?${q}` : ""}`);
+  },
+
+  get(docId: number, verId: number) {
+    return fetchAPI<DocumentVersionDetail>(`/documents/${docId}/versions/${verId}`);
+  },
+
+  createCheckpoint(docId: number, label?: string) {
+    return fetchAPI<DocumentVersion>(`/documents/${docId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({ label: label || null }),
+    });
+  },
+
+  restore(docId: number, verId: number) {
+    return fetchAPI<Document>(`/documents/${docId}/versions/${verId}/restore`, {
+      method: "POST",
+    });
+  },
+
+  delete(docId: number, verId: number) {
+    return fetchAPI<{ message: string }>(`/documents/${docId}/versions/${verId}`, {
       method: "DELETE",
     });
   },

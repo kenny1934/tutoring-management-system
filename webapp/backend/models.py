@@ -1035,6 +1035,28 @@ class Document(Base):
     tags = Column(JSON, default=list)
     folder_id = Column(Integer, ForeignKey("document_folders.id"), nullable=True)
 
+    last_version_at = Column(DateTime, nullable=True)
+
     creator = relationship("Tutor", foreign_keys=[created_by])
     locker = relationship("Tutor", foreign_keys=[locked_by])
     folder = relationship("DocumentFolder", foreign_keys=[folder_id])
+    versions = relationship("DocumentVersion", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentVersion(Base):
+    """Snapshot of a document at a point in time (auto, manual checkpoint, or session start)."""
+    __tablename__ = "document_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    version_number = Column(Integer, nullable=False)
+    title = Column(String(255), nullable=False)
+    content = Column(JSON, nullable=False)
+    page_layout = Column(JSON, nullable=True)
+    created_by = Column(Integer, ForeignKey("tutors.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    version_type = Column(String(20), nullable=False, default="auto")
+    label = Column(String(255), nullable=True)
+
+    document = relationship("Document", back_populates="versions")
+    creator = relationship("Tutor", foreign_keys=[created_by])
