@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useEditor, useEditorState, EditorContent } from "@tiptap/react";
@@ -21,7 +21,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import type { Node as PmNode } from "@tiptap/pm/model";
-import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, LineSpacing, buildHFontFamily } from "@/lib/tiptap-extensions";
+import { createMathInputRules, createGeometryDiagramNode, ResizableImage, PageBreak, AnswerSection, PaginationExtension, paginationPluginKey, SearchAndReplace, Indent, LineSpacing, buildHFontFamily, computeDocDiff } from "@/lib/tiptap-extensions";
 import { useClickOutside } from "@/lib/hooks";
 import "katex/dist/katex.min.css";
 import {
@@ -92,8 +92,7 @@ import GeometryEditorModal from "@/components/inbox/GeometryEditorModal";
 import type { GeometryState } from "@/lib/geometry-utils";
 import { PageLayoutModal } from "@/components/documents/PageLayoutModal";
 import { VersionHistoryPanel } from "@/components/documents/VersionHistoryPanel";
-import { DiffView } from "@/components/documents/DiffView";
-import { computeDocumentDiff, type DiffSegment } from "@/lib/document-diff";
+import { ReadOnlyRenderer } from "@/components/documents/ReadOnlyRenderer";
 import type { Document, DocumentMetadata } from "@/types";
 import { PageHeader } from "@/components/documents/PageHeader";
 import { PageFooter } from "@/components/documents/PageFooter";
@@ -400,8 +399,14 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const [versionPanelOpen, setVersionPanelOpen] = useState(false);
   const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
   const [previewVersionNumber, setPreviewVersionNumber] = useState<number | null>(null);
-  const [diffSegments, setDiffSegments] = useState<DiffSegment[] | null>(null);
+  const [previewContent, setPreviewContent] = useState<Record<string, unknown> | null>(null);
   const previewContentRef = useRef<{ content: Record<string, unknown> | null; title: string } | null>(null);
+
+  // Compute diff-highlighted versions for side-by-side preview
+  const diffedContent = useMemo(() => {
+    if (!previewContent || !previewContentRef.current?.content) return null;
+    return computeDocDiff(previewContent, previewContentRef.current.content);
+  }, [previewContent]);
 
   const handleMetadataSave = useCallback(async (metadata: DocumentMetadata) => {
     setDocMetadata(metadata);
@@ -413,7 +418,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     }
   }, [doc.id]);
 
-  // Version diff preview — compute diff between current and selected version
+  // Version side-by-side preview
   const handleVersionPreview = useCallback(async (versionId: number) => {
     const ed = editorInstanceRef.current;
     if (!ed) return;
@@ -426,10 +431,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
           title: title,
         };
       }
-      const currentContent = previewContentRef.current.content || { type: "doc", content: [] };
-      const versionContent = (ver.content || { type: "doc", content: [] }) as Record<string, unknown>;
-      const segments = computeDocumentDiff(versionContent, currentContent);
-      setDiffSegments(segments);
+      setPreviewContent((ver.content || { type: "doc", content: [{ type: "paragraph" }] }) as Record<string, unknown>);
       setPreviewVersionId(versionId);
       setPreviewVersionNumber(ver.version_number);
     } catch {
@@ -438,7 +440,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   }, [doc.id, title, showToast]);
 
   const exitVersionPreview = useCallback(() => {
-    setDiffSegments(null);
+    setPreviewContent(null);
     setPreviewVersionId(null);
     setPreviewVersionNumber(null);
     previewContentRef.current = null;
@@ -447,11 +449,8 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
   const handleVersionRestore = useCallback(async (versionId: number) => {
     try {
       const updated = await versionsAPI.restore(doc.id, versionId);
-      const ed = editorInstanceRef.current;
-      if (ed) {
-        ed.commands.setContent(updated.content || { type: "doc", content: [{ type: "paragraph" }] });
-      }
-      setDiffSegments(null);
+      // Clear preview state first (batched React updates)
+      setPreviewContent(null);
       setPreviewVersionId(null);
       setPreviewVersionNumber(null);
       previewContentRef.current = null;
@@ -460,6 +459,14 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       setSaveState("saved");
       showToast("Version restored", "success");
       onUpdate();
+      // Defer setContent to avoid flushSync-during-render conflict
+      // (TipTap's setContent uses flushSync internally)
+      queueMicrotask(() => {
+        const ed = editorInstanceRef.current;
+        if (ed) {
+          ed.commands.setContent(updated.content || { type: "doc", content: [{ type: "paragraph" }] });
+        }
+      });
     } catch {
       showToast("Failed to restore version", "error");
     }
@@ -700,11 +707,17 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       const width = entries[0].contentRect.width;
       const pageWidthPx = 210 * (96 / 25.4); // ~793px at 96dpi
       const padding = 32; // px-4 = 16px each side
-      setFitScale((width - padding) / pageWidthPx);
+      if (previewContent !== null) {
+        // Side-by-side: fit two pages + gap-4 (16px)
+        const gap = 16;
+        setFitScale((width - padding - gap) / (pageWidthPx * 2));
+      } else {
+        setFitScale((width - padding) / pageWidthPx);
+      }
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [editor]);
+  }, [editor, previewContent]);
 
   // Update pagination plugin when metadata or title changes
   // Debounce title to avoid expensive DOM measurement on every keystroke
@@ -1776,121 +1789,166 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       )}
 
-      {/* Version diff banner */}
+      {/* Version comparison banner */}
       {previewVersionId !== null && (
         <div className="flex items-center justify-between px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 print:hidden">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-              Comparing with v{previewVersionNumber}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs">
-              <span className="inline-block w-3 h-3 rounded-sm bg-green-200 dark:bg-green-800" />
-              <span className="text-gray-500 dark:text-gray-400">Added</span>
-              <span className="inline-block w-3 h-3 rounded-sm bg-red-200 dark:bg-red-800 ml-1.5" />
-              <span className="text-gray-500 dark:text-gray-400">Removed</span>
-            </span>
-          </div>
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            Comparing: v{previewVersionNumber} vs Current
+          </span>
           <div className="flex items-center gap-2">
             <button
               onClick={() => handleVersionRestore(previewVersionId)}
               className="px-3 py-1 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors"
             >
-              Restore this version
+              Restore v{previewVersionNumber}
             </button>
             <button
               onClick={exitVersionPreview}
               className="px-3 py-1 text-xs font-medium rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
             >
-              Exit diff
+              Exit
             </button>
           </div>
         </div>
       )}
 
-      {/* Editor area — paginated A4 view */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
-        <div className="py-8 px-4 print:p-0 print:m-0">
-          <div
-            ref={pageRef}
-            className={cn(
-              "relative mx-auto bg-white shadow-lg print:shadow-none",
-              "ring-1 ring-inset ring-gray-200 print:ring-0",
-              paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
-              "document-page"
-            )}
-            style={{
-              width: "210mm",
-              minHeight: "297mm",
-              padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
-              '--doc-ml': `${docMetadata?.margins?.left ?? 25.4}mm`,
-              '--doc-mr': `${docMetadata?.margins?.right ?? 25.4}mm`,
-              zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
-              fontFamily: buildHFontFamily(docMetadata?.bodyFontFamily, docMetadata?.bodyFontFamilyCjk),
-              fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
-            } as React.CSSProperties}
-          >
-            {/* Watermark on first page */}
-            {docMetadata?.watermark?.enabled && (
-              docMetadata.watermark.type === "text" && docMetadata.watermark.text ? (
-                <span
-                  className="document-watermark"
+      {/* Editor + version panel flex row */}
+      <div className="flex flex-1 min-h-0">
+        {/* Editor area — paginated A4 view */}
+        <div ref={scrollContainerRef} className="flex-1 min-w-0 overflow-y-auto bg-[#f0e8dc] dark:bg-[#0d0d0d] print:bg-white print:overflow-visible document-page-scroll-container">
+          {previewContent !== null ? (
+            /* Side-by-side version comparison */
+            <div className="flex gap-4 py-8 px-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 text-center">Version {previewVersionNumber}</div>
+                <div
+                  className={cn(
+                    "relative mx-auto bg-white shadow-lg",
+                    "ring-1 ring-inset ring-gray-200",
+                    paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
+                    "document-page"
+                  )}
                   style={{
-                    position: "absolute", top: "148.5mm", left: "50%",
-                    transform: "translate(-50%, -50%) rotate(-45deg)",
-                    pointerEvents: "none", zIndex: 0,
-                    fontSize: "80px", fontWeight: "bold", color: "#000",
-                    whiteSpace: "nowrap", userSelect: "none",
-                    opacity: docMetadata.watermark.opacity,
-                  }}
+                    width: "210mm",
+                    minHeight: "297mm",
+                    padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
+                    zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
+                    fontFamily: buildHFontFamily(docMetadata?.bodyFontFamily, docMetadata?.bodyFontFamilyCjk),
+                    fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
+                  } as React.CSSProperties}
                 >
-                  {docMetadata.watermark.text}
-                </span>
-              ) : docMetadata.watermark.type === "image" && docMetadata.watermark.imageUrl ? (
-                <img
-                  src={docMetadata.watermark.imageUrl}
-                  alt=""
-                  className="document-watermark-image"
-                  style={{
-                    position: "absolute", top: "148.5mm", left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "none", zIndex: 0,
-                    maxWidth: `${docMetadata.watermark.imageSize ?? 60}%`, maxHeight: `${docMetadata.watermark.imageSize ?? 60}%`, userSelect: "none",
-                    opacity: docMetadata.watermark.opacity,
-                  }}
-                />
-              ) : null
-            )}
-
-            {/* First-page header (React component) */}
-            <div className="first-page-header">
-              <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} totalPages={totalPages} />
-            </div>
-
-            {diffSegments !== null ? (
-              <div className={cn("document-editor-content prose prose-sm max-w-none py-2", !paperMode && "prose-invert")}>
-                <DiffView segments={diffSegments} />
+                  <ReadOnlyRenderer content={diffedContent?.oldDoc ?? previewContent} paperMode={paperMode} />
+                </div>
               </div>
-            ) : (
-              <>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 text-center">Current</div>
+                <div
+                  className={cn(
+                    "relative mx-auto bg-white shadow-lg",
+                    "ring-1 ring-inset ring-gray-200",
+                    paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
+                    "document-page"
+                  )}
+                  style={{
+                    width: "210mm",
+                    minHeight: "297mm",
+                    padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
+                    zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
+                    fontFamily: buildHFontFamily(docMetadata?.bodyFontFamily, docMetadata?.bodyFontFamilyCjk),
+                    fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
+                  } as React.CSSProperties}
+                >
+                  <ReadOnlyRenderer content={diffedContent?.newDoc ?? previewContentRef.current?.content ?? null} paperMode={paperMode} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Normal single-page editor */
+            <div className="py-8 px-4 print:p-0 print:m-0">
+              <div
+                ref={pageRef}
+                className={cn(
+                  "relative mx-auto bg-white shadow-lg print:shadow-none",
+                  "ring-1 ring-inset ring-gray-200 print:ring-0",
+                  paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
+                  "document-page"
+                )}
+                style={{
+                  width: "210mm",
+                  minHeight: "297mm",
+                  padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
+                  '--doc-ml': `${docMetadata?.margins?.left ?? 25.4}mm`,
+                  '--doc-mr': `${docMetadata?.margins?.right ?? 25.4}mm`,
+                  zoom: effectiveZoom !== 1 ? effectiveZoom : undefined,
+                  fontFamily: buildHFontFamily(docMetadata?.bodyFontFamily, docMetadata?.bodyFontFamilyCjk),
+                  fontSize: docMetadata?.bodyFontSize ? `${docMetadata.bodyFontSize}px` : undefined,
+                } as React.CSSProperties}
+              >
+                {/* Watermark on first page */}
+                {docMetadata?.watermark?.enabled && (
+                  docMetadata.watermark.type === "text" && docMetadata.watermark.text ? (
+                    <span
+                      className="document-watermark"
+                      style={{
+                        position: "absolute", top: "148.5mm", left: "50%",
+                        transform: "translate(-50%, -50%) rotate(-45deg)",
+                        pointerEvents: "none", zIndex: 0,
+                        fontSize: "80px", fontWeight: "bold", color: "#000",
+                        whiteSpace: "nowrap", userSelect: "none",
+                        opacity: docMetadata.watermark.opacity,
+                      }}
+                    >
+                      {docMetadata.watermark.text}
+                    </span>
+                  ) : docMetadata.watermark.type === "image" && docMetadata.watermark.imageUrl ? (
+                    <img
+                      src={docMetadata.watermark.imageUrl}
+                      alt=""
+                      className="document-watermark-image"
+                      style={{
+                        position: "absolute", top: "148.5mm", left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        pointerEvents: "none", zIndex: 0,
+                        maxWidth: `${docMetadata.watermark.imageSize ?? 60}%`, maxHeight: `${docMetadata.watermark.imageSize ?? 60}%`, userSelect: "none",
+                        opacity: docMetadata.watermark.opacity,
+                      }}
+                    />
+                  ) : null
+                )}
+
+                {/* First-page header (React component) */}
+                <div className="first-page-header">
+                  <PageHeader section={docMetadata?.header} docTitle={title} pageNumber={1} totalPages={totalPages} />
+                </div>
+
                 <EditorContent
                   editor={editor}
                   className={cn("document-editor-content prose prose-sm max-w-none", !paperMode && "prose-invert")}
                 />
                 <EditorBubbleMenu editor={editor} />
-              </>
-            )}
 
-            {/* Last-page footer (React component) — pagination decorations handle intermediate footers */}
-            <div className="last-page-footer">
-              <LastPageFooter
-                section={docMetadata?.footer}
-                docTitle={title}
-                metadata={docMetadata}
-                editor={editor}
-              />
+                {/* Last-page footer (React component) — pagination decorations handle intermediate footers */}
+                <div className="last-page-footer">
+                  <LastPageFooter
+                    section={docMetadata?.footer}
+                    docTitle={title}
+                    metadata={docMetadata}
+                    editor={editor}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Version history panel — flex child on desktop, fixed overlay on mobile */}
+        <VersionHistoryPanel
+          docId={doc.id}
+          isOpen={versionPanelOpen}
+          onClose={() => setVersionPanelOpen(false)}
+          onPreview={handleVersionPreview}
+          onRestore={handleVersionRestore}
+        />
       </div>
 
       {/* Status bar: zoom controls + word count */}
@@ -2061,14 +2119,6 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       )}
 
-      {/* Version history panel */}
-      <VersionHistoryPanel
-        docId={doc.id}
-        isOpen={versionPanelOpen}
-        onClose={() => setVersionPanelOpen(false)}
-        onPreview={handleVersionPreview}
-        onRestore={handleVersionRestore}
-      />
     </div>
   );
 }

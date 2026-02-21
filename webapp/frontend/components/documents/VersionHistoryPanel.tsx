@@ -127,7 +127,7 @@ export function VersionHistoryPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-80 bg-white dark:bg-[#1a1410] border-l border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 z-50 w-80 md:relative md:inset-auto md:z-auto md:w-80 shrink-0 bg-white dark:bg-[#1a1410] border-l border-[#e8d4b8] dark:border-[#6b5a4a] shadow-xl md:shadow-none flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8d4b8] dark:border-[#6b5a4a]">
         <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Version History</h3>
@@ -208,7 +208,7 @@ export function VersionHistoryPanel({
                   </div>
 
                   {/* Actions — visible on hover */}
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => onPreview(ver.id)}
                       className="p-1 rounded hover:bg-[#e8d4b8]/50 dark:hover:bg-[#6b5a4a]/50 text-gray-400 hover:text-blue-500"
