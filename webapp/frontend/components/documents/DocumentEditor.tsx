@@ -667,6 +667,26 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       SearchAndReplace,
       Indent,
       LineSpacing,
+      Extension.create({
+        name: "preventTrailingDelete",
+        addKeyboardShortcuts() {
+          return {
+            Delete: ({ editor }) => {
+              const { state } = editor;
+              const { $from, empty } = state.selection;
+              if (!empty) return false;
+              if (
+                $from.pos === $from.end() &&
+                $from.parent.content.size === 0 &&
+                $from.after() >= state.doc.content.size
+              ) {
+                return true; // swallow Delete on last empty block
+              }
+              return false;
+            },
+          };
+        },
+      }),
     ],
     content: doc.content || { type: "doc", content: [{ type: "paragraph" }] },
     editorProps: {
