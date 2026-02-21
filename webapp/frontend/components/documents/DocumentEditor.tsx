@@ -1951,7 +1951,11 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                 )}
                 style={{
                   width: "210mm",
-                  minHeight: "297mm",
+                  // height (definite) for single-page so flex-grow pushes footer to bottom;
+                  // minHeight (growable) for multi-page so container expands beyond 297mm
+                  ...(paginationState.totalPages <= 1
+                    ? { height: "297mm" }
+                    : { minHeight: "297mm" }),
                   padding: `${docMetadata?.margins?.top ?? 25.4}mm ${docMetadata?.margins?.right ?? 25.4}mm ${docMetadata?.margins?.bottom ?? 25.4}mm ${docMetadata?.margins?.left ?? 25.4}mm`,
                   '--doc-ml': `${docMetadata?.margins?.left ?? 25.4}mm`,
                   '--doc-mr': `${docMetadata?.margins?.right ?? 25.4}mm`,
@@ -1996,7 +2000,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
                 <EditorBubbleMenu editor={editor} />
 
                 {/* Last-page footer (React component) — padding from Node Decorations handles intermediate pages */}
-                <div className="last-page-footer">
+                <div className="last-page-footer flex-grow flex flex-col">
                   <LastPageFooter
                     section={docMetadata?.footer}
                     docTitle={title}
