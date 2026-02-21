@@ -1893,7 +1893,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
               <div
                 ref={pageRef}
                 className={cn(
-                  "relative mx-auto bg-white shadow-lg print:shadow-none",
+                  "relative mx-auto bg-white shadow-lg print:shadow-none flex flex-col",
                   "ring-1 ring-inset ring-gray-200 print:ring-0",
                   paperMode ? "paper-mode" : "dark-paper bg-[#2a2420] ring-[#4a3a2a]",
                   "document-page"
@@ -2180,7 +2180,7 @@ function LastPageFooter({
   return (
     <>
       {/* Spacer pushes footer to bottom of last A4 page */}
-      <div className="last-page-footer-spacer" style={{ height: `${spacerHeight}px` }} />
+      <div className="last-page-footer-spacer flex-grow" style={totalPages > 1 ? { minHeight: `${spacerHeight}px` } : undefined} />
       {section?.enabled && (
         <PageFooter section={section} docTitle={docTitle} pageNumber={lastPageNumber} totalPages={totalPages} />
       )}
