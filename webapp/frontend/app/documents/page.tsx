@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { getTagColor } from "@/lib/tag-colors";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import FolderSidebar from "@/components/documents/FolderSidebar";
+import FloatingDropdown from "@/components/inbox/FloatingDropdown";
 import type { Document, DocType, DocumentMetadata, DocumentFolder } from "@/types";
 
 const DOC_TYPE_LABELS: Record<DocType, { label: string; icon: typeof FileText; color: string; iconColor: string }> = {
@@ -393,7 +394,7 @@ export default function DocumentsPage() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
         {/* Header + Filters card */}
-        <div className="bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 sm:py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
+        <div className="relative z-20 bg-white dark:bg-[#1a1a1a]/80 backdrop-blur-sm rounded-lg px-4 sm:px-5 py-3 sm:py-4 mb-4 border border-[#e8d4b8]/40 dark:border-[#6b5a4a]/40">
           <div className="flex items-center justify-between mb-2 sm:mb-4 flex-wrap gap-3">
             <div className="flex items-center gap-3">
               <div>
@@ -535,7 +536,7 @@ export default function DocumentsPage() {
               <ChevronDown className="w-3 h-3" />
             </button>
             {showSortMenu && (
-              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem]">
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] overflow-hidden">
                 {SORT_OPTIONS.map((opt, i) => (
                   <button
                     key={opt.label}
@@ -985,73 +986,81 @@ function DocContextMenu({ doc, menuOpenId, setMenuOpenId, onDuplicate, onArchive
   onMoveToFolder: (folderId: number | null) => void;
   onEditTags: () => void;
 }) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const isOpen = menuOpenId === doc.id;
+  // Only show dropdown if the trigger button is actually visible (not display:none).
+  // In list view, there are separate mobile/desktop DocContextMenu instances sharing menuOpenId.
+  const isVisible = isOpen && btnRef.current?.offsetParent !== null;
+  const close = useCallback(() => setMenuOpenId(null), [setMenuOpenId]);
+
   return (
     <div className="relative shrink-0">
       <button
-        onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === doc.id ? null : doc.id); }}
+        ref={btnRef}
+        onClick={(e) => { e.stopPropagation(); setMenuOpenId(isOpen ? null : doc.id); }}
         className="p-1 rounded hover:bg-[#f5ede3] dark:hover:bg-[#2d2618] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
       >
         <MoreVertical className="w-4 h-4 text-gray-500 dark:text-gray-400" />
       </button>
-      {menuOpenId === doc.id && (
-        <>
-        <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} onKeyDown={(e) => { if (e.key === "Escape") setMenuOpenId(null); }} tabIndex={-1} />
-        <div className="absolute right-0 top-7 z-20 bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] max-w-[calc(100vw-2rem)]">
+      <FloatingDropdown
+        triggerRef={btnRef}
+        isOpen={isVisible}
+        onClose={close}
+        className="bg-white dark:bg-[#1a1a1a] border border-[#e8d4b8] dark:border-[#6b5a4a] rounded-lg shadow-lg py-1 min-w-[10rem] whitespace-nowrap overflow-hidden"
+      >
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+        >
+          <Copy className="w-3.5 h-3.5" />
+          Duplicate
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditTags(); }}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+        >
+          <Tag className="w-3.5 h-3.5" />
+          Edit Tags
+        </button>
+        {onSaveAsTemplate && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDuplicate(doc.id); }}
+            onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
             className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
           >
-            <Copy className="w-3.5 h-3.5" />
-            Duplicate
+            <Stamp className="w-3.5 h-3.5" />
+            Save as Template
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEditTags(); }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            Edit Tags
-          </button>
-          {onSaveAsTemplate && (
+        )}
+        {folders.length > 0 && (
+          <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
+        )}
+        {doc.is_archived ? (
+          <>
             <button
-              onClick={(e) => { e.stopPropagation(); onSaveAsTemplate(doc.id); }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
+              onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
             >
-              <Stamp className="w-3.5 h-3.5" />
-              Save as Template
+              <ArchiveRestore className="w-3.5 h-3.5" />
+              Restore
             </button>
-          )}
-          {folders.length > 0 && (
-            <FolderSubmenu doc={doc} folders={folders} onMoveToFolder={onMoveToFolder} />
-          )}
-          {doc.is_archived ? (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); onUnarchive(doc.id); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[#a0704b] dark:text-[#cd853f] hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
-              >
-                <ArchiveRestore className="w-3.5 h-3.5" />
-                Restore
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete Permanently
-              </button>
-            </>
-          ) : (
             <button
-              onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
+              onClick={(e) => { e.stopPropagation(); onPermanentDelete(doc.id); }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Archive
+              Delete Permanently
             </button>
-          )}
-        </div>
-        </>
-      )}
+          </>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); onArchive(doc.id); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Archive
+          </button>
+        )}
+      </FloatingDropdown>
     </div>
   );
 }
@@ -1187,25 +1196,21 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
+    <div>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]"
       >
         <FolderInput className="w-3.5 h-3.5" />
         Move to
-        <ChevronRight className="w-3 h-3 ml-auto" />
+        <ChevronDown className={cn("w-3 h-3 ml-auto transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="sm:absolute sm:right-full sm:top-0 sm:mr-1 z-20 sm:bg-white sm:dark:bg-[#1a1a1a] sm:border sm:border-[#e8d4b8] sm:dark:border-[#6b5a4a] sm:rounded-lg sm:shadow-lg py-1 sm:min-w-[9rem] border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30 sm:border-t-0">
+        <div className="py-0.5 border-t border-[#e8d4b8]/30 dark:border-[#6b5a4a]/30">
           <button
             onClick={(e) => { e.stopPropagation(); onMoveToFolder(null); }}
             className={cn(
-              "w-full flex items-center gap-2 pl-6 pr-3 sm:px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+              "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
               !doc.folder_id && "font-semibold"
             )}
           >
@@ -1217,7 +1222,7 @@ function FolderSubmenu({ doc, folders, onMoveToFolder }: {
               key={f.id}
               onClick={(e) => { e.stopPropagation(); onMoveToFolder(f.id); }}
               className={cn(
-                "w-full flex items-center gap-2 pl-6 pr-3 sm:px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
+                "w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-[#f5ede3] dark:hover:bg-[#2d2618]",
                 doc.folder_id === f.id && "font-semibold"
               )}
             >

@@ -83,6 +83,7 @@ import {
   WrapText,
   History,
   Stamp,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { documentsAPI, versionsAPI } from "@/lib/document-api";
@@ -345,7 +346,7 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [doc.id]);
 
-  const isReadOnly = lockedByOther !== null;
+  const isReadOnly = lockedByOther !== null || doc.is_archived;
 
   const handleForceUnlock = useCallback(async () => {
     try {
@@ -357,6 +358,15 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
       // Failed to take over
     }
   }, [doc.id]);
+
+  const handleRestore = useCallback(async () => {
+    try {
+      await documentsAPI.update(doc.id, { is_archived: false });
+      onUpdate();
+    } catch {
+      // Failed to restore
+    }
+  }, [doc.id, onUpdate]);
 
   // Dropdown states — only one toolbar menu can be open at a time
   type MenuId = "color" | "highlight" | "fontSize" | "fontFamily" | "table" | "align" | "heading" | null;
@@ -1849,8 +1859,21 @@ export function DocumentEditor({ document: doc, onUpdate }: DocumentEditorProps)
         </div>
       )}
 
+      {/* Archived banner */}
+      {doc.is_archived && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-900/50 border-b border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 text-sm print:hidden">
+          <Archive className="w-4 h-4 shrink-0" />
+          <span>This document is archived and read-only.</span>
+          <button
+            onClick={handleRestore}
+            className="ml-auto px-2 py-0.5 text-xs font-medium rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          >
+            Restore
+          </button>
+        </div>
+      )}
       {/* Lock banner */}
-      {isReadOnly && (
+      {lockedByOther && !doc.is_archived && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm print:hidden">
           <Lock className="w-4 h-4 shrink-0" />
           <span>This document is being edited by <strong>{lockedByOther}</strong>. You&apos;re viewing in read-only mode.</span>
