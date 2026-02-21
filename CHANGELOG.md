@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.9](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.9) (2026-02-22)
+
+### New Features
+
+* **Editable templates** — create, edit, and delete document templates from the frontend
+* **Auto-delete empty docs** — untitled documents with no content are automatically deleted on exit; folder-scoped unique title enforcement
+* **Last editor tracking** — display who last edited a document, separate from the original author
+
+### Improvements
+
+* Template visual styling and metadata display
+* Document dropdown menus migrated to portal-based rendering for correct stacking
+* Archived documents now clickable with in-editor archived banner and Restore button
+* Footer pushed to page bottom on single-page documents
+* Sidebar transition smoothed when switching document/template tabs
+* Editor metadata moved inline with tags row on desktop
+* Table button repositioned in Insert toolbar
+
+### Bug Fixes
+
+* Fixed Delete key removing last empty paragraph (acting like Backspace)
+* Fixed single-page spacer jitter by using flex-grow layout
+* Fixed tiptap min-height causing oversized single pages
+* Fixed stale "Load More" button by deriving hasMore from data
+* Fixed TestCalendar upcoming section theme colors
+
 ## [2.0.8](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.8) (2026-02-21)
 
 ### New Features
