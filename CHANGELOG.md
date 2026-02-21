@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.0.8](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.8) (2026-02-21)
+
+### New Features
+
+* **Version history** — side-by-side version diff with rich formatting, dynamic zoom, and layout comparison
+* **Pagination architecture** — migrated from Widget Decorations to Node Decorations + React overlay for stable page division, headers, footers, and watermarks
+
+### Improvements
+
+* Mobile responsiveness and UX polish for document list
+* Simplified document list with shared utilities
+* Location dropdown styling in settings modal
+
+### Bug Fixes
+
+* Fixed code blocks printing with dark background — now uses light theme with print-safe syntax highlighting in all editor modes
+* Fixed sidebar scroll shadows scrolling away instead of staying pinned
+* Fixed page chrome overlay alignment — footer/header/gap overlays now correctly offset for CSS padding-box origin
+
 ## [2.0.7](https://github.com/kenny1934/tutoring-management-system/releases/tag/v2.0.7) (2026-02-21)
 
 ### New Features
